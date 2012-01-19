@@ -23,6 +23,11 @@ def configuration(parent_package='',
     if  numpy.__version__ < '1.0.0':
         raise RuntimeError, 'numpy version %s or higher required, but got %s'\
               % ('1.0.0', numpy.__version__)
+
+    if IPython.__version__ < '0.12':
+        raise RuntimeError, 'IPython version %s or higher required, but got %s'\
+              % ('1.0.0', IPython.__version__)
+   
     
     config = Configuration(None, parent_package, top_path)
 
@@ -51,11 +56,11 @@ def setup_package():
 
     try:
         from version import version as version
-        setup( name = 'snobfit',
+        setup( name = 'üsnobfit',
                version = version, #will be overwritten by configuration version
                maintainer       = "Harald Schilly",
                maintainer_email = "harald@schil.ly",
-               description      = "Parallel Version of Snobfit",
+               description      = "Parallel Snobfit",
                url              = "",
                license          = 'BSD',
                configuration=configuration

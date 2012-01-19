@@ -1,2 +1,3 @@
 *.pyc
 build/*
+psnobfit.egg-info/*

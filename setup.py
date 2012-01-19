@@ -19,6 +19,8 @@ setup(
     #    'hello': ['*.msg'],
     },
 
+    test_suite = "psnobfit.tests",
+
     # metadata for upload to PyPI
     author           = "Harald Schilly",
     author_email     = "harald.schilly@univie.ac.at",

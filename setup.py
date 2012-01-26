@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 
 from psnobfit import __version__
+
 setup(
     name = "psnobfit",
     version = __version__, 

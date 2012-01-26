@@ -2,3 +2,4 @@
 build/*
 psnobfit.egg-info/*
 doc/build/*
+dist/*

@@ -2,6 +2,7 @@
 # just testing basic parallelization that will be used in the actual project
 import time
 import numpy as np
+import itertools as it
 
 # setup proper logging
 import logging
@@ -21,7 +22,11 @@ c = Client(profile='unicluster')
 c.clear() # clears remote engines
 c.purge_results('all') # all results are memorized in the hub
 lb = c.load_balanced_view()
-N = len(c.ids)
+
+# MAX number of tasks in total
+MAX = 1000
+# length of test data, sent over the wire
+DSIZE = 1000
     
 # import everything
 with c[:].sync_imports():
@@ -33,43 +38,52 @@ with c[:].sync_imports():
 
 
 # the actual function
-def func(x, data):
+def func(tid, data):
   'x is either a number or a list/vector of numbers'
-  time.sleep(math.log(2 + x * random()))
-  return sum(x), len(data)
+  #time.sleep(math.log(2 + random()))
+  return tid, sum(data)
 
 added = 0
 queue_size = 0
 added = 0
+nb_finished = 0
 
 def status():
-  logger.debug("queue_size = %3d | adding %2d tasks | total: %3d" % (queue_size, new, added))
+  logger.info("pending %3d | adding %2d tasks | added: %3d | finished: %3d" % (queue_size, new, added, nb_finished))
 
 logger.info("start")
 
 pending = set([])
 results = []
 
-while pending or added < 100:
+while pending or added < MAX:
   lb.spin() # check outstanding tasks
+
+  # check, if we have to create new tasks
+  queue_size = len(pending)
+  if queue_size < len(c.ids) and added < MAX:
+    now = added
+    new = len(c.ids) - queue_size + 0
+    # at the end, make sure to not add more tasks then MAX
+    new = min(new, MAX - added)
+    # update the counter
+    added += new
+    status()
+    # create new tasks
+    tids, vals = range(now, now+new), [ np.random.rand(DSIZE) for _ in range(new) ]
+    newt = lb.map_async(func, tids, vals, chunksize=1)
+    map(pending.add, newt.msg_ids)
+  else:
+    new = 0
 
   # finished is the set of msg_ids that are complete
   finished = pending.difference(lb.outstanding)
   # update pending to exclude those that just finished
   pending = pending.difference(finished)
 
-  # check, if we have to create new tasks
-  queue_size = len(lb.outstanding)
-  if queue_size < N and added < 100:
-    new = N - queue_size + 0
-    added += new
-    status()
-    # create new tasks
-    newt = lb.map_async(func, range(new), [ np.random.rand(100000) for _ in range(new) ], chunksize=1)
-    map(pending.add, newt.msg_ids)
-
   # collect results from finished tasks
   for msg_id in finished:
+      nb_finished += 1
       # we know these are done, so don't worry about blocking
       res = lb.get_result(msg_id)
       #print "job id %s finished on engine %i" % (msg_id, res.engine_id)
@@ -90,6 +104,9 @@ logger.debug("queues:")
 for k,v in lb.queue_status().iteritems():
   logger.debug("%5s: %s" % (k, v)) 
 
-logger.info("results: %s" % results)
+logger.info("pending: %s" % pending)
+logger.info("added:   %s" % added)
+
+#logger.info("results: %s" % sorted([r[0] for r in results]))
 logger.info("#results = %s" % len(results))
 logger.info("finished")

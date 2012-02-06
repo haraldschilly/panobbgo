@@ -26,7 +26,7 @@ lb = c.load_balanced_view()
 # MAX number of tasks in total
 MAX = 1000
 # length of test data, sent over the wire
-DSIZE = 1000
+DSIZE = 100
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
 new_extra = 2

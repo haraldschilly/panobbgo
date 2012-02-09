@@ -15,18 +15,25 @@ log_stream_handler.setFormatter(log_formatter)
 logger.addHandler(log_stream_handler)
 del logging, log_stream_handler, log_formatter
 
+# read cmd line options
+from optparse import OptionParser
+opt_parser = OptionParser()
+opt_parser.add_option("-p", "--profile", dest="client_profile", default="unissh", action="store_const",
+                      help="the profile to use for ipython.parallel")
+options, args = opt_parser.parse_args()
+
 # START
 logger.info("init")
 from IPython.parallel import Client
-c = Client(profile='unissh')
+c = Client(profile=options.client_profile)
 c.clear() # clears remote engines
 c.purge_results('all') # all results are memorized in the hub
 lb = c.load_balanced_view()
 
 # MAX number of tasks in total
-MAX = 1000
+MAX = 100
 # length of test data, sent over the wire
-DSIZE = 1000
+DSIZE = 100
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
 new_extra = 2
@@ -126,5 +133,5 @@ logger.info("nb of results = %s | cum_sum = %.2f" % (len(results), cum_sum))
 logger.info("nb of total loops %s | of that, %s times tasks were added | %.4f%%" % (loops, tasks_added, tasks_added / float(loops) * 100.))
 logger.info("finished")
 
-logger.info("pending_ts: %s" % pending_ts)
+#logger.info("pending_ts: %s" % pending_ts)
 

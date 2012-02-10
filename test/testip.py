@@ -31,9 +31,9 @@ c.purge_results('all') # all results are memorized in the hub
 lb = c.load_balanced_view()
 
 # MAX number of tasks in total
-MAX = 100
+MAX = 500
 # length of test data, sent over the wire
-DSIZE = 100
+DSIZE = 1000
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
 new_extra = 2
@@ -49,7 +49,7 @@ with c[:].sync_imports():
 # the actual function
 def func(tid, data):
   'x is either a number or a list/vector of numbers'
-  #time.sleep(math.log(2 + random()))
+  time.sleep(math.log(2 + random()))
   return tid, sum(data)
 
 # some stats

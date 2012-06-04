@@ -32,12 +32,12 @@ c.purge_results('all') # all results are memorized in the hub
 lb = c.load_balanced_view()
 
 # MAX number of tasks in total
-MAX = 5000
+MAX = 10000
 # length of test data, sent over the wire
 DIMSIZE = 50
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
-new_extra = 2
+new_extra = DIMSIZE / 2
     
 # import some packages  (also locally)
 with c[:].sync_imports():
@@ -74,11 +74,16 @@ loops       = 0
 tasks_added = 0
 best_x      = None
 best_obj    = numpy.infty
+last_best   = best_obj
 
 def status():
-  logger.info("pending %4d | + %2d tasks | total: %4d | finished: %4d | best_obj: %.10f" % (queue_size, new, added, nb_finished, best_obj))
+  global last_best
+  s = '*' if last_best != best_obj else ' '
+  logger.info("pending %4d | + %2d tasks | total: %4d | finished: %4d | best_obj: %.10f %s" % (queue_size, new, added, nb_finished, best_obj, s))
+  last_best = best_obj
 
 logger.info("start")
+start_time = time.time()
 
 # pending is the set of jobs we are expecting in each loop
 pending = set([])
@@ -104,7 +109,7 @@ while pending or added < MAX:
     status()
     # create new tasks
     tids, vals = range(now, now+new), np.array([ 2 * np.random.rand(DIMSIZE) for _ in range(new) ])
-    newt = lb.map_async(func, tids, vals, chunksize=1, ordered=False)
+    newt = lb.map_async(func, tids, vals, chunksize=new, ordered=False)
     allx.update(zip(tids, vals))
     map(pending.add, newt.msg_ids)
   else:
@@ -149,6 +154,7 @@ logger.info("added in total:   %s" % added)
 logger.info("# machines = %s" % len(c.ids))
 logger.info("# results = %s" % len(results))
 logger.info("# total loops %s | of that, %s times tasks were added | %.4f%%" % (loops, tasks_added, tasks_added / float(loops) * 100.))
+logger.info("total time: %s [s]" % (time.time() - start_time))
 logger.info("best:")
 logger.info(" obj. value: %f" % best_obj)
 logger.info(" x:\n%s" % best_x)

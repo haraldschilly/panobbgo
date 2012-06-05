@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # just testing basic parallelization that will be used in the actual project
-import time
 import numpy as np
 import itertools as it
 
@@ -32,7 +31,7 @@ c.purge_results('all') # all results are memorized in the hub
 lb = c.load_balanced_view()
 
 # MAX number of tasks in total
-MAX = 10000
+MAX = 20000
 # length of test data, sent over the wire
 DIMSIZE = 50
 # when adding machines, this is the number of additional tasks
@@ -61,10 +60,11 @@ def func_eval(tid, data):
   np = numpy
   v = np.dot(np.cos(numpy.pi + data), np.sin(data + numpy.pi/2))
   v = np.exp(np.abs(v) / len(data))
-  s = np.sin(data[::2] + numpy.pi / 2)
-  c = np.cos(data[1::2])
-  v += np.sum(s) + np.sum(c) #np.append(s,c))
-  time.sleep(1e-3)
+  #s = np.sin(data[::2] + numpy.pi / 2)
+  #c = np.cos(data[1::2])
+  #v += np.sum(s) + np.sum(c) #np.append(s,c))
+  #time.sleep(1e-3)
+  #time.sleep(1e-2 + math.log(1 + random()))
   return tid, v
 
 func = func_eval
@@ -97,6 +97,36 @@ pending_ts = []
 results = []
 allx = dict() # store all x vectors
 
+def gen_points(nb):
+  '''
+  generates @nb new points, depends on results and allx
+  '''
+  global results, allx
+
+  def rpoint():
+    return 2 * (np.random.rand(DIMSIZE)) # - .5)
+
+  if results:
+    cur_best_res = min(results, key = lambda _:_[1])
+    cur_best_x = allx[cur_best_res[0]]
+
+  def general_case():
+    if np.random.random() < .2:
+      return rpoint()
+    else:
+      rv = (np.random.rand(DIMSIZE) - .5) / 2
+      # make it sparse
+      sp = np.random.rand(DIMSIZE) < (np.random.random() / 2)  + .5
+      rv[sp] = 0
+      #import scipy
+      #rv = scipy.sparse.rand(DIMSIZE, 1, 0.1)
+      return np.minimum(2, np.maximum(0, rv + cur_best_x))
+
+  new_point = general_case if results else rpoint
+  return np.array([ new_point() for _ in range(new) ])
+
+
+
 while pending or added < MAX: 
   lb.spin() # check outstanding tasks
   loops += 1
@@ -113,8 +143,8 @@ while pending or added < MAX:
     added += new
     status()
     # create new tasks
-    tids, vals = range(now, now+new), np.array([ 2 * np.random.rand(DIMSIZE) for _ in range(new) ])
-    chunksize = new
+    tids, vals = range(now, now+new), gen_points(new)
+    chunksize = new 
     newt = lb.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
     allx.update(zip(tids, vals))
     map(pending.add, newt.msg_ids)

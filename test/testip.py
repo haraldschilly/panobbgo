@@ -41,14 +41,17 @@ new_extra = DIMSIZE / 2
     
 # import some packages  (also locally)
 with c[:].sync_imports():
-  #from IPython.utils.timing import time
-  import time
+  from IPython.utils.timing import time ## time.time & time.clock for cpu time
+  #import time
   from random import random
   from numpy import pi, sum
   import numpy
   import math
 
 # the actual function
+def func_one(tid, data):
+  return tid, 1
+
 def func_sum(tid, data):
   'x is either a number or a list/vector of numbers'
   time.sleep(math.log(1 + random()))
@@ -58,9 +61,10 @@ def func_eval(tid, data):
   np = numpy
   v = np.dot(np.cos(numpy.pi + data), np.sin(data + numpy.pi/2))
   v = np.exp(np.abs(v) / len(data))
-  #s = np.sin(data[::2])
-  #c = np.cos(data[1::2])
-  #v = np.prod(np.append(s,c))
+  s = np.sin(data[::2] + numpy.pi / 2)
+  c = np.cos(data[1::2])
+  v += np.sum(s) + np.sum(c) #np.append(s,c))
+  time.sleep(1e-3)
   return tid, v
 
 func = func_eval
@@ -72,6 +76,7 @@ added       = 0
 nb_finished = 0
 loops       = 0
 tasks_added = 0
+cum_sum     = 0
 best_x      = None
 best_obj    = numpy.infty
 last_best   = best_obj
@@ -109,7 +114,8 @@ while pending or added < MAX:
     status()
     # create new tasks
     tids, vals = range(now, now+new), np.array([ 2 * np.random.rand(DIMSIZE) for _ in range(new) ])
-    newt = lb.map_async(func, tids, vals, chunksize=new, ordered=False)
+    chunksize = new
+    newt = lb.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
     allx.update(zip(tids, vals))
     map(pending.add, newt.msg_ids)
   else:
@@ -123,23 +129,20 @@ while pending or added < MAX:
 
   # collect results from finished tasks
   for msg_id in finished:
-      nb_finished += 1
-      # we know these are done, so don't worry about blocking
-      res = lb.get_result(msg_id)
-      #print "job id %s finished on engine %i" % (msg_id, res.engine_id)
-      #print "with stdout:"
-      #print '    ' + ar.stdout.replace('\n', '\n    ').rstrip()
-      #print "and results:"
-      
-      # note that each job in a map always returns a list of length chunksize
-      # even if chunksize == 1
-      t = res.result[0]
+    # we know these are done, so don't worry about blocking
+    res = lb.get_result(msg_id)
+    nb_finished += len(res.result)
+    
+    # each job returns a list of length chunksize
+    for t in res.result:
       logger.debug("result '%s' = %s" % (msg_id, t))
       results.append(t)
+      cum_sum += 1 #t[1] ## just to test how many results come back
       if t[1] < best_obj:
         best_obj = t[1]
         best_x   = allx[t[0]]
 
+  # wait for 'pending' jobs or 1/1000s
   lb.wait(pending, 1e-3)
 
 status()
@@ -147,14 +150,17 @@ logger.debug("queues:")
 for k,v in sorted(lb.queue_status().iteritems()):
   logger.debug("%5s: %s" % (k, v)) 
 
-logger.debug("pending: %s" % pending)
+logger.info("pending: %s" % pending)
 logger.info("added in total:   %s" % added)
 
 #logger.info("results: %s" % sorted([r[0] for r in results]))
 logger.info("# machines = %s" % len(c.ids))
 logger.info("# results = %s" % len(results))
+logger.info("cum_sum = %s" % cum_sum)
 logger.info("# total loops %s | of that, %s times tasks were added | %.4f%%" % (loops, tasks_added, tasks_added / float(loops) * 100.))
-logger.info("total time: %s [s]" % (time.time() - start_time))
+ttime = time.time() - start_time
+evalspersec = added / ttime
+logger.info("total time: %s [s] | %.5f [feval/s]" % (ttime, evalspersec))
 logger.info("best:")
 logger.info(" obj. value: %f" % best_obj)
 logger.info(" x:\n%s" % best_x)

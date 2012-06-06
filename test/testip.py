@@ -22,21 +22,27 @@ opt_parser.add_option("-p", "--profile", dest="client_profile", default="unissh"
                       help="the profile to use for ipython.parallel")
 options, args = opt_parser.parse_args()
 
-# START
+# START: create remote evaluators and a few (or one) special one for #
+# generating new points
 logger.info("init")
 from IPython.parallel import Client, require
 c = Client(profile=options.client_profile)
 c.clear() # clears remote engines
 c.purge_results('all') # all results are memorized in the hub
-lb = c.load_balanced_view()
+
+if len(c.ids) < 2:
+  raise Exception('I need at least 2 clients.')
+nbGens = min(1, len(c.ids) - 1)
+generators = c.load_balanced_view(c.ids[:nbGens])
+evaluators = c.load_balanced_view(c.ids[nbGens:])
 
 # MAX number of tasks in total
-MAX = 20000
+MAX = 50000
 # length of test data, sent over the wire
-DIMSIZE = 50
+DIMSIZE = 10
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
-new_extra = DIMSIZE / 2
+new_extra = DIMSIZE 
     
 # import some packages  (also locally)
 with c[:].sync_imports():
@@ -58,8 +64,9 @@ def func_sum(tid, data):
 
 def func_eval(tid, data):
   np = numpy
-  v = np.dot(np.cos(numpy.pi + data), np.sin(data + numpy.pi/2))
-  v = np.exp(np.abs(v) / len(data))
+  data = data * numpy.pi  / 2
+  v = np.multiply(np.cos(numpy.pi + data), np.sin(data + numpy.pi/2))
+  v = np.exp(np.linalg.norm(v - 1, 1) / len(data))
   #s = np.sin(data[::2] + numpy.pi / 2)
   #c = np.cos(data[1::2])
   #v += np.sum(s) + np.sum(c) #np.append(s,c))
@@ -92,50 +99,59 @@ start_time = time.time()
 
 # pending is the set of jobs we are expecting in each loop
 pending = set([])
-pending_ts = []
+pending_generators = set([])
+new_points = []
 # collects all returns
 results = []
 allx = dict() # store all x vectors
 
-def gen_points(nb):
+def gen_points(new, DIMSIZE, cur_best_res = None, cur_best_x = None):
   '''
-  generates @nb new points, depends on results and allx
+  generates @new new points, depends on results and allx
   '''
-  global results, allx
+  nb = numpy
+  #lambda rp : 10 * (np.random.rand(DIMSIZE) )
+  FACT = 10
+  OFF  = 0
 
-  def rpoint():
-    return 2 * (np.random.rand(DIMSIZE)) # - .5)
+  if np.random.random() < .2 or not results or not cur_best_res:
+    return np.array([FACT * (np.random.rand(DIMSIZE) + OFF) for _ in range(new)])
 
-  if results:
-    cur_best_res = min(results, key = lambda _:_[1])
-    cur_best_x = allx[cur_best_res[0]]
-
-  def general_case():
-    if np.random.random() < .2:
-      return rpoint()
-    else:
-      rv = (np.random.rand(DIMSIZE) - .5) / 2
-      # make it sparse
-      sp = np.random.rand(DIMSIZE) < (np.random.random() / 2)  + .5
-      rv[sp] = 0
-      #import scipy
-      #rv = scipy.sparse.rand(DIMSIZE, 1, 0.1)
-      return np.minimum(2, np.maximum(0, rv + cur_best_x))
-
-  new_point = general_case if results else rpoint
-  return np.array([ new_point() for _ in range(new) ])
+  # better local value new best point
+  ret = []
+  for i in range(new):
+    rv = (np.random.rand(DIMSIZE) - .5) / 5
+    # make it sparse
+    sp = np.random.rand(DIMSIZE) < .9 
+    rv[sp] = 0
+    #import scipy
+    #rv = scipy.sparse.rand(DIMSIZE, 1, 0.1)
+    ret.append(np.minimum(2, np.maximum(0, rv + cur_best_x)))
+  return np.array(ret)
 
 
+# itertools counter for successive task ID numbers
+tid_counter = it.count(0)
 
 while pending or added < MAX: 
-  lb.spin() # check outstanding tasks
+  evaluators.spin() # check outstanding tasks
   loops += 1
+
+  # get new points if they have arrived
+
+  # check if we have to generate new points
+  if not new_points:
+    if results:
+      cur_best_res = min(results, key = lambda _:_[1])
+      cur_best_x = allx[cur_best_res[0]]
+    else:
+      cur_best_res, cur_best_x = None, None
+    new_points_tasks = generators.map_async(gen_points, [50], [DIMSIZE], [cur_best_res], [cur_best_x])
 
   # check, if we have to create new tasks
   queue_size = len(pending)
-  if queue_size <= len(c.ids) and added < MAX:
+  if queue_size <= len(c.ids) + new_extra and added < MAX:
     tasks_added += 1
-    now = added
     new = len(c.ids) - queue_size + new_extra
     # at the end, make sure to not add more tasks then MAX
     new = min(new, MAX - added)
@@ -143,24 +159,23 @@ while pending or added < MAX:
     added += new
     status()
     # create new tasks
-    tids, vals = range(now, now+new), gen_points(new)
-    chunksize = new 
-    newt = lb.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
+    tids, vals = list(it.islice(tid_counter, new)), gen_points(new, DIMSIZE)
+    chunksize = min(new, len(c.ids))
+    newt = evaluators.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
     allx.update(zip(tids, vals))
     map(pending.add, newt.msg_ids)
   else:
     new = 0
 
   # finished is the set of msg_ids that are complete
-  finished = pending.difference(lb.outstanding)
+  finished = pending.difference(evaluators.outstanding)
   # update pending to exclude those that just finished
   pending = pending.difference(finished)
-  pending_ts.append(len(pending))
 
   # collect results from finished tasks
   for msg_id in finished:
     # we know these are done, so don't worry about blocking
-    res = lb.get_result(msg_id)
+    res = evaluators.get_result(msg_id)
     nb_finished += len(res.result)
     
     # each job returns a list of length chunksize
@@ -173,11 +188,11 @@ while pending or added < MAX:
         best_x   = allx[t[0]]
 
   # wait for 'pending' jobs or 1/1000s
-  lb.wait(pending, 1e-3)
+  evaluators.wait(pending.union(pending_generators), 1e-3)
 
 status()
 logger.debug("queues:")
-for k,v in sorted(lb.queue_status().iteritems()):
+for k,v in sorted(evaluators.queue_status().iteritems()):
   logger.debug("%5s: %s" % (k, v)) 
 
 logger.info("pending: %s" % pending)
@@ -196,5 +211,4 @@ logger.info(" obj. value: %f" % best_obj)
 logger.info(" x:\n%s" % best_x)
 logger.info("finished")
 
-#logger.info("pending_ts: %s" % pending_ts)
 

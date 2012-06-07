@@ -4,3 +4,4 @@ build/*
 psnobfit.egg-info/*
 doc/build/*
 dist/*
+config.ini

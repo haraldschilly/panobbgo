@@ -20,7 +20,7 @@ setup(
     #    'hello': ['*.msg'],
     },
 
-    test_suite = "psnobfit.tests",
+    test_suite = "psnobfit.test",
 
     # metadata for upload to PyPI
     author           = "Harald Schilly",

@@ -77,21 +77,22 @@ def func_eval(tid, data):
 func = func_eval
 
 # some stats
-added       = 0
-queue_size  = 0
-added       = 0
-nb_finished = 0
-loops       = 0
-tasks_added = 0
-cum_sum     = 0
-best_x      = None
-best_obj    = numpy.infty
-last_best   = best_obj
+added        = 0
+queue_size   = 0
+added        = 0
+nb_finished  = 0
+nb_generated = 0
+loops        = 0
+tasks_added  = 0
+cum_sum      = 0
+best_x       = None
+best_obj     = numpy.infty
+last_best    = best_obj
 
 def status():
   global last_best
   s = '*' if last_best != best_obj else ' '
-  logger.info("pending %4d | + %2d tasks | total: %4d | finished: %4d | best_obj: %.10f %s" % (queue_size, new, added, nb_finished, best_obj, s))
+  logger.info("pend %4d | + %2d | tot: %4d | finished: %4d | gen: %3d | best_obj: %.10f %s" % (queue_size, new, added, nb_finished, nb_generated, best_obj, s))
   last_best = best_obj
 
 logger.info("start")
@@ -109,12 +110,12 @@ def gen_points(new, DIMSIZE, cur_best_res = None, cur_best_x = None):
   '''
   generates @new new points, depends on results and allx
   '''
-  nb = numpy
+  np = numpy
   #lambda rp : 10 * (np.random.rand(DIMSIZE) )
-  FACT = 10
+  FACT = 3
   OFF  = 0
 
-  if np.random.random() < .2 or not results or not cur_best_res:
+  if np.random.random() < .2 or not cur_best_res:
     return np.array([FACT * (np.random.rand(DIMSIZE) + OFF) for _ in range(new)])
 
   # better local value new best point
@@ -146,7 +147,27 @@ while pending or added < MAX:
       cur_best_x = allx[cur_best_res[0]]
     else:
       cur_best_res, cur_best_x = None, None
-    new_points_tasks = generators.map_async(gen_points, [50], [DIMSIZE], [cur_best_res], [cur_best_x])
+    new = len(c.ids) - queue_size + new_extra
+    # at the end, make sure to not add more tasks then MAX
+    new = min(new, MAX - added)
+    # update the counter
+    added += new
+    new_points_tasks = generators.map_async(gen_points, [new], [DIMSIZE], [cur_best_res], [cur_best_x], ordered=False)
+    print ">>>", new_points_tasks.msg_ids
+    map(pending_generators.add, new_points_tasks.msg_ids)
+
+  finished_generators = pending_generators.difference(generators.outstanding)
+  pending_generators  = pending_generators.difference(finished_generators)
+
+  # if we have generated points in the queue, eval the function
+  for msg_id in finished_generators:
+    res = generators.get_result(msg_id)
+    nb_generated += len(res.result)
+    for g in res.result:
+      logger.info('new points "%s" = %s' % (msg_id, g))
+      cs = max(1, min(5, len(res.result)))
+      newt = evaluators.map_async(func, tids, vals, chunksize = cs, ordered=False)
+      cum_sum += 1
 
   # check, if we have to create new tasks
   queue_size = len(pending)
@@ -160,7 +181,7 @@ while pending or added < MAX:
     status()
     # create new tasks
     tids, vals = list(it.islice(tid_counter, new)), gen_points(new, DIMSIZE)
-    chunksize = min(new, len(c.ids))
+    chunksize = max(1, min(new, len(c.ids)))
     newt = evaluators.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
     allx.update(zip(tids, vals))
     map(pending.add, newt.msg_ids)
@@ -188,7 +209,7 @@ while pending or added < MAX:
         best_x   = allx[t[0]]
 
   # wait for 'pending' jobs or 1/1000s
-  evaluators.wait(pending.union(pending_generators), 1e-3)
+  evaluators.wait(None, 1e-3) #pending.union(pending_generators), 1e-3)
 
 status()
 logger.debug("queues:")

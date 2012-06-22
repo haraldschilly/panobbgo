@@ -2,10 +2,10 @@
 
 from setuptools import setup, find_packages
 
-from psnobfit import __version__
+from panobbgo import __version__
 
 setup(
-    name = "psnobfit",
+    name = "panobbgo",
     version = __version__, 
     packages = find_packages(),
 
@@ -25,10 +25,10 @@ setup(
     # metadata for upload to PyPI
     author           = "Harald Schilly",
     author_email     = "harald.schilly@univie.ac.at",
-    description      = "Parallel Snobfit",
-    url              = "",
+    description      = "Parallel Noisy Black-Box Global Optimization",
+    url              = "http://github.com/haraldschilly/panobbgo",
     license          = 'BSD',
-    keywords = "optimization blackbox stochastic noisy parallel",
+    keywords = "optimization blackbox stochastic noisy parallel black-box ipython distributed cluster",
 
     # could also include long_description, download_url, classifiers, etc.
 )

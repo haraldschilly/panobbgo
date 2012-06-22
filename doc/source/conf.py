@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# psnobfit documentation build configuration file, created by
+# panobbgo documentation build configuration file, created by
 # sphinx-quickstart on Thu Jan 19 23:37:51 2012.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -16,7 +16,7 @@ import sys, os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('../../psnobfit/'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -40,7 +40,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'psnobfit'
+project = u'Panobbgo'
 copyright = u'2012, Harald Schilly'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -164,7 +164,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'psnobfitdoc'
+htmlhelp_basename = 'panobbgodoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -178,7 +178,7 @@ htmlhelp_basename = 'psnobfitdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'psnobfit.tex', u'psnobfit Documentation',
+  ('index', 'panobbgo.tex', u'Panobbgo Documentation',
    u'Harald Schilly', 'manual'),
 ]
 
@@ -211,6 +211,6 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'psnobfit', u'psnobfit Documentation',
+    ('index', 'panobbgo', u'Panobbgo Documentation',
      [u'Harald Schilly'], 1)
 ]

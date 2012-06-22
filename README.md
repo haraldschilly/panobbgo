@@ -8,9 +8,16 @@ It minimizes a function over a box in $R^n$ (n = dimension of the problem).
 
 ## DOWNLOAD & INSTALL
 
-1. Install the snobfit package: `python setup.py install`
+This program is work in progress. Only do `python setup.py build|install` if you know what you are doing.
 
-1. Install the snobfit egg package: `python setup_egg.py install`
+## Dependencies
+
+* IPython &ge; 0.12.1
+
+  * and you have to start your cluster via `ipcluster start ...` and tell Panobbgo 
+    about it :-)
+
+* NumPy &ge; 1.5.0
 
       
 ## License

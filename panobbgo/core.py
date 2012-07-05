@@ -21,8 +21,7 @@ from heuristics import *
 
 # global vars
 cnt = 0
-MAX = 100
-DIM = 5
+MAX = 1000
 
 
 class Problem(object):
@@ -62,6 +61,13 @@ class Problem(object):
 
   @property
   def box(self): return self._box
+
+  def project(self, point):
+    '''
+    projects given point into the search box. 
+    e.g. [-1.1, 1] with box [(-1,1),(-1,1)] gives [-1,1] 
+    '''
+    return np.minimum(np.maximum(point, self.box[:,0]), self.box[:,1])
 
   def random_point(self):
     '''
@@ -127,11 +133,13 @@ class Results(object):
       heapq.heappush(self._results, r)
       if r.fx < self._best.fx: 
         self._best = r
+        logger.info("new best: %s", r)
     for l in self._listener:
       l.notify(results)
 
   def __iadd__(self, results):
     self.add_results(results)
+    return self
 
   def best(self):
     return self._best
@@ -150,13 +158,14 @@ class Controller(threading.Thread):
   This thread selects new points from the point generating
   threads and submits the calculations to the cluster.
   '''
-  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts):
+  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts, lhyp_pts):
     threading.Thread.__init__(self, name="controller")
-    self._problem = problem
-    self._results = results
+    self.problem = problem
+    self.results = results
     self._rand_pts = rand_pts
     self._heur_pts = heur_pts
     self._calc_pts = calc_pts
+    self._lhyp_pts = lhyp_pts
     self._setup_cluster()
     self.start()
 
@@ -170,30 +179,33 @@ class Controller(threading.Thread):
       new_points = []
 
       # add all calculated points
-      new_points.extend(self._calc_pts.get_points(5))
+      new_points.extend(self._calc_pts.get_points(0))
 
       # heuristic points (get all)
       new_points.extend(self._heur_pts.get_points(5))
 
+      # latin hypercube
+      new_points.extend(self._lhyp_pts.get_points(5))
+
       if cnt < MAX:
         #nb_new = max(0, min(CAP - len(new_points), MAX - cnt))
         nb_new = 1
-        logger.info("+++ %d" % nb_new)
         nrp = self._rand_pts.get_points(nb_new)
         new_points.extend(nrp)
 
       # TODO this is just a demo
-      logger.info('   new points: %d' % len(new_points))
+      logger.info('%2d new points' % len(new_points))
+      if len(new_points) == 0: raise Exception("no new points!")
       for p in new_points: 
         cnt += 1
-        logger.info(" new point: %s" % p)
+        #logger.info(" new point: %s" % p)
         # TODO later there is a separat thread collecting
         # results and adding them to the @result list
         # and notifying all generating threads
         time.sleep(1e-3)
         import random
-        r = Result(x=p, fx=random.random())
-        self._results.add_results([r])
+        r = Result(x=p, fx=self.problem(p))
+        self.results += [r]
 
   def _setup_cluster(self):
     from IPython.parallel import Client, require

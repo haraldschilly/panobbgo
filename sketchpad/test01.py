@@ -10,10 +10,11 @@ import numpy as np
 # define problem
 class Rosenbrock(Problem):
   '''
-  f(x) = sum_i^n-1 (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+  f(x) = sum_i (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
   '''
   def __init__(self, dims, par1 = 100):
     box = [(-5,5)] * dims
+    box[0] = (0,2) # for cornercases + testing
     self._dims = dims
     self.par1 = par1
     Problem.__init__(self, box)
@@ -25,7 +26,7 @@ class Rosenbrock(Problem):
 
 class Rastrigin(Problem):
   '''
-  f(x) = 10*n + sum_i^n (x_i^2 - 10 cos(2 pi x_i) )
+  f(x) = 10*n + sum_i (x_i^2 - 10 cos(2 pi x_i) )
   '''
   def __init__(self, dims, par1 = 10, offset=0):
     box = [(-5,5)] * dims
@@ -47,11 +48,12 @@ results = Results()
 rand_pts = RandomPoints(problem, results)
 heur_pts = HeuristicPoints(problem, results)
 calc_pts = CalculatedPoints(problem, results)
+lhyp_pts = LatinHypercube(problem, results, 5)
 
-controller = Controller(problem, results, rand_pts,heur_pts,calc_pts)
+controller = Controller(problem, results, rand_pts,heur_pts,calc_pts, lhyp_pts)
 
 # keep main thread alive until all created points are also consumed 
 # and processed by the evaluator_thread
 controller.join()
 
-print results.best()
+print "best: ", results.best()

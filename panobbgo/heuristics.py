@@ -21,6 +21,10 @@ class PointProvider(threading.Thread):
 
   def run(self): raise Exception('NYI')
 
+  def _add(self, point):
+    point = self._problem.project(point)
+    self._q.put(point)
+
   def notify(self, results):
     '''
     notify is called by @Results if there is a new @Result
@@ -35,11 +39,14 @@ class PointProvider(threading.Thread):
     '''
     new_points = []
     try:
-      while not limit or len(new_points) < limit:
+      while limit is None or len(new_points) < limit:
         new_points.append(self._q.get(block=False))
     except Empty:
       pass
     return new_points
+
+  @property
+  def problem(self): return self._problem
 
 class RandomPoints(PointProvider):
   '''
@@ -51,7 +58,45 @@ class RandomPoints(PointProvider):
 
   def run(self):
     while True:
-      self._q.put(self._problem.random_point())
+      self._add(self.problem.random_point())
+
+class LatinHypercube(PointProvider):
+  '''
+  partitions the search box into n x n x ... x n cubes.
+  selects randomly in such a way, that there is only one cube in each dimension.
+  then randomly selects one point from inside such a cube.
+
+
+  e.g. with n=4:
+
+  +---+---+---+---+
+  | X |   |   |   |
+  +---+---+---+---+
+  |   |   |   | X |
+  +---+---+---+---+
+  |   | X |   |   |
+  +---+---+---+---+
+  |   |   | X |   |
+  +---+---+---+---+
+  '''
+  def __init__(self, problem, results, division, cap = 10):
+    self.division = division
+    # length of each box'es dimension
+    self.lengths = problem.ranges / float(division)
+    PointProvider.__init__(self, cap=cap, name="latin hypercube", problem=problem, results=results)
+  
+  def run(self):
+    dim = self.problem.dim
+    divs = self.division
+    while True:
+      pts = np.empty((divs, dim))
+      for i in range(dim): 
+        pts[:,i] = (np.arange(divs) + np.random.rand(divs)) * self.lengths[i]
+        np.random.shuffle(pts[:,i])
+        pts[:,i] += np.repeat(self.problem.box[i,0], divs)  #add min
+
+      for p in pts: self._add(p)
+      
 
 class HeuristicPoints(PointProvider):
   '''
@@ -59,7 +104,8 @@ class HeuristicPoints(PointProvider):
   on a cheap (i.e. fast) algorithm.
   '''
   def __init__(self, problem, results, cap = 3):
-    PointProvider.__init__(self, cap=cap, name="heuristic", problem=problem, results=results)
+    q = LifoQueue(cap)
+    PointProvider.__init__(self, q = q, cap=cap, name="heuristic", problem=problem, results=results)
 
   def run(self):
     while True and self._r:
@@ -70,7 +116,7 @@ class HeuristicPoints(PointProvider):
         for _ in range(1): 
           dx = ( np.random.rand(len(x)) - .5 ) / 20.0
           x_new = x + dx
-          self._q.put(x_new)
+          self._add(x_new)
 
 
 class CalculatedPoints(PointProvider):
@@ -85,6 +131,7 @@ class CalculatedPoints(PointProvider):
     while True:
       # TODO see if there are new calculated points
       # and then add them to queue
-      self._q.put([99]*self._problem.dim)
+      p = np.array([99]*self._problem.dim)
+      self._add(p)
 
 

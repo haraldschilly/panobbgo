@@ -12,8 +12,9 @@ class PointProvider(threading.Thread):
   def __init__(self, name, problem, results, q = None, cap = None, start = True):
     threading.Thread.__init__(self, name=name)
     self._problem = problem
-    self._results = results
-    self._results.add_listener(self)
+    if results:
+      self._results = results
+      self._results.add_listener(self)
     self._q = q if q else Queue(cap)
     self._r = Queue()
     self.daemon = True
@@ -54,6 +55,9 @@ class PointProvider(threading.Thread):
   @property
   def problem(self): return self._problem
 
+  @property
+  def results(self): return self._results
+
 class RandomPoints(PointProvider):
   '''
   always generates random points until the
@@ -85,6 +89,8 @@ class LatinHypercube(PointProvider):
   +---+---+---+---+
   '''
   def __init__(self, problem, results, div, cap = 10):
+    if not isinstance(div, int):
+      raise Exception("LH: div needs to be an integer")
     self.div = div
     # length of each box'es dimension
     self.lengths = problem.ranges / float(div)
@@ -116,15 +122,48 @@ class HeuristicPoints(PointProvider):
     ret = []
     while self._r.qsize() > 0:
       _ = self._r.get() # one for each new result
-      best = self._results.best()
+      best = self.results.best()
       x = best.x
       # generate new points near best x 
-      for _ in range(1): 
-        dx = ( np.random.rand(len(x)) - .5 ) / self.radius
+      for _ in range(2): 
+        dx = ( np.random.rand(self.problem.dim) - .5 ) / self.radius
         dx *= self.problem.ranges
         ret.append(x + dx)
     return ret
 
+class ExtremalPoints(PointProvider):
+  '''
+  This heuristic is specially seeking for points at the
+  border of the box and around 0. 
+  The @where parameter takes a list or tuple, which has values 
+  from 0 to 1, which indicate the probability for sampling from the
+  minimum, zero or the maximum. default = ( 1, .2, 1 )
+  '''
+  def __init__(self, problem, results, cap = 10):
+    if where is None: where = (1, .2, 1)
+    self.l = len(where)
+    for i in where:
+      if i < 0 or i > 1:
+        raise Exception("entries in where must be in [0, 1]")
+    where =  np.array(where) / float(max(where))
+    PointProvider.__init__(self, cap=cap, name="Extremal",\
+                           problem=problem, results=results)
+
+  def calc_points(self):
+    m = self.problem.box[:,0].copy()
+    for e in self.steps:
+      m += e[np.random.randint(0, self.l)]
+    return m
+
+class ZeroPoint(PointProvider):
+  '''
+  This heuristic only returns the 0 vector once.
+  '''
+  def __init__(self, problem):
+    PointProvider.__init__(self, name="zero", cap=1, problem=problem, results=None)
+  
+  def run(self):
+    self._add(np.zeros(self.problem.dim))
 
 class CalculatedPoints(PointProvider):
   '''

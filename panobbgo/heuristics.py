@@ -88,18 +88,17 @@ class LatinHypercube(PointProvider):
     self.div = div
     # length of each box'es dimension
     self.lengths = problem.ranges / float(div)
-    self.dim = problem.dim
     PointProvider.__init__(self, cap=cap, name="latin hypercube", \
                            problem=problem, results=results)
  
   def calc_points(self):
     div = self.div
-    dim = self.dim
-    pts = np.empty((div, dim))
-    for i in range(dim): 
-      pts[:,i] = (np.arange(div) + np.random.rand(div)) * self.lengths[i]
-      np.random.shuffle(pts[:,i])
-      pts[:,i] += np.repeat(self.problem.box[i,0], div)  #add min
+    dim = self.problem.dim
+    pts = np.repeat(np.arange(div, dtype=np.float), dim).reshape(div,dim)
+    pts += np.random.rand(div, dim) # add [0,1) jitter
+    pts *= self.lengths             # scale with length, already divided by div
+    pts += self.problem.box[:,0]    # shift with min
+    [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
     return pts
       
 class HeuristicPoints(PointProvider):

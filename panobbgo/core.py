@@ -17,15 +17,65 @@ import numpy as np
 from IPython.utils.timing import time 
 
 from utils import logger
+from heuristics import *
 
 # global vars
 cnt = 0
 MAX = 100
-CAP = 10
 DIM = 5
 
-def gen_random_point():
-  return np.random.rand(DIM)
+
+class Problem(object):
+  '''
+  this is used to store the objective function, 
+  information about the problem, etc.
+  '''
+  def __init__(self, box):
+    '''
+    box must be a list of tuples, which specify
+    the range of each variable. 
+
+    example: [(-1,1), (-100, 0), (0, 0.01)]
+    '''
+    # validate
+    if not isinstance(box, (list, tuple)):
+      raise Exception("box argument must be a list or tuple")
+    for entry in box:
+      if not len(entry) == 2:
+        raise Exception("box entries must be of length 2")
+      for e in entry:
+        import numbers
+        if not isinstance(e, numbers.Number):
+          raise Exception("box entries must be numbers")
+      if entry[0] > entry[1]:
+        raise Exception("box entries must be non decreasing")
+        
+    self._dim = len(box)
+    self._box = np.array(box, dtype=np.float)
+    self._ranges = self._box[:,1] - self._box[:,0]
+
+  @property
+  def dim(self): return self._dim
+  
+  @property
+  def ranges(self): return self._ranges
+
+  @property
+  def box(self): return self._box
+
+  def random_point(self):
+    '''
+    generates a random point inside the given search box (ranges).
+    '''
+    # uniformly
+    return self._ranges * np.random.rand(self.dim) + self._box[:,0]
+    # TODO other distributions, too?
+
+  def eval(self, point):
+    raise Exception("You have to subclass and overwrite the eval function")
+
+  def __call__(self, point):
+    return self.eval(point)
 
 
 class Result(object):
@@ -49,6 +99,9 @@ class Result(object):
   def __cmp__(self, other):
     # assume other instance of @Result
     return cmp(self._fx, other._fx)
+
+  def __repr__(self):
+    return 'f(%s) -> %s' % (self._x, self._fx)
 
 class Results(object):
   '''
@@ -77,6 +130,9 @@ class Results(object):
     for l in self._listener:
       l.notify(results)
 
+  def __iadd__(self, results):
+    self.add_results(results)
+
   def best(self):
     return self._best
 
@@ -86,93 +142,6 @@ class Results(object):
   def n_worst(self, n):
     return heapq.nlargest(n, self._results)
 
-class PointProvider(threading.Thread):
-  '''
-  abstract parent class for all types of point generating classes
-  '''
-  def __init__(self, name, results, q = None, cap = CAP, start = True):
-    threading.Thread.__init__(self, name=name)
-    self._results = results
-    self._results.add_listener(self)
-    self._q = q if q else Queue(cap)
-    self._r = Queue()
-    self.daemon = True
-    # and start me
-    if start: self.start()
-
-  def run(self): raise Exception('NYI')
-
-  def notify(self, results):
-    '''
-    notify is called by @Results if there is a new @Result
-    '''
-    for r in sorted(results):
-      self._r.put(r)
-
-  def get_points(self, limit=None):
-    '''
-    this drains the self._q Queue until @limit
-    elements are removed or the Queue is empty.
-    '''
-    new_points = []
-    try:
-      while not limit or len(new_points) < limit:
-        new_points.append(self._q.get(block=False))
-    except Empty:
-      pass
-    return new_points
-
-class RandomPoints(PointProvider):
-  '''
-  always generates random points until the
-  capped queue is full.
-  '''
-  def __init__(self, results, cap = 10):
-    PointProvider.__init__(self, cap=cap, name="random", results=results)
-
-  def run(self):
-    while True:
-      self._q.put(gen_random_point())
-
-class HeuristicPoints(PointProvider):
-  '''
-  This provider generates new points based
-  on a cheap (i.e. fast) algorithm.
-  '''
-  def __init__(self, results, cap = 3):
-    PointProvider.__init__(self, cap=cap, name="heuristic", results=results)
-
-  def run(self):
-    while True:
-      if self._r:
-        _ = self._r.get()
-        best = self._results.best()
-        x = best.x
-        # generate new points near best x 
-        for _ in range(1): 
-          dx = ( np.random.rand(len(x)) - .5 ) / 20.0
-          x_new = x + dx
-          self._q.put(x_new)
-      else:
-        time.sleep(1e-3)
-
-
-class CalculatedPoints(PointProvider):
-  '''
-  This is the thread that generates points by
-  dispatching tasks. -- NYI
-  '''
-  def __init__(self, results, cap = 10):
-    PointProvider.__init__(self, cap=cap, name="calculated", results=results)
-
-  def run(self):
-    while True:
-      # TODO see if there are new calculated points
-      # and then add them to queue
-      self._q.put([99]*DIM)
-      time.sleep(1e-1)
-
-
 
       
 
@@ -181,8 +150,9 @@ class Controller(threading.Thread):
   This thread selects new points from the point generating
   threads and submits the calculations to the cluster.
   '''
-  def __init__(self, results, rand_pts, heur_pts, calc_pts):
+  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts):
     threading.Thread.__init__(self, name="controller")
+    self._problem = problem
     self._results = results
     self._rand_pts = rand_pts
     self._heur_pts = heur_pts
@@ -200,12 +170,12 @@ class Controller(threading.Thread):
       new_points = []
 
       # add all calculated points
-      new_points.extend(self._calc_pts.get_points())
+      new_points.extend(self._calc_pts.get_points(5))
 
       # heuristic points (get all)
-      new_points.extend(self._heur_pts.get_points())
+      new_points.extend(self._heur_pts.get_points(5))
 
-      if len(new_points) < CAP and cnt < MAX:
+      if cnt < MAX:
         #nb_new = max(0, min(CAP - len(new_points), MAX - cnt))
         nb_new = 1
         logger.info("+++ %d" % nb_new)
@@ -255,23 +225,3 @@ class Collector(threading.Thread):
   def run(self):
     pass
 
-
-
-if __name__=="__main__":
-  # spawning threads
-  #calc_points_thread   = threading.Thread(target=calculated_points, name='calc_points')
-  #calc_points_thread.daemon   = True
-
-  results = Results()
-
-  rand_pts = RandomPoints(results)
-  heur_pts = HeuristicPoints(results)
-  calc_pts = CalculatedPoints(results)
-
-  controller = Controller(results, rand_pts,heur_pts,calc_pts)
-
-  # keep main thread alive until all created points are also consumed 
-  # and processed by the evaluator_thread
-  controller.join()
-  #print "remaining in search_points_q: %s [ == 0 ?]" % search_points_q.unfinished_tasks
-  print "cnt: %d" % cnt

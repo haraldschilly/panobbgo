@@ -15,12 +15,25 @@ class Rosenbrock(Problem):
   def __init__(self, dims, par1 = 100):
     box = [(-5,5)] * dims
     box[0] = (0,2) # for cornercases + testing
-    self._dims = dims
     self.par1 = par1
     Problem.__init__(self, box)
 
   def eval(self, x):
     return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
+
+class RosenbrockAbs(Problem):
+  '''
+  f(x) = sum_i (100 | x_{i+1} - |x_i| | + | 1 - x_i |
+  '''
+  def __init__(self, dims, par1 = 100):
+    box = [(-5,5)] * dims
+    box[0] = (0,2) # for cornercases + testing
+    self.par1 = par1
+    Problem.__init__(self, box)
+
+  def eval(self, x):
+    return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
+               np.abs(1-x[:-1]))
     
 
 
@@ -41,6 +54,7 @@ class Rastrigin(Problem):
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
   
 problem = Rosenbrock(3)
+#problem = RosenbrockAbs(3)
 #problem = Rastrigin(3, offset=1.1)
 
 results = Results()

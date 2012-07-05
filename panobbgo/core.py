@@ -21,7 +21,7 @@ from heuristics import *
 
 # global vars
 cnt = 0
-MAX = 1000
+MAX = 2000
 
 
 class Problem(object):
@@ -151,14 +151,12 @@ class Results(object):
     return heapq.nlargest(n, self._results)
 
 
-      
-
 class Controller(threading.Thread):
   '''
   This thread selects new points from the point generating
   threads and submits the calculations to the cluster.
   '''
-  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts, lhyp_pts):
+  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts, lhyp_pts, nb_gens=1):
     threading.Thread.__init__(self, name="controller")
     self.problem = problem
     self.results = results
@@ -166,8 +164,7 @@ class Controller(threading.Thread):
     self._heur_pts = heur_pts
     self._calc_pts = calc_pts
     self._lhyp_pts = lhyp_pts
-    self._setup_cluster()
-    self.start()
+    self._setup_cluster(nb_gens)
 
   def run(self):
     '''
@@ -179,9 +176,9 @@ class Controller(threading.Thread):
       new_points = []
 
       # add all calculated points
-      new_points.extend(self._calc_pts.get_points(0))
+      new_points.extend(self._calc_pts.get_points(1))
 
-      # heuristic points (get all)
+      # heuristic points
       new_points.extend(self._heur_pts.get_points(5))
 
       # latin hypercube
@@ -194,7 +191,7 @@ class Controller(threading.Thread):
         new_points.extend(nrp)
 
       # TODO this is just a demo
-      logger.info('%2d new points' % len(new_points))
+      #logger.info('%2d new points' % len(new_points))
       if len(new_points) == 0: raise Exception("no new points!")
       for p in new_points: 
         cnt += 1
@@ -207,17 +204,16 @@ class Controller(threading.Thread):
         r = Result(x=p, fx=self.problem(p))
         self.results += [r]
 
-  def _setup_cluster(self):
+  def _setup_cluster(self, nb_gens):
     from IPython.parallel import Client, require
     self._c = c = Client(profile=config.ipy_profile)
     c.clear() # clears remote engines
     c.purge_results('all') # all results are memorized in the hub
     
-    nbGens = 1
-    if len(c.ids) < nbGens + 1:
-      raise Exception('I need at least %d clients.' % (nbGens + 1))
-    self.generators = c.load_balanced_view(c.ids[:nbGens])
-    self.evaluators = c.load_balanced_view(c.ids[nbGens:])
+    if len(c.ids) < nb_gens + 1:
+      raise Exception('I need at least %d clients.' % (nb_gens + 1))
+    self.generators = c.load_balanced_view(c.ids[:nb_gens])
+    self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
   
     # import some packages  (also locally)
     with c[:].sync_imports():

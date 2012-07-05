@@ -60,14 +60,19 @@ problem = Rosenbrock(3)
 results = Results()
 
 rand_pts = RandomPoints(problem, results)
-heur_pts = HeuristicPoints(problem, results)
+heur_pts_1000 = HeuristicPoints(problem, results, radius=1./1000)
+heur_pts_100  = HeuristicPoints(problem, results, radius=1./100)
+heur_pts_10   = HeuristicPoints(problem, results, radius=1./10)
 calc_pts = CalculatedPoints(problem, results)
 lhyp_pts = LatinHypercube(problem, results, 5)
 
-controller = Controller(problem, results, rand_pts,heur_pts,calc_pts, lhyp_pts)
+controller = Controller(problem, results, rand_pts,heur_pts_1000,calc_pts, lhyp_pts)
+calc_pts.set_machines(controller.generators) #use nb_machines for calc. new points
+calc_pts.start()
 
+controller.start()
 # keep main thread alive until all created points are also consumed 
-# and processed by the evaluator_thread
+# and processed by the controller thread.
 controller.join()
 
 print "best: ", results.best()

@@ -3,6 +3,7 @@ import threading
 from Queue import PriorityQueue, Empty, Queue, LifoQueue
 import numpy as np
 from IPython.utils.timing import time
+from core import logger
 
 class PointProvider(threading.Thread):
   '''
@@ -19,7 +20,12 @@ class PointProvider(threading.Thread):
     # and start me
     if start: self.start()
 
-  def run(self): raise Exception('NYI')
+  def run(self): 
+    while True:
+      map(self._add, self.calc_points())
+
+  def calc_points(self): 
+    raise Exception('You have to overwrite the calc_points method.')
 
   def _add(self, point):
     point = self._problem.project(point)
@@ -56,9 +62,8 @@ class RandomPoints(PointProvider):
   def __init__(self, problem, results, cap = 10):
     PointProvider.__init__(self, cap=cap, name="random", problem=problem, results=results)
 
-  def run(self):
-    while True:
-      self._add(self.problem.random_point())
+  def calc_points(self):
+    return [ self.problem.random_point() ]
 
 class LatinHypercube(PointProvider):
   '''
@@ -67,7 +72,7 @@ class LatinHypercube(PointProvider):
   then randomly selects one point from inside such a cube.
 
 
-  e.g. with n=4:
+  e.g. with div=4 and dim=2:
 
   +---+---+---+---+
   | X |   |   |   |
@@ -79,44 +84,47 @@ class LatinHypercube(PointProvider):
   |   |   | X |   |
   +---+---+---+---+
   '''
-  def __init__(self, problem, results, division, cap = 10):
-    self.division = division
+  def __init__(self, problem, results, div, cap = 10):
+    self.div = div
     # length of each box'es dimension
-    self.lengths = problem.ranges / float(division)
-    PointProvider.__init__(self, cap=cap, name="latin hypercube", problem=problem, results=results)
-  
-  def run(self):
-    dim = self.problem.dim
-    divs = self.division
-    while True:
-      pts = np.empty((divs, dim))
-      for i in range(dim): 
-        pts[:,i] = (np.arange(divs) + np.random.rand(divs)) * self.lengths[i]
-        np.random.shuffle(pts[:,i])
-        pts[:,i] += np.repeat(self.problem.box[i,0], divs)  #add min
-
-      for p in pts: self._add(p)
+    self.lengths = problem.ranges / float(div)
+    self.dim = problem.dim
+    PointProvider.__init__(self, cap=cap, name="latin hypercube", \
+                           problem=problem, results=results)
+ 
+  def calc_points(self):
+    div = self.div
+    dim = self.dim
+    pts = np.empty((div, dim))
+    for i in range(dim): 
+      pts[:,i] = (np.arange(div) + np.random.rand(div)) * self.lengths[i]
+      np.random.shuffle(pts[:,i])
+      pts[:,i] += np.repeat(self.problem.box[i,0], div)  #add min
+    return pts
       
-
 class HeuristicPoints(PointProvider):
   '''
   This provider generates new points based
   on a cheap (i.e. fast) algorithm.
   '''
-  def __init__(self, problem, results, cap = 3):
+  def __init__(self, problem, results, cap = 3, radius = 1./100):
     q = LifoQueue(cap)
-    PointProvider.__init__(self, q = q, cap=cap, name="heuristic", problem=problem, results=results)
+    self.radius = radius
+    PointProvider.__init__(self, q = q, cap=cap, name="heuristic",\
+                           problem=problem, results=results)
 
-  def run(self):
-    while True and self._r:
-        _ = self._r.get() # one for each new result
-        best = self._results.best()
-        x = best.x
-        # generate new points near best x 
-        for _ in range(1): 
-          dx = ( np.random.rand(len(x)) - .5 ) / 20.0
-          x_new = x + dx
-          self._add(x_new)
+  def calc_points(self):
+    ret = []
+    while self._r.qsize() > 0:
+      _ = self._r.get() # one for each new result
+      best = self._results.best()
+      x = best.x
+      # generate new points near best x 
+      for _ in range(1): 
+        dx = ( np.random.rand(len(x)) - .5 ) / self.radius
+        dx *= self.problem.ranges
+        ret.append(x + dx)
+    return ret
 
 
 class CalculatedPoints(PointProvider):
@@ -125,13 +133,15 @@ class CalculatedPoints(PointProvider):
   dispatching tasks. -- NYI
   '''
   def __init__(self, problem, results, cap = 10):
-    PointProvider.__init__(self, cap=cap, name="calculated", problem=problem, results=results)
+    self.machines = None
+    PointProvider.__init__(self, cap=cap, name="calculated",\
+                  problem=problem, results=results, start=False)
 
-  def run(self):
-    while True:
-      # TODO see if there are new calculated points
-      # and then add them to queue
-      p = np.array([99]*self._problem.dim)
-      self._add(p)
+  def set_machines(self, machines):
+    self.machines = machines # this is already a load_balanced view
+    
+
+  def calc_points(self):
+    return np.array([99]*self._problem.dim)
 
 

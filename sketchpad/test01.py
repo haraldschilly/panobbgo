@@ -44,42 +44,44 @@ class Rastrigin(Problem):
   def __init__(self, dims, par1 = 10, offset=0):
     box = [(-5,5)] * dims
     self.offset = offset
-    self._dims = dims
     self.par1 = par1
     Problem.__init__(self, box)
 
   def eval(self, x):
-    x -= self.offset
+    x = x - self.offset
     return self.par1 * self.dim + \
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
   
-problem = Rosenbrock(3)
+#problem = Rosenbrock(3)
 #problem = RosenbrockAbs(3)
-#problem = Rastrigin(3, offset=1.1)
+problem = Rastrigin(2, offset=1.1)
 
 results = Results()
 
 rand      = RandomPoints(problem, results)
-heur_1000 = NearbyPoints(problem, results, radius=1./1000)
-heur_100  = NearbyPoints(problem, results, radius=1./100)
-heur_10   = NearbyPoints(problem, results, radius=1./10)
+near_1000 = NearbyPoints(problem, results, radius=1./1000)
+near_100  = NearbyPoints(problem, results, radius=1./100)
+near_10   = NearbyPoints(problem, results, radius=1./10)
 calc      = CalculatedPoints(problem, results)
 zero      = ZeroPoint(problem)
 
-# target of 1000 generated points is the inverse of the gamma function
-from scipy import special as sp
-from scipy.optimize import fmin
-div = max(1, int(fmin(lambda x : (sp.gamma(x) - 1000)**2, [5])[0]))
-#print div # for 1000, should be 7
-lhyp_pts = LatinHypercube(problem, results, div)
+# target of max_eval generated points is the inverse of the gamma function
+if False:
+  from scipy import special as sp
+  from scipy.optimize import fmin
+  m = fmin(lambda x : (sp.gamma(x) - config.max_eval)**2, [5])
+  div = max(1, int(m[0]))
+else:
+  div = 7 # for 1000, should be 7 to 8
+lhyp= LatinHypercube(problem, results, div)
 
-controller = Controller(problem, results, rand_pts,heur_pts_100,calc_pts, lhyp_pts)
-calc_pts.set_machines(controller.generators) #use nb_machines for calc. new points
-calc_pts.start()
+controller = Controller(problem, results, rand, near_10, near_100, calc, lhyp, zero)
+calc.set_machines(controller.generators) #use nb_machines for calc. new points
+calc.start()
 
 controller.start()
 # keep main thread alive until all created points are also consumed 
 # and processed by the controller thread.
 controller.join()
 
-print "best: ", results.best()
+print "best: ", results.best

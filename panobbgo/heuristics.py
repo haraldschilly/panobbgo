@@ -5,31 +5,60 @@ import numpy as np
 from IPython.utils.timing import time
 from core import logger
 
-class PointProvider(threading.Thread):
+class Point(object):
+  '''
+  This contains the x vector for a new point and a 
+  reference to who has generated it.
+  '''
+  def __init__(self, x, who):
+    if not isinstance(who, Heuristic):
+      raise Exception('who needs to be a Heuristic')
+    if not isinstance(x, np.ndarray):
+      raise Exception('x must be a numpy ndarray')
+    self._x   = x
+    self._who = who
+
+  def __str__(self):
+    return '%s by %s' % (self.x, self.who)
+
+  @property
+  def x(self): return self._x
+
+  @property
+  def who(self): return self._who
+
+class Heuristic(threading.Thread):
   '''
   abstract parent class for all types of point generating classes
   '''
   def __init__(self, name, problem, results, q = None, cap = None, start = True):
+    self._name = name
     threading.Thread.__init__(self, name=name)
     self._problem = problem
     if results:
+      self._new_results = LifoQueue()
       self._results = results
       self._results.add_listener(self)
     self._q = q if q else Queue(cap)
-    self._r = Queue()
     self.daemon = True
     # and start me
     if start: self.start()
 
   def run(self): 
+    '''
+    This calls the calc_points() method repeatedly. You can also overwrite
+    the run() method if you like. Also note, that you can iterate over the
+    self.new_results queue to be notified about new points.
+    '''
     while True:
-      map(self._add, self.calc_points())
+      map(self.emit, self.calc_points())
 
   def calc_points(self): 
     raise Exception('You have to overwrite the calc_points method.')
 
-  def _add(self, point):
-    point = self._problem.project(point)
+  def emit(self, point):
+    x = self.problem.project(point)
+    point = Point(x, self)
     self._q.put(point)
 
   def notify(self, results):
@@ -37,7 +66,7 @@ class PointProvider(threading.Thread):
     notify is called by @Results if there is a new @Result
     '''
     for r in sorted(results):
-      self._r.put(r)
+      self.new_results.put(r)
 
   def get_points(self, limit=None):
     '''
@@ -52,24 +81,33 @@ class PointProvider(threading.Thread):
       pass
     return new_points
 
+  def __str__(self):
+    return '%s' % self.name
+
   @property
   def problem(self): return self._problem
 
   @property
   def results(self): return self._results
 
-class RandomPoints(PointProvider):
+  @property
+  def new_results(self): return self._new_results
+
+  @property
+  def name(self): return self._name
+
+class RandomPoints(Heuristic):
   '''
   always generates random points until the
   capped queue is full.
   '''
   def __init__(self, problem, results, cap = 10):
-    PointProvider.__init__(self, cap=cap, name="random", problem=problem, results=results)
+    Heuristic.__init__(self, cap=cap, name="Random", problem=problem, results=results)
 
   def calc_points(self):
     return [ self.problem.random_point() ]
 
-class LatinHypercube(PointProvider):
+class LatinHypercube(Heuristic):
   '''
   partitions the search box into n x n x ... x n cubes.
   selects randomly in such a way, that there is only one cube in each dimension.
@@ -94,7 +132,7 @@ class LatinHypercube(PointProvider):
     self.div = div
     # length of each box'es dimension
     self.lengths = problem.ranges / float(div)
-    PointProvider.__init__(self, cap=cap, name="latin hypercube", \
+    Heuristic.__init__(self, cap=cap, name="Latin Hypercube", \
                            problem=problem, results=results)
  
   def calc_points(self):
@@ -107,31 +145,35 @@ class LatinHypercube(PointProvider):
     [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
     return pts
       
-class NearbyPoints(PointProvider):
+class NearbyPoints(Heuristic):
   '''
   This provider generates new points based
-  on a cheap (i.e. fast) algorithm.
+  on a cheap (i.e. fast) algorithm. For each new result,
+  it picks the so far best point (regardless of the new result)
+  and generates @new many nearby point(s). 
+  The @radius is scaled along each dimension's range in the search box.
   '''
-  def __init__(self, problem, results, cap = 3, radius = 1./100):
+  def __init__(self, problem, results, cap = 3, radius = 1./100, new = 1):
     q = LifoQueue(cap)
     self.radius = radius
-    PointProvider.__init__(self, q = q, cap=cap, name="heuristic",\
+    self.new    = new
+    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f" % radius,\
                            problem=problem, results=results)
 
   def calc_points(self):
     ret = []
-    while self._r.qsize() > 0:
-      _ = self._r.get() # one for each new result
-      best = self.results.best()
+    while self.new_results.qsize() > 0:
+      _ = self.new_results.get() # one for each new result
+      best = self.results.best
       x = best.x
-      # generate new points near best x 
-      for _ in range(2): 
+      # generate @new many new points near best x 
+      for _ in range(self.new): 
         dx = ( np.random.rand(self.problem.dim) - .5 ) * self.radius
         dx *= self.problem.ranges
         ret.append(x + dx)
     return ret
 
-class ExtremalPoints(PointProvider):
+class ExtremalPoints(Heuristic):
   '''
   This heuristic is specially seeking for points at the
   border of the box and around 0. 
@@ -146,7 +188,7 @@ class ExtremalPoints(PointProvider):
       if i < 0 or i > 1:
         raise Exception("entries in where must be in [0, 1]")
     where =  np.array(where) / float(max(where))
-    PointProvider.__init__(self, cap=cap, name="Extremal",\
+    Heuristic.__init__(self, cap=cap, name="Extremal",\
                            problem=problem, results=results)
 
   def calc_points(self):
@@ -155,24 +197,24 @@ class ExtremalPoints(PointProvider):
       m += e[np.random.randint(0, self.l)]
     return m
 
-class ZeroPoint(PointProvider):
+class ZeroPoint(Heuristic):
   '''
   This heuristic only returns the 0 vector once.
   '''
   def __init__(self, problem):
-    PointProvider.__init__(self, name="zero", cap=1, problem=problem, results=None)
+    Heuristic.__init__(self, name="Zero", cap=1, problem=problem, results=None)
   
   def run(self):
-    self._add(np.zeros(self.problem.dim))
+    self.emit(np.zeros(self.problem.dim))
 
-class CalculatedPoints(PointProvider):
+class CalculatedPoints(Heuristic):
   '''
   This is the thread that generates points by
   dispatching tasks. -- NYI
   '''
   def __init__(self, problem, results, cap = 10):
     self.machines = None
-    PointProvider.__init__(self, cap=cap, name="calculated",\
+    Heuristic.__init__(self, cap=cap, name="Calculated",\
                   problem=problem, results=results, start=False)
 
   def set_machines(self, machines):

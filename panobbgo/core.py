@@ -21,8 +21,7 @@ from heuristics import *
 
 # global vars
 cnt = 0
-MAX = 2000
-
+MAX = config.max_eval
 
 class Problem(object):
   '''
@@ -81,20 +80,25 @@ class Problem(object):
     raise Exception("You have to subclass and overwrite the eval function")
 
   def __call__(self, point):
-    return self.eval(point)
+    return self.eval(point.x)
 
 
 class Result(object):
   '''
   class for one result, mapping of x to fx
   '''
-  def __init__(self, x, fx):
-    self._x = x
+  def __init__(self, point, fx):
+    if point and not isinstance(point, Point): 
+      raise Exception("point must be a Point")
+    self._point = point
     self._fx = fx
     self._time = time.time()
 
   @property
-  def x(self): return self._x
+  def x(self): return self._point.x  
+
+  @property
+  def point(self): return self._point
 
   @property
   def fx(self): return self._fx
@@ -107,7 +111,7 @@ class Result(object):
     return cmp(self._fx, other._fx)
 
   def __repr__(self):
-    return 'f(%s) -> %s' % (self._x, self._fx)
+    return 'f(%s) -> %s' % (self.x, self.fx)
 
 class Results(object):
   '''
@@ -129,11 +133,13 @@ class Results(object):
     add a new list of @Result objects.
     listeners will get notified.
     '''
+    if isinstance(results, Result):
+      results = [ results ]
     for r in results:
       heapq.heappush(self._results, r)
       if r.fx < self._best.fx: 
         self._best = r
-        logger.info("new best: %s", r)
+        logger.info("new best [%s]: %s" %(self.best.point.who, self.best))
     for l in self._listener:
       l.notify(results)
 
@@ -141,8 +147,8 @@ class Results(object):
     self.add_results(results)
     return self
 
-  def best(self):
-    return self._best
+  @property
+  def best(self): return self._best
 
   def n_best(self, n):
     return heapq.nsmallest(n, self._results)
@@ -156,14 +162,16 @@ class Controller(threading.Thread):
   This thread selects new points from the point generating
   threads and submits the calculations to the cluster.
   '''
-  def __init__(self, problem, results, rand_pts, heur_pts, calc_pts, lhyp_pts, nb_gens=1):
+  def __init__(self, problem, results, rand, near1, near2, calc, lhyp, zero, nb_gens=1):
     threading.Thread.__init__(self, name="controller")
     self.problem = problem
     self.results = results
-    self._rand_pts = rand_pts
-    self._heur_pts = heur_pts
-    self._calc_pts = calc_pts
-    self._lhyp_pts = lhyp_pts
+    self._rand = rand
+    self._near1 = near1
+    self._near2 = near2
+    self._calc = calc
+    self._lhyp = lhyp
+    self._zero = zero
     self._setup_cluster(nb_gens)
 
   def run(self):
@@ -175,34 +183,36 @@ class Controller(threading.Thread):
     while cnt < MAX:
       new_points = []
 
-      # add all calculated points
-      new_points.extend(self._calc_pts.get_points(1))
+      new_points.extend(self._zero.get_points(1))
 
-      # heuristic points
-      new_points.extend(self._heur_pts.get_points(5))
+      # add all calculated points
+      #new_points.extend(self._calc.get_points(1))
+
+      # nearby points
+      new_points.extend(self._near1.get_points(3))
+      new_points.extend(self._near2.get_points(3))
 
       # latin hypercube
-      new_points.extend(self._lhyp_pts.get_points(5))
+      new_points.extend(self._lhyp.get_points(5))
 
       if cnt < MAX:
         #nb_new = max(0, min(CAP - len(new_points), MAX - cnt))
         nb_new = 1
-        nrp = self._rand_pts.get_points(nb_new)
+        nrp = self._rand.get_points(nb_new)
         new_points.extend(nrp)
 
       # TODO this is just a demo
       #logger.info('%2d new points' % len(new_points))
       if len(new_points) == 0: raise Exception("no new points!")
-      for p in new_points: 
+      for point in new_points: 
         cnt += 1
         #logger.info(" new point: %s" % p)
         # TODO later there is a separat thread collecting
         # results and adding them to the @result list
         # and notifying all generating threads
         time.sleep(1e-3)
-        import random
-        r = Result(x=p, fx=self.problem(p))
-        self.results += [r]
+        res = Result(point, fx=self.problem(point))
+        self.results += res
 
   def _setup_cluster(self, nb_gens):
     from IPython.parallel import Client, require

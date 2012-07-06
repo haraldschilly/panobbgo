@@ -15,6 +15,7 @@ _parser.add_option('-c', '--config-file', dest="config_file",
                   help='configuration file [default: %default]', default=default_config_fn)
 _parser.add_option('-p', '--profile', dest='ipy_profile', 
                   help='IPython profile for the ipcluster configuration')
+_parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
 _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
 
 _options, _args = _parser.parse_args()
@@ -38,6 +39,7 @@ if not os.path.exists(_options.config_file):
 
   _cfgp.add_section('core') # core configuration
   _cfgp.set('core', 'loglevel', '50') # default: no debug mode
+  _cfgp.set('core', 'max_eval', '1000')
 
   with open(_options.config_file, 'wb') as configfile:
     _cfgp.write(configfile)
@@ -47,7 +49,8 @@ _cfgp = ConfigParser()
 _cfgp.read(_options.config_file)
 
 # 3: override specific settings
-if _options.verbosity: _cfgp.set('core', 'loglevel', str(50 - 10*_options.verbosity))
+if _options.verbosity:   _cfgp.set('core', 'loglevel', str(50 - 10*_options.verbosity))
+if _options.max_eval:    _cfgp.set('core', 'max_eval', str(_options.max_eval))
 if _options.ipy_profile: _cfgp.set('ipython', 'profile', _options.ipy_profile)
 
 ## some generic function
@@ -65,6 +68,7 @@ print 'config.ini: %s' % all()
 
 ## specific data
 loglevel    = _cfgp.getint('core', 'loglevel')
+max_eval    = _cfgp.getint('core', 'max_eval')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
 print 'loglevel: %s' % loglevel

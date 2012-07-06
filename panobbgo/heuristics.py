@@ -107,7 +107,7 @@ class LatinHypercube(PointProvider):
     [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
     return pts
       
-class HeuristicPoints(PointProvider):
+class NearbyPoints(PointProvider):
   '''
   This provider generates new points based
   on a cheap (i.e. fast) algorithm.
@@ -126,7 +126,7 @@ class HeuristicPoints(PointProvider):
       x = best.x
       # generate new points near best x 
       for _ in range(2): 
-        dx = ( np.random.rand(self.problem.dim) - .5 ) / self.radius
+        dx = ( np.random.rand(self.problem.dim) - .5 ) * self.radius
         dx *= self.problem.ranges
         ret.append(x + dx)
     return ret

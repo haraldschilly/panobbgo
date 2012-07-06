@@ -59,11 +59,12 @@ problem = Rosenbrock(3)
 
 results = Results()
 
-rand_pts = RandomPoints(problem, results)
-heur_pts_1000 = HeuristicPoints(problem, results, radius=1./1000)
-heur_pts_100  = HeuristicPoints(problem, results, radius=1./100)
-heur_pts_10   = HeuristicPoints(problem, results, radius=1./10)
-calc_pts = CalculatedPoints(problem, results)
+rand      = RandomPoints(problem, results)
+heur_1000 = NearbyPoints(problem, results, radius=1./1000)
+heur_100  = NearbyPoints(problem, results, radius=1./100)
+heur_10   = NearbyPoints(problem, results, radius=1./10)
+calc      = CalculatedPoints(problem, results)
+zero      = ZeroPoint(problem)
 
 # target of 1000 generated points is the inverse of the gamma function
 from scipy import special as sp

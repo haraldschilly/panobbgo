@@ -11,7 +11,12 @@ setup(
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
-    install_requires = ['docutils>=0.3', "numpy >= 1.5.0", "IPython >= 0.12" ],
+    install_requires = [
+        'docutils >= 0.3', 
+        "numpy    >= 1.5.0", 
+        "scipy    >= 0.9.0",
+        "IPython  >= 0.12" 
+    ],
 
     package_data = {
         # If any package contains *.txt or *.rst files, include them:

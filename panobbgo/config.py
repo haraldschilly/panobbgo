@@ -40,6 +40,7 @@ if not os.path.exists(_options.config_file):
   _cfgp.add_section('core') # core configuration
   _cfgp.set('core', 'loglevel', '40') # default: no debug mode
   _cfgp.set('core', 'max_eval', '1000')
+  _cfgp.set('core', 'discount', '0.995')
 
   with open(_options.config_file, 'wb') as configfile:
     _cfgp.write(configfile)
@@ -70,6 +71,7 @@ print 'config.ini: %s' % all()
 ## specific data
 loglevel    = _cfgp.getint('core', 'loglevel')
 max_eval    = _cfgp.getint('core', 'max_eval')
+discount    = _cfgp.getfloat('core', 'discount')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
 print 'loglevel: %s' % loglevel

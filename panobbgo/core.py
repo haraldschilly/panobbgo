@@ -95,13 +95,16 @@ class Result(object):
     self._time = time.time()
 
   @property
-  def x(self): return self._point.x  
+  def x(self): return self.point.x
 
   @property
   def point(self): return self._point
 
   @property
   def fx(self): return self._fx
+
+  @property
+  def who(self): return self.point.who
 
   @property
   def error(self): return 0.0
@@ -137,9 +140,12 @@ class Results(object):
       results = [ results ]
     for r in results:
       heapq.heappush(self._results, r)
-      if r.fx < self._best.fx: 
-        self._best = r
-        logger.info("* %-20s %s" %('[%s]' % self.best.point.who, self.best))
+      if r.fx < self.best.fx: 
+        if self.best.fx < np.infty:
+          fx_delta = np.log1p(self.best.fx - r.fx) # TODO log1p ok?
+          r.who.reward(fx_delta)
+        logger.info("* %-20s %s" %('[%s]' % r.who, r))
+        self._best = r # set the new best point
     for l in self._listener:
       l.notify(results)
 
@@ -170,6 +176,7 @@ class Controller(threading.Thread):
       if not isinstance(h, Heuristic):
         raise Exception('List must contain Heuristics')
     self.heurs = heurs
+    self.rounds = 0
     self._setup_cluster(nb_gens)
 
   def run(self):
@@ -181,8 +188,17 @@ class Controller(threading.Thread):
     while cnt < MAX:
       new_points = []
 
+      target = 10 #target 10 new points
+      perf_sum = sum(h.perf for h in self.heurs)
       for h in self.heurs:
-        new_points.extend(h.get_points(1))
+        # calc probability based on perfomance with additive smoothing
+        delta = .5
+        prob = (h.perf + delta)/(perf_sum + delta * len(self.heurs)) 
+        np_h = int(target * prob) + 1
+        #logger.info("  %s -> %s" % (h, np_h))
+        if self.rounds < 5:
+          np_h = int(float(target) / len(self.heurs)) + 1
+        new_points.extend(h.get_points(np_h))
 
       # TODO this is just a demo
       #logger.info('%2d new points' % len(new_points))
@@ -196,6 +212,13 @@ class Controller(threading.Thread):
         time.sleep(1e-3)
         res = Result(point, fx=self.problem(point))
         self.results += res
+
+      # discount all heuristics after each round
+      for h in self.heurs:
+        h.discount()
+
+      logger.debug('  '.join(('%s:%.3f' % (h, h.perf) for h in self.heurs)))
+      self.rounds += 1
 
   def _setup_cluster(self, nb_gens):
     from IPython.parallel import Client, require

@@ -13,7 +13,7 @@ class Rosenbrock(Problem):
   f(x) = sum_i (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
   '''
   def __init__(self, dims, par1 = 100):
-    box = [(-2,2)] * dims
+    box = [(-4,4)] * dims
     box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
     Problem.__init__(self, box)
@@ -69,7 +69,7 @@ class Rastrigin(Problem):
   f(x) = 10*n + sum_i (x_i^2 - 10 cos(2 pi x_i) )
   '''
   def __init__(self, dims, par1 = 10, offset=0):
-    box = [(-5,5)] * dims
+    box = [(-2,2)] * dims
     self.offset = offset
     self.par1 = par1
     Problem.__init__(self, box)
@@ -79,16 +79,19 @@ class Rastrigin(Problem):
     return self.par1 * self.dim + \
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
   
-problem = Rosenbrock(2)
-#problem = Rosenbrock(3, 5)
-#problem = RosenbrockAbs(3)
-#problem = Rastrigin(4, offset=1.1)
+#problem = Rosenbrock(2)
+#problem = RosenbrockStochastic(2)
+#problem = Rosenbrock(3, 100)
+#problem = RosenbrockAbs(2)
+problem = Rastrigin(2, offset=1.11111)
+#problem = Himmelblau()
 
 results = Results()
 
 rand      = RandomPoints(problem, results)
-near_1000 = NearbyPoints(problem, results, radius=1./1000)
-near_100  = NearbyPoints(problem, results, radius=1./100)
+near_1000 = NearbyPoints(problem, results, radius=1./1000, axes='all')
+near_100  = NearbyPoints(problem, results, radius=1./100,  axes='all')
+near_10_all = NearbyPoints(problem, results, radius=1./10, axes='all')
 near_10   = NearbyPoints(problem, results, radius=1./10)
 calc      = CalculatedPoints(problem, results)
 zero      = ZeroPoint(problem)
@@ -103,7 +106,7 @@ else:
   div = 7 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(problem, results, div)
 
-heurs = [ rand, near_10, near_100, near_1000, calc, lhyp, zero]
+heurs = [ rand, near_10_all, near_100, lhyp, zero]
 controller = Controller(problem, results, heurs)
 calc.set_machines(controller.generators) #use nb_machines for calc. new points
 calc.start()

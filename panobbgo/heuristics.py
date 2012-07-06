@@ -3,6 +3,7 @@ import threading
 from Queue import PriorityQueue, Empty, Queue, LifoQueue
 import numpy as np
 from IPython.utils.timing import time
+import config
 from core import logger
 
 class Point(object):
@@ -40,6 +41,10 @@ class Heuristic(threading.Thread):
       self._results = results
       self._results.add_listener(self)
     self._q = q if q else Queue(cap)
+
+    # statistics
+    self._perf = 1.0
+
     self.daemon = True
     # and start me
     if start: self.start()
@@ -60,6 +65,18 @@ class Heuristic(threading.Thread):
     x = self.problem.project(point)
     point = Point(x, self)
     self._q.put(point)
+
+  def reward(self, reward):
+    '''
+    Give this heuristic a reward (e.g. when it finds a new point)
+    '''
+    self._perf += reward
+
+  def discount(self, discount = None):
+    '''
+    Discount the heuristic's reward. Default is set in the configuration.
+    '''
+    self._perf *= discount if discount else config.discount 
 
   def notify(self, results):
     '''
@@ -95,6 +112,9 @@ class Heuristic(threading.Thread):
 
   @property
   def name(self): return self._name
+
+  @property
+  def perf(self): return self._perf
 
 class RandomPoints(Heuristic):
   '''
@@ -152,12 +172,20 @@ class NearbyPoints(Heuristic):
   it picks the so far best point (regardless of the new result)
   and generates @new many nearby point(s). 
   The @radius is scaled along each dimension's range in the search box.
+  
+
+  Arguments::
+  
+    - axes: 
+       * one: only desturb one axis
+       * all: desturb all axes
   '''
-  def __init__(self, problem, results, cap = 3, radius = 1./100, new = 1):
+  def __init__(self, problem, results, cap = 3, radius = 1./100, new = 1, axes = 'one'):
     q = LifoQueue(cap)
     self.radius = radius
     self.new    = new
-    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f" % radius,\
+    self.axes   = axes
+    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes),\
                            problem=problem, results=results)
 
   def calc_points(self):
@@ -168,9 +196,19 @@ class NearbyPoints(Heuristic):
       x = best.x
       # generate @new many new points near best x 
       for _ in range(self.new): 
-        dx = ( np.random.rand(self.problem.dim) - .5 ) * self.radius
-        dx *= self.problem.ranges
-        ret.append(x + dx)
+        if self.axes == 'all':
+          dx = ( np.random.rand(self.problem.dim) - .5 ) * self.radius
+          dx *= self.problem.ranges
+          new_x = x + dx
+        elif self.axes == 'one':
+          idx = np.random.randint(self.problem.dim)
+          dx = (np.random.rand() - .5) * self.radius
+          dx *= self.problem.ranges[idx]
+          new_x = x.copy()
+          new_x[idx] += dx
+        else:
+          raise Exception("axis parameter not 'one' or 'all'")
+        ret.append(new_x)
     return ret
 
 class ExtremalPoints(Heuristic):
@@ -222,6 +260,7 @@ class CalculatedPoints(Heuristic):
     
 
   def calc_points(self):
-    return np.array([99]*self._problem.dim)
+    #return np.array([99]*self._problem.dim)
+    pass
 
 

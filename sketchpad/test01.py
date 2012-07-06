@@ -13,7 +13,7 @@ class Rosenbrock(Problem):
   f(x) = sum_i (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
   '''
   def __init__(self, dims, par1 = 100):
-    box = [(-5,5)] * dims
+    box = [(-2,2)] * dims
     box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
     Problem.__init__(self, box)
@@ -36,7 +36,6 @@ class RosenbrockAbs(Problem):
                np.abs(1-x[:-1]))
     
 
-
 class Rastrigin(Problem):
   '''
   f(x) = 10*n + sum_i (x_i^2 - 10 cos(2 pi x_i) )
@@ -52,9 +51,10 @@ class Rastrigin(Problem):
     return self.par1 * self.dim + \
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
   
-#problem = Rosenbrock(3)
+problem = Rosenbrock(2)
+#problem = Rosenbrock(3, 5)
 #problem = RosenbrockAbs(3)
-problem = Rastrigin(2, offset=1.1)
+#problem = Rastrigin(4, offset=1.1)
 
 results = Results()
 
@@ -75,7 +75,8 @@ else:
   div = 7 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(problem, results, div)
 
-controller = Controller(problem, results, rand, near_10, near_100, calc, lhyp, zero)
+heurs = [ rand, near_10, near_100, near_1000, calc, lhyp, zero]
+controller = Controller(problem, results, heurs)
 calc.set_machines(controller.generators) #use nb_machines for calc. new points
 calc.start()
 

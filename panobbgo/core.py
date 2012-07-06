@@ -111,7 +111,7 @@ class Result(object):
     return cmp(self._fx, other._fx)
 
   def __repr__(self):
-    return 'f(%s) -> %s' % (self.x, self.fx)
+    return '%11.6f @ f(%s)' % (self.fx, self.x)
 
 class Results(object):
   '''
@@ -139,7 +139,7 @@ class Results(object):
       heapq.heappush(self._results, r)
       if r.fx < self._best.fx: 
         self._best = r
-        logger.info("new best [%s]: %s" %(self.best.point.who, self.best))
+        logger.info("* %-20s %s" %('[%s]' % self.best.point.who, self.best))
     for l in self._listener:
       l.notify(results)
 
@@ -162,16 +162,14 @@ class Controller(threading.Thread):
   This thread selects new points from the point generating
   threads and submits the calculations to the cluster.
   '''
-  def __init__(self, problem, results, rand, near1, near2, calc, lhyp, zero, nb_gens=1):
+  def __init__(self, problem, results, heurs, nb_gens=1):
     threading.Thread.__init__(self, name="controller")
     self.problem = problem
     self.results = results
-    self._rand = rand
-    self._near1 = near1
-    self._near2 = near2
-    self._calc = calc
-    self._lhyp = lhyp
-    self._zero = zero
+    for h in heurs:
+      if not isinstance(h, Heuristic):
+        raise Exception('List must contain Heuristics')
+    self.heurs = heurs
     self._setup_cluster(nb_gens)
 
   def run(self):
@@ -183,23 +181,8 @@ class Controller(threading.Thread):
     while cnt < MAX:
       new_points = []
 
-      new_points.extend(self._zero.get_points(1))
-
-      # add all calculated points
-      #new_points.extend(self._calc.get_points(1))
-
-      # nearby points
-      new_points.extend(self._near1.get_points(3))
-      new_points.extend(self._near2.get_points(3))
-
-      # latin hypercube
-      new_points.extend(self._lhyp.get_points(5))
-
-      if cnt < MAX:
-        #nb_new = max(0, min(CAP - len(new_points), MAX - cnt))
-        nb_new = 1
-        nrp = self._rand.get_points(nb_new)
-        new_points.extend(nrp)
+      for h in self.heurs:
+        new_points.extend(h.get_points(1))
 
       # TODO this is just a demo
       #logger.info('%2d new points' % len(new_points))

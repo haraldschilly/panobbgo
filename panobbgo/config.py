@@ -38,7 +38,7 @@ if not os.path.exists(_options.config_file):
   _cfgp.set('ipython', 'profile', 'default')
 
   _cfgp.add_section('core') # core configuration
-  _cfgp.set('core', 'loglevel', '50') # default: no debug mode
+  _cfgp.set('core', 'loglevel', '40') # default: no debug mode
   _cfgp.set('core', 'max_eval', '1000')
 
   with open(_options.config_file, 'wb') as configfile:
@@ -49,7 +49,8 @@ _cfgp = ConfigParser()
 _cfgp.read(_options.config_file)
 
 # 3: override specific settings
-if _options.verbosity:   _cfgp.set('core', 'loglevel', str(50 - 10*_options.verbosity))
+_cur_verb = _cfgp.getint('core', 'loglevel')
+if _options.verbosity:   _cfgp.set('core', 'loglevel', str(_cur_verb - 10*_options.verbosity))
 if _options.max_eval:    _cfgp.set('core', 'max_eval', str(_options.max_eval))
 if _options.ipy_profile: _cfgp.set('ipython', 'profile', _options.ipy_profile)
 

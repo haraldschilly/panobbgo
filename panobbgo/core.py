@@ -47,14 +47,14 @@ class Problem(object):
           raise Exception("box entries must be numbers")
       if entry[0] > entry[1]:
         raise Exception("box entries must be non decreasing")
-        
+
     self._dim = len(box)
     self._box = np.array(box, dtype=np.float)
     self._ranges = self._box[:,1] - self._box[:,0]
 
   @property
   def dim(self): return self._dim
-  
+
   @property
   def ranges(self): return self._ranges
 
@@ -209,7 +209,7 @@ class Controller(threading.Thread):
         # TODO later there is a separat thread collecting
         # results and adding them to the @result list
         # and notifying all generating threads
-        time.sleep(1e-3)
+        #time.sleep(1e-3)
         res = Result(point, fx=self.problem(point))
         self.results += res
 
@@ -225,19 +225,19 @@ class Controller(threading.Thread):
     self._c = c = Client(profile=config.ipy_profile)
     c.clear() # clears remote engines
     c.purge_results('all') # all results are memorized in the hub
-    
+
     if len(c.ids) < nb_gens + 1:
       raise Exception('I need at least %d clients.' % (nb_gens + 1))
     self.generators = c.load_balanced_view(c.ids[:nb_gens])
     self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
-  
+
     # import some packages  (also locally)
     with c[:].sync_imports():
-      from IPython.utils.timing import time 
+      from IPython.utils.timing import time
       import numpy
       import math
 
-      
+
 class Collector(threading.Thread):
   '''
   This thread collects new results from the cluster
@@ -245,7 +245,7 @@ class Collector(threading.Thread):
   '''
   def __init__(self):
     threading.Thread.__init__(self)
-    
+
   def run(self):
     pass
 

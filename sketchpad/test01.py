@@ -100,10 +100,10 @@ zero      = ZeroPoint(problem)
 if False:
   from scipy import special as sp
   from scipy.optimize import fmin
-  m = fmin(lambda x : (sp.gamma(x) - config.max_eval)**2, [5])
+  m = fmin(lambda x : (sp.gamma(x) - config.max_eval / 3.0)**2, [5])
   div = max(1, int(m[0]))
 else:
-  div = 7 # for 1000, should be 7 to 8
+  div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(problem, results, div)
 
 heurs = [ rand, near_10_all, near_100, lhyp, zero]

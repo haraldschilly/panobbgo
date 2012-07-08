@@ -49,7 +49,7 @@ class Heuristic(threading.Thread):
     # and start me
     if start: self.start()
 
-  def run(self): 
+  def run(self):
     '''
     This calls the calc_points() method repeatedly. You can also overwrite
     the run() method if you like. Also note, that you can iterate over the
@@ -154,7 +154,7 @@ class LatinHypercube(Heuristic):
     self.lengths = problem.ranges / float(div)
     Heuristic.__init__(self, cap=cap, name="Latin Hypercube", \
                            problem=problem, results=results)
- 
+
   def calc_points(self):
     div = self.div
     dim = self.problem.dim
@@ -164,7 +164,7 @@ class LatinHypercube(Heuristic):
     pts += self.problem.box[:,0]    # shift with min
     [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
     return pts
-      
+
 class NearbyPoints(Heuristic):
   '''
   This provider generates new points based
@@ -172,11 +172,10 @@ class NearbyPoints(Heuristic):
   it picks the so far best point (regardless of the new result)
   and generates @new many nearby point(s). 
   The @radius is scaled along each dimension's range in the search box.
-  
 
   Arguments::
-  
-    - axes: 
+
+    - axes:
        * one: only desturb one axis
        * all: desturb all axes
   '''
@@ -185,7 +184,7 @@ class NearbyPoints(Heuristic):
     self.radius = radius
     self.new    = new
     self.axes   = axes
-    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes),\
+    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes),
                            problem=problem, results=results)
 
   def calc_points(self):
@@ -219,13 +218,13 @@ class ExtremalPoints(Heuristic):
   from 0 to 1, which indicate the probability for sampling from the
   minimum, zero or the maximum. default = ( 1, .2, 1 )
   '''
-  def __init__(self, problem, results, cap = 10):
-    if where is None: where = (1, .2, 1)
-    self.l = len(where)
-    for i in where:
+  def __init__(self, problem, results, cap = 10, prob = None):
+    if prob is None: prob = (1, .2, 1)
+    self.prob = len(prob)
+    for i in prob:
       if i < 0 or i > 1:
-        raise Exception("entries in where must be in [0, 1]")
-    where =  np.array(where) / float(max(where))
+        raise Exception("entries in prob must be in [0, 1]")
+    prob =  np.array(prob) / float(max(prob))
     Heuristic.__init__(self, cap=cap, name="Extremal",\
                            problem=problem, results=results)
 
@@ -241,7 +240,7 @@ class ZeroPoint(Heuristic):
   '''
   def __init__(self, problem):
     Heuristic.__init__(self, name="Zero", cap=1, problem=problem, results=None)
-  
+
   def run(self):
     self.emit(np.zeros(self.problem.dim))
 
@@ -257,10 +256,10 @@ class CalculatedPoints(Heuristic):
 
   def set_machines(self, machines):
     self.machines = machines # this is already a load_balanced view
-    
+
 
   def calc_points(self):
     #return np.array([99]*self._problem.dim)
-    pass
+    return []
 
 

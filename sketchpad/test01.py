@@ -78,12 +78,12 @@ class Rastrigin(Problem):
     x = x - self.offset
     return self.par1 * self.dim + \
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
-  
+
 #problem = Rosenbrock(2)
-#problem = RosenbrockStochastic(2)
+problem = RosenbrockStochastic(2)
 #problem = Rosenbrock(3, 100)
 #problem = RosenbrockAbs(2)
-problem = Rastrigin(2, offset=1.11111)
+#problem = Rastrigin(2, offset=1.11111)
 #problem = Himmelblau()
 
 results = Results()

@@ -116,4 +116,7 @@ controller.start()
 # and processed by the controller thread.
 controller.join()
 
-print "best: ", results.best
+if not results.best is None:
+  print "best: ", results.best
+else:
+  print "no best solution found"

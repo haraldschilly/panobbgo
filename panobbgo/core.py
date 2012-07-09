@@ -14,14 +14,10 @@ import heapq
 from Queue import PriorityQueue, Empty, Queue
 import numpy as np
 # time.time & time.clock for cpu time
-from IPython.utils.timing import time 
+from IPython.utils.timing import time
 
-from utils import logger
+from utils import logger, stats
 from heuristics import *
-
-# global vars
-cnt = 0
-MAX = config.max_eval
 
 class Problem(object):
   '''
@@ -184,8 +180,14 @@ class Controller(threading.Thread):
     This thread consumes entries from search_points
     and dispatches them to the workers in parallel.
     '''
-    global cnt, logger
-    while cnt < MAX:
+    while stats.cnt < config.max_eval:
+      while True:
+        self.evaluators.spin() # check outstanding tasks
+        stats.update_finished(self.evaluators.outstanding)
+        if stats.pending < 10:
+          break
+        time.sleep(1e-3)
+
       new_points = []
 
       target = 10 #target 10 new points
@@ -208,16 +210,19 @@ class Controller(threading.Thread):
           break
 
 
-      for point in new_points: 
-        cnt += 1
-        #logger.info(" new point: %s" % p)
-        # TODO later there is a separat thread collecting
-        # results and adding them to the @result list
-        # and notifying all generating threads
-        #time.sleep(1e-3)
-        #map_async(func, tids, vals, chunksize = cs, ordered=False)
-        res = Result(point, fx=self.problem(point))
-        self.results += res
+      #for point in new_points:
+      #  stats.add_cnt()
+      #  #logger.info(" new point: %s" % p)
+      #  # TODO later there is a separat thread collecting
+      #  # results and adding them to the @result list
+      #  # and notifying all generating threads
+      #  #time.sleep(1e-3)
+      #  res = Result(point, fx=self.problem(point))
+      #  self.results += res
+
+      new_tasks = self.evaluators.map_async(np.sin, [ 2 ] , chunksize = 3, ordered=False)
+      stats.add_tasks(new_tasks)
+      stats.update_finished(self.evaluators.outstanding)
 
       # discount all heuristics after each round
       for h in self.heurs:
@@ -225,6 +230,7 @@ class Controller(threading.Thread):
 
       logger.debug('  '.join(('%s:%.3f' % (h, h.perf) for h in self.heurs)))
       self.rounds += 1
+    self.collector.stop = True
 
   def _setup_cluster(self, nb_gens):
     from IPython.parallel import Client, require
@@ -243,15 +249,29 @@ class Controller(threading.Thread):
       import numpy
       import math
 
+    self._collector = Collector(self)
+
 
 class Collector(threading.Thread):
   '''
   This thread collects new results from the cluster
   and sends them in the @Results list.
   '''
-  def __init__(self):
-    threading.Thread.__init__(self)
+  def __init__(self, controller):
+    self.controller = controller
+    self.stop = False
+    threading.Thread.__init__(self, name='collector')
+    self.start()
 
   def run(self):
-    pass
+    while not self.stop:
+      for msg_id in stats.get_finished():
+        # we know these are done, so don't worry about blocking
+        res = self.controller.evaluators.get_result(msg_id)
+
+        # each job returns a list of length chunksize
+        for r in res.result:
+          self.controller.results += r
+
+      time.sleep(1e-3)
 

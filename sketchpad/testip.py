@@ -153,7 +153,7 @@ while pending or added < MAX:
     # update the counter
     added += new
     new_points_tasks = generators.map_async(gen_points, [new], [DIMSIZE], [cur_best_res], [cur_best_x], ordered=False)
-    print ">>>", new_points_tasks.msg_ids
+    #print ">>>", new_points_tasks.msg_ids
     map(pending_generators.add, new_points_tasks.msg_ids)
 
   finished_generators = pending_generators.difference(generators.outstanding)
@@ -164,7 +164,7 @@ while pending or added < MAX:
     res = generators.get_result(msg_id)
     nb_generated += len(res.result)
     for g in res.result:
-      logger.info('new points "%s" = %s' % (msg_id, g))
+      #logger.info('new points "%s" = %s' % (msg_id, g))
       cs = max(1, min(5, len(res.result)))
       newt = evaluators.map_async(func, tids, vals, chunksize = cs, ordered=False)
       cum_sum += 1

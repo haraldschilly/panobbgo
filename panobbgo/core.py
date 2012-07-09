@@ -190,19 +190,24 @@ class Controller(threading.Thread):
 
       target = 10 #target 10 new points
       perf_sum = sum(h.perf for h in self.heurs)
-      for h in self.heurs:
-        # calc probability based on perfomance with additive smoothing
-        delta = .5
-        prob = (h.perf + delta)/(perf_sum + delta * len(self.heurs)) 
-        np_h = int(target * prob) + 1
-        #logger.info("  %s -> %s" % (h, np_h))
-        if self.rounds < 5:
-          np_h = int(float(target) / len(self.heurs)) + 1
-        new_points.extend(h.get_points(np_h))
+      while True:
+        for h in self.heurs:
+          # calc probability based on perfomance with additive smoothing
+          delta = .5
+          prob = (h.perf + delta)/(perf_sum + delta * len(self.heurs)) 
+          np_h = int(target * prob) + 1
+          #logger.info("  %s -> %s" % (h, np_h))
+          if self.rounds < 5:
+            np_h = int(float(target) / len(self.heurs)) + 1
+          new_points.extend(h.get_points(np_h))
 
-      # TODO this is just a demo
-      #logger.info('%2d new points' % len(new_points))
-      if len(new_points) == 0: raise Exception("no new points!")
+        # TODO make this more intelligent
+        if len(new_points) == 0:
+          time.sleep(1e-3)
+        else:
+          break
+
+
       for point in new_points: 
         cnt += 1
         #logger.info(" new point: %s" % p)
@@ -210,6 +215,7 @@ class Controller(threading.Thread):
         # results and adding them to the @result list
         # and notifying all generating threads
         #time.sleep(1e-3)
+        #map_async(func, tids, vals, chunksize = cs, ordered=False)
         res = Result(point, fx=self.problem(point))
         self.results += res
 

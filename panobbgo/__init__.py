@@ -1,3 +1,4 @@
 __version__ = '0.01pre'
 
-from core import *
+#from core import *
+#import strategies

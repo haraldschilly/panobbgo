@@ -1,12 +1,12 @@
 *.swp
 *.pyc
 build/*
-psnobfit.egg-info/*
-doc/build/*
-dist/*
+doc/build/
+dist/
 config.ini
 bin/
 include/
 lib/
 local/
 share/
+panobbgo.egg-info/

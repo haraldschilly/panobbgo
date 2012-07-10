@@ -34,11 +34,12 @@ def strategy1(problem, results, heurs, nb_gens=1):
   #from heuristics import Point
   #  points = [ Point(np.random.rand(2), "test"), Point(np.random.rand(2), "test2") ]
   points = []
-  for _ in range(100):
+  for _ in range(10):
     time.sleep(1e-3)
     for h in heurs:
       points.extend(h.get_points(2))
   fff = Reference("problem")
+  #fff = problem
   #fff = lambda x : x.x.dot(x.x)
   new_tasks = evaluators.map_async(fff, points, chunksize = 3, ordered=False)
   new_tasks.wait()

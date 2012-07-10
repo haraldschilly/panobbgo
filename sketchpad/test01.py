@@ -18,6 +18,16 @@ problem = RosenbrockStochastic(2)
 #problem = Rastrigin(2, offset=1.11111)
 #problem = Himmelblau()
 
+#class LocalProblem(Problem):
+#  def __init__(self):
+#    box = [(-5,5)]
+#    Problem.__init__(self, box)
+#
+#  def eval(self, x):
+#    return np.cos(np.abs(x))**2.0
+#
+#problem = LocalProblem()
+
 results = Results()
 
 rand      = RandomPoints(problem, results)

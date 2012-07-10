@@ -1,4 +1,10 @@
 # -*- coding: utf8 -*-
+'''
+This file contains the basic objects to build a problem and to do a single evaluation.
+'''
+
+# ATTN: make sure, that this doesn't depend on the config or threading modules.
+#       the serialization and reconstruction won't work!
 import numpy as np
 from IPython.utils.timing import time
 
@@ -156,7 +162,7 @@ class RosenbrockAbs(Problem):
   def eval(self, x):
     return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
                np.abs(1-x[:-1]))
-    
+
 class RosenbrockStochastic(Problem):
   '''
   f(x) = sum_i (100 eps_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)

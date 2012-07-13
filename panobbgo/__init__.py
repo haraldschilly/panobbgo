@@ -1,4 +1,4 @@
-__version__ = '0.01pre'
+__version__ = '0.0.1pre'
 
 #from core import *
 #import strategies

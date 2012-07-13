@@ -3,13 +3,13 @@
 
 import sys
 sys.path.append(".")
-from panobbgo.problem_lib import Problem
+from panobbgo_problems import Problem
 from panobbgo.core import Results
 from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube
 from panobbgo.strategies import strategy_bare, Strategy0
 import numpy as np
 
-from panobbgo.problems import *
+from panobbgo_problems.classic import *
 
 #problem = Rosenbrock(2)
 problem = RosenbrockStochastic(2)

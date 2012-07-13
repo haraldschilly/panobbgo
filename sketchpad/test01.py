@@ -53,7 +53,8 @@ strategy0 = Strategy0(problem, results, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
-strategy0.run()
+strategy0.start()
+strategy0.join()
 
 #print strategy_bare(problem, results, heurs)
 

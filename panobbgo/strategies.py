@@ -1,10 +1,10 @@
 # -*- coding: utf8 -*-
 import config
-#from utils import stats, logger
-#from core import Heuristic
+import threading
+from utils import stats, logger
 from IPython.parallel import Client, Reference #, require, Reference
 from IPython.utils.timing import time
-#import numpy as np
+import numpy as np
 
 def _setup_cluster(nb_gens, problem):
   c = Client(profile=config.ipy_profile)
@@ -26,27 +26,31 @@ def _setup_cluster(nb_gens, problem):
   return generators, evaluators
 
 
-class Strategy0(object):
+class Strategy0(threading.Thread):
   def __init__(self, problem, results, heurs):
     self.problem = problem
     self.results = results
     self.heurs = heurs
     self._setup_cluster(1, problem)
+    threading.Thread.__init__(self, name="Strategy0")
 
   def _setup_cluster(self, nb_gens, problem):
     self.generators, self.evaluators = _setup_cluster(nb_gens, problem)
 
   def run(self):
-    points = []
-    for _ in range(10):
-      time.sleep(1e-3)
-      for h in self.heurs:
-        points.extend(h.get_points(20))
     fff = Reference("problem")
-    new_tasks = self.evaluators.map_async(fff, points, chunksize = 3, ordered=False)
-    new_tasks.wait()
-    for t in new_tasks:
-      print "%s by %s" % (t, t.point.who)
+    for run in range(10):
+      points = []
+      while len(points) < 10:
+        for h in self.heurs:
+          points.extend(h.get_points(50))
+        if len(points) == 0:
+          time.sleep(1e-3)
+
+      new_tasks = self.evaluators.map_async(fff, points, chunksize = 3, ordered=False)
+      new_tasks.wait()
+      for t in new_tasks:
+        logger.info("run %2d: %s by %s" % (run, t, t.point.who))
 
     print "Strategy0 finished"
 

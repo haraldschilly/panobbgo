@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-#import config
+import config
 #from utils import stats, logger
 #from core import Heuristic
 from IPython.parallel import Client, Reference #, require, Reference
@@ -7,7 +7,7 @@ from IPython.utils.timing import time
 #import numpy as np
 
 def _setup_cluster(nb_gens, problem):
-  c = Client(profile="default") #config.ipy_profile)
+  c = Client(profile=config.ipy_profile)
   c.clear() # clears remote engines
   c.purge_results('all') # all results are memorized in the hub
 
@@ -26,7 +26,34 @@ def _setup_cluster(nb_gens, problem):
   return generators, evaluators
 
 
-def strategy1(problem, results, heurs, nb_gens=1):
+class Strategy0(object):
+  def __init__(self, problem, results, heurs):
+    self.problem = problem
+    self.results = results
+    self.heurs = heurs
+    self._setup_cluster(1, problem)
+
+  def _setup_cluster(self, nb_gens, problem):
+    self.generators, self.evaluators = _setup_cluster(nb_gens, problem)
+
+  def run(self):
+    points = []
+    for _ in range(10):
+      time.sleep(1e-3)
+      for h in self.heurs:
+        points.extend(h.get_points(20))
+    fff = Reference("problem")
+    new_tasks = self.evaluators.map_async(fff, points, chunksize = 3, ordered=False)
+    new_tasks.wait()
+    for t in new_tasks:
+      print "%s by %s" % (t, t.point.who)
+
+    print "Strategy0 finished"
+
+
+
+
+def strategy_bare(problem, results, heurs, nb_gens=1):
   #for h in heurs:
   #  if not isinstance(h, Heuristic):
   #    raise Exception('List must contain Heuristics')

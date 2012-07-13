@@ -7,14 +7,14 @@ from panobbgo import __version__
 setup(
     name = "panobbgo",
     version = __version__, 
-    packages = find_packages(),
+    packages = ['panobbgo'] ,#find_packages(),
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
     install_requires = [
         'docutils >= 0.3', 
-        "numpy    >= 1.5.0", 
-        "scipy    >= 0.9.0",
+        #"numpy    >= 1.5.0", 
+        #"scipy    >= 0.9.0",
         "IPython  >= 0.12" 
     ],
 

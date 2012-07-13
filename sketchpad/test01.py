@@ -3,13 +3,13 @@
 
 import sys
 sys.path.append(".")
-from panobbgo.problem import Problem
+from panobbgo.problem_lib import Problem
 from panobbgo.core import Results
 from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube
-from panobbgo.strategies import strategy1
+from panobbgo.strategies import strategy_bare, Strategy0
 import numpy as np
 
-from panobbgo.problem import *
+from panobbgo.problems import *
 
 #problem = Rosenbrock(2)
 problem = RosenbrockStochastic(2)
@@ -49,13 +49,13 @@ else:
 lhyp= LatinHypercube(problem, results, div)
 
 heurs = [ rand, near_10_all, near_100, lhyp, zero]
-#strategy0 = Strategy0(problem, results, heurs)
+strategy0 = Strategy0(problem, results, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
-#strategy0.run()
+strategy0.run()
 
-print strategy1(problem, results, heurs)
+#print strategy_bare(problem, results, heurs)
 
 if not results.best is None:
   print "best: ", results.best

@@ -18,7 +18,7 @@ from IPython.utils.timing import time
 
 from utils import stats, logger
 from heuristics import *
-from problem import Result
+from problem_lib import Result
 
 
 class Results(object):

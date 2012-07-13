@@ -5,7 +5,7 @@ import numpy as np
 from IPython.utils.timing import time
 import config
 from core import logger
-from problem import Point
+from problem_lib import Point
 
 
 class Heuristic(threading.Thread):

@@ -5,28 +5,8 @@ import numpy as np
 from IPython.utils.timing import time
 import config
 from core import logger
+from panobbgo_problems import Point
 
-class Point(object):
-  '''
-  This contains the x vector for a new point and a 
-  reference to who has generated it.
-  '''
-  def __init__(self, x, who):
-    if not isinstance(who, Heuristic):
-      raise Exception('who needs to be a Heuristic')
-    if not isinstance(x, np.ndarray):
-      raise Exception('x must be a numpy ndarray')
-    self._x   = x
-    self._who = who
-
-  def __str__(self):
-    return '%s by %s' % (self.x, self.who)
-
-  @property
-  def x(self): return self._x
-
-  @property
-  def who(self): return self._who
 
 class Heuristic(threading.Thread):
   '''
@@ -63,7 +43,7 @@ class Heuristic(threading.Thread):
 
   def emit(self, point):
     x = self.problem.project(point)
-    point = Point(x, self)
+    point = Point(x, self.name)
     self._q.put(point)
 
   def reward(self, reward):

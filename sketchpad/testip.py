@@ -37,13 +37,13 @@ generators = c.load_balanced_view(c.ids[:nbGens])
 evaluators = c.load_balanced_view(c.ids[nbGens:])
 
 # MAX number of tasks in total
-MAX = 50000
+MAX = 5000
 # length of test data, sent over the wire
 DIMSIZE = 10
 # when adding machines, this is the number of additional tasks
 # beyond the number of free machines
 new_extra = DIMSIZE 
-    
+
 # import some packages  (also locally)
 with c[:].sync_imports():
   from IPython.utils.timing import time ## time.time & time.clock for cpu time

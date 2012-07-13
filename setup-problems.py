@@ -2,12 +2,12 @@
 
 from setuptools import setup, find_packages
 
-from panobbgo import __version__
+from panobbgo_problems import __version__
 
 setup(
-    name = "panobbgo",
+    name = "panobbgo_problems",
     version = __version__, 
-    packages = ['panobbgo'] ,#find_packages(),
+    packages = ['panobbgo_problems'] ,#find_packages(),
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
@@ -25,12 +25,12 @@ setup(
     #    'hello': ['*.msg'],
     },
 
-    test_suite = "psnobfit.test",
+    #test_suite = "psnobfit.test",
 
     # metadata for upload to PyPI
     author           = "Harald Schilly",
     author_email     = "harald.schilly@univie.ac.at",
-    description      = "Parallel Noisy Black-Box Global Optimization",
+    description      = "Problems for panobbgo",
     url              = "http://github.com/haraldschilly/panobbgo",
     license          = 'BSD',
     keywords = "optimization blackbox stochastic noisy parallel black-box ipython distributed cluster",

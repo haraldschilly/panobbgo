@@ -2,9 +2,9 @@
 import threading
 from Queue import PriorityQueue, Empty, Queue, LifoQueue
 import numpy as np
-from IPython.utils.timing import time
+#from IPython.utils.timing import time
 import config
-from core import logger
+#from core import logger
 from panobbgo_problems import Point
 
 
@@ -12,8 +12,14 @@ class Heuristic(threading.Thread):
   '''
   abstract parent class for all types of point generating classes
   '''
+  # global mapping of heuristic names to their instances.
+  # names must be unique!
+  lookup = dict()
+
   def __init__(self, name, problem, results, q = None, cap = None, start = True):
     self._name = name
+    assert name not in self.lookup
+    self.lookup[name] = self
     threading.Thread.__init__(self, name=name)
     self._problem = problem
     if results:
@@ -101,8 +107,9 @@ class RandomPoints(Heuristic):
   always generates random points until the
   capped queue is full.
   '''
-  def __init__(self, problem, results, cap = 10):
-    Heuristic.__init__(self, cap=cap, name="Random", problem=problem, results=results)
+  def __init__(self, problem, results, cap = 10, name=None):
+    name = "Random" if name is None else name
+    Heuristic.__init__(self, cap=cap, name=name, problem=problem, results=results)
 
   def calc_points(self):
     return [ self.problem.random_point() ]

@@ -15,7 +15,7 @@ class Point(object):
   '''
   def __init__(self, x, who):
     if not isinstance(who, basestring):
-      raise Exception('who needs to be a string describing the heuristic')
+      raise Exception('who needs to be a string describing the heuristic, was %s of type %s' % (who, type(who)))
     if not isinstance(x, np.ndarray):
       raise Exception('x must be a numpy ndarray')
     self._x   = x

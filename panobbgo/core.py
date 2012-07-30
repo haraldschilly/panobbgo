@@ -8,18 +8,12 @@ Basically, one or more threads produce points where to search,
 and another one consumes them and dispatches tasks.
 '''
 
-import config
-import threading
-import heapq
 #from Queue import PriorityQueue, Empty, Queue
-import numpy as np
 # time.time & time.clock for cpu time
-from IPython.utils.timing import time
+# from IPython.utils.timing import time
 
-from utils import stats, logger
-from heuristics import *
+from utils import logger
 from panobbgo_problems import Result
-
 
 class Results(object):
   '''
@@ -31,7 +25,8 @@ class Results(object):
     self._results = []
     # a listener just needs a .notify([..]) method
     self._listener = set() 
-    self._best = Result(None, np.infty)
+    from numpy import infty
+    self._best = Result(None, infty)
 
   def add_listener(self, listener):
     self._listener.add(listener)
@@ -41,6 +36,9 @@ class Results(object):
     add a new list of @Result objects.
     listeners will get notified.
     '''
+    import heapq
+    import numpy as np
+    from heuristics import Heuristic
     if isinstance(results, Result):
       results = [ results ]
     for r in results:
@@ -48,7 +46,7 @@ class Results(object):
       if r.fx < self.best.fx: 
         if self.best.fx < np.infty:
           fx_delta = np.log1p(self.best.fx - r.fx) # TODO log1p ok?
-          r.who.reward(fx_delta)
+          Heuristic.lookup[r.who].reward(fx_delta)
         logger.info("* %-20s %s" %('[%s]' % r.who, r))
         self._best = r # set the new best point
     for l in self._listener:
@@ -62,9 +60,11 @@ class Results(object):
   def best(self): return self._best
 
   def n_best(self, n):
+    import heapq
     return heapq.nsmallest(n, self._results)
 
   def n_worst(self, n):
+    import heapq
     return heapq.nlargest(n, self._results)
 
 

@@ -3,11 +3,11 @@
 
 import sys
 sys.path.append(".")
-from panobbgo_problems import Problem
+#from panobbgo_problems import Problem
 from panobbgo.core import Results
 from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube
-from panobbgo.strategies import strategy_bare, Strategy0
-import numpy as np
+from panobbgo.strategies import Strategy0
+#import numpy as np
 
 from panobbgo_problems.classic import *
 
@@ -30,13 +30,13 @@ problem = RosenbrockStochastic(2)
 
 results = Results()
 
-rand      = RandomPoints(problem, results)
-near_1000 = NearbyPoints(problem, results, radius=1./1000, axes='all')
-near_100  = NearbyPoints(problem, results, radius=1./100,  axes='all')
-near_10_all = NearbyPoints(problem, results, radius=1./10, axes='all')
-near_10   = NearbyPoints(problem, results, radius=1./10)
-#calc      = CalculatedPoints(problem, results)
-zero      = ZeroPoint(problem)
+rand        = RandomPoints(problem, results)
+near_1000   = NearbyPoints(problem, results, radius=1./1000, axes='all')
+near_100    = NearbyPoints(problem, results, radius=1./100,  axes='all')
+near_10_all = NearbyPoints(problem, results, radius=1./10,   axes='all')
+near_10     = NearbyPoints(problem, results, radius=1./10)
+#calc        = CalculatedPoints(problem, results)
+zero        = ZeroPoint(problem)
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:
@@ -61,4 +61,4 @@ strategy0.join()
 if not results.best is None:
   print "best: ", results.best
 else:
-  print "no best solution found"
+  print "best solution is None"

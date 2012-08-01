@@ -9,7 +9,7 @@ from panobbgo_problems import Point
 
 class StopHeuristic(Exception):
   '''
-  Used to indicate, that the heuristic has finished and should be removed.
+  Used to indicate, that the heuristic has finished and should be ignored.
   '''
   pass
 
@@ -30,6 +30,9 @@ class Heuristic(threading.Thread):
 
   @classmethod
   def register_heuristics(cls, heurs):
+    '''
+    Call it with a list of Heuristic-instances before starting the Strategy.
+    '''
     for h in sorted(heurs, key = lambda h : h.name):
       name = h.name
       assert name not in cls.lookup, 'Names of heuristics need to be unique. "%s" is already used' % name
@@ -37,6 +40,9 @@ class Heuristic(threading.Thread):
 
   @classmethod
   def heuristics(self):
+    '''
+    Get active (thread is alive) heuristics.
+    '''
     return filter(lambda h:h.isAlive(), Heuristic.lookup.values())
 
   def __init__(self, name, problem, results, q = None, cap = None, start = True):
@@ -58,7 +64,7 @@ class Heuristic(threading.Thread):
 
   def run(self):
     '''
-    This calls the calc_points() method repeatedly. 
+    This calls the calc_points() method repeatedly.
     Stop executing the heuristic by raising a StopHeuristic exception.
 
     Don't overwrite this run method.
@@ -217,15 +223,15 @@ class NearbyPoints(Heuristic):
       _ = self.new_results.get() # one for each new result
       best = self.results.best
       x = best.x
-      # generate @new many new points near best x 
+      # generate self.new many new points near best x
       for _ in range(self.new): 
         if self.axes == 'all':
-          dx = ( np.random.rand(self.problem.dim) - .5 ) * self.radius
+          dx = (2.0 * np.random.rand(self.problem.dim) - 1.0) * self.radius
           dx *= self.problem.ranges
           new_x = x + dx
         elif self.axes == 'one':
           idx = np.random.randint(self.problem.dim)
-          dx = (np.random.rand() - .5) * self.radius
+          dx = (2.0 * np.random.rand() - 1.0) * self.radius
           dx *= self.problem.ranges[idx]
           new_x = x.copy()
           new_x[idx] += dx
@@ -236,27 +242,40 @@ class NearbyPoints(Heuristic):
 
 class ExtremalPoints(Heuristic):
   '''
-  This heuristic is specially seeking for points at the
-  border of the box and around 0. 
+  This heuristic is specifically seeking for points at the
+  border of the box and around 0.
   The @where parameter takes a list or tuple, which has values 
   from 0 to 1, which indicate the probability for sampling from the
-  minimum, zero or the maximum. default = ( 1, .2, 1 )
+  minimum, zero or the maximum. default = ( 1, .5, 1 )
   '''
-  def __init__(self, problem, results, cap = 10, prob = None):
-    if prob is None: prob = (1, .2, 1)
-    self.prob = len(prob)
+  def __init__(self, problem, cap = 10, diameter = 1./10, prob = None):
+    if prob is None: prob = (1, .5, 1)
     for i in prob:
       if i < 0 or i > 1:
         raise Exception("entries in prob must be in [0, 1]")
-    prob =  np.array(prob) / float(max(prob))
+    prob =  np.array(prob) / float(sum(prob))
+    self.prob = prob.cumsum()
+    self.diameter = diameter # inside the box or around zero
+    low  = problem.box[:,0]
+    high = problem.box[:,1]
+    zero = np.zeros(problem.dim)
+    self.vals = np.row_stack((low, zero, high))
+
     Heuristic.__init__(self, cap=cap, name="Extremal",\
-                           problem=problem, results=results)
+                           problem=problem, results=None)
 
   def calc_points(self):
-    m = self.problem.box[:,0].copy()
-    for e in self.steps:
-      m += e[np.random.randint(0, self.l)]
-    return m
+    ret = np.empty(self.problem.dim)
+    for i in range(self.problem.dim):
+      r = np.random.rand()
+      for idx, val in enumerate(self.prob):
+        if val > r:
+          radius = self.problem.ranges[i] * self.diameter
+          jitter = radius * (np.random.rand() - .5)
+          ret[i] = self.vals[idx, i] + (1 - idx) * radius * .5 + jitter
+          break
+
+    return ret
 
 class ZeroPoint(Heuristic):
   '''

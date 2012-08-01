@@ -43,8 +43,8 @@ class RosenbrockStochastic(Problem):
   where eps_i is uniformly random in [0, 1)
   '''
   def __init__(self, dims, par1 = 100):
-    box = [(-2,2)] * dims
-    box[0] = (0,2) # for cornercases + testing
+    box = [(-5,5)] * dims
+    #box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
     Problem.__init__(self, box)
 

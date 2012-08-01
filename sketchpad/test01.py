@@ -5,7 +5,7 @@ import sys
 sys.path.append(".")
 #from panobbgo_problems import Problem
 from panobbgo.core import Results
-from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube, Heuristic
+from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube, Heuristic, ExtremalPoints
 from panobbgo.strategies import Strategy0
 #import numpy as np
 
@@ -37,6 +37,7 @@ near_10_all = NearbyPoints(problem, results, radius=1./10,   axes='all')
 near_10     = NearbyPoints(problem, results, radius=1./10)
 #calc        = CalculatedPoints(problem, results)
 zero        = ZeroPoint(problem)
+extremal    = ExtremalPoints(problem)
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:
@@ -48,7 +49,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(problem, results, div)
 
-heurs = [ rand, near_10_all, near_100, near_1000, lhyp, zero]
+heurs = [ rand, near_10_all, near_100, near_1000, lhyp, zero, extremal]
 Heuristic.register_heuristics(heurs)
 
 

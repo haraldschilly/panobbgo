@@ -4,9 +4,14 @@ from Queue import PriorityQueue, Empty, Queue, LifoQueue
 import numpy as np
 #from IPython.utils.timing import time
 import config
-#from core import logger
+from core import logger
 from panobbgo_problems import Point
 
+class StopHeuristic(Exception):
+  '''
+  Used to indicate, that the heuristic has finished and should be removed.
+  '''
+  pass
 
 class Heuristic(threading.Thread):
   '''
@@ -14,13 +19,28 @@ class Heuristic(threading.Thread):
   '''
   # global mapping of heuristic names to their instances.
   # names must be unique!
-  lookup = dict()
+  import collections
+  lookup = collections.OrderedDict()
+
+  @classmethod
+  def normalize_performances(cls):
+    perf_sum = sum(h.performance for h in cls.lookup.values())
+    for v in cls.lookup.values():
+      v._performance /= perf_sum
+
+  @classmethod
+  def register_heuristics(cls, heurs):
+    for h in sorted(heurs, key = lambda h : h.name):
+      name = h.name
+      assert name not in cls.lookup, 'Names of heuristics need to be unique. "%s" is already used' % name
+      cls.lookup[name] = h
+
+  @classmethod
+  def heuristics(self):
+    return filter(lambda h:h.isAlive(), Heuristic.lookup.values())
 
   def __init__(self, name, problem, results, q = None, cap = None, start = True):
     self._name = name
-    assert name not in self.lookup
-    self.lookup[name] = self
-    threading.Thread.__init__(self, name=name)
     self._problem = problem
     if results:
       self._new_results = LifoQueue()
@@ -28,41 +48,54 @@ class Heuristic(threading.Thread):
       self._results.add_listener(self)
     self._q = q if q else Queue(cap)
 
-    # statistics
-    self._perf = 1.0
+    # statistics; performance
+    self._performance = 1.0
 
+    threading.Thread.__init__(self, name=name)
+    # daemonize and start me
     self.daemon = True
-    # and start me
     if start: self.start()
 
   def run(self):
     '''
-    This calls the calc_points() method repeatedly. You can also overwrite
-    the run() method if you like. Also note, that you can iterate over the
+    This calls the calc_points() method repeatedly. 
+    Stop executing the heuristic by raising a StopHeuristic exception.
+
+    Don't overwrite this run method.
+
+    Also note, that you can iterate over the
     self.new_results queue to be notified about new points.
     '''
-    while True:
-      map(self.emit, self.calc_points())
+    try:
+      while True:
+        map(self.emit, self.calc_points())
+    except StopHeuristic:
+      pass
 
   def calc_points(self): 
     raise Exception('You have to overwrite the calc_points method.')
 
   def emit(self, point):
+    '''
+    this is used in the heuristic's thread. 
+    '''
     x = self.problem.project(point)
     point = Point(x, self.name)
+    self.discount()
     self._q.put(point)
 
-  def reward(self, reward):
+  def reward(self, reward = 1):
     '''
     Give this heuristic a reward (e.g. when it finds a new point)
     '''
-    self._perf += reward
+    logger.debug("Reward of %s for '%s'" % (reward, self.name))
+    self._performance += reward
 
-  def discount(self, discount = None):
+  def discount(self, discount = config.discount):
     '''
     Discount the heuristic's reward. Default is set in the configuration.
     '''
-    self._perf *= discount if discount else config.discount 
+    self._performance *= discount
 
   def notify(self, results):
     '''
@@ -75,11 +108,15 @@ class Heuristic(threading.Thread):
     '''
     this drains the self._q Queue until @limit
     elements are removed or the Queue is empty.
+    for each actually emitted point,
+    the performance value is discounted (i.e. "punishment" or "energy
+    consumption")
     '''
     new_points = []
     try:
       while limit is None or len(new_points) < limit:
         new_points.append(self._q.get(block=False))
+        self.discount()
     except Empty:
       pass
     return new_points
@@ -100,7 +137,7 @@ class Heuristic(threading.Thread):
   def name(self): return self._name
 
   @property
-  def perf(self): return self._perf
+  def performance(self): return self._performance
 
 class RandomPoints(Heuristic):
   '''
@@ -226,10 +263,15 @@ class ZeroPoint(Heuristic):
   This heuristic only returns the 0 vector once.
   '''
   def __init__(self, problem):
+    self.done = False
     Heuristic.__init__(self, name="Zero", cap=1, problem=problem, results=None)
 
-  def run(self):
-    self.emit(np.zeros(self.problem.dim))
+  def calc_points(self):
+    if not self.done:
+      self.done = True
+      return np.zeros(self.problem.dim)
+    else:
+      raise StopHeuristic()
 
 class CalculatedPoints(Heuristic):
   '''

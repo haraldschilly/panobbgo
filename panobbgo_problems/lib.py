@@ -19,7 +19,7 @@ class Point(object):
     if not isinstance(x, np.ndarray):
       raise Exception('x must be a numpy ndarray')
     self._x   = x
-    self._who = who # heuristic.name
+    self._who = who # heuristic.name, a string
 
   def __str__(self):
     return '%s by %s' % (self.x, self.who)
@@ -40,6 +40,7 @@ class Result(object):
       raise Exception("point must be a Point")
     self._point = point
     self._fx = fx
+    self._error = 0.0
     self._time = time.time()
 
   @property
@@ -58,26 +59,26 @@ class Result(object):
   def error(self):
     '''
     error margin of function evaluation, usually 0.0.
-    overwrite error property in subclass if needed.
     '''
-    return 0.0
+    return self._error
 
   def __cmp__(self, other):
-    # assume other instance of @Result
+    assert isinstance(other, Result)
     return cmp(self._fx, other._fx)
 
   def __repr__(self):
-    return '%11.6f @ %s' % (self.fx, self.x)
+    x = ' '.join('%11.6f' % _ for _ in self.x)
+    return '%11.6f @ [%s]' % (self.fx, x)
 
 class Problem(object):
   '''
-  this is used to store the objective function, 
+  this is used to store the objective function,
   information about the problem, etc.
   '''
   def __init__(self, box):
     '''
     box must be a list of tuples, which specify
-    the range of each variable. 
+    the range of each variable.
 
     example: [(-1,1), (-100, 0), (0, 0.01)]
     '''
@@ -97,14 +98,6 @@ class Problem(object):
     self._dim = len(box)
     self._box = np.array(box, dtype=np.float)
     self._ranges = self._box[:,1] - self._box[:,0]
-
-  #def __getstate__(self):
-  #  return self._dim, self._box, self._ranges
-
-  #def __setstate__(self, s):
-  #  self._dim = s[0]
-  #  self._box = s[1]
-  #  self._ranges = s[2]
 
   @property
   def dim(self): return self._dim

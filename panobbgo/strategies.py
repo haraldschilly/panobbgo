@@ -1,4 +1,12 @@
 # -*- coding: utf8 -*-
+'''
+This part outlines the coordination between the point-producing
+heuristics, the interaction with the cluster and the global
+DB of evaluated points.
+
+Basically, one or more threads produce points where to search,
+and another one consumes them and dispatches tasks.
+'''
 import threading
 import config
 from utils import logger
@@ -21,7 +29,7 @@ class Collector(threading.Thread):
       if tlist is None: return
       for t in tlist:
         self.results += t
-        logger.debug("%s by %s" % (t, t.point.who))
+        logger.debug("%s by %s" % (t, t.who))
 
   @property
   def tasklist(self): return self._tasklist
@@ -31,10 +39,9 @@ class Strategy0(threading.Thread):
   Very basic strategy, mainly for testing purposes.
   '''
 
-  def __init__(self, problem, results, heurs):
+  def __init__(self, problem, results):
     self.problem = problem
     self.results = results
-    self.heurs = heurs
     self._setup_cluster(1, problem)
     self.collector = Collector(results)
     self.tasklist = self.collector.tasklist
@@ -61,18 +68,21 @@ class Strategy0(threading.Thread):
 
   def run(self):
     from IPython.parallel import Reference
+    from heuristics import Heuristic
     prob_ref = Reference("problem") # see _setup_cluster
     nb_points = 0
-    heurs = self.heurs
-    perf_sum = sum(h.perf for h in heurs)
+    #perf_sum = sum(h.perf for h in heurs)
+    Heuristic.normalize_performances()
+    perf_sum = 1.0
     while True:
       points = []
       target = 10
+      heurs = Heuristic.heuristics()
       while len(points) < target:
-        for h in self.heurs:
-          # calc probability based on perfomance with additive smoothing
+        for h in heurs:
+          # calc probability based on performance with additive smoothing
           delta = .5
-          prob = (h.perf + delta)/(perf_sum + delta * len(heurs)) 
+          prob = (h.performance + delta)/(perf_sum + delta * len(heurs))
           np_h = int(target * prob) + 1
           logger.debug("  %s -> %s" % (h, np_h))
           points.extend(h.get_points(np_h))
@@ -86,10 +96,8 @@ class Strategy0(threading.Thread):
       new_tasks.wait()
       self.tasklist.put(new_tasks)
 
-      # discount all heuristics after each round
-      for h in heurs:
-        h.discount()
-      logger.info('  '.join(('%s:%.3f' % (h, h.perf) for h in heurs)))
+      # show heuristic performances after each round
+      logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
       if nb_points > config.max_eval: break

@@ -5,7 +5,7 @@ import sys
 sys.path.append(".")
 #from panobbgo_problems import Problem
 from panobbgo.core import Results
-from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube
+from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube, Heuristic
 from panobbgo.strategies import Strategy0
 #import numpy as np
 
@@ -48,8 +48,11 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(problem, results, div)
 
-heurs = [ rand, near_10_all, near_100, lhyp, zero]
-strategy0 = Strategy0(problem, results, heurs)
+heurs = [ rand, near_10_all, near_100, near_1000, lhyp, zero]
+Heuristic.register_heuristics(heurs)
+
+
+strategy0 = Strategy0(problem, results)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 

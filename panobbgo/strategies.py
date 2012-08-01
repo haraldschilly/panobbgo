@@ -10,6 +10,7 @@ and another one consumes them and dispatches tasks.
 import threading
 import config
 from utils import logger
+from statistics import stats
 
 class Collector(threading.Thread):
   '''
@@ -70,19 +71,17 @@ class Strategy0(threading.Thread):
     from IPython.parallel import Reference
     from heuristics import Heuristic
     prob_ref = Reference("problem") # see _setup_cluster
-    nb_points = 0
-    #perf_sum = sum(h.perf for h in heurs)
-    Heuristic.normalize_performances()
-    perf_sum = 1.0
     while True:
       points = []
       target = 10
+      #Heuristic.normalize_performances()
       heurs = Heuristic.heuristics()
+      perf_sum = sum(h.performance for h in heurs)
       while len(points) < target:
         for h in heurs:
           # calc probability based on performance with additive smoothing
-          delta = .5
-          prob = (h.performance + delta)/(perf_sum + delta * len(heurs))
+          s = config.smooth
+          prob = (h.performance + s)/(perf_sum + s * len(heurs))
           np_h = int(target * prob) + 1
           logger.debug("  %s -> %s" % (h, np_h))
           points.extend(h.get_points(np_h))
@@ -91,19 +90,20 @@ class Strategy0(threading.Thread):
           from IPython.utils.timing import time
           time.sleep(1e-3)
 
-      nb_points += len(points)
       new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 5, ordered=False)
+      stats.add_tasks(new_tasks)
       new_tasks.wait()
       self.tasklist.put(new_tasks)
 
       # show heuristic performances after each round
-      logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
+      logger.debug('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
-      if nb_points > config.max_eval: break
+      if stats.cnt > config.max_eval: break
 
     # signal to end
     self.tasklist.put(None)
     self.collector.join()
-    logger.info("Strategy0 finished")
+    logger.info(">>> %s finished" % self.__class__.__name__)
+    stats.info()
 

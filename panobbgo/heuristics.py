@@ -22,11 +22,11 @@ class Heuristic(threading.Thread):
   import collections
   lookup = collections.OrderedDict()
 
-  @classmethod
-  def normalize_performances(cls):
-    perf_sum = sum(h.performance for h in cls.lookup.values())
-    for v in cls.lookup.values():
-      v._performance /= perf_sum
+  #@classmethod
+  #def normalize_performances(cls):
+  #  perf_sum = sum(h.performance for h in cls.heuristics())
+  #  for v in cls.lookup.values():
+  #    v._performance /= perf_sum
 
   @classmethod
   def register_heuristics(cls, heurs):

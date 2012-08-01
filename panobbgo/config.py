@@ -16,6 +16,7 @@ _parser.add_option('-c', '--config-file', dest="config_file",
 _parser.add_option('-p', '--profile', dest='ipy_profile', 
                   help='IPython profile for the ipcluster configuration')
 _parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
+_parser.add_option('--smooth', dest='smooth', help="smoothing parameter for (additive or other) smoothing", type="float")
 _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
 
 _options, _args = _parser.parse_args()
@@ -41,6 +42,7 @@ if not os.path.exists(_options.config_file):
   _cfgp.set('core', 'loglevel', '40') # default: no debug mode
   _cfgp.set('core', 'max_eval', '1000')
   _cfgp.set('core', 'discount', '0.995')
+  _cfgp.set('core', 'smooth', 0.5)
 
   with open(_options.config_file, 'wb') as configfile:
     _cfgp.write(configfile)
@@ -53,6 +55,7 @@ _cfgp.read(_options.config_file)
 _cur_verb = _cfgp.getint('core', 'loglevel')
 if _options.verbosity:   _cfgp.set('core', 'loglevel', str(_cur_verb - 10*_options.verbosity))
 if _options.max_eval:    _cfgp.set('core', 'max_eval', str(_options.max_eval))
+if _options.smooth:      _cfgp.set('core', 'smooth', str(_options.smooth))
 if _options.ipy_profile: _cfgp.set('ipython', 'profile', _options.ipy_profile)
 
 ## some generic function
@@ -72,6 +75,7 @@ print 'config.ini: %s' % all()
 loglevel    = _cfgp.getint('core', 'loglevel')
 max_eval    = _cfgp.getint('core', 'max_eval')
 discount    = _cfgp.getfloat('core', 'discount')
+smooth      = _cfgp.getfloat('core', 'smooth')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
 print 'loglevel: %s' % loglevel
@@ -88,5 +92,6 @@ def info():
   version("numpy")
   version("scipy")
   version("IPython")
+  version("matplotlib")
 
 info()

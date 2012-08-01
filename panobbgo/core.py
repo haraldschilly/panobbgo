@@ -45,7 +45,7 @@ class Results(object):
         if self.best.fx < np.infty:
           fx_delta = np.log1p(self.best.fx - r.fx) # TODO log1p ok?
           Heuristic.lookup[r.who].reward(fx_delta)
-        logger.info(u"* %-20s %s | \u0394 %.4f" %('[%s]' % r.who, r, fx_delta))
+        logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, fx_delta))
         self._best = r # set the new best point
 
     # notification

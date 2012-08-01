@@ -67,7 +67,7 @@ class Result(object):
     return cmp(self._fx, other._fx)
 
   def __repr__(self):
-    x = ' '.join('%11.6f' % _ for _ in self.x)
+    x = ' '.join('%11.6f' % _ for _ in self.x) if self.x != None else None
     return '%11.6f @ [%s]' % (self.fx, x)
 
 class Problem(object):

@@ -44,7 +44,7 @@ class RosenbrockStochastic(Problem):
   '''
   def __init__(self, dims, par1 = 100):
     box = [(-5,5)] * dims
-    #box[0] = (0,2) # for cornercases + testing
+    box[0] = (-1,2) # for cornercases + testing
     self.par1 = par1
     Problem.__init__(self, box)
 

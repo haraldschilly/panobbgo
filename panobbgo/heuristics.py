@@ -55,7 +55,7 @@ class Heuristic(threading.Thread):
     self._q = q if q else Queue(cap)
 
     # statistics; performance
-    self._performance = 1.0
+    self._performance = 0.0
 
     threading.Thread.__init__(self, name=name)
     # daemonize and start me
@@ -246,10 +246,10 @@ class ExtremalPoints(Heuristic):
   border of the box and around 0.
   The @where parameter takes a list or tuple, which has values 
   from 0 to 1, which indicate the probability for sampling from the
-  minimum, zero or the maximum. default = ( 1, .5, 1 )
+  minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
   '''
   def __init__(self, problem, cap = 10, diameter = 1./10, prob = None):
-    if prob is None: prob = (1, .5, 1)
+    if prob is None: prob = (1, .2, .2, 1)
     for i in prob:
       if i < 0 or i > 1:
         raise Exception("entries in prob must be in [0, 1]")
@@ -259,7 +259,8 @@ class ExtremalPoints(Heuristic):
     low  = problem.box[:,0]
     high = problem.box[:,1]
     zero = np.zeros(problem.dim)
-    self.vals = np.row_stack((low, zero, high))
+    center = low + (high-low) / 2.0
+    self.vals = np.row_stack((low, zero, center, high))
 
     Heuristic.__init__(self, cap=cap, name="Extremal",\
                            problem=problem, results=None)
@@ -272,7 +273,11 @@ class ExtremalPoints(Heuristic):
         if val > r:
           radius = self.problem.ranges[i] * self.diameter
           jitter = radius * (np.random.rand() - .5)
-          ret[i] = self.vals[idx, i] + (1 - idx) * radius * .5 + jitter
+          shift = 0.0
+          if idx == 0: shift = 1
+          elif idx == len(self.prob) - 1: shift = -1
+          else: shift = 0
+          ret[i] = self.vals[idx, i] + shift * radius * .5 + jitter
           break
 
     return ret
@@ -289,6 +294,22 @@ class ZeroPoint(Heuristic):
     if not self.done:
       self.done = True
       return np.zeros(self.problem.dim)
+    else:
+      raise StopHeuristic()
+
+class CenterPoint(Heuristic):
+  '''
+  This heuristic checks the point in the center of the box.
+  '''
+  def __init__(self, problem):
+    self.done = False
+    Heuristic.__init__(self, name="Center", cap=1, problem=problem, results=None)
+
+  def calc_points(self):
+    if not self.done:
+      self.done = True
+      box = self.problem.box
+      return box[:,0] + (box[:,1]-box[:,0]) / 2.0
     else:
       raise StopHeuristic()
 

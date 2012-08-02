@@ -114,5 +114,6 @@ class Strategy0(threading.Thread):
     self.tasklist.put(None)
     self.collector.join()
     logger.info(">>> %s finished" % self.__class__.__name__)
+    #logger.info("distance matrix:\n%s" % self.results._distance)
     stats.info()
 

@@ -24,17 +24,37 @@ class Results(object):
     self._listener = set() 
     self.fx_delta_last = None
     self._best = Result(None, np.infty)
+
+    # distance matrix, lower triangle
     from scipy import sparse
-    self._dist_idx = { self._best : 0 } # all results, for distance matrix
     self._distance = sparse.dok_matrix((1,1), dtype=np.float32)
+    self._all = [ ]          # all results, for distance matrix
+    self._dist_idx = { }     # reverse lookup, for distance matrix
 
   def add_listener(self, listener):
     self._listener.add(listener)
 
-  def _update_distances(self, result):
-    self._dist_idx[result] = len(self._dist_idx)
-
-
+  def _update_distances(self, r):
+    import numpy as np
+    from IPython.utils.timing import time
+    t1 = time.clock()
+    self._all.append(r.x)
+    r_idx = len(self._all)
+    self._dist_idx[r] = r_idx
+    self._distance.resize((r_idx, r_idx))
+    row = r_idx - 1
+    for col in range(r_idx - 1):
+      d = np.linalg.norm(r.x - self._all[col], np.infty)
+      if d < .1: self._distance[row, col] = d
+    t = time.clock() - t1
+    logger.info("t: %s" % t)
+    #if len(self._all) <=6: 
+    #  logger.info("distance\n%s" % self._distance.todense())
+    #if len(self._all) == 6:
+    #  v1 = self._all[0]
+    #  v2 = self._all[5]
+    #  d = np.linalg.norm(v1.x - v2.x)
+    #  logger.info("v1: %s | v2: %s | d: %s" % (v1, v2, d))
 
   def add_results(self, new_results):
     '''

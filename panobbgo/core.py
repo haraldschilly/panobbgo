@@ -16,18 +16,27 @@ class Results(object):
   List of results w/ notificaton for new results.
   Later on, this will be a cool database.
   '''
-  def __init__(self):
+  def __init__(self, problem):
+    import numpy as np
+    self._problem = problem
     self._results = []
     # a listener just needs a .notify([..]) method
     self._listener = set() 
     self.fx_delta_last = None
-    from numpy import infty
-    self._best = Result(None, infty)
+    self._best = Result(None, np.infty)
+    from scipy import sparse
+    self._dist_idx = { self._best : 0 } # all results, for distance matrix
+    self._distance = sparse.dok_matrix((1,1), dtype=np.float32)
 
   def add_listener(self, listener):
     self._listener.add(listener)
 
-  def add_results(self, results):
+  def _update_distances(self, result):
+    self._dist_idx[result] = len(self._dist_idx)
+
+
+
+  def add_results(self, new_results):
     '''
     add a new list of @Result objects.
     * calc some statistics, then
@@ -36,11 +45,12 @@ class Results(object):
     import heapq
     import numpy as np
     from heuristics import Heuristic
-    if isinstance(results, Result):
-      results = [ results ]
-    for r in results:
+    if isinstance(new_results, Result):
+      new_results = [ new_results ]
+    for r in new_results:
       assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
+      self._update_distances(r)
       if r.fx < self.best.fx:
         fx_delta, reward = 0.0, 0.0
         # ATTN: always think of self.best.fx == np.infty
@@ -55,7 +65,7 @@ class Results(object):
 
     # notification
     for l in self._listener:
-      l.notify(results)
+      l.notify(new_results)
 
   def __iadd__(self, results):
     self.add_results(results)
@@ -67,9 +77,5 @@ class Results(object):
   def n_best(self, n):
     import heapq
     return heapq.nsmallest(n, self._results)
-
-  def n_worst(self, n):
-    import heapq
-    return heapq.nlargest(n, self._results)
 
 

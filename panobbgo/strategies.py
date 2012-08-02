@@ -11,6 +11,8 @@ import threading
 import config
 from utils import logger
 from statistics import stats
+from core import Results
+from heuristics import Heuristic
 
 #constant
 PROBLEM_KEY = "problem"
@@ -42,12 +44,13 @@ class Strategy0(threading.Thread):
   Very basic strategy, mainly for testing purposes.
   '''
 
-  def __init__(self, problem, results):
+  def __init__(self, problem, heurs):
     threading.Thread.__init__(self, name=self.__class__.__name__)
     self.problem = problem
-    self.results = results
+    self.results = Results(problem)
+    Heuristic.register_heuristics(heurs, problem, self.results)
     self._setup_cluster(1, problem)
-    self.collector = Collector(results)
+    self.collector = Collector(self.results)
     self.tasklist = self.collector.tasklist
     self.start()
 
@@ -64,8 +67,8 @@ class Strategy0(threading.Thread):
     self.generators = c.load_balanced_view(c.ids[:nb_gens])
     self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
     # TODO remove this hack. "problem" wasn't pushed to all clients
-    from IPython.utils.timing import time
-    time.sleep(1e-1)
+    #from IPython.utils.timing import time
+    #time.sleep(1e-1)
 
     # import some packages  (also locally)
     #with c[:].sync_imports():

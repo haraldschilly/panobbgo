@@ -30,8 +30,6 @@ problem = RosenbrockStochastic(2)
 #
 #problem = LocalProblem()
 
-results = Results()
-
 rand        = RandomPoints()
 near_1000   = NearbyPoints(radius=1./1000, axes='all')
 near_100    = NearbyPoints(radius=1./100,  axes='all')
@@ -53,14 +51,13 @@ else:
 lhyp= LatinHypercube(div)
 
 heurs = [ center, rand, near_10_all, near_100, lhyp, zero, extremal, calc]
-Heuristic.register_heuristics(heurs, problem, results)
 
-
-strategy0 = Strategy0(problem, results)
+strategy0 = Strategy0(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
 strategy0.join()
+results = strategy0.results
 
 #print strategy_bare(problem, results, heurs)
 

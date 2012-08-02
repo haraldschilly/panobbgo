@@ -50,7 +50,9 @@ class RosenbrockStochastic(Problem):
 
   def eval(self, x):
     eps = np.random.rand(self.dim - 1)
-    return sum(self.par1 * eps * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
+    ret = sum(self.par1 * eps * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
+    print ret
+    return ret
 
 class Himmelblau(Problem):
   '''

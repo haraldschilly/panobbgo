@@ -1,8 +1,6 @@
 # -*- coding: utf8 -*-
 import threading
 from Queue import PriorityQueue, Empty, Queue, LifoQueue
-import numpy as np
-#from IPython.utils.timing import time
 import config
 from core import logger
 from panobbgo_problems import Point
@@ -29,7 +27,7 @@ class Heuristic(threading.Thread):
   #    v._performance /= perf_sum
 
   @classmethod
-  def register_heuristics(cls, heurs):
+  def register_heuristics(cls, heurs, problem, results):
     '''
     Call it with a list of Heuristic-instances before starting the Strategy.
     '''
@@ -37,6 +35,13 @@ class Heuristic(threading.Thread):
       name = h.name
       assert name not in cls.lookup, 'Names of heuristics need to be unique. "%s" is already used' % name
       cls.lookup[name] = h
+      h._problem = problem
+      if h._listen_results:
+        h._results = results
+        h.new_results = LifoQueue()
+        results.add_listener(h)
+      h._init_()
+      if h._start: h.start()
 
   @classmethod
   def heuristics(self):
@@ -45,22 +50,25 @@ class Heuristic(threading.Thread):
     '''
     return filter(lambda h:h.isAlive(), Heuristic.lookup.values())
 
-  def __init__(self, name, problem, results, q = None, cap = None, start = True):
+  def __init__(self, name, q = None, cap = None, start = True):
+    threading.Thread.__init__(self, name=name)
+    # daemonize and start me
+    self.daemon = True
+    self._start = start
     self._name = name
-    self._problem = problem
-    if results:
-      self._new_results = LifoQueue()
-      self._results = results
-      self._results.add_listener(self)
+    self._problem = None
+    self._listen_results = False
     self._q = q if q else Queue(cap)
 
     # statistics; performance
     self._performance = 0.0
 
-    threading.Thread.__init__(self, name=name)
-    # daemonize and start me
-    self.daemon = True
-    if start: self.start()
+  def _init_(self):
+    '''
+    2nd initialization, after registering and hooking up the heuristic.
+    e.g. self._problem is available.
+    '''
+    pass
 
   def run(self):
     '''
@@ -69,12 +77,16 @@ class Heuristic(threading.Thread):
 
     Don't overwrite this run method.
 
-    Also note, that you can iterate over the
-    self.new_results queue to be notified about new points.
+    Also note, that you can set _listen_results to True and 
+    iterate over the new_results queue to be notified about new points.
     '''
     try:
       while True:
-        map(self.emit, self.calc_points())
+        pnts = self.calc_points()
+        if pnts == None: raise StopHeuristic()
+        if not isinstance(pnts, list): pnts = [ pnts ]
+        assert len(pnts) > 0, "empty list of points, heuristics shouldn't do this"
+        map(self.emit, pnts)
     except StopHeuristic:
       pass
 
@@ -83,14 +95,14 @@ class Heuristic(threading.Thread):
 
   def emit(self, point):
     '''
-    this is used in the heuristic's thread. 
+    this is used in the heuristic's thread.
     '''
     x = self.problem.project(point)
     point = Point(x, self.name)
     self.discount()
     self._q.put(point)
 
-  def reward(self, reward = 1):
+  def reward(self, reward):
     '''
     Give this heuristic a reward (e.g. when it finds a new point)
     '''
@@ -137,9 +149,6 @@ class Heuristic(threading.Thread):
   def results(self): return self._results
 
   @property
-  def new_results(self): return self._new_results
-
-  @property
   def name(self): return self._name
 
   @property
@@ -150,9 +159,9 @@ class RandomPoints(Heuristic):
   always generates random points until the
   capped queue is full.
   '''
-  def __init__(self, problem, results, cap = 10, name=None):
+  def __init__(self, cap = 10, name=None):
     name = "Random" if name is None else name
-    Heuristic.__init__(self, cap=cap, name=name, problem=problem, results=results)
+    Heuristic.__init__(self, cap=cap, name=name)
 
   def calc_points(self):
     return [ self.problem.random_point() ]
@@ -176,16 +185,18 @@ class LatinHypercube(Heuristic):
   |   |   | X |   |
   +---+---+---+---+
   '''
-  def __init__(self, problem, results, div, cap = 10):
+  def __init__(self, div, cap = 10):
+    Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
     if not isinstance(div, int):
       raise Exception("LH: div needs to be an integer")
     self.div = div
+
+  def _init_(self):
     # length of each box'es dimension
-    self.lengths = problem.ranges / float(div)
-    Heuristic.__init__(self, cap=cap, name="Latin Hypercube", \
-                           problem=problem, results=results)
+    self.lengths = self.problem.ranges / float(self.div)
 
   def calc_points(self):
+    import numpy as np
     div = self.div
     dim = self.problem.dim
     pts = np.repeat(np.arange(div, dtype=np.float), dim).reshape(div,dim)
@@ -193,7 +204,7 @@ class LatinHypercube(Heuristic):
     pts *= self.lengths             # scale with length, already divided by div
     pts += self.problem.box[:,0]    # shift with min
     [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
-    return pts
+    return [ p for p in pts ] # needs to be a list of np.ndarrays
 
 class NearbyPoints(Heuristic):
   '''
@@ -209,31 +220,37 @@ class NearbyPoints(Heuristic):
        * one: only desturb one axis
        * all: desturb all axes
   '''
-  def __init__(self, problem, results, cap = 3, radius = 1./100, new = 1, axes = 'one'):
+  def __init__(self, cap = 3, radius = 1./100, new = 1, axes = 'one'):
     q = LifoQueue(cap)
+    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
     self.radius = radius
     self.new    = new
     self.axes   = axes
-    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes),
-                           problem=problem, results=results)
+    self._listen_results = True
 
   def calc_points(self):
+    import numpy as np
     ret = []
-    while self.new_results.qsize() > 0:
-      _ = self.new_results.get() # one for each new result
+    block = True # block for first item, then until queue empty
+    while True:
+      try:
+        _ = self.new_results.get(block = block) # one loop for each new result
+      except Empty:
+        break
+      block = False
       best = self.results.best
       x = best.x
       # generate self.new many new points near best x
       for _ in range(self.new): 
+        new_x = x.copy()
         if self.axes == 'all':
           dx = (2.0 * np.random.rand(self.problem.dim) - 1.0) * self.radius
           dx *= self.problem.ranges
-          new_x = x + dx
+          new_x += dx
         elif self.axes == 'one':
           idx = np.random.randint(self.problem.dim)
           dx = (2.0 * np.random.rand() - 1.0) * self.radius
           dx *= self.problem.ranges[idx]
-          new_x = x.copy()
           new_x[idx] += dx
         else:
           raise Exception("axis parameter not 'one' or 'all'")
@@ -248,7 +265,9 @@ class ExtremalPoints(Heuristic):
   from 0 to 1, which indicate the probability for sampling from the
   minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
   '''
-  def __init__(self, problem, cap = 10, diameter = 1./10, prob = None):
+  def __init__(self, cap = 10, diameter = 1./10, prob = None):
+    Heuristic.__init__(self, cap=cap, name="Extremal")
+    import numpy as np
     if prob is None: prob = (1, .2, .2, 1)
     for i in prob:
       if i < 0 or i > 1:
@@ -256,16 +275,18 @@ class ExtremalPoints(Heuristic):
     prob =  np.array(prob) / float(sum(prob))
     self.prob = prob.cumsum()
     self.diameter = diameter # inside the box or around zero
+
+  def _init_(self):
+    import numpy as np
+    problem = self.problem
     low  = problem.box[:,0]
     high = problem.box[:,1]
     zero = np.zeros(problem.dim)
     center = low + (high-low) / 2.0
     self.vals = np.row_stack((low, zero, center, high))
 
-    Heuristic.__init__(self, cap=cap, name="Extremal",\
-                           problem=problem, results=None)
-
   def calc_points(self):
+    import numpy as np
     ret = np.empty(self.problem.dim)
     for i in range(self.problem.dim):
       r = np.random.rand()
@@ -286,11 +307,12 @@ class ZeroPoint(Heuristic):
   '''
   This heuristic only returns the 0 vector once.
   '''
-  def __init__(self, problem):
+  def __init__(self):
+    Heuristic.__init__(self, name="Zero", cap=1)
     self.done = False
-    Heuristic.__init__(self, name="Zero", cap=1, problem=problem, results=None)
 
   def calc_points(self):
+    import numpy as np
     if not self.done:
       self.done = True
       return np.zeros(self.problem.dim)
@@ -301,9 +323,9 @@ class CenterPoint(Heuristic):
   '''
   This heuristic checks the point in the center of the box.
   '''
-  def __init__(self, problem):
+  def __init__(self):
+    Heuristic.__init__(self, name="Center", cap=1)
     self.done = False
-    Heuristic.__init__(self, name="Center", cap=1, problem=problem, results=None)
 
   def calc_points(self):
     if not self.done:
@@ -318,10 +340,9 @@ class CalculatedPoints(Heuristic):
   This is the thread that generates points by
   dispatching tasks. -- NYI
   '''
-  def __init__(self, problem, results, cap = 10):
+  def __init__(self, cap = 10):
+    Heuristic.__init__(self, cap=cap, name="Calculated", start=False)
     self.machines = None
-    Heuristic.__init__(self, cap=cap, name="Calculated",\
-                  problem=problem, results=results, start=False)
 
   def set_machines(self, machines):
     self.machines = machines # this is already a load_balanced view
@@ -329,6 +350,6 @@ class CalculatedPoints(Heuristic):
 
   def calc_points(self):
     #return np.array([99]*self._problem.dim)
-    return []
+    return None
 
 

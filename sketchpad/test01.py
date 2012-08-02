@@ -5,7 +5,9 @@ import sys
 sys.path.append(".")
 #from panobbgo_problems import Problem
 from panobbgo.core import Results
-from panobbgo.heuristics import RandomPoints, NearbyPoints, ZeroPoint, LatinHypercube, Heuristic, ExtremalPoints, CenterPoint
+from panobbgo.heuristics import RandomPoints, NearbyPoints, \
+     ZeroPoint, LatinHypercube, Heuristic, ExtremalPoints, \
+     CenterPoint, CalculatedPoints
 from panobbgo.strategies import Strategy0
 #import numpy as np
 
@@ -30,15 +32,15 @@ problem = RosenbrockStochastic(2)
 
 results = Results()
 
-rand        = RandomPoints(problem, results)
-near_1000   = NearbyPoints(problem, results, radius=1./1000, axes='all')
-near_100    = NearbyPoints(problem, results, radius=1./100,  axes='all')
-near_10_all = NearbyPoints(problem, results, radius=1./10,   axes='all')
-near_10     = NearbyPoints(problem, results, radius=1./10)
-#calc        = CalculatedPoints(problem, results)
-zero        = ZeroPoint(problem)
-extremal    = ExtremalPoints(problem)
-center      = CenterPoint(problem)
+rand        = RandomPoints()
+near_1000   = NearbyPoints(radius=1./1000, axes='all')
+near_100    = NearbyPoints(radius=1./100,  axes='all')
+near_10_all = NearbyPoints(radius=1./10,   axes='all')
+near_10     = NearbyPoints(radius=1./10)
+calc        = CalculatedPoints()
+zero        = ZeroPoint()
+extremal    = ExtremalPoints()
+center      = CenterPoint()
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:
@@ -48,10 +50,10 @@ if False:
   div = max(1, int(m[0]))
 else:
   div = 5 # for 1000, should be 7 to 8
-lhyp= LatinHypercube(problem, results, div)
+lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10_all, near_100, near_1000, lhyp, zero, extremal]
-Heuristic.register_heuristics(heurs)
+heurs = [ center, rand, near_10_all, near_100, lhyp, zero, extremal, calc]
+Heuristic.register_heuristics(heurs, problem, results)
 
 
 strategy0 = Strategy0(problem, results)

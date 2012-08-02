@@ -96,7 +96,7 @@ class Strategy0(threading.Thread):
       self.tasklist.put(new_tasks)
 
       # show heuristic performances after each round
-      logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
+      #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
       if stats.cnt > config.max_eval: break

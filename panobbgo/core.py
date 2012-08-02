@@ -20,7 +20,7 @@ class Results(object):
     self._results = []
     # a listener just needs a .notify([..]) method
     self._listener = set() 
-    #self.fx_delta_last = None
+    self.fx_delta_last = None
     from numpy import infty
     self._best = Result(None, infty)
 
@@ -43,12 +43,13 @@ class Results(object):
       heapq.heappush(self._results, r)
       if r.fx < self.best.fx:
         fx_delta, reward = 0.0, 0.0
-        if self.best.fx < np.infty:
-          fx_delta = np.log1p(self.best.fx - r.fx) # TODO log1p ok?
-          #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
-          reward = fx_delta# / self.fx_delta_last
-          Heuristic.lookup[r.who].reward(reward)
-          self.fx_delta_last = fx_delta
+        # ATTN: always think of self.best.fx == np.infty
+        #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
+        fx_delta = 1.0 - np.exp(- 1.0 * (self.best.fx - r.fx)) # saturated to 1
+        if self.fx_delta_last == None: self.fx_delta_last = fx_delta
+        reward = fx_delta #/ self.fx_delta_last
+        Heuristic.lookup[r.who].reward(reward)
+        self.fx_delta_last = fx_delta
         logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, reward))
         self._best = r # set the new best point
 

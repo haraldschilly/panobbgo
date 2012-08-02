@@ -113,6 +113,7 @@ class Problem(object):
     projects given point into the search box. 
     e.g. [-1.1, 1] with box [(-1,1),(-1,1)] gives [-1,1] 
     '''
+    assert isinstance(point, np.ndarray), 'point must be a numpy ndarray'
     return np.minimum(np.maximum(point, self.box[:,0]), self.box[:,1])
 
   def random_point(self):

@@ -12,16 +12,19 @@ import config
 from utils import logger
 from statistics import stats
 
+#constant
+PROBLEM_KEY = "problem"
+
 class Collector(threading.Thread):
   '''
   This Collector receives result lists and passes them along to the statistics and UI.
   It needs to be terminated via a `None` element.
   '''
   def __init__(self, results):
+    threading.Thread.__init__(self, name=self.__class__.__name__)
     from Queue import Queue
     self._tasklist = Queue()
     self.results = results
-    threading.Thread.__init__(self, name=self.__class__.__name__)
     self.start()
 
   def run(self):
@@ -30,7 +33,6 @@ class Collector(threading.Thread):
       if tlist is None: return
       for t in tlist:
         self.results += t
-        logger.debug("%s by %s" % (t, t.who))
 
   @property
   def tasklist(self): return self._tasklist
@@ -41,12 +43,13 @@ class Strategy0(threading.Thread):
   '''
 
   def __init__(self, problem, results):
+    threading.Thread.__init__(self, name=self.__class__.__name__)
     self.problem = problem
     self.results = results
     self._setup_cluster(1, problem)
     self.collector = Collector(results)
     self.tasklist = self.collector.tasklist
-    threading.Thread.__init__(self, name=self.__class__.__name__)
+    self.start()
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
@@ -57,9 +60,12 @@ class Strategy0(threading.Thread):
     if len(c.ids) < nb_gens + 1:
       raise Exception('I need at least %d clients.' % (nb_gens + 1))
     dv_evaluators = c[nb_gens:]
-    dv_evaluators['problem'] = problem
+    dv_evaluators[PROBLEM_KEY] = problem
     self.generators = c.load_balanced_view(c.ids[:nb_gens])
     self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
+    # TODO remove this hack. "problem" wasn't pushed to all clients
+    from IPython.utils.timing import time
+    time.sleep(1e-1)
 
     # import some packages  (also locally)
     #with c[:].sync_imports():
@@ -70,7 +76,7 @@ class Strategy0(threading.Thread):
   def run(self):
     from IPython.parallel import Reference
     from heuristics import Heuristic
-    prob_ref = Reference("problem") # see _setup_cluster
+    prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     while True:
       points = []
       target = 10

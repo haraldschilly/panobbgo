@@ -25,36 +25,52 @@ class Results(object):
     self.fx_delta_last = None
     self._best = Result(None, np.infty)
 
-    # distance matrix, lower triangle
-    from scipy import sparse
-    self._distance = sparse.dok_matrix((1,1), dtype=np.float32)
-    self._all = [ ]          # all results, for distance matrix
-    self._dist_idx = { }     # reverse lookup, for distance matrix
+    # grid for storing points which are nearby.
+    # maps from rounded coordinates tuple to point
+    self._grid = dict()
+    self._grid_div = 10.
+    self._grid_lengths = self._problem.ranges / float(self._grid_div)
 
   def add_listener(self, listener):
     self._listener.add(listener)
 
-  def _update_distances(self, r):
+  def in_same_grid(self, point):
+    key = tuple(self._grid_mapping(point.x))
+    points = self._grid.get(key, [])
+    return points
+
+  def _grid_mapping(self, x):
+    from numpy import floor
+    l = self._grid_lengths
+    #m = self._problem.box[:,0]
+    return floor((x) / l) * l
+
+  def _grid_add(self, r):
+    key = tuple(self._grid_mapping(r.x))
+    bin = self._grid.get(key, [])
+    bin.append(r.point)
+    self._grid[key] = bin
+
+  def _reward_heuristic(self, r):
+    '''
+    for each new result, decide if there is a reward and also
+    calculate its amount.
+    '''
     import numpy as np
-    from IPython.utils.timing import time
-    t1 = time.clock()
-    self._all.append(r.x)
-    r_idx = len(self._all)
-    self._dist_idx[r] = r_idx
-    self._distance.resize((r_idx, r_idx))
-    row = r_idx - 1
-    for col in range(r_idx - 1):
-      d = np.linalg.norm(r.x - self._all[col], np.infty)
-      if d < .1: self._distance[row, col] = d
-    t = time.clock() - t1
-    logger.info("t: %s" % t)
-    #if len(self._all) <=6: 
-    #  logger.info("distance\n%s" % self._distance.todense())
-    #if len(self._all) == 6:
-    #  v1 = self._all[0]
-    #  v2 = self._all[5]
-    #  d = np.linalg.norm(v1.x - v2.x)
-    #  logger.info("v1: %s | v2: %s | d: %s" % (v1, v2, d))
+    from heuristics import Heuristic
+    # currently, only reward if better point found.
+    # TODO in the future also reward if near the best value (but
+    # e.g. not in the proximity of the best x)
+    fx_delta, reward = 0.0, 0.0
+    if r.fx < self.best.fx:
+      # ATTN: always take care of self.best.fx == np.infty
+      #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
+      fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - r.fx)) # saturates to 1
+      #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
+      reward = fx_delta #/ self.fx_delta_last
+      Heuristic.lookup[r.who].reward(reward)
+      #self.fx_delta_last = fx_delta
+    return reward
 
   def add_results(self, new_results):
     '''
@@ -63,23 +79,15 @@ class Results(object):
     * listeners will get notified.
     '''
     import heapq
-    import numpy as np
-    from heuristics import Heuristic
     if isinstance(new_results, Result):
       new_results = [ new_results ]
     for r in new_results:
       assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
-      self._update_distances(r)
+      self._grid_add(r)
+      reward = self._reward_heuristic(r)
+      # new best solution found?
       if r.fx < self.best.fx:
-        fx_delta, reward = 0.0, 0.0
-        # ATTN: always think of self.best.fx == np.infty
-        #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
-        fx_delta = 1.0 - np.exp(- 1.0 * (self.best.fx - r.fx)) # saturated to 1
-        if self.fx_delta_last == None: self.fx_delta_last = fx_delta
-        reward = fx_delta #/ self.fx_delta_last
-        Heuristic.lookup[r.who].reward(reward)
-        self.fx_delta_last = fx_delta
         logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, reward))
         self._best = r # set the new best point
 

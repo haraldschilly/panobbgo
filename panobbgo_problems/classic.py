@@ -6,8 +6,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
 import numpy as np
-from lib import Point, Result, Problem
-from IPython.utils.timing import time
+from lib import Point, Problem
 
 class Rosenbrock(Problem):
   '''

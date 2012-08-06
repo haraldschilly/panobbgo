@@ -3,10 +3,9 @@
 
 import sys
 sys.path.append(".")
-#from panobbgo_problems import Problem
-from panobbgo.core import Results
+#from panobbgo.core import Results
 from panobbgo.heuristics import RandomPoints, NearbyPoints, \
-     ZeroPoint, LatinHypercube, Heuristic, ExtremalPoints, \
+     ZeroPoint, LatinHypercube, ExtremalPoints, \
      CenterPoint, CalculatedPoints
 from panobbgo.strategies import Strategy0
 #import numpy as np

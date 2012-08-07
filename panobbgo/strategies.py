@@ -10,7 +10,7 @@ and another one consumes them and dispatches tasks.
 import threading
 import config
 from utils import logger
-from statistics import stats
+from statistics import Statistics
 from core import Results
 from heuristics import Heuristic
 
@@ -48,7 +48,8 @@ class Strategy0(threading.Thread):
     self._name = name = self.__class__.__name__
     threading.Thread.__init__(self, name=name)
     self.problem = problem
-    self.results = Results(problem)
+    self._statistics = Statistics()
+    self.results = Results(problem, self.stats)
     Heuristic.register_heuristics(heurs, problem, self.results)
     logger.info("Init of strategy: '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.info("%s" % problem)
@@ -79,6 +80,9 @@ class Strategy0(threading.Thread):
     #  import numpy
     #  import math
 
+  @property
+  def stats(self): return self._statistics
+
   def run(self):
     from IPython.parallel import Reference
     from IPython.utils.timing import time
@@ -106,7 +110,7 @@ class Strategy0(threading.Thread):
           time.sleep(1e-3)
 
       new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 5, ordered=False)
-      stats.add_tasks(new_tasks)
+      self.stats.add_tasks(new_tasks)
       new_tasks.wait()
       self.tasklist.put(new_tasks)
 
@@ -114,7 +118,7 @@ class Strategy0(threading.Thread):
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
-      if stats.cnt > config.max_eval: break
+      if self.stats.cnt > config.max_eval: break
 
     # signal to end
     self.tasklist.put(None)
@@ -122,5 +126,5 @@ class Strategy0(threading.Thread):
     self._end = time.time()
     logger.info("Strategy '%s' finished after %.3f [s]" % (self._name, self._end - self._start))
     #logger.info("distance matrix:\n%s" % self.results._distance)
-    stats.info()
+    self.stats.info()
 

@@ -132,6 +132,6 @@ class Problem(object):
 
   def __repr__(self):
     descr = "Problem '%s' has %d dimensions. " % (self.__class__.__name__, self._dim)
-    descr += "Box: [%s]" % ', '.join('[%.2f, %.2f]' % (l,u) for l,u in self._box)
+    descr += "Box: [%s]" % ', '.join('[%.2f %.2f]' % (l,u) for l,u in self._box)
     return descr
 

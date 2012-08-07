@@ -27,7 +27,10 @@ class Statistics(object):
     self._pending = self._pending.difference(self._finished)
 
   def info(self):
-    logger.info("%5d points generated. time: %6.3f [s] cpu, %6.3f [s] wall" % (self.cnt, self.time_cpu, self.time_wall))
+    pend = self.pending
+    fini = self.finished
+    logger.info("Points: %4d | %4d | %4d. Time: %6.3f [s] cpu, %6.3f [s] wall" %
+               (self.cnt, pend, fini, self.time_cpu, self.time_wall))
 
   @property
   def cnt(self): return self._cnt
@@ -61,5 +64,3 @@ class Statistics(object):
   @property
   def time_start_str(self):
     return time.ctime(self.time_start())
-
-stats = Statistics()

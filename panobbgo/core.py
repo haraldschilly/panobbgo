@@ -5,9 +5,6 @@ This is the core part, currently only managing the global
 DB of point evaluations. For more, look into the strategy.py file.
 '''
 
-# time.time & time.clock for cpu time
-# from IPython.utils.timing import time
-
 from utils import logger
 from panobbgo_problems import Result
 
@@ -16,9 +13,10 @@ class Results(object):
   List of results w/ notificaton for new results.
   Later on, this will be a cool database.
   '''
-  def __init__(self, problem):
+  def __init__(self, problem, statistics):
     import numpy as np
     self._problem = problem
+    self._stats = statistics
     self._results = []
     # a listener just needs a .notify([..]) method
     self._listener = set() 

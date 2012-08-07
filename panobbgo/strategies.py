@@ -45,10 +45,13 @@ class Strategy0(threading.Thread):
   '''
 
   def __init__(self, problem, heurs):
-    threading.Thread.__init__(self, name=self.__class__.__name__)
+    self._name = name = self.__class__.__name__
+    threading.Thread.__init__(self, name=name)
     self.problem = problem
     self.results = Results(problem)
     Heuristic.register_heuristics(heurs, problem, self.results)
+    logger.info("Init of strategy: '%s' w/ %d heuristics." % (name, len(heurs)))
+    logger.info("%s" % problem)
     self._setup_cluster(1, problem)
     self.collector = Collector(self.results)
     self.tasklist = self.collector.tasklist
@@ -78,8 +81,11 @@ class Strategy0(threading.Thread):
 
   def run(self):
     from IPython.parallel import Reference
+    from IPython.utils.timing import time
     from heuristics import Heuristic
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
+    self._start = time.time()
+    logger.info("Strategy '%s' started" % self._name)
     while True:
       points = []
       target = 10
@@ -113,7 +119,8 @@ class Strategy0(threading.Thread):
     # signal to end
     self.tasklist.put(None)
     self.collector.join()
-    logger.info(">>> %s finished" % self.__class__.__name__)
+    self._end = time.time()
+    logger.info("Strategy '%s' finished after %.3f [s]" % (self._name, self._end - self._start))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     stats.info()
 

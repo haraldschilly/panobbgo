@@ -9,7 +9,8 @@ and another one consumes them and dispatches tasks.
 '''
 import threading
 import config
-from utils import logger
+from config import loggers
+logger = loggers['strategy']
 from statistics import Statistics
 from core import Results
 from heuristics import Heuristic

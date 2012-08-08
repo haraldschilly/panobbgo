@@ -5,7 +5,8 @@ This is the core part, currently only managing the global
 DB of point evaluations. For more, look into the strategy.py file.
 '''
 
-from utils import logger
+from config import loggers
+logger = loggers['core']
 from panobbgo_problems import Result
 
 class Results(object):

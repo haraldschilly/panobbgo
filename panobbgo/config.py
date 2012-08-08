@@ -81,17 +81,11 @@ ipy_profile = _cfgp.get('ipython', 'profile')
 print 'loglevel: %s' % loglevel
 print 'ipython profile: %s' % ipy_profile
 
-def info():
-  '''
-  show a bit of info
-  '''
-  def version(what):
-    m = __import__(what)
-    print "%s: %s" % (what, m.__version__)
-
-  version("numpy")
-  version("scipy")
-  version("IPython")
-  version("matplotlib")
-
+from utils import info, create_logger
 info()
+
+loggers = {}
+loggers['core']      = create_logger('CORE',  loglevel)
+loggers['strategy']  = create_logger('STRAT', loglevel)
+loggers['heuristic'] = create_logger('HEUR',  loglevel)
+loggers['statistic'] = create_logger('STAT',  loglevel)

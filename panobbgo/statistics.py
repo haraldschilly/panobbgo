@@ -2,7 +2,8 @@
 '''
 global statistics and reporting
 '''
-from utils import logger
+from config import loggers
+logger = loggers['statistic']
 from IPython.utils.timing import time
 
 class Statistics(object):

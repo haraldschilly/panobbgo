@@ -2,7 +2,8 @@
 import threading
 from Queue import PriorityQueue, Empty, Queue, LifoQueue
 import config
-from core import logger
+from config import loggers
+logger = loggers['heuristic']
 from panobbgo_problems import Point
 
 class StopHeuristic(Exception):

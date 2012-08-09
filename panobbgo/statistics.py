@@ -7,10 +7,12 @@ logger = loggers['statistic']
 from IPython.utils.timing import time
 
 class Statistics(object):
-  def __init__(self):
+  def __init__(self, evaluators):
     self._cnt      = 0 # show info about evaluated points
     self._cnt_last = 0 # for printing the info line in add_tasks()
     self._time_start = time.time()
+
+    self._evaluators = evaluators
 
     # task stats
     self._pending  = set([])
@@ -20,7 +22,8 @@ class Statistics(object):
   def add_tasks(self, new_tasks, outstanding):
     if new_tasks != None: 
       map(self._pending.add, new_tasks.msg_ids)
-      print "stat: new_tasks", new_tasks.msg_ids
+      for mid in new_tasks.msg_ids:
+        self._cnt += len(self._evaluators.get_result(mid).result)
     self._new     = self._pending.difference(outstanding)
     self._pending = self._pending.difference(self._new)
     map(self._finished.append, self._new)

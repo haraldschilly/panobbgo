@@ -26,13 +26,13 @@ class Strategy0(threading.Thread):
   def __init__(self, problem, heurs):
     self._name = name = self.__class__.__name__
     threading.Thread.__init__(self, name=name)
-    self.problem = problem
-    self._statistics = Statistics()
-    self.results = Results(problem, self.stats)
-    Heuristic.register_heuristics(heurs, problem, self.results)
     logger.info("Init of strategy: '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.info("%s" % problem)
     self._setup_cluster(1, problem)
+    self.problem = problem
+    self._statistics = Statistics(self.evaluators)
+    self.results = Results(problem, self.stats)
+    Heuristic.register_heuristics(heurs, problem, self.results)
     self.start()
 
   def _setup_cluster(self, nb_gens, problem):
@@ -92,7 +92,6 @@ class Strategy0(threading.Thread):
             time.sleep(1e-3)
 
         new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
-        print "len points:", len(points)
         #new_tasks.wait()
         #self.evaluators.spin()
 
@@ -100,7 +99,6 @@ class Strategy0(threading.Thread):
       self.stats.add_tasks(new_tasks, self.evaluators.outstanding)
 
       # collect new results, hand over to result DB
-      print "new_results:", len(self.stats.new_results)
       for msg_id in self.stats.new_results:
         res = self.evaluators.get_result(msg_id)
         for t in res.result:

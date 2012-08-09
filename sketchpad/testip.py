@@ -198,7 +198,7 @@ while pending or added < MAX:
     # we know these are done, so don't worry about blocking
     res = evaluators.get_result(msg_id)
     nb_finished += len(res.result)
-    
+
     # each job returns a list of length chunksize
     for t in res.result:
       logger.debug("result '%s' = %s" % (msg_id, t))

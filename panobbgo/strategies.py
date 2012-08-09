@@ -18,28 +18,6 @@ from heuristics import Heuristic
 #constant
 PROBLEM_KEY = "problem"
 
-class Collector(threading.Thread):
-  '''
-  This Collector receives result lists and passes them along to the statistics and UI.
-  It needs to be terminated via a `None` element.
-  '''
-  def __init__(self, results):
-    threading.Thread.__init__(self, name=self.__class__.__name__)
-    from Queue import Queue
-    self._tasklist = Queue()
-    self.results = results
-    self.start()
-
-  def run(self):
-    while True:
-      tlist = self.tasklist.get()
-      if tlist is None: return
-      for t in tlist:
-        self.results += t
-
-  @property
-  def tasklist(self): return self._tasklist
-
 class Strategy0(threading.Thread):
   '''
   Very basic strategy, mainly for testing purposes.
@@ -55,13 +33,11 @@ class Strategy0(threading.Thread):
     logger.info("Init of strategy: '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.info("%s" % problem)
     self._setup_cluster(1, problem)
-    self.collector = Collector(self.results)
-    self.tasklist = self.collector.tasklist
     self.start()
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
-    c = Client(profile=config.ipy_profile)
+    c = self._client = Client(profile=config.ipy_profile)
     c.clear() # clears remote engines
     c.purge_results('all') # all results are memorized in the hub
 
@@ -71,6 +47,7 @@ class Strategy0(threading.Thread):
     dv_evaluators[PROBLEM_KEY] = problem
     self.generators = c.load_balanced_view(c.ids[:nb_gens])
     self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
+    self.direct_view = c.ids[:]
     # TODO remove this hack. "problem" wasn't pushed to all clients
     #from IPython.utils.timing import time
     #time.sleep(1e-1)
@@ -91,9 +68,11 @@ class Strategy0(threading.Thread):
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
     logger.info("Strategy '%s' started" % self._name)
+    loops = 0
     while True:
+      loops += 1
       points = []
-      target = 10
+      target = 20
       #Heuristic.normalize_performances()
       heurs = Heuristic.heuristics()
       perf_sum = sum(h.performance for h in heurs)
@@ -110,10 +89,14 @@ class Strategy0(threading.Thread):
           from IPython.utils.timing import time
           time.sleep(1e-3)
 
-      new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 5, ordered=False)
-      self.stats.add_tasks(new_tasks)
-      new_tasks.wait()
-      self.tasklist.put(new_tasks)
+      new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
+      #new_tasks.wait()
+      #self.evaluators.spin()
+      self.stats.add_tasks(new_tasks, self.evaluators.outstanding)
+      for msg_id in self.stats.finished:
+        res = self.evaluators.get_result(msg_id)
+        for t in res.result:
+          self.results += t
 
       # show heuristic performances after each round
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
@@ -121,11 +104,19 @@ class Strategy0(threading.Thread):
       # stopping criteria
       if self.stats.cnt > config.max_eval: break
 
-    # signal to end
-    self.tasklist.put(None)
-    self.collector.join()
+      # limit loop speed
+      self.evaluators.wait(None, 1e-3)
+
+    # cleanup + shutdown
+    for msg_id in self.evaluators.outstanding:
+      r = self.evaluators.get_result(msg_id)
+      #if not r.ready():
+      try:
+        r.abort()
+      except:
+        pass
     self._end = time.time()
-    logger.info("Strategy '%s' finished after %.3f [s]" % (self._name, self._end - self._start))
+    logger.info("Strategy '%s' finished after %.3f [s] w/ %d loops." % (self._name, self._end - self._start, loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.stats.info()
 

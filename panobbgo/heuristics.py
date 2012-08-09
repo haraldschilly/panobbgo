@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import threading
-from Queue import PriorityQueue, Empty, Queue, LifoQueue
+from Queue import Empty, Queue, LifoQueue # PriorityQueue
 import config
 from config import loggers
 logger = loggers['heuristic']

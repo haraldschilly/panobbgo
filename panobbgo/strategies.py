@@ -73,27 +73,35 @@ class Strategy0(threading.Thread):
       loops += 1
       points = []
       target = 20
-      #Heuristic.normalize_performances()
-      heurs = Heuristic.heuristics()
-      perf_sum = sum(h.performance for h in heurs)
-      while len(points) < target:
-        for h in heurs:
-          # calc probability based on performance with additive smoothing
-          s = config.smooth
-          prob = (h.performance + s)/(perf_sum + s * len(heurs))
-          np_h = int(target * prob) + 1
-          logger.debug("  %s -> %s" % (h, np_h))
-          points.extend(h.get_points(np_h))
+      new_tasks = None
+      if len(self.evaluators.outstanding) < target:
+        #Heuristic.normalize_performances()
+        heurs = Heuristic.heuristics()
+        perf_sum = sum(h.performance for h in heurs)
+        while len(points) < target:
+          for h in heurs:
+            # calc probability based on performance with additive smoothing
+            s = config.smooth
+            prob = (h.performance + s)/(perf_sum + s * len(heurs))
+            np_h = int(target * prob) + 1
+            logger.debug("  %s -> %s" % (h, np_h))
+            points.extend(h.get_points(np_h))
 
-        if len(points) == 0:
-          from IPython.utils.timing import time
-          time.sleep(1e-3)
+          if len(points) == 0:
+            from IPython.utils.timing import time
+            time.sleep(1e-3)
 
-      new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
-      #new_tasks.wait()
-      #self.evaluators.spin()
+        new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
+        print "len points:", len(points)
+        #new_tasks.wait()
+        #self.evaluators.spin()
+
+      # don't forget, this updates the statistics - new_tasks's default is "None"
       self.stats.add_tasks(new_tasks, self.evaluators.outstanding)
-      for msg_id in self.stats.finished:
+
+      # collect new results, hand over to result DB
+      print "new_results:", len(self.stats.new_results)
+      for msg_id in self.stats.new_results:
         res = self.evaluators.get_result(msg_id)
         for t in res.result:
           self.results += t

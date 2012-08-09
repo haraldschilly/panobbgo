@@ -19,6 +19,7 @@ class Results(object):
     self._problem = problem
     self._stats = statistics
     self._results = []
+    self._last_nb = 0 #for logging
     # a listener just needs a .notify([..]) method
     self._listener = set() 
     self.fx_delta_last = None
@@ -73,7 +74,7 @@ class Results(object):
 
   def add_results(self, new_results):
     '''
-    add a new list of @Result objects.
+    add one single or a list of new @Result objects.
     * calc some statistics, then
     * listeners will get notified.
     '''
@@ -89,6 +90,9 @@ class Results(object):
       if r.fx < self.best.fx:
         logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, reward))
         self._best = r # set the new best point
+    if len(self._results) / 100 > self._last_nb / 100:
+      logger.info("%d results in DB" % len(self._results))
+      self._last_nb = len(self._results)
 
     # notification
     for l in self._listener:

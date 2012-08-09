@@ -13,18 +13,23 @@ class Statistics(object):
     self._time_start = time.time()
 
     # task stats
-    self._pending = set([])
-    self._finished = set([])
+    self._pending  = set([])
+    self._new      = []
+    self._finished = []
 
   def add_tasks(self, new_tasks, outstanding):
-    self._cnt += len(new_tasks.msg_ids)
-    map(self._pending.add, new_tasks.msg_ids)
+    if new_tasks != None: 
+      map(self._pending.add, new_tasks.msg_ids)
+      print "stat: new_tasks", new_tasks.msg_ids
+    self._new     = self._pending.difference(outstanding)
+    self._pending = self._pending.difference(self._new)
+    map(self._finished.append, self._new)
+
+    self._cnt += len(self._new)
     if self._cnt / 100 > self._cnt_last / 100:
       self.info()
       self._cnt_last = self._cnt
 
-    self._finished = self._pending.difference(outstanding)
-    self._pending  = self._pending.difference(self._finished)
 
   def info(self):
     pend = len(self.pending)
@@ -37,6 +42,9 @@ class Statistics(object):
 
   @property
   def finished(self): return self._finished
+
+  @property
+  def new_results(self): return self._new
 
   @property
   def pending(self): return self._pending

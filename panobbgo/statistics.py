@@ -15,32 +15,44 @@ class Statistics(object):
     self._evaluators = evaluators
     self._results    = results
 
-    # task stats
+    self._tasks_walltimes = {}
+
+    # task stats (tasks != points !!!)
     self._pending  = set([])
     self._new      = []
     self._finished = []
 
   def add_tasks(self, new_tasks, outstanding):
-    if new_tasks != None: 
-      map(self._pending.add, new_tasks.msg_ids)
+    if new_tasks != None:
       for mid in new_tasks.msg_ids:
+        self._pending.add(mid)
         self._cnt += len(self._evaluators.get_result(mid).result)
     self._new     = self._pending.difference(outstanding)
     self._pending = self._pending.difference(self._new)
-    map(self._finished.append, self._new)
+    for tid in self._new:
+       self._finished.append(tid)
+       self._tasks_walltimes[tid] = self._evaluators.get_result(tid).elapsed
 
     self._cnt += len(self._new)
     if self._cnt / 100 > self._cnt_last / 100:
       self.info()
       self._cnt_last = self._cnt
 
+  def avg_time_per_task(self):
+    nb = len(self._tasks_walltimes)
+    if nb > 0:
+      sum_tasks = sum(self._tasks_walltimes.values())
+      return sum_tasks / nb
+    return 0.0
 
   def info(self):
+    avg_tasks = self.avg_time_per_task()
+
     pend = len(self.pending)
     fini = len(self.finished)
     peval = len(self._results)
-    logger.info("%4d/%4d points | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall" %
-               (self.cnt, peval, pend, fini, self.time_cpu, self.time_wall))
+    logger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s]/task" %
+               (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg_tasks))
 
   @property
   def cnt(self): return self._cnt

@@ -6,7 +6,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
 import numpy as np
-from lib import Point, Problem
+from lib import Problem
 
 class Rosenbrock(Problem):
   '''
@@ -50,7 +50,6 @@ class RosenbrockStochastic(Problem):
   def eval(self, x):
     eps = np.random.rand(self.dim - 1)
     ret = sum(self.par1 * eps * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
-    print ret
     return ret
 
 class Himmelblau(Problem):

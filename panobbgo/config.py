@@ -86,7 +86,7 @@ logger.info('ipython profile: %s' % ipy_profile)
 logger.info("Versions: %s" % info())
 
 loggers = {}
-loggers['core']      = create_logger('CORE',  loglevel)
-loggers['strategy']  = create_logger('STRAT', loglevel)
-loggers['heuristic'] = create_logger('HEUR',  loglevel)
-loggers['statistic'] = create_logger('STAT',  loglevel)
+loggers['core']      = create_logger('CORE', loglevel)
+loggers['strategy']  = create_logger('STRA', loglevel)
+loggers['heuristic'] = create_logger('HEUR', loglevel)
+loggers['statistic'] = create_logger('STAT', loglevel)

@@ -7,12 +7,13 @@ logger = loggers['statistic']
 from IPython.utils.timing import time
 
 class Statistics(object):
-  def __init__(self, evaluators):
+  def __init__(self, evaluators, results):
     self._cnt      = 0 # show info about evaluated points
     self._cnt_last = 0 # for printing the info line in add_tasks()
     self._time_start = time.time()
 
     self._evaluators = evaluators
+    self._results    = results
 
     # task stats
     self._pending  = set([])
@@ -37,8 +38,9 @@ class Statistics(object):
   def info(self):
     pend = len(self.pending)
     fini = len(self.finished)
-    logger.info("Points: %4d | %4d | %4d. Time: %6.3f [s] cpu, %6.3f [s] wall" %
-               (self.cnt, pend, fini, self.time_cpu, self.time_wall))
+    peval = len(self._results)
+    logger.info("%4d/%4d points | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall" %
+               (self.cnt, peval, pend, fini, self.time_cpu, self.time_wall))
 
   @property
   def cnt(self): return self._cnt

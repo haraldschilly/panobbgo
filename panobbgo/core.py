@@ -14,10 +14,9 @@ class Results(object):
   List of results w/ notificaton for new results.
   Later on, this will be a cool database.
   '''
-  def __init__(self, problem, statistics):
+  def __init__(self, problem):
     import numpy as np
     self._problem = problem
-    self._stats = statistics
     self._results = []
     self._last_nb = 0 #for logging
     # a listener just needs a .notify([..]) method
@@ -91,16 +90,22 @@ class Results(object):
         logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, reward))
         self._best = r # set the new best point
     if len(self._results) / 100 > self._last_nb / 100:
-      logger.info("%d results in DB" % len(self._results))
+      #self.info()
       self._last_nb = len(self._results)
 
     # notification
     for l in self._listener:
       l.notify(new_results)
 
+  def info(self):
+    logger.info("%d results in DB" % len(self._results))
+
   def __iadd__(self, results):
     self.add_results(results)
     return self
+
+  def __len__(self):
+    return len(self._results)
 
   @property
   def best(self): return self._best

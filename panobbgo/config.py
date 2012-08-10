@@ -5,6 +5,8 @@ It's purpose is to parse a config file (create a default one if none
 is present) and replace values stored within it with those given
 via optional command-line arguments.
 """
+from utils import info, create_logger
+logger = create_logger("CONF")
 
 default_config_fn = 'config.ini'
 
@@ -21,7 +23,7 @@ _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level
 
 _options, _args = _parser.parse_args()
 
-print 'cmdln options: %s' % _options
+logger.info('cmdln options: %s' % _options)
 
 import os
 from ConfigParser import ConfigParser
@@ -62,14 +64,14 @@ if _options.ipy_profile: _cfgp.set('ipython', 'profile', _options.ipy_profile)
 def get_config(section, key):
   return _cfgp.get(section, key)
 
-def all(sep = '::'):
+def all_cfgp(sep = '::'):
   ret = {}
   for s in _cfgp.sections():
     for k, v in _cfgp.items(s):
       ret['%s%s%s' % (s, sep, k)] = v
   return ret
 
-print 'config.ini: %s' % all()
+logger.info('config.ini: %s' % all_cfgp())
 
 ## specific data
 loglevel    = _cfgp.getint('core', 'loglevel')
@@ -78,11 +80,10 @@ discount    = _cfgp.getfloat('core', 'discount')
 smooth      = _cfgp.getfloat('core', 'smooth')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
-print 'loglevel: %s' % loglevel
-print 'ipython profile: %s' % ipy_profile
+logger.info('loglevel: %s' % loglevel)
+logger.info('ipython profile: %s' % ipy_profile)
 
-from utils import info, create_logger
-info()
+logger.info("Versions: %s" % info())
 
 loggers = {}
 loggers['core']      = create_logger('CORE',  loglevel)

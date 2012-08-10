@@ -140,7 +140,7 @@ class Heuristic(threading.Thread):
       pass
     return new_points
 
-  def __str__(self):
+  def __repr__(self):
     return '%s' % self.name
 
   @property

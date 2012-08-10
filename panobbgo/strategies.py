@@ -26,12 +26,13 @@ class Strategy0(threading.Thread):
   def __init__(self, problem, heurs):
     self._name = name = self.__class__.__name__
     threading.Thread.__init__(self, name=name)
-    logger.info("Init of strategy: '%s' w/ %d heuristics." % (name, len(heurs)))
+    logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
+    logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)
-    self._setup_cluster(1, problem)
+    self._setup_cluster(0, problem)
     self.problem = problem
-    self._statistics = Statistics(self.evaluators)
-    self.results = Results(problem, self.stats)
+    self.results = Results(problem)
+    self._statistics = Statistics(self.evaluators, self.results)
     Heuristic.register_heuristics(heurs, problem, self.results)
     self.start()
 
@@ -72,57 +73,57 @@ class Strategy0(threading.Thread):
     while True:
       loops += 1
       points = []
-      target = 20
+      per_client = 30
+      target = per_client * len(self.evaluators)
       new_tasks = None
       if len(self.evaluators.outstanding) < target:
         #Heuristic.normalize_performances()
         heurs = Heuristic.heuristics()
         perf_sum = sum(h.performance for h in heurs)
-        while len(points) < target:
+        s = config.smooth
+        while True:
           for h in heurs:
             # calc probability based on performance with additive smoothing
-            s = config.smooth
             prob = (h.performance + s)/(perf_sum + s * len(heurs))
-            np_h = int(target * prob) + 1
-            logger.debug("  %s -> %s" % (h, np_h))
-            points.extend(h.get_points(np_h))
+            nb_h = int(target * prob) + 1
+            logger.debug("  %s -> %s" % (h, nb_h))
+            points.extend(h.get_points(nb_h))
 
-          if len(points) == 0:
-            from IPython.utils.timing import time
-            time.sleep(1e-3)
+          # stopping criteria
+          if len(points) > target: break
+
+          # wait a bit, and loop
+          from IPython.utils.timing import time
+          time.sleep(1e-3)
 
         new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
-        #new_tasks.wait()
-        #self.evaluators.spin()
 
       # don't forget, this updates the statistics - new_tasks's default is "None"
       self.stats.add_tasks(new_tasks, self.evaluators.outstanding)
 
-      # collect new results, hand over to result DB
+      # collect new results for each finished task, hand over to result DB
       for msg_id in self.stats.new_results:
-        res = self.evaluators.get_result(msg_id)
-        for t in res.result:
-          self.results += t
+        for r in self.evaluators.get_result(msg_id).result:
+          self.results += r
 
       # show heuristic performances after each round
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
-      if self.stats.cnt > config.max_eval: break
+      if len(self.results) > config.max_eval: break
 
       # limit loop speed
       self.evaluators.wait(None, 1e-3)
 
     # cleanup + shutdown
+    self._end = time.time()
     for msg_id in self.evaluators.outstanding:
-      r = self.evaluators.get_result(msg_id)
-      #if not r.ready():
       try:
-        r.abort()
+        self.evaluators.get_result(msg_id).abort()
       except:
         pass
-    self._end = time.time()
     logger.info("Strategy '%s' finished after %.3f [s] w/ %d loops." % (self._name, self._end - self._start, loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.stats.info()
+    self.results.info()
 

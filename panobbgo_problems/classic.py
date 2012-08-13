@@ -13,7 +13,7 @@ class Rosenbrock(Problem):
   f(x) = sum_i (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
   '''
   def __init__(self, dims, par1 = 100):
-    box = [(-4,4)] * dims
+    box = [(-2,2)] * dims
     box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
     Problem.__init__(self, box)

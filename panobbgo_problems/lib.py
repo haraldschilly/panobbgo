@@ -21,7 +21,7 @@ class Point(object):
     self._x   = x
     self._who = who # heuristic.name, a string
 
-  def __str__(self):
+  def __repr__(self):
     return '%s by %s' % (self.x, self.who)
 
   @property

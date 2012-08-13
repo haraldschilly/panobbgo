@@ -4,17 +4,17 @@
 import sys
 sys.path.append(".")
 #from panobbgo.core import Results
-from panobbgo.heuristics import RandomPoints, NearbyPoints, \
-     ZeroPoint, LatinHypercube, ExtremalPoints, \
-     CenterPoint, CalculatedPoints
+from panobbgo.heuristics import Random, Nearby, \
+     ZeroPoint, LatinHypercube, Extremal, \
+     CenterPoint, Calculated, WeightedAverage
 from panobbgo.strategies import Strategy0
 #import numpy as np
 
 from panobbgo_problems.classic import *
 
 #problem = Rosenbrock(2)
-#problem = RosenbrockStochastic(2)
-problem = Rosenbrock(3, 100)
+problem = RosenbrockStochastic(3)
+#problem = Rosenbrock(2, 100)
 #problem = RosenbrockAbs(2)
 #problem = Rastrigin(2, offset=1.11111)
 #problem = Himmelblau()
@@ -29,15 +29,16 @@ problem = Rosenbrock(3, 100)
 #
 #problem = LocalProblem()
 
-rand        = RandomPoints()
-near_1000   = NearbyPoints(radius=1./1000, axes='all')
-near_100    = NearbyPoints(radius=1./100,  axes='all')
-near_10_all = NearbyPoints(radius=1./10,   axes='all')
-near_10     = NearbyPoints(radius=1./10)
-calc        = CalculatedPoints()
+rand        = Random()
+near_1000   = Nearby(radius=1./1000, axes='all')
+near_100    = Nearby(radius=1./100,  axes='all')
+near_10_all = Nearby(radius=1./10,   axes='all')
+near_10     = Nearby(radius=1./10)
+calc        = Calculated()
 zero        = ZeroPoint()
-extremal    = ExtremalPoints()
+extremal    = Extremal()
 center      = CenterPoint()
+avg         = WeightedAverage()
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:
@@ -49,7 +50,8 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10_all, lhyp, zero, extremal, calc]
+heurs = [ center, rand, near_10_all, lhyp, zero, extremal, calc, avg]
+#heurs = [ rand, avg ]
 
 strategy0 = Strategy0(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points

@@ -73,7 +73,7 @@ class Strategy0(threading.Thread):
     while True:
       loops += 1
       points = []
-      per_client = 30
+      per_client = 20
       target = per_client * len(self.evaluators)
       new_tasks = None
       if len(self.evaluators.outstanding) < target:
@@ -96,7 +96,7 @@ class Strategy0(threading.Thread):
           from IPython.utils.timing import time
           time.sleep(1e-3)
 
-        new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
+        new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = per_client, ordered=False)
 
       # don't forget, this updates the statistics - new_tasks's default is "None"
       self.stats.add_tasks(new_tasks)

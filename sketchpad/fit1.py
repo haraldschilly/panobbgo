@@ -16,16 +16,16 @@ yy = np.array([ func(x, *params) for x in xx] )
 yy += np.random.normal(0,.1,size=ANZ)
 
 def residual(guess):
-  #print "x  =", guess
-  res = np.sum((func(x, *guess) - y)**2.0 for x, y in zip(xx,yy))
-  return res
+  fx = np.array([func(x, *guess) for x in xx]) - yy
+  return fx.dot(fx)
 
 def gradient(guess):
   a, b, c = guess
   ret = np.empty(3)
-  ret[0] = np.sum( 2.*(func(x, *guess) - y) * (x.dot(x))  for x,y in zip(xx,yy) )
-  ret[1] = np.sum( 2.*(func(x, *guess) - y) * np.sum(x)   for x,y in zip(xx,yy) )
-  ret[2] = np.sum( 2.*(func(x, *guess) - y) * 1.          for x,y in zip(xx,yy) )
+  v1 = 2. * np.array([(func(x, *guess) - y) for x,y in zip(xx,yy)])
+  ret[0] = v1.dot(xx.dot(xx.T).diagonal())
+  ret[1] = v1.dot(xx.sum(axis=1))
+  ret[2] = v1.sum(axis=0)
   #print "x  =", guess
   #print "f' =", ret
   return ret

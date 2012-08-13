@@ -51,7 +51,8 @@ class Heuristic(threading.Thread):
     '''
     return filter(lambda h:h.isAlive(), Heuristic.lookup.values())
 
-  def __init__(self, name, q = None, cap = None, start = True):
+  def __init__(self, name = None, q = None, cap = None, start = True):
+    name = name if name else self.__class__.__name__
     threading.Thread.__init__(self, name=name)
     # daemonize and start me
     self.daemon = True
@@ -86,12 +87,16 @@ class Heuristic(threading.Thread):
         pnts = self.calc_points()
         if pnts == None: raise StopHeuristic()
         if not isinstance(pnts, list): pnts = [ pnts ]
-        assert len(pnts) > 0, "empty list of points, heuristics shouldn't do this"
-        map(self.emit, pnts)
+        if len(pnts) == 0:
+          #logger.warning("empty list of points, heuristic '%s' shouldn't do this" % self.name)
+          from IPython.utils.timing import time
+          time.sleep(1e-3)
+        else:
+          map(self.emit, pnts)
     except StopHeuristic:
       pass
 
-  def calc_points(self): 
+  def calc_points(self):
     raise Exception('You have to overwrite the calc_points method.')
 
   def emit(self, point):
@@ -155,7 +160,7 @@ class Heuristic(threading.Thread):
   @property
   def performance(self): return self._performance
 
-class RandomPoints(Heuristic):
+class Random(Heuristic):
   '''
   always generates random points until the
   capped queue is full.
@@ -207,7 +212,7 @@ class LatinHypercube(Heuristic):
     [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
     return [ p for p in pts ] # needs to be a list of np.ndarrays
 
-class NearbyPoints(Heuristic):
+class Nearby(Heuristic):
   '''
   This provider generates new points based
   on a cheap (i.e. fast) algorithm. For each new result,
@@ -258,7 +263,7 @@ class NearbyPoints(Heuristic):
         ret.append(new_x)
     return ret
 
-class ExtremalPoints(Heuristic):
+class Extremal(Heuristic):
   '''
   This heuristic is specifically seeking for points at the
   border of the box and around 0.
@@ -336,21 +341,95 @@ class CenterPoint(Heuristic):
     else:
       raise StopHeuristic()
 
-class CalculatedPoints(Heuristic):
+class QadraticModelMockup(Heuristic):
   '''
-  This is the thread that generates points by
-  dispatching tasks. -- NYI
   '''
   def __init__(self, cap = 10):
-    Heuristic.__init__(self, cap=cap, name="Calculated", start=False)
+    Heuristic.__init__(self, cap=cap) #, start=False)
+    self._listen_results = True
     self.machines = None
 
-  def set_machines(self, machines):
-    self.machines = machines # this is already a load_balanced view
-
+  #def set_machines(self, machines):
+  #  self.machines = machines # this is already a load_balanced view
 
   def calc_points(self):
-    #return np.array([99]*self._problem.dim)
+    logger.warning("%s is broken, don't use it" % self.name)
     return None
 
+    best = self.results.best
+    if best is None or best.x is None: return []
+    nbrs = self.results.in_same_grid(best)
+    if len(nbrs) < 3: return []
 
+    # actual calculation
+    import numpy as np
+    from scipy.optimize import fmin_bfgs
+
+    N = self.problem.dim
+    def approx(x, *params):
+      a, b, c = params
+      return a * x.dot(x) + x.dot(np.repeat(b, N)) + c
+
+    xx = np.array([r.x  for r in nbrs])
+    yy = np.array([r.fx for r in nbrs])
+
+    def residual(params):
+      fx = np.array([approx(x, *params) - y for x,y in zip(xx,yy)])
+      return fx.dot(fx)
+
+    def gradient(params):
+      a, b, c = params
+      ret = np.empty(3)
+      v1 = 2. * np.array([approx(x, *params) - y for x,y in zip(xx,yy)])
+      ret[0] = v1.dot(xx.dot(xx.T).diagonal())
+      ret[1] = v1.dot(xx.sum(axis=1))
+      ret[2] = v1.sum()
+      return ret
+
+    params = np.random.normal(0,1,size=3)
+    sol = fmin_bfgs(residual, params, fprime=gradient)
+    logger.info("params: %s %s %s" % (sol[0], sol[1], sol[2]))
+
+    return []
+
+class WeightedAverage(Heuristic):
+  '''
+  '''
+  def __init__(self, cap = 10, k = 2.):
+    Heuristic.__init__(self, cap=cap) #, start=False)
+    self._listen_results = True
+    self.k = k
+
+  def calc_points(self):
+    best = self.results.best
+    if best is None or best.x is None: return []
+    #nbrs = self.results.in_same_grid(best)
+    nbrs = self.results.n_best(4)
+    if len(nbrs) < 3: return []
+
+    # actual calculation
+    import numpy as np
+    xx = np.array([r.x   for r in nbrs])
+    yy = np.array([r.fx  for r in nbrs])
+    #weights = np.abs(best.fx - yy)
+    #weights = -weights + self.k * weights.max()
+    weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
+    #logger.info("weights: %s" % weights)
+    ret = np.average(xx, axis=0, weights=weights)
+    ret += 1 * np.random.normal(0, xx.std(axis=0))
+    if np.linalg.norm(best.x - ret) > .1:
+      #logger.info("WA: %s" % ret)
+      return ret
+    from IPython.utils.timing import time
+    time.sleep(1e-3)
+    return []
+
+class Calculated(Heuristic):
+  '''
+  '''
+  def __init__(self, cap = 10):
+    Heuristic.__init__(self, cap=cap) #, start=False)
+    self._listen_results = True
+
+  def calc_points(self):
+    return None

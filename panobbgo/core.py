@@ -27,7 +27,7 @@ class Results(object):
     # grid for storing points which are nearby.
     # maps from rounded coordinates tuple to point
     self._grid = dict()
-    self._grid_div = 10.
+    self._grid_div = 5.
     self._grid_lengths = self._problem.ranges / float(self._grid_div)
 
   def add_listener(self, listener):
@@ -35,19 +35,18 @@ class Results(object):
 
   def in_same_grid(self, point):
     key = tuple(self._grid_mapping(point.x))
-    points = self._grid.get(key, [])
-    return points
+    return self._grid.get(key, [])
 
   def _grid_mapping(self, x):
     from numpy import floor
     l = self._grid_lengths
     #m = self._problem.box[:,0]
-    return floor((x) / l) * l
+    return tuple(floor(x / l) * l)
 
   def _grid_add(self, r):
-    key = tuple(self._grid_mapping(r.x))
+    key = self._grid_mapping(r.x)
     bin = self._grid.get(key, [])
-    bin.append(r.point)
+    bin.append(r)
     self._grid[key] = bin
 
   def _reward_heuristic(self, r):

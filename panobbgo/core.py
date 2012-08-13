@@ -87,7 +87,7 @@ class Results(object):
       reward = self._reward_heuristic(r)
       # new best solution found?
       if r.fx < self.best.fx:
-        logger.info(u"* %-20s %s | \u0394 %.7f" %('[%s]' % r.who, r, reward))
+        logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, reward, r.who))
         self._best = r # set the new best point
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()

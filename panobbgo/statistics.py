@@ -22,12 +22,12 @@ class Statistics(object):
     self._new      = []
     self._finished = []
 
-  def add_tasks(self, new_tasks, outstanding):
+  def add_tasks(self, new_tasks):
     if new_tasks != None:
       for mid in new_tasks.msg_ids:
         self._pending.add(mid)
         self._cnt += len(self._evaluators.get_result(mid).result)
-    self._new     = self._pending.difference(outstanding)
+    self._new     = self._pending.difference(self._evaluators.outstanding)
     self._pending = self._pending.difference(self._new)
     for tid in self._new:
        self._finished.append(tid)

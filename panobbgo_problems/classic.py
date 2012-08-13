@@ -41,14 +41,15 @@ class RosenbrockStochastic(Problem):
 
   where eps_i is uniformly random in [0, 1)
   '''
-  def __init__(self, dims, par1 = 100):
+  def __init__(self, dims, par1 = 100, jitter = .1):
     box = [(-5,5)] * dims
     box[0] = (-1,2) # for cornercases + testing
     self.par1 = par1
+    self.jitter = jitter
     Problem.__init__(self, box)
 
   def eval(self, x):
-    eps = np.random.rand(self.dim - 1)
+    eps = self.jitter * np.random.rand(self.dim - 1)
     ret = sum(self.par1 * eps * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
     return ret
 

@@ -99,7 +99,7 @@ class Strategy0(threading.Thread):
         new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = 10, ordered=False)
 
       # don't forget, this updates the statistics - new_tasks's default is "None"
-      self.stats.add_tasks(new_tasks, self.evaluators.outstanding)
+      self.stats.add_tasks(new_tasks)
 
       # collect new results for each finished task, hand over to result DB
       for msg_id in self.stats.new_results:
@@ -122,7 +122,7 @@ class Strategy0(threading.Thread):
         self.evaluators.get_result(msg_id).abort()
       except:
         pass
-    logger.info("Strategy '%s' finished after %.3f [s] w/ %d loops." % (self._name, self._end - self._start, loops))
+    logger.info("Strategy '%s' finished after %.3f [s] and %d loops." % (self._name, self._end - self._start, loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.stats.info()
     self.results.info()

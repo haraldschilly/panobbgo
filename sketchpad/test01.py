@@ -13,8 +13,8 @@ from panobbgo.strategies import Strategy0
 from panobbgo_problems.classic import *
 
 #problem = Rosenbrock(2)
-problem = RosenbrockStochastic(2)
-#problem = Rosenbrock(3, 100)
+#problem = RosenbrockStochastic(2)
+problem = Rosenbrock(3, 100)
 #problem = RosenbrockAbs(2)
 #problem = Rastrigin(2, offset=1.11111)
 #problem = Himmelblau()
@@ -49,7 +49,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10_all, near_100, lhyp, zero, extremal, calc]
+heurs = [ center, rand, near_10_all, lhyp, zero, extremal, calc]
 
 strategy0 = Strategy0(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points

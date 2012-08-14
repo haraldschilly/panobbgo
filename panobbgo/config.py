@@ -55,10 +55,10 @@ _cfgp.read(_options.config_file)
 
 # 3: override specific settings
 _cur_verb = _cfgp.getint('core', 'loglevel')
-if _options.verbosity:   _cfgp.set('core', 'loglevel', str(_cur_verb - 10*_options.verbosity))
-if _options.max_eval:    _cfgp.set('core', 'max_eval', str(_options.max_eval))
-if _options.smooth:      _cfgp.set('core', 'smooth', str(_options.smooth))
-if _options.ipy_profile: _cfgp.set('ipython', 'profile', _options.ipy_profile)
+if _options.verbosity:   _cfgp.set('core',    'loglevel', str(_cur_verb - 10*_options.verbosity))
+if _options.max_eval:    _cfgp.set('core',    'max_eval', str(_options.max_eval))
+if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
+if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
 
 ## some generic function
 def get_config(section, key):

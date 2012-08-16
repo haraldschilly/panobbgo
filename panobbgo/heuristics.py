@@ -94,7 +94,7 @@ class Heuristic(threading.Thread):
         else:
           map(self.emit, pnts)
     except StopHeuristic:
-      pass
+      logger.info("'%s' heuristic stopped." % self.name)
 
   def calc_points(self):
     raise Exception('You have to overwrite the calc_points method.')
@@ -309,7 +309,7 @@ class Extremal(Heuristic):
 
     return ret
 
-class ZeroPoint(Heuristic):
+class Zero(Heuristic):
   '''
   This heuristic only returns the 0 vector once.
   '''
@@ -325,7 +325,7 @@ class ZeroPoint(Heuristic):
     else:
       raise StopHeuristic()
 
-class CenterPoint(Heuristic):
+class Center(Heuristic):
   '''
   This heuristic checks the point in the center of the box.
   '''
@@ -401,11 +401,13 @@ class WeightedAverage(Heuristic):
     self.k = k
 
   def calc_points(self):
-    best = self.results.best
+    pass
+
+  def on_new_best(self, best):
     if best is None or best.x is None: return []
     #nbrs = self.results.in_same_grid(best)
     nbrs = self.results.n_best(4)
-    if len(nbrs) < 3: return []
+    if len(nbrs) < 3: return
 
     # actual calculation
     import numpy as np
@@ -415,21 +417,39 @@ class WeightedAverage(Heuristic):
     #weights = -weights + self.k * weights.max()
     weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
     #logger.info("weights: %s" % weights)
-    ret = np.average(xx, axis=0, weights=weights)
-    ret += 1 * np.random.normal(0, xx.std(axis=0))
-    if np.linalg.norm(best.x - ret) > .1:
-      #logger.info("WA: %s" % ret)
-      return ret
-    from IPython.utils.timing import time
-    time.sleep(1e-3)
-    return []
+    for i in range(10):
+      ret = np.average(xx, axis=0, weights=weights)
+      ret += 1 * np.random.normal(0, xx.std(axis=0))
+      if np.linalg.norm(best.x - ret) > .01:
+        self.emit(ret)
 
-class Calculated(Heuristic):
+class Testing(Heuristic):
   '''
   '''
   def __init__(self, cap = 10):
     Heuristic.__init__(self, cap=cap) #, start=False)
-    self._listen_results = True
+    self.i = 0
+    self.j = 0
 
   def calc_points(self):
-    return None
+    raise StopHeuristic()
+
+  def on_new_best(self, best):
+    #logger.info("TEST best: %s" % best)
+    self.i += 1
+    import numpy as np
+    p = np.random.normal(size=self.problem.dim)
+    self.emit(p)
+    if self.i > 2:
+      #logger.info('TEST best i = %s'%self.i)
+      raise StopHeuristic()
+
+  def on_new_result(self, r):
+    #logger.info("TEST results: %s" % r)
+    self.j += 1
+    import numpy as np
+    p = np.random.normal(size=self.problem.dim)
+    self.emit(p)
+    #if self.j > 5:
+    #  raise StopHeuristic()
+

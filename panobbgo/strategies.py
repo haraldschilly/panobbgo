@@ -12,7 +12,7 @@ import config
 from config import loggers
 logger = loggers['strategy']
 from statistics import Statistics
-from core import Results
+from core import Results, EventBus
 from heuristics import Heuristic
 
 #constant
@@ -31,9 +31,11 @@ class Strategy0(threading.Thread):
     logger.info("%s" % problem)
     self._setup_cluster(0, problem)
     self.problem = problem
-    self.results = Results(problem)
+    self._eventbus = EventBus()
+    self.results = Results(problem, self._eventbus)
     self._statistics = Statistics(self.evaluators, self.results)
     Heuristic.register_heuristics(heurs, problem, self.results)
+    map(self._eventbus.register, heurs)
     self.start()
 
   def _setup_cluster(self, nb_gens, problem):

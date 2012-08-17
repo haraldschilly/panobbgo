@@ -79,13 +79,13 @@ class Results(object):
       assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
       self._grid_add(r)
-      self.eventbus.publish("new_result", r)
+      self.eventbus.publish("new_result", result = r)
       reward = self._reward_heuristic(r)
       # new best solution found?
       if r.fx < self.best.fx:
         logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, reward, r.who))
         self._best = r # set the new best point
-        self.eventbus.publish("new_best", r)
+        self.eventbus.publish("new_best", best = r)
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()
       self._last_nb = len(self._results)
@@ -124,10 +124,14 @@ class Event(object):
   '''
   This class holds the data for one single @EventBus event.
   '''
-  pass
-  #def __init__(self, *args, **kwargs):
-  #  self.args = args
-  #  self.kwargs = kwargs
+  def __init__(self, **kwargs):
+    self._kwargs = kwargs
+    for k, v in kwargs.iteritems():
+      setattr(self, k, v)
+
+  def __repr__(self):
+    return "Event[%s]"% self._kwargs
+
 
 class EventBus(object):
   '''
@@ -151,25 +155,32 @@ class EventBus(object):
     registers a target for this event bus instance. it needs to have
     "on_<key>" methods.
     '''
+    from heuristics import StopHeuristic
+    from Queue import Empty, LifoQueue
+    from threading import Thread
+
     # important: this decouples the dispatcher's thread from the actual target
     def run(key, target):
-      from heuristics import StopHeuristic
+      isfirst = True
       while True:
-        # TODO drain this queue...
-        #qs = target._eventbus_events[key].qsize()
-        #if qs > 30:
-        #  logger.warning("queue length of %s/%s: %s > 30" % (target.name, key, qs))
-        evt = target._eventbus_events[key].get()
-        args, kwargs = evt
+        # draining the queue... otherwise it might get really huge
+        # it's up to the heuristics to only work with the most important points
+        events = []
         try:
-          newpoints = getattr(target, 'on_%s' % key)(*args, **kwargs)
+          while True:
+            events.append(target._eventbus_events[key].get(block=isfirst))
+            isfirst = False
+        except Empty:
+          isfirst = True
+
+        try:
+          newpoints = getattr(target, 'on_%s' % key)(events)
+          # heuristics either call self.emit or return a list
           if newpoints != None: target.emit(newpoints)
         except StopHeuristic:
           logger.info("'%s' heuristic for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
 
-    from Queue import LifoQueue
-    from threading import Thread
     target._eventbus_events = {}
     # bind all 'on_<key>' methods to events in the eventbus
     import inspect
@@ -205,11 +216,12 @@ class EventBus(object):
       # TODO this might be called more than once ... fixable?
       self._subs[key].remove(target)
 
-  def publish(self, key, *args, **kwargs):
+  def publish(self, key, **kwargs):
     if key not in self._subs:
       #logger.warning("EventBus: key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:
       #logger.info("EventBus: publishing %s: %s %s" % (key, args, kwargs))
-      target._eventbus_events[key].put((args, kwargs))
+      event = Event(**kwargs)
+      target._eventbus_events[key].put(event)

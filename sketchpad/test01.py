@@ -58,11 +58,11 @@ strategy0 = Strategy0(problem, heurs)
 #calc.start()
 
 strategy0.join()
-results = strategy0.results
+#results = strategy0.results
 
 #print strategy_bare(problem, results, heurs)
 
-if not results.best is None:
-  print "best: ", results.best
+if not strategy0.best is None:
+  print "best: ", strategy0.best.best
 else:
   print "best solution is None"

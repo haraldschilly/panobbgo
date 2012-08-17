@@ -57,12 +57,33 @@ class Rewarder(Analyzer):
     Analyzer.__init__(self)
     self.best = Result(None, np.infty)
 
+  def _reward_heuristic(self, result):
+    '''
+    for each new result, decide if there is a reward and also
+    calculate its amount.
+    '''
+    import numpy as np
+    # currently, only reward if better point found.
+    # TODO in the future also reward if near the best value (but
+    # e.g. not in the proximity of the best x)
+    fx_delta, reward = 0.0, 0.0
+    if result.fx < self.best.fx:
+      # ATTN: always take care of self.best.fx == np.infty
+      #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
+      fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - result.fx)) # saturates to 1
+      #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
+      reward = fx_delta #/ self.fx_delta_last
+      self.strategy._heurs[result.who].reward(reward)
+      #self.fx_delta_last = fx_delta
+    return reward
+
   def on_new_result(self, events):
     for event in events:
       if event.result.fx < self.best.fx:
-        pass
+        reward = self._reward_heuristic(event.result)
+        logger.info("rewarder: %s for %s" % (reward, event.result.who))
 
   def on_new_bestt(self, events):
     for event in events[::-1]:
-      logger.info("rewarder: new best: %s" % self.best)
+      #logger.info("rewarder: new best: %s" % self.best)
       self.best = event.best

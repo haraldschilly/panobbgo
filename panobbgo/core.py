@@ -46,26 +46,6 @@ class Results(object):
     bin.append(r)
     self._grid[key] = bin
 
-  def _reward_heuristic(self, r):
-    '''
-    for each new result, decide if there is a reward and also
-    calculate its amount.
-    '''
-    import numpy as np
-    # currently, only reward if better point found.
-    # TODO in the future also reward if near the best value (but
-    # e.g. not in the proximity of the best x)
-    fx_delta, reward = 0.0, 0.0
-    if r.fx < self.best.fx:
-      # ATTN: always take care of self.best.fx == np.infty
-      #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
-      fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - r.fx)) # saturates to 1
-      #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
-      reward = fx_delta #/ self.fx_delta_last
-      self.strategy._heurs[r.who].reward(reward)
-      #self.fx_delta_last = fx_delta
-    return reward
-
   def add_results(self, new_results):
     '''
     add one single or a list of new @Result objects.
@@ -80,12 +60,6 @@ class Results(object):
       heapq.heappush(self._results, r)
       self._grid_add(r)
       self.eventbus.publish("new_result", result = r)
-      reward = self._reward_heuristic(r)
-      # new best solution found?
-      if r.fx < self.best.fx:
-        logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, reward, r.who))
-        self._best = r # set the new best point
-        self.eventbus.publish("new_best", best = r)
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()
       self._last_nb = len(self._results)
@@ -176,10 +150,10 @@ class EventBus(object):
 
         try:
           newpoints = getattr(target, 'on_%s' % key)(events)
-          # heuristics either call self.emit or return a list
+          # heuristics might call self.emit and/or return a list
           if newpoints != None: target.emit(newpoints)
         except StopHeuristic:
-          logger.info("'%s' heuristic for 'on_%s' stopped -> unsubscribing." % (target.name, key))
+          logger.info("'%s' for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
 
     target._eventbus_events = {}
@@ -223,6 +197,6 @@ class EventBus(object):
       return
 
     for target in self._subs[key]:
-      #logger.info("EventBus: publishing %s: %s %s" % (key, args, kwargs))
       event = Event(**kwargs)
+      #logger.info("EventBus: publishing %s -> %s" % (key, event))
       target._eventbus_events[key].put(event)

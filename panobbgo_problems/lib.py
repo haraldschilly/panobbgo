@@ -128,6 +128,8 @@ class Problem(object):
     raise Exception("You have to subclass and overwrite the eval function")
 
   def __call__(self, point):
+    #from time import sleep
+    #sleep(1e-2)
     return Result(point, self.eval(point.x))
 
   def __repr__(self):

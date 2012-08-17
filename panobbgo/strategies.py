@@ -37,7 +37,8 @@ class Strategy0(threading.Thread):
     self._init_heuristics(heurs)
     map(self._eventbus.register, heurs)
 
-    analyzers = [ Best(), Rewarder() ]
+    self.best = Best()
+    analyzers = [ self.best, Rewarder() ]
     self._init_analyzers(analyzers)
     map(self._eventbus.register, analyzers)
 

@@ -125,13 +125,14 @@ class Event(object):
   This class holds the data for one single @EventBus event.
   '''
   def __init__(self, **kwargs):
+    from IPython.utils.timing import time
+    self._when   = time.time()
     self._kwargs = kwargs
     for k, v in kwargs.iteritems():
       setattr(self, k, v)
 
   def __repr__(self):
-    return "Event[%s]"% self._kwargs
-
+    return "Event[%s]" % self._kwargs
 
 class EventBus(object):
   '''

@@ -13,6 +13,7 @@ from config import loggers
 logger = loggers['strategy']
 from statistics import Statistics
 from core import Results, EventBus
+from analyzers import Best, Rewarder
 
 #constant
 PROBLEM_KEY = "problem"
@@ -35,12 +36,21 @@ class Strategy0(threading.Thread):
     self._statistics = Statistics(self.evaluators, self.results)
     self._init_heuristics(heurs)
     map(self._eventbus.register, heurs)
+
+    analyzers = [ Best(), Rewarder() ]
+    self._init_analyzers(analyzers)
+    map(self._eventbus.register, analyzers)
+
     self.start()
     self._eventbus.publish('start')
 
   @property
   def heuristics(self):
     return filter(lambda h : not h.stopped, self._heurs.values())
+
+  def _init_analyzers(self, alyz):
+    for a in alyz:
+      a._strategy = self
 
   def _init_heuristics(self, heurs):
     import collections

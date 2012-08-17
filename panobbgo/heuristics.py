@@ -21,7 +21,6 @@ class Heuristic(object):
     self._start = start
     self._name = name
     self._strategy = None
-    self._listen_results = False
     self._q = q if q else Queue(cap)
 
     # statistics; performance
@@ -178,7 +177,6 @@ class Nearby(Heuristic):
     self.radius = radius
     self.new    = new
     self.axes   = axes
-    self._listen_results = True
 
   def on_new_result(self, events):
     import numpy as np
@@ -278,7 +276,6 @@ class QadraticModelMockup(Heuristic):
   '''
   def __init__(self, cap = 10):
     Heuristic.__init__(self, cap=cap) #, start=False)
-    self._listen_results = True
     self.machines = None
 
   #def set_machines(self, machines):
@@ -333,7 +330,6 @@ class WeightedAverage(Heuristic):
   '''
   def __init__(self, cap = 10, k = 2.):
     Heuristic.__init__(self, cap=cap) #, start=False)
-    self._listen_results = True
     self.k = k
 
   def on_new_best(self, events):
@@ -371,7 +367,9 @@ class Testing(Heuristic):
     self.eventbus.publish('calling_testing')
 
   def on_calling_testing(self, events):
-    logger.info("TESTING: ON_START + calling itself: %s" % events)
+    from IPython.utils.timing import time
+    d = time.time() - events[0]._when
+    logger.info("TESTING: ON_START + calling itself: %s @ delta %.7f" % (events, d))
     #self.eventbus.publish('calling_testing')
 
   def on_new_best(self, events):

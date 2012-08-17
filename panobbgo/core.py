@@ -14,10 +14,9 @@ class Results(object):
   List of results w/ notificaton for new results.
   Later on, this will be a cool database.
   '''
-  def __init__(self, problem, eventbus):
+  def __init__(self, strategy):
     import numpy as np
-    self._problem = problem
-    self._eventbus = eventbus
+    self._strategy = strategy
     self._results = []
     self._last_nb = 0 #for logging
     # a listener just needs a .notify([..]) method
@@ -29,10 +28,7 @@ class Results(object):
     # maps from rounded coordinates tuple to point
     self._grid = dict()
     self._grid_div = 5.
-    self._grid_lengths = self._problem.ranges / float(self._grid_div)
-
-  def add_listener(self, listener):
-    self._listener.add(listener)
+    self._grid_lengths = self.problem.ranges / float(self._grid_div)
 
   def in_same_grid(self, point):
     key = tuple(self._grid_mapping(point.x))
@@ -56,7 +52,6 @@ class Results(object):
     calculate its amount.
     '''
     import numpy as np
-    from heuristics import Heuristic
     # currently, only reward if better point found.
     # TODO in the future also reward if near the best value (but
     # e.g. not in the proximity of the best x)
@@ -67,7 +62,7 @@ class Results(object):
       fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - r.fx)) # saturates to 1
       #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
       reward = fx_delta #/ self.fx_delta_last
-      Heuristic.lookup[r.who].reward(reward)
+      self.strategy._heurs[r.who].reward(reward)
       #self.fx_delta_last = fx_delta
     return reward
 
@@ -113,11 +108,26 @@ class Results(object):
   def best(self): return self._best
 
   @property
-  def eventbus(self): return self._eventbus
+  def strategy(self): return self._strategy
+
+  @property
+  def eventbus(self): return self._strategy.eventbus
+
+  @property
+  def problem(self): return self._strategy.problem
 
   def n_best(self, n):
     import heapq
     return heapq.nsmallest(n, self._results)
+
+class Event(object):
+  '''
+  This class holds the data for one single @EventBus event.
+  '''
+  pass
+  #def __init__(self, *args, **kwargs):
+  #  self.args = args
+  #  self.kwargs = kwargs
 
 class EventBus(object):
   '''
@@ -145,15 +155,20 @@ class EventBus(object):
     def run(key, target):
       from heuristics import StopHeuristic
       while True:
+        # TODO drain this queue...
+        #qs = target._eventbus_events[key].qsize()
+        #if qs > 30:
+        #  logger.warning("queue length of %s/%s: %s > 30" % (target.name, key, qs))
         evt = target._eventbus_events[key].get()
         args, kwargs = evt
         try:
-          getattr(target, 'on_%s' % key)(*args, **kwargs)
+          newpoints = getattr(target, 'on_%s' % key)(*args, **kwargs)
+          if newpoints != None: target.emit(newpoints)
         except StopHeuristic:
           logger.info("'%s' heuristic for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
 
-    from Queue import Queue
+    from Queue import LifoQueue
     from threading import Thread
     target._eventbus_events = {}
     # bind all 'on_<key>' methods to events in the eventbus
@@ -161,8 +176,9 @@ class EventBus(object):
     for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
       if not name.startswith("on_"): continue
       key = name[3:]
-      target._eventbus_events[key] = Queue()
-      t = Thread(target = run, args = (key, target,))
+      target._eventbus_events[key] = LifoQueue()
+      t = Thread(target = run, args = (key, target,),
+          name='EventBus: %s/%s'%(target.name, key))
       t.daemon = True
       t.start()
       # thread running, now subscribe to events

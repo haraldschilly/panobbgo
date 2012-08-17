@@ -13,7 +13,6 @@ from config import loggers
 logger = loggers['strategy']
 from statistics import Statistics
 from core import Results, EventBus
-from heuristics import Heuristic
 
 #constant
 PROBLEM_KEY = "problem"
@@ -32,12 +31,26 @@ class Strategy0(threading.Thread):
     self._setup_cluster(0, problem)
     self.problem = problem
     self._eventbus = EventBus()
-    self.results = Results(problem, self._eventbus)
+    self.results = Results(self)
     self._statistics = Statistics(self.evaluators, self.results)
-    Heuristic.register_heuristics(heurs, problem, self.results)
+    self._init_heuristics(heurs)
     map(self._eventbus.register, heurs)
     self.start()
     self._eventbus.publish('start')
+
+  @property
+  def heuristics(self):
+    return filter(lambda h : not h.stopped, self._heurs.values())
+
+  def _init_heuristics(self, heurs):
+    import collections
+    self._heurs = collections.OrderedDict()
+    for h in sorted(heurs, key = lambda h : h.name):
+      name = h.name
+      assert name not in self._heurs, "Names of heuristics need to be unique. '%s' is already used." % name
+      self._heurs[name] = h
+      h._strategy = self
+      h._init_()
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
@@ -65,10 +78,12 @@ class Strategy0(threading.Thread):
   @property
   def stats(self): return self._statistics
 
+  @property
+  def eventbus(self): return self._eventbus
+
   def run(self):
     from IPython.parallel import Reference
     from IPython.utils.timing import time
-    from heuristics import Heuristic
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
     logger.info("Strategy '%s' started" % self._name)
@@ -81,7 +96,7 @@ class Strategy0(threading.Thread):
       new_tasks = None
       if len(self.evaluators.outstanding) < target:
         #Heuristic.normalize_performances()
-        heurs = Heuristic.heuristics()
+        heurs = self.heuristics
         perf_sum = sum(h.performance for h in heurs)
         s = config.smooth
         while True:
@@ -89,8 +104,8 @@ class Strategy0(threading.Thread):
             # calc probability based on performance with additive smoothing
             prob = (h.performance + s)/(perf_sum + s * len(heurs))
             nb_h = int(target * prob) + 1
-            logger.debug("  %s -> %s" % (h, nb_h))
-            points.extend(h.get_points(nb_h))
+            new_points = h.get_points(nb_h)
+            points.extend(new_points)
 
           # stopping criteria
           if len(points) > target: break

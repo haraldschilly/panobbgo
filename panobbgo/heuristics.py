@@ -434,6 +434,10 @@ class Testing(Heuristic):
   def calc_points(self):
     raise StopHeuristic()
 
+  def on_start(self):
+    logger.info("TESTING: ON_START")
+    raise StopHeuristic()
+
   def on_new_best(self, best):
     #logger.info("TEST best: %s" % best)
     self.i += 1
@@ -446,6 +450,8 @@ class Testing(Heuristic):
 
   def on_new_result(self, r):
     #logger.info("TEST results: %s" % r)
+    raise StopHeuristic()
+
     self.j += 1
     import numpy as np
     p = np.random.normal(size=self.problem.dim)

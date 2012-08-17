@@ -84,13 +84,13 @@ class Results(object):
       assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
       self._grid_add(r)
-      self.eventbus.dispatch("new_result", r)
+      self.eventbus.publish("new_result", r)
       reward = self._reward_heuristic(r)
       # new best solution found?
       if r.fx < self.best.fx:
         logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, reward, r.who))
         self._best = r # set the new best point
-        self.eventbus.dispatch("new_best", r)
+        self.eventbus.publish("new_best", r)
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()
       self._last_nb = len(self._results)
@@ -121,7 +121,7 @@ class Results(object):
 
 class EventBus(object):
   '''
-  This event bus is used to dispatch and send events.
+  This event bus is used to publish and send events.
   E.g. it is used to send information like "new best point"
   to all subscribing heuristics.
   '''
@@ -132,42 +132,40 @@ class EventBus(object):
   def __init__(self):
     self._subs = {}
 
+  @property
+  def keys(self):
+    return self._subs.keys()
+
   def register(self, target):
     '''
     registers a target for this event bus instance. it needs to have
     "on_<key>" methods.
     '''
-    from Queue import Queue
-    target._eventbus_events = Queue()
-    # bind all 'on_<key>' methods to events in the eventbus
-    import inspect
-    keys = [] # collects all keys for which to listen
-    for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
-      if not name.startswith("on_"): continue
-      keys.append(name[3:])
-
-    # don't register, if target doesn't want to listen
-    if not keys: return
-
     # important: this decouples the dispatcher's thread from the actual target
-    def run(target):
+    def run(key, target):
       from heuristics import StopHeuristic
       while True:
-        evt = target._eventbus_events.get()
-        key, args, kwargs = evt
+        evt = target._eventbus_events[key].get()
+        args, kwargs = evt
         try:
           getattr(target, 'on_%s' % key)(*args, **kwargs)
         except StopHeuristic:
           logger.info("'%s' heuristic for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
 
+    from Queue import Queue
     from threading import Thread
-    t = Thread(target = run, args = (target,))
-    t.daemon = True
-    t.start()
-
-    # target's thread is running, now subscribe
-    for key in keys:
+    target._eventbus_events = {}
+    # bind all 'on_<key>' methods to events in the eventbus
+    import inspect
+    for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
+      if not name.startswith("on_"): continue
+      key = name[3:]
+      target._eventbus_events[key] = Queue()
+      t = Thread(target = run, args = (key, target,))
+      t.daemon = True
+      t.start()
+      # thread running, now subscribe to events
       self.subscribe(key, target)
 
   def _check_key(self, key):
@@ -191,11 +189,11 @@ class EventBus(object):
       # TODO this might be called more than once ... fixable?
       self._subs[key].remove(target)
 
-  def dispatch(self, key, *args, **kwargs):
+  def publish(self, key, *args, **kwargs):
     if key not in self._subs:
       #logger.warning("EventBus: key '%s' unknown." % key)
       return
 
-    for w in self._subs[key]:
-      #logger.info("EventBus: dispatching %s: %s %s" % (key, args, kwargs))
-      w._eventbus_events.put((key, args, kwargs))
+    for target in self._subs[key]:
+      #logger.info("EventBus: publishing %s: %s %s" % (key, args, kwargs))
+      target._eventbus_events[key].put((args, kwargs))

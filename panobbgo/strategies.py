@@ -37,6 +37,7 @@ class Strategy0(threading.Thread):
     Heuristic.register_heuristics(heurs, problem, self.results)
     map(self._eventbus.register, heurs)
     self.start()
+    self._eventbus.publish('start')
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client

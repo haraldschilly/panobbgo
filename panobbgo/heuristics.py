@@ -1,107 +1,7 @@
 # -*- coding: utf8 -*-
-from Queue import Empty, Queue, LifoQueue # PriorityQueue
-import config
 from config import loggers
 logger = loggers['heuristic']
-from panobbgo_problems import Point
-
-class StopHeuristic(Exception):
-  '''
-  Used to indicate, that the heuristic has finished and should be ignored.
-  '''
-  pass
-
-class Heuristic(object):
-  '''
-  abstract parent class for all types of point generating classes
-  '''
-  def __init__(self, name = None, q = None, cap = None, start = True):
-    name = name if name else self.__class__.__name__
-    self._stopped = False
-    self._start = start
-    self._name = name
-    self._strategy = None
-    self._q = q if q else Queue(cap)
-
-    # statistics; performance
-    self._performance = 0.0
-
-  def _init_(self):
-    '''
-    2nd initialization, after registering and hooking up the heuristic.
-    e.g. self._problem is available.
-    '''
-    pass
-
-  def emit(self, points):
-    '''
-    this is used in the heuristic's thread.
-    '''
-    try:
-      if points == None: raise StopHeuristic()
-      if not isinstance(points, list): points = [ points ]
-      for point in points:
-        x = self.problem.project(point)
-        point = Point(x, self.name)
-        self.discount()
-        self._q.put(point)
-    except StopHeuristic:
-      self._stopped = True
-      logger.info("'%s' heuristic stopped." % self.name)
-
-  def reward(self, reward):
-    '''
-    Give this heuristic a reward (e.g. when it finds a new point)
-    '''
-    logger.debug("Reward of %s for '%s'" % (reward, self.name))
-    self._performance += reward
-
-  def discount(self, discount = config.discount):
-    '''
-    Discount the heuristic's reward. Default is set in the configuration.
-    '''
-    self._performance *= discount
-
-  def get_points(self, limit=None):
-    '''
-    this drains the self._q Queue until @limit
-    elements are removed or the Queue is empty.
-    for each actually emitted point,
-    the performance value is discounted (i.e. "punishment" or "energy
-    consumption")
-    '''
-    new_points = []
-    try:
-      while limit is None or len(new_points) < limit:
-        new_points.append(self._q.get(block=False))
-        self.discount()
-    except Empty:
-      pass
-    return new_points
-
-  def __repr__(self):
-    return '%s' % self.name
-
-  @property
-  def strategy(self): return self._strategy
-
-  @property
-  def eventbus(self): return self._strategy.eventbus
-
-  @property
-  def problem(self): return self._strategy.problem
-
-  @property
-  def results(self): return self._strategy.results
-
-  @property
-  def name(self): return self._name
-
-  @property
-  def performance(self): return self._performance
-
-  @property
-  def stopped(self): return self._stopped
+from core import Heuristic, StopHeuristic
 
 class Random(Heuristic):
   '''
@@ -172,6 +72,7 @@ class Nearby(Heuristic):
        * all: desturb all axes
   '''
   def __init__(self, cap = 3, radius = 1./100, new = 1, axes = 'one'):
+    from Queue import LifoQueue
     q = LifoQueue(cap)
     Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
     self.radius = radius
@@ -321,9 +222,8 @@ class QadraticModelMockup(Heuristic):
     params = np.random.normal(0,1,size=3)
     sol = fmin_bfgs(residual, params, fprime=gradient)
     logger.info("params: %s %s %s" % (sol[0], sol[1], sol[2]))
+    #self.emit(...)
     self.eventbus.publish('calc_quadratic_model')
-
-    return []
 
 class WeightedAverage(Heuristic):
   '''

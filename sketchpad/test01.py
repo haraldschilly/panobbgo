@@ -63,6 +63,6 @@ strategy0.join()
 #print strategy_bare(problem, results, heurs)
 
 if not strategy0.best is None:
-  print "best: ", strategy0.best.best
+  print "best: ", strategy0.best
 else:
   print "best solution is None"

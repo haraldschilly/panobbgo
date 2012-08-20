@@ -13,7 +13,6 @@ from config import loggers
 logger = loggers['strategy']
 from statistics import Statistics
 from core import Results, EventBus
-from analyzers import Best, Rewarder
 
 ### constants
 # reference id for sending the evaluation code to workers
@@ -36,12 +35,14 @@ class Strategy0(threading.Thread):
     self.results = Results(self)
     self._statistics = Statistics(self.evaluators, self.results)
     self._init_heuristics(heurs)
-    map(self._eventbus.register, heurs)
 
-    self.best = Best()
-    analyzers = [ self.best, Rewarder() ]
-    self._init_analyzers(analyzers)
-    map(self._eventbus.register, analyzers)
+    from analyzers import Best, Rewarder, Grid
+    self._analyzers = {
+        'best' :     Best(),
+        'rewarder' : Rewarder(),
+        'grid':      Grid()
+    }
+    self._init_analyzers(self._analyzers.values())
 
     self.start()
     self._eventbus.publish('start')
@@ -53,6 +54,8 @@ class Strategy0(threading.Thread):
   def _init_analyzers(self, alyz):
     for a in alyz:
       a._strategy = self
+      a._init_()
+      self._eventbus.register(a)
 
   def _init_heuristics(self, heurs):
     import collections
@@ -63,6 +66,7 @@ class Strategy0(threading.Thread):
       self._heurs[name] = h
       h._strategy = self
       h._init_()
+      self._eventbus.register(h)
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
@@ -92,6 +96,9 @@ class Strategy0(threading.Thread):
 
   @property
   def eventbus(self): return self._eventbus
+
+  @property
+  def best(self): return self._analyzers['best'].best
 
   def run(self):
     from IPython.parallel import Reference

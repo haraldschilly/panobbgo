@@ -1,35 +1,9 @@
 # -*- coding: utf8 -*-
-from config import loggers
-logger = loggers['analyzers']
+import config
+logger = config.loggers['analyzers']
 from panobbgo_problems import Result
+from core import Analyzer
 import numpy as np
-
-class Analyzer(object):
-  '''
-  abstract parent class for all types of analyzers
-  '''
-  def __init__(self, name = None, q = None, cap = None, start = True):
-    name = name if name else self.__class__.__name__
-    self._name = name
-    self._strategy = None
-
-  def __repr__(self):
-    return '%s' % self.name
-
-  @property
-  def strategy(self): return self._strategy
-
-  @property
-  def eventbus(self): return self._strategy.eventbus
-
-  @property
-  def problem(self): return self._strategy.problem
-
-  @property
-  def results(self): return self._strategy.results
-
-  @property
-  def name(self): return self._name
 
 class Best(Analyzer):
   '''
@@ -38,19 +12,58 @@ class Best(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    self.best = Result(None, np.infty)
+    self._best = Result(None, np.infty)
 
   def on_new_result(self, events):
     for event in events:
       r = event.result
-      if r.fx < self.best.fx:
+      if r.fx < self._best.fx:
         logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
-        self.best = r
-        self.eventbus.publish("new_bestt", best = r)
+        self._best = r
+        self.eventbus.publish("new_best", best = r)
+
+  @property
+  def best(self): return self._best
+
+class Grid(Analyzer):
+  '''
+  does simple bin packing
+  '''
+  def __init__(self):
+    Analyzer.__init__(self)
+
+  def _init_(self):
+    # grid for storing points which are nearby.
+    # maps from rounded coordinates tuple to point
+    self._grid = dict()
+    self._grid_div = 5.
+    self._grid_lengths = self.problem.ranges / float(self._grid_div)
+
+  def in_same_grid(self, point):
+    key = tuple(self._grid_mapping(point.x))
+    return self._grid.get(key, [])
+
+  def _grid_mapping(self, x):
+    from numpy import floor
+    l = self._grid_lengths
+    #m = self._problem.box[:,0]
+    return tuple(floor(x / l) * l)
+
+  def _grid_add(self, r):
+    key = self._grid_mapping(r.x)
+    bin = self._grid.get(key, [])
+    bin.append(r)
+    self._grid[key] = bin
+
+  def on_new_results(self, events):
+    for event in events:
+      for result in event.results:
+        self._grid_add(result)
+
 
 class Rewarder(Analyzer):
   '''
-  listens for new points and rewards the heuristic, e.g. if it is better
+  list for new points and rewards the heuristic, e.g. if it is better
   than the currently known best point
   '''
   def __init__(self):
@@ -83,7 +96,7 @@ class Rewarder(Analyzer):
         reward = self._reward_heuristic(event.result)
         logger.info("rewarder: %s for %s" % (reward, event.result.who))
 
-  def on_new_bestt(self, events):
+  def on_new_best(self, events):
     for event in events[::-1]:
       #logger.info("rewarder: new best: %s" % self.best)
       self.best = event.best

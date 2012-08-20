@@ -4,10 +4,13 @@
 This is the core part, currently only managing the global
 DB of point evaluations. For more, look into the strategy.py file.
 '''
-
-from config import loggers
-logger = loggers['core']
+import config
+logger = config.loggers['core']
 from panobbgo_problems import Result
+
+#
+# Result DB
+#
 
 class Results(object):
   '''
@@ -22,28 +25,6 @@ class Results(object):
     self.fx_delta_last = None
     self._best = Result(None, np.infty)
 
-    # grid for storing points which are nearby.
-    # maps from rounded coordinates tuple to point
-    self._grid = dict()
-    self._grid_div = 5.
-    self._grid_lengths = self.problem.ranges / float(self._grid_div)
-
-  def in_same_grid(self, point):
-    key = tuple(self._grid_mapping(point.x))
-    return self._grid.get(key, [])
-
-  def _grid_mapping(self, x):
-    from numpy import floor
-    l = self._grid_lengths
-    #m = self._problem.box[:,0]
-    return tuple(floor(x / l) * l)
-
-  def _grid_add(self, r):
-    key = self._grid_mapping(r.x)
-    bin = self._grid.get(key, [])
-    bin.append(r)
-    self._grid[key] = bin
-
   def add_results(self, new_results):
     '''
     add one single or a list of new @Result objects.
@@ -53,12 +34,11 @@ class Results(object):
     import heapq
     if isinstance(new_results, Result):
       new_results = [ new_results ]
+    assert all(map(lambda _ : isinstance(_, Result), new_results))
     # notification for all recieved results at once
     self.eventbus.publish("new_results", results = new_results)
     for r in new_results:
-      assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
-      self._grid_add(r)
       self.eventbus.publish("new_result", result = r)
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()
@@ -89,6 +69,132 @@ class Results(object):
   def n_best(self, n):
     import heapq
     return heapq.nsmallest(n, self._results)
+
+class Module(object):
+  '''
+  "abstract" parent class for various panobbgo modules, e.g. Heuristic and Analyzer.
+  '''
+  def __init__(self, name = None):
+    name = name if name else self.__class__.__name__
+    self._name = name
+    self._strategy = None
+
+  def _init_(self):
+    '''
+    2nd initialization, after registering and hooking up the heuristic.
+    e.g. self._problem is available.
+    '''
+    pass
+
+  def __repr__(self):
+    return '%s' % self.name
+
+  @property
+  def strategy(self): return self._strategy
+
+  @property
+  def eventbus(self): return self._strategy.eventbus
+
+  @property
+  def problem(self): return self._strategy.problem
+
+  @property
+  def results(self): return self._strategy.results
+
+  @property
+  def name(self): return self._name
+
+
+#
+# Heuristic
+#
+from Queue import Empty, Queue #, LifoQueue # PriorityQueue
+from panobbgo_problems import Point
+
+class StopHeuristic(Exception):
+  '''
+  Used to indicate, that the heuristic has finished and should be ignored.
+  '''
+  pass
+
+class Heuristic(Module):
+  '''
+  abstract parent class for all types of point generating classes
+  '''
+  def __init__(self, name = None, q = None, cap = None):
+    Module.__init__(self, name)
+    self._stopped = False
+    self._q = q if q else Queue(cap)
+
+    # statistics; performance
+    self._performance = 0.0
+
+  def emit(self, points):
+    '''
+    this is used in the heuristic's thread.
+    '''
+    try:
+      if points == None: raise StopHeuristic()
+      if not isinstance(points, list): points = [ points ]
+      for point in points:
+        x = self.problem.project(point)
+        point = Point(x, self.name)
+        self.discount()
+        self._q.put(point)
+    except StopHeuristic:
+      self._stopped = True
+      logger.info("'%s' heuristic stopped." % self.name)
+
+  def reward(self, reward):
+    '''
+    Give this heuristic a reward (e.g. when it finds a new point)
+    '''
+    logger.debug("Reward of %s for '%s'" % (reward, self.name))
+    self._performance += reward
+
+  def discount(self, discount = config.discount):
+    '''
+    Discount the heuristic's reward. Default is set in the configuration.
+    '''
+    self._performance *= discount
+
+  def get_points(self, limit=None):
+    '''
+    this drains the self._q Queue until @limit
+    elements are removed or the Queue is empty.
+    for each actually emitted point,
+    the performance value is discounted (i.e. "punishment" or "energy
+    consumption")
+    '''
+    new_points = []
+    try:
+      while limit is None or len(new_points) < limit:
+        new_points.append(self._q.get(block=False))
+        self.discount()
+    except Empty:
+      pass
+    return new_points
+
+  @property
+  def performance(self): return self._performance
+
+  @property
+  def stopped(self): return self._stopped
+
+#
+# Analyzer
+#
+
+class Analyzer(Module):
+  '''
+  abstract parent class for all types of analyzers
+  '''
+  def __init__(self, name = None):
+    Module.__init__(self, name)
+
+#
+# EventBus
+#
 
 class Event(object):
   '''
@@ -187,12 +293,12 @@ class EventBus(object):
       # TODO this might be called more than once ... fixable?
       self._subs[key].remove(target)
 
-  def publish(self, key, **kwargs):
+  def publish(self, key, e = None, **kwargs):
     if key not in self._subs:
       #logger.warning("EventBus: key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:
-      event = Event(**kwargs)
+      event = e if e else Event(**kwargs)
       #logger.info("EventBus: publishing %s -> %s" % (key, event))
       target._eventbus_events[key].put(event)

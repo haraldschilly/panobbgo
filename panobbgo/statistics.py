@@ -5,6 +5,7 @@ global statistics and reporting
 from config import loggers
 logger = loggers['statistic']
 from IPython.utils.timing import time
+import numpy as np
 
 class Statistics(object):
   def __init__(self, evaluators, results):
@@ -39,15 +40,10 @@ class Statistics(object):
       self._cnt_last = self._cnt
 
   def avg_time_per_task(self):
-    nb = len(self._tasks_walltimes)
-    if nb > 0:
-      sum_tasks = sum(self._tasks_walltimes.values())
-      return sum_tasks / nb
-    return 0.0
+    return np.average(self._tasks_walltimes.values())
 
   def info(self):
     avg_tasks = self.avg_time_per_task()
-
     pend = len(self.pending)
     fini = len(self.finished)
     peval = len(self._results)

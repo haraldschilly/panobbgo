@@ -19,8 +19,6 @@ class Results(object):
     self._strategy = strategy
     self._results = []
     self._last_nb = 0 #for logging
-    # a listener just needs a .notify([..]) method
-    self._listener = set() 
     self.fx_delta_last = None
     self._best = Result(None, np.infty)
 
@@ -49,12 +47,14 @@ class Results(object):
   def add_results(self, new_results):
     '''
     add one single or a list of new @Result objects.
-    * calc some statistics, then
-    * listeners will get notified.
+    * calc some statistics
+    * send out new_results & new_result events
     '''
     import heapq
     if isinstance(new_results, Result):
       new_results = [ new_results ]
+    # notification for all recieved results at once
+    self.eventbus.publish("new_results", results = new_results)
     for r in new_results:
       assert isinstance(r, Result), "Got object of type %s != Result" % type(r)
       heapq.heappush(self._results, r)
@@ -63,10 +63,6 @@ class Results(object):
     if len(self._results) / 100 > self._last_nb / 100:
       #self.info()
       self._last_nb = len(self._results)
-
-    # notification
-    for l in self._listener:
-      l.notify(new_results)
 
   def info(self):
     logger.info("%d results in DB" % len(self._results))

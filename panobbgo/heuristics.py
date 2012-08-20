@@ -363,7 +363,6 @@ class Testing(Heuristic):
     self.j = 0
 
   def on_start(self, events):
-    print "ON START"
     self.eventbus.publish('calling_testing')
 
   def on_calling_testing(self, events):

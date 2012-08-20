@@ -15,7 +15,8 @@ from statistics import Statistics
 from core import Results, EventBus
 from analyzers import Best, Rewarder
 
-#constant
+### constants
+# reference id for sending the evaluation code to workers
 PROBLEM_KEY = "problem"
 
 class Strategy0(threading.Thread):

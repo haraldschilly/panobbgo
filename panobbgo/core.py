@@ -108,7 +108,7 @@ class Module(object):
 #
 # Heuristic
 #
-from Queue import Empty, Queue #, LifoQueue # PriorityQueue
+from Queue import Empty, LifoQueue # PriorityQueue
 from panobbgo_problems import Point
 
 class StopHeuristic(Exception):
@@ -124,7 +124,7 @@ class Heuristic(Module):
   def __init__(self, name = None, q = None, cap = None):
     Module.__init__(self, name)
     self._stopped = False
-    self._q = q if q else Queue(cap)
+    self._q = q if q else LifoQueue(cap)
 
     # statistics; performance
     self._performance = 0.0
@@ -251,9 +251,9 @@ class EventBus(object):
           isfirst = True
 
         try:
-          newpoints = getattr(target, 'on_%s' % key)(events)
+          new_points = getattr(target, 'on_%s' % key)(events)
           # heuristics might call self.emit and/or return a list
-          if newpoints != None: target.emit(newpoints)
+          if new_points != None: target.emit(new_points)
         except StopHeuristic:
           logger.info("'%s' for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
@@ -264,6 +264,7 @@ class EventBus(object):
     for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
       if not name.startswith("on_"): continue
       key = name[3:]
+      self._check_key(key)
       target._eventbus_events[key] = LifoQueue()
       t = Thread(target = run, args = (key, target,),
           name='EventBus: %s/%s'%(target.name, key))
@@ -289,13 +290,13 @@ class EventBus(object):
     if not key in self._subs:
       logger.critical("cannot unsubscribe unknown key '%s'" % key)
       return
+
     if target in self._subs[key]:
-      # TODO this might be called more than once ... fixable?
       self._subs[key].remove(target)
 
   def publish(self, key, e = None, **kwargs):
     if key not in self._subs:
-      #logger.warning("EventBus: key '%s' unknown." % key)
+      logger.warning("EventBus: key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:

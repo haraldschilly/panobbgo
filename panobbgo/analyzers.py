@@ -18,7 +18,7 @@ class Best(Analyzer):
     for event in events:
       r = event.result
       if r.fx < self._best.fx:
-        logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
+        #logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
         self._best = r
         self.eventbus.publish("new_best", best = r)
 
@@ -27,7 +27,7 @@ class Best(Analyzer):
 
 class Grid(Analyzer):
   '''
-  does simple bin packing
+  packs nearby points into grid boxes
   '''
   def __init__(self):
     Analyzer.__init__(self)
@@ -51,15 +51,15 @@ class Grid(Analyzer):
 
   def _grid_add(self, r):
     key = self._grid_mapping(r.x)
-    bin = self._grid.get(key, [])
-    bin.append(r)
-    self._grid[key] = bin
+    box = self._grid.get(key, [])
+    box.append(r)
+    self._grid[key] = box
+    #print ' '.join('%2s' % str(len(self._grid[k])) for k in sorted(self._grid.keys()))
 
   def on_new_results(self, events):
     for event in events:
       for result in event.results:
         self._grid_add(result)
-
 
 class Rewarder(Analyzer):
   '''
@@ -68,7 +68,10 @@ class Rewarder(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    self.best = Result(None, np.infty)
+
+  @property
+  def best(self):
+    return self.strategy.analyzer("best").best
 
   def _reward_heuristic(self, result):
     '''
@@ -86,17 +89,14 @@ class Rewarder(Analyzer):
       fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - result.fx)) # saturates to 1
       #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
       reward = fx_delta #/ self.fx_delta_last
-      self.strategy._heurs[result.who].reward(reward)
+      self.strategy.heuristic(result.who).reward(reward)
       #self.fx_delta_last = fx_delta
     return reward
 
-  def on_new_result(self, events):
+  def on_new_results(self, events):
     for event in events:
-      if event.result.fx < self.best.fx:
-        reward = self._reward_heuristic(event.result)
-        logger.info("rewarder: %s for %s" % (reward, event.result.who))
+      for result in event.results:
+        if result.fx < self.best.fx:
+          reward = self._reward_heuristic(result)
+          logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))
 
-  def on_new_best(self, events):
-    for event in events[::-1]:
-      #logger.info("rewarder: new best: %s" % self.best)
-      self.best = event.best

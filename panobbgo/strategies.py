@@ -49,7 +49,13 @@ class Strategy0(threading.Thread):
 
   @property
   def heuristics(self):
-    return filter(lambda h : not h.stopped, self._heurs.values())
+    return filter(lambda h : not h.stopped, self._heuristics.values())
+
+  def heuristic(self, who):
+    return self._heuristics[who]
+
+  def analyzer(self, who):
+    return self._analyzers[who]
 
   def _init_analyzers(self, alyz):
     for a in alyz:
@@ -59,11 +65,12 @@ class Strategy0(threading.Thread):
 
   def _init_heuristics(self, heurs):
     import collections
-    self._heurs = collections.OrderedDict()
+    self._heuristics = collections.OrderedDict()
     for h in sorted(heurs, key = lambda h : h.name):
       name = h.name
-      assert name not in self._heurs, "Names of heuristics need to be unique. '%s' is already used." % name
-      self._heurs[name] = h
+      assert name not in self._heuristics, \
+        "Names of heuristics need to be unique. '%s' is already used." % name
+      self._heuristics[name] = h
       h._strategy = self
       h._init_()
       self._eventbus.register(h)

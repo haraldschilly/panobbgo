@@ -39,11 +39,12 @@ class Statistics(object):
       self.info()
       self._cnt_last = self._cnt
 
+  @property
   def avg_time_per_task(self):
     return np.average(self._tasks_walltimes.values())
 
   def info(self):
-    avg_tasks = self.avg_time_per_task()
+    avg_tasks = self.avg_time_per_task
     pend = len(self.pending)
     fini = len(self.finished)
     peval = len(self._results)

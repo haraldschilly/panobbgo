@@ -123,7 +123,9 @@ class Heuristic(Module):
   '''
   def __init__(self, name = None, q = None, cap = None):
     Module.__init__(self, name)
-    self._stopped = False
+    # '_active' is used to indicate if strategy should query the queue
+    # of this heuristic
+    self._active = True
     self._q = q if q else LifoQueue(cap)
 
     # statistics; performance
@@ -149,7 +151,7 @@ class Heuristic(Module):
     '''
     Give this heuristic a reward (e.g. when it finds a new point)
     '''
-    logger.debug("Reward of %s for '%s'" % (reward, self.name))
+    #logger.debug("Reward of %s for '%s'" % (reward, self.name))
     self._performance += reward
 
   def discount(self, discount = config.discount):
@@ -179,7 +181,11 @@ class Heuristic(Module):
   def performance(self): return self._performance
 
   @property
-  def stopped(self): return self._stopped
+  def active(self): return self._active
+
+  def stop_me(self):
+    self._active = False
+    self.eventbus.unsubscribe(None, self)
 
 #
 # Analyzer
@@ -224,8 +230,7 @@ class EventBus(object):
     self._subs = {}
 
   @property
-  def keys(self):
-    return self._subs.keys()
+  def keys(self): return self._subs.keys()
 
   def register(self, target):
     '''
@@ -257,6 +262,7 @@ class EventBus(object):
         except StopHeuristic:
           logger.info("'%s' for 'on_%s' stopped -> unsubscribing." % (target.name, key))
           self.unsubscribe(key, target)
+          return
 
     target._eventbus_events = {}
     # bind all 'on_<key>' methods to events in the eventbus
@@ -272,6 +278,7 @@ class EventBus(object):
       t.start()
       # thread running, now subscribe to events
       self.subscribe(key, target)
+      #logger.debug("%s subscribed and running." % t.name)
 
   def _check_key(self, key):
     if not EventBus._re_key.match(key):
@@ -286,6 +293,17 @@ class EventBus(object):
     self._subs[key].append(target)
 
   def unsubscribe(self, key, target):
+    '''
+      - if @key is None, the target is removed from all keys
+        (used in Heuristic.stop_me(...))
+    '''
+    if key is None:
+      for k, v in self._subs.iteritems():
+        for t in v:
+          if t is target:
+            self.unsubscribe(k, t)
+      return
+
     self._check_key(key)
     if not key in self._subs:
       logger.critical("cannot unsubscribe unknown key '%s'" % key)
@@ -295,6 +313,8 @@ class EventBus(object):
       self._subs[key].remove(target)
 
   def publish(self, key, e = None, **kwargs):
+    '''
+    '''
     if key not in self._subs:
       logger.warning("EventBus: key '%s' unknown." % key)
       return

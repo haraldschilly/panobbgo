@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
-from config import loggers
-logger = loggers['heuristic']
+import config
+logger = config.loggers['heuristic']
 from core import Heuristic, StopHeuristic
 
 class Random(Heuristic):
@@ -8,7 +8,7 @@ class Random(Heuristic):
   always generates random points until the
   capped queue is full.
   '''
-  def __init__(self, cap = 10, name=None):
+  def __init__(self, cap = config.capacity, name=None):
     name = "Random" if name is None else name
     Heuristic.__init__(self, cap=cap, name=name)
 
@@ -35,7 +35,7 @@ class LatinHypercube(Heuristic):
   |   |   | X |   |
   +---+---+---+---+
   '''
-  def __init__(self, div, cap = 10):
+  def __init__(self, div, cap = config.capacity):
     Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
     if not isinstance(div, int):
       raise Exception("LH: div needs to be an integer")
@@ -109,7 +109,7 @@ class Extremal(Heuristic):
   from 0 to 1, which indicate the probability for sampling from the
   minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
   '''
-  def __init__(self, cap = 10, diameter = 1./10, prob = None):
+  def __init__(self, cap = config.capacity, diameter = 1./10, prob = None):
     Heuristic.__init__(self, cap=cap, name="Extremal")
     import numpy as np
     if prob is None: prob = (1, .2, .2, 1)
@@ -159,6 +159,7 @@ class Zero(Heuristic):
 
   def on_start(self, events):
     from numpy import zeros
+    self.stop_me()
     return zeros(self.problem.dim)
 
 class Center(Heuristic):
@@ -170,12 +171,13 @@ class Center(Heuristic):
 
   def on_start(self, events):
     box = self.problem.box
+    self.stop_me()
     return box[:,0] + (box[:,1]-box[:,0]) / 2.0
 
-class QadraticModelMockup(Heuristic):
+class QuadraticModelMockup(Heuristic):
   '''
   '''
-  def __init__(self, cap = 10):
+  def __init__(self, cap = config.capacity):
     Heuristic.__init__(self, cap=cap) #, start=False)
     self.machines = None
 
@@ -186,6 +188,7 @@ class QadraticModelMockup(Heuristic):
     self.eventbus.publish('calc_quadratic_model')
 
   def on_calc_quadratic_model(self, events):
+    assert len(events) == 1
     logger.warning("%s is broken, don't use it" % self.name)
     return None
 
@@ -228,7 +231,7 @@ class QadraticModelMockup(Heuristic):
 class WeightedAverage(Heuristic):
   '''
   '''
-  def __init__(self, cap = 10, k = 2.):
+  def __init__(self, cap = config.capacity, k = 2.):
     Heuristic.__init__(self, cap=cap) #, start=False)
     self.k = k
 
@@ -257,7 +260,7 @@ class Testing(Heuristic):
   '''
   just to try some ideas ...
   '''
-  def __init__(self, cap = 10):
+  def __init__(self, cap = config.capacity):
     Heuristic.__init__(self, cap=cap) #, start=False)
     self.i = 0
     self.j = 0
@@ -266,6 +269,7 @@ class Testing(Heuristic):
     self.eventbus.publish('calling_testing')
 
   def on_calling_testing(self, events):
+    assert len(events) == 1
     from IPython.utils.timing import time
     d = time.time() - events[0]._when
     logger.info("TESTING: ON_START + calling itself: %s @ delta %.7f" % (events, d))

@@ -43,13 +43,13 @@ class Strategy0(threading.Thread):
         'grid':      Grid()
     }
     self._init_analyzers(self._analyzers.values())
+    logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
     self.start()
-    self._eventbus.publish('start')
 
   @property
   def heuristics(self):
-    return filter(lambda h : not h.stopped, self._heuristics.values())
+    return filter(lambda h : h.active, self._heuristics.values())
 
   def heuristic(self, who):
     return self._heuristics[who]
@@ -108,6 +108,7 @@ class Strategy0(threading.Thread):
   def best(self): return self._analyzers['best'].best
 
   def run(self):
+    self._eventbus.publish('start', oneshot=True)
     from IPython.parallel import Reference
     from IPython.utils.timing import time
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
@@ -117,24 +118,24 @@ class Strategy0(threading.Thread):
     while True:
       loops += 1
       points = []
-      per_client = 20
+      per_client = max(1, int(min(config.max_eval / 50, 1.0 / self.stats.avg_time_per_task)))
       target = per_client * len(self.evaluators)
+      logger.debug("per_client = %s | target = %s" % (per_client, target))
       new_tasks = None
       if len(self.evaluators.outstanding) < target:
-        #Heuristic.normalize_performances()
-        heurs = self.heuristics
-        perf_sum = sum(h.performance for h in heurs)
         s = config.smooth
         while True:
+          heurs = self.heuristics
+          perf_sum = sum(h.performance for h in heurs)
           for h in heurs:
             # calc probability based on performance with additive smoothing
             prob = (h.performance + s)/(perf_sum + s * len(heurs))
-            nb_h = int(target * prob) + 1
-            new_points = h.get_points(nb_h)
-            points.extend(new_points)
+            nb_h = max(1, round(target * prob))
+            points.extend(h.get_points(nb_h))
+            #print "  %16s -> %s" % (h, nb_h)
 
           # stopping criteria
-          if len(points) > target: break
+          if len(points) >= target: break
 
           # wait a bit, and loop
           from IPython.utils.timing import time

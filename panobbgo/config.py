@@ -19,6 +19,7 @@ _parser.add_option('-p', '--profile', dest='ipy_profile',
                   help='IPython profile for the ipcluster configuration')
 _parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
 _parser.add_option('--smooth', dest='smooth', help="smoothing parameter for (additive or other) smoothing", type="float")
+_parser.add_option('--cap', dest='capacity', help="capacity for each queue in each heuristic", type="int")
 _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
 
 _options, _args = _parser.parse_args()
@@ -40,6 +41,9 @@ if not os.path.exists(_options.config_file):
   _cfgp.add_section('ipython')
   _cfgp.set('ipython', 'profile', 'default')
 
+  _cfgp.add_section('heuristic')
+  _cfgp.set('heuristic', 'capacity', '20')
+
   _cfgp.add_section('core') # core configuration
   _cfgp.set('core', 'loglevel', '40') # default: no debug mode
   _cfgp.set('core', 'max_eval', '1000')
@@ -58,6 +62,7 @@ _cur_verb = _cfgp.getint('core', 'loglevel')
 if _options.verbosity:   _cfgp.set('core',    'loglevel', str(_cur_verb - 10*_options.verbosity))
 if _options.max_eval:    _cfgp.set('core',    'max_eval', str(_options.max_eval))
 if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
+if _options.capacity:    _cfgp.set('heuristic', 'capacity', str(_options.capacity))
 if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
 
 ## some generic function
@@ -74,10 +79,11 @@ def all_cfgp(sep = '::'):
 logger.info('config.ini: %s' % all_cfgp())
 
 ## specific data
-loglevel    = _cfgp.getint('core', 'loglevel')
-max_eval    = _cfgp.getint('core', 'max_eval')
+loglevel    = _cfgp.getint  ('core', 'loglevel')
+max_eval    = _cfgp.getint  ('core', 'max_eval')
 discount    = _cfgp.getfloat('core', 'discount')
 smooth      = _cfgp.getfloat('core', 'smooth')
+capacity    = _cfgp.getint  ('heuristic', 'capacity')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
 logger.info('loglevel: %s' % loglevel)

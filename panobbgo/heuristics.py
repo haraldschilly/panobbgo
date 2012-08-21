@@ -231,25 +231,26 @@ class QuadraticModelMockup(Heuristic):
 class WeightedAverage(Heuristic):
   '''
   '''
-  def __init__(self, cap = config.capacity, k = 2.):
+  def __init__(self, cap = config.capacity, k = .1):
     Heuristic.__init__(self, cap=cap) #, start=False)
     self.k = k
 
   def on_new_best(self, events):
-    best = events[0].best # discard oder ones
-    if best is None or best.x is None: return []
-    #nbrs = self.results.in_same_grid(best)
-    nbrs = self.results.n_best(4)
+    best = self.strategy.analyzer('best').best
+    if best is None or best.x is None: return
+    nbrs = self.strategy.analyzer('grid').in_same_grid(best)
+    #nbrs = self.results.n_best(4)
     if len(nbrs) < 3: return
+    logger.info("WA: %s" % len(nbrs))
 
     # actual calculation
     import numpy as np
     xx = np.array([r.x   for r in nbrs])
     yy = np.array([r.fx  for r in nbrs])
-    #weights = np.abs(best.fx - yy)
-    #weights = -weights + self.k * weights.max()
-    weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
-    #logger.info("weights: %s" % weights)
+    weights = np.log1p(yy - best.fx)
+    weights = -weights + (1+self.k) * weights.max()
+    #weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
+    logger.info("weights: %s" % zip(weights, yy))
     for i in range(10):
       ret = np.average(xx, axis=0, weights=weights)
       ret += 1 * np.random.normal(0, xx.std(axis=0))

@@ -2,8 +2,8 @@
 '''
 global statistics and reporting
 '''
-from config import loggers
-logger = loggers['statistic']
+import config
+logger = config.loggers['statistic']
 from IPython.utils.timing import time
 import numpy as np
 
@@ -48,7 +48,7 @@ class Statistics(object):
     pend = len(self.pending)
     fini = len(self.finished)
     peval = len(self._results)
-    logger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s]/task" %
+    logger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
                (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg_tasks))
 
   @property

@@ -18,12 +18,12 @@ class Results(object):
   Later on, this will be a cool database.
   '''
   def __init__(self, strategy):
-    import numpy as np
-    self._strategy = strategy
-    self._results = []
+    self.strategy = strategy
+    self.eventbus = strategy.eventbus
+    self.problem  = strategy.problem
+    self.results = []
     self._last_nb = 0 #for logging
     self.fx_delta_last = None
-    self._best = Result(None, np.infty)
 
   def add_results(self, new_results):
     '''
@@ -38,37 +38,25 @@ class Results(object):
     # notification for all recieved results at once
     self.eventbus.publish("new_results", results = new_results)
     for r in new_results:
-      heapq.heappush(self._results, r)
+      heapq.heappush(self.results, r)
       self.eventbus.publish("new_result", result = r)
-    if len(self._results) / 100 > self._last_nb / 100:
+    if len(self.results) / 100 > self._last_nb / 100:
       #self.info()
-      self._last_nb = len(self._results)
+      self._last_nb = len(self.results)
 
   def info(self):
-    logger.info("%d results in DB" % len(self._results))
+    logger.info("%d results in DB" % len(self.results))
 
   def __iadd__(self, results):
     self.add_results(results)
     return self
 
   def __len__(self):
-    return len(self._results)
-
-  @property
-  def best(self): return self._best
-
-  @property
-  def strategy(self): return self._strategy
-
-  @property
-  def eventbus(self): return self._strategy.eventbus
-
-  @property
-  def problem(self): return self._strategy.problem
+    return len(self.results)
 
   def n_best(self, n):
     import heapq
-    return heapq.nsmallest(n, self._results)
+    return heapq.nsmallest(n, self.results)
 
 class Module(object):
   '''
@@ -76,8 +64,8 @@ class Module(object):
   '''
   def __init__(self, name = None):
     name = name if name else self.__class__.__name__
-    self._name = name
-    self._strategy = None
+    self.name = name
+    self.strategy = None
     self._threads = []
 
   def _init_(self):
@@ -91,19 +79,13 @@ class Module(object):
     return '%s' % self.name
 
   @property
-  def strategy(self): return self._strategy
+  def eventbus(self): return self.strategy.eventbus
 
   @property
-  def eventbus(self): return self._strategy.eventbus
+  def problem(self): return self.strategy.problem
 
   @property
-  def problem(self): return self._strategy.problem
-
-  @property
-  def results(self): return self._strategy.results
-
-  @property
-  def name(self): return self._name
+  def results(self): return self.strategy.results
 
 #
 # Heuristic
@@ -127,14 +109,14 @@ class Heuristic(Module):
     self._q = q if q else LifoQueue(cap)
 
     # statistics; performance
-    self._performance = 0.0
+    self.performance = 0.0
 
   def emit(self, points):
     '''
     this is used in the heuristic's thread.
     '''
     try:
-      if points == None: raise StopHeuristic()
+      if points is None: raise StopHeuristic()
       if not isinstance(points, list): points = [ points ]
       for point in points:
         x = self.problem.project(point)
@@ -150,13 +132,13 @@ class Heuristic(Module):
     Give this heuristic a reward (e.g. when it finds a new point)
     '''
     #logger.debug("Reward of %s for '%s'" % (reward, self.name))
-    self._performance += reward
+    self.performance += reward
 
   def discount(self, discount = config.discount):
     '''
     Discount the heuristic's reward. Default is set in the configuration.
     '''
-    self._performance *= discount
+    self.performance *= discount
 
   def get_points(self, limit=None):
     '''
@@ -176,14 +158,11 @@ class Heuristic(Module):
     return new_points
 
   @property
-  def performance(self): return self._performance
-
-  @property
   def active(self):
     '''
     This is queried by the strategy to determine, if it should still consider
-    this "module". This is the case, ifthere is still something in it's output queue
-    or f there is a chance that there will be something in the future (a thread is running).
+    this "module". This is the case, iff there is still something in it's output queue
+    or if there is a chance that there will be something in the future (a thread is running).
     '''
     t = any(t.isAlive() for t in self._threads)
     q = self._q.qsize() > 0

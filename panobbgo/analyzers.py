@@ -8,22 +8,20 @@ import numpy as np
 class Best(Analyzer):
   '''
   listens on all results and emits a "new_best" event,
-  if a new best point has been found
+  if a new best point has been found.
+  The best point is also available via the .best field.
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    self._best = Result(None, np.infty)
+    self.best = Result(None, np.infty)
 
   def on_new_result(self, events):
     for event in events:
       r = event.result
-      if r.fx < self._best.fx:
+      if r.fx < self.best.fx:
         #logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
-        self._best = r
+        self.best = r
         self.eventbus.publish("new_best", best = r)
-
-  @property
-  def best(self): return self._best
 
 class Grid(Analyzer):
   '''

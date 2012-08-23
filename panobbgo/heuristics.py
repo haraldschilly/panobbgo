@@ -82,7 +82,7 @@ class Nearby(Heuristic):
   def on_new_result(self, events):
     import numpy as np
     ret = []
-    x = self.results.best.x
+    x = self.strategy.analyzer('best').best.x
     if x is None: return
     # generate self.new many new points near best x
     for _ in range(self.new):
@@ -269,9 +269,9 @@ class Testing(Heuristic):
 
   def on_calling_testing(self, events):
     assert len(events) == 1
-    from IPython.utils.timing import time
-    d = time.time() - events[0]._when
-    logger.info("TESTING: ON_START + calling itself: %s @ delta %.7f" % (events, d))
+    #from IPython.utils.timing import time
+    #d = time.time() - events[0]._when
+    #logger.info("TESTING: ON_START + calling itself: %s @ delta %.7f" % (events, d))
     #self.eventbus.publish('calling_testing')
 
   def on_new_best(self, events):

@@ -31,7 +31,7 @@ class Strategy0(threading.Thread):
     logger.info("%s" % problem)
     self._setup_cluster(0, problem)
     self.problem = problem
-    self._eventbus = EventBus()
+    self.eventbus = EventBus()
     self.results = Results(self)
     self._statistics = Statistics(self.evaluators, self.results)
     self._init_heuristics(heurs)
@@ -59,9 +59,9 @@ class Strategy0(threading.Thread):
 
   def _init_analyzers(self, alyz):
     for a in alyz:
-      a._strategy = self
+      a.strategy = self
       a._init_()
-      self._eventbus.register(a)
+      self.eventbus.register(a)
 
   def _init_heuristics(self, heurs):
     import collections
@@ -71,9 +71,9 @@ class Strategy0(threading.Thread):
       assert name not in self._heuristics, \
         "Names of heuristics need to be unique. '%s' is already used." % name
       self._heuristics[name] = h
-      h._strategy = self
+      h.strategy = self
       h._init_()
-      self._eventbus.register(h)
+      self.eventbus.register(h)
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
@@ -102,13 +102,10 @@ class Strategy0(threading.Thread):
   def stats(self): return self._statistics
 
   @property
-  def eventbus(self): return self._eventbus
-
-  @property
   def best(self): return self._analyzers['best'].best
 
   def run(self):
-    self._eventbus.publish('start', terminate=True)
+    self.eventbus.publish('start', terminate=True)
     from IPython.parallel import Reference
     from IPython.utils.timing import time
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster

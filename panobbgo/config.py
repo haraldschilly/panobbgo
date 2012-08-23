@@ -86,7 +86,7 @@ smooth      = _cfgp.getfloat('core', 'smooth')
 capacity    = _cfgp.getint  ('heuristic', 'capacity')
 ipy_profile = _cfgp.get('ipython', 'profile')
 
-logger.info('loglevel: %s' % loglevel)
+#logger.info('loglevel: %s' % loglevel)
 logger.info('ipython profile: %s' % ipy_profile)
 
 logger.info("Versions: %s" % info())

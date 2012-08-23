@@ -78,6 +78,7 @@ class Module(object):
     name = name if name else self.__class__.__name__
     self._name = name
     self._strategy = None
+    self._threads = []
 
   def _init_(self):
     '''
@@ -104,7 +105,6 @@ class Module(object):
   @property
   def name(self): return self._name
 
-
 #
 # Heuristic
 #
@@ -115,7 +115,8 @@ class StopHeuristic(Exception):
   '''
   Used to indicate, that the heuristic has finished and should be ignored.
   '''
-  pass
+  def __init__(self, msg = "stopped"):
+    Exception.__init__(self, msg)
 
 class Heuristic(Module):
   '''
@@ -123,9 +124,6 @@ class Heuristic(Module):
   '''
   def __init__(self, name = None, q = None, cap = None):
     Module.__init__(self, name)
-    # '_active' is used to indicate if strategy should query the queue
-    # of this heuristic
-    self._active = True
     self._q = q if q else LifoQueue(cap)
 
     # statistics; performance
@@ -181,11 +179,15 @@ class Heuristic(Module):
   def performance(self): return self._performance
 
   @property
-  def active(self): return self._active
-
-  def stop_me(self):
-    self._active = False
-    self.eventbus.unsubscribe(None, self)
+  def active(self):
+    '''
+    This is queried by the strategy to determine, if it should still consider
+    this "module". This is the case, ifthere is still something in it's output queue
+    or f there is a chance that there will be something in the future (a thread is running).
+    '''
+    t = any(t.isAlive() for t in self._threads)
+    q = self._q.qsize() > 0
+    return t or q
 
 #
 # Analyzer
@@ -248,9 +250,12 @@ class EventBus(object):
         # draining the queue... otherwise it might get really huge
         # it's up to the heuristics to only work with the most important points
         events = []
+        terminate = False
         try:
           while True:
-            events.append(target._eventbus_events[key].get(block=isfirst))
+            event = target._eventbus_events[key].get(block=isfirst)
+            terminate |= event._terminate
+            events.append(event)
             isfirst = False
         except Empty:
           isfirst = True
@@ -259,8 +264,9 @@ class EventBus(object):
           new_points = getattr(target, 'on_%s' % key)(events)
           # heuristics might call self.emit and/or return a list
           if new_points != None: target.emit(new_points)
-        except StopHeuristic:
-          logger.info("'%s' for 'on_%s' stopped -> unsubscribing." % (target.name, key))
+          if terminate: raise StopHeuristic("terminated")
+        except StopHeuristic, e:
+          logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
           self.unsubscribe(key, target)
           return
 
@@ -276,6 +282,7 @@ class EventBus(object):
           name='EventBus: %s/%s'%(target.name, key))
       t.daemon = True
       t.start()
+      target._threads.append(t)
       # thread running, now subscribe to events
       self.subscribe(key, target)
       #logger.debug("%s subscribed and running." % t.name)
@@ -312,8 +319,9 @@ class EventBus(object):
     if target in self._subs[key]:
       self._subs[key].remove(target)
 
-  def publish(self, key, e = None, **kwargs):
+  def publish(self, key, e = None, terminate = False, **kwargs):
     '''
+     - terminate: if True, the associated thread will end.
     '''
     if key not in self._subs:
       logger.warning("EventBus: key '%s' unknown." % key)
@@ -321,5 +329,6 @@ class EventBus(object):
 
     for target in self._subs[key]:
       event = e if e else Event(**kwargs)
+      event._terminate = terminate
       #logger.info("EventBus: publishing %s -> %s" % (key, event))
       target._eventbus_events[key].put(event)

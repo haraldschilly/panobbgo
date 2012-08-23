@@ -108,7 +108,7 @@ class Strategy0(threading.Thread):
   def best(self): return self._analyzers['best'].best
 
   def run(self):
-    self._eventbus.publish('start', oneshot=True)
+    self._eventbus.publish('start', terminate=True)
     from IPython.parallel import Reference
     from IPython.utils.timing import time
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster

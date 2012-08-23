@@ -159,7 +159,6 @@ class Zero(Heuristic):
 
   def on_start(self, events):
     from numpy import zeros
-    self.stop_me()
     return zeros(self.problem.dim)
 
 class Center(Heuristic):
@@ -171,7 +170,6 @@ class Center(Heuristic):
 
   def on_start(self, events):
     box = self.problem.box
-    self.stop_me()
     return box[:,0] + (box[:,1]-box[:,0]) / 2.0
 
 class QuadraticModelMockup(Heuristic):
@@ -250,7 +248,7 @@ class WeightedAverage(Heuristic):
     weights = np.log1p(yy - best.fx)
     weights = -weights + (1+self.k) * weights.max()
     #weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
-    logger.info("weights: %s" % zip(weights, yy))
+    #logger.info("weights: %s" % zip(weights, yy))
     for i in range(10):
       ret = np.average(xx, axis=0, weights=weights)
       ret += 1 * np.random.normal(0, xx.std(axis=0))

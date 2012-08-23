@@ -26,6 +26,9 @@ def info():
   version("numpy")
   version("scipy")
   version("IPython")
-  version("matplotlib")
+  try:
+    version("matplotlib")
+  except:
+    print "matplotlib broken :("
   return v
 

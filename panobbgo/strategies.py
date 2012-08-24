@@ -47,11 +47,12 @@ class Strategy0(object):
     self.results = Results(self)
     self._init_heuristics(heurs)
 
-    from analyzers import Best, Rewarder, Grid
+    from analyzers import Best, Rewarder, Grid, Splitter
     self._analyzers = {
         'best' :     Best(),
         'rewarder' : Rewarder(),
-        'grid':      Grid()
+        'grid':      Grid(),
+        'splitter':  Splitter()
     }
     self._init_analyzers(self._analyzers.values())
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)

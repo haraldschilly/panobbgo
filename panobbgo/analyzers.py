@@ -59,6 +59,61 @@ class Grid(Analyzer):
       for result in event.results:
         self._grid_add(result)
 
+#
+# Splitter + its classes
+#
+
+class Box(object):
+  '''
+  used by Splitter
+  '''
+  def __init__(self):
+    self.results = []
+
+  def __iadd__(self, result):
+    assert isinstance(result, Result)
+    self.results.append(result)
+    return self
+
+class Split(object):
+  '''
+  used by Splitter
+  '''
+  def __init__(self):
+    self._children = []
+
+  @property
+  def children(self):
+    return self._children[:]
+
+  def split(self, dimension, where = 0.5):
+    '''
+    - dimension: integer between 0 and < dim(problem)
+    - where: float between 0 and 1
+    '''
+    left = Split()
+    right = Split()
+    self._children = [ left, right ]
+    return left, right
+
+class Splitter(Analyzer):
+  '''
+  manages a tree of splits. a split is a node in a tree, that
+  partitions the search space into smaller boxes. the idea is
+  to balance between the depth level of splits and the number
+  of points inside such a box. a heuristic can build upon this
+  to investigate interesting subregions.
+  '''
+  def __init__(self):
+    Analyzer.__init__(self)
+
+  def on_new_results(self, events):
+    for event in events:
+      for result in event.results:
+        pass
+
+# end Splitter
+
 class Rewarder(Analyzer):
   '''
   list for new points and rewards the heuristic, e.g. if it is better

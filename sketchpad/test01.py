@@ -50,7 +50,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10_all, lhyp, zero, extremal, avg, testing]
+heurs = [ center, rand, near_10, lhyp, zero, extremal, avg, testing]
 #heurs = [ rand, avg ]
 
 strategy0 = Strategy0(problem, heurs)

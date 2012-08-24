@@ -219,7 +219,10 @@ class Strategy0(object):
 
   @property
   def avg_time_per_task(self):
-    return np.average(self.tasks_walltimes.values())
+    if len(self.tasks_walltimes) > 1:
+      return np.average(self.tasks_walltimes.values())
+    slogger.warning("avg time per task for 0 tasks!")
+    return 0.01
 
   @property
   def time_wall(self):

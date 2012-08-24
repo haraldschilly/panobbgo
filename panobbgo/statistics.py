@@ -36,7 +36,7 @@ class Statistics(object):
 
     self.cnt += len(self.new_results)
     #if self.cnt / 100 > self.show_last / 100:
-    if time.time() - self.show_last > .5:
+    if time.time() - self.show_last > config.show_interval:
       self.info()
       self.show_last = time.time() #self.cnt
 

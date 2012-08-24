@@ -46,6 +46,7 @@ if not os.path.exists(_options.config_file):
 
   _cfgp.add_section('core') # core configuration
   _cfgp.set('core', 'loglevel', '40') # default: no debug mode
+  _cfgp.set('core', 'show_interval', '1.0')
   _cfgp.set('core', 'max_eval', '1000')
   _cfgp.set('core', 'discount', '0.995')
   _cfgp.set('core', 'smooth', 0.5)
@@ -79,12 +80,13 @@ def all_cfgp(sep = '::'):
 logger.info('config.ini: %s' % all_cfgp())
 
 ## specific data
-loglevel    = _cfgp.getint  ('core', 'loglevel')
-max_eval    = _cfgp.getint  ('core', 'max_eval')
-discount    = _cfgp.getfloat('core', 'discount')
-smooth      = _cfgp.getfloat('core', 'smooth')
-capacity    = _cfgp.getint  ('heuristic', 'capacity')
-ipy_profile = _cfgp.get('ipython', 'profile')
+loglevel      = _cfgp.getint  ('core', 'loglevel')
+show_interval = _cfgp.getfloat('core', 'show_interval')
+max_eval      = _cfgp.getint  ('core', 'max_eval')
+discount      = _cfgp.getfloat('core', 'discount')
+smooth        = _cfgp.getfloat('core', 'smooth')
+capacity      = _cfgp.getint  ('heuristic', 'capacity')
+ipy_profile   = _cfgp.get     ('ipython', 'profile')
 
 #logger.info('loglevel: %s' % loglevel)
 logger.info('ipython profile: %s' % ipy_profile)

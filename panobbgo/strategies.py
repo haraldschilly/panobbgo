@@ -7,7 +7,7 @@ DB of evaluated points.
 Basically, one or more threads produce points where to search,
 and another one consumes them and dispatches tasks.
 '''
-import threading
+#import threading
 import config
 from config import loggers
 logger = loggers['strategy']
@@ -18,14 +18,14 @@ from core import Results, EventBus
 # reference id for sending the evaluation code to workers
 PROBLEM_KEY = "problem"
 
-class Strategy0(threading.Thread):
+class Strategy0(object):
   '''
   Very basic strategy, mainly for testing purposes.
   '''
 
   def __init__(self, problem, heurs):
     self._name = name = self.__class__.__name__
-    threading.Thread.__init__(self, name=name)
+    #threading.Thread.__init__(self, name=name)
     logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)
@@ -44,8 +44,11 @@ class Strategy0(threading.Thread):
     }
     self._init_analyzers(self._analyzers.values())
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
-
-    self.start()
+    try:
+      self.run() # CHECK if thread again, change this to start()
+    except KeyboardInterrupt:
+      logger.critical("KeyboardInterrupt recieved, e.g. via Ctrl-C")
+      self._cleanup()
 
   @property
   def heuristics(self):
@@ -120,9 +123,9 @@ class Strategy0(threading.Thread):
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
     logger.info("Strategy '%s' started" % self._name)
-    loops = 0
+    self.loops = 0
     while True:
-      loops += 1
+      self.loops += 1
       points = []
       per_client = max(1, int(min(config.max_eval / 50, 1.0 / self.stats.avg_time_per_task)))
       target = per_client * len(self.evaluators)
@@ -166,14 +169,21 @@ class Strategy0(threading.Thread):
       # limit loop speed
       self.evaluators.wait(None, 1e-3)
 
-    # cleanup + shutdown
+    self._cleanup()
+
+  def _cleanup(self):
+    '''
+    cleanup + shutdown
+    '''
+    from IPython.utils.timing import time
     self._end = time.time()
     for msg_id in self.evaluators.outstanding:
       try:
         self.evaluators.get_result(msg_id).abort()
       except:
         pass
-    logger.info("Strategy '%s' finished after %.3f [s] and %d loops." % (self._name, self._end - self._start, loops))
+    logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
+             % (self._name, self._end - self._start, self.loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.stats.info()
     self.results.info()

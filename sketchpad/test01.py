@@ -57,11 +57,6 @@ strategy0 = Strategy0(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
-strategy0.join()
-#results = strategy0.results
-
-#print strategy_bare(problem, results, heurs)
-
 if not strategy0.best is None:
   print "best: ", strategy0.best
 else:

@@ -231,6 +231,7 @@ class WeightedAverage(Heuristic):
   '''
   def __init__(self, cap = config.capacity, k = .1):
     Heuristic.__init__(self, cap=cap) #, start=False)
+    self.cap = cap
     self.k = k
 
   def on_new_best(self, events):
@@ -239,7 +240,7 @@ class WeightedAverage(Heuristic):
     nbrs = self.strategy.analyzer('grid').in_same_grid(best)
     #nbrs = self.results.n_best(4)
     if len(nbrs) < 3: return
-    logger.info("WA: %s" % len(nbrs))
+    #logger.info("WA: %s" % len(nbrs))
 
     # actual calculation
     import numpy as np
@@ -249,7 +250,7 @@ class WeightedAverage(Heuristic):
     weights = -weights + (1+self.k) * weights.max()
     #weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
     #logger.info("weights: %s" % zip(weights, yy))
-    for i in range(10):
+    for i in range(self.cap - self._q.qsize()):
       ret = np.average(xx, axis=0, weights=weights)
       ret += 1 * np.random.normal(0, xx.std(axis=0))
       if np.linalg.norm(best.x - ret) > .01:

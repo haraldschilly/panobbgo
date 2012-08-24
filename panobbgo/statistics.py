@@ -10,7 +10,7 @@ import numpy as np
 class Statistics(object):
   def __init__(self, evaluators, results):
     self.cnt      = 0 # show info about evaluated points
-    self.cnt_last = 0 # for printing the info line in add_tasks()
+    self.show_last = 0 # for printing the info line in add_tasks()
     self.time_start = time.time()
 
     self.evaluators = evaluators
@@ -35,9 +35,10 @@ class Statistics(object):
        self.tasks_walltimes[tid] = self.evaluators.get_result(tid).elapsed
 
     self.cnt += len(self.new_results)
-    if self.cnt / 100 > self.cnt_last / 100:
+    #if self.cnt / 100 > self.show_last / 100:
+    if time.time() - self.show_last > .5:
       self.info()
-      self.cnt_last = self.cnt
+      self.show_last = time.time() #self.cnt
 
   def info(self):
     avg   = self.avg_time_per_task

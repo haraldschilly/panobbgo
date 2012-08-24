@@ -11,8 +11,10 @@ and another one consumes them and dispatches tasks.
 import config
 from config import loggers
 logger = loggers['strategy']
-from statistics import Statistics
+slogger = config.loggers['statistic']
 from core import Results, EventBus
+from IPython.utils.timing import time
+import numpy as np
 
 ### constants
 # reference id for sending the evaluation code to workers
@@ -29,11 +31,20 @@ class Strategy0(object):
     logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)
+    # statistics
+    self.cnt         = 0 # show info about evaluated points
+    self.show_last  = 0 # for printing the info line in _add_tasks()
+    self.time_start = time.time()
+    self.tasks_walltimes = {}
+    # task accounting (tasks != points !!!)
+    self.pending     = set([])
+    self.new_results = []
+    self.finished    = []
+    # init & start everything
     self._setup_cluster(0, problem)
     self.problem = problem
     self.eventbus = EventBus()
     self.results = Results(self)
-    self._statistics = Statistics(self.evaluators, self.results)
     self._init_heuristics(heurs)
 
     from analyzers import Best, Rewarder, Grid
@@ -44,6 +55,7 @@ class Strategy0(object):
     }
     self._init_analyzers(self._analyzers.values())
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
+
     try:
       self.run() # CHECK if thread again, change this to start()
     except KeyboardInterrupt:
@@ -101,17 +113,12 @@ class Strategy0(object):
     self.evaluators = c.load_balanced_view(c.ids[nb_gens:])
     self.direct_view = c.ids[:]
     # TODO remove this hack. "problem" wasn't pushed to all clients
-    #from IPython.utils.timing import time
     #time.sleep(1e-1)
 
     # import some packages  (also locally)
     #with c[:].sync_imports():
-    #  from IPython.utils.timing import time
     #  import numpy
     #  import math
-
-  @property
-  def stats(self): return self._statistics
 
   @property
   def best(self): return self._analyzers['best'].best
@@ -119,7 +126,6 @@ class Strategy0(object):
   def run(self):
     self.eventbus.publish('start', terminate=True)
     from IPython.parallel import Reference
-    from IPython.utils.timing import time
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
     logger.info("Strategy '%s' started" % self._name)
@@ -127,7 +133,7 @@ class Strategy0(object):
     while True:
       self.loops += 1
       points = []
-      per_client = max(1, int(min(config.max_eval / 50, 1.0 / self.stats.avg_time_per_task)))
+      per_client = max(1, int(min(config.max_eval / 50, 1.0 / self.avg_time_per_task)))
       target = per_client * len(self.evaluators)
       logger.debug("per_client = %s | target = %s" % (per_client, target))
       new_tasks = None
@@ -147,16 +153,15 @@ class Strategy0(object):
           if len(points) >= target: break
 
           # wait a bit, and loop
-          from IPython.utils.timing import time
           time.sleep(1e-3)
 
         new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = per_client, ordered=False)
 
       # don't forget, this updates the statistics - new_tasks's default is "None"
-      self.stats.add_tasks(new_tasks)
+      self._add_tasks(new_tasks)
 
       # collect new results for each finished task, hand over to result DB
-      for msg_id in self.stats.new_results:
+      for msg_id in self.new_results:
         for r in self.evaluators.get_result(msg_id).result:
           self.results += r
 
@@ -175,7 +180,6 @@ class Strategy0(object):
     '''
     cleanup + shutdown
     '''
-    from IPython.utils.timing import time
     self._end = time.time()
     for msg_id in self.evaluators.outstanding:
       try:
@@ -185,6 +189,52 @@ class Strategy0(object):
     logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
              % (self._name, self._end - self._start, self.loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
-    self.stats.info()
+    self.info()
     self.results.info()
 
+  def _add_tasks(self, new_tasks):
+    if new_tasks != None:
+      for mid in new_tasks.msg_ids:
+        self.pending.add(mid)
+        self.cnt += len(self.evaluators.get_result(mid).result)
+    self.new_results = self.pending.difference(self.evaluators.outstanding)
+    self.pending = self.pending.difference(self.new_results)
+    for tid in self.new_results:
+       self.finished.append(tid)
+       self.tasks_walltimes[tid] = self.evaluators.get_result(tid).elapsed
+
+    self.cnt += len(self.new_results)
+    #if self.cnt / 100 > self.show_last / 100:
+    if time.time() - self.show_last > config.show_interval:
+      self.info()
+      self.show_last = time.time() #self.cnt
+
+  def info(self):
+    avg   = self.avg_time_per_task
+    pend  = len(self.pending)
+    fini  = len(self.finished)
+    peval = len(self.results)
+    slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
+               (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg))
+
+  @property
+  def avg_time_per_task(self):
+    return np.average(self.tasks_walltimes.values())
+
+  @property
+  def time_wall(self):
+    '''
+    wall time in seconds
+    '''
+    return time.time() - self.time_start
+
+  @property
+  def time_cpu(self):
+    '''
+    effective cpu time in seconds
+    '''
+    return time.clock()
+
+  @property
+  def time_start_str(self):
+    return time.ctime(self.time_start)

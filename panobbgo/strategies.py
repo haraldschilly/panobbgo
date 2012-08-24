@@ -57,11 +57,22 @@ class Strategy0(threading.Thread):
   def analyzer(self, who):
     return self._analyzers[who]
 
+  def _init_module(self, m):
+    '''
+    do this *after* the specialized init's
+    '''
+    m.strategy = self
+    m.eventbus = self.eventbus
+    m.problem = self.problem
+    m.results = self.results
+    m._init_()
+    # only after _init_ it is ready to recieve events
+    self.eventbus.register(m)
+
+
   def _init_analyzers(self, alyz):
     for a in alyz:
-      a.strategy = self
-      a._init_()
-      self.eventbus.register(a)
+      self._init_module(a)
 
   def _init_heuristics(self, heurs):
     import collections
@@ -71,9 +82,7 @@ class Strategy0(threading.Thread):
       assert name not in self._heuristics, \
         "Names of heuristics need to be unique. '%s' is already used." % name
       self._heuristics[name] = h
-      h.strategy = self
-      h._init_()
-      self.eventbus.register(h)
+      self._init_module(h)
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client

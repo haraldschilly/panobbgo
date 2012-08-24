@@ -78,15 +78,6 @@ class Module(object):
   def __repr__(self):
     return '%s' % self.name
 
-  @property
-  def eventbus(self): return self.strategy.eventbus
-
-  @property
-  def problem(self): return self.strategy.problem
-
-  @property
-  def results(self): return self.strategy.results
-
 #
 # Heuristic
 #

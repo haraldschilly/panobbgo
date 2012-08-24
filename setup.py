@@ -32,7 +32,7 @@ setup(
     author_email     = "harald.schilly@univie.ac.at",
     description      = "Parallel Noisy Black-Box Global Optimization",
     url              = "http://github.com/haraldschilly/panobbgo",
-    license          = 'BSD',
+    license          = 'Apache 2.0',
     keywords = "optimization blackbox stochastic noisy parallel black-box ipython distributed cluster",
 
     # could also include long_description, download_url, classifiers, etc.

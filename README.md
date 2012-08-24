@@ -28,11 +28,11 @@ problem definition needs to be possible on the remote machine.
 
 ## License
 
-BSD
+<a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0</a>
 
 ## Credits
 
-Based on work by
+Based on ideas by
 
 * http://reflectometry.org/danse/docs/snobfit/
 

@@ -67,34 +67,61 @@ class Box(object):
   '''
   used by Splitter
   '''
-  def __init__(self):
-    self.results = []
+  def __init__(self, parent, splitter, box):
+    self.parent    = parent
+    self.box       = box
+    self.splitter  = splitter
+    self.limit     = splitter.limit
+    self.dim       = splitter.dim
+    self.results   = []
+    self.children  = []
+    self.dim_split = None
+
+  @property
+  def leaf(self):
+    '''return true, if this box is a leaf. i.e. no children'''
+    return len(self.children) == 0
 
   def __iadd__(self, result):
     assert isinstance(result, Result)
     self.results.append(result)
+    if not self.leaf:
+      child = self.get_box(result.x)
+      child += result
+    elif self.leaf and len(self.results) >= self.limit:
+      if self.parent is None:
+        d = 0  # we are the root box
+      else:
+        d = (self.parent.dim_split + 1) % self.dim
+      self.split(d)
     return self
 
-class Split(object):
-  '''
-  used by Splitter
-  '''
-  def __init__(self):
-    self._children = []
+  def split(self, dim, where = .5):
+    assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
+    assert where >= 0.0 and where <= 1.0, 'where must be between 0 and 1, not %s' % where
+    b1 = Box(self, self.splitter, self.box.copy())
+    b2 = Box(self, self.splitter, self.box.copy())
+    self.dim_split = dim
+    l, u = self.box[dim, 0], self.box[dim, 1]
+    split_point = l + (u - l) * where
+    b1.box[dim, 1] = split_point
+    b2.box[dim, 0] = split_point
+    self.children = [ b1, b2 ]
+    self.splitter.eventbus.publish('new_split', boxes = self.children)
 
-  @property
-  def children(self):
-    return self._children[:]
+  def get_box(self, point):
+    assert not self.leaf, 'not applicable for "leaf" box'
+    # assume non-overlapping children
+    for c in self.children:
+      l, u = c.box[:,0], c.box[:,1]
+      if (l <= point).all() and (u >= point).all():
+        return c
+    raise Exception("no child box containing %s found!" % point)
 
-  def split(self, dimension, where = 0.5):
-    '''
-    - dimension: integer between 0 and < dim(problem)
-    - where: float between 0 and 1
-    '''
-    left = Split()
-    right = Split()
-    self._children = [ left, right ]
-    return left, right
+  def __repr__(self):
+    l = '(leaf) ' if self.leaf else ''
+    b = ','.join('%s'%_ for _ in self.box)
+    return 'Box %s[%s]' % (l, b)
 
 class Splitter(Analyzer):
   '''
@@ -106,11 +133,34 @@ class Splitter(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
+    # split, if there are more than this number of points
+    # in the box
+    self.limit = 10
+
+  def _init_(self):
+    # root box is equal to problem's box
+    self.dim  = self.problem.dim
+    self.root = Box(None, self, self.problem.box.copy())
+
+  def ranges(self, box):
+    return box[:,1] - box[:,0]
+
+  def get_box(self, point):
+    '''return box, where point is contained in'''
+    box = self.root
+    while not box.leaf:
+      box = box.get_box(point)
+    return box
 
   def on_new_results(self, events):
     for event in events:
       for result in event.results:
-        pass
+        box = self.get_box(result.x)
+        box += result
+
+  def on_new_split(self, events):
+    for e in events:
+      logger.info("Split: %s" % ','.join(map(str, e.boxes)))
 
 # end Splitter
 

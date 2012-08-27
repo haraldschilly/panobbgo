@@ -44,8 +44,14 @@ class Strategy0(object):
     self.problem = problem
     self.eventbus = EventBus()
     self.results = Results(self)
-    self._init_heuristics(heurs)
 
+    # heuristics
+    import collections
+    self._heuristics = collections.OrderedDict()
+    for h in sorted(heurs, key = lambda h : h.name):
+      self.add_heuristic(h)
+
+    # analyzers
     from analyzers import Best, Rewarder, Grid, Splitter
     self._analyzers = {
         'best' :     Best(),
@@ -53,11 +59,12 @@ class Strategy0(object):
         'grid':      Grid(),
         'splitter':  Splitter()
     }
-    self._init_analyzers(self._analyzers.values())
+    for a in self._analyzers.values(): self._init_module(a)
+
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
     try:
-      self.run() # CHECK if thread again, change this to start()
+      self.run() # CHECK if strategy is a thread, then change this to start()
     except KeyboardInterrupt:
       logger.critical("KeyboardInterrupt recieved, e.g. via Ctrl-C")
       self._cleanup()
@@ -72,32 +79,30 @@ class Strategy0(object):
   def analyzer(self, who):
     return self._analyzers[who]
 
+  def add_heuristic(self, h):
+    name = h.name
+    assert name not in self._heuristics, \
+      "Names of heuristics need to be unique. '%s' is already used." % name
+    self._heuristics[name] = h
+    self._init_module(h)
+
+  def add_analyzer(self, key, a):
+    assert key not in self._analyzers, \
+        "Names of analyzers need to be unique. '%s' is already used." % key
+    self._analyzers[key] = a
+    self._init_module(a)
+
   def _init_module(self, m):
     '''
     do this *after* the specialized init's
     '''
     m.strategy = self
     m.eventbus = self.eventbus
-    m.problem = self.problem
-    m.results = self.results
+    m.problem  = self.problem
+    m.results  = self.results
     m._init_()
     # only after _init_ it is ready to recieve events
     self.eventbus.register(m)
-
-
-  def _init_analyzers(self, alyz):
-    for a in alyz:
-      self._init_module(a)
-
-  def _init_heuristics(self, heurs):
-    import collections
-    self._heuristics = collections.OrderedDict()
-    for h in sorted(heurs, key = lambda h : h.name):
-      name = h.name
-      assert name not in self._heuristics, \
-        "Names of heuristics need to be unique. '%s' is already used." % name
-      self._heuristics[name] = h
-      self._init_module(h)
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client

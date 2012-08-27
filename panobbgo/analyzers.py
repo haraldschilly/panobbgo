@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import config
-logger = config.loggers['analyzers']
+logger = config.get_logger('ALYZ')
 from panobbgo_problems import Result
 from core import Analyzer
 import numpy as np

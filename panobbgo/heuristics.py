@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import config
-logger = config.loggers['heuristic']
+logger = config.get_logger('HEUR')
 from core import Heuristic, StopHeuristic
 
 class Random(Heuristic):

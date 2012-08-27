@@ -9,9 +9,8 @@ and another one consumes them and dispatches tasks.
 '''
 #import threading
 import config
-from config import loggers
-logger = loggers['strategy']
-slogger = config.loggers['statistic']
+logger = config.get_logger('STRA')
+slogger = config.get_logger('STAT')
 from core import Results, EventBus
 from IPython.utils.timing import time
 import numpy as np

@@ -93,9 +93,12 @@ logger.info('ipython profile: %s' % ipy_profile)
 
 logger.info("Versions: %s" % info())
 
-loggers = {}
-loggers['core']      = create_logger('CORE', loglevel)
-loggers['strategy']  = create_logger('STRA', loglevel)
-loggers['heuristic'] = create_logger('HEUR', loglevel)
-loggers['statistic'] = create_logger('STAT', loglevel)
-loggers['analyzers'] = create_logger('ALYZ', loglevel)
+_loggers = {}
+
+def get_logger(key, loglevel = loglevel):
+  map_key = lambda key, loglevel : '%s::%s' % (key, loglevel)
+  if map_key(key, loglevel) in _loggers:
+    return _loggers[key]
+  l = create_logger(key, loglevel)
+  _loggers[map_key(key, loglevel)] = l
+  return l

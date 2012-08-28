@@ -38,7 +38,7 @@ zero        = Zero()
 extremal    = Extremal()
 center      = Center()
 avg         = WeightedAverage()
-testing     = Testing()
+#testing     = Testing()
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:
@@ -50,8 +50,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10, lhyp, zero, extremal, avg, testing]
-#heurs = [ rand, avg ]
+heurs = [ center, rand, near_10, lhyp, zero, extremal, avg ] #, testing]
 
 strategy0 = Strategy0(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points

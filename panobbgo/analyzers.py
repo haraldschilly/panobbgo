@@ -116,9 +116,9 @@ class Splitter(Analyzer):
     #logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))
     #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
-  def on_new_split(self, box, children, dim, depth):
-    #logger.info("Split: %s -> %s" % (e.box, ','.join(map(str, e.children))))
-    #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
+  def on_new_split(self, box, children, dim):
+    #logger.info("Split: %s -> %s" % (box, ','.join(map(str, children))))
+    #logger.info("children: %s" % map(lambda x:(x.depth, len(x)), children))
     pass
 
   class Box(object):
@@ -145,18 +145,20 @@ class Splitter(Analyzer):
     def ranges(self, box):
       return box[:,1] - box[:,0]
 
-    def __iadd__(self, result):
+    def register_result(self, result):
       assert isinstance(result, Result)
       self.results.append(result)
       self.splitter.result2boxes[result].append(self)
+      if self.leaf:
+        self.splitter.result2leaf[result] = self
+
+    def __iadd__(self, result):
+      self.register_result(result)
       if not self.leaf:
         for child in self.get_child_boxes(result.x):
           child += result # recursive
-      elif self.leaf:
-        if len(self.results) >= self.limit:
-          self.split()
-        else:
-          self.splitter.result2leaf[result] = self
+      elif self.leaf and len(self.results) >= self.limit:
+        self.split()
       return self
 
     def __len__(self): return len(self.results)
@@ -178,10 +180,11 @@ class Splitter(Analyzer):
       self.splitter.leafs.remove(self)
       map(self.splitter.leafs.append, self.children)
       for r in self.results:
-        if r.x[dim] < split_point: b1 += r
-        else:                      b2 += r # 2x if is bad, infinite recursion!
+        for c in self.children:
+          if c.contains(r.x):
+            c.register_result(r)
       self.splitter.eventbus.publish('new_split', \
-          box = self, children = self.children, dim = dim, depth = next_depth)
+          box = self, children = self.children, dim = dim)
 
     def contains(self, point):
       '''

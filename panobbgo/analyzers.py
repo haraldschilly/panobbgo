@@ -15,13 +15,12 @@ class Best(Analyzer):
     Analyzer.__init__(self)
     self.best = Result(None, np.infty)
 
-  def on_new_result(self, events):
-    for event in events:
-      r = event.result
-      if r.fx < self.best.fx:
-        #logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
-        self.best = r
-        self.eventbus.publish("new_best", best = r)
+  def on_new_result(self, result):
+    r = result
+    if r.fx < self.best.fx:
+      #logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
+      self.best = r
+      self.eventbus.publish("new_best", best = r)
 
 class Grid(Analyzer):
   '''
@@ -54,10 +53,9 @@ class Grid(Analyzer):
     self._grid[key] = box
     #print ' '.join('%2s' % str(len(self._grid[k])) for k in sorted(self._grid.keys()))
 
-  def on_new_results(self, events):
-    for event in events:
-      for result in event.results:
-        self._grid_add(result)
+  def on_new_results(self, results):
+    for result in results:
+      self._grid_add(result)
 
 #
 # Splitter + inside its Box class
@@ -110,20 +108,18 @@ class Splitter(Analyzer):
     assert isinstance(result, Result)
     return self.result2leaf[result]
 
-  def on_new_results(self, events):
-    for event in events:
-      for result in event.results:
-        self.root += result
-      #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
-      #logger.info("point %s in boxes: %s" % (result.x, self.get_all_boxes(result)))
-      #logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))
-      #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
+  def on_new_results(self, results):
+    for result in results:
+      self.root += result
+    #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
+    #logger.info("point %s in boxes: %s" % (result.x, self.get_all_boxes(result)))
+    #logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))
+    #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
-  def on_new_split(self, events):
-    for e in events:
-      #logger.info("Split: %s -> %s" % (e.box, ','.join(map(str, e.children))))
-      #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
-      pass
+  def on_new_split(self, box, children, dim, depth):
+    #logger.info("Split: %s -> %s" % (e.box, ','.join(map(str, e.children))))
+    #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
+    pass
 
   class Box(object):
     '''
@@ -171,8 +167,9 @@ class Splitter(Analyzer):
         scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges(self.box)
         dim = np.argmax(np.std(scaled_coords, axis=0))
       assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
-      b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = self.depth + 1)
-      b2 = Splitter.Box(self, self.splitter, self.box.copy(), depth = self.depth + 1)
+      next_depth = self.depth + 1
+      b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
+      b2 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
       self.split_dim = dim
       split_point = np.median(map(lambda r:r.x[dim], self.results))
       b1.box[dim, 1] = split_point
@@ -181,9 +178,10 @@ class Splitter(Analyzer):
       self.splitter.leafs.remove(self)
       map(self.splitter.leafs.append, self.children)
       for r in self.results:
-        if r.x[dim] <= split_point: b1 += r
-        else:                       b2 += r # 2x if is bad, infinite recursion!
-      self.splitter.eventbus.publish('new_split', box = self, children = self.children, dim = dim)
+        if r.x[dim] < split_point: b1 += r
+        else:                      b2 += r # 2x if is bad, infinite recursion!
+      self.splitter.eventbus.publish('new_split', \
+          box = self, children = self.children, dim = dim, depth = next_depth)
 
     def contains(self, point):
       '''
@@ -237,10 +235,8 @@ class Rewarder(Analyzer):
       #self.fx_delta_last = fx_delta
     return reward
 
-  def on_new_results(self, events):
-    for event in events:
-      for result in event.results:
-        if result.fx < self.best.fx:
-          reward = self._reward_heuristic(result)
-          logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))
-
+  def on_new_results(self, results):
+    for result in results:
+      if result.fx < self.best.fx:
+        reward = self._reward_heuristic(result)
+        logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))

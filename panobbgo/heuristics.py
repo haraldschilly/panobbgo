@@ -12,7 +12,7 @@ class Random(Heuristic):
     name = "Random" if name is None else name
     Heuristic.__init__(self, cap=cap, name=name)
 
-  def on_start(self, events):
+  def on_start(self):
     while True:
       self.emit(self.problem.random_point())
 
@@ -45,7 +45,7 @@ class LatinHypercube(Heuristic):
     # length of each box'es dimension
     self.lengths = self.problem.ranges / float(self.div)
 
-  def on_start(self, events):
+  def on_start(self):
     import numpy as np
     div = self.div
     dim = self.problem.dim
@@ -79,7 +79,7 @@ class Nearby(Heuristic):
     self.new    = new
     self.axes   = axes
 
-  def on_new_result(self, events):
+  def on_new_result(self, result):
     import numpy as np
     ret = []
     x = self.strategy.analyzer('best').best.x
@@ -129,7 +129,7 @@ class Extremal(Heuristic):
     center = low + (high-low) / 2.0
     self.vals = np.row_stack((low, zero, center, high))
 
-  def on_start(self, events):
+  def on_start(self):
     import numpy as np
     while True:
       ret = np.empty(self.problem.dim)
@@ -157,7 +157,7 @@ class Zero(Heuristic):
   def __init__(self):
     Heuristic.__init__(self, name="Zero", cap=1)
 
-  def on_start(self, events):
+  def on_start(self):
     from numpy import zeros
     return zeros(self.problem.dim)
 
@@ -168,7 +168,7 @@ class Center(Heuristic):
   def __init__(self):
     Heuristic.__init__(self, name="Center", cap=1)
 
-  def on_start(self, events):
+  def on_start(self):
     box = self.problem.box
     return box[:,0] + (box[:,1]-box[:,0]) / 2.0
 
@@ -182,11 +182,10 @@ class QuadraticModelMockup(Heuristic):
   #def set_machines(self, machines):
   #  self.machines = machines # this is already a load_balanced view
 
-  def on_start(self, events):
+  def on_start(self):
     self.eventbus.publish('calc_quadratic_model')
 
-  def on_calc_quadratic_model(self, events):
-    assert len(events) == 1
+  def on_calc_quadratic_model(self):
     logger.warning("%s is broken, don't use it" % self.name)
     return None
 
@@ -234,8 +233,7 @@ class WeightedAverage(Heuristic):
     self.cap = cap
     self.k = k
 
-  def on_new_best(self, events):
-    best = self.strategy.analyzer('best').best
+  def on_new_best(self, best):
     if best is None or best.x is None: return
     nbrs = self.strategy.analyzer('grid').in_same_grid(best)
     #nbrs = self.results.n_best(4)
@@ -265,17 +263,14 @@ class Testing(Heuristic):
     self.i = 0
     self.j = 0
 
-  def on_start(self, events):
+  def on_start(self):
     self.eventbus.publish('calling_testing')
 
-  def on_calling_testing(self, events):
-    assert len(events) == 1
-    #from IPython.utils.timing import time
-    #d = time.time() - events[0]._when
-    #logger.info("TESTING: ON_START + calling itself: %s @ delta %.7f" % (events, d))
+  def on_calling_testing(self):
     #self.eventbus.publish('calling_testing')
+    pass
 
-  def on_new_best(self, events):
+  def on_new_best(self, best):
     #logger.info("TEST best: %s" % best)
     self.i += 1
     import numpy as np
@@ -285,7 +280,7 @@ class Testing(Heuristic):
       #logger.info('TEST best i = %s'%self.i)
       raise StopHeuristic()
 
-  def on_new_result(self, events):
+  def on_new_result(self, result):
     #logger.info("TEST results: %s" % r)
     self.j += 1
     import numpy as np

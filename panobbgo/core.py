@@ -227,31 +227,45 @@ class EventBus(object):
     from threading import Thread
 
     # important: this decouples the dispatcher's thread from the actual target
-    def run(key, target):
-      isfirst = True
-      while True:
-        # draining the queue... otherwise it might get really huge
-        # it's up to the heuristics to only work with the most important points
-        events = []
-        terminate = False
-        try:
-          while True:
-            event = target._eventbus_events[key].get(block=isfirst)
-            terminate |= event._terminate
-            events.append(event)
-            isfirst = False
-        except Empty:
-          isfirst = True
+    def run(key, target, drain = False):
+      if drain: # not using draining for now, doesn't make much sense
+        isfirst = True
+        while True:
+          # draining the queue... otherwise it might get really huge
+          # it's up to the heuristics to only work with the most important points
+          events = []
+          terminate = False
+          try:
+            while True:
+              event = target._eventbus_events[key].get(block=isfirst)
+              terminate |= event._terminate
+              events.append(event)
+              isfirst = False
+          except Empty:
+            isfirst = True
 
-        try:
-          new_points = getattr(target, 'on_%s' % key)(events)
-          # heuristics might call self.emit and/or return a list
-          if new_points != None: target.emit(new_points)
-          if terminate: raise StopHeuristic("terminated")
-        except StopHeuristic, e:
-          logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
-          self.unsubscribe(key, target)
-          return
+          try:
+            new_points = getattr(target, 'on_%s' % key)(events)
+            # heuristics might call self.emit and/or return a list
+            if new_points != None: target.emit(new_points)
+            if terminate: raise StopHeuristic("terminated")
+          except StopHeuristic, e:
+            logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+            self.unsubscribe(key, target)
+            return
+
+      else: # not draining (default)
+        while True:
+          event = target._eventbus_events[key].get(block=True)
+          try:
+            new_points = getattr(target, 'on_%s' % key)(**event._kwargs)
+            # heuristics might call self.emit and/or return a list
+            if new_points != None: target.emit(new_points)
+            if event._terminate: raise StopHeuristic("terminated")
+          except StopHeuristic, e:
+            logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+            self.unsubscribe(key, target)
+            return
 
     target._eventbus_events = {}
     # bind all 'on_<key>' methods to events in the eventbus

@@ -60,68 +60,8 @@ class Grid(Analyzer):
         self._grid_add(result)
 
 #
-# Splitter + its classes
+# Splitter + inside its Box class
 #
-
-class Box(object):
-  '''
-  used by Splitter
-  '''
-  def __init__(self, parent, splitter, box):
-    self.parent    = parent
-    self.box       = box
-    self.splitter  = splitter
-    self.limit     = splitter.limit
-    self.dim       = splitter.dim
-    self.results   = []
-    self.children  = []
-    self.dim_split = None
-
-  @property
-  def leaf(self):
-    '''return true, if this box is a leaf. i.e. no children'''
-    return len(self.children) == 0
-
-  def __iadd__(self, result):
-    assert isinstance(result, Result)
-    self.results.append(result)
-    if not self.leaf:
-      child = self.get_box(result.x)
-      child += result
-    elif self.leaf and len(self.results) >= self.limit:
-      if self.parent is None:
-        d = 0  # we are the root box
-      else:
-        d = (self.parent.dim_split + 1) % self.dim
-      self.split(d)
-    return self
-
-  def split(self, dim, where = .5):
-    assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
-    assert where >= 0.0 and where <= 1.0, 'where must be between 0 and 1, not %s' % where
-    b1 = Box(self, self.splitter, self.box.copy())
-    b2 = Box(self, self.splitter, self.box.copy())
-    self.dim_split = dim
-    l, u = self.box[dim, 0], self.box[dim, 1]
-    split_point = l + (u - l) * where
-    b1.box[dim, 1] = split_point
-    b2.box[dim, 0] = split_point
-    self.children = [ b1, b2 ]
-    self.splitter.eventbus.publish('new_split', boxes = self.children)
-
-  def get_box(self, point):
-    assert not self.leaf, 'not applicable for "leaf" box'
-    # assume non-overlapping children
-    for c in self.children:
-      l, u = c.box[:,0], c.box[:,1]
-      if (l <= point).all() and (u >= point).all():
-        return c
-    raise Exception("no child box containing %s found!" % point)
-
-  def __repr__(self):
-    l = '(leaf) ' if self.leaf else ''
-    b = ','.join('%s'%_ for _ in self.box)
-    return 'Box %s[%s]' % (l, b)
 
 class Splitter(Analyzer):
   '''
@@ -133,34 +73,135 @@ class Splitter(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    # split, if there are more than this number of points
-    # in the box
-    self.limit = 10
+    # split, if there are more than this number of points in the box
+    self.limit = 20
+    self.leafs = []
 
   def _init_(self):
     # root box is equal to problem's box
     self.dim  = self.problem.dim
-    self.root = Box(None, self, self.problem.box.copy())
-
-  def ranges(self, box):
-    return box[:,1] - box[:,0]
+    self.root = Splitter.Box(None, self, self.problem.box.copy())
+    self.leafs.append(self.root)
+    # in which box (a list!) is each point?
+    from collections import defaultdict
+    self.result2boxes = defaultdict(list)
+    self.result2leaf  = {}
 
   def get_box(self, point):
-    '''return box, where point is contained in'''
+    '''
+    return "leftmost" leaf box, where given point is contained in
+    '''
     box = self.root
     while not box.leaf:
-      box = box.get_box(point)
+      box = box.get_child_boxes(point)[0]
     return box
+
+  def get_all_boxes(self, result):
+    '''
+    return all boxes, where point is contained in
+    '''
+    assert isinstance(result, Result)
+    return self.result2boxes[result]
+
+  def get_leaf(self, result):
+    '''
+    returns the leaf box, where given result is currently sitting in
+    '''
+    assert isinstance(result, Result)
+    return self.result2leaf[result]
 
   def on_new_results(self, events):
     for event in events:
       for result in event.results:
-        box = self.get_box(result.x)
-        box += result
+        self.root += result
+      #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
+      #logger.info("point %s in boxes: %s" % (result.x, self.get_all_boxes(result)))
+      #logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))
+      #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
   def on_new_split(self, events):
     for e in events:
-      logger.info("Split: %s" % ','.join(map(str, e.boxes)))
+      #logger.info("Split: %s -> %s" % (e.box, ','.join(map(str, e.children))))
+      #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
+      pass
+
+  class Box(object):
+    '''
+    used by Splitter, therefore nested.
+    (accessed via Splitter.Box)
+    '''
+    def __init__(self, parent, splitter, box, depth = 0):
+      self.parent    = parent
+      self.depth     = depth
+      self.box       = box
+      self.splitter  = splitter
+      self.limit     = splitter.limit
+      self.dim       = splitter.dim
+      self.results   = []
+      self.children  = []
+      self.split_dim = None
+
+    @property
+    def leaf(self):
+      '''return true, if this box is a leaf. i.e. no children'''
+      return len(self.children) == 0
+
+    def ranges(self, box):
+      return box[:,1] - box[:,0]
+
+    def __iadd__(self, result):
+      assert isinstance(result, Result)
+      self.results.append(result)
+      self.splitter.result2boxes[result].append(self)
+      if not self.leaf:
+        for child in self.get_child_boxes(result.x):
+          child += result # recursive
+      elif self.leaf:
+        if len(self.results) >= self.limit:
+          self.split()
+        else:
+          self.splitter.result2leaf[result] = self
+      return self
+
+    def __len__(self): return len(self.results)
+
+    def split(self, dim = None):
+      assert self.leaf, 'only leaf boxes are allowed to be split ;)'
+      if dim is None:
+        scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges(self.box)
+        dim = np.argmax(np.std(scaled_coords, axis=0))
+      assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
+      b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = self.depth + 1)
+      b2 = Splitter.Box(self, self.splitter, self.box.copy(), depth = self.depth + 1)
+      self.split_dim = dim
+      split_point = np.median(map(lambda r:r.x[dim], self.results))
+      b1.box[dim, 1] = split_point
+      b2.box[dim, 0] = split_point
+      self.children = [ b1, b2 ]
+      self.splitter.leafs.remove(self)
+      map(self.splitter.leafs.append, self.children)
+      for r in self.results:
+        if r.x[dim] <= split_point: b1 += r
+        else:                       b2 += r # 2x if is bad, infinite recursion!
+      self.splitter.eventbus.publish('new_split', box = self, children = self.children, dim = dim)
+
+    def contains(self, point):
+      '''
+      true, if given point is inside (including boundaries) this box
+      '''
+      l, u = self.box[:,0], self.box[:,1]
+      return (l <= point).all() and (u >= point).all()
+
+    def get_child_boxes(self, point):
+      assert not self.leaf, 'not applicable for "leaf" box'
+      ret = filter(lambda c : c.contains(point), self.children)
+      assert len(ret) > 0, "no child box containing %s found!" % point
+      return ret
+
+    def __repr__(self):
+      l = '(leaf) ' if self.leaf else ''
+      b = ','.join('%s'%_ for _ in self.box)
+      return 'Box %s[%s]' % (l, b)
 
 # end Splitter
 

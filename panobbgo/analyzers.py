@@ -73,8 +73,8 @@ class Splitter(Analyzer):
   def __init__(self):
     Analyzer.__init__(self)
     # split, if there are more than this number of points in the box
-    self.limit = 20
     self.leafs = []
+    self._id = 0 # block id
     # _new_result used to signal get_leaf and others when there
     # are updates regarding box/split/leaf status
     from threading import Condition
@@ -83,6 +83,8 @@ class Splitter(Analyzer):
   def _init_(self):
     # root box is equal to problem's box
     self.dim  = self.problem.dim
+    self.limit = max(20, config.max_eval / self.dim ** 2)
+    logger.info("Splitter: limit = %s" % self.limit)
     self.root = Splitter.Box(None, self, self.problem.box.copy())
     self.leafs.append(self.root)
     # in which box (a list!) is each point?
@@ -120,7 +122,7 @@ class Splitter(Analyzer):
 
   def in_same_leaf(self, result):
     l = self.get_leaf(result)
-    return l.results
+    return l.results, l
 
   def on_new_results(self, results):
     with self._new_result:
@@ -152,6 +154,8 @@ class Splitter(Analyzer):
       self.results   = []
       self.children  = []
       self.split_dim = None
+      self.id        = splitter._id
+      splitter._id  += 1
 
     @property
     def leaf(self):
@@ -217,9 +221,10 @@ class Splitter(Analyzer):
       return ret
 
     def __repr__(self):
-      l = '(leaf) ' if self.leaf else ''
+      l = '(%d,leaf) ' if self.leaf else '%d '
+      l = l % len(self)
       b = ','.join('%s'%_ for _ in self.box)
-      return 'Box %s[%s]' % (l, b)
+      return 'Box-%d %s[%s]' % (self.id, l, b)
 
 # end Splitter
 

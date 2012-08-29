@@ -110,7 +110,8 @@ class Heuristic(Module):
   '''
   def __init__(self, name = None, q = None, cap = None):
     Module.__init__(self, name)
-    self._q = q if q else LifoQueue(cap)
+    self.cap = cap if cap else config.capacity
+    self._q = q if q else LifoQueue(self.cap)
 
     # statistics; performance
     self.performance = 0.0

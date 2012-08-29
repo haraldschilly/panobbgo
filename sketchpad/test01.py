@@ -12,8 +12,8 @@ from panobbgo.strategies import Strategy0
 
 from panobbgo_problems.classic import *
 
-#problem = Rosenbrock(2)
-problem = RosenbrockStochastic(2)
+problem = Rosenbrock(3, par1 = 10)
+#problem = RosenbrockStochastic(3)
 #problem = Rosenbrock(2, 100)
 #problem = RosenbrockAbs(2)
 #problem = Rastrigin(2, offset=1.11111)

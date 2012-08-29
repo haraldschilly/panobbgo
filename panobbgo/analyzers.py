@@ -58,14 +58,15 @@ class Grid(Analyzer):
       self._grid_add(result)
 
 #
-# Splitter + inside its Box class
+# Splitter + inside is its Box class
 #
 
 class Splitter(Analyzer):
   '''
-  manages a tree of splits. a split is a node in a tree, that
-  partitions the search space into smaller boxes. the idea is
-  to balance between the depth level of splits and the number
+  manages a tree of splits. a node in a tree can have children, which
+  partitions the search space into smaller boxes. nodes without
+  children are leafs.
+  the idea is to balance between the depth level of splits and the number
   of points inside such a box. a heuristic can build upon this
   to investigate interesting subregions.
   '''
@@ -74,6 +75,10 @@ class Splitter(Analyzer):
     # split, if there are more than this number of points in the box
     self.limit = 20
     self.leafs = []
+    # _new_result used to signal get_leaf and others when there
+    # are updates regarding box/split/leaf status
+    from threading import Condition
+    self._new_result = Condition()
 
   def _init_(self):
     # root box is equal to problem's box
@@ -106,11 +111,22 @@ class Splitter(Analyzer):
     returns the leaf box, where given result is currently sitting in
     '''
     assert isinstance(result, Result)
+    with self._new_result:
+      while not self.result2leaf.has_key(result):
+        #logger.info("RESULT NOT FOUND %s" % result)
+        #logger.info("BOXES: %s" % self.get_all_boxes(result))
+        self._new_result.wait()
     return self.result2leaf[result]
 
+  def in_same_leaf(self, result):
+    l = self.get_leaf(result)
+    return l.results
+
   def on_new_results(self, results):
-    for result in results:
-      self.root += result
+    with self._new_result:
+      for result in results:
+        self.root += result
+      self._new_result.notify_all()
     #logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
     #logger.info("point %s in boxes: %s" % (result.x, self.get_all_boxes(result)))
     #logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))
@@ -142,8 +158,9 @@ class Splitter(Analyzer):
       '''return true, if this box is a leaf. i.e. no children'''
       return len(self.children) == 0
 
-    def ranges(self, box):
-      return box[:,1] - box[:,0]
+    @property
+    def ranges(self):
+      return self.box[:,1] - self.box[:,0]
 
     def register_result(self, result):
       assert isinstance(result, Result)
@@ -164,9 +181,9 @@ class Splitter(Analyzer):
     def __len__(self): return len(self.results)
 
     def split(self, dim = None):
-      assert self.leaf, 'only leaf boxes are allowed to be split ;)'
+      assert self.leaf, 'only leaf boxes are allowed to be split'
       if dim is None:
-        scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges(self.box)
+        scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
         dim = np.argmax(np.std(scaled_coords, axis=0))
       assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
       next_depth = self.depth + 1
@@ -176,7 +193,7 @@ class Splitter(Analyzer):
       split_point = np.median(map(lambda r:r.x[dim], self.results))
       b1.box[dim, 1] = split_point
       b2.box[dim, 0] = split_point
-      self.children = [ b1, b2 ]
+      self.children.extend([ b1, b2 ])
       self.splitter.leafs.remove(self)
       map(self.splitter.leafs.append, self.children)
       for r in self.results:

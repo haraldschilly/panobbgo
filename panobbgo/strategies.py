@@ -53,8 +53,9 @@ class Strategy0(object):
 
     # analyzers
     from analyzers import Best, Rewarder, Grid, Splitter
+    best = Best()
     self._analyzers = {
-        'best' :     Best(),
+        'best' :     best,
         'rewarder' : Rewarder(),
         'grid':      Grid(),
         'splitter':  Splitter()
@@ -193,6 +194,7 @@ class Strategy0(object):
         pass
     logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
              % (self._name, self._end - self._start, self.loops))
+    time.sleep(1)
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.info()
     self.results.info()

@@ -2,19 +2,37 @@
 import config
 logger = config.get_logger('HEUR')
 from core import Heuristic, StopHeuristic
+import numpy as np
 
 class Random(Heuristic):
   '''
-  always generates random points until the
-  capped queue is full.
+  always generates random points inside the box of the
+  "best leaf" (see "Splitter") until the capped queue is full.
   '''
-  def __init__(self, cap = config.capacity, name=None):
+  def __init__(self, cap = None, name=None):
     name = "Random" if name is None else name
-    Heuristic.__init__(self, cap=cap, name=name)
+    self.leaf = None
+    from threading import Event
+    self.have_split = Event()
+    Heuristic.__init__(self, name=name)
 
   def on_start(self):
+    self.have_split.wait()
+    splitter = self.strategy.analyzer("splitter")
     while True:
-      self.emit(self.problem.random_point())
+      r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:,0]
+      self.emit(r)
+
+  def on_new_split(self, box, children, dim):
+    '''
+    we are only interested in the (possibly new)
+    leaf around the best point
+    '''
+    best = self.strategy.analyzer("best").best
+    self.leaf = self.strategy.analyzer("splitter").get_leaf(best)
+    self.clear_queue()
+    self.have_split.set()
+
 
 class LatinHypercube(Heuristic):
   '''
@@ -35,7 +53,8 @@ class LatinHypercube(Heuristic):
   |   |   | X |   |
   +---+---+---+---+
   '''
-  def __init__(self, div, cap = config.capacity):
+  def __init__(self, div):
+    cap = div
     Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
     if not isinstance(div, int):
       raise Exception("LH: div needs to be an integer")
@@ -72,9 +91,7 @@ class Nearby(Heuristic):
        * all: desturb all axes
   '''
   def __init__(self, cap = 3, radius = 1./100, new = 1, axes = 'one'):
-    from Queue import LifoQueue
-    q = LifoQueue(cap)
-    Heuristic.__init__(self, q = q, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
+    Heuristic.__init__(self, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
     self.radius = radius
     self.new    = new
     self.axes   = axes
@@ -109,8 +126,8 @@ class Extremal(Heuristic):
   from 0 to 1, which indicate the probability for sampling from the
   minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
   '''
-  def __init__(self, cap = config.capacity, diameter = 1./10, prob = None):
-    Heuristic.__init__(self, cap=cap, name="Extremal")
+  def __init__(self, diameter = 1./10, prob = None):
+    Heuristic.__init__(self, name="Extremal")
     import numpy as np
     if prob is None: prob = (1, .2, .2, 1)
     for i in prob:
@@ -175,8 +192,8 @@ class Center(Heuristic):
 class QuadraticModelMockup(Heuristic):
   '''
   '''
-  def __init__(self, cap = config.capacity):
-    Heuristic.__init__(self, cap=cap) #, start=False)
+  def __init__(self):
+    Heuristic.__init__(self)
     self.machines = None
 
   #def set_machines(self, machines):
@@ -228,14 +245,16 @@ class QuadraticModelMockup(Heuristic):
 class WeightedAverage(Heuristic):
   '''
   '''
-  def __init__(self, cap = config.capacity, k = .1):
-    Heuristic.__init__(self, cap=cap) #, start=False)
-    self.cap = cap
+  def __init__(self, k = .1):
+    Heuristic.__init__(self)
     self.k = k
+
+  def _init_(self):
+    self.minstd = min(self.problem.ranges) / 100.
 
   def on_new_best(self, best):
     if best is None or best.x is None: return
-    nbrs = self.strategy.analyzer('grid').in_same_grid(best)
+    nbrs = self.strategy.analyzer('splitter').in_same_leaf(best)
     #nbrs = self.results.n_best(4)
     if len(nbrs) < 3: return
     #logger.info("WA: %s" % len(nbrs))
@@ -261,8 +280,8 @@ class Testing(Heuristic):
   '''
   just to try some ideas ...
   '''
-  def __init__(self, cap = config.capacity):
-    Heuristic.__init__(self, cap=cap) #, start=False)
+  def __init__(self):
+    Heuristic.__init__(self)
     self.i = 0
     self.j = 0
 

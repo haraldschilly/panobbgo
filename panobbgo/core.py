@@ -115,6 +115,10 @@ class Heuristic(Module):
     # statistics; performance
     self.performance = 0.0
 
+  def clear_queue(self):
+    with self._q.mutex:
+      del self._q.queue[:]
+
   def emit(self, points):
     '''
     this is used in the heuristic's thread.

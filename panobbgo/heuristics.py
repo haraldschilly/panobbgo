@@ -250,7 +250,10 @@ class WeightedAverage(Heuristic):
     #logger.info("weights: %s" % zip(weights, yy))
     for i in range(self.cap - self._q.qsize()):
       ret = np.average(xx, axis=0, weights=weights)
-      ret += 1 * np.random.normal(0, xx.std(axis=0))
+      std = xx.std(axis=0)
+      # std must be > 0
+      std[std < self.minstd] = self.minstd
+      ret += 1 * np.random.normal(0, std)
       if np.linalg.norm(best.x - ret) > .01:
         self.emit(ret)
 

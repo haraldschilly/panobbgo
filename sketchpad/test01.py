@@ -10,7 +10,7 @@ from panobbgo.heuristics import Random, Nearby, \
 from panobbgo.strategies import Strategy0
 #import numpy as np
 
-from panobbgo_problems.classic import *
+from panobbgo_lib.classic import *
 
 problem = Rosenbrock(3, par1 = 10)
 #problem = RosenbrockStochastic(3)

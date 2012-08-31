@@ -17,9 +17,8 @@
 This is the core part, currently only managing the global
 DB of point evaluations. For more, look into the strategy.py file.
 '''
-import config
-logger = config.get_logger('CORE')
-from panobbgo_problems import Result
+from config import get_config
+from panobbgo_lib import Result, Point
 
 #
 # Result DB
@@ -58,6 +57,7 @@ class Results(object):
       self._last_nb = len(self.results)
 
   def info(self):
+    logger = get_config().get_logger('CORE')
     logger.info("%d results in DB" % len(self.results))
 
   def __iadd__(self, results):
@@ -95,7 +95,6 @@ class Module(object):
 # Heuristic
 #
 from Queue import Empty, LifoQueue # PriorityQueue
-from panobbgo_problems import Point
 
 class StopHeuristic(Exception):
   '''
@@ -110,7 +109,9 @@ class Heuristic(Module):
   '''
   def __init__(self, name = None, q = None, cap = None):
     Module.__init__(self, name)
-    self.cap = cap if cap else config.capacity
+    self.config = get_config()
+    self.logger = self.config.get_logger('HEUR')
+    self.cap = cap if cap else get_config().capacity
     self._q = q if q else LifoQueue(self.cap)
 
     # statistics; performance
@@ -134,7 +135,7 @@ class Heuristic(Module):
         self._q.put(point)
     except StopHeuristic:
       self._stopped = True
-      logger.info("'%s' heuristic stopped." % self.name)
+      self.logger.info("'%s' heuristic stopped." % self.name)
 
   def reward(self, reward):
     '''
@@ -143,11 +144,11 @@ class Heuristic(Module):
     #logger.debug("Reward of %s for '%s'" % (reward, self.name))
     self.performance += reward
 
-  def discount(self, discount = config.discount):
+  def discount(self, discount = None):
     '''
     Discount the heuristic's reward. Default is set in the configuration.
     '''
-    self.performance *= discount
+    self.performance *= discount if discount else self.config.discount
 
   def get_points(self, limit=None):
     '''
@@ -218,9 +219,14 @@ class EventBus(object):
 
   def __init__(self):
     self._subs = {}
+    self.logger = get_config().get_logger('EBUS')
 
   @property
-  def keys(self): return self._subs.keys()
+  def keys(self):
+    '''
+    List of all keys where you can send an :class:`Event` to.
+    '''
+    return self._subs.keys()
 
   def register(self, target):
     '''
@@ -255,7 +261,7 @@ class EventBus(object):
             if new_points != None: target.emit(new_points)
             if terminate: raise StopHeuristic("terminated")
           except StopHeuristic, e:
-            logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+            self.logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
             self.unsubscribe(key, target)
             return
 
@@ -268,7 +274,7 @@ class EventBus(object):
             if new_points != None: target.emit(new_points)
             if event._terminate: raise StopHeuristic("terminated")
           except StopHeuristic, e:
-            logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+            self.logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
             self.unsubscribe(key, target)
             return
 
@@ -281,7 +287,7 @@ class EventBus(object):
       self._check_key(key)
       target._eventbus_events[key] = LifoQueue()
       t = Thread(target = run, args = (key, target,),
-          name='EventBus: %s/%s'%(target.name, key))
+          name='EventBus::%s/%s'%(target.name, key))
       t.daemon = True
       t.start()
       target._threads.append(t)
@@ -291,9 +297,13 @@ class EventBus(object):
 
   def _check_key(self, key):
     if not EventBus._re_key.match(key):
-      raise Exception('EventBus: "%s" key not allowed' % key)
+      raise Exception('"%s" key not allowed' % key)
 
   def subscribe(self, key, target):
+    '''
+
+    .. Note:: counterpart is :func:`unsubscribe`.
+    '''
     self._check_key(key)
     if not key in self._subs:
       self._subs[key] = []
@@ -303,8 +313,10 @@ class EventBus(object):
 
   def unsubscribe(self, key, target):
     '''
-      - if @key is None, the target is removed from all keys
-        (used in Heuristic.stop_me(...))
+    Args:
+
+      - if ``key`` is None, the target is removed from all keys.
+
     '''
     if key is None:
       for k, v in self._subs.iteritems():
@@ -315,7 +327,7 @@ class EventBus(object):
 
     self._check_key(key)
     if not key in self._subs:
-      logger.critical("cannot unsubscribe unknown key '%s'" % key)
+      self.logger.critical("cannot unsubscribe unknown key '%s'" % key)
       return
 
     if target in self._subs[key]:
@@ -326,7 +338,7 @@ class EventBus(object):
      - terminate: if True, the associated thread will end.
     '''
     if key not in self._subs:
-      logger.warning("EventBus: key '%s' unknown." % key)
+      self.logger.warning("key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:

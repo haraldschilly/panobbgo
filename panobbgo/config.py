@@ -5,100 +5,118 @@ It's purpose is to parse a config file (create a default one if none
 is present) and replace values stored within it with those given
 via optional command-line arguments.
 """
-from utils import info, create_logger
-logger = create_logger("CONF")
 
-default_config_fn = 'config.ini'
+_config = None
 
-# 1: parsing command-line arguments
-from optparse import OptionParser
-_parser = OptionParser()
-_parser.add_option('-c', '--config-file', dest="config_file",
-                  help='configuration file [default: %default]', default=default_config_fn)
-_parser.add_option('-p', '--profile', dest='ipy_profile', 
-                  help='IPython profile for the ipcluster configuration')
-_parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
-_parser.add_option('--smooth', dest='smooth', help="smoothing parameter for (additive or other) smoothing", type="float")
-_parser.add_option('--cap', dest='capacity', help="capacity for each queue in each heuristic", type="int")
-_parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
+class Config(object):
 
-_options, _args = _parser.parse_args()
+  def __init__(self):
+    self._loggers = {}
+    self._create()
 
-logger.info('cmdln options: %s' % _options)
+  def _create(self):
+    from utils import info, create_logger
+    logger = create_logger("CONF")
 
-import os
-from ConfigParser import ConfigParser
+    defaultself_fn = 'config.ini'
 
-# 2/1: does config file exist?
-if not os.path.exists(_options.config_file):
-  _cfgp = ConfigParser()
-  # create them in the reverse order
+    # 1: parsing command-line arguments
+    from optparse import OptionParser
+    _parser = OptionParser()
+    _parser.add_option('-c', '--config-file', dest="config_file",
+                      help='configuration file [default: %default]', default=defaultself_fn)
+    _parser.add_option('-p', '--profile', dest='ipy_profile', 
+                      help='IPython profile for the ipcluster configuration')
+    _parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
+    _parser.add_option('--smooth', dest='smooth', help="smoothing parameter for (additive or other) smoothing", type="float")
+    _parser.add_option('--cap', dest='capacity', help="capacity for each queue in each heuristic", type="int")
+    _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
 
-  _cfgp.add_section('db') # database config
-  #_cfgp.set('db', 'port', '37010')
-  #_cfgp.set('db', 'host', 'localhost')
+    _options, _args = _parser.parse_args()
 
-  _cfgp.add_section('ipython')
-  _cfgp.set('ipython', 'profile', 'default')
+    logger.info('cmdln options: %s' % _options)
 
-  _cfgp.add_section('heuristic')
-  _cfgp.set('heuristic', 'capacity', '20')
+    import os
+    from ConfigParser import ConfigParser
 
-  _cfgp.add_section('core') # core configuration
-  _cfgp.set('core', 'loglevel', '40') # default: no debug mode
-  _cfgp.set('core', 'show_interval', '1.0')
-  _cfgp.set('core', 'max_eval', '1000')
-  _cfgp.set('core', 'discount', '0.995')
-  _cfgp.set('core', 'smooth', 0.5)
+    # 2/1: does config file exist?
+    if not os.path.exists(_options.config_file):
+      _cfgp = ConfigParser()
+      # create them in the reverse order
 
-  with open(_options.config_file, 'wb') as configfile:
-    _cfgp.write(configfile)
+      _cfgp.add_section('db') # database config
+      #_cfgp.set('db', 'port', '37010')
+      #_cfgp.set('db', 'host', 'localhost')
 
-# 2/2: reading the config file
-_cfgp = ConfigParser()
-_cfgp.read(_options.config_file)
+      _cfgp.add_section('ipython')
+      _cfgp.set('ipython', 'profile', 'default')
 
-# 3: override specific settings
-_cur_verb = _cfgp.getint('core', 'loglevel')
-if _options.verbosity:   _cfgp.set('core',    'loglevel', str(_cur_verb - 10*_options.verbosity))
-if _options.max_eval:    _cfgp.set('core',    'max_eval', str(_options.max_eval))
-if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
-if _options.capacity:    _cfgp.set('heuristic', 'capacity', str(_options.capacity))
-if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
+      _cfgp.add_section('heuristic')
+      _cfgp.set('heuristic', 'capacity', '20')
 
-## some generic function
-def get_config(section, key):
-  return _cfgp.get(section, key)
+      _cfgp.add_section('core') # core configuration
+      _cfgp.set('core', 'loglevel', '40') # default: no debug mode
+      _cfgp.set('core', 'show_interval', '1.0')
+      _cfgp.set('core', 'max_eval', '1000')
+      _cfgp.set('core', 'discount', '0.995')
+      _cfgp.set('core', 'smooth', 0.5)
 
-def all_cfgp(sep = '::'):
-  ret = {}
-  for s in _cfgp.sections():
-    for k, v in _cfgp.items(s):
-      ret['%s%s%s' % (s, sep, k)] = v
-  return ret
+      with open(_options.config_file, 'wb') as configfile:
+        _cfgp.write(configfile)
 
-logger.info('config.ini: %s' % all_cfgp())
+    # 2/2: reading the config file
+    _cfgp = ConfigParser()
+    _cfgp.read(_options.config_file)
 
-## specific data
-loglevel      = _cfgp.getint  ('core', 'loglevel')
-show_interval = _cfgp.getfloat('core', 'show_interval')
-max_eval      = _cfgp.getint  ('core', 'max_eval')
-discount      = _cfgp.getfloat('core', 'discount')
-smooth        = _cfgp.getfloat('core', 'smooth')
-capacity      = _cfgp.getint  ('heuristic', 'capacity')
-ipy_profile   = _cfgp.get     ('ipython', 'profile')
+    # 3: override specific settings
+    _cur_verb = _cfgp.getint('core', 'loglevel')
+    if _options.verbosity:   _cfgp.set('core',    'loglevel', str(_cur_verb - 10*_options.verbosity))
+    if _options.max_eval:    _cfgp.set('core',    'max_eval', str(_options.max_eval))
+    if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
+    if _options.capacity:    _cfgp.set('heuristic', 'capacity', str(_options.capacity))
+    if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
 
-#logger.info('loglevel: %s' % loglevel)
-logger.info('ipython profile: %s' % ipy_profile)
+    ## some generic function
+    def getself(section, key):
+      return _cfgp.get(section, key)
 
-logger.info("Versions: %s" % info())
+    def all_cfgp(sep = '::'):
+      ret = {}
+      for s in _cfgp.sections():
+        for k, v in _cfgp.items(s):
+          ret['%s%s%s' % (s, sep, k)] = v
+      return ret
 
-_loggers = {}
+    logger.info('config.ini: %s' % all_cfgp())
 
-def get_logger(key, loglevel = loglevel):
-  map_key = lambda key, loglevel : '%s::%s' % (key, loglevel)
-  if map_key(key, loglevel) in _loggers:
-    return _loggers[key]
-  l = create_logger(key, loglevel)
-  _loggers[map_key(key, loglevel)] = l
-  return l
+    ## specific data
+    self.loglevel      = _cfgp.getint  ('core', 'loglevel')
+    self.show_interval = _cfgp.getfloat('core', 'show_interval')
+    self.max_eval      = _cfgp.getint  ('core', 'max_eval')
+    self.discount      = _cfgp.getfloat('core', 'discount')
+    self.smooth        = _cfgp.getfloat('core', 'smooth')
+    self.capacity      = _cfgp.getint  ('heuristic', 'capacity')
+    self.ipy_profile   = _cfgp.get     ('ipython', 'profile')
+
+    #logger.info('loglevel: %s' % loglevel)
+    logger.info('ipython profile: %s' % self.ipy_profile)
+
+    logger.info("Versions: %s" % info())
+
+  def get_logger(self, key, loglevel = None):
+    if loglevel == None: loglevel = self.loglevel
+    key = '%s::%s' % (key, loglevel)
+    if key in self._loggers:
+      return self._loggers[key]
+    from utils import create_logger
+    l = create_logger(key, loglevel)
+    self._loggers[key] = l
+    return l
+
+def get_config():
+  global _config
+  if _config != None:
+    return _config
+  _config = Config()
+  return _config
+

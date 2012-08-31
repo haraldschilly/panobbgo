@@ -1,6 +1,5 @@
 # -*- coding: utf8 -*-
-import config
-logger = config.get_logger('HEUR')
+from config import get_config
 from core import Heuristic, StopHeuristic
 import numpy as np
 
@@ -36,24 +35,27 @@ class Random(Heuristic):
 
 class LatinHypercube(Heuristic):
   '''
-  partitions the search box into n x n x ... x n cubes.
-  selects randomly in such a way, that there is only one cube in each dimension.
-  then randomly selects one point from inside such a cube.
+  Partitions the search box into n x n x ... x n cubes.
+  Selects randomly in such a way, that there is only one cube in each dimension.
+  Then, it randomly selects one point from inside such a cube.
 
+  e.g. with div=4 and dim=2::
 
-  e.g. with div=4 and dim=2:
-
-  +---+---+---+---+
-  | X |   |   |   |
-  +---+---+---+---+
-  |   |   |   | X |
-  +---+---+---+---+
-  |   | X |   |   |
-  +---+---+---+---+
-  |   |   | X |   |
-  +---+---+---+---+
+    +---+---+---+---+
+    | X |   |   |   |
+    +---+---+---+---+
+    |   |   |   | X |
+    +---+---+---+---+
+    |   | X |   |   |
+    +---+---+---+---+
+    |   |   | X |   |
+    +---+---+---+---+
   '''
   def __init__(self, div):
+    '''
+    Args:
+       - `div`: number of divisions, positive integer.
+    '''
     cap = div
     Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
     if not isinstance(div, int):
@@ -195,6 +197,7 @@ class QuadraticModelMockup(Heuristic):
   def __init__(self):
     Heuristic.__init__(self)
     self.machines = None
+    self.logger = get_config().get_logger('H-QU')
 
   #def set_machines(self, machines):
   #  self.machines = machines # this is already a load_balanced view
@@ -203,7 +206,7 @@ class QuadraticModelMockup(Heuristic):
     self.eventbus.publish('calc_quadratic_model')
 
   def on_calc_quadratic_model(self):
-    logger.warning("%s is broken, don't use it" % self.name)
+    self.logger.warning("%s is broken, don't use it" % self.name)
     return None
 
     best = self.results.best
@@ -238,7 +241,7 @@ class QuadraticModelMockup(Heuristic):
 
     params = np.random.normal(0,1,size=3)
     sol = fmin_bfgs(residual, params, fprime=gradient)
-    logger.info("params: %s %s %s" % (sol[0], sol[1], sol[2]))
+    self.logger.info("params: %s %s %s" % (sol[0], sol[1], sol[2]))
     #self.emit(...)
     self.eventbus.publish('calc_quadratic_model')
 
@@ -248,6 +251,7 @@ class WeightedAverage(Heuristic):
   def __init__(self, k = .1):
     Heuristic.__init__(self)
     self.k = k
+    self.logger = get_config().get_logger('WAvg')
 
   def _init_(self):
     self.minstd = min(self.problem.ranges) / 100.
@@ -257,7 +261,7 @@ class WeightedAverage(Heuristic):
     nbrs, box = self.strategy.analyzer('splitter').in_same_leaf(best)
     if len(nbrs) < 3: return
     #logger.info("WA: %s" % len(nbrs))
-    logger.debug("WAvg: best: %s / box: %s" % (best, box))
+    self.logger.debug("best: %s / box: %s" % (best, box))
 
     # actual calculation
     import numpy as np

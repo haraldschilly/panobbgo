@@ -11,8 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-.. automodule:: panobbgo
-   :members:
+   panobbgo
+   lib
 
 Indices and tables
 ==================

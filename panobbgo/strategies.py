@@ -7,10 +7,7 @@ DB of evaluated points.
 Basically, one or more threads produce points where to search,
 and another one consumes them and dispatches tasks.
 '''
-#import threading
-import config
-logger = config.get_logger('STRA')
-slogger = config.get_logger('STAT')
+from config import get_config
 from core import Results, EventBus
 from IPython.utils.timing import time
 import numpy as np
@@ -27,6 +24,9 @@ class Strategy0(object):
   def __init__(self, problem, heurs):
     self._name = name = self.__class__.__name__
     #threading.Thread.__init__(self, name=name)
+    self.config = config = get_config()
+    self.logger = logger = config.get_logger('STRA')
+    self.slogger = config.get_logger('STAT')
     logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)
@@ -107,7 +107,7 @@ class Strategy0(object):
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
-    c = self._client = Client(profile=config.ipy_profile)
+    c = self._client = Client(profile=self.config.ipy_profile)
     c.clear() # clears remote engines
     c.purge_results('all') # all results are memorized in the hub
 
@@ -134,17 +134,17 @@ class Strategy0(object):
     from IPython.parallel import Reference
     prob_ref = Reference(PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
-    logger.info("Strategy '%s' started" % self._name)
+    self.logger.info("Strategy '%s' started" % self._name)
     self.loops = 0
     while True:
       self.loops += 1
       points = []
-      per_client = max(1, int(min(config.max_eval / 50, 1.0 / self.avg_time_per_task)))
+      per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
       target = per_client * len(self.evaluators)
-      logger.debug("per_client = %s | target = %s" % (per_client, target))
+      self.logger.debug("per_client = %s | target = %s" % (per_client, target))
       new_tasks = None
       if len(self.evaluators.outstanding) < target:
-        s = config.smooth
+        s = self.config.smooth
         while True:
           heurs = self.heuristics
           perf_sum = sum(h.performance for h in heurs)
@@ -175,7 +175,7 @@ class Strategy0(object):
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
 
       # stopping criteria
-      if len(self.results) > config.max_eval: break
+      if len(self.results) > self.config.max_eval: break
 
       # limit loop speed
       self.evaluators.wait(None, 1e-3)
@@ -192,7 +192,7 @@ class Strategy0(object):
         self.evaluators.get_result(msg_id).abort()
       except:
         pass
-    logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
+    self.logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
              % (self._name, self._end - self._start, self.loops))
     #logger.info("distance matrix:\n%s" % self.results._distance)
     self.info()
@@ -211,7 +211,7 @@ class Strategy0(object):
 
     self.cnt += len(self.new_results)
     #if self.cnt / 100 > self.show_last / 100:
-    if time.time() - self.show_last > config.show_interval:
+    if time.time() - self.show_last > self.config.show_interval:
       self.info()
       self.show_last = time.time() #self.cnt
 
@@ -220,14 +220,14 @@ class Strategy0(object):
     pend  = len(self.pending)
     fini  = len(self.finished)
     peval = len(self.results)
-    slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
+    self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
                (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg))
 
   @property
   def avg_time_per_task(self):
     if len(self.tasks_walltimes) > 1:
       return np.average(self.tasks_walltimes.values())
-    slogger.warning("avg time per task for 0 tasks!")
+    self.slogger.warning("avg time per task for 0 tasks!")
     return 0.01
 
   @property

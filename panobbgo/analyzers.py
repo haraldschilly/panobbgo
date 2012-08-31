@@ -1,7 +1,6 @@
 # -*- coding: utf8 -*-
-import config
-logger = config.get_logger('ALYZ')
-from panobbgo_problems import Result
+from config import get_config
+from panobbgo_lib import Result
 from core import Analyzer
 import numpy as np
 
@@ -75,6 +74,8 @@ class Splitter(Analyzer):
     # split, if there are more than this number of points in the box
     self.leafs = []
     self._id = 0 # block id
+    self.logger = get_config().get_logger('SPLT')
+    self.max_eval = get_config().max_eval
     # _new_result used to signal get_leaf and others when there
     # are updates regarding box/split/leaf status
     from threading import Condition
@@ -83,8 +84,8 @@ class Splitter(Analyzer):
   def _init_(self):
     # root box is equal to problem's box
     self.dim  = self.problem.dim
-    self.limit = max(20, config.max_eval / self.dim ** 2)
-    logger.info("Splitter: limit = %s" % self.limit)
+    self.limit = max(20, self.max_eval / self.dim ** 2)
+    self.logger.info("limit = %s" % self.limit)
     self.root = Splitter.Box(None, self, self.problem.box.copy())
     self.leafs.append(self.root)
     # in which box (a list!) is each point?
@@ -235,6 +236,7 @@ class Rewarder(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
+    self.logger = get_config().get_logger('RWRD')
 
   @property
   def best(self):
@@ -264,4 +266,4 @@ class Rewarder(Analyzer):
     for result in results:
       if result.fx < self.best.fx:
         reward = self._reward_heuristic(result)
-        logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))
+        self.logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))

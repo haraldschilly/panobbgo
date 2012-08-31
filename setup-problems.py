@@ -2,12 +2,12 @@
 
 from setuptools import setup#, find_packages
 
-from panobbgo_problems import __version__
+from panobbgo_lib import __version__
 
 setup(
-    name = "panobbgo_problems",
+    name = "panobbgo_lib",
     version = __version__, 
-    packages = ['panobbgo_problems'] ,#find_packages(),
+    packages = ['panobbgo_lib'] ,#find_packages(),
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine

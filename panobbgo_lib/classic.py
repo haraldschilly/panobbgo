@@ -9,8 +9,13 @@ import numpy as np
 from lib import Problem
 
 class Rosenbrock(Problem):
-  '''
-  f(x) = sum_i (100 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+  r'''
+  Rosenbrock function with parameter ``par1``.
+
+  .. math::
+
+    f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+
   '''
   def __init__(self, dims, par1 = 100):
     box = [(-2,2)] * dims
@@ -22,8 +27,13 @@ class Rosenbrock(Problem):
     return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
 
 class RosenbrockAbs(Problem):
-  '''
-  f(x) = sum_i (100 | x_{i+1} - |x_i| | + | 1 - x_i |
+  r'''
+  Absolute Rosenbrock function.
+
+  .. math::
+
+   f(x) = \sum_i (\mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
+
   '''
   def __init__(self, dims, par1 = 100):
     box = [(-5,5)] * dims
@@ -36,10 +46,15 @@ class RosenbrockAbs(Problem):
                np.abs(1-x[:-1]))
 
 class RosenbrockStochastic(Problem):
-  '''
-  f(x) = sum_i (100 eps_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+  r'''
+  Stochastic variant of Rosenbrock function.
 
-  where eps_i is uniformly random in [0, 1)
+  .. math ::
+
+     f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+
+  where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
+  vector in :math:`\left[0, 1\right)^{n-1}`.
   '''
   def __init__(self, dims, par1 = 100, jitter = .1):
     box = [(-5,5)] * dims
@@ -55,9 +70,11 @@ class RosenbrockStochastic(Problem):
 
 class Himmelblau(Problem):
   '''
-  f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
+  Himmelblau [HB]_ testproblem.
 
-  Lit. http://en.wikipedia.org/wiki/Himmelblau%27s_function
+  .. math::
+  
+    f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
   '''
   def __init__(self):
     Problem.__init__(self, [(-5,5)] * 2)
@@ -68,7 +85,12 @@ class Himmelblau(Problem):
 
 class Rastrigin(Problem):
   '''
-  f(x) = 10*n + sum_i (x_i^2 - 10 cos(2 pi x_i) )
+  Rastrigin
+
+  .. math::
+
+    f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
+
   '''
   def __init__(self, dims, par1 = 10, offset=0):
     box = [(-2,2)] * dims

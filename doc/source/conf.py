@@ -31,7 +31,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.coverage',
               'sphinx.ext.mathjax',
               'sphinx.ext.ifconfig',
-              'sphinx.ext.viewcode'
+              'sphinx.ext.viewcode',
+              'sphinx.ext.intersphinx'
              ]
 
 autoclass_content = 'both'
@@ -75,7 +76,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = []
+exclude_patterns = [  ]
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -102,7 +103,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -117,7 +118,7 @@ html_theme = 'default'
 #html_title = None
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = "Panobbgo"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -161,7 +162,7 @@ html_static_path = ['_static']
 #html_show_sourcelink = True
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
-#html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 #html_show_copyright = True
@@ -177,20 +178,20 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'panobbgodoc'
 
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None)}
 
 # -- Options for LaTeX output --------------------------------------------------
 
 # The paper size ('letter' or 'a4').
-#latex_paper_size = 'letter'
+latex_paper_size = 'a4'
 
 # The font size ('10pt', '11pt' or '12pt').
-#latex_font_size = '10pt'
+latex_font_size = '10pt'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'panobbgo.tex', u'Panobbgo Documentation',
-   u'Harald Schilly', 'manual'),
+  ('index', 'panobbgo.tex', u'Panobbgo Documentation', u'Harald Schilly', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -222,6 +223,5 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'panobbgo', u'Panobbgo Documentation',
-     [u'Harald Schilly'], 1)
+    ('index', 'panobbgo', u'Panobbgo Documentation', [u'Harald Schilly'], 1)
 ]

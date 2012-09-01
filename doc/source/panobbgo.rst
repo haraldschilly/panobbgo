@@ -1,5 +1,5 @@
-Panobbgo
-========
+Main
+====
 
 .. toctree::
    :maxdepth: 2
@@ -9,8 +9,6 @@ Panobbgo
    heuristics
    analyzers
    config
-
-.. include:: doc.rst
 
 .. automodule:: panobbgo
    :members:

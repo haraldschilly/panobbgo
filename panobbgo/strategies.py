@@ -1,11 +1,27 @@
 # -*- coding: utf8 -*-
-'''
+# Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+r'''
 This part outlines the coordination between the point-producing
 heuristics, the interaction with the cluster and the global
 DB of evaluated points.
 
 Basically, one or more threads produce points where to search,
 and another one consumes them and dispatches tasks.
+
+.. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
 from config import get_config
 from core import Results, EventBus

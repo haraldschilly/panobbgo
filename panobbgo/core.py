@@ -16,6 +16,8 @@
 '''
 This is the core part, currently only managing the global
 DB of point evaluations. For more, look into the strategy.py file.
+
+.. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
 from config import get_config
 from panobbgo_lib import Result, Point

@@ -15,7 +15,7 @@
 
 '''
 This is the core part, currently only managing the global
-DB of point evaluations. For more, look into the strategy.py file.
+DB of point evaluations. For more, look into the :mod:`.strategies` module.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''

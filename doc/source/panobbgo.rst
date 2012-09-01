@@ -1,6 +1,8 @@
 Main
 ====
 
+This is the main part of Panobbgo.
+
 .. toctree::
    :maxdepth: 2
 

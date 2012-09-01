@@ -1,6 +1,8 @@
 # -*- coding: utf8 -*-
 '''
 This file contains the basic objects to build a problem and to do a single evaluation.
+
+This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.
 '''
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
@@ -10,8 +12,8 @@ from IPython.utils.timing import time
 
 class Point(object):
   '''
-  This contains the x vector for a new point and a 
-  reference to who has generated it.
+  This contains the x vector for a new point and a
+  reference to :attr:`.who` has generated it.
   '''
   def __init__(self, x, who):
     if not isinstance(who, basestring):
@@ -25,10 +27,19 @@ class Point(object):
     return '%s by %s' % (self.x, self.who)
 
   @property
-  def x(self): return self._x
+  def x(self):
+    "The vector :math:`x`, a :class:`numpy.ndarray`"
+    return self._x
 
   @property
-  def who(self): return self._who
+  def who(self):
+    '''
+    A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
+
+    To get the actual heuristic, use the strategie's 
+    :meth:`~panobbgo.strategies.Strategy0.heuristic` method.
+    '''
+    return self._who
 
 
 class Result(object):
@@ -76,11 +87,11 @@ class Problem(object):
   information about the problem, etc.
   '''
   def __init__(self, box):
-    '''
+    r'''
     box must be a list of tuples, which specify
     the range of each variable.
 
-    example: [(-1,1), (-100, 0), (0, 0.01)]
+    example: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
     '''
     # validate
     if not isinstance(box, (list, tuple)):
@@ -109,9 +120,10 @@ class Problem(object):
   def box(self): return self._box
 
   def project(self, point):
-    '''
+    r'''
     projects given point into the search box. 
-    e.g. [-1.1, 1] with box [(-1,1),(-1,1)] gives [-1,1] 
+    e.g. :math:`[-1.1, 1]` with box :math:`[(-1,1),(-1,1)]`
+    gives :math:`[-1,1]` 
     '''
     assert isinstance(point, np.ndarray), 'point must be a numpy ndarray'
     return np.minimum(np.maximum(point, self.box[:,0]), self.box[:,1])

@@ -1,4 +1,10 @@
 # -*- coding: utf8 -*-
+r'''
+The main idea behind all heuristics is, ...
+
+Each heuristic needs to listen to at least one stream of
+:class:`Events <panobbgo.core.Event>` from the :class:`~panobbgo.core.EventBus`.
+'''
 from config import get_config
 from core import Heuristic, StopHeuristic
 import numpy as np
@@ -12,11 +18,12 @@ class Random(Heuristic):
     name = "Random" if name is None else name
     self.leaf = None
     from threading import Event
-    self.have_split = Event()
+    # used in on_start, to continue when we have a leaf.
+    self.first_split = Event()
     Heuristic.__init__(self, name=name)
 
   def on_start(self):
-    self.have_split.wait()
+    self.first_split.wait()
     splitter = self.strategy.analyzer("splitter")
     while True:
       r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:,0]
@@ -30,7 +37,7 @@ class Random(Heuristic):
     best = self.strategy.analyzer("best").best
     self.leaf = self.strategy.analyzer("splitter").get_leaf(best)
     self.clear_queue()
-    self.have_split.set()
+    self.first_split.set()
 
 
 class LatinHypercube(Heuristic):

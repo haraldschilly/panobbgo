@@ -77,9 +77,16 @@ class Module(object):
   '''
   def __init__(self, name = None):
     name = name if name else self.__class__.__name__
-    self.name = name
+    self._name = name
     self.strategy = None
     self._threads = []
+
+  @property
+  def name(self):
+    '''
+    The module's name.
+    '''
+    return self._name
 
   def _init_(self):
     '''
@@ -195,7 +202,7 @@ class Analyzer(Module):
 
 class Event(object):
   '''
-  This class holds the data for one single @EventBus event.
+  This class holds the data for one single :class:`~.EventBus` event.
   '''
   def __init__(self, **kwargs):
     from IPython.utils.timing import time

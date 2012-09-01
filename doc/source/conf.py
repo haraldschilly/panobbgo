@@ -178,7 +178,10 @@ html_show_sphinx = False
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'panobbgodoc'
 
-intersphinx_mapping = {'python': ('http://docs.python.org/2.7', None)}
+intersphinx_mapping = {
+   'python': ('http://docs.python.org/2.7', None),
+   'numpy' : ('http://docs.scipy.org/doc/numpy/', None)
+}
 
 # -- Options for LaTeX output --------------------------------------------------
 

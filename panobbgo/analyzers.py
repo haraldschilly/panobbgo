@@ -30,12 +30,13 @@ class Best(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
+    self.logger = get_config().get_logger("BEST")
     self.best = Result(None, np.infty)
 
   def on_new_result(self, result):
     r = result
     if r.fx < self.best.fx:
-      #logger.info(u"\u2318 %s | \u0394 %.7f %s" %(r, 0.0, r.who))
+      #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
       self.best = r
       self.eventbus.publish("new_best", best = r)
 
@@ -254,7 +255,7 @@ class Rewarder(Analyzer):
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    self.logger = get_config().get_logger('RWRD')
+    self.logger = get_config().get_logger('REWRD')
 
   @property
   def best(self):

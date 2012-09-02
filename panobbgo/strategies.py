@@ -41,8 +41,8 @@ class Strategy0(object):
     self._name = name = self.__class__.__name__
     #threading.Thread.__init__(self, name=name)
     self.config = config = get_config()
-    self.logger = logger = config.get_logger('STRA')
-    self.slogger = config.get_logger('STAT')
+    self.logger = logger = config.get_logger('STRAT')
+    self.slogger = config.get_logger('STATS')
     logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)

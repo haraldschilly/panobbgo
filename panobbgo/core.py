@@ -228,7 +228,7 @@ class EventBus(object):
 
   def __init__(self):
     self._subs = {}
-    self.logger = get_config().get_logger('EBUS')
+    self.logger = get_config().get_logger('EVBUS')
 
   @property
   def keys(self):

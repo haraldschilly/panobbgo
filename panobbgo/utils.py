@@ -13,11 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+r'''
+Some utility functions, will move eventually.
+'''
+
 import logging
 
 def create_logger(name, level = logging.INFO):
   '''
-  creates logger with @name and @level logging level
+  Creates logger with ``name`` and given ``level`` logging level.
   '''
   logger = logging.getLogger(name)
   logger.setLevel(logging.DEBUG)
@@ -30,8 +34,10 @@ def create_logger(name, level = logging.INFO):
 
 def info():
   '''
-  show a bit of info
+  Shows a bit of info about the libraries and other environment information.
   '''
+  import subprocess
+  git = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
   v = {}
   def version(what):
     m = __import__(what)
@@ -44,5 +50,6 @@ def info():
     version("matplotlib")
   except:
     print "matplotlib broken :("
+  v['git HEAD'] = git.communicate()[0].splitlines()[0]
   return v
 

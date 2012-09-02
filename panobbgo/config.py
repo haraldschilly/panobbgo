@@ -117,13 +117,15 @@ class Config(object):
 
     logger.info("Versions: %s" % info())
 
-  def get_logger(self, key, loglevel = None):
+  def get_logger(self, name, loglevel = None):
+    assert len(name) <= 5, 'Lenght of logger name > 5: "%s"' % name
+    name = "%-5s" % name
     if loglevel == None: loglevel = self.loglevel
-    key = '%s::%s' % (key, loglevel)
+    key = '%s::%s' % (name, loglevel)
     if key in self._loggers:
       return self._loggers[key]
     from utils import create_logger
-    l = create_logger(key, loglevel)
+    l = create_logger(name, loglevel)
     self._loggers[key] = l
     return l
 

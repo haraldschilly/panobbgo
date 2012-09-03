@@ -3,8 +3,11 @@
 Parallel Noisy Black-Box Global Optimization.
 
 It minimizes a function over a box in $R^n$ (n = dimension of the problem).
-   
-<a href="https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000">Short introduction talk.</a>
+
+## Documentation
+
+* [HTML](http://haraldschilly.github.com/panobbgo/html/)
+* [PDF](http://haraldschilly.github.com/panobbgo/pdf/panobbgo.pdf)
 
 ## DOWNLOAD & INSTALL
 

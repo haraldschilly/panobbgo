@@ -72,7 +72,7 @@ class Config(object):
       _cfgp.set('core', 'loglevel', '40') # default: no debug mode
       _cfgp.set('core', 'show_interval', '1.0')
       _cfgp.set('core', 'max_eval', '1000')
-      _cfgp.set('core', 'discount', '0.995')
+      _cfgp.set('core', 'discount', '0.95')
       _cfgp.set('core', 'smooth', 0.5)
 
       with open(_options.config_file, 'wb') as configfile:

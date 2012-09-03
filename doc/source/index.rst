@@ -9,12 +9,17 @@
 Panobbgo: `parallel noisy black-box global optimization`
 ========================================================
 
+..
+  .. image:: panobbgo-graphic.png
+     :align: center
+
 Introduction
 ------------
 
 Panobbgo is ...
 
-Short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`.
+* `source repository <http://github.com/haraldschilly/panobbgo>`_
+* short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`_
 
 
 .. toctree::

@@ -30,7 +30,7 @@ class Config(object):
 
   def _create(self):
     from utils import info, create_logger
-    logger = create_logger("CONF")
+    logger = create_logger("CONFG")
 
     defaultself_fn = 'config.ini'
 

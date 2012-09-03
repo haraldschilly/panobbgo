@@ -32,7 +32,7 @@ import numpy as np
 # reference id for sending the evaluation code to workers
 PROBLEM_KEY = "problem"
 
-class Strategy0(object):
+class StrategyBase(object):
   '''
   Very basic strategy, mainly for testing purposes.
   '''

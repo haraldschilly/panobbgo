@@ -14,7 +14,6 @@ Introduction
 
 Panobbgo is ...
 
-
 .. toctree::
    :maxdepth: 2
 

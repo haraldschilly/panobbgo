@@ -2,7 +2,6 @@
 
 Library
 =======
-
 .. toctree::
    :maxdepth: 2
 
@@ -13,4 +12,3 @@ Library
    :members:
    :undoc-members:
    :show-inheritance:
-

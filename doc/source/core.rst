@@ -1,6 +1,7 @@
 
 Core
 ====
+.. inheritance-diagram:: panobbgo.core
 
 .. automodule:: panobbgo.core
    :members:

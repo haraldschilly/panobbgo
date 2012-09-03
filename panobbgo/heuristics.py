@@ -18,6 +18,9 @@ The main idea behind all heuristics is, ...
 
 Each heuristic needs to listen to at least one stream of
 :class:`Events <panobbgo.core.Event>` from the :class:`~panobbgo.core.EventBus`.
+Most likely, it is the `one-shot` event ``start``, which is
+:meth:`published <panobbgo.core.EventBus.publish>` by the 
+:class:`~panobbgo.strategies.StrategyBase`.
 '''
 from config import get_config
 from core import Heuristic, StopHeuristic
@@ -268,6 +271,8 @@ class QuadraticModelMockup(Heuristic):
 
 class WeightedAverage(Heuristic):
   '''
+  This strategy calculates the weighted average of all points
+  in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
   '''
   def __init__(self, k = .1):
     Heuristic.__init__(self)

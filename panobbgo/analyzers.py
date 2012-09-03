@@ -30,20 +30,28 @@ import numpy as np
 
 class Best(Analyzer):
   '''
-  listens on all results and emits a "new_best" event,
-  if a new best point has been found.
-  The best point is also available via the .best field.
+  Listens on all results and emits a ``new_best`` event,
+  when a new best point has been found.
+
+  The best point is available via the :attr:`.best` attribute.
   '''
   def __init__(self):
     Analyzer.__init__(self)
     self.logger = get_config().get_logger("BEST")
-    self.best = Result(None, np.infty)
+    self._best = Result(None, np.infty)
+
+  @property
+  def best(self):
+    '''
+    currently best :class:`~panobbgo_lib.lib.Result`
+    '''
+    return self._best
 
   def on_new_result(self, result):
     r = result
-    if r.fx < self.best.fx:
+    if r.fx < self._best.fx:
       #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
-      self.best = r
+      self._best = r
       self.eventbus.publish("new_best", best = r)
 
 class Grid(Analyzer):
@@ -87,11 +95,15 @@ class Grid(Analyzer):
 
 class Splitter(Analyzer):
   '''
-  manages a tree of splits. a node in a tree can have children, which
-  partitions the search space into smaller boxes. nodes without
-  children are leafs.
-  the idea is to balance between the depth level of splits and the number
-  of points inside such a box. a heuristic can build upon this
+  Manages a tree of splits.
+  Each split in this tree is a :class:`box <.Splitter.Box>`, which
+  partitions the search space into smaller boxes and can have children.
+  Boxes without children are :attr:`leafs <.Splitter.Box.leaf>`.
+
+  The goal for this splitter is to balance between the 
+  depth level of splits and the number of points inside such a box.
+
+  A heuristic can build upon this hierarchy
   to investigate interesting subregions.
   '''
   def __init__(self):
@@ -167,8 +179,12 @@ class Splitter(Analyzer):
 
   class Box(object):
     '''
-    used by Splitter, therefore nested.
-    (accessed via Splitter.Box)
+    Used by :class:`.Splitter`, therefore nested.
+
+    .. Note::
+
+      Class is accessed via ``Splitter.Box``.
+
     '''
     def __init__(self, parent, splitter, box, depth = 0):
       self.parent    = parent
@@ -185,7 +201,9 @@ class Splitter(Analyzer):
 
     @property
     def leaf(self):
-      '''return true, if this box is a leaf. i.e. no children'''
+      '''
+      returns ``true``, if this box is a leaf. i.e. no children
+      '''
       return len(self.children) == 0
 
     @property
@@ -199,13 +217,19 @@ class Splitter(Analyzer):
       if self.leaf:
         self.splitter.result2leaf[result] = self
 
-    def __iadd__(self, result):
+    def add_result(self, result):
+      '''
+      registers and adds a new :class:`~panobbgo_lib.lib.Result`.
+      '''
       self.register_result(result)
       if not self.leaf:
         for child in self.get_child_boxes(result.x):
           child += result # recursive
       elif self.leaf and len(self.results) >= self.limit:
         self.split()
+
+    def __iadd__(self, result):
+      self.add_result(result)
       return self
 
     def __len__(self): return len(self.results)
@@ -235,12 +259,15 @@ class Splitter(Analyzer):
 
     def contains(self, point):
       '''
-      true, if given point is inside (including boundaries) this box
+      true, if given point is inside this box (including boundaries).
       '''
       l, u = self.box[:,0], self.box[:,1]
       return (l <= point).all() and (u >= point).all()
 
     def get_child_boxes(self, point):
+      '''
+      returns all immediate child boxes, which contain given point.
+      '''
       assert not self.leaf, 'not applicable for "leaf" box'
       ret = filter(lambda c : c.contains(point), self.children)
       assert len(ret) > 0, "no child box containing %s found!" % point

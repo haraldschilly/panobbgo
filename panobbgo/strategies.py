@@ -64,8 +64,7 @@ class StrategyBase(object):
     # heuristics
     import collections
     self._heuristics = collections.OrderedDict()
-    for h in sorted(heurs, key = lambda h : h.name):
-      self.add_heuristic(h)
+    map(self.add_heuristic, sorted(heurs, key = lambda h : h.name))
 
     # analyzers
     from analyzers import Best, Rewarder, Grid, Splitter
@@ -76,7 +75,7 @@ class StrategyBase(object):
         'grid':      Grid(),
         'splitter':  Splitter()
     }
-    for a in self._analyzers.values(): self._init_module(a)
+    map(self._init_module, self._analyzers.values())
 
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 

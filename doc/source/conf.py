@@ -193,7 +193,8 @@ htmlhelp_basename = 'panobbgodoc'
 
 intersphinx_mapping = {
    'python': ('http://docs.python.org/2.7', None),
-   'numpy' : ('http://docs.scipy.org/doc/numpy/', None)
+   'numpy' : ('http://docs.scipy.org/doc/numpy/', None),
+   'IPython' : ('http://ipython.org/', None)
 }
 
 # -- Options for LaTeX output --------------------------------------------------

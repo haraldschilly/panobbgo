@@ -14,6 +14,12 @@
 # limitations under the License.
 
 r'''
+Analyzers, just like :mod:`.heuristics`, listen to events
+and change their internal state based on local and
+global data. They can emit :class:`events <panobbgo.core.Event>`
+on their own and they are accessible via the
+:meth:`~panobbgo.strategies.StrategyBase.analyzer` method of
+the strategy.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
@@ -93,7 +99,7 @@ class Splitter(Analyzer):
     # split, if there are more than this number of points in the box
     self.leafs = []
     self._id = 0 # block id
-    self.logger = get_config().get_logger('SPLT')
+    self.logger = get_config().get_logger('SPLIT')
     self.max_eval = get_config().max_eval
     # _new_result used to signal get_leaf and others when there
     # are updates regarding box/split/leaf status

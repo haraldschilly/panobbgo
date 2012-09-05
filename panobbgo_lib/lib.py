@@ -128,7 +128,7 @@ class Problem(object):
         raise Exception("box entries must be non decreasing")
 
     self._dim = len(box)
-    self._box = np.array(box, dtype=np.float)
+    self._box = np.array(box, dtype=np.float64)
     self._ranges = self._box[:,1] - self._box[:,0]
 
   @property

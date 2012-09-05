@@ -101,7 +101,7 @@ class LatinHypercube(Heuristic):
     div = self.div
     dim = self.problem.dim
     while True:
-      pts = np.repeat(np.arange(div, dtype=np.float), dim).reshape(div,dim)
+      pts = np.repeat(np.arange(div, dtype=np.float64), dim).reshape(div,dim)
       pts += np.random.rand(div, dim) # add [0,1) jitter
       pts *= self.lengths             # scale with length, already divided by div
       pts += self.problem.box[:,0]    # shift with min

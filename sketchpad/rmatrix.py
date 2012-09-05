@@ -3,7 +3,7 @@
 import scipy.sparse as sp
 import numpy as np
 
-m = sp.dok_matrix((10,100), dtype=np.float32)
+m = sp.dok_matrix((10,100), dtype=np.float64)
 full = float(m.shape[0] * m.shape[1])
 
 sqrt3 = np.sqrt(3)

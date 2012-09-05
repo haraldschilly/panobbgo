@@ -1,7 +1,7 @@
 *.swp
 *.pyc
 build/*
-doc/build/
+doc/build
 dist/
 config.ini
 bin/

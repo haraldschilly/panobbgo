@@ -14,8 +14,16 @@
 # limitations under the License.
 
 '''
-This is the core part, currently only managing the global
-DB of point evaluations. For more, look into the :mod:`.strategies` module.
+Core
+====
+
+This is the core part containing:
+
+- :class:`.Results`: DB of all results
+- :class:`.EventBus`
+- abstract classes for modules :mod:`.heuristics` and :mod:`.analyzers`.
+
+.. inheritance-diagram:: panobbgo.core
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
@@ -193,7 +201,7 @@ class Heuristic(Module):
 
 class Analyzer(Module):
   '''
-  abstract parent class for all types of analyzers
+  Abstract parent class for all types of analyzers.
   '''
   def __init__(self, name = None):
     Module.__init__(self, name)
@@ -239,8 +247,9 @@ class EventBus(object):
 
   def register(self, target):
     '''
-    registers a target for this event bus instance. it needs to have
-    "on_<key>" methods.
+    Registers a given ``target`` for this EventBus instance.
+    It needs to have suitable ``on_<key>`` methods.
+    For each of them, a :class:`~threading.Thread` is spawn as a daemon.
     '''
     from heuristics import StopHeuristic
     from Queue import Empty, LifoQueue
@@ -270,21 +279,26 @@ class EventBus(object):
             if new_points != None: target.emit(new_points)
             if terminate: raise StopHeuristic("terminated")
           except StopHeuristic, e:
-            self.logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+            self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
             self.unsubscribe(key, target)
             return
 
       else: # not draining (default)
         while True:
-          event = target._eventbus_events[key].get(block=True)
           try:
-            new_points = getattr(target, 'on_%s' % key)(**event._kwargs)
-            # heuristics might call self.emit and/or return a list
-            if new_points != None: target.emit(new_points)
-            if event._terminate: raise StopHeuristic("terminated")
-          except StopHeuristic, e:
-            self.logger.info("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
-            self.unsubscribe(key, target)
+            event = target._eventbus_events[key].get(block=True)
+            try:
+              new_points = getattr(target, 'on_%s' % key)(**event._kwargs)
+              # heuristics might call self.emit and/or return a list
+              if new_points != None: target.emit(new_points)
+              if event._terminate: raise StopHeuristic("terminated")
+            except StopHeuristic, e:
+              self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+              self.unsubscribe(key, target)
+              return
+          except Exception, e:
+            # usually, they only happen during shutdown
+            self.logger.warning("Exception: %s in %s: %s" % (key, target, e))
             return
 
     target._eventbus_events = {}
@@ -310,6 +324,7 @@ class EventBus(object):
 
   def subscribe(self, key, target):
     '''
+    Called by :meth:`.register`.
 
     .. Note:: counterpart is :func:`unsubscribe`.
     '''
@@ -324,7 +339,7 @@ class EventBus(object):
     '''
     Args:
 
-      - if ``key`` is None, the target is removed from all keys.
+    - if ``key`` is ``None``, the target is removed from all keys.
 
     '''
     if key is None:
@@ -342,16 +357,24 @@ class EventBus(object):
     if target in self._subs[key]:
       self._subs[key].remove(target)
 
-  def publish(self, key, e = None, terminate = False, **kwargs):
+  def publish(self, key, event = None, terminate = False, **kwargs):
     '''
-     - terminate: if True, the associated thread will end.
+    This is used to send 
+
+    Args:
+
+    - ``terminate``: if True, the associated thread will end.
+                     (use it for ``on_start`` and similar).
+    - ``event``: if set, this given :class:`.Event` is sent (and not a new one created).
+    - ``**kwargs``: any additional keyword arguments are stored inside the Event
+                    if ``event`` is ``None``.
     '''
     if key not in self._subs:
       self.logger.warning("key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:
-      event = e if e else Event(**kwargs)
+      event = Event(**kwargs) if event == None else event
       event._terminate = terminate
       #logger.info("EventBus: publishing %s -> %s" % (key, event))
       target._eventbus_events[key].put(event)

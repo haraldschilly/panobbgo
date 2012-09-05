@@ -7,7 +7,7 @@ sys.path.append(".")
 from panobbgo.heuristics import Random, Nearby, \
      Zero, LatinHypercube, Extremal, \
      Center, WeightedAverage, Testing
-from panobbgo.strategies import StrategyBase
+from panobbgo.strategies import StrategyRewarding
 #import numpy as np
 
 from panobbgo_lib.classic import *
@@ -52,11 +52,11 @@ lhyp= LatinHypercube(div)
 
 heurs = [ center, rand, near_10, lhyp, zero, extremal, avg ] #, testing]
 
-strategy0 = StrategyBase(problem, heurs)
+strategy = StrategyRewarding(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
-if not strategy0.best is None:
-  print "best: ", strategy0.best
+if not strategy.best is None:
+  print "best: ", strategy.best
 else:
   print "best solution is None"

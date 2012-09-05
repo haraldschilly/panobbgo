@@ -14,12 +14,17 @@
 # limitations under the License.
 
 r'''
+Strategies
+==========
+
 This part outlines the coordination between the point-producing
-heuristics, the interaction with the cluster and the global
-DB of evaluated points.
+heuristics, the interaction with the cluster and the
+:class:`DB of evaluated points <panobbgo.core.Results>`.
 
 Basically, one or more threads produce points where to search,
 and another one consumes them and dispatches tasks.
+
+.. inheritance-diagram:: panobbgo.strategies
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
@@ -48,8 +53,8 @@ class StrategyBase(object):
     logger.info("%s" % problem)
     # statistics
     self.cnt         = 0 # show info about evaluated points
-    self.show_last  = 0 # for printing the info line in _add_tasks()
-    self.time_start = time.time()
+    self.show_last   = 0 # for printing the info line in _add_tasks()
+    self.time_start  = time.time()
     self.tasks_walltimes = {}
     # task accounting (tasks != points !!!)
     self.pending     = set([])
@@ -57,9 +62,9 @@ class StrategyBase(object):
     self.finished    = []
     # init & start everything
     self._setup_cluster(0, problem)
-    self.problem = problem
-    self.eventbus = EventBus()
-    self.results = Results(self)
+    self.problem     = problem
+    self.eventbus    = EventBus()
+    self.results     = Results(self)
 
     # heuristics
     import collections
@@ -262,3 +267,11 @@ class StrategyBase(object):
   @property
   def time_start_str(self):
     return time.ctime(self.time_start)
+
+class StrategyRewarding(StrategyBase):
+  '''
+  This strategy rewards given :mod:`.heuristics` by selecting
+  those more ofte, which produce better search points.
+  '''
+  def __init__(self, problem, heurs):
+    StrategyBase.__init__(self, problem, heurs)

@@ -13,11 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This file must not depend on other files from this project.
+r"""
+Configuration
+=============
+
 It's purpose is to parse a config file (create a default one if none
 is present) and replace values stored within it with those given
 via optional command-line arguments.
+
+.. note::
+
+  This will also hold a class for configuring the Panobbgo framework
+  in general. I.e. modules declare other modules as dependencies, etc...
+
+.. inheritance-diagram:: panobbgo.strategies
 """
 
 _config = None

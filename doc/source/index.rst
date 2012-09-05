@@ -13,6 +13,10 @@ Panobbgo: `parallel noisy black-box global optimization`
   .. image:: panobbgo-graphic.png
      :align: center
 
+..
+  Date: |today|
+  Version: |version|
+
 Introduction
 ------------
 
@@ -39,9 +43,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-References
-==========
 
 .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
 .. [IP] http://www.ipython.org

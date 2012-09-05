@@ -1,7 +1,6 @@
-
-
 Library
 =======
+
 .. toctree::
    :maxdepth: 2
 

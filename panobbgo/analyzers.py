@@ -14,12 +14,17 @@
 # limitations under the License.
 
 r'''
+Analyzers
+=========
+
 Analyzers, just like :mod:`.heuristics`, listen to events
 and change their internal state based on local and
 global data. They can emit :class:`events <panobbgo.core.Event>`
 on their own and they are accessible via the
 :meth:`~panobbgo.strategies.StrategyBase.analyzer` method of
 the strategy.
+
+.. inheritance-diagram:: panobbgo.analyzers
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
@@ -151,6 +156,8 @@ class Splitter(Analyzer):
     returns the leaf box, where given result is currently sitting in
     '''
     assert isinstance(result, Result)
+    # it might happen, that the result isn't in the result2leaf map
+    # then we have to wait until on_new_results got it
     with self._new_result:
       while not self.result2leaf.has_key(result):
         #logger.info("RESULT NOT FOUND %s" % result)

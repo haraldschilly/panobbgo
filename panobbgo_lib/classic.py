@@ -14,7 +14,11 @@
 # limitations under the License.
 
 '''
+Classic Problems
+================
 This file contains the basic objects to build a problem and to do a single evaluation.
+
+.. inheritance-diagram:: panobbgo_lib.classic
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''

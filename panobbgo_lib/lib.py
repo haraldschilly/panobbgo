@@ -14,9 +14,14 @@
 # limitations under the License.
 
 '''
+Library Classes
+===============
+
 This file contains the basic objects to build a problem and to do a single evaluation.
 
-This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.
+.. inheritance-diagram:: panobbgo_lib.lib
+
+.. Note:: This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''

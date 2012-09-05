@@ -14,6 +14,8 @@
 # limitations under the License.
 
 r'''
+Heuristics
+==========
 The main idea behind all heuristics is, ...
 
 Each heuristic needs to listen to at least one stream of
@@ -21,6 +23,10 @@ Each heuristic needs to listen to at least one stream of
 Most likely, it is the `one-shot` event ``start``, which is
 :meth:`published <panobbgo.core.EventBus.publish>` by the 
 :class:`~panobbgo.strategies.StrategyBase`.
+
+.. inheritance-diagram:: panobbgo.heuristics
+
+.. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
 from config import get_config
 from core import Heuristic, StopHeuristic

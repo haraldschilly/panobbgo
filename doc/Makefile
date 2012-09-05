@@ -34,7 +34,10 @@ help:
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 
 clean:
-	-rm -rf $(BUILDDIR)/*
+	@echo "rm -rf of html, pdf and doctree ... nothing else!"
+	-rm -rf $(BUILDDIR)/html
+	-rm -rf $(BUILDDIR)/pdf
+	-rm -rf $(BUILDDIR)/doctree
 
 html:
 	@echo $(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

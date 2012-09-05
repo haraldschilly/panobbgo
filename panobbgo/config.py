@@ -21,7 +21,7 @@ It's purpose is to parse a config file (create a default one if none
 is present) and replace values stored within it with those given
 via optional command-line arguments.
 
-.. note::
+.. Note::
 
   This will also hold a class for configuring the Panobbgo framework
   in general. I.e. modules declare other modules as dependencies, etc...

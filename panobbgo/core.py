@@ -98,6 +98,18 @@ class Module(object):
     '''
     return self._name
 
+  def _init_module(self, strategy):
+    '''
+    :class:`~panobbgo.strategies.StrategyBase` calls this method.
+    '''
+    self.strategy = strategy
+    self.eventbus = strategy.eventbus
+    self.problem  = strategy.problem
+    self.results  = strategy.results
+    self._init_()
+    # only after _init_ it is ready to recieve events
+    self.eventbus.register(self)
+
   def _init_(self):
     '''
     2nd initialization, after registering and hooking up the heuristic.

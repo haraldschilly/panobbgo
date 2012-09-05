@@ -190,7 +190,7 @@ class Splitter(Analyzer):
 
     .. Note::
 
-      Class is accessed via ``Splitter.Box``.
+      Class is accessed via :class:`.Splitter.Box`.
 
     '''
     def __init__(self, parent, splitter, box, depth = 0):

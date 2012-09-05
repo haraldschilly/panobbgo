@@ -51,15 +51,19 @@ class StrategyBase(object):
     logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
     logger.debug("Heuristics %s" % heurs)
     logger.info("%s" % problem)
+
     # statistics
     self.cnt         = 0 # show info about evaluated points
     self.show_last   = 0 # for printing the info line in _add_tasks()
     self.time_start  = time.time()
     self.tasks_walltimes = {}
+
     # task accounting (tasks != points !!!)
+    self.per_client  = 1 # #tasks per client in 'chunksize'
     self.pending     = set([])
     self.new_results = []
     self.finished    = []
+
     # init & start everything
     self._setup_cluster(0, problem)
     self.problem     = problem
@@ -80,12 +84,15 @@ class StrategyBase(object):
         'grid':      Grid(),
         'splitter':  Splitter()
     }
-    map(self._init_module, self._analyzers.values())
+    map(lambda a : a._init_module(self), self._analyzers.values())
 
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
     try:
-      self.run() # CHECK if strategy is a thread, then change this to start()
+      import threading
+      if isinstance(self, threading.Thread):
+        raise Exception("change run() to start()")
+      self.run()
     except KeyboardInterrupt:
       logger.critical("KeyboardInterrupt recieved, e.g. via Ctrl-C")
       self._cleanup()
@@ -105,25 +112,14 @@ class StrategyBase(object):
     assert name not in self._heuristics, \
       "Names of heuristics need to be unique. '%s' is already used." % name
     self._heuristics[name] = h
-    self._init_module(h)
+    h._init_module(self)
 
-  def add_analyzer(self, key, a):
+  def add_analyzer(self, a):
+    name = a.name
     assert key not in self._analyzers, \
         "Names of analyzers need to be unique. '%s' is already used." % key
-    self._analyzers[key] = a
-    self._init_module(a)
-
-  def _init_module(self, m):
-    '''
-    do this *after* the specialized init's
-    '''
-    m.strategy = self
-    m.eventbus = self.eventbus
-    m.problem  = self.problem
-    m.results  = self.results
-    m._init_()
-    # only after _init_ it is ready to recieve events
-    self.eventbus.register(m)
+    self._analyzers[name] = a
+    a._init_module(self)
 
   def _setup_cluster(self, nb_gens, problem):
     from IPython.parallel import Client
@@ -141,7 +137,7 @@ class StrategyBase(object):
     # TODO remove this hack. "problem" wasn't pushed to all clients
     #time.sleep(1e-1)
 
-    # import some packages  (also locally)
+    # import some packages (also locally)
     #with c[:].sync_imports():
     #  import numpy
     #  import math
@@ -158,30 +154,12 @@ class StrategyBase(object):
     self.loops = 0
     while True:
       self.loops += 1
-      points = []
-      per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
-      target = per_client * len(self.evaluators)
-      self.logger.debug("per_client = %s | target = %s" % (per_client, target))
-      new_tasks = None
-      if len(self.evaluators.outstanding) < target:
-        s = self.config.smooth
-        while True:
-          heurs = self.heuristics
-          perf_sum = sum(h.performance for h in heurs)
-          for h in heurs:
-            # calc probability based on performance with additive smoothing
-            prob = (h.performance + s)/(perf_sum + s * len(heurs))
-            nb_h = max(1, round(target * prob))
-            points.extend(h.get_points(nb_h))
-            #print "  %16s -> %s" % (h, nb_h)
 
-          # stopping criteria
-          if len(points) >= target: break
+      points = self.execute()
 
-          # wait a bit, and loop
-          time.sleep(1e-3)
-
-        new_tasks = self.evaluators.map_async(prob_ref, points, chunksize = per_client, ordered=False)
+      # distribute work
+      new_tasks = self.evaluators.map_async(prob_ref, points, \
+                  chunksize = self.per_client, ordered=False)
 
       # don't forget, this updates the statistics - new_tasks's default is "None"
       self._add_tasks(new_tasks)
@@ -190,6 +168,8 @@ class StrategyBase(object):
       for msg_id in self.new_results:
         for r in self.evaluators.get_result(msg_id).result:
           self.results += r
+
+      self.per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
 
       # show heuristic performances after each round
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))
@@ -201,6 +181,12 @@ class StrategyBase(object):
       self.evaluators.wait(None, 1e-3)
 
     self._cleanup()
+
+  def execute(self):
+    '''
+    Overwrite this method when you extend this base strategy.
+    '''
+    raise Exception('You need to extend the class StrategyBase and overwrite this execute method.')
 
   def _cleanup(self):
     '''
@@ -275,3 +261,24 @@ class StrategyRewarding(StrategyBase):
   '''
   def __init__(self, problem, heurs):
     StrategyBase.__init__(self, problem, heurs)
+
+  def execute(self):
+    points = []
+    target = self.per_client * len(self.evaluators)
+    self.logger.debug("per_client = %s | target = %s" % (self.per_client, target))
+    new_tasks = None
+    if len(self.evaluators.outstanding) < target:
+      s = self.config.smooth
+      while True:
+        heurs = self.heuristics
+        perf_sum = sum(h.performance for h in heurs)
+        for h in heurs:
+          # calc probability based on performance with additive smoothing
+          prob = (h.performance + s)/(perf_sum + s * len(heurs))
+          nb_h = max(1, round(target * prob))
+          points.extend(h.get_points(nb_h))
+          #print "  %16s -> %s" % (h, nb_h)
+        # stopping criteria
+        if len(points) >= target: break
+    return points
+

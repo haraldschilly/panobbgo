@@ -52,7 +52,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Panobbgo'
-copyright = u'2012, Harald Schilly'
+copyright = u'2012, Harald Schilly. License Apache 2.0'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

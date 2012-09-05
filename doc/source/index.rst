@@ -17,18 +17,16 @@ Panobbgo: `parallel noisy black-box global optimization`
   Date: |today|
   Version: |version|
 
-Introduction
-------------
-
 Panobbgo is an open-source framework for parallel noisy black-box global optimization.
 The basic idea is to combine a couple of functional building blocks via an
 :class:`~panobbgo.core.EventBus`.
 Additionally, parallel evaluation of the objective black-box function can be
 archived as SMP or on a cluster via IPython [IP]_.
+It is licensed under the `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
 
+.. Warning ::
 
-* `source repository <http://github.com/haraldschilly/panobbgo>`_
-* short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`_
+  It is currently work in progress and definitely not ready for any kind of usage.
 
 
 .. toctree::
@@ -37,12 +35,22 @@ archived as SMP or on a cluster via IPython [IP]_.
    panobbgo
    library
 
-Indices and tables
-==================
+Links
+-----
+
+* `source repository <http://github.com/haraldschilly/panobbgo>`_
+* short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`_
+
+References
+----------
+
+.. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
+.. [IP] http://www.ipython.org
+
+Indices and Tables
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
 
-.. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
-.. [IP] http://www.ipython.org

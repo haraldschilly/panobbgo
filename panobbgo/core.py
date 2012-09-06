@@ -442,10 +442,10 @@ class StrategyBase(object):
     self.tasks_walltimes = {}
 
     # task accounting (tasks != points !!!)
-    self.per_client  = 1 # #tasks per client in 'chunksize'
-    self.pending     = set([])
-    self.new_results = []
-    self.finished    = []
+    self.per_client   = 1 # #tasks per client in 'chunksize'
+    self.pending      = set([])
+    self.new_finished = []
+    self.finished     = []
 
     # init & start everything
     self._setup_cluster(0, problem)
@@ -547,8 +547,8 @@ class StrategyBase(object):
       # don't forget, this updates the statistics - new_tasks's default is "None"
       self._add_tasks(new_tasks)
 
-      # collect new results for each finished task, hand over to result DB
-      for msg_id in self.new_results:
+      # collect new results for each finished task, hand them over to result DB
+      for msg_id in self.new_finished:
         for r in self.evaluators.get_result(msg_id).result:
           self.results += r
 
@@ -583,22 +583,24 @@ class StrategyBase(object):
         pass
     self.logger.info("Strategy '%s' finished after %.3f [s] and %d loops." \
              % (self._name, self._end - self._start, self.loops))
-    #logger.info("distance matrix:\n%s" % self.results._distance)
+
     self.info()
     self.results.info()
 
   def _add_tasks(self, new_tasks):
+    '''
+    Accounting routine for the parallel tasks, only used by :meth:`.run`.
+    '''
     if new_tasks != None:
       for mid in new_tasks.msg_ids:
         self.pending.add(mid)
         self.cnt += len(self.evaluators.get_result(mid).result)
-    self.new_results = self.pending.difference(self.evaluators.outstanding)
-    self.pending = self.pending.difference(self.new_results)
-    for tid in self.new_results:
+    self.new_finished = self.pending.difference(self.evaluators.outstanding)
+    self.pending = self.pending.difference(self.new_finished)
+    for tid in self.new_finished:
        self.finished.append(tid)
        self.tasks_walltimes[tid] = self.evaluators.get_result(tid).elapsed
 
-    self.cnt += len(self.new_results)
     #if self.cnt / 100 > self.show_last / 100:
     if time.time() - self.show_last > self.config.show_interval:
       self.info()

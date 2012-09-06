@@ -93,8 +93,10 @@ class Himmelblau(Problem):
   Himmelblau [HB]_ testproblem.
 
   .. math::
-  
+
     f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
+
+  .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
   '''
   def __init__(self):
     Problem.__init__(self, [(-5,5)] * 2)

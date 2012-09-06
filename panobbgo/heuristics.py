@@ -22,7 +22,7 @@ Each heuristic needs to listen to at least one stream of
 :class:`Events <panobbgo.core.Event>` from the :class:`~panobbgo.core.EventBus`.
 Most likely, it is the `one-shot` event ``start``, which is
 :meth:`published <panobbgo.core.EventBus.publish>` by the 
-:class:`~panobbgo.strategies.StrategyBase`.
+:class:`~panobbgo.core.StrategyBase`.
 
 .. inheritance-diagram:: panobbgo.heuristics
 

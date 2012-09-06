@@ -58,7 +58,7 @@ class Point(object):
     A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
 
     To get the actual heuristic, use the  
-    :meth:`strategie's heuristic <panobbgo.strategies.StrategyBase.heuristic>` method.
+    :meth:`strategie's heuristic <panobbgo.core.StrategyBase.heuristic>` method.
     '''
     return self._who
 

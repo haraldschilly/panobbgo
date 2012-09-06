@@ -286,14 +286,14 @@ class WeightedAverage(Heuristic):
     self.logger = get_config().get_logger('WAvg')
 
   def _init_(self):
-    self.minstd = min(self.problem.ranges) / 100.
+    self.minstd = min(self.problem.ranges) / 1000.
 
   def on_new_best(self, best):
     if best is None or best.x is None: return
     nbrs, box = self.strategy.analyzer('splitter').in_same_leaf(best)
     if len(nbrs) < 3: return
-    #logger.info("WA: %s" % len(nbrs))
-    self.logger.debug("best: %s / box: %s" % (best, box))
+    #self.logger.info("#nbrs: %d" % len(nbrs))
+    #self.logger.info("best: %s / box: %s" % (best, box))
 
     # actual calculation
     import numpy as np
@@ -302,15 +302,18 @@ class WeightedAverage(Heuristic):
     weights = np.log1p(yy - best.fx)
     weights = -weights + (1+self.k) * weights.max()
     #weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
-    #logger.info("weights: %s" % zip(weights, yy))
+    #self.logger.info("weights: %s" % zip(weights, yy))
     self.clear_queue()
+    ret = np.average(xx, axis=0, weights=weights)
+    std = xx.std(axis=0)
+    # std must be > 0
+    std[std < self.minstd] = self.minstd
+    #self.logger.info("std: %s" % std)
     for i in range(self.cap):
-      ret = np.average(xx, axis=0, weights=weights)
-      std = xx.std(axis=0)
-      # std must be > 0
-      std[std < self.minstd] = self.minstd
-      ret += 1 * np.random.normal(0, std)
+      ret = ret.copy()
+      ret += (float(i) / self.cap) * np.random.normal(0, std)
       if np.linalg.norm(best.x - ret) > .01:
+        #self.logger.info("out: %s" % ret)
         self.emit(ret)
 
 class Testing(Heuristic):

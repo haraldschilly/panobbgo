@@ -116,7 +116,7 @@ class Splitter(Analyzer):
     # split, if there are more than this number of points in the box
     self.leafs = []
     self._id = 0 # block id
-    self.logger = get_config().get_logger('SPLIT')
+    self.logger = get_config().get_logger('SPLIT') #, 10)
     self.max_eval = get_config().max_eval
     # _new_result used to signal get_leaf and others when there
     # are updates regarding box/split/leaf status
@@ -180,7 +180,8 @@ class Splitter(Analyzer):
     #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
   def on_new_split(self, box, children, dim):
-    #logger.info("Split: %s -> %s" % (box, ','.join(map(str, children))))
+    self.logger.debug("Split:    %s" % box)
+    self.logger.debug("Children: %s" % ','.join(map(str, children)))
     #logger.info("children: %s" % map(lambda x:(x.depth, len(x)), children))
     pass
 
@@ -188,13 +189,16 @@ class Splitter(Analyzer):
     '''
     Used by :class:`.Splitter`, therefore nested.
 
+    Most important routine is :meth:`.split`. 
+
     .. Note::
 
-      Class is accessed via :class:`.Splitter.Box`.
-
+      In the future, this might be refactored to allow different
+      splitting methods.
     '''
     def __init__(self, parent, splitter, box, depth = 0):
       self.parent    = parent
+      self.logger    = splitter.logger
       self.depth     = depth
       self.box       = box
       self.splitter  = splitter
@@ -217,7 +221,11 @@ class Splitter(Analyzer):
     def ranges(self):
       return self.box[:,1] - self.box[:,0]
 
-    def register_result(self, result):
+    def _register_result(self, result):
+      '''
+      This updates the splitter and box specific datatypes,
+      i.e. the maps from a result to the corresponding boxes or leafs.
+      '''
       assert isinstance(result, Result)
       self.results.append(result)
       self.splitter.result2boxes[result].append(self)
@@ -226,9 +234,18 @@ class Splitter(Analyzer):
 
     def add_result(self, result):
       '''
-      registers and adds a new :class:`~panobbgo_lib.lib.Result`.
+      Registers and adds a new :class:`~panobbgo_lib.lib.Result`.
+      In particular, it adds the given ``result`` to the
+      current box and it's children (also all descendents).
+
+      If the current box is a leaf and too big, the :meth:`.split`
+      routine is called.
+
+      .. Note::
+
+        ``box += result`` is fine, too.
       '''
-      self.register_result(result)
+      self._register_result(result)
       if not self.leaf:
         for child in self.get_child_boxes(result.x):
           child += result # recursive
@@ -236,6 +253,7 @@ class Splitter(Analyzer):
         self.split()
 
     def __iadd__(self, result):
+      '''Convenience wrapper for :meth:`.add_result`.'''
       self.add_result(result)
       return self
 
@@ -246,6 +264,7 @@ class Splitter(Analyzer):
       if dim is None:
         scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
         dim = np.argmax(np.std(scaled_coords, axis=0))
+      #self.logger.debug("dim: %d" % dim)
       assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
       next_depth = self.depth + 1
       b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
@@ -260,7 +279,7 @@ class Splitter(Analyzer):
       for r in self.results:
         for c in self.children:
           if c.contains(r.x):
-            c.register_result(r)
+            c._register_result(r)
       self.splitter.eventbus.publish('new_split', \
           box = self, children = self.children, dim = dim)
 

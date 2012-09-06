@@ -26,6 +26,9 @@ This is the core part containing:
   - :mod:`.heuristics`
   - :mod:`.analyzers`.
 
+- and most importantly, the :class:`.StrategyBase` which holds everything together and
+  subclasses in :mod:`.strategies` implement the strategies.
+
 .. inheritance-diagram:: panobbgo.core
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
@@ -320,7 +323,7 @@ class EventBus(object):
               return
           except Exception, e:
             # usually, they only happen during shutdown
-            self.logger.warning("Exception: %s in %s: %s" % (key, target, e))
+            self.logger.critical("Exception: %s in %s: %s" % (key, target, e))
             return
 
     target._eventbus_events = {}

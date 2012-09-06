@@ -13,6 +13,9 @@ Panobbgo: `parallel noisy black-box global optimization`
   .. image:: panobbgo-graphic.png
      :align: center
 
+Introduction
+------------
+
 ..
   Date: |today|
   Version: |version|
@@ -28,29 +31,39 @@ It is licensed under the `Apache 2.0 License <http://www.apache.org/licenses/LIC
 
   It is currently work in progress and definitely not ready for any kind of usage.
 
+Main
+----
+
+.. automodule:: panobbgo
 
 .. toctree::
    :maxdepth: 2
 
-   panobbgo
-   library
+   core
+   strategies
+   heuristics
+   analyzers
+   config
+
+Library
+-------
+.. automodule:: panobbgo_lib
+
+.. toctree::
+   :maxdepth: 2
+
+   classic
+   lib
 
 Links
 -----
 
 * `source repository <http://github.com/haraldschilly/panobbgo>`_
 * short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`_
+* Indices and Tables
 
-References
-----------
+  * :ref:`genindex`
+  * :ref:`modindex`
+  * :ref:`search`
 
-.. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
 .. [IP] http://www.ipython.org
-
-Indices and Tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-

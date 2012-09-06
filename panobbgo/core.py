@@ -21,7 +21,10 @@ This is the core part containing:
 
 - :class:`.Results`: DB of all results
 - :class:`.EventBus`
-- abstract classes for modules :mod:`.heuristics` and :mod:`.analyzers`.
+- abstract classes for modules
+
+  - :mod:`.heuristics`
+  - :mod:`.analyzers`.
 
 .. inheritance-diagram:: panobbgo.core
 
@@ -39,7 +42,12 @@ import numpy as np
 class Results(object):
   '''
   List of results w/ notificaton for new results.
-  Later on, this will be a cool database.
+
+  .. Note::
+
+    Later on, maybe this will be a cool database which allows to
+    persistenly store past evaluations for a given problem,
+    to allow resuming and so on.
   '''
   def __init__(self, strategy):
     self.strategy = strategy

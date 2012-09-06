@@ -7,7 +7,7 @@ sys.path.append(".")
 from panobbgo.heuristics import Random, Nearby, \
      Zero, LatinHypercube, Extremal, \
      Center, WeightedAverage, Testing
-from panobbgo.strategies import StrategyRewarding
+from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 #import numpy as np
 
 from panobbgo_lib.classic import *
@@ -53,6 +53,7 @@ lhyp= LatinHypercube(div)
 heurs = [ center, rand, near_10, lhyp, zero, extremal, avg ] #, testing]
 
 strategy = StrategyRewarding(problem, heurs)
+#strategy = StrategyRoundRobin(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 

@@ -69,9 +69,17 @@ class StrategyRoundRobin(StrategyBase):
   `round-robin <http://en.wikipedia.org/wiki/Round-robin_scheduling>`_
   scheme.
   '''
-  def __init__(self, problem, heurs, slice = 1):
-    self.slice = slice
+  def __init__(self, problem, heurs, size = 10):
+    self.size = size
+    self.current = 0
     StrategyBase.__init__(self, problem, heurs)
 
   def execute(self):
-    raise Exception("NYI")
+    from IPython.utils.timing import time
+    points = []
+    while len(points) == 0:
+      hs = self.heuristics
+      self.current = (self.current + 1) % len(hs)
+      points.extend(hs[self.current].get_points(self.size))
+      time.sleep(1e-3)
+    return points

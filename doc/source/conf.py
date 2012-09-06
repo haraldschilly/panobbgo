@@ -52,7 +52,13 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Panobbgo'
-copyright = u'2012, Harald Schilly. License Apache 2.0'
+author  = u'Harald Schilly'
+copyright = u'2012, %s. License Apache 2.0' % author
+
+rst_prolog = """\
+.. |name|   replace:: %(project)s
+.. |author| replace:: Harald Schilly
+""" % { 'project' : project, 'author' : author }
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -149,7 +155,7 @@ html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-#html_last_updated_fmt = '%b %d, %Y'
+html_last_updated_fmt = '%Y-%m-%d'
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
@@ -183,7 +189,7 @@ html_show_sphinx = False
 # If true, an OpenSearch description file will be output, and all pages will
 # contain a <link> tag referring to it.  The value of this option must be the
 # base URL from which the finished HTML is served.
-#html_use_opensearch = ''
+html_use_opensearch = 'http://haraldschilly.github.com/panobbgo/html'
 
 # This is the file name suffix for HTML files (e.g. ".xhtml").
 #html_file_suffix = None
@@ -208,7 +214,7 @@ latex_font_size = '10pt'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'panobbgo.tex', u'Panobbgo Documentation', u'Harald Schilly', 'manual'),
+  ('index', 'panobbgo.tex', u'%s Documentation' % project, author, 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -240,5 +246,5 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'panobbgo', u'Panobbgo Documentation', [u'Harald Schilly'], 1)
+    ('index', 'panobbgo', u'%s Documentation' % project, [author], 1)
 ]

@@ -3,10 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. |NAME|   replace:: Panobbgo
-.. |AUTHOR| replace:: Harald Schilly
-
-Panobbgo: `parallel noisy black-box global optimization`
+|name|: `parallel noisy black-box global optimization`
 ========================================================
 
 ..
@@ -20,7 +17,7 @@ Introduction
   Date: |today|
   Version: |version|
 
-Panobbgo is an open-source framework for parallel noisy black-box global optimization.
+|name| is an open-source framework for parallel noisy black-box global optimization.
 The basic idea is to combine a couple of functional building blocks via an
 :class:`~panobbgo.core.EventBus`.
 Additionally, parallel evaluation of the objective black-box function can be

@@ -419,7 +419,7 @@ class StrategyBase(object):
 
   #. Overwrite the :meth:`.execute`, which returns a list of new search points
      (by requesting them from the :mod:`~panobbgo.heuristics` via the
-     :meth:`~panobbgo.core.Heuristic.get_point` method) and might
+     :meth:`~panobbgo.core.Heuristic.get_points` method) and might
      also emit :class:`Events <panobbgo.core.Event>`.
 
   This ``execute`` method will be called repeatedly as long as there are less than the

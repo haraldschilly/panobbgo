@@ -41,6 +41,7 @@ Main
    heuristics
    analyzers
    config
+   utils
 
 Library
 -------

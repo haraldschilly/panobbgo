@@ -31,6 +31,7 @@ the strategy.
 from config import get_config
 from panobbgo_lib import Result
 from core import Analyzer
+from utils import memoize
 import numpy as np
 
 class Best(Analyzer):
@@ -180,8 +181,9 @@ class Splitter(Analyzer):
     #assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
   def on_new_split(self, box, children, dim):
-    self.logger.debug("Split:    %s" % box)
-    self.logger.debug("Children: %s" % ','.join(map(str, children)))
+    self.logger.debug("Split: %s" % box)
+    for i, chld in enumerate(children):
+      self.logger.debug(" +ch%d: %s" % (i, chld))
     #logger.info("children: %s" % map(lambda x:(x.depth, len(x)), children))
     pass
 
@@ -218,8 +220,33 @@ class Splitter(Analyzer):
       return len(self.children) == 0
 
     @property
+    @memoize
     def ranges(self):
+      '''
+      Gives back a vector with all the ranges of this box,
+      i.e. upper - lower bound.
+      '''
       return self.box[:,1] - self.box[:,0]
+
+    @property
+    @memoize
+    def log_volume(self):
+      '''
+      Returns the `logarithmic` volume of this box.
+      '''
+      return np.sum(np.log(self.ranges))
+
+    @property
+    @memoize
+    def volume(self):
+      '''
+      Returns the volume of the box.
+
+      .. Note::
+
+        Currently, the exponential of :attr:`.log_volume`
+      '''
+      return np.exp(self.log_volume)
 
     def _register_result(self, result):
       '''
@@ -270,7 +297,8 @@ class Splitter(Analyzer):
       b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
       b2 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
       self.split_dim = dim
-      split_point = np.median(map(lambda r:r.x[dim], self.results))
+      #split_point = np.median(map(lambda r:r.x[dim], self.results))
+      split_point = np.average(map(lambda r:r.x[dim], self.results))
       b1.box[dim, 1] = split_point
       b2.box[dim, 0] = split_point
       self.children.extend([ b1, b2 ])
@@ -300,8 +328,9 @@ class Splitter(Analyzer):
       return ret
 
     def __repr__(self):
-      l = '(%d,leaf) ' if self.leaf else '%d '
-      l = l % len(self)
+      v = self.volume
+      l = ',leaf' if self.leaf else ''
+      l = '(%d,%.3f%s) ' % (len(self), v, l)
       b = ','.join('%s'%_ for _ in self.box)
       return 'Box-%d %s[%s]' % (self.id, l, b)
 

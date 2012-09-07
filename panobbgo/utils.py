@@ -14,6 +14,9 @@
 # limitations under the License.
 
 r'''
+Utilities
+---------
+
 Some utility functions, will move eventually.
 '''
 
@@ -62,10 +65,16 @@ class memoize(object):
   was invoked. All arguments passed to a method decorated with memoize must
   be hashable.
 
-  If a memoized method is invoked directly on its class the result will not
-  be cached. Instead the method will be invoked like a static method:
+  Usage::
 
-  ::
+    class Obj(object):
+      @memoize
+      def method(self, hashable):
+        result = do_calc(...)
+        return result
+
+  If a memoized method is invoked directly on its class the result will not
+  be cached. Instead the method will be invoked like a static method::
 
     class Obj(object):
       @memoize
@@ -74,7 +83,7 @@ class memoize(object):
     Obj.add_to(1) # not enough arguments
     Obj.add_to(1, 2) # returns 3, result is not cached
 
-  Derived from: http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/
+  Derived from `ActiveState 577432 <http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/>`_.
   """
   def __init__(self, func):
     self.func = func

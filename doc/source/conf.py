@@ -155,7 +155,7 @@ html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-html_last_updated_fmt = '%Y-%m-%d'
+#html_last_updated_fmt = '%b %d, %Y'
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
@@ -178,7 +178,7 @@ html_last_updated_fmt = '%Y-%m-%d'
 #html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-html_show_sourcelink = False
+#html_show_sourcelink = True
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
@@ -189,7 +189,7 @@ html_show_sphinx = False
 # If true, an OpenSearch description file will be output, and all pages will
 # contain a <link> tag referring to it.  The value of this option must be the
 # base URL from which the finished HTML is served.
-html_use_opensearch = 'http://haraldschilly.github.com/panobbgo/html'
+#html_use_opensearch = ''
 
 # This is the file name suffix for HTML files (e.g. ".xhtml").
 #html_file_suffix = None
@@ -214,7 +214,7 @@ latex_font_size = '10pt'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'panobbgo.tex', u'%s Documentation' % project, author, 'manual'),
+  ('index', 'panobbgo.tex', u'Panobbgo Documentation', u'Harald Schilly', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -246,5 +246,5 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'panobbgo', u'%s Documentation' % project, [author], 1)
+    ('index', 'panobbgo', u'Panobbgo Documentation', [u'Harald Schilly'], 1)
 ]

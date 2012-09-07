@@ -46,14 +46,42 @@ class Config(object):
     # 1: parsing command-line arguments
     from optparse import OptionParser
     _parser = OptionParser()
-    _parser.add_option('-c', '--config-file', dest="config_file",
-                      help='configuration file [default: %default]', default=defaultself_fn)
-    _parser.add_option('-p', '--profile', dest='ipy_profile', 
-                      help='IPython profile for the ipcluster configuration')
-    _parser.add_option('--max', dest='max_eval', help="maximum number of evaluations", type="int")
-    _parser.add_option('--smooth', dest='smooth', help="smoothing parameter for (additive or other) smoothing", type="float")
-    _parser.add_option('--cap', dest='capacity', help="capacity for each queue in each heuristic", type="int")
-    _parser.add_option("-v", action="count", dest="verbosity", help="verbosity level: -v, -vv, or -vvv")
+    _parser.add_option('-c', '--config-file',
+        dest="config_file",
+        help='configuration file [default: %default]',
+        default=defaultself_fn)
+
+    _parser.add_option('-p', '--profile',
+        dest='ipy_profile',
+        help='IPython profile for the ipcluster configuration')
+
+    _parser.add_option('--max',
+        dest='max_eval',
+        help="maximum number of evaluations",
+        type="int")
+
+    _parser.add_option('--smooth',
+        dest='smooth',
+        help="smoothing parameter for (additive or other) smoothing",
+        type="float")
+
+    _parser.add_option('--cap',
+        dest='capacity',
+        help="capacity for each queue in each heuristic",
+        type="int")
+
+    _parser.add_option("-v", 
+        action="count",
+        dest="verbosity",
+        help="verbosity level: -v, -vv, or -vvv")
+
+    _parser.add_option('--lf', '--log-focus',
+        dest="logger_focus",
+        action="append",
+        default = [],
+        help=' '.join(["List names of loggers, which should be shown verbosely.",
+                       "You can specify this option multiple times!",
+                       "e.g. --lf=CORE --lf=SPLIT"]))
 
     _options, _args = _parser.parse_args()
 
@@ -120,16 +148,19 @@ class Config(object):
     self.smooth        = _cfgp.getfloat('core', 'smooth')
     self.capacity      = _cfgp.getint  ('heuristic', 'capacity')
     self.ipy_profile   = _cfgp.get     ('ipython', 'profile')
+    self.logger_focus  = _options.logger_focus
 
-    #logger.info('loglevel: %s' % loglevel)
-    logger.info('ipython profile: %s' % self.ipy_profile)
-
-    logger.info("Versions: %s" % info())
+    logger.info('IPython profile: %s' % self.ipy_profile)
+    logger.info("Environment: %s" % info())
 
   def get_logger(self, name, loglevel = None):
     assert len(name) <= 5, 'Lenght of logger name > 5: "%s"' % name
     name = "%-5s" % name
-    if loglevel == None: loglevel = self.loglevel
+    loglevel = loglevel or self.loglevel
+    # logger focus
+    lf = ["%-5s" % _ for _ in self.logger_focus]
+    if name in lf: loglevel = 0
+    # cache
     key = '%s::%s' % (name, loglevel)
     if key in self._loggers:
       return self._loggers[key]

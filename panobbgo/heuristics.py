@@ -59,7 +59,7 @@ class Random(Heuristic):
     '''
     best = self.strategy.analyzer("best").best
     self.leaf = self.strategy.analyzer("splitter").get_leaf(best)
-    self.clear_queue()
+    self.clear_output()
     self.first_split.set()
 
 
@@ -303,7 +303,7 @@ class WeightedAverage(Heuristic):
     weights = -weights + (1+self.k) * weights.max()
     #weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
     #self.logger.info("weights: %s" % zip(weights, yy))
-    self.clear_queue()
+    self.clear_output()
     ret = np.average(xx, axis=0, weights=weights)
     std = xx.std(axis=0)
     # std must be > 0

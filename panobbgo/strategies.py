@@ -30,9 +30,7 @@ a new strategy.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 '''
-from config import get_config
-from core import Results, EventBus, StrategyBase
-import numpy as np
+from core import StrategyBase
 
 class StrategyRewarding(StrategyBase):
   '''

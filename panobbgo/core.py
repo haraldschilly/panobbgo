@@ -17,17 +17,19 @@
 Core
 ====
 
-This is the core part containing:
+This is the core part. It contains the essential components
+and base-classes for the modules:
 
-- :class:`.Results`: DB of all results
-- :class:`.EventBus`
-- abstract classes for modules
+- :class:`.Results`: Database of all results, with some rudimentary queries and statistics.
+- :class:`.EventBus`: This is the backbone for communicating between the strategy,
+  the heuristics and the analyzers.
+- "abstract" base-classes for the modules
 
   - :mod:`.heuristics`
   - :mod:`.analyzers`.
 
 - and most importantly, the :class:`.StrategyBase` which holds everything together and
-  subclasses in :mod:`.strategies` implement the strategies.
+  subclasses in :mod:`.strategies` implement the actual strategies.
 
 .. inheritance-diagram:: panobbgo.core
 
@@ -44,15 +46,18 @@ import numpy as np
 
 class Results(object):
   '''
-  List of results w/ notificaton for new results.
+  A very simple database of results with a notificaton for new results.
+  The new results are fed directly by the :class:`.StrategyBase`, outside of the
+  :class:`.EventBus`.
 
   .. Note::
 
-    Later on, maybe this will be a cool database which allows to
-    persistenly store past evaluations for a given problem,
-    to allow resuming and so on.
+    Later on, maybe this will be a cool actual database which allows to
+    persistenly store past evaluations for a given problem.
+    This would allow resuming and further a-posteriory analysis.
   '''
   def __init__(self, strategy):
+    self.logger = get_config().get_logger('RSLTS')
     self.strategy = strategy
     self.eventbus = strategy.eventbus
     self.problem  = strategy.problem
@@ -62,9 +67,8 @@ class Results(object):
 
   def add_results(self, new_results):
     '''
-    add one single or a list of new @Result objects.
-    * calc some statistics
-    * send out new_results & new_result events
+    Add one single or a list of new @Result objects.
+    Then, publish a ``new_result`` event.
     '''
     import heapq
     if isinstance(new_results, Result):
@@ -80,8 +84,7 @@ class Results(object):
       self._last_nb = len(self.results)
 
   def info(self):
-    logger = get_config().get_logger('CORE')
-    logger.info("%d results in DB" % len(self.results))
+    self.logger.info("%d results in DB" % len(self.results))
 
   def __iadd__(self, results):
     self.add_results(results)
@@ -90,24 +93,34 @@ class Results(object):
   def __len__(self):
     return len(self.results)
 
+  # TODO move this into the best analyzer
   def n_best(self, n):
     import heapq
     return heapq.nsmallest(n, self.results)
 
+#
+# Base Module
+#
+
 class Module(object):
   '''
-  "abstract" parent class for various panobbgo modules, e.g. Heuristic and Analyzer.
+  "Abstract" parent class for various panobbgo modules, e.g. 
+  :class:`.Heuristic` and :class:`.Analyzer`.
   '''
   def __init__(self, name = None):
     name = name if name else self.__class__.__name__
     self._name = name
-    self.strategy = None
     self._threads = []
 
   @property
   def name(self):
     '''
     The module's name.
+
+    .. Note::
+
+      It should be unique, which is important for
+      parameterized heuristics or analyzers!
     '''
     return self._name
 
@@ -115,23 +128,34 @@ class Module(object):
     '''
     :class:`~panobbgo.strategies.StrategyBase` calls this method.
     '''
-    self.strategy = strategy
-    self.eventbus = strategy.eventbus
-    self.problem  = strategy.problem
-    self.results  = strategy.results
+    self._strategy = strategy
     self._init_()
     # only after _init_ it is ready to recieve events
     self.eventbus.register(self)
 
+  @property
+  def strategy(self): return self._strategy
+
+  @property
+  def eventbus(self): return self._strategy.eventbus
+
+  @property
+  def problem(self): return self._strategy.problem
+
+  @property
+  def results(self): return self._strategy.results
+
   def _init_(self):
     '''
-    2nd initialization, after registering and hooking up the heuristic.
-    e.g. self._problem is available.
+    This method should be overwritten by the respective subclass.
+    It is called in the 2nd initialization phase, inside :meth:`._init_module`.
+    Now, the strategy and all its components (e.g. :class:`panobbgo_lib.lib.Problem`, ...)
+    are available.
     '''
     pass
 
   def __repr__(self):
-    return '%s' % self.name
+    return 'Module %s' % self.name
 
 #
 # Heuristic
@@ -141,37 +165,66 @@ from Queue import Empty, LifoQueue # PriorityQueue
 
 class StopHeuristic(Exception):
   '''
-  Used to indicate, that the heuristic has finished and should be ignored.
+  Indicates the heuristic has finished and should be ignored/removed.
   '''
   def __init__(self, msg = "stopped"):
+    '''
+    Args:
+
+    - ``msg``: a custom message, will be visible in the log. (default: "stopped")
+    '''
     Exception.__init__(self, msg)
 
 class Heuristic(Module):
   '''
-  abstract parent class for all types of point generating classes
+  This is the "abstract" parent class for all types of point generating classes,
+  which we call collectively ":mod:`Heuristics <.heuristics>`".
+
+  Such a heuristic is capable of the following:
+
+  #. They can be parameterized by passing in optional arguments in the constructor.
+     This should be reflected in the :attr:`~.Module.name`!
+  #. The :class:`.EventBus` spawns a thread for each ``on_*`` method 
+     and calls them when a corresponding :class:`.Event` occurs.
+  #. Of course, they are capable of storing their state in the instance.
+     This is also the way of how information is shared between those threads.
+  #. The `main purpose` of a heuristic is to emit new search points
+     by calling either :meth:`.emit` or returning a list of points.
+     The datatype must be :class:`numpy.ndarray` with 
+     `floats <http://docs.scipy.org/doc/numpy/reference/arrays.scalars.html>`_.
+  #. Additionally, the can get hold of other heuristics or anayzers via the strategy instance.
+  #. The :class:`.EventBus` inside this strategy instance allows them to publish their
+     own events, too. This can be used to signal related heuristics something
+     or to queue up tasks for itself.
   '''
-  def __init__(self, name = None, q = None, cap = None):
+  def __init__(self, name = None, cap = None):
     Module.__init__(self, name)
     self.config = get_config()
     self.logger = self.config.get_logger('HEUR')
-    self.cap = cap if cap else get_config().capacity
-    self._q = q if q else LifoQueue(self.cap)
+    self.cap = cap if cap != None else get_config().capacity
+    self.__output = LifoQueue(self.cap)
 
     # statistics; performance
     self.performance = 0.0
 
-  def clear_queue(self):
-    with self._q.mutex:
-      del self._q.queue[:]
+  def clear_output(self):
+    with self.__output.mutex:
+      del self.__output.queue[:]
 
   def emit(self, points):
     '''
-    this is used in the heuristic's thread.
+    This is used to send out new search points for evaluation.
+    Args:
+
+    - ``points``: Either a :class:`numpy.ndarray` of ``float64``
+                  or preferrably a list of them.
     '''
     try:
       if points is None: raise StopHeuristic()
       if not isinstance(points, list): points = [ points ]
       for point in points:
+        if not isinstance(point, np.ndarray):
+          raise Exception("point is not a numpy ndarray")
         x = self.problem.project(point)
         point = Point(x, self.name)
         self.discount()
@@ -195,9 +248,9 @@ class Heuristic(Module):
 
   def get_points(self, limit=None):
     '''
-    this drains the self._q Queue until @limit
+    this drains the output Queue until ``limit``
     elements are removed or the Queue is empty.
-    for each actually emitted point,
+    For each actually emitted point,
     the performance value is discounted (i.e. "punishment" or "energy
     consumption")
     '''
@@ -213,12 +266,13 @@ class Heuristic(Module):
   @property
   def active(self):
     '''
-    This is queried by the strategy to determine, if it should still consider
-    this "module". This is the case, iff there is still something in it's output queue
-    or if there is a chance that there will be something in the future (a thread is running).
+    This is queried by the strategy to determine, if it should still consider it.
+    This is the case, iff there is still something in its output queue
+    or if there is a chance that there will be something in the future (at least
+    one thread is running).
     '''
     t = any(t.isAlive() for t in self._threads)
-    q = self._q.qsize() > 0
+    q = self.__output.qsize() > 0
     return t or q
 
 #
@@ -502,8 +556,8 @@ class StrategyBase(object):
 
   def add_analyzer(self, a):
     name = a.name
-    assert key not in self._analyzers, \
-        "Names of analyzers need to be unique. '%s' is already used." % key
+    assert name not in self._analyzers, \
+        "Names of analyzers need to be unique. '%s' is already used." % name
     self._analyzers[name] = a
     a._init_module(self)
 

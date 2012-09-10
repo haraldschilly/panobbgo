@@ -216,8 +216,7 @@ class Heuristic(Module):
     This is used to send out new search points for evaluation.
     Args:
 
-    - ``points``: Either a :class:`numpy.ndarray` of ``float64``
-                  or preferrably a list of them.
+    - ``points``: Either a :class:`numpy.ndarray` of ``float64`` or preferrably a list of them.
     '''
     try:
       if points is None: raise StopHeuristic()
@@ -423,13 +422,16 @@ class EventBus(object):
 
   def publish(self, key, event = None, terminate = False, **kwargs):
     '''
-    This is used to send 
+    Publishes a new :class:`.Event` to all subscribers,
+    who listen to the given ``key``.
+    It is either possible to send an existing event or to create an event
+    object on the fly with the given ``**kwargs``.
 
     Args:
 
+    - ``event``: if set, this given :class:`.Event` is sent (and not a new one created).
     - ``terminate``: if True, the associated thread will end.
                      (use it for ``on_start`` and similar).
-    - ``event``: if set, this given :class:`.Event` is sent (and not a new one created).
     - ``**kwargs``: any additional keyword arguments are stored inside the Event
                     if ``event`` is ``None``.
     '''

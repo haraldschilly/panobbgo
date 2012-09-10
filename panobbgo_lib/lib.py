@@ -76,21 +76,34 @@ class Result(object):
     self._time = time.time()
 
   @property
-  def x(self): return self.point.x if self.point else None
+  def x(self):
+    '''
+    Point :math:`x` where this result has been evaluated.
+    '''
+    return self.point.x if self.point else None
 
   @property
-  def point(self): return self._point
+  def point(self):
+    '''Returns the actual :class:`.Point` object.'''
+    return self._point
 
   @property
-  def fx(self): return self._fx
+  def fx(self):
+    '''The function value :math:`f(x)` after :meth:`evaluating <panobbgo_lib.lib.Problem.eval>` it.'''
+    return self._fx
 
   @property
-  def who(self): return self.point.who
+  def who(self):
+    '''
+    The :attr:`~panobbgo.core.Module.name` of the heuristic, who
+    did generate this point (String).
+    '''
+    return self.point.who
 
   @property
   def error(self):
     '''
-    error margin of function evaluation, usually 0.0.
+    Error margin of function evaluation, usually 0.0.
     '''
     return self._error
 
@@ -132,13 +145,25 @@ class Problem(object):
     self._ranges = self._box[:,1] - self._box[:,0]
 
   @property
-  def dim(self): return self._dim
+  def dim(self):
+    '''The number of dimensions.'''
+    return self._dim
 
   @property
-  def ranges(self): return self._ranges
+  def ranges(self):
+    '''The ranges along each dimension, a :class:`numpy.ndarray`.'''
+    return self._ranges
 
   @property
-  def box(self): return self._box
+  def box(self):
+    r'''
+    The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array <numpy.ndarray>`.
+
+    .. Note::
+
+      This might change to a more sophisticated ``Box`` object.
+    '''
+    return self._box
 
   def project(self, point):
     r'''
@@ -158,6 +183,11 @@ class Problem(object):
     # TODO other distributions, too?
 
   def eval(self, x):
+    '''
+    This is called to evaluate the given black-box function.
+    The problem should be called directly (``__call__`` special function wraps this)
+    and the given problem should subclass this ``eval`` method.
+    '''
     raise Exception("You have to subclass and overwrite the eval function")
 
   def __call__(self, point):

@@ -40,11 +40,56 @@ class StrategyRewarding(StrategyBase):
   def __init__(self, problem, heurs):
     StrategyBase.__init__(self, problem, heurs)
 
+  def _init_(self):
+    for h in self.heuristics:
+      h.performance = 1.0
+
+  def discount(self, heur, discount = None, times = 1):
+    '''
+    Discount the given heuristic after emitting a point.
+
+    Args:
+
+    - ``discount``: positive float, default ``config.default``
+    - ``times``: how often
+    '''
+    d = discount if discount != None else self.config.discount
+    d = d ** times
+    heur.performance *= d
+
+  def reward(self, result):
+    '''
+    Give this heuristic a reward (e.g. when it finds a new point)
+
+    Args:
+
+    - ``result``: new (best) result
+    '''
+    import numpy as np
+    # currently, only reward if better point found.
+    # TODO in the future also reward if near the best value (but
+    # e.g. not in the proximity of the best x)
+    fx_delta, reward = 0.0, 0.0
+    if result.fx < self.best.fx:
+      # ATTN: always take care of self.best.fx == np.infty
+      #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
+      fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - result.fx)) # saturates to 1
+      #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
+      reward = fx_delta #/ self.fx_delta_last
+      self.heuristic(result.who).performance += reward
+      #self.fx_delta_last = fx_delta
+    return reward
+
+  def on_new_results(self, results):
+    for result in results:
+      if result.fx < self.best.fx:
+        reward = self.reward(result)
+        self.logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))
+
   def execute(self):
     points = []
     target = self.per_client * len(self.evaluators)
     self.logger.debug("per_client = %s | target = %s" % (self.per_client, target))
-    new_tasks = None
     if len(self.evaluators.outstanding) < target:
       s = self.config.smooth
       while True:
@@ -54,7 +99,8 @@ class StrategyRewarding(StrategyBase):
           # calc probability based on performance with additive smoothing
           prob = (h.performance + s)/(perf_sum + s * len(heurs))
           nb_h = max(1, round(target * prob))
-          points.extend(h.get_points(nb_h))
+          h_pts = h.get_points(nb_h)
+          points.extend(h_pts)
           #print "  %16s -> %s" % (h, nb_h)
         # stopping criteria
         if len(points) >= target: break

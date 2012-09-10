@@ -227,24 +227,10 @@ class Heuristic(Module):
           raise Exception("point is not a numpy ndarray")
         x = self.problem.project(point)
         point = Point(x, self.name)
-        self.discount()
-        self._q.put(point)
+        self.__output.put(point)
     except StopHeuristic:
       self._stopped = True
       self.logger.info("'%s' heuristic stopped." % self.name)
-
-  def reward(self, reward):
-    '''
-    Give this heuristic a reward (e.g. when it finds a new point)
-    '''
-    #logger.debug("Reward of %s for '%s'" % (reward, self.name))
-    self.performance += reward
-
-  def discount(self, discount = None):
-    '''
-    Discount the heuristic's reward. Default is set in the configuration.
-    '''
-    self.performance *= discount if discount else self.config.discount
 
   def get_points(self, limit=None):
     '''
@@ -257,8 +243,7 @@ class Heuristic(Module):
     new_points = []
     try:
       while limit is None or len(new_points) < limit:
-        new_points.append(self._q.get(block=False))
-        self.discount()
+        new_points.append(self.__output.get(block=False))
     except Empty:
       pass
     return new_points
@@ -506,6 +491,7 @@ class StrategyBase(object):
 
     # init & start everything
     self._setup_cluster(0, problem)
+    self._threads    = []
     self.problem     = problem
     self.eventbus    = EventBus()
     self.results     = Results(self)
@@ -516,11 +502,10 @@ class StrategyBase(object):
     map(self.add_heuristic, sorted(heurs, key = lambda h : h.name))
 
     # analyzers
-    from analyzers import Best, Rewarder, Grid, Splitter
+    from analyzers import Best, Grid, Splitter
     best = Best()
     self._analyzers = {
         'best' :     best,
-        'rewarder' : Rewarder(),
         'grid':      Grid(),
         'splitter':  Splitter()
     }
@@ -585,11 +570,15 @@ class StrategyBase(object):
   @property
   def best(self): return self._analyzers['best'].best
 
+  @property
+  def name(self): return self._name
+
   def run(self):
     self.eventbus.publish('start', terminate=True)
     from IPython.parallel import Reference
     prob_ref = Reference(StrategyBase.PROBLEM_KEY) # see _setup_cluster
     self._start = time.time()
+    self.eventbus.register(self)
     self.logger.info("Strategy '%s' started" % self._name)
     self.loops = 0
     while True:

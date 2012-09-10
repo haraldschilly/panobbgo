@@ -21,7 +21,7 @@ Analyzers, just like :mod:`.heuristics`, listen to events
 and change their internal state based on local and
 global data. They can emit :class:`events <panobbgo.core.Event>`
 on their own and they are accessible via the
-:meth:`~panobbgo.strategies.StrategyBase.analyzer` method of
+:meth:`~panobbgo.core.StrategyBase.analyzer` method of
 the strategy.
 
 .. inheritance-diagram:: panobbgo.analyzers
@@ -219,25 +219,34 @@ class Splitter(Analyzer):
       '''
       return len(self.children) == 0
 
-    @property
     @memoize
+    def __ranges(self):
+      return self.box[:,1] - self.box[:,0]
+
+    @property
     def ranges(self):
       '''
       Gives back a vector with all the ranges of this box,
       i.e. upper - lower bound.
       '''
-      return self.box[:,1] - self.box[:,0]
+      return self.__ranges()
+
+    @memoize
+    def __log_volume(self):
+      return np.sum(np.log(self.ranges))
 
     @property
-    @memoize
     def log_volume(self):
       '''
       Returns the `logarithmic` volume of this box.
       '''
-      return np.sum(np.log(self.ranges))
+      return self.__log_volume()
+
+    @memoize
+    def __volume(self):
+      return np.exp(self.log_volume)
 
     @property
-    @memoize
     def volume(self):
       '''
       Returns the volume of the box.
@@ -246,7 +255,7 @@ class Splitter(Analyzer):
 
         Currently, the exponential of :attr:`.log_volume`
       '''
-      return np.exp(self.log_volume)
+      return self.__volume()
 
     def _register_result(self, result):
       '''

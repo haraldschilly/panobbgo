@@ -88,11 +88,13 @@ class memoize(object):
   def __init__(self, func):
     self.func = func
 
-  def __get__(self, obj):
+  def __get__(self, obj, tpe):
     if obj is None:
       return self.func
-    from functools import partial
-    return partial(self, obj)
+    from functools import partial#, update_wrapper
+    p = partial(self, obj)
+    #update_wrapper(p, self.func)
+    return p
 
   def __call__(self, *args, **kw):
     obj = args[0]

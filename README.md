@@ -20,7 +20,7 @@ problem definition needs to be possible on the remote machine.
 
 ## Dependencies
 
-* IPython &ge; 0.12.1
+* IPython &ge; 0.13
 
   * and you have to start your cluster via `ipcluster start ...` and tell Panobbgo 
     about it :-)
@@ -28,6 +28,8 @@ problem definition needs to be possible on the remote machine.
 * NumPy &ge; 1.5.0
 
 * SciPy &ge; 0.8.0
+
+* matplotlib
 
 ## License
 

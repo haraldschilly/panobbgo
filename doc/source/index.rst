@@ -17,16 +17,29 @@ Introduction
   Date: |today|
   Version: |version|
 
-|name| is an open-source framework for parallel noisy black-box global optimization.
-The basic idea is to combine a couple of functional building blocks via an
-:class:`~panobbgo.core.EventBus`.
-Additionally, parallel evaluation of the objective black-box function can be
-archived as SMP or on a cluster via IPython [IP]_.
-It is licensed under the `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
-
 .. Warning ::
 
   It is currently work in progress and definitely not ready for any kind of usage.
+
+|name| is an open-source framework for parallel noisy black-box global optimization.
+The primary aim is to experiment with new ideas and algorithms.
+A couple of functional building blocks build the solver and
+exchange information via an :class:`~panobbgo.core.EventBus` among each other.
+This allows to rapidly prototype new modules and to combine them with existing parts.
+There are three basic types of parts that work together:
+
+* the :mod:`Strategy <panobbgo.strategies>`
+* several :mod:`Heuristics <panobbgo.heuristics>`
+* and :mod:`Analyzers <panobbgo.analyzers>`
+
+Various tools for extracting statistical data and inspecting the optimization process are included (`planned`).
+Additionally, parallel evaluation of the objective black-box function can be
+archived as SMP or on a cluster via IPython [IP]_.
+
+In the background, there are additional utility features for the configuration and dependency management (`planned`) available.
+
+This software package is licensed under the 
+`Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
 
 Main
 ----
@@ -53,8 +66,10 @@ Library
    classic
    lib
 
+.. include:: examples.rst
+
 Links
------
+=====
 
 * `source repository <http://github.com/haraldschilly/panobbgo>`_
 * short `introduction talk <https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&start=false&loop=false&delayms=3000>`_

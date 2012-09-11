@@ -21,6 +21,10 @@ Introduction
   Date: |today|
   Version: |version|
 
+.. Warning ::
+
+  It is currently work in progress and definitely not ready for any kind of usage.
+
 |name| is an open-source framework for parallel noisy black-box global optimization.
 The primary aim is to experiment with new ideas and algorithms.
 A couple of functional building blocks build the solver and

@@ -131,10 +131,49 @@ class Splitter(Analyzer):
     self.logger.info("limit = %s" % self.limit)
     self.root = Splitter.Box(None, self, self.problem.box.copy())
     self.leafs.append(self.root)
+    # big boxes
+    self.biggest_leaf = self.root
+    self.big_by_depth = {}
+    self.big_by_depth[self.root.depth] = self.root
+    self.max_depth = self.root.depth
     # in which box (a list!) is each point?
     from collections import defaultdict
     self.result2boxes = defaultdict(list)
     self.result2leaf  = {}
+
+  def _new_box(self, new_box):
+    '''
+    Called for each new box when there is a split.
+    E.g. it updates the ``biggest`` box and related
+    information for each depth level.
+    '''
+    self.max_depth = max(new_box.depth, self.max_depth)
+
+    old_biggest_leaf = self.biggest_leaf
+    self.biggest_leaf = max(self.leafs, key = lambda l:l.log_volume)
+    if old_biggest_leaf is not self.biggest_leaf:
+      self.eventbus.publish('new_biggest_leaf', box = new_box)
+
+    dpth = new_box.depth
+    # also consider the parent depth level
+    for d in [dpth - 1, dpth]:
+      old_big_by_depth = self.big_by_depth.get(d, None)
+      if old_big_by_depth is None:
+        self.big_by_depth[d] = new_box
+      else:
+        leafs_at_depth = list(filter(lambda l:l.depth == d, self.leafs))
+        if len(leafs_at_depth) > 0:
+          self.big_by_depth[d] = min(leafs_at_depth, key = lambda l:l.log_volume)
+
+      if self.big_by_depth[d] is not old_big_by_depth:
+        self.eventbus.publish('new_biggest_by_depth',
+            depth=d, box = self.big_by_depth[d])
+
+  def on_new_biggest_leaf(self, box):
+    self.logger.debug("biggest leaf at depth %d -> %s" % (box.depth, box))
+
+  def on_new_biggest_by_depth(self, depth, box):
+    self.logger.debug("big by depth: %d -> %s" % (depth, box))
 
   def get_box(self, point):
     '''
@@ -206,6 +245,7 @@ class Splitter(Analyzer):
       self.splitter  = splitter
       self.limit     = splitter.limit
       self.dim       = splitter.dim
+      self.best      = None              # best point
       self.results   = []
       self.children  = []
       self.split_dim = None
@@ -218,6 +258,13 @@ class Splitter(Analyzer):
       returns ``true``, if this box is a leaf. i.e. no children
       '''
       return len(self.children) == 0
+
+    @property
+    def fx(self):
+      '''
+      Function value of best point in this particular box.
+      '''
+      return self.best.fx
 
     @memoize
     def __ranges(self):
@@ -264,6 +311,14 @@ class Splitter(Analyzer):
       '''
       assert isinstance(result, Result)
       self.results.append(result)
+
+      # new best result in box? (for best fx value, too)
+      if self.best is not None:
+        if self.best.fx > result.fx:
+          self.best = result
+      else:
+        self.best = result
+
       self.splitter.result2boxes[result].append(self)
       if self.leaf:
         self.splitter.result2leaf[result] = self
@@ -313,8 +368,9 @@ class Splitter(Analyzer):
       self.children.extend([ b1, b2 ])
       self.splitter.leafs.remove(self)
       map(self.splitter.leafs.append, self.children)
-      for r in self.results:
-        for c in self.children:
+      for c in self.children:
+        self.splitter._new_box(c)
+        for r in self.results:
           if c.contains(r.x):
             c._register_result(r)
       self.splitter.eventbus.publish('new_split', \

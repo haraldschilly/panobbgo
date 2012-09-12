@@ -45,10 +45,16 @@ class Best(Analyzer):
   - ``new_pareto``: when a best point on the pareto front of the
     objective value and constraint violation
 
-  has been found.
+    has been found.
+
+  .. Note::
+
+    `Pareto`: Once the constraint
+    violation is zero, only the objective function value is considered
+    and future results with a positive constraint violation are ignored.
 
   The best point (pareto) is available via the :attr:`.best` attribute.
-  There is also :attr:`.cv` and :attr:`.pareto`.
+  There is also :attr:`.cv`, :attr:`.min` and :attr:`.pareto`.
   '''
   def __init__(self):
     Analyzer.__init__(self)
@@ -91,17 +97,26 @@ class Best(Analyzer):
 
   def on_new_result(self, result):
     r = result
-    if r.fx < self._min.fx:
+
+    if r.fx < self._min.fx or (r.fx == self._min.fx and r.cv < self._min.cv):
       #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
       self._min = r
       self.eventbus.publish("new_min", min = r)
+
     if r.cv < self._cv.cv or (r.cv == self._cv.cv and r.fx < self._cv.fx):
       self._cv = r
       self.eventbus.publish("new_cv", cv = r)
-    if np.hypot(self._pareto.cv, self._pareto.fx) > np.hypot(r.cv, r.fx):
-      self._pareto = r
-      self.eventbus.publish("new_pareto", pareto = r)
-      self.eventbus.publish("new_best", best = r)
+
+    # the pareto is weighted by the _min.cv and _cv.fx values
+    # if pareto.cv is 0.0, then just the fx value counts
+    weight = np.array([self._cv.fx, self._min.cv])
+    if (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
+      or self._pareto.cv > 0.0 and \
+         weight.dot([self._pareto.cv, self._pareto.fx]) >\
+         weight.dot([r.cv,            r.fx]):
+        self._pareto = r
+        self.eventbus.publish("new_pareto", pareto = r)
+        self.eventbus.publish("new_best", best = r)
 
   def on_new_pareto(self, pareto):
     #self.logger.info("pareto: %s" % pareto)

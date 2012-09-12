@@ -38,6 +38,7 @@ class StrategyRewarding(StrategyBase):
   those more ofte, which produce better search points.
   '''
   def __init__(self, problem, heurs):
+    self.last_best = None
     StrategyBase.__init__(self, problem, heurs)
 
   def _init_(self):
@@ -57,34 +58,33 @@ class StrategyRewarding(StrategyBase):
     d = d ** times
     heur.performance *= d
 
-  def reward(self, result):
+  def reward(self, best):
     '''
     Give this heuristic a reward (e.g. when it finds a new point)
 
     Args:
 
-    - ``result``: new (best) result
+    - ``best``: new (best) result
     '''
+    if self.last_best is None: return 1.0
     import numpy as np
     # currently, only reward if better point found.
     # TODO in the future also reward if near the best value (but
     # e.g. not in the proximity of the best x)
     fx_delta, reward = 0.0, 0.0
-    if result.fx < self.best.fx:
-      # ATTN: always take care of self.best.fx == np.infty
-      #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
-      fx_delta = 1.0 - np.exp(-1.0 * (self.best.fx - result.fx)) # saturates to 1
-      #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
-      reward = fx_delta #/ self.fx_delta_last
-      self.heuristic(result.who).performance += reward
-      #self.fx_delta_last = fx_delta
+    #fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
+    fx_delta = 1.0 - np.exp(-1.0 * (self.last_best.fx - best.fx)) # saturates to 1
+    fx_delta = 0.0 if fx_delta <= 0 else fx_delta
+    #if self.fx_delta_last == None: self.fx_delta_last = fx_delta
+    reward = fx_delta #/ self.fx_delta_last
+    self.heuristic(best.who).performance += reward
+    #self.fx_delta_last = fx_delta
     return reward
 
-  def on_new_results(self, results):
-    for result in results:
-      if result.fx < self.best.fx:
-        reward = self.reward(result)
-        self.logger.info(u"\u2318 %s | \u0394 %.7f %s" %(result, reward, result.who))
+  def on_new_best(self, best):
+    reward = self.reward(best)
+    self.logger.info(u"\u2318 %s | \u0394 %.7f %s" %(best, reward, best.who))
+    self.last_best = best
 
   def execute(self):
     points = []

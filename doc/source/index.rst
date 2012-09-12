@@ -10,10 +10,6 @@
   .. image:: panobbgo-graphic.png
      :align: center
 
-.. Warning ::
-
-  It is currently work in progress and definitely not ready for any kind of usage.
-
 Introduction
 ------------
 

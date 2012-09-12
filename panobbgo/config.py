@@ -26,7 +26,7 @@ via optional command-line arguments.
   This will also hold a class for configuring the Panobbgo framework
   in general. I.e. modules declare other modules as dependencies, etc...
 
-.. inheritance-diagram:: panobbgo.strategies
+.. inheritance-diagram:: panobbgo.configuration
 """
 
 _config = None

@@ -131,7 +131,7 @@ class Config(object):
     def getself(section, key):
       return _cfgp.get(section, key)
 
-    def all_cfgp(sep = '::'):
+    def all_cfgp(sep = '.'):
       ret = {}
       for s in _cfgp.sections():
         for k, v in _cfgp.items(s):

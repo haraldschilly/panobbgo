@@ -6,13 +6,14 @@ sys.path.append(".")
 #from panobbgo.core import Results
 from panobbgo.heuristics import Random, Nearby, \
      Zero, LatinHypercube, Extremal, \
-     Center, WeightedAverage, Testing
-from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
+     Center, WeightedAverage #, Testing
+from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 #import numpy as np
 
 from panobbgo_lib.classic import *
 
-problem = Rosenbrock(3, par1 = 10)
+#problem = Rosenbrock(3, par1 = 10)
+problem = RosenbrockConstraint(3, par1 = 10)
 #problem = RosenbrockStochastic(3)
 #problem = Rosenbrock(2, 100)
 #problem = RosenbrockAbs(2)

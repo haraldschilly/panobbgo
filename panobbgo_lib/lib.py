@@ -57,23 +57,39 @@ class Point(object):
     '''
     A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
 
-    To get the actual heuristic, use the  
+    To get the actual heuristic, use the
     :meth:`strategie's heuristic <panobbgo.core.StrategyBase.heuristic>` method.
     '''
     return self._who
 
 
 class Result(object):
+  r'''
+  This represents one result, wich is a mapping of a :class:`.Point` 
+  :math:`x \rightarrow f(x)`.
+
+  Additionally, there is also
+
+  - :attr:`.error`: estimated or calculated :math:`\Delta f(x)`.
+  - :attr:`.constraint_violation`: a possibly empty vector listing the constraint violation for
+    each constraint.
   '''
-  class for one result, mapping of x to fx
-  '''
-  def __init__(self, point, fx):
-    if point and not isinstance(point, Point): 
+  def __init__(self, point, fx, cv = None, cv_norm = None, error = 0.0):
+    '''
+    Args:
+
+    - ``cv``: the constraint violation vector
+    - ``cv_norm``: the norm used to calculate :attr:`.cv`.
+      (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
+    '''
+    if point and not isinstance(point, Point):
       raise Exception("point must be a Point")
-    self._point = point
-    self._fx = fx
-    self._error = 0.0
-    self._time = time.time()
+    self._point   = point
+    self._fx      = fx
+    self._error   = error
+    self._cv      = cv
+    self._cv_norm = cv_norm
+    self._time    = time.time()
 
   @property
   def x(self):
@@ -91,6 +107,20 @@ class Result(object):
   def fx(self):
     '''The function value :math:`f(x)` after :meth:`evaluating <panobbgo_lib.lib.Problem.eval>` it.'''
     return self._fx
+
+  @property
+  def constraint_violation(self):
+    '''Vector of constraint violations for each constraint, or None.'''
+    return self._cv
+
+  @property
+  def cv(self):
+    '''
+    The chosen norm of :attr:`.constraint_violation`; see ``cv_norm`` in constructor.
+    '''
+    if self._cv is None: return 0.0
+    from numpy.linalg import norm
+    return norm(self._cv, self._cv_norm)
 
   @property
   def who(self):
@@ -113,7 +143,8 @@ class Result(object):
 
   def __repr__(self):
     x = ' '.join('%11.6f' % _ for _ in self.x) if self.x != None else None
-    return '%11.6f @ [%s]' % (self.fx, x)
+    cv = '' if self._cv is None else u'\u22DB%8.4f ' % self.cv
+    return '%11.6f %s@ [%s]' % (self.fx, cv, x)
 
 class Problem(object):
   '''
@@ -190,10 +221,20 @@ class Problem(object):
     '''
     raise Exception("You have to subclass and overwrite the eval function")
 
+  def eval_constraints(self, x):
+    '''
+    This method is optionally overwritten by the problem to calculate the constraint violations.
+    It has to return a :class:`numpy.ndarray` of ``floats``.
+    '''
+    pass
+
   def __call__(self, point):
     #from time import sleep
     #sleep(1e-2)
-    return Result(point, self.eval(point.x))
+    fx = self.eval(point.x)
+    cv = self.eval_constraints(point.x)
+    assert np.all(cv >= 0), 'Constraint violation values must be >= 0'
+    return Result(point, fx, cv = cv)
 
   def __repr__(self):
     descr = "Problem '%s' has %d dimensions. " % (self.__class__.__name__, self._dim)

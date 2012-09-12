@@ -36,29 +36,84 @@ import numpy as np
 
 class Best(Analyzer):
   '''
-  Listens on all results and emits a ``new_best`` event,
-  when a new best point has been found.
+  Listens on all results and emits the following events:
 
-  The best point is available via the :attr:`.best` attribute.
+  - ``new_best``: when a new "best" point,
+  - ``new_min``: a point with smallest objective function value,
+  - ``new_cv``: one with a smaller
+    :attr:`~panobbgo_lib.lib.Result.constraint_violation`, or
+  - ``new_pareto``: when a best point on the pareto front of the
+    objective value and constraint violation
+
+  has been found.
+
+  The best point (pareto) is available via the :attr:`.best` attribute.
+  There is also :attr:`.cv` and :attr:`.pareto`.
   '''
   def __init__(self):
     Analyzer.__init__(self)
-    self.logger = get_config().get_logger("BEST")
-    self._best = Result(None, np.infty)
+    self.logger   = get_config().get_logger("BEST")
+    r             = Result(None, np.infty, cv = np.infty)
+    self._min     = r
+    self._cv      = r
+    self._pareto  = r
 
   @property
   def best(self):
     '''
-    currently best :class:`~panobbgo_lib.lib.Result`
+    Currently best :class:`~panobbgo_lib.lib.Result`.
+
+    .. Note::
+
+      At the moment, this is :attr:`.pareto` but might change.
     '''
-    return self._best
+    return self._pareto
+
+  @property
+  def cv(self):
+    '''
+    The point with currently minimal constraint violation, likely 0.0.
+    If there are several points with the same minimal constraint violation,
+    the value of the objective function is a secondary selection argument.
+    '''
+    return self._cv
+
+  @property
+  def pareto(self):
+    return self._pareto
+
+  @property
+  def min(self):
+    '''
+    The point, with currently smallest objective function value.
+    '''
+    return self._min
 
   def on_new_result(self, result):
     r = result
-    if r.fx < self._best.fx:
+    if r.fx < self._min.fx:
       #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
-      self._best = r
+      self._min = r
+      self.eventbus.publish("new_min", min = r)
+    if r.cv < self._cv.cv or (r.cv == self._cv.cv and r.fx < self._cv.fx):
+      self._cv = r
+      self.eventbus.publish("new_cv", cv = r)
+    if np.hypot(self._pareto.cv, self._pareto.fx) > np.hypot(r.cv, r.fx):
+      self._pareto = r
+      self.eventbus.publish("new_pareto", pareto = r)
       self.eventbus.publish("new_best", best = r)
+
+  def on_new_pareto(self, pareto):
+    #self.logger.info("pareto: %s" % pareto)
+    pass
+
+  def on_new_cv(self, cv):
+    #self.logger.info("cv: %s" % cv)
+    pass
+
+  def on_new_min(self, min):
+    #self.logger.info("min: %s" % cv)
+    pass
 
 class Grid(Analyzer):
   '''

@@ -51,7 +51,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, near_10, lhyp, zero, extremal, avg ] #, testing]
+heurs = [ center, rand, lhyp, near_10_all, zero, extremal, avg ] #, testing]
 
 strategy = StrategyRewarding(problem, heurs)
 #strategy = StrategyRoundRobin(problem, heurs)
@@ -59,6 +59,6 @@ strategy = StrategyRewarding(problem, heurs)
 #calc.start()
 
 if not strategy.best is None:
-  print "best: ", strategy.best
+  print u"best: %s" % strategy.best
 else:
   print "best solution is None"

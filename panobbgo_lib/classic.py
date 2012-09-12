@@ -54,20 +54,21 @@ class RosenbrockConstraint(Problem):
 
     f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
-    \mathit{s.t.}\;\; x_{i+1} - x_{i} > 0.5 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
+    \mathit{s.t.}\;\; \|x_{i+1} - x_{i}\| > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
 
   '''
-  def __init__(self, dims, par1 = 100):
+  def __init__(self, dims, par1 = 100, par2 = 0.1):
     box = [(-2,2)] * dims
     box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
+    self.par2 = par2
     Problem.__init__(self, box)
 
   def eval(self, x):
     return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
 
   def eval_constraints(self, x):
-    cv = x[1:] - x[:-1] + 0.5
+    cv = - np.abs(x[1:] - x[:-1]) + self.par2
     cv[cv < 0] = 0.0
     return cv
 

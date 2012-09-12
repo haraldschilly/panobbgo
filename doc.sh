@@ -14,5 +14,5 @@ make latexpdf
 
 cd build
 git add -A
-git commit -m "doc for $COMMIT"
-git push origin gh-pages
+git commit --amend -m "doc for $COMMIT"
+git push origin gh-pages -f

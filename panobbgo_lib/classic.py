@@ -54,7 +54,7 @@ class RosenbrockConstraint(Problem):
 
     f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
-    \mathit{s.t.}\;\; \|x_{i+1} - x_{i}\| > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
+    \mathit{s.t.}\;\; (x_{i+1} - x_{i})^2 > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
 
   '''
   def __init__(self, dims, par1 = 100, par2 = 0.1):
@@ -68,7 +68,7 @@ class RosenbrockConstraint(Problem):
     return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
 
   def eval_constraints(self, x):
-    cv = - np.abs(x[1:] - x[:-1]) + self.par2
+    cv = - (x[1:] - x[:-1])**2.0 + self.par2
     cv[cv < 0] = 0.0
     return cv
 
@@ -90,6 +90,33 @@ class RosenbrockAbs(Problem):
   def eval(self, x):
     return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
                np.abs(1-x[:-1]))
+
+class RosenbrockAbsConstraint(Problem):
+  r'''
+  Absolute Rosenbrock function.
+
+  .. math::
+
+   f(x) = \sum_i (\mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
+
+   \mathit{s.t.}\;\; \|x_{i+1} - x_{i}\| > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
+
+  '''
+  def __init__(self, dims, par1 = 100, par2 = 0.1):
+    box = [(-5,5)] * dims
+    box[0] = (0,2) # for cornercases + testing
+    self.par1 = par1
+    self.par2 = par2
+    Problem.__init__(self, box)
+
+  def eval(self, x):
+    return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
+               np.abs(1-x[:-1]))
+
+  def eval_constraints(self, x):
+    cv = - np.abs(x[1:] - x[:-1]) + self.par2
+    cv[cv < 0] = 0.0
+    return cv
 
 class RosenbrockStochastic(Problem):
   r'''

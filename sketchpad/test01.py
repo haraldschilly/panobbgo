@@ -17,6 +17,7 @@ problem = RosenbrockConstraint(3, par1 = 10)
 #problem = RosenbrockStochastic(3)
 #problem = Rosenbrock(2, 100)
 #problem = RosenbrockAbs(2)
+#problem = RosenbrockAbsConstraint(2)
 #problem = Rastrigin(2, offset=1.11111)
 #problem = Himmelblau()
 

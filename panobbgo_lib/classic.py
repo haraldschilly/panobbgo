@@ -48,16 +48,16 @@ class Rosenbrock(Problem):
 
 class RosenbrockConstraint(Problem):
   r'''
-  Constraint Rosenbrock function with parameter ``par1``.
+  Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
 
   .. math::
 
-    f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
-
-    \mathit{s.t.}\;\; (x_{i+1} - x_{i})^2 > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
+    \min f(x) & = \sum_i \mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2 \\
+    \mathit{s.t.} \;\; & (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                       & x_i \geq 0 \;\;                              \forall i
 
   '''
-  def __init__(self, dims, par1 = 100, par2 = 0.1):
+  def __init__(self, dims, par1 = 100, par2 = 0.25):
     box = [(-2,2)] * dims
     box[0] = (0,2) # for cornercases + testing
     self.par1 = par1
@@ -70,7 +70,9 @@ class RosenbrockConstraint(Problem):
   def eval_constraints(self, x):
     cv = - (x[1:] - x[:-1])**2.0 + self.par2
     cv[cv < 0] = 0.0
-    return cv
+    pos = -x.copy() # note the -
+    pos[pos < 0] = 0.0
+    return np.concatenate([cv, pos])
 
 class RosenbrockAbs(Problem):
   r'''
@@ -78,7 +80,7 @@ class RosenbrockAbs(Problem):
 
   .. math::
 
-   f(x) = \sum_i (\mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
+   f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
 
   '''
   def __init__(self, dims, par1 = 100):
@@ -97,9 +99,9 @@ class RosenbrockAbsConstraint(Problem):
 
   .. math::
 
-   f(x) = \sum_i (\mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
-
-   \mathit{s.t.}\;\; \|x_{i+1} - x_{i}\| > \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\}
+   \min f(x) & = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \| \\
+   \mathit{s.t.} \;\; & \|x_{i+1} - x_{i}\| \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                      & x_i \geq 0 \;\;                          \forall i
 
   '''
   def __init__(self, dims, par1 = 100, par2 = 0.1):
@@ -116,7 +118,9 @@ class RosenbrockAbsConstraint(Problem):
   def eval_constraints(self, x):
     cv = - np.abs(x[1:] - x[:-1]) + self.par2
     cv[cv < 0] = 0.0
-    return cv
+    pos = -x.copy() # note the -
+    pos[pos < 0] = 0.0
+    return np.concatenate([cv, pos])
 
 class RosenbrockStochastic(Problem):
   r'''

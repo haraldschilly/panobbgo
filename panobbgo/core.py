@@ -190,7 +190,7 @@ class Heuristic(Module):
      This is also the way of how information is shared between those threads.
   #. The `main purpose` of a heuristic is to emit new search points
      by calling either :meth:`.emit` or returning a list of points.
-     The datatype must be :class:`numpy.ndarray` with 
+     The datatype must be :class:`numpy.ndarray` of 
      `floats <http://docs.scipy.org/doc/numpy/reference/arrays.scalars.html>`_.
   #. Additionally, the can get hold of other heuristics or anayzers via the strategy instance.
   #. The :class:`.EventBus` inside this strategy instance allows them to publish their

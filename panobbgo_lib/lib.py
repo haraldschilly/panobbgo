@@ -237,7 +237,9 @@ class Problem(object):
     return Result(point, fx, cv = cv)
 
   def __repr__(self):
-    descr = "Problem '%s' has %d dimensions. " % (self.__class__.__name__, self._dim)
-    descr += "Box: [%s]" % ', '.join('[%.2f %.2f]' % (l,u) for l,u in self._box)
+    descr = "Problem '%s': %d dims, " % (self.__class__.__name__, self._dim)
+    p = filter(lambda _:not _[0].startswith("_"), self.__dict__.iteritems())
+    descr += "params: %s, " % dict(p)
+    descr += "box: [%s]" % ', '.join('[%.2f %.2f]' % (l,u) for l,u in self._box)
     return descr
 

@@ -316,6 +316,42 @@ class WeightedAverage(Heuristic):
         #self.logger.info("out: %s" % ret)
         self.emit(ret)
 
+class Subprocess(Heuristic):
+  '''
+  This is a test example for spawning a :mod:`subprocess <multiprocessing>`.
+  The GIL is released and the actual work can be done in
+  another process in parallel. Communication is done via a
+  :func:`~multiprocessing.Pipe`.
+  '''
+  def __init__(self):
+    Heuristic.__init__(self)
+    self.logger = get_config().get_logger('SUBPR')
+    from multiprocessing import Process, Pipe
+
+    # a pipe has two ends, parent and child.
+    self.p1, self.p2 = Pipe()
+
+    self.process = Process(target=self.worker, args=(self.p2,), name='%s-Subprocess' % (self.name))
+    self.process.daemon = True
+    self.process.start()
+
+  @staticmethod
+  def worker(pipe):
+    '''
+    This static function is the target payload for the :class:`~multiprocessing.Process`.
+    '''
+    while True:
+      x = pipe.recv()
+      x += np.random.normal(0, 0.01, len(x))
+      pipe.send(x)
+
+  def on_new_best(self, best):
+    self.p1.send(best.x)
+    x = self.p1.recv()
+    self.logger.debug("%s -> %s" % (best.x, x))
+    return x
+
+
 class Testing(Heuristic):
   '''
   just to try some ideas ...

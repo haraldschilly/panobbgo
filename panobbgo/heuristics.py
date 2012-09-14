@@ -351,6 +351,42 @@ class Subprocess(Heuristic):
     self.logger.debug("%s -> %s" % (best.x, x))
     return x
 
+class LBFGS(Heuristic):
+  '''
+  This uses :func:`scipy.optimize.fmin_l_bfgs_b` in a subprocess.
+  '''
+  def __init__(self):
+    Heuristic.__init__(self)
+    self.logger = get_config().get_logger("LBFGS")
+    from multiprocessing import Process, Pipe
+    self.p1, self.p2 = Pipe()
+    self.out1, self.out2 = Pipe(False)
+    self.lbfgsb = Process(target=self.worker, args=(self.p2, self.out1, self.problem.dims), name='%s-LBFGS' % self.name)
+    self.lbfgsb.daemon = True
+    self.lbfgsb.start()
+
+  @staticmethod
+  def worker(pipe, output, dims):
+    from scipy.optimize import fmin_l_bfgs_b
+    import numpy as np
+
+    def f(x):
+      pipe.send(x)
+      return pipe.recv()
+
+    solution = fmin_l_bfgs_b(f, np.zeros(dims), approx_grad=True)
+    output.send(solution)
+
+
+  def on_start(self):
+    while True:
+      # if output.peek ? -> process output, end lbfgsb
+      self.emit(self.p1.recv())
+
+  def on_new_result(self, result):
+    # if match -> self.p1.send(result.x)
+    pass
+
 
 class Testing(Heuristic):
   '''

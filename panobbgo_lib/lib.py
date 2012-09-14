@@ -173,7 +173,7 @@ class Problem(object):
 
     self._dim = len(box)
     self._box = np.array(box, dtype=np.float64)
-    self._ranges = self._box[:,1] - self._box[:,0]
+    self._ranges = self._box.ptp(axis=1) # self._box[:,1] - self._box[:,0]
 
   @property
   def dim(self):

@@ -338,7 +338,7 @@ class Splitter(Analyzer):
 
     @memoize
     def __ranges(self):
-      return self.box[:,1] - self.box[:,0]
+      return self.box.ptp(axis=1) #self.box[:,1] - self.box[:,0]
 
     @property
     def ranges(self):

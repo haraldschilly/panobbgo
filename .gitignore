@@ -1,0 +1,13 @@
+*.swp
+*.pyc
+build/*
+doc/build
+dist/
+config.ini
+bin/
+include/
+lib/
+local/
+share/
+panobbgo.egg-info/
+panobbgo_problems.egg-info/

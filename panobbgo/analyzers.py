@@ -36,7 +36,8 @@ import numpy as np
 
 class Best(Analyzer):
   '''
-  Listens on all results and emits the following events:
+  Listens on all results, does accounting for "best" results,
+  manages a pareto front of good points and emits the following events:
 
   - ``new_best``: when a new "best" point,
   - ``new_min``: a point with smallest objective function value,
@@ -63,6 +64,7 @@ class Best(Analyzer):
     self._min     = r
     self._cv      = r
     self._pareto  = r
+    self._pareto_front = [] # this is a heapq, sorted by result.fx
 
   @property
   def best(self):
@@ -95,6 +97,50 @@ class Best(Analyzer):
     '''
     return self._min
 
+  @property
+  def pareto_front(self):
+    '''
+    This is the list of points building the current pareto front.
+
+    .. Note::
+
+      This is a shallow copy.
+    '''
+    return self._pareto_front[:]
+
+  def _update_pareto(self, new_point):
+    '''
+    Update the pareto front with this point @new_point.
+
+    Either ignore it, or add it to the front and remove
+    all points from the front which are obsolete.
+    '''
+    import heapq
+
+    if len(self._pareto_front) < 1:
+      heapq.heappush(self._pareto_front, new_point)
+      return
+
+    pf = list(self._pareto_front)
+    heapq.heappush(pf, new_point)
+
+    # consider it added, now recalculate the front
+    def is_left(p0, p1, ptest):
+      v1 = p1.pp - p0.pp
+      v2 = ptest.pp - p0.pp
+      return v1[::-1].dot(v2) < 0
+
+    new_front = pf[:2]
+    for p in list(pf[2:]):
+      new_front.append(p)
+      while len(new_front) > 2 and is_left(*new_front[-3:]):
+        del new_front[-2]
+
+    heapq.heapify(new_front)
+    self._pareto_front = new_front
+
+    self.logger.info("pareto: %s" % map(lambda x:(x.fx, x.cv), self.pareto_front))
+
   def on_new_result(self, result):
     r = result
 
@@ -117,6 +163,8 @@ class Best(Analyzer):
         self._pareto = r
         self.eventbus.publish("new_pareto", pareto = r)
         self.eventbus.publish("new_best", best = r)
+
+    self._update_pareto(result)
 
   def on_new_pareto(self, pareto):
     #self.logger.info("pareto: %s" % pareto)
@@ -198,7 +246,7 @@ class Splitter(Analyzer):
     # root box is equal to problem's box
     self.dim  = self.problem.dim
     self.limit = max(20, self.max_eval / self.dim ** 2)
-    self.logger.info("limit = %s" % self.limit)
+    self.logger.debug("limit = %s" % self.limit)
     self.root = Splitter.Box(None, self, self.problem.box.copy())
     self.leafs.append(self.root)
     # big boxes

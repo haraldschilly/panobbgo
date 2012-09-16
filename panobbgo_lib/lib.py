@@ -123,6 +123,13 @@ class Result(object):
     return norm(self._cv, self._cv_norm)
 
   @property
+  def pp(self):
+    '''
+    pareto point, i.e. array([fx, cv])
+    '''
+    return np.array([self.fx, self.cv])
+
+  @property
   def who(self):
     '''
     The :attr:`~panobbgo.core.Module.name` of the heuristic, who

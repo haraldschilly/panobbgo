@@ -1,0 +1,869 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>panobbgo.core &mdash; Panobbgo 0.0.1pre documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1pre',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../_static/opensearch.xml"/>
+    <link rel="top" title="Panobbgo 0.0.1pre documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for panobbgo.core</h1><div class="highlight"><pre>
+<span class="c"># -*- coding: utf8 -*-</span>
+<span class="c"># Copyright 2012 -- 2013 Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
+<span class="c">#</span>
+<span class="c"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c"># you may not use this file except in compliance with the License.</span>
+<span class="c"># You may obtain a copy of the License at</span>
+<span class="c">#</span>
+<span class="c"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c">#</span>
+<span class="c"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c"># See the License for the specific language governing permissions and</span>
+<span class="c"># limitations under the License.</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Core</span>
+<span class="sd">====</span>
+
+<span class="sd">This is the core part. It contains the essential components</span>
+<span class="sd">and base-classes for the modules:</span>
+
+<span class="sd">- :class:`.Results`: Database of all results, with some rudimentary queries and statistics.</span>
+<span class="sd">- :class:`.EventBus`: This is the backbone for communicating between the strategy,</span>
+<span class="sd">  the heuristics and the analyzers.</span>
+<span class="sd">- &quot;abstract&quot; base-classes for the modules</span>
+
+<span class="sd">  - :mod:`.heuristics`</span>
+<span class="sd">  - :mod:`.analyzers`.</span>
+
+<span class="sd">- and most importantly, the :class:`.StrategyBase` which holds everything together and</span>
+<span class="sd">  subclasses in :mod:`.strategies` implement the actual strategies.</span>
+
+<span class="sd">.. inheritance-diagram:: panobbgo.core</span>
+
+<span class="sd">.. codeauthor:: Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">get_config</span>
+<span class="kn">from</span> <span class="nn">panobbgo_lib</span> <span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+<span class="kn">from</span> <span class="nn">IPython.utils.timing</span> <span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+
+<div class="viewcode-block" id="Results"><a class="viewcode-back" href="../../core.html#panobbgo.core.Results">[docs]</a><span class="k">class</span> <span class="nc">Results</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    A very simple database of results with a notificaton for new results.</span>
+<span class="sd">    The new results are fed directly by the :class:`.StrategyBase`, outside of the</span>
+<span class="sd">    :class:`.EventBus`.</span>
+
+<span class="sd">    .. Note::</span>
+
+<span class="sd">      Later on, maybe this will be a cool actual database which allows to</span>
+<span class="sd">      persistenly store past evaluations for a given problem.</span>
+<span class="sd">      This would allow resuming and further a-posteriory analysis.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&#39;RSLTS&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">eventbus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_nb</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c"># for logging</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fx_delta_last</span> <span class="o">=</span> <span class="bp">None</span>
+
+<div class="viewcode-block" id="Results.add_results"><a class="viewcode-back" href="../../core.html#panobbgo.core.Results.add_results">[docs]</a>    <span class="k">def</span> <span class="nf">add_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_results</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Add one single or a list of new @Result objects.</span>
+<span class="sd">        Then, publish a ``new_result`` event.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="kn">import</span> <span class="nn">heapq</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_results</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
+            <span class="n">new_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">new_results</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">Result</span><span class="p">),</span> <span class="n">new_results</span><span class="p">))</span>
+        <span class="c"># notification for all recieved results at once</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s">&quot;new_results&quot;</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="n">new_results</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">new_results</span><span class="p">:</span>
+            <span class="n">heapq</span><span class="o">.</span><span class="n">heappush</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">/</span> <span class="mi">100</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_nb</span> <span class="o">/</span> <span class="mi">100</span><span class="p">:</span>
+            <span class="c"># self.info()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_nb</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Results.info"><a class="viewcode-back" href="../../core.html#panobbgo.core.Results.info">[docs]</a>    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%d</span><span class="s"> results in DB&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
+</div>
+    <span class="k">def</span> <span class="nf">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+
+    <span class="c"># TODO move this into the best analyzer</span>
+<div class="viewcode-block" id="Results.n_best"><a class="viewcode-back" href="../../core.html#panobbgo.core.Results.n_best">[docs]</a>    <span class="k">def</span> <span class="nf">n_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">heapq</span>
+        <span class="k">return</span> <span class="n">heapq</span><span class="o">.</span><span class="n">nsmallest</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="Module"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module">[docs]</a><span class="k">class</span> <span class="nc">Module</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    &quot;Abstract&quot; parent class for various panobbgo modules, e.g.</span>
+<span class="sd">    :class:`.Heuristic` and :class:`.Analyzer`.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_threads</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.name"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.name">[docs]</a>    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        The module&#39;s name.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">          It should be unique, which is important for</span>
+<span class="sd">          parameterized heuristics or analyzers!</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.strategy"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.strategy">[docs]</a>    <span class="k">def</span> <span class="nf">strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.ui"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.ui">[docs]</a>    <span class="k">def</span> <span class="nf">ui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy</span><span class="o">.</span><span class="n">ui</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.eventbus"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.eventbus">[docs]</a>    <span class="k">def</span> <span class="nf">eventbus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy</span><span class="o">.</span><span class="n">eventbus</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.problem"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.problem">[docs]</a>    <span class="k">def</span> <span class="nf">problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy</span><span class="o">.</span><span class="n">problem</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Module.results"><a class="viewcode-back" href="../../core.html#panobbgo.core.Module.results">[docs]</a>    <span class="k">def</span> <span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_strategy</span><span class="o">.</span><span class="n">results</span>
+</div>
+    <span class="k">def</span> <span class="nf">_init_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This method should be overwritten by the respective subclass.</span>
+<span class="sd">        It is called in the 2nd initialization phase, inside :meth:`._init_module`.</span>
+<span class="sd">        Now, the strategy and all its components (e.g. :class:`panobbgo_lib.lib.Problem`, ...)</span>
+<span class="sd">        are available.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_init_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This plot initializer is called right after the :meth:`._init` method.</span>
+<span class="sd">        It could be used to tell the (optionally enabled) :module:`user interface &lt;.ui&gt;` that</span>
+<span class="sd">        this module wants to have a tab for displaying and visualizing some data.</span>
+
+<span class="sd">        It has to return a tuple consisting of a string as the label of the tab,</span>
+<span class="sd">        and a gtk container (e.g. :class:`gtk.VBox`)</span>
+
+<span class="sd">        To trigger a redraw after an update, call the ``.draw_idle()`` method</span>
+<span class="sd">        of the :class:`~matplotlib.backends.backend_gtkagg.FigureCnavasGTKAgg`.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;Module </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+</div>
+<div class="viewcode-block" id="StopHeuristic"><a class="viewcode-back" href="../../core.html#panobbgo.core.StopHeuristic">[docs]</a><span class="k">class</span> <span class="nc">StopHeuristic</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Indicates the heuristic has finished and should be ignored/removed.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="s">&quot;stopped&quot;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Args:</span>
+
+<span class="sd">        - ``msg``: a custom message, will be visible in the log. (default: &quot;stopped&quot;)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="ne">Exception</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="Heuristic"><a class="viewcode-back" href="../../core.html#panobbgo.core.Heuristic">[docs]</a><span class="k">class</span> <span class="nc">Heuristic</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This is the &quot;abstract&quot; parent class for all types of point generating classes,</span>
+<span class="sd">    which we call collectively &quot;:mod:`Heuristics &lt;.heuristics&gt;`&quot;.</span>
+
+<span class="sd">    Such a heuristic is capable of the following:</span>
+
+<span class="sd">    #. They can be parameterized by passing in optional arguments in the constructor.</span>
+<span class="sd">       This should be reflected in the :attr:`~.Module.name`!</span>
+<span class="sd">    #. The :class:`.EventBus` spawns a thread for each ``on_*`` method</span>
+<span class="sd">       and calls them when a corresponding :class:`.Event` occurs.</span>
+<span class="sd">    #. Of course, they are capable of storing their state in the instance.</span>
+<span class="sd">       This is also the way of how information is shared between those threads.</span>
+<span class="sd">    #. The `main purpose` of a heuristic is to emit new search points</span>
+<span class="sd">       by calling either :meth:`.emit` or returning a list of points.</span>
+<span class="sd">       The datatype must be :class:`numpy.ndarray` of</span>
+<span class="sd">       `floats &lt;http://docs.scipy.org/doc/numpy/reference/arrays.scalars.html&gt;`_.</span>
+<span class="sd">    #. Additionally, the can get hold of other heuristics or anayzers via the strategy instance.</span>
+<span class="sd">    #. The :class:`.EventBus` inside this strategy instance allows them to publish their</span>
+<span class="sd">       own events, too. This can be used to signal related heuristics something</span>
+<span class="sd">       or to queue up tasks for itself.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">Module</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&#39;HEUR&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cap</span> <span class="o">=</span> <span class="n">cap</span> <span class="k">if</span> <span class="n">cap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">capacity</span>
+        <span class="kn">from</span> <span class="nn">Queue</span> <span class="kn">import</span> <span class="n">Queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__output</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cap</span><span class="p">)</span>
+
+        <span class="c"># statistics; performance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<div class="viewcode-block" id="Heuristic.clear_output"><a class="viewcode-back" href="../../core.html#panobbgo.core.Heuristic.clear_output">[docs]</a>    <span class="k">def</span> <span class="nf">clear_output</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__output</span>
+        <span class="k">with</span> <span class="n">q</span><span class="o">.</span><span class="n">not_full</span><span class="p">:</span>
+            <span class="c"># with q.mutex:</span>
+            <span class="c"># del self.__output.queue[:]  # LifoQueue</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c"># Queue</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">not_full</span><span class="o">.</span><span class="n">notify</span><span class="p">()</span>  <span class="c"># to wakeup &quot;put()&quot;</span>
+</div>
+<div class="viewcode-block" id="Heuristic.emit"><a class="viewcode-back" href="../../core.html#panobbgo.core.Heuristic.emit">[docs]</a>    <span class="k">def</span> <span class="nf">emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This is used to send out new search points for evaluation.</span>
+<span class="sd">        Args:</span>
+
+<span class="sd">        - ``points``: Either a :class:`numpy.ndarray` of ``float64`` or preferrably a list of them.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">points</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">StopHeuristic</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+                <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">points</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;point is not a numpy ndarray&quot;</span><span class="p">)</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+                <span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__output</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">StopHeuristic</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;&#39;</span><span class="si">%s</span><span class="s">&#39; heuristic stopped.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Heuristic.get_points"><a class="viewcode-back" href="../../core.html#panobbgo.core.Heuristic.get_points">[docs]</a>    <span class="k">def</span> <span class="nf">get_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        this drains the output Queue until ``limit``</span>
+<span class="sd">        elements are removed or the Queue is empty.</span>
+<span class="sd">        For each actually emitted point,</span>
+<span class="sd">        the performance value is discounted (i.e. &quot;punishment&quot; or &quot;energy</span>
+<span class="sd">        consumption&quot;)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="kn">from</span> <span class="nn">Queue</span> <span class="kn">import</span> <span class="n">Empty</span>
+        <span class="n">new_points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="n">limit</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">limit</span><span class="p">:</span>
+                <span class="n">new_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="bp">False</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">Empty</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">new_points</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Heuristic.active"><a class="viewcode-back" href="../../core.html#panobbgo.core.Heuristic.active">[docs]</a>    <span class="k">def</span> <span class="nf">active</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This is queried by the strategy to determine, if it should still consider it.</span>
+<span class="sd">        This is the case, iff there is still something in its output queue</span>
+<span class="sd">        or if there is a chance that there will be something in the future (at least</span>
+<span class="sd">        one thread is running).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">isAlive</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_threads</span><span class="p">)</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">t</span> <span class="ow">or</span> <span class="n">q</span>
+
+<span class="c">#</span>
+<span class="c"># Analyzer</span>
+<span class="c">#</span>
+
+</div></div>
+<div class="viewcode-block" id="Analyzer"><a class="viewcode-back" href="../../core.html#panobbgo.core.Analyzer">[docs]</a><span class="k">class</span> <span class="nc">Analyzer</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Abstract parent class for all types of analyzers.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">Module</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+<span class="c">#</span>
+<span class="c"># EventBus</span>
+<span class="c">#</span>
+
+</div>
+<div class="viewcode-block" id="Event"><a class="viewcode-back" href="../../core.html#panobbgo.core.Event">[docs]</a><span class="k">class</span> <span class="nc">Event</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This class holds the data for one single :class:`~.EventBus` event.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_when</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;Event[</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kwargs</span>
+
+</div>
+<div class="viewcode-block" id="EventBus"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus">[docs]</a><span class="k">class</span> <span class="nc">EventBus</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This event bus is used to publish and send events.</span>
+<span class="sd">    E.g. it is used to send information like &quot;new best point&quot;</span>
+<span class="sd">    to all subscribing heuristics.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c"># pattern for a valid key</span>
+    <span class="kn">import</span> <span class="nn">re</span>
+    <span class="n">_re_key</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s">r&#39;^[a-z_]+$&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&#39;EVBUS&#39;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="EventBus.keys"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus.keys">[docs]</a>    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        List of all keys where you can send an :class:`Event` to.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="EventBus.register"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Registers a given ``target`` for this EventBus instance.</span>
+<span class="sd">        It needs to have suitable ``on_&lt;key&gt;`` methods.</span>
+<span class="sd">        For each of them, a :class:`~threading.Thread` is spawn as a daemon.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="kn">from</span> <span class="nn">heuristics</span> <span class="kn">import</span> <span class="n">StopHeuristic</span>
+        <span class="kn">from</span> <span class="nn">Queue</span> <span class="kn">import</span> <span class="n">Empty</span><span class="p">,</span> <span class="n">Queue</span>  <span class="c"># LifoQueue</span>
+        <span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Thread</span>
+
+        <span class="c"># important: this decouples the dispatcher&#39;s thread from the actual</span>
+        <span class="c"># target</span>
+        <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">drain</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">drain</span><span class="p">:</span>  <span class="c"># not using draining for now, doesn&#39;t make much sense</span>
+                <span class="n">isfirst</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                    <span class="c"># draining the queue... otherwise it might get really huge</span>
+                    <span class="c"># it&#39;s up to the heuristics to only work with the most</span>
+                    <span class="c"># important points</span>
+                    <span class="n">events</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="n">terminate</span> <span class="o">=</span> <span class="bp">False</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                            <span class="n">event</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">_eventbus_events</span><span class="p">[</span>
+                                <span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="n">isfirst</span><span class="p">)</span>
+                            <span class="n">terminate</span> <span class="o">|=</span> <span class="n">event</span><span class="o">.</span><span class="n">_terminate</span>
+                            <span class="n">events</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+                            <span class="n">isfirst</span> <span class="o">=</span> <span class="bp">False</span>
+                    <span class="k">except</span> <span class="n">Empty</span><span class="p">:</span>
+                        <span class="n">isfirst</span> <span class="o">=</span> <span class="bp">True</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">new_points</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s">&#39;on_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)(</span><span class="n">events</span><span class="p">)</span>
+                        <span class="c"># heuristics might call self.emit and/or return a list</span>
+                        <span class="k">if</span> <span class="n">new_points</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                            <span class="n">target</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">terminate</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">StopHeuristic</span><span class="p">(</span><span class="s">&quot;terminated&quot;</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="n">StopHeuristic</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;&#39;</span><span class="si">%s</span><span class="s">/on_</span><span class="si">%s</span><span class="s">&#39; </span><span class="si">%s</span><span class="s"> -&gt; unsubscribing.&quot;</span> <span class="o">%</span>
+                                          <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">))</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+                        <span class="k">return</span>
+
+            <span class="k">else</span><span class="p">:</span>  <span class="c"># not draining (default)</span>
+                <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">event</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">_eventbus_events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">new_points</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                                <span class="n">target</span><span class="p">,</span> <span class="s">&#39;on_</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)(</span><span class="o">**</span><span class="n">event</span><span class="o">.</span><span class="n">_kwargs</span><span class="p">)</span>
+                            <span class="c"># heuristics might call self.emit and/or return a</span>
+                            <span class="c"># list</span>
+                            <span class="k">if</span> <span class="n">new_points</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                                <span class="n">target</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">_terminate</span><span class="p">:</span>
+                                <span class="k">raise</span> <span class="n">StopHeuristic</span><span class="p">(</span><span class="s">&quot;terminated&quot;</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="n">StopHeuristic</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                                <span class="s">&quot;&#39;</span><span class="si">%s</span><span class="s">/on_</span><span class="si">%s</span><span class="s">&#39; </span><span class="si">%s</span><span class="s"> -&gt; unsubscribing.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">message</span><span class="p">))</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+                            <span class="k">return</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="c"># usually, they only happen during shutdown</span>
+                        <span class="k">if</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+                            <span class="c"># sys.exc_info() -&gt; re-create original exception</span>
+                            <span class="c"># (otherwise we don&#39;t know the actual cause!)</span>
+                            <span class="kn">import</span> <span class="nn">sys</span>
+                            <span class="n">ex</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()</span>
+                            <span class="k">raise</span> <span class="n">ex</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">None</span><span class="p">,</span> <span class="n">ex</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>  <span class="c"># just issue a critical warning</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span>
+                                <span class="s">&quot;Exception: </span><span class="si">%s</span><span class="s"> in </span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
+                        <span class="k">return</span>
+
+        <span class="n">target</span><span class="o">.</span><span class="n">_eventbus_events</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c"># bind all &#39;on_&lt;key&gt;&#39; methods to events in the eventbus</span>
+        <span class="kn">import</span> <span class="nn">inspect</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">inspect</span><span class="o">.</span><span class="n">ismethod</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&quot;on_&quot;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">name</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">_eventbus_events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">run</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">,),</span>
+                       <span class="n">name</span><span class="o">=</span><span class="s">&#39;EventBus::</span><span class="si">%s</span><span class="s">/</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">_threads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="c"># thread running, now subscribe to events</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+            <span class="c"># logger.debug(&quot;%s subscribed and running.&quot; % t.name)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_check_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">EventBus</span><span class="o">.</span><span class="n">_re_key</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;&quot;</span><span class="si">%s</span><span class="s">&quot; key not allowed&#39;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="EventBus.subscribe"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus.subscribe">[docs]</a>    <span class="k">def</span> <span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Called by :meth:`.register`.</span>
+
+<span class="sd">        .. Note:: counterpart is :func:`unsubscribe`.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">assert</span> <span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="EventBus.unsubscribe"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus.unsubscribe">[docs]</a>    <span class="k">def</span> <span class="nf">unsubscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Args:</span>
+
+<span class="sd">        - if ``key`` is ``None``, the target is removed from all keys.</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">t</span> <span class="ow">is</span> <span class="n">target</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s">&quot;cannot unsubscribe unknown key &#39;</span><span class="si">%s</span><span class="s">&#39;&quot;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="EventBus.publish"><a class="viewcode-back" href="../../core.html#panobbgo.core.EventBus.publish">[docs]</a>    <span class="k">def</span> <span class="nf">publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">event</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Publishes a new :class:`.Event` to all subscribers,</span>
+<span class="sd">        who listen to the given ``key``.</span>
+<span class="sd">        It is either possible to send an existing event or to create an event</span>
+<span class="sd">        object on the fly with the given ``**kwargs``.</span>
+
+<span class="sd">        Args:</span>
+
+<span class="sd">        - ``event``: if set, this given :class:`.Event` is sent (and not a new one created).</span>
+<span class="sd">        - ``terminate``: if True, the associated thread will end.</span>
+<span class="sd">                         (use it for ``on_start`` and similar).</span>
+<span class="sd">        - ``**kwargs``: any additional keyword arguments are stored inside the Event</span>
+<span class="sd">                        if ``event`` is ``None``.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&quot;key &#39;</span><span class="si">%s</span><span class="s">&#39; unknown.&quot;</span> <span class="o">%</span> <span class="n">key</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subs</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="n">Event</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="n">event</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">event</span>
+            <span class="n">event</span><span class="o">.</span><span class="n">_terminate</span> <span class="o">=</span> <span class="n">terminate</span>
+            <span class="c"># logger.info(&quot;EventBus: publishing %s -&gt; %s&quot; % (key, event))</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">_eventbus_events</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="StrategyBase"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase">[docs]</a><span class="k">class</span> <span class="nc">StrategyBase</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This abstract BaseStrategy is the parent class of all Strategies.</span>
+
+<span class="sd">    Use it this way:</span>
+
+<span class="sd">    #. Subclass it, write your optional initializer, *afterwards* call the initializer</span>
+<span class="sd">       of this class (it will start its the main loop).</span>
+
+<span class="sd">    #. Overwrite the :meth:`.execute`, which returns a list of new search points</span>
+<span class="sd">       (by requesting them from the :mod:`~panobbgo.heuristics` via the</span>
+<span class="sd">       :meth:`~panobbgo.core.Heuristic.get_points` method) and might</span>
+<span class="sd">       also emit :class:`Events &lt;panobbgo.core.Event&gt;`.</span>
+
+<span class="sd">    This ``execute`` method will be called repeatedly as long as there are less than the</span>
+<span class="sd">    given maximum number of search points evaluated.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c"># constant reference id for sending the evaluation code to workers</span>
+    <span class="n">PROBLEM_KEY</span> <span class="o">=</span> <span class="s">&quot;problem&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="n">heurs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span>
+        <span class="c"># threading.Thread.__init__(self, name=name)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&#39;STRAT&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&#39;STATS&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Init of &#39;</span><span class="si">%s</span><span class="s">&#39; w/ </span><span class="si">%d</span><span class="s"> heuristics.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">)))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Heuristics </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">heurs</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">problem</span><span class="p">)</span>
+
+        <span class="c"># statistics</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c"># show info about evaluated points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c"># for printing the info line in _add_tasks()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c"># for setting _cnt in Result objects</span>
+        <span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Lock</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result_counter_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+
+        <span class="c"># task accounting (tasks != points !!!)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c"># number of tasks per client in &#39;chunksize&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c"># init &amp; start everything</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_cluster</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">problem</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_threads</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">problem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span> <span class="o">=</span> <span class="n">EventBus</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="n">Results</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c"># UI</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">ui_show</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">ui</span> <span class="kn">import</span> <span class="n">UI</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ui</span> <span class="o">=</span> <span class="n">UI</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="c"># heuristics</span>
+        <span class="kn">import</span> <span class="nn">collections</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">,</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">heurs</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+        <span class="c"># analyzers</span>
+        <span class="kn">from</span> <span class="nn">analyzers</span> <span class="kn">import</span> <span class="n">Best</span><span class="p">,</span> <span class="n">Grid</span><span class="p">,</span> <span class="n">Splitter</span>
+        <span class="n">best</span> <span class="o">=</span> <span class="n">Best</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&#39;best&#39;</span><span class="p">:</span> <span class="n">best</span><span class="p">,</span>
+            <span class="s">&#39;grid&#39;</span><span class="p">:</span> <span class="n">Grid</span><span class="p">(),</span>
+            <span class="s">&#39;splitter&#39;</span><span class="p">:</span> <span class="n">Splitter</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Eventbus keys: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">keys</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">threading</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;change run() to start()&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s">&quot;KeyboardInterrupt recieved, e.g. via Ctrl-C&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.heuristics"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.heuristics">[docs]</a>    <span class="k">def</span> <span class="nf">heuristics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="n">h</span><span class="o">.</span><span class="n">active</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.heuristic"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.heuristic">[docs]</a>    <span class="k">def</span> <span class="nf">heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span><span class="p">[</span><span class="n">who</span><span class="p">]</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.analyzer"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.analyzer">[docs]</a>    <span class="k">def</span> <span class="nf">analyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span><span class="p">[</span><span class="n">who</span><span class="p">]</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.add_heuristic"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.add_heuristic">[docs]</a>    <span class="k">def</span> <span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">assert</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span><span class="p">,</span> \
+            <span class="s">&quot;Names of heuristics need to be unique. &#39;</span><span class="si">%s</span><span class="s">&#39; is already used.&quot;</span> <span class="o">%</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">h</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_module</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.add_analyzer"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.add_analyzer">[docs]</a>    <span class="k">def</span> <span class="nf">add_analyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">assert</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span><span class="p">,</span> \
+            <span class="s">&quot;Names of analyzers need to be unique. &#39;</span><span class="si">%s</span><span class="s">&#39; is already used.&quot;</span> <span class="o">%</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_module</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.init_module"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.init_module">[docs]</a>    <span class="k">def</span> <span class="nf">init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        :class:`~panobbgo.strategies.StrategyBase` calls this method.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">module</span><span class="o">.</span><span class="n">_strategy</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="n">module</span><span class="o">.</span><span class="n">_init_</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">ui_show</span><span class="p">:</span>
+            <span class="n">plt</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">_init_plot</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plt</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">plt</span> <span class="o">=</span> <span class="p">[</span><span class="n">plt</span><span class="p">]</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">add_notebook_page</span><span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plt</span><span class="p">]</span>
+        <span class="c"># only after _init_ it is ready to recieve events</span>
+        <span class="n">module</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_setup_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nb_gens</span><span class="p">,</span> <span class="n">problem</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">IPython.parallel</span> <span class="kn">import</span> <span class="n">Client</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ipy_profile</span><span class="p">)</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c"># clears remote engines</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">purge_results</span><span class="p">(</span><span class="s">&#39;all&#39;</span><span class="p">)</span>  <span class="c"># all results are memorized in the hub</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ids</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">nb_gens</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;I need at least </span><span class="si">%d</span><span class="s"> clients.&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nb_gens</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">dv_evaluators</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="n">nb_gens</span><span class="p">:]</span>
+        <span class="n">dv_evaluators</span><span class="p">[</span><span class="n">StrategyBase</span><span class="o">.</span><span class="n">PROBLEM_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">problem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generators</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">load_balanced_view</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ids</span><span class="p">[:</span><span class="n">nb_gens</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">load_balanced_view</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ids</span><span class="p">[</span><span class="n">nb_gens</span><span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">direct_view</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ids</span><span class="p">[:]</span>
+        <span class="c"># TODO remove this hack. &quot;problem&quot; wasn&#39;t pushed to all clients</span>
+        <span class="c"># time.sleep(1e-1)</span>
+
+        <span class="c"># import some packages (also locally)</span>
+        <span class="c"># with c[:].sync_imports():</span>
+        <span class="c">#  import numpy</span>
+        <span class="c">#  import math</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.best"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.best">[docs]</a>    <span class="k">def</span> <span class="nf">best</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyzers</span><span class="p">[</span><span class="s">&#39;best&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">best</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.name"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.name">[docs]</a>    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.run"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s">&#39;start&#39;</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">IPython.parallel</span> <span class="kn">import</span> <span class="n">Reference</span>
+        <span class="n">prob_ref</span> <span class="o">=</span> <span class="n">Reference</span><span class="p">(</span><span class="n">StrategyBase</span><span class="o">.</span><span class="n">PROBLEM_KEY</span><span class="p">)</span>  <span class="c"># see _setup_cluster</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Strategy &#39;</span><span class="si">%s</span><span class="s">&#39; started&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="c"># execute the actual strategy</span>
+            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+
+            <span class="c"># distribute work</span>
+            <span class="n">new_tasks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">map_async</span><span class="p">(</span><span class="n">prob_ref</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span>
+                                                  <span class="n">chunksize</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span><span class="p">,</span> <span class="n">ordered</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+            <span class="c"># and don&#39;t forget, this updates the statistics</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_tasks</span><span class="p">(</span><span class="n">new_tasks</span><span class="p">)</span>
+
+            <span class="c"># collect new results for each finished task, hand them over to</span>
+            <span class="c"># result DB</span>
+            <span class="k">for</span> <span class="n">msg_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">get_result</span><span class="p">(</span><span class="n">msg_id</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_counter_lock</span><span class="p">:</span>
+                        <span class="n">r</span><span class="o">.</span><span class="n">_cnt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result_counter</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">result_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">+=</span> <span class="n">r</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span>
+                <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">/</span> <span class="mi">50</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">avg_time_per_task</span><span class="p">)))</span>
+
+            <span class="c"># show heuristic performances after each round</span>
+            <span class="c"># logger.info(&#39;  &#39;.join((&#39;%s:%.3f&#39; % (h, h.performance) for h in</span>
+            <span class="c"># heurs)))</span>
+
+            <span class="c"># stopping criteria</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="c"># limit loop speed</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="StrategyBase.execute"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.execute">[docs]</a>    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Overwrite this method when you extend this base strategy.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;You need to extend the class StrategyBase and overwrite this execute method.&#39;</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        cleanup + shutdown</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s">&#39;finished&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">msg_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">get_result</span><span class="p">(</span><span class="n">msg_id</span><span class="p">)</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Strategy &#39;</span><span class="si">%s</span><span class="s">&#39; finished after </span><span class="si">%.3f</span><span class="s"> [s] and </span><span class="si">%d</span><span class="s"> loops.&quot;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">ui_show</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>  <span class="c"># blocks figure window</span>
+
+    <span class="k">def</span> <span class="nf">_add_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_tasks</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Accounting routine for the parallel tasks, only used by :meth:`.run`.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">new_tasks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">mid</span> <span class="ow">in</span> <span class="n">new_tasks</span><span class="o">.</span><span class="n">msg_ids</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">mid</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cnt</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">get_result</span><span class="p">(</span><span class="n">mid</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">get_result</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span><span class="o">.</span><span class="n">elapsed</span>
+
+        <span class="c"># if self.cnt / 100 &gt; self.show_last / 100:</span>
+        <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">show_last</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">show_interval</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>  <span class="c"># self.cnt</span>
+
+<div class="viewcode-block" id="StrategyBase.info"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.info">[docs]</a>    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avg_time_per_task</span>
+        <span class="n">pend</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">)</span>
+        <span class="n">fini</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="p">)</span>
+        <span class="n">peval</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%4d</span><span class="s"> (</span><span class="si">%4d</span><span class="s">) pnts | Tasks: </span><span class="si">%3d</span><span class="s"> pend, </span><span class="si">%3d</span><span class="s"> finished | &quot;</span>
+                          <span class="s">&quot;</span><span class="si">%6.3f</span><span class="s"> [s] cpu, </span><span class="si">%6.3f</span><span class="s"> [s] wall, </span><span class="si">%6.3f</span><span class="s"> [s/task]&quot;</span> <span class="o">%</span>
+                         <span class="p">(</span><span class="n">peval</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cnt</span><span class="p">,</span> <span class="n">pend</span><span class="p">,</span> <span class="n">fini</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_cpu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_wall</span><span class="p">,</span> <span class="n">avg</span><span class="p">))</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.avg_time_per_task"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.avg_time_per_task">[docs]</a>    <span class="k">def</span> <span class="nf">avg_time_per_task</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&quot;avg time per task for 0 tasks! -&gt; returning NaN&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">NAN</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.time_wall"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.time_wall">[docs]</a>    <span class="k">def</span> <span class="nf">time_wall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        wall time in seconds</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_start</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.time_cpu"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.time_cpu">[docs]</a>    <span class="k">def</span> <span class="nf">time_cpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        effective cpu time in seconds</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">clock</span><span class="p">()</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="StrategyBase.time_start_str"><a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.time_start_str">[docs]</a>    <span class="k">def</span> <span class="nf">time_start_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">ctime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_start</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

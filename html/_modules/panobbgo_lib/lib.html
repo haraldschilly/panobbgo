@@ -1,0 +1,400 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>panobbgo_lib.lib &mdash; Panobbgo 0.0.1pre documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1pre',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../_static/opensearch.xml"/>
+    <link rel="top" title="Panobbgo 0.0.1pre documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for panobbgo_lib.lib</h1><div class="highlight"><pre>
+<span class="c"># -*- coding: utf8 -*-</span>
+<span class="c"># Copyright 2012 Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
+<span class="c">#</span>
+<span class="c"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c"># you may not use this file except in compliance with the License.</span>
+<span class="c"># You may obtain a copy of the License at</span>
+<span class="c">#</span>
+<span class="c"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c">#</span>
+<span class="c"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c"># See the License for the specific language governing permissions and</span>
+<span class="c"># limitations under the License.</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Library Classes</span>
+<span class="sd">===============</span>
+
+<span class="sd">This file contains the basic objects to build a problem and to do a single evaluation.</span>
+
+<span class="sd">.. inheritance-diagram:: panobbgo_lib.lib</span>
+
+<span class="sd">.. Note:: This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.</span>
+
+<span class="sd">.. codeauthor:: Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="c"># ATTN: make sure, that this doesn&#39;t depend on the config or threading modules.</span>
+<span class="c">#       the serialization and reconstruction won&#39;t work!</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">IPython.utils.timing</span> <span class="kn">import</span> <span class="n">time</span>
+
+
+<div class="viewcode-block" id="Point"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Point">[docs]</a><span class="k">class</span> <span class="nc">Point</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This contains the x vector for a new point and a</span>
+<span class="sd">    reference to :attr:`.who` has generated it.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">who</span><span class="p">,</span> <span class="nb">basestring</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s">&#39;who needs to be a string describing the heuristic, was </span><span class="si">%s</span><span class="s"> of type </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">who</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">who</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;x must be a numpy ndarray&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_who</span> <span class="o">=</span> <span class="n">who</span>  <span class="c"># heuristic.name, a string</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        &gt;&gt;&gt; Point</span>
+<span class="sd">        &lt;class &#39;panobbgo_lib.lib.Point&#39;&gt;</span>
+
+<span class="sd">        &gt;&gt;&gt; x</span>
+
+<span class="sd">        &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">        &gt;&gt;&gt; repr(Point(np.array([1,2]), &#39;test&#39;))</span>
+<span class="sd">        &#39;[1 2] by test&#39;</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> by </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Point.x"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Point.x">[docs]</a>    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s">&quot;The vector :math:`x`, a :class:`numpy.ndarray`&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Point.who"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Point.who">[docs]</a>    <span class="k">def</span> <span class="nf">who</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.</span>
+
+<span class="sd">        To get the actual heuristic, use the</span>
+<span class="sd">        :meth:`strategie&#39;s heuristic &lt;panobbgo.core.StrategyBase.heuristic&gt;` method.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_who</span>
+
+</div></div>
+<div class="viewcode-block" id="Result"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result">[docs]</a><span class="k">class</span> <span class="nc">Result</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">    This represents one result, wich is a mapping of a :class:`.Point`</span>
+<span class="sd">    :math:`x \rightarrow f(x)`.</span>
+
+<span class="sd">    Additionally, there is also</span>
+
+<span class="sd">    - :attr:`.error`: estimated or calculated :math:`\Delta f(x)`.</span>
+<span class="sd">    - :attr:`.cv_vec`: a possibly empty vector listing the constraint violation for</span>
+<span class="sd">      each constraint.</span>
+<span class="sd">    - :attr:`.cnt`: An integer counter, starting at 0.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="n">fx</span><span class="p">,</span> <span class="n">cv_vec</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cv_norm</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Args:</span>
+
+<span class="sd">        - ``cv``: the constraint violation vector</span>
+<span class="sd">        - ``cv_norm``: the norm used to calculate :attr:`.cv`.</span>
+<span class="sd">          (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">point</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">Point</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;point must be a Point&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_point</span> <span class="o">=</span> <span class="n">point</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fx</span> <span class="o">=</span> <span class="n">fx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_error</span> <span class="o">=</span> <span class="n">error</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span> <span class="o">=</span> <span class="n">cv_vec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cv_norm</span> <span class="o">=</span> <span class="n">cv_norm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cnt</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.cnt"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.cnt">[docs]</a>    <span class="k">def</span> <span class="nf">cnt</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Integer ID for this result.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cnt</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.x"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.x">[docs]</a>    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Point :math:`x` where this result has been evaluated.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">point</span><span class="o">.</span><span class="n">x</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">point</span> <span class="k">else</span> <span class="bp">None</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.point"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.point">[docs]</a>    <span class="k">def</span> <span class="nf">point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Returns the actual :class:`.Point` object.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_point</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.fx"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.fx">[docs]</a>    <span class="k">def</span> <span class="nf">fx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;The function value :math:`f(x)` after :meth:`evaluating &lt;panobbgo_lib.lib.Problem.eval&gt;` it.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.cv_vec"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.cv_vec">[docs]</a>    <span class="k">def</span> <span class="nf">cv_vec</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Vector of constraint violations for each constraint, or None.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">           Be aware, that entries could be negative. This is useful if you want to know</span>
+<span class="sd">           how well a point is satisfied. The `.cv` property just looks at the positive</span>
+<span class="sd">           entries, though.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.cv"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.cv">[docs]</a>    <span class="k">def</span> <span class="nf">cv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        The chosen norm of :attr:`.cv_vec`; see ``cv_norm`` in constructor.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">            Only the positive entries are used to calculate the norm!</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="kn">from</span> <span class="nn">numpy.linalg</span> <span class="kn">import</span> <span class="n">norm</span>
+        <span class="k">return</span> <span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_norm</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.pp"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.pp">[docs]</a>    <span class="k">def</span> <span class="nf">pp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        pareto point, i.e. array([cv, fx])</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fx</span><span class="p">])</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.who"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.who">[docs]</a>    <span class="k">def</span> <span class="nf">who</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        The :attr:`~panobbgo.core.Module.name` of the heuristic, who</span>
+<span class="sd">        did generate this point (String).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">point</span><span class="o">.</span><span class="n">who</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Result.error"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Result.error">[docs]</a>    <span class="k">def</span> <span class="nf">error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Error margin of function evaluation, usually 0.0.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_error</span>
+</div>
+    <span class="k">def</span> <span class="nf">__cmp__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Compare with other point by fx (and fx only!).</span>
+
+<span class="sd">        .. Note ::</span>
+
+<span class="sd">          This is also used by mechanism</span>
+<span class="sd">          like Best -&gt; pareto_front</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">cmp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fx</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">_fx</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="s">&#39;</span><span class="si">%11.6f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="s">&#39;&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv_vec</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="s">u&#39;</span><span class="se">\u22DB</span><span class="si">%8.4f</span><span class="s"> &#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">cv</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%11.6f</span><span class="s"> </span><span class="si">%s</span><span class="s">@ [</span><span class="si">%s</span><span class="s">]&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fx</span><span class="p">,</span> <span class="n">cv</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="Problem"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem">[docs]</a><span class="k">class</span> <span class="nc">Problem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    this is used to store the objective function,</span>
+<span class="sd">    information about the problem, etc.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">):</span>
+        <span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">        box must be a list of tuples, which specify</span>
+<span class="sd">        the range of each variable.</span>
+
+<span class="sd">        example: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c"># validate</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">box</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;box argument must be a list or tuple&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">box</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;box entries must be of length 2&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">numbers</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;box entries must be numbers&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">entry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">entry</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;box entries must be non decreasing&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">box</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c"># self._box[:,1] - self._box[:,0]</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Problem.dim"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.dim">[docs]</a>    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;The number of dimensions.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Problem.ranges"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.ranges">[docs]</a>    <span class="k">def</span> <span class="nf">ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;The ranges along each dimension, a :class:`numpy.ndarray`.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="Problem.box"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.box">[docs]</a>    <span class="k">def</span> <span class="nf">box</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">        The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array &lt;numpy.ndarray&gt;`.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">          This might change to a more sophisticated ``Box`` object.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box</span>
+</div>
+<div class="viewcode-block" id="Problem.project"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.project">[docs]</a>    <span class="k">def</span> <span class="nf">project</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+        <span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">        projects given point into the search box.</span>
+<span class="sd">        e.g. :math:`[-1.1, 1]` with box :math:`[(-1,1),(-1,1)]`</span>
+<span class="sd">        gives :math:`[-1,1]`</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">),</span> <span class="s">&#39;point must be a numpy ndarray&#39;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+</div>
+<div class="viewcode-block" id="Problem.random_point"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.random_point">[docs]</a>    <span class="k">def</span> <span class="nf">random_point</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        generates a random point inside the given search box (ranges).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c"># uniformly</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="c"># TODO other distributions, too?</span>
+</div>
+<div class="viewcode-block" id="Problem.eval"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This is called to evaluate the given black-box function.</span>
+<span class="sd">        The problem should be called directly (``__call__`` special function wraps this)</span>
+<span class="sd">        and the given problem should subclass this ``eval`` method.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&quot;You have to subclass and overwrite the eval function&quot;</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Problem.eval_constraints"><a class="viewcode-back" href="../../lib.html#panobbgo_lib.lib.Problem.eval_constraints">[docs]</a>    <span class="k">def</span> <span class="nf">eval_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        This method is optionally overwritten by the problem to calculate the constraint violations.</span>
+<span class="sd">        It has to return a :class:`numpy.ndarray` of ``floats``.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">pass</span>
+</div>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+        <span class="c"># from time import sleep</span>
+        <span class="c"># sleep(1e-2)</span>
+        <span class="n">fx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_constraints</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Result</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">fx</span><span class="p">,</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">descr</span> <span class="o">=</span> <span class="s">&quot;Problem &#39;</span><span class="si">%s</span><span class="s">&#39;: </span><span class="si">%d</span><span class="s"> dims, &quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="ow">not</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&quot;_&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">iteritems</span><span class="p">())</span>
+        <span class="n">descr</span> <span class="o">+=</span> <span class="s">&quot;params: </span><span class="si">%s</span><span class="s">, &quot;</span> <span class="o">%</span> <span class="nb">dict</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="n">descr</span> <span class="o">+=</span> <span class="s">&quot;box: [</span><span class="si">%s</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="s">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="s">&#39;[</span><span class="si">%.2f</span><span class="s"> </span><span class="si">%.2f</span><span class="s">]&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">u</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">descr</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,202 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Panobbgo: parallel noisy black-box global optimization &mdash; Panobbgo 0.0.1pre documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.0.1pre',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="top" title="Panobbgo 0.0.1pre documentation" href="#" />
+    <link rel="next" title="Core" href="core.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="core.html" title="Core"
+             accesskey="N">next</a> |</li>
+        <li><a href="#">Panobbgo</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="name-parallel-noisy-black-box-global-optimization">
+<h1>Panobbgo: <cite>parallel noisy black-box global optimization</cite><a class="headerlink" href="#name-parallel-noisy-black-box-global-optimization" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">It is currently work in progress and definitely not ready for any kind of usage.</p>
+</div>
+<p>Panobbgo is an open-source framework for parallel noisy black-box global optimization.
+The primary aim is to experiment with new ideas and algorithms.
+A couple of functional building blocks build the solver and
+exchange information via an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><tt class="xref py py-class docutils literal"><span class="pre">EventBus</span></tt></a> among each other.
+This allows to rapidly prototype new modules and to combine them with existing parts.
+There are three basic types of parts that work together:</p>
+<ul class="simple">
+<li>the <a class="reference internal" href="strategies.html#module-panobbgo.strategies" title="panobbgo.strategies"><tt class="xref py py-mod docutils literal"><span class="pre">Strategy</span></tt></a></li>
+<li>several <a class="reference internal" href="heuristics.html#module-panobbgo.heuristics" title="panobbgo.heuristics"><tt class="xref py py-mod docutils literal"><span class="pre">Heuristics</span></tt></a></li>
+<li>and <tt class="xref py py-mod docutils literal"><span class="pre">Analyzers</span></tt></li>
+</ul>
+<p>Various tools for extracting statistical data and inspecting the optimization process are included (<cite>planned</cite>).
+Additionally, parallel evaluation of the objective black-box function can be
+archived as SMP or on a cluster via IPython <a class="reference internal" href="#ip">[IP]</a>.</p>
+<p>In the background, there are additional utility features for the configuration and dependency management (<cite>planned</cite>) available.</p>
+<p>This software package is licensed under the
+<a class="reference external" href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache 2.0 License</a>.</p>
+<a class="reference external image-reference" href="https://travis-ci.org/haraldschilly/panobbgo"><img alt="Build Status" src="https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master" /></a>
+</div>
+<div class="section" id="module-panobbgo">
+<span id="main"></span><h2>Main<a class="headerlink" href="#module-panobbgo" title="Permalink to this headline">¶</a></h2>
+<p>This is the main part of Panobbgo.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="module-panobbgo_lib">
+<span id="library"></span><h2>Library<a class="headerlink" href="#module-panobbgo_lib" title="Permalink to this headline">¶</a></h2>
+<p>This is the <cite>library</cite> of Panobbgo, used by the main part and the library.
+For example, the basic <a class="reference internal" href="lib.html#panobbgo_lib.lib.Problem" title="panobbgo_lib.lib.Problem"><tt class="xref py py-class docutils literal"><span class="pre">Problem</span></tt></a> class is defined here.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="examples">
+<h1>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li>ex1</li>
+<li>ex2</li>
+</ul>
+</div>
+<div class="section" id="links">
+<h1>Links<a class="headerlink" href="#links" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference external" href="http://github.com/haraldschilly/panobbgo">source repository</a></li>
+<li>short <a class="reference external" href="https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&amp;start=false&amp;loop=false&amp;delayms=3000">introduction talk</a></li>
+<li>Indices and Tables<ul>
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</li>
+</ul>
+<table class="docutils citation" frame="void" id="ip" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[IP]</a></td><td><a class="reference external" href="http://www.ipython.org">http://www.ipython.org</a></td></tr>
+</tbody>
+</table>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Panobbgo: <cite>parallel noisy black-box global optimization</cite></a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#module-panobbgo">Main</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-panobbgo_lib">Library</a><ul>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+<li><a class="reference internal" href="#links">Links</a></li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="core.html"
+                        title="next chapter">Core</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="core.html" title="Core"
+             >next</a> |</li>
+        <li><a href="#">Panobbgo</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

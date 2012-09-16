@@ -1,0 +1,250 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>panobbgo.ui &mdash; Panobbgo 0.0.1pre documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1pre',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../_static/opensearch.xml"/>
+    <link rel="top" title="Panobbgo 0.0.1pre documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for panobbgo.ui</h1><div class="highlight"><pre>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># Copyright 2012 Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
+<span class="c">#</span>
+<span class="c"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c"># you may not use this file except in compliance with the License.</span>
+<span class="c"># You may obtain a copy of the License at</span>
+<span class="c">#</span>
+<span class="c"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c">#</span>
+<span class="c"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c"># See the License for the specific language governing permissions and</span>
+<span class="c"># limitations under the License.</span>
+
+<span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">User Interface</span>
+<span class="sd">--------------</span>
+
+<span class="sd">This draws a window and plots graphs.</span>
+
+<span class="sd">.. figure:: img/ui1.png</span>
+<span class="sd">   :scale:  75 %</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">from</span> <span class="nn">config</span> <span class="kn">import</span> <span class="n">get_config</span>
+<span class="kn">from</span> <span class="nn">core</span> <span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Thread</span>
+
+<span class="kn">import</span> <span class="nn">pygtk</span>
+<span class="n">pygtk</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="s">&#39;2.0&#39;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">gtk</span>
+<span class="kn">from</span> <span class="nn">gtk</span> <span class="kn">import</span> <span class="n">gdk</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;TRAVIS&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&quot;true&quot;</span><span class="p">:</span>
+    <span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s">&#39;Agg&#39;</span><span class="p">)</span>  <span class="c"># &#39;GTKAgg&#39; or &#39;GTK&#39;, or &#39;Agg&#39; ?</span>
+    <span class="kn">from</span> <span class="nn">matplotlib.backends.backend_agg</span> <span class="kn">import</span> <span class="n">FigureCanvasAgg</span> <span class="k">as</span> <span class="n">FigureCanvas</span>
+    <span class="kn">from</span> <span class="nn">matplotlib.backends.backend_agg</span> <span class="kn">import</span> <span class="n">NavigationToolbar2Agg</span> <span class="k">as</span> <span class="n">NavigationToolbar</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s">&#39;GTKAgg&#39;</span><span class="p">)</span>  <span class="c"># &#39;GTKAgg&#39; or &#39;GTK&#39;, or &#39;Agg&#39; ?</span>
+    <span class="kn">from</span> <span class="nn">matplotlib.backends.backend_gtkagg</span> <span class="kn">import</span> <span class="n">FigureCanvasGTKAgg</span> <span class="k">as</span> <span class="n">FigureCanvas</span>
+    <span class="kn">from</span> <span class="nn">matplotlib.backends.backend_gtkagg</span> <span class="kn">import</span> <span class="n">NavigationToolbar2GTKAgg</span> <span class="k">as</span> <span class="n">NavigationToolbar</span>
+<span class="k">del</span> <span class="n">os</span>
+<span class="c"># from matplotlib.widgets import Slider, Cursor # SpanSelector</span>
+<span class="c"># from matplotlib.axes import Axes</span>
+
+
+<div class="viewcode-block" id="UI"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI">[docs]</a><span class="k">class</span> <span class="nc">UI</span><span class="p">(</span><span class="n">Module</span><span class="p">,</span> <span class="n">gtk</span><span class="o">.</span><span class="n">Window</span><span class="p">,</span> <span class="n">Thread</span><span class="p">):</span>
+
+    <span class="sd">r&#39;&#39;&#39;</span>
+<span class="sd">    UI</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">Module</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">gtk</span><span class="o">.</span><span class="n">Window</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gtk</span><span class="o">.</span><span class="n">WINDOW_TOPLEVEL</span><span class="p">)</span>
+        <span class="c"># fill current window</span>
+        <span class="n">screen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_screen</span><span class="p">()</span>
+        <span class="n">monitor</span> <span class="o">=</span> <span class="n">screen</span><span class="o">.</span><span class="n">get_monitor_at_window</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_root_window</span><span class="p">())</span>
+        <span class="n">geom</span> <span class="o">=</span> <span class="n">screen</span><span class="o">.</span><span class="n">get_monitor_geometry</span><span class="p">(</span><span class="n">monitor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_resize_mode</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">RESIZE_QUEUE</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">_</span> <span class="o">*</span> <span class="o">.</span><span class="mi">8</span><span class="p">),</span> <span class="p">[</span><span class="n">geom</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="n">geom</span><span class="o">.</span><span class="n">height</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="mf">4.</span> <span class="o">/</span> <span class="mf">3.</span><span class="p">),</span> <span class="n">s</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_canvases</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="c"># centered</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_position</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">WIN_POS_CENTER</span><span class="p">)</span>
+        <span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="UI.mk_canvas"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.mk_canvas">[docs]</a>    <span class="k">def</span> <span class="nf">mk_canvas</span><span class="p">():</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Creates a FigureCanvas, ready to be added to a gtk layout element</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="kn">from</span> <span class="nn">matplotlib.figure</span> <span class="kn">import</span> <span class="n">Figure</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">Figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">FigureCanvas</span><span class="p">(</span><span class="n">fig</span><span class="p">),</span> <span class="n">fig</span>
+</div>
+<div class="viewcode-block" id="UI.show"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.show">[docs]</a>    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s">&quot;UI&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_default_size</span><span class="p">(</span><span class="mi">900</span><span class="p">,</span> <span class="mi">800</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;destroy&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">destroy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span>
+            <span class="s">&#39;Panobbgo </span><span class="si">%s</span><span class="s">@</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">git_head</span><span class="p">[:</span><span class="mi">8</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_border_width</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_hbox</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">HBox</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">notebook</span> <span class="o">=</span> <span class="n">notebook</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">Notebook</span><span class="p">()</span>
+        <span class="n">notebook</span><span class="o">.</span><span class="n">set_tab_pos</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">POS_LEFT</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_hbox</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+        <span class="n">notebook</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">top_hbox</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_events</span><span class="p">(</span><span class="n">gdk</span><span class="o">.</span><span class="n">BUTTON_PRESS_MASK</span> <span class="o">|</span>
+                        <span class="n">gdk</span><span class="o">.</span><span class="n">KEY_PRESS_MASK</span> <span class="o">|</span>
+                        <span class="n">gdk</span><span class="o">.</span><span class="n">KEY_RELEASE_MASK</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_all</span><span class="p">()</span>
+        <span class="n">gdk</span><span class="o">.</span><span class="n">threads_init</span><span class="p">()</span>
+        <span class="c"># def run_gtk_main():</span>
+        <span class="c"># self.mt = Thread(target=run_gtk_main)</span>
+        <span class="c"># self.mt.start()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_auto_redraw</span><span class="p">()</span>
+</div>
+    <span class="k">def</span> <span class="nf">_auto_redraw</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">task</span><span class="p">():</span>
+            <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">gtk</span><span class="o">.</span><span class="n">threads_enter</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_canvases</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">_need_redraw</span><span class="p">]</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">gtk</span><span class="o">.</span><span class="n">threads_leave</span><span class="p">()</span>
+                <span class="kn">from</span> <span class="nn">IPython.utils.timing</span> <span class="kn">import</span> <span class="n">time</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">get_config</span><span class="p">()</span><span class="o">.</span><span class="n">ui_redraw_delay</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">task</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<div class="viewcode-block" id="UI.redraw_canvas"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.redraw_canvas">[docs]</a>    <span class="k">def</span> <span class="nf">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        If your canvas needs to be redrawn, pass it into this function.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">FigureCanvas</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_canvases</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">_need_redraw</span> <span class="o">=</span> <span class="bp">True</span>
+</div>
+<div class="viewcode-block" id="UI.add_notebook_page"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.add_notebook_page">[docs]</a>    <span class="k">def</span> <span class="nf">add_notebook_page</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label_text</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">label_text</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">frame</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">label_text</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notebook</span><span class="o">.</span><span class="n">append_page</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">show_all</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notebook</span><span class="o">.</span><span class="n">show_all</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="UI.run"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gtk</span><span class="o">.</span><span class="n">threads_enter</span><span class="p">()</span>
+        <span class="n">gtk</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+        <span class="n">gtk</span><span class="o">.</span><span class="n">threads_leave</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="UI.destroy"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.destroy">[docs]</a>    <span class="k">def</span> <span class="nf">destroy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">win</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;window destroyed&quot;</span><span class="p">)</span>
+        <span class="n">gtk</span><span class="o">.</span><span class="n">main_quit</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="UI.finish"><a class="viewcode-back" href="../../ui.html#panobbgo.ui.UI.finish">[docs]</a>    <span class="k">def</span> <span class="nf">finish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;called by base strategy in _cleanup for shutdown&#39;&#39;&#39;</span>
+        <span class="c"># plt.ioff()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>  <span class="c"># not necessary, since not a daemon</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">Panobbgo</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

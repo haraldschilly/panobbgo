@@ -1,0 +1,170 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>User Interface &mdash; Panobbgo 0.0.1pre documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.0.1pre',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="top" title="Panobbgo 0.0.1pre documentation" href="index.html" />
+    <link rel="next" title="&lt;no title&gt;" href="utils.html" />
+    <link rel="prev" title="Configuration" href="config.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="&lt;no title&gt;"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="config.html" title="Configuration"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Panobbgo</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <span class="target" id="module-panobbgo.ui"></span><div class="section" id="user-interface">
+<h1>User Interface<a class="headerlink" href="#user-interface" title="Permalink to this headline">¶</a></h1>
+<p>This draws a window and plots graphs.</p>
+<div class="figure">
+<a class="reference internal image-reference" href="_images/ui1.png"><img alt="_images/ui1.png" src="_images/ui1.png" style="width: 722.25px; height: 359.25px;" /></a>
+</div>
+<dl class="class">
+<dt id="panobbgo.ui.UI">
+<em class="property">class </em><tt class="descclassname">panobbgo.ui.</tt><tt class="descname">UI</tt><a class="reference internal" href="_modules/panobbgo/ui.html#UI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Module" title="panobbgo.core.Module"><tt class="xref py py-class docutils literal"><span class="pre">panobbgo.core.Module</span></tt></a>, <tt class="xref py py-class docutils literal"><span class="pre">gtk.Window</span></tt>, <a class="reference external" href="http://docs.python.org/2.7/library/threading.html#threading.Thread" title="(in Python v2.7)"><tt class="xref py py-class docutils literal"><span class="pre">threading.Thread</span></tt></a></p>
+<p>UI</p>
+<dl class="method">
+<dt id="panobbgo.ui.UI.add_notebook_page">
+<tt class="descname">add_notebook_page</tt><big>(</big><em>label_text</em>, <em>frame</em><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.add_notebook_page"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.add_notebook_page" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="panobbgo.ui.UI.destroy">
+<tt class="descname">destroy</tt><big>(</big><em>win</em><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.destroy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.destroy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="panobbgo.ui.UI.finish">
+<tt class="descname">finish</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.finish"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.finish" title="Permalink to this definition">¶</a></dt>
+<dd><p>called by base strategy in _cleanup for shutdown</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="panobbgo.ui.UI.mk_canvas">
+<em class="property">static </em><tt class="descname">mk_canvas</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.mk_canvas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.mk_canvas" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a FigureCanvas, ready to be added to a gtk layout element</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="panobbgo.ui.UI.redraw_canvas">
+<tt class="descname">redraw_canvas</tt><big>(</big><em>c</em><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.redraw_canvas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.redraw_canvas" title="Permalink to this definition">¶</a></dt>
+<dd><p>If your canvas needs to be redrawn, pass it into this function.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="panobbgo.ui.UI.run">
+<tt class="descname">run</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.run" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="panobbgo.ui.UI.show">
+<tt class="descname">show</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/panobbgo/ui.html#UI.show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#panobbgo.ui.UI.show" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="config.html"
+                        title="previous chapter">Configuration</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="utils.html"
+                        title="next chapter">&lt;no title&gt;</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/ui.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="&lt;no title&gt;"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="config.html" title="Configuration"
+             >previous</a> |</li>
+        <li><a href="index.html">Panobbgo</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

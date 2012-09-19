@@ -108,38 +108,48 @@ class Best(Analyzer):
     '''
     return self._pareto_front[:]
 
-  def _update_pareto(self, new_point):
+  def _update_pareto(self, result):
     '''
-    Update the pareto front with this point @new_point.
+    Update the pareto front with this new @result.
 
     Either ignore it, or add it to the front and remove
     all points from the front which are obsolete.
     '''
-    import heapq
+    # Note: result.pp returns np.array([cv, fx])
 
-    if len(self._pareto_front) < 1:
-      heapq.heappush(self._pareto_front, new_point)
-      return
-
-    pf = list(self._pareto_front)
-    heapq.heappush(pf, new_point)
-
-    # consider it added, now recalculate the front
-    def is_left(p0, p1, ptest):
+    def is_right(p0, p1, ptest):
+      '''
+      p0->p1 existing points, ptest other point
+      return true, if ptest is left of p0->p1
+      '''
       v1 = p1.pp - p0.pp
       v2 = ptest.pp - p0.pp
-      return v1[::-1].dot(v2) < 0
+      return np.linalg.det(np.vstack([v1, v2])) < 0
 
-    new_front = pf[:2]
-    for p in list(pf[2:]):
+    import heapq
+    # add the new point
+    pf = self.pareto_front
+    # pf needs to be sorted
+    pf.append(result)
+    sorted(pf)
+    self.logger.debug("sorted: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+
+    # ... and re-calculate the front
+    new_front = pf[:1]
+    for p in pf[1:]:
       new_front.append(p)
-      while len(new_front) > 2 and is_left(*new_front[-3:]):
+      self.logger.debug("nf: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+      # next point needs to be left (smaller cv) and and above (higher fx)
+      while len(new_front) > 1 and new_front[-1].cv >= new_front[-2].cv:
+        del new_front[-1]
+      # always a "right turn"
+      while len(new_front) > 2 and is_right(*new_front[-3:]):
         del new_front[-2]
 
     heapq.heapify(new_front)
     self._pareto_front = new_front
 
-    self.logger.info("pareto: %s" % map(lambda x:(x.fx, x.cv), self.pareto_front))
+    self.logger.debug("pareto: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
 
   def on_new_result(self, result):
     r = result

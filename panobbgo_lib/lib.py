@@ -125,9 +125,9 @@ class Result(object):
   @property
   def pp(self):
     '''
-    pareto point, i.e. array([fx, cv])
+    pareto point, i.e. array([cv, fx])
     '''
-    return np.array([self.fx, self.cv])
+    return np.array([self.cv, self.fx])
 
   @property
   def who(self):
@@ -145,6 +145,14 @@ class Result(object):
     return self._error
 
   def __cmp__(self, other):
+    '''
+    Compare with other point by fx (and fx only!).
+
+    .. Note ::
+
+      This is also used by mechanism
+      like Best -> pareto_front
+    '''
     assert isinstance(other, Result)
     return cmp(self._fx, other._fx)
 

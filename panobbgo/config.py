@@ -158,7 +158,7 @@ class Config(object):
     name = "%-5s" % name
     loglevel = loglevel or self.loglevel
     # logger focus
-    lf = ["%-5s" % _ for _ in self.logger_focus]
+    lf = map(lambda _:_.upper(), ["%-5s" % _ for _ in self.logger_focus])
     if name in lf: loglevel = 0
     # cache
     key = '%s::%s' % (name, loglevel)

@@ -56,6 +56,9 @@ def info():
   v['git HEAD'] = git.communicate()[0].splitlines()[0]
   return v
 
+def is_left(p0, p1, ptest):
+  return is_right(p1, p0, ptest)
+
 def is_right(p0, p1, ptest):
   '''
   p0->p1 existing results, ptest other point
@@ -68,7 +71,7 @@ def is_right(p0, p1, ptest):
   import numpy as np
   v1 = p1    - p0
   v2 = ptest - p0
-  return np.linalg.det(np.vstack([v1, v2])) <= 0
+  return np.linalg.det(np.vstack([v1, v2])) < 0
 
 class memoize(object):
   """

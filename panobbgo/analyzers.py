@@ -116,31 +116,45 @@ class Best(Analyzer):
     all points from the front which are obsolete.
     '''
     # Note: result.pp returns np.array([cv, fx])
-    import heapq
-    from utils import is_right
+    from utils import is_left
     # add the new point
     pf = self.pareto_front
     # pf needs to be sorted
     pf.append(result)
-    sorted(pf)
-    self.logger.debug("sorted: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+    pf = sorted(pf)
 
     # ... and re-calculate the front
     new_front = pf[:1]
     for p in pf[1:]:
       new_front.append(p)
-      self.logger.debug("nf: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
       # next point needs to be left (smaller cv) and and above (higher fx)
       while len(new_front) > 1 and new_front[-1].cv >= new_front[-2].cv:
         del new_front[-1]
       # always a "right turn", concerning the ".pp" pareto points
-      while len(new_front) > 2 and is_right(*map(lambda _:_.pp, new_front[-3:])):
+      while len(new_front) > 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):
         del new_front[-2]
 
-    heapq.heapify(new_front)
-    self._pareto_front = new_front
+    self._pareto_front = sorted(new_front)
+    #TODO remove this check
+    self._check_pareto_front()
 
-    self.logger.debug("pareto: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+    if len(self.pareto_front) > 2:
+      self.logger.debug("pareto: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+
+  def _check_pareto_front(self):
+    '''
+    just used for testing
+    '''
+    pf = self.pareto_front
+    for p1, p2 in zip(pf[:-1], pf[1:]):
+      assert p1.fx <= p2.fx, u'fx > fx for %s, %s' % (p1, p2)
+      assert p1.cv >= p2.cv, u'cv < cv for %s, %s' % (p1, p2)
+    if len(pf) >= 3:
+      from utils import is_left
+      for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):
+        if is_left(p1.pp, p2.pp, p3.pp):
+          self.logger.critical('is_left %s' % map(lambda _:_.pp, [p1, p2, p3]))
+
 
   def on_new_result(self, result):
     r = result

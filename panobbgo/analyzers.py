@@ -116,17 +116,8 @@ class Best(Analyzer):
     all points from the front which are obsolete.
     '''
     # Note: result.pp returns np.array([cv, fx])
-
-    def is_right(p0, p1, ptest):
-      '''
-      p0->p1 existing points, ptest other point
-      return true, if ptest is left of p0->p1
-      '''
-      v1 = p1.pp - p0.pp
-      v2 = ptest.pp - p0.pp
-      return np.linalg.det(np.vstack([v1, v2])) < 0
-
     import heapq
+    from utils import is_right
     # add the new point
     pf = self.pareto_front
     # pf needs to be sorted
@@ -142,8 +133,8 @@ class Best(Analyzer):
       # next point needs to be left (smaller cv) and and above (higher fx)
       while len(new_front) > 1 and new_front[-1].cv >= new_front[-2].cv:
         del new_front[-1]
-      # always a "right turn"
-      while len(new_front) > 2 and is_right(*new_front[-3:]):
+      # always a "right turn", concerning the ".pp" pareto points
+      while len(new_front) > 2 and is_right(*map(lambda _:_.pp, new_front[-3:])):
         del new_front[-2]
 
     heapq.heapify(new_front)

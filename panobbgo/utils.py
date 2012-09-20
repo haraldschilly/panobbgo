@@ -56,6 +56,20 @@ def info():
   v['git HEAD'] = git.communicate()[0].splitlines()[0]
   return v
 
+def is_right(p0, p1, ptest):
+  '''
+  p0->p1 existing results, ptest other point
+  return true, if ptest is on the right of p0->p1
+
+  Args::
+
+    - p0, p1, ptest: :class:`numpy.ndarray`.
+  '''
+  import numpy as np
+  v1 = p1    - p0
+  v2 = ptest - p0
+  return np.linalg.det(np.vstack([v1, v2])) <= 0
+
 class memoize(object):
   """
   Caches the return value of a method inside the instance's function!

@@ -513,6 +513,11 @@ class StrategyBase(object):
     }
     map(lambda a : a._init_module(self), self._analyzers.values())
 
+    # UI
+    from ui import UI
+    self.ui = UI()
+    self.ui._init_module(self)
+
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
     try:
@@ -634,6 +639,7 @@ class StrategyBase(object):
 
     self.info()
     self.results.info()
+    #self.ui.ioff() # blocks figure window
 
   def _add_tasks(self, new_tasks):
     '''

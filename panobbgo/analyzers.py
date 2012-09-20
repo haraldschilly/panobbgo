@@ -118,6 +118,7 @@ class Best(Analyzer):
     # Note: result.pp returns np.array([cv, fx])
     from utils import is_left
     # add the new point
+    pf_old = self.pareto_front
     pf = self.pareto_front
     # pf needs to be sorted
     pf.append(result)
@@ -134,12 +135,14 @@ class Best(Analyzer):
       while len(new_front) > 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):
         del new_front[-2]
 
-    self._pareto_front = sorted(new_front)
-    #TODO remove this check
-    self._check_pareto_front()
+    self._pareto_front = new_front
+    if pf_old != new_front:
+      #TODO remove this check
+      self._check_pareto_front()
 
-    if len(self.pareto_front) > 2:
-      self.logger.debug("pareto: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+      if len(self.pareto_front) > 2:
+        self.logger.debug("pareto: %s" % map(lambda x:(x.cv, x.fx), self.pareto_front))
+      self.eventbus.publish("new_pareto_front", front = new_front)
 
   def _check_pareto_front(self):
     '''
@@ -154,7 +157,6 @@ class Best(Analyzer):
       for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):
         if is_left(p1.pp, p2.pp, p3.pp):
           self.logger.critical('is_left %s' % map(lambda _:_.pp, [p1, p2, p3]))
-
 
   def on_new_result(self, result):
     r = result

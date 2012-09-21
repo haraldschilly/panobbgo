@@ -7,7 +7,7 @@
 ========================================================
 
 ..
-  .. image:: panobbgo-graphic.png
+  .. image:: img/panobbgo-graphic.png
      :align: center
 
 Introduction

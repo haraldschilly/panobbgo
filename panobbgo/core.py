@@ -639,7 +639,7 @@ class StrategyBase(object):
 
     self.info()
     self.results.info()
-    #self.ui.ioff() # blocks figure window
+    self.ui.finish() # blocks figure window
 
   def _add_tasks(self, new_tasks):
     '''

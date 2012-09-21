@@ -56,6 +56,12 @@ class Best(Analyzer):
 
   The best point (pareto) is available via the :attr:`.best` attribute.
   There is also :attr:`.cv`, :attr:`.min` and :attr:`.pareto`.
+
+  .. figure:: img/pareto-front.png
+     :scale: 50 %
+
+     This is an example of how several pareto fronts progress during the optimization.
+
   '''
   def __init__(self):
     Analyzer.__init__(self)

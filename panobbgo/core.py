@@ -484,6 +484,7 @@ class StrategyBase(object):
     self.show_last   = 0 # for printing the info line in _add_tasks()
     self.time_start  = time.time()
     self.tasks_walltimes = {}
+    self.result_counter = 0 # for setting _cnt in Result objects
 
     # task accounting (tasks != points !!!)
     self.per_client   = 1 # #tasks per client in 'chunksize'
@@ -603,6 +604,8 @@ class StrategyBase(object):
       # collect new results for each finished task, hand them over to result DB
       for msg_id in self.new_finished:
         for r in self.evaluators.get_result(msg_id).result:
+          r._cnt = self.result_counter
+          self.result_counter += 1
           self.results += r
 
       self.per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))

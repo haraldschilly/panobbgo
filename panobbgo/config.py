@@ -141,14 +141,15 @@ class Config(object):
     logger.info('config.ini: %s' % all_cfgp())
 
     ## specific data
-    self.loglevel      = _cfgp.getint  ('core', 'loglevel')
-    self.show_interval = _cfgp.getfloat('core', 'show_interval')
-    self.max_eval      = _cfgp.getint  ('core', 'max_eval')
-    self.discount      = _cfgp.getfloat('core', 'discount')
-    self.smooth        = _cfgp.getfloat('core', 'smooth')
-    self.capacity      = _cfgp.getint  ('heuristic', 'capacity')
-    self.ipy_profile   = _cfgp.get     ('ipython', 'profile')
-    self.logger_focus  = _options.logger_focus
+    self.loglevel        = _cfgp.getint  ('core', 'loglevel')
+    self.show_interval   = _cfgp.getfloat('core', 'show_interval')
+    self.max_eval        = _cfgp.getint  ('core', 'max_eval')
+    self.discount        = _cfgp.getfloat('core', 'discount')
+    self.smooth          = _cfgp.getfloat('core', 'smooth')
+    self.capacity        = _cfgp.getint  ('heuristic', 'capacity')
+    self.ipy_profile     = _cfgp.get     ('ipython', 'profile')
+    self.logger_focus    = _options.logger_focus
+    self.ui_redraw_delay = 0.5
 
     logger.info('IPython profile: %s' % self.ipy_profile)
     logger.info("Environment: %s" % info())

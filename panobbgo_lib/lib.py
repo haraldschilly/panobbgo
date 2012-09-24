@@ -73,6 +73,7 @@ class Result(object):
   - :attr:`.error`: estimated or calculated :math:`\Delta f(x)`.
   - :attr:`.constraint_violation`: a possibly empty vector listing the constraint violation for
     each constraint.
+  - :attr:`.cnt`: An integer counter, starting at 0.
   '''
   def __init__(self, point, fx, cv = None, cv_norm = None, error = 0.0):
     '''
@@ -90,6 +91,14 @@ class Result(object):
     self._cv      = cv
     self._cv_norm = cv_norm
     self._time    = time.time()
+    self._cnt     = None
+
+  @property
+  def cnt(self):
+    '''
+    Integer ID for this result.
+    '''
+    return self._cnt
 
   @property
   def x(self):

@@ -19,6 +19,8 @@ User Interface
 
 This draws a window and plots graphs.
 '''
+from config import get_config
+
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -41,22 +43,27 @@ class UI(Module, gtk.Window, Thread):
   def __init__(self):
     Module.__init__(self)
 
+    self.dirty = False # used to indicate, if something needs to be drawn
+
     gtk.Window.__init__(self)
-    self.set_default_size(600, 600)
+    self.set_default_size(1000, 500)
     self.connect('destroy', lambda win: gtk.main_quit())
     self.set_title('Panobbgo')
-    self.set_border_width(5)
+    self.set_border_width(3)
 
-    self.vbox = gtk.VBox(False, 5)
-    self.add(self.vbox)
+    self.top_hbox = gtk.HBox(False, 3)
 
-    label = gtk.Label("This is the UI")
-    self.vbox.pack_start(label, False, False)
+    self.pf_vbox = gtk.VBox(False, 3)
+    self.top_hbox.add(self.pf_vbox)
+    self.fx_vbox = gtk.VBox(False, 3)
+    self.top_hbox.add(self.fx_vbox)
+    self.add(self.top_hbox)
+
+    #label = gtk.Label("This is the UI")
+    #self.pf_vbox.pack_start(label, False, False)
 
     self.init_pareto()
-
-    self.toolbar = NavigationToolbar(self.canvas, self)
-    self.vbox.pack_start(self.toolbar, False, False)
+    self.init_fx()
 
     self.add_events(gdk.BUTTON_PRESS_MASK |
                     gdk.KEY_PRESS_MASK|
@@ -77,28 +84,58 @@ class UI(Module, gtk.Window, Thread):
     gtk.threads_leave()
 
   def init_pareto(self):
-    self.dirty = False # used to indicate, if something needs to be drawn
+    self.fig = Figure(figsize=(10,10))
+    self.pf_plt = self.fig.add_subplot(1,1,1)
+    from matplotlib.ticker import MultipleLocator
+    self.pf_plt.xaxis.set_major_locator(MultipleLocator(1))
+    self.pf_plt.xaxis.set_minor_locator(MultipleLocator(.1))
+    self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
+    self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
+    self.pf_plt.xaxis.grid(True,'major',linewidth=1)
+    self.pf_plt.yaxis.grid(True,'major',linewidth=1)
+    self.pf_plt.set_title("Pareto Front")
+    self.pf_plt.set_xlabel("constr. violation")
+    self.pf_plt.set_ylabel("obj. value")
+
+    self.pf_canvas = FigureCanvas(self.fig) # gtk.DrawingArea
+    self.pf_vbox.pack_start(self.pf_canvas, True, True)
+
+    self.toolbar = NavigationToolbar(self.pf_canvas, self)
+    self.pf_vbox.pack_start(self.toolbar, False, False)
+
+  def init_fx(self):
+    self.result_i = 0 # just a counter. TODO counter inside result object?
 
     self.fig = Figure(figsize=(10,10))
-    self.pfplt = self.fig.add_subplot(1,1,1)
-    from matplotlib.ticker import MultipleLocator
-    self.pfplt.xaxis.set_major_locator(MultipleLocator(.1))
-    self.pfplt.xaxis.set_minor_locator(MultipleLocator(.01))
-    self.pfplt.xaxis.grid(True,'minor',linewidth=.5)
-    self.pfplt.yaxis.grid(True,'minor',linewidth=.5)
-    self.pfplt.xaxis.grid(True,'major',linewidth=1)
-    self.pfplt.yaxis.grid(True,'major',linewidth=1)
-    self.pfplt.set_title("Pareto Front")
-    self.pfplt.set_xlabel("constr. violation")
-    self.pfplt.set_ylabel("obj. value")
+    self.fx_plt = self.fig.add_subplot(1,1,1)
+    #from matplotlib.ticker import MultipleLocator
+    #self.fx_plt.xaxis.set_major_locator(MultipleLocator(.1))
+    #self.fx_plt.xaxis.set_minor_locator(MultipleLocator(.01))
+    self.fx_plt.grid(True, which="both", ls="-.", color="grey")
+    self.fx_plt.set_title("f(x)")
+    self.fx_plt.set_xlabel("evaluation")
+    self.fx_plt.set_ylabel("obj. value")
+    self.fx_plt.set_xlim([0, get_config().max_eval])
 
-    self.canvas = FigureCanvas(self.fig) # gtk.DrawingArea
-    self.vbox.pack_start(self.canvas, True, True)
+    self.fx_canvas = FigureCanvas(self.fig) # gtk.DrawingArea
+    self.fx_vbox.pack_start(self.fx_canvas, True, True)
+
+    self.toolbar = NavigationToolbar(self.fx_canvas, self)
+    self.fx_vbox.pack_start(self.toolbar, False, False)
 
   def on_new_pareto_front(self, front):
     #self.ax1.clear()
-    self.pfplt.plot(*zip(*map(lambda x:x.pp, front)))
-    self.pfplt.autoscale()
+    self.pf_plt.plot(*zip(*map(lambda x:x.pp, front)))
+    self.pf_plt.autoscale()
+    self.dirty = True
+
+  def on_new_results(self, results):
+    for r in results:
+      self.fx_plt.plot(self.result_i, r.fx, 'k.')
+      ylim = [min(self.fx_plt.get_ylim()[0], r.fx),
+              max(self.fx_plt.get_ylim()[1], r.fx)]
+      self.result_i += 1
+    self.fx_plt.set_ylim(ylim)
     self.dirty = True
 
   def draw(self):
@@ -107,12 +144,13 @@ class UI(Module, gtk.Window, Thread):
         if self.dirty:
           gtk.threads_enter()
           try:
-            self.canvas.draw()
+            self.fx_canvas.draw()
+            self.pf_canvas.draw()
             self.dirty = False
           finally:
             gtk.threads_leave()
         from IPython.utils.timing import time
-        time.sleep(.1)
+        time.sleep(.5)
 
     self.t = Thread(target=task)
     self.t.daemon = True

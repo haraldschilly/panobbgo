@@ -88,10 +88,10 @@ class UI(Module, gtk.Window, Thread):
     from matplotlib.ticker import MultipleLocator
     self.pf_plt.xaxis.set_major_locator(MultipleLocator(1))
     self.pf_plt.xaxis.set_minor_locator(MultipleLocator(.1))
-    self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
-    self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
     self.pf_plt.xaxis.grid(True,'major',linewidth=1)
     self.pf_plt.yaxis.grid(True,'major',linewidth=1)
+    self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
+    self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
     self.pf_plt.set_title("Pareto Front")
     self.pf_plt.set_xlabel("constr. violation")
     self.pf_plt.set_ylabel("obj. value")
@@ -147,9 +147,9 @@ class UI(Module, gtk.Window, Thread):
         if self.dirty:
           gtk.threads_enter()
           try:
+            self.dirty = False
             self.fx_canvas.draw()
             self.pf_canvas.draw()
-            self.dirty = False
           finally:
             gtk.threads_leave()
         from IPython.utils.timing import time

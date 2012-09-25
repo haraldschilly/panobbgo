@@ -54,6 +54,7 @@ Main
    heuristics
    analyzers
    config
+   ui
    utils
 
 Library

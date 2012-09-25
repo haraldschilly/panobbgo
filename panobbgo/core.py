@@ -161,8 +161,6 @@ class Module(object):
 # Heuristic
 #
 
-from Queue import Empty, LifoQueue # PriorityQueue
-
 class StopHeuristic(Exception):
   '''
   Indicates the heuristic has finished and should be ignored/removed.
@@ -202,7 +200,8 @@ class Heuristic(Module):
     self.config = get_config()
     self.logger = self.config.get_logger('HEUR')
     self.cap = cap if cap != None else get_config().capacity
-    self.__output = LifoQueue(self.cap)
+    from Queue import Queue
+    self.__output = Queue(self.cap)
 
     # statistics; performance
     self.performance = 0.0
@@ -239,6 +238,7 @@ class Heuristic(Module):
     the performance value is discounted (i.e. "punishment" or "energy
     consumption")
     '''
+    from Queue import Empty
     new_points = []
     try:
       while limit is None or len(new_points) < limit:
@@ -315,7 +315,7 @@ class EventBus(object):
     For each of them, a :class:`~threading.Thread` is spawn as a daemon.
     '''
     from heuristics import StopHeuristic
-    from Queue import Empty, LifoQueue
+    from Queue import Empty, Queue # LifoQueue
     from threading import Thread
 
     # important: this decouples the dispatcher's thread from the actual target
@@ -371,7 +371,7 @@ class EventBus(object):
       if not name.startswith("on_"): continue
       key = name[3:]
       self._check_key(key)
-      target._eventbus_events[key] = LifoQueue()
+      target._eventbus_events[key] = Queue()
       t = Thread(target = run, args = (key, target,),
           name='EventBus::%s/%s'%(target.name, key))
       t.daemon = True

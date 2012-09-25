@@ -44,13 +44,15 @@ class UI(Module, gtk.Window, Thread):
   '''
   def __init__(self):
     Module.__init__(self)
+    config = get_config()
+    self.logger = config.get_logger("UI")
 
     self.dirty = False # used to indicate, if something needs to be drawn
 
     gtk.Window.__init__(self)
     self.set_default_size(1000, 500)
-    self.connect('destroy', lambda win: gtk.main_quit())
-    self.set_title('Panobbgo')
+    self.connect('destroy', self.destroy)
+    self.set_title('Panobbgo %s@%s' % (config.version, config.git_head[:8]))
     self.set_border_width(3)
 
     self.top_hbox = gtk.HBox(False, 0)
@@ -84,6 +86,10 @@ class UI(Module, gtk.Window, Thread):
     gtk.threads_enter()
     gtk.main()
     gtk.threads_leave()
+
+  def destroy(self, win):
+    self.logger.warning("window destroyed")
+    gtk.main_quit()
 
   def init_pareto(self):
     fig = Figure(figsize=(10,10))

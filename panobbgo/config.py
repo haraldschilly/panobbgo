@@ -139,6 +139,8 @@ class Config(object):
       return ret
 
     logger.info('config.ini: %s' % all_cfgp())
+    self.environment = info()
+    from panobbgo import __version__
 
     ## specific data
     self.loglevel        = _cfgp.getint  ('core', 'loglevel')
@@ -150,9 +152,11 @@ class Config(object):
     self.ipy_profile     = _cfgp.get     ('ipython', 'profile')
     self.logger_focus    = _options.logger_focus
     self.ui_redraw_delay = 0.5
+    self.version         = __version__
+    self.git_head        = self.environment['git HEAD']
 
     logger.info('IPython profile: %s' % self.ipy_profile)
-    logger.info("Environment: %s" % info())
+    logger.info("Environment: %s" % self.environment)
 
   def get_logger(self, name, loglevel = None):
     assert len(name) <= 5, 'Lenght of logger name > 5: "%s"' % name

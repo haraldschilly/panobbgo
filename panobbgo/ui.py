@@ -18,6 +18,9 @@ User Interface
 --------------
 
 This draws a window and plots graphs.
+
+.. figure:: img/ui1.png
+   :scale:  75 %
 '''
 from config import get_config
 import numpy as np

@@ -208,7 +208,8 @@ class Heuristic(Module):
 
   def clear_output(self):
     with self.__output.mutex:
-      del self.__output.queue[:]
+      #del self.__output.queue[:]  # LifoQueue
+      self.__output.queue.clear()  # Queue
 
   def emit(self, points):
     '''

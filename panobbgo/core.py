@@ -361,7 +361,14 @@ class EventBus(object):
               return
           except Exception, e:
             # usually, they only happen during shutdown
-            self.logger.critical("Exception: %s in %s: %s" % (key, target, e))
+            print ">>>", get_config().debug
+            if get_config().debug:
+              # sys.exc_info() -> re-create original exception (otherwise we don't know the actual cause!)
+              import sys
+              ex = sys.exc_info()
+              raise ex[1], None, ex[2]
+            else: # just issue a critical warning
+              self.logger.critical("Exception: %s in %s: %s" % (key, target, e))
             return
 
     target._eventbus_events = {}

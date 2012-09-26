@@ -75,6 +75,12 @@ class Config(object):
         dest="verbosity",
         help="verbosity level: -v, -vv, or -vvv")
 
+    _parser.add_option("-d", '--debug',
+        dest="debug",
+        action="store_true",
+        default=False,
+        help="If set, changes behavior in some cases to be more verbose or to break earlier.")
+
     _parser.add_option('--lf', '--log-focus',
         dest="logger_focus",
         action="append",
@@ -144,6 +150,7 @@ class Config(object):
 
     ## specific data
     self.loglevel        = _cfgp.getint  ('core', 'loglevel')
+    self.debug           = _options.debug
     self.show_interval   = _cfgp.getfloat('core', 'show_interval')
     self.max_eval        = _cfgp.getint  ('core', 'max_eval')
     self.discount        = _cfgp.getfloat('core', 'discount')

@@ -94,13 +94,13 @@ class UI(Module, gtk.Window, Thread):
   def init_pareto(self):
     fig = Figure(figsize=(10,10))
     self.pf_plt = fig.add_subplot(1,1,1)
-    from matplotlib.ticker import MultipleLocator
-    self.pf_plt.xaxis.set_major_locator(MultipleLocator(1))
-    self.pf_plt.xaxis.set_minor_locator(MultipleLocator(.1))
-    self.pf_plt.xaxis.grid(True,'major',linewidth=1)
-    self.pf_plt.yaxis.grid(True,'major',linewidth=1)
-    self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
-    self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
+    #from matplotlib.ticker import MultipleLocator
+    #self.pf_plt.xaxis.set_major_locator(MultipleLocator(1))
+    #self.pf_plt.xaxis.set_minor_locator(MultipleLocator(.1))
+    #self.pf_plt.xaxis.grid(True,'major',linewidth=1)
+    #self.pf_plt.yaxis.grid(True,'major',linewidth=1)
+    #self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
+    #self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
     self.pf_plt.set_title("Pareto Front")
     self.pf_plt.set_xlabel("constr. violation")
     self.pf_plt.set_ylabel("obj. value")
@@ -138,16 +138,20 @@ class UI(Module, gtk.Window, Thread):
 
   def on_new_results(self, results):
     for r in results:
-      self.fx_plt.plot(r.cnt, r.fx, marker='.', alpha=.5)
-      ylim = [min(self.fx_plt.get_ylim()[0], r.fx),
-              max(self.fx_plt.get_ylim()[1], r.fx)]
-    self.fx_plt.set_ylim(ylim)
+      self.pf_plt.plot(r.pp[0], r.pp[1], marker='.', alpha=.2, color='grey')
+      #self.fx_plt.plot(r.cnt, r.fx, marker='.', alpha=.5)
+      #ylim = [min(self.fx_plt.get_ylim()[0], r.fx),
+      #        max(self.fx_plt.get_ylim()[1], r.fx)]
+    #self.fx_plt.set_ylim(ylim)
     self.dirty = True
 
   def on_new_best(self, best):
-    print best.cnt
-    self.best_plot.set_xdata(np.append(self.best_plot.get_xdata(), best.cnt))
-    self.best_plot.set_ydata(np.append(self.best_plot.get_ydata(), best.fx))
+    nxt = best.cnt, best.fx
+    self.best_plot.set_xdata(np.append(self.best_plot.get_xdata(), nxt[0]))
+    self.best_plot.set_ydata(np.append(self.best_plot.get_ydata(), nxt[1]))
+    ylim = [min(self.fx_plt.get_ylim()[0], nxt[0]),
+            max(self.fx_plt.get_ylim()[1], nxt[1])]
+    self.fx_plt.set_ylim(ylim)
     self.dirty = True
 
   def draw(self):

@@ -113,16 +113,19 @@ class UI(Module, gtk.Window, Thread):
     pf_ax.set_xlabel("constr. violation")
     pf_ax.set_ylabel("obj. value")
 
+    self.pf_plt_pnts = np.empty(shape = (0, 2))
+    self.pf_plt, = pf_ax.plot([], [], marker='o', ls = '', alpha=.3, color='black')
+
     self.pf_cursor = Cursor(pf_ax, useblit=True, color='black', alpha=0.5)
 
     axcolor = 'lightgoldenrodyellow'
     pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
     fig.add_axes(pf_slider_ax)
-    self.pf_slider = Slider(pf_slider_ax, '#', 0, get_config().max_eval, valfmt  ="%d")
+    v = int(get_config().max_eval * 1.1)
+    self.pf_slider = Slider(pf_slider_ax, '#', 0, v, valfmt  ="%d", valinit = v)
     self.pf_slider.on_changed(self.on_pf_slide)
 
     self.pf_vbox.pack_start(self.pf_canvas, True, True)
-
     self.toolbar = NavigationToolbar(self.pf_canvas, self)
     self.pf_vbox.pack_start(self.toolbar, False, False)
 
@@ -130,14 +133,15 @@ class UI(Module, gtk.Window, Thread):
     fig = Figure(figsize=(10,10))
     self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
 
+    # f(x) plot
     self.ax_fx = fig.add_subplot(1,1,1)
     #from matplotlib.ticker import MultipleLocator
     #self.ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
     #self.ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
     self.ax_fx.grid(True, which="both", ls="-", color="grey") # ls="-."
-    self.ax_fx.set_title("f(x)")
+    self.ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
     self.ax_fx.set_xlabel("evaluation")
-    self.ax_fx.set_ylabel("obj. value", color="blue")
+    self.ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
     self.ax_fx.set_xlim([0, get_config().max_eval])
 
     self.min_plot, = self.ax_fx.plot([], [], linestyle='--', marker='o', color="blue", zorder=-1)
@@ -146,7 +150,7 @@ class UI(Module, gtk.Window, Thread):
 
     # cv plot
     self.ax_cv = self.ax_fx.twinx()
-    self.ax_cv.set_ylabel('constr. violation', color='red')
+    self.ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
     self.cv_plot,  = self.ax_cv.plot([], [], linestyle='--', marker='o', color="red", zorder=-1)
     self.ax_cv.set_xlim([0, get_config().max_eval])
     for tl in self.ax_cv.get_yticklabels():
@@ -155,7 +159,6 @@ class UI(Module, gtk.Window, Thread):
     self.fx_cursor = Cursor(self.ax_cv, useblit=True, color='black', alpha=0.5)
 
     self.fx_vbox.pack_start(self.fx_canvas, True, True)
-
     self.toolbar = NavigationToolbar(self.fx_canvas, self)
     self.fx_vbox.pack_start(self.toolbar, False, False)
 
@@ -167,16 +170,23 @@ class UI(Module, gtk.Window, Thread):
 
   def on_pf_slide(self, val):
     val = int(val)
-
+    self.pf_plt.set_xdata(self.pf_plt_pnts[:val,0])
+    self.pf_plt.set_ydata(self.pf_plt_pnts[:val,1])
     self.dirty = True
 
   def on_new_results(self, results):
+    plt = self.pf_plt
+    pnts = self.pf_plt_pnts
     for r in results:
-      self.pf_ax.plot(r.pp[0], r.pp[1], marker='.', alpha=.2, color='grey')
+      pnts = np.vstack((pnts, r.pp))
+      #self.pf_ax.plot(r.pp[0], r.pp[1], marker='.', alpha=.5, color='black')
       #self.ax_fx.plot(r.cnt, r.fx, marker='.', alpha=.5)
       #ylim = [min(self.ax_fx.get_ylim()[0], r.fx),
       #        max(self.ax_fx.get_ylim()[1], r.fx)]
     #self.ax_fx.set_ylim(ylim)
+    self.pf_plt_pnts = pnts
+    plt.set_xdata(pnts[:,0])
+    plt.set_ydata(pnts[:,1])
     self.dirty = True
 
   def _update_plot(self, plt, ax, xval, yval):

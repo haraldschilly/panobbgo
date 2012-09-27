@@ -37,6 +37,8 @@ matplotlib.use('GTKAgg') # 'GTKAgg' or 'GTK'
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
 from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
 from matplotlib.figure import Figure
+from matplotlib.widgets import Slider, Cursor # SpanSelector
+from matplotlib.axes import Axes
 
 class UI(Module, gtk.Window, Thread):
   r'''
@@ -93,20 +95,32 @@ class UI(Module, gtk.Window, Thread):
 
   def init_pareto(self):
     fig = Figure(figsize=(10,10))
-    self.pf_plt = fig.add_subplot(1,1,1)
-    #from matplotlib.ticker import MultipleLocator
-    #self.pf_plt.xaxis.set_major_locator(MultipleLocator(1))
-    #self.pf_plt.xaxis.set_minor_locator(MultipleLocator(.1))
-    #self.pf_plt.xaxis.grid(True,'major',linewidth=1)
-    #self.pf_plt.yaxis.grid(True,'major',linewidth=1)
-    #self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
-    #self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
-    self.pf_plt.grid(True, which="both", ls="-", color='grey')
-    self.pf_plt.set_title("Pareto Front")
-    self.pf_plt.set_xlabel("constr. violation")
-    self.pf_plt.set_ylabel("obj. value")
-
     self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
+
+    #self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
+    self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
+    fig.add_axes(self.pf_ax)
+
+    #from matplotlib.ticker import MultipleLocator
+    #pf_ax.xaxis.set_major_locator(MultipleLocator(1))
+    #pf_ax.xaxis.set_minor_locator(MultipleLocator(.1))
+    #pf_ax.xaxis.grid(True,'major',linewidth=1)
+    #pf_ax.yaxis.grid(True,'major',linewidth=1)
+    #pf_ax.xaxis.grid(True,'minor',linewidth=.5)
+    #pf_ax.yaxis.grid(True,'minor',linewidth=.5)
+    pf_ax.grid(True, which="both", ls="-", color='grey')
+    pf_ax.set_title("Pareto Front")
+    pf_ax.set_xlabel("constr. violation")
+    pf_ax.set_ylabel("obj. value")
+
+    self.pf_cursor = Cursor(pf_ax, useblit=True, color='black', alpha=0.5)
+
+    axcolor = 'lightgoldenrodyellow'
+    pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
+    fig.add_axes(pf_slider_ax)
+    self.pf_slider = Slider(pf_slider_ax, '#', 0, get_config().max_eval, valfmt  ="%d")
+    self.pf_slider.on_changed(self.on_pf_slide)
+
     self.pf_vbox.pack_start(self.pf_canvas, True, True)
 
     self.toolbar = NavigationToolbar(self.pf_canvas, self)
@@ -114,6 +128,8 @@ class UI(Module, gtk.Window, Thread):
 
   def init_fx(self):
     fig = Figure(figsize=(10,10))
+    self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
+
     self.ax_fx = fig.add_subplot(1,1,1)
     #from matplotlib.ticker import MultipleLocator
     #self.ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
@@ -124,8 +140,6 @@ class UI(Module, gtk.Window, Thread):
     self.ax_fx.set_ylabel("obj. value", color="blue")
     self.ax_fx.set_xlim([0, get_config().max_eval])
 
-    self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
-    self.fx_vbox.pack_start(self.fx_canvas, True, True)
     self.min_plot, = self.ax_fx.plot([], [], linestyle='--', marker='o', color="blue", zorder=-1)
     for tl in self.ax_fx.get_yticklabels():
       tl.set_color('blue')
@@ -138,18 +152,27 @@ class UI(Module, gtk.Window, Thread):
     for tl in self.ax_cv.get_yticklabels():
       tl.set_color('red')
 
+    self.fx_cursor = Cursor(self.ax_cv, useblit=True, color='black', alpha=0.5)
+
+    self.fx_vbox.pack_start(self.fx_canvas, True, True)
+
     self.toolbar = NavigationToolbar(self.fx_canvas, self)
     self.fx_vbox.pack_start(self.toolbar, False, False)
 
   def on_new_pareto_front(self, front):
     #self.ax1.clear()
-    self.pf_plt.plot(*zip(*map(lambda x:x.pp, front)))
-    self.pf_plt.autoscale()
+    self.pf_ax.plot(*zip(*map(lambda x:x.pp, front)))
+    self.pf_ax.autoscale()
+    self.dirty = True
+
+  def on_pf_slide(self, val):
+    val = int(val)
+
     self.dirty = True
 
   def on_new_results(self, results):
     for r in results:
-      self.pf_plt.plot(r.pp[0], r.pp[1], marker='.', alpha=.2, color='grey')
+      self.pf_ax.plot(r.pp[0], r.pp[1], marker='.', alpha=.2, color='grey')
       #self.ax_fx.plot(r.cnt, r.fx, marker='.', alpha=.5)
       #ylim = [min(self.ax_fx.get_ylim()[0], r.fx),
       #        max(self.ax_fx.get_ylim()[1], r.fx)]

@@ -101,6 +101,7 @@ class UI(Module, gtk.Window, Thread):
     #self.pf_plt.yaxis.grid(True,'major',linewidth=1)
     #self.pf_plt.xaxis.grid(True,'minor',linewidth=.5)
     #self.pf_plt.yaxis.grid(True,'minor',linewidth=.5)
+    self.pf_plt.grid(True, which="both", ls="-", color='grey')
     self.pf_plt.set_title("Pareto Front")
     self.pf_plt.set_xlabel("constr. violation")
     self.pf_plt.set_ylabel("obj. value")
@@ -113,19 +114,29 @@ class UI(Module, gtk.Window, Thread):
 
   def init_fx(self):
     fig = Figure(figsize=(10,10))
-    self.fx_plt = fig.add_subplot(1,1,1)
+    self.ax_fx = fig.add_subplot(1,1,1)
     #from matplotlib.ticker import MultipleLocator
-    #self.fx_plt.xaxis.set_major_locator(MultipleLocator(.1))
-    #self.fx_plt.xaxis.set_minor_locator(MultipleLocator(.01))
-    self.fx_plt.grid(True, which="both", ls="-.")
-    self.fx_plt.set_title("f(x)")
-    self.fx_plt.set_xlabel("evaluation")
-    self.fx_plt.set_ylabel("obj. value")
-    self.fx_plt.set_xlim([0, get_config().max_eval])
+    #self.ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
+    #self.ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
+    self.ax_fx.grid(True, which="both", ls="-", color="grey") # ls="-."
+    self.ax_fx.set_title("f(x)")
+    self.ax_fx.set_xlabel("evaluation")
+    self.ax_fx.set_ylabel("obj. value", color="blue")
+    self.ax_fx.set_xlim([0, get_config().max_eval])
 
     self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
     self.fx_vbox.pack_start(self.fx_canvas, True, True)
-    self.best_plot, = self.fx_plt.plot([], [], linestyle='--', marker='o', color="red", zorder=-1)
+    self.min_plot, = self.ax_fx.plot([], [], linestyle='--', marker='o', color="blue", zorder=-1)
+    for tl in self.ax_fx.get_yticklabels():
+      tl.set_color('blue')
+
+    # cv plot
+    self.ax_cv = self.ax_fx.twinx()
+    self.ax_cv.set_ylabel('constr. violation', color='red')
+    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='--', marker='o', color="red", zorder=-1)
+    self.ax_cv.set_xlim([0, get_config().max_eval])
+    for tl in self.ax_cv.get_yticklabels():
+      tl.set_color('red')
 
     self.toolbar = NavigationToolbar(self.fx_canvas, self)
     self.fx_vbox.pack_start(self.toolbar, False, False)
@@ -139,20 +150,25 @@ class UI(Module, gtk.Window, Thread):
   def on_new_results(self, results):
     for r in results:
       self.pf_plt.plot(r.pp[0], r.pp[1], marker='.', alpha=.2, color='grey')
-      #self.fx_plt.plot(r.cnt, r.fx, marker='.', alpha=.5)
-      #ylim = [min(self.fx_plt.get_ylim()[0], r.fx),
-      #        max(self.fx_plt.get_ylim()[1], r.fx)]
-    #self.fx_plt.set_ylim(ylim)
+      #self.ax_fx.plot(r.cnt, r.fx, marker='.', alpha=.5)
+      #ylim = [min(self.ax_fx.get_ylim()[0], r.fx),
+      #        max(self.ax_fx.get_ylim()[1], r.fx)]
+    #self.ax_fx.set_ylim(ylim)
     self.dirty = True
 
-  def on_new_best(self, best):
-    nxt = best.cnt, best.fx
-    self.best_plot.set_xdata(np.append(self.best_plot.get_xdata(), nxt[0]))
-    self.best_plot.set_ydata(np.append(self.best_plot.get_ydata(), nxt[1]))
-    ylim = [min(self.fx_plt.get_ylim()[0], nxt[0]),
-            max(self.fx_plt.get_ylim()[1], nxt[1])]
-    self.fx_plt.set_ylim(ylim)
+  def _update_plot(self, plt, ax, xval, yval):
+    plt.set_xdata(np.append(plt.get_xdata(), xval))
+    plt.set_ydata(np.append(plt.get_ydata(), yval))
+    ylim = [min(ax.get_ylim()[0], xval),
+            max(ax.get_ylim()[1], yval)]
+    ax.set_ylim(ylim)
     self.dirty = True
+
+  def on_new_cv(self, cv):
+    self._update_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)
+
+  def on_new_min(self, min):
+    self._update_plot(self.min_plot, self.ax_fx, min.cnt, min.fx)
 
   def draw(self):
     def task():

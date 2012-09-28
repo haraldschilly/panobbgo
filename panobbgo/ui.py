@@ -138,20 +138,25 @@ class UI(Module, gtk.Window, Thread):
     #from matplotlib.ticker import MultipleLocator
     #self.ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
     #self.ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
-    self.ax_fx.grid(True, which="both", ls="-", color="grey") # ls="-."
+    self.ax_fx.grid(True, which="major", ls="--", color="blue")
+    self.ax_fx.grid(True, which="minor", ls=".", color="blue")
     self.ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
     self.ax_fx.set_xlabel("evaluation")
     self.ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
     self.ax_fx.set_xlim([0, get_config().max_eval])
+    self.ax_fx.set_yscale('symlog', linthreshy=0.01)
 
-    self.min_plot, = self.ax_fx.plot([], [], linestyle='--', marker='o', color="blue", zorder=-1)
+    self.min_plot, = self.ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
     for tl in self.ax_fx.get_yticklabels():
       tl.set_color('blue')
 
     # cv plot
     self.ax_cv = self.ax_fx.twinx()
+    self.ax_cv.yaxis.tick_right()
+    self.ax_cv.grid(True, which="major", ls="--", color="red")
+    self.ax_cv.grid(True, which="minor", ls=".", color="red")
     self.ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
-    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='--', marker='o', color="red", zorder=-1)
+    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
     self.ax_cv.set_xlim([0, get_config().max_eval])
     for tl in self.ax_cv.get_yticklabels():
       tl.set_color('red')
@@ -164,8 +169,9 @@ class UI(Module, gtk.Window, Thread):
 
   def on_new_pareto_front(self, front):
     #self.ax1.clear()
-    self.pf_ax.plot(*zip(*map(lambda x:x.pp, front)))
-    self.pf_ax.autoscale()
+    data = zip(*map(lambda x:x.pp, front))
+    self.pf_ax.plot(data[0], data[1], '-o', alpha=.7) # ms = ?
+    self.pf_ax.autoscale() # TODO get rid of autoscale
     self.dirty = True
 
   def on_pf_slide(self, val):

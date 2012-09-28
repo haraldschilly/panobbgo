@@ -132,6 +132,8 @@ class Best(Analyzer):
 
     # ... and re-calculate the front
     new_front = pf[:1]
+
+    # old code for convex front, below the one for a monotone step function
     for p in pf[1:]:
       new_front.append(p)
       # next point needs to be left (smaller cv) and and above (higher fx)
@@ -140,6 +142,8 @@ class Best(Analyzer):
       # always a "right turn", concerning the ".pp" pareto points
       while len(new_front) > 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):
         del new_front[-2]
+
+    # stepwise monotone decreasing pareto front
 
     self._pareto_front = new_front
     if pf_old != new_front:

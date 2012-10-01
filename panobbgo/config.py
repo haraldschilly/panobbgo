@@ -70,10 +70,16 @@ class Config(object):
         help="capacity for each queue in each heuristic",
         type="int")
 
-    _parser.add_option("-v", 
+    _parser.add_option("-v",
         action="count",
         dest="verbosity",
         help="verbosity level: -v, -vv, or -vvv")
+
+    _parser.add_option('--ui',
+        dest='ui',
+        action='store_true',
+        default=False,
+        help='If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.')
 
     _parser.add_option("-d", '--debug',
         dest="debug",
@@ -118,6 +124,9 @@ class Config(object):
       _cfgp.set('core', 'discount', '0.95')
       _cfgp.set('core', 'smooth', 0.5)
 
+      _cfgp.add_section('ui')
+      _cfgp.set('ui', 'show', False)
+
       with open(_options.config_file, 'wb') as configfile:
         _cfgp.write(configfile)
 
@@ -132,6 +141,7 @@ class Config(object):
     if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
     if _options.capacity:    _cfgp.set('heuristic', 'capacity', str(_options.capacity))
     if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
+    if _options.ui:          _cfgp.set('ui',      'show',    "True")
 
     ## some generic function
     def getself(section, key):
@@ -141,7 +151,7 @@ class Config(object):
       ret = {}
       for s in _cfgp.sections():
         for k, v in _cfgp.items(s):
-          ret['%s%s%s' % (s, sep, k)] = v
+          ret['%s%s%s' % (s, sep, str(k))] = v
       return ret
 
     logger.info('config.ini: %s' % all_cfgp())
@@ -157,6 +167,7 @@ class Config(object):
     self.smooth          = _cfgp.getfloat('core', 'smooth')
     self.capacity        = _cfgp.getint  ('heuristic', 'capacity')
     self.ipy_profile     = _cfgp.get     ('ipython', 'profile')
+    self.ui_show         = _cfgp.getboolean('ui', 'show')
     self.logger_focus    = _options.logger_focus
     self.ui_redraw_delay = 0.5
     self.version         = __version__

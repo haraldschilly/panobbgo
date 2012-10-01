@@ -443,7 +443,7 @@ class EventBus(object):
     - ``**kwargs``: any additional keyword arguments are stored inside the Event
                     if ``event`` is ``None``.
     '''
-    if key not in self._subs:
+    if get_config().debug and key not in self._subs:
       self.logger.warning("key '%s' unknown." % key)
       return
 
@@ -525,9 +525,10 @@ class StrategyBase(object):
     map(lambda a : a._init_module(self), self._analyzers.values())
 
     # UI
-    from ui import UI
-    self.ui = UI()
-    self.ui._init_module(self)
+    if config.ui_show:
+      from ui import UI
+      self.ui = UI()
+      self.ui._init_module(self)
 
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
@@ -653,7 +654,8 @@ class StrategyBase(object):
 
     self.info()
     self.results.info()
-    self.ui.finish() # blocks figure window
+    if get_config().ui_show:
+      self.ui.finish() # blocks figure window
 
   def _add_tasks(self, new_tasks):
     '''

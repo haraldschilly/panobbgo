@@ -362,7 +362,6 @@ class EventBus(object):
               return
           except Exception, e:
             # usually, they only happen during shutdown
-            print ">>>", get_config().debug
             if get_config().debug:
               # sys.exc_info() -> re-create original exception (otherwise we don't know the actual cause!)
               import sys

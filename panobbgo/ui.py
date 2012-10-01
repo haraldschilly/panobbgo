@@ -145,6 +145,7 @@ class UI(Module, gtk.Window, Thread):
     self.ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
     self.ax_fx.set_xlim([0, get_config().max_eval])
     self.ax_fx.set_yscale('symlog', linthreshy=0.01)
+    self.ax_fx.set_ylim((-1, 1))
     for tl in self.ax_fx.get_yticklabels():
       tl.set_color('blue')
     self.min_plot, = self.ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
@@ -157,6 +158,7 @@ class UI(Module, gtk.Window, Thread):
     self.ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
     self.ax_cv.set_xlim([0, get_config().max_eval])
     self.ax_cv.set_yscale('symlog', linthreshy=0.01)
+    self.ax_cv.set_ylim((0, 1))
     for tl in self.ax_cv.get_yticklabels():
       tl.set_color('red')
     self.cv_plot,  = self.ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
@@ -169,8 +171,18 @@ class UI(Module, gtk.Window, Thread):
 
   def on_new_pareto_front(self, front):
     #self.ax1.clear()
-    data = zip(*map(lambda x:x.pp, front))
-    self.pf_ax.plot(data[0], data[1], '-o', alpha=.7) # ms = ?
+    pnts = map(lambda x : x.pp, front)
+    # insert points to make a staircase
+    inserts = []
+    for p1, p2 in zip(pnts[:-1], pnts[1:]):
+      inserts.append((p1[0], p2[1]))
+    all_pnts = []
+    for i in range(len(inserts)):
+      all_pnts.append(pnts[i])
+      all_pnts.append(inserts[i])
+    all_pnts.append(pnts[-1])
+    data = zip(*all_pnts)
+    self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black") # ms = ?
     self.pf_ax.autoscale() # TODO get rid of autoscale
     self.dirty = True
 
@@ -198,8 +210,10 @@ class UI(Module, gtk.Window, Thread):
   def _update_plot(self, plt, ax, xval, yval):
     plt.set_xdata(np.append(plt.get_xdata(), xval))
     plt.set_ydata(np.append(plt.get_ydata(), yval))
-    ylim = [min(ax.get_ylim()[0], xval),
+    ylim = [min(ax.get_ylim()[0], yval),
             max(ax.get_ylim()[1], yval)]
+    if ax == self.ax_cv:
+      ylim[0] = - ylim[1]
     ax.set_ylim(ylim)
     self.dirty = True
 

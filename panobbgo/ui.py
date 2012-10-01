@@ -145,10 +145,9 @@ class UI(Module, gtk.Window, Thread):
     self.ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
     self.ax_fx.set_xlim([0, get_config().max_eval])
     self.ax_fx.set_yscale('symlog', linthreshy=0.01)
-
-    self.min_plot, = self.ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
     for tl in self.ax_fx.get_yticklabels():
       tl.set_color('blue')
+    self.min_plot, = self.ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
 
     # cv plot
     self.ax_cv = self.ax_fx.twinx()
@@ -156,10 +155,11 @@ class UI(Module, gtk.Window, Thread):
     self.ax_cv.grid(True, which="major", ls="--", color="red")
     self.ax_cv.grid(True, which="minor", ls=".", color="red")
     self.ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
-    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
     self.ax_cv.set_xlim([0, get_config().max_eval])
+    self.ax_cv.set_yscale('symlog', linthreshy=0.01)
     for tl in self.ax_cv.get_yticklabels():
       tl.set_color('red')
+    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
 
     self.fx_cursor = Cursor(self.ax_cv, useblit=True, color='black', alpha=0.5)
 

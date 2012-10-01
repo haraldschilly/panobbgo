@@ -65,7 +65,7 @@ class RosenbrockConstraint(Problem):
     Problem.__init__(self, box)
 
   def eval(self, x):
-    return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
+    return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2) - 50
 
   def eval_constraints(self, x):
     cv = - (x[1:] - x[:-1])**2.0 + self.par2

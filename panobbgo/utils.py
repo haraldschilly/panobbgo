@@ -22,6 +22,45 @@ Some utility functions, will move eventually.
 
 import logging
 
+class ColoredFormatter(logging.Formatter):
+
+  BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+
+  RESET_SEQ = "\033[0m"
+  COLOR_SEQ = "\033[0;%dm"
+  COLOR_SEQ_BOLD = "\033[1;%dm"
+  BOLD_SEQ = "\033[1m"
+
+
+  COLORS = {
+      'DEBUG': BLUE,
+      #'INFO': WHITE,
+      'WARNING': YELLOW,
+      'CRITICAL': MAGENTA,
+      'ERROR': RED
+  }
+
+  def __init__(self):
+    msg = '%(asctime)s $BOLD%(name)-5s$RESET/%(levelname)-9s %(message)s @%(filename)s:%(lineno)d'
+    msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
+    logging.Formatter.__init__(self, msg)
+
+  @staticmethod
+  def colorize(string, color, bold=False):
+    cs = ColoredFormatter.COLOR_SEQ_BOLD if bold else ColoredFormatter.COLOR_SEQ
+    string = '%s%s%s' % (cs % (30 + color), string, ColoredFormatter.RESET_SEQ)
+    string = "%-20s" % string
+    return string
+
+  def format(self, record):
+    levelname = record.levelname
+    if levelname in ColoredFormatter.COLORS:
+      col = ColoredFormatter.COLORS[levelname]
+      record.levelname = self.colorize(levelname, col, True)
+      record.msg = self.colorize(record.msg, col)
+    return logging.Formatter.format(self, record)
+
+
 def create_logger(name, level = logging.INFO):
   '''
   Creates logger with ``name`` and given ``level`` logging level.
@@ -30,7 +69,7 @@ def create_logger(name, level = logging.INFO):
   logger.setLevel(logging.DEBUG)
   log_stream_handler = logging.StreamHandler()
   log_stream_handler.setLevel(level)
-  log_formatter = logging.Formatter('%(asctime)s %(name)-4s/%(levelname)-8s %(message)s')
+  log_formatter = ColoredFormatter()
   log_stream_handler.setFormatter(log_formatter)
   logger.addHandler(log_stream_handler)
   return logger

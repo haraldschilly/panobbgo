@@ -13,7 +13,7 @@ It minimizes a function over a box in $R^n$ (n = dimension of the problem).
 
 This program is work in progress. Only do `python setup.py build|install` if you know what you are doing.
 
-Installation: Basically, you have to install the panobbgo_problem module across the cluster. 
+Installation: Basically, you have to install the `panobbgo_lib` module across the cluster.
 It contains the problem definitions you want to use.
 Then, you have to create a script to execute everything; in particular, deserializing the
 problem definition needs to be possible on the remote machine.
@@ -29,7 +29,9 @@ problem definition needs to be possible on the remote machine.
 
 * SciPy &ge; 0.8.0
 
-* matplotlib
+* matplotlib &ge; 1.1.0 (I think?)
+
+* It also calls Git to get the ref of the HEAD for logging.
 
 ## License
 
@@ -37,7 +39,7 @@ problem definition needs to be possible on the remote machine.
 
 ## Credits
 
-Based on ideas by
+Based on ideas of Snobfit:
 
 * http://reflectometry.org/danse/docs/snobfit/
 

@@ -442,8 +442,8 @@ class EventBus(object):
     - ``**kwargs``: any additional keyword arguments are stored inside the Event
                     if ``event`` is ``None``.
     '''
-    if get_config().debug and key not in self._subs:
-      self.logger.warning("key '%s' unknown." % key)
+    if key not in self._subs:
+      if get_config().debug: self.logger.warning("key '%s' unknown." % key)
       return
 
     for target in self._subs[key]:

@@ -134,34 +134,36 @@ class UI(Module, gtk.Window, Thread):
     self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
 
     # f(x) plot
-    self.ax_fx = fig.add_subplot(1,1,1)
+    self.ax_fx = ax_fx = fig.add_subplot(1,1,1)
     #from matplotlib.ticker import MultipleLocator
-    #self.ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
-    #self.ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
-    self.ax_fx.grid(True, which="major", ls="--", color="blue")
-    self.ax_fx.grid(True, which="minor", ls=".", color="blue")
-    self.ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
-    self.ax_fx.set_xlabel("evaluation")
-    self.ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
-    self.ax_fx.set_xlim([0, get_config().max_eval])
-    self.ax_fx.set_yscale('symlog', linthreshy=0.01)
-    self.ax_fx.set_ylim((-1, 1))
-    for tl in self.ax_fx.get_yticklabels():
-      tl.set_color('blue')
-    self.min_plot, = self.ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
+    #ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
+    #ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
+    ax_fx.grid(True, which="major", ls="--", color="blue")
+    ax_fx.grid(True, which="minor", ls=".", color="blue")
+    ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
+    ax_fx.set_xlabel("evaluation")
+    ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
+    ax_fx.set_xlim([0, get_config().max_eval])
+    ax_fx.set_yscale('symlog', linthreshy=0.001)
+    ax_fx.set_ylim((0, 1))
+    #for tl in self.ax_fx.get_yticklabels():
+    #  tl.set_color('blue')
+    self.min_plot, = ax_fx.plot([], [], linestyle='-', marker='o', color="blue", zorder=-1)
 
     # cv plot
-    self.ax_cv = self.ax_fx.twinx()
-    self.ax_cv.yaxis.tick_right()
-    self.ax_cv.grid(True, which="major", ls="--", color="red")
-    self.ax_cv.grid(True, which="minor", ls=".", color="red")
-    self.ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
-    self.ax_cv.set_xlim([0, get_config().max_eval])
-    self.ax_cv.set_yscale('symlog', linthreshy=0.01)
-    self.ax_cv.set_ylim((0, 1))
-    for tl in self.ax_cv.get_yticklabels():
-      tl.set_color('red')
-    self.cv_plot,  = self.ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
+    #self.ax_cv = ax_cv = self.ax_fx.twinx()
+    self.ax_cv = ax_cv = ax_fx
+    #ax_cv.yaxis.tick_right()
+    #ax_cv.grid(True, which="major", ls="--", color="red")
+    #ax_cv.grid(True, which="minor", ls=".", color="red")
+    #ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$', color='red')
+    ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$") #, color="blue")
+    ax_cv.set_xlim([0, get_config().max_eval])
+    #ax_cv.set_yscale('symlog', linthreshy=0.001)
+    ax_cv.set_ylim((0, 1))
+    #for tl in self.ax_cv.get_yticklabels():
+    #  tl.set_color('red')
+    self.cv_plot,  = ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
 
     self.fx_cursor = Cursor(self.ax_cv, useblit=True, color='black', alpha=0.5)
 
@@ -208,12 +210,14 @@ class UI(Module, gtk.Window, Thread):
     self.dirty = True
 
   def _update_plot(self, plt, ax, xval, yval):
-    plt.set_xdata(np.append(plt.get_xdata(), xval))
-    plt.set_ydata(np.append(plt.get_ydata(), yval))
-    ylim = [min(ax.get_ylim()[0], yval),
-            max(ax.get_ylim()[1], yval)]
-    if ax == self.ax_cv:
-      ylim[0] = - ylim[1]
+    xx = np.append(plt.get_xdata(), xval)
+    if xval < 0: xx = map(lambda _:_ - xval, xx)
+    yy = np.append(plt.get_ydata(), yval)
+    if yval < 0: yy = map(lambda _:_ - yval, yy)
+    plt.set_xdata(xx)
+    plt.set_ydata(yy)
+    ylim = [0, #min(ax.get_ylim()[0], yval),
+            max(ax.get_ylim()[1], max(plt.get_ydata()))]
     ax.set_ylim(ylim)
     self.dirty = True
 

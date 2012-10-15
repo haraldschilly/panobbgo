@@ -187,16 +187,15 @@ class Extremal(Heuristic):
         for idx, val in enumerate(self.probabilities):
           if val > r:
             radius = self.problem.ranges[i] * self.diameter
-            jitter = radius * (np.random.rand() - .5)
-            shift = 0.0
+            #jitter = radius * (np.random.rand() - .5)
+            jitter = np.random.normal(0, radius)
             if idx == 0:
-              shift = 1
+              ret[i] = self.vals[idx, i] + abs(jitter)
             elif idx == len(self.probabilities) - 1:
-              shift = -1
+              ret[i] = self.vals[idx, i] - abs(jitter)
             else:
-              shift = 0
-            ret[i] = self.vals[idx, i] + shift * radius * .5 + jitter
-            break
+              ret[i] = self.vals[idx, i] + jitter
+            break # since we found the idx, break!
       self.emit(ret)
 
 class Zero(Heuristic):

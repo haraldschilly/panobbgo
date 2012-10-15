@@ -120,18 +120,18 @@ class UI(Module, gtk.Window, Thread):
     spinner_hbox = gtk.HBox(gtk.FALSE, 5)
     adj0 = gtk.Adjustment(0, 0, mx-1, 1, 1, 0)
     spinner_0 = gtk.SpinButton(adj0, 0, 0)
-    spinner_hbox.add(Label("x:"))
+    spinner_hbox.add(Label("x coord:"))
     spinner_hbox.add(spinner_0)
 
     adj1 = gtk.Adjustment(1, 0, mx-1, 1, 1, 0)
     spinner_1 = gtk.SpinButton(adj1, 0, 0)
-    spinner_hbox.add(Label('y:'))
+    spinner_hbox.add(Label('y coord:'))
     spinner_hbox.add(spinner_1)
 
     adj0.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
     adj1.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
 
-    btn = gtk.Button("redraw")
+    self.eval_btn = btn = gtk.Button("redraw")
     btn.connect('clicked', self.on_eval_spinner, spinner_0, spinner_1)
     spinner_hbox.add(btn)
 
@@ -249,6 +249,9 @@ class UI(Module, gtk.Window, Thread):
     plt.set_ydata(pnts[:,1])
     self.dirty = True
 
+  def on_finished(self):
+    self.eval_btn.clicked()
+
   def on_eval_spinner(self, widget, spinner0, spinner1):
     cx = spinner0.get_value_as_int()
     cy = spinner1.get_value_as_int()
@@ -272,14 +275,18 @@ class UI(Module, gtk.Window, Thread):
     # grid the data.
     from matplotlib.mlab import griddata
     zi = griddata(x,y,z,xi,yi,interp='linear')
+    #ci = griddata(x,y,c,xi,yi,interp='linear')
 
     self.eval_ax.clear()
     self.eval_cb_ax.clear()
     self.eval_ax.grid(True, which="both", ls="-", color='grey')
     # contour the gridded data
-    self.eval_ax.contour(xi,yi,zi,10,linewidths=0.5,colors='k')
+    # constraint violation
+    #self.eval_ax.contourf(xi, yi, ci, 10, colors='k', zorder=5, alpha=.5, levels=[0,1])
+    # f(x)
+    self.eval_ax.contour(xi,yi,zi,10,linewidths=0.5,colors='k', zorder=3)
     from matplotlib.pylab import cm
-    cf = self.eval_ax.contourf(xi,yi,zi,10,cmap=cm.jet)
+    cf = self.eval_ax.contourf(xi,yi,zi,10,cmap=cm.jet, zorder=2)
     cb = colorbar.Colorbar(self.eval_cb_ax, cf)
     cf.colorbar = cb
 

@@ -643,6 +643,7 @@ class StrategyBase(object):
     '''
     cleanup + shutdown
     '''
+    self.eventbus.publish('finished')
     self._end = time.time()
     for msg_id in self.evaluators.outstanding:
       try:

@@ -528,6 +528,7 @@ class StrategyBase(object):
       from ui import UI
       self.ui = UI()
       self.ui._init_module(self)
+      self.ui.show()
 
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 

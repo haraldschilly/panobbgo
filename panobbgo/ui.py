@@ -38,7 +38,9 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanva
 from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.widgets import Slider, Cursor # SpanSelector
+from gtk import Label
 from matplotlib.axes import Axes
+from matplotlib import colorbar
 
 class UI(Module, gtk.Window, Thread):
   r'''
@@ -46,30 +48,39 @@ class UI(Module, gtk.Window, Thread):
   '''
   def __init__(self):
     Module.__init__(self)
+    gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+    self.set_position(gtk.WIN_POS_CENTER)
+    Thread.__init__(self)
+
+  def show(self):
+    self.dirty = False # used to indicate, if something needs to be drawn
     config = get_config()
     self.logger = config.get_logger("UI")
 
-    self.dirty = False # used to indicate, if something needs to be drawn
-
-    gtk.Window.__init__(self)
-    self.set_default_size(1000, 500)
+    self.set_default_size(900, 800)
     self.connect('destroy', self.destroy)
     self.set_title('Panobbgo %s@%s' % (config.version, config.git_head[:8]))
     self.set_border_width(3)
 
     self.top_hbox = gtk.HBox(False, 0)
 
-    self.pf_vbox = gtk.VBox(False, 0)
-    self.top_hbox.add(self.pf_vbox)
-    self.fx_vbox = gtk.VBox(False, 0)
-    self.top_hbox.add(self.fx_vbox)
-    self.add(self.top_hbox)
+    self.notebook = notebook = gtk.Notebook()
+    notebook.set_tab_pos(gtk.POS_LEFT)
+    self.top_hbox.add(notebook)
+    notebook.show()
 
-    #label = gtk.Label("This is the UI")
-    #self.pf_vbox.pack_start(label, False, False)
+    self.pf_vbox = gtk.VBox(False, 0)
+    self.add_notebook_page(self.pf_vbox, "Pareto")
+    self.fx_vbox = gtk.VBox(False, 0)
+    self.add_notebook_page(self.fx_vbox, "Optimal")
+    self.eval_vbox = gtk.VBox(False, 0)
+    self.add_notebook_page(self.eval_vbox, "Values")
+
+    self.add(self.top_hbox)
 
     self.init_pareto()
     self.init_fx()
+    self.init_eval()
 
     self.add_events(gdk.BUTTON_PRESS_MASK |
                     gdk.KEY_PRESS_MASK|
@@ -80,9 +91,12 @@ class UI(Module, gtk.Window, Thread):
     #def run_gtk_main():
     #self.mt = Thread(target=run_gtk_main)
     #self.mt.start()
-    Thread.__init__(self)
     self.start()
     self.draw()
+
+  def add_notebook_page(self, frame, label_text):
+    label = Label(label_text)
+    self.notebook.append_page(frame, label)
 
   def run(self):
     gtk.threads_enter()
@@ -93,6 +107,39 @@ class UI(Module, gtk.Window, Thread):
     self.logger.warning("window destroyed")
     gtk.main_quit()
 
+  def init_eval(self):
+    mx = self.problem.dim
+    if mx <= 1:
+      self.eval_vbox.add(Label("not enoguh dimensions"))
+      return
+    self.eval_fig = fig = Figure(figsize=(10,10))
+    self.eval_canvas = FigureCanvas(fig)
+    self.eval_ax = fig.add_subplot(111)
+    self.eval_cb_ax, _ = colorbar.make_axes(self.eval_ax)
+
+    spinner_hbox = gtk.HBox(gtk.FALSE, 5)
+    adj0 = gtk.Adjustment(0, 0, mx-1, 1, 1, 0)
+    spinner_0 = gtk.SpinButton(adj0, 0, 0)
+    spinner_hbox.add(Label("x:"))
+    spinner_hbox.add(spinner_0)
+
+    adj1 = gtk.Adjustment(1, 0, mx-1, 1, 1, 0)
+    spinner_1 = gtk.SpinButton(adj1, 0, 0)
+    spinner_hbox.add(Label('y:'))
+    spinner_hbox.add(spinner_1)
+
+    adj0.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
+    adj1.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
+
+    btn = gtk.Button("redraw")
+    btn.connect('clicked', self.on_eval_spinner, spinner_0, spinner_1)
+    spinner_hbox.add(btn)
+
+    self.eval_vbox.pack_start(self.eval_canvas, True, True)
+    self.eval_vbox.pack_start(spinner_hbox, False, False)
+    self.toolbar = NavigationToolbar(self.eval_canvas, self)
+    self.eval_vbox.pack_start(self.toolbar, False, False)
+
   def init_pareto(self):
     fig = Figure(figsize=(10,10))
     self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
@@ -101,13 +148,6 @@ class UI(Module, gtk.Window, Thread):
     self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
     fig.add_axes(self.pf_ax)
 
-    #from matplotlib.ticker import MultipleLocator
-    #pf_ax.xaxis.set_major_locator(MultipleLocator(1))
-    #pf_ax.xaxis.set_minor_locator(MultipleLocator(.1))
-    #pf_ax.xaxis.grid(True,'major',linewidth=1)
-    #pf_ax.yaxis.grid(True,'major',linewidth=1)
-    #pf_ax.xaxis.grid(True,'minor',linewidth=.5)
-    #pf_ax.yaxis.grid(True,'minor',linewidth=.5)
     pf_ax.grid(True, which="both", ls="-", color='grey')
     pf_ax.set_title("Pareto Front")
     pf_ax.set_xlabel("constr. violation")
@@ -209,6 +249,46 @@ class UI(Module, gtk.Window, Thread):
     plt.set_ydata(pnts[:,1])
     self.dirty = True
 
+  def on_eval_spinner(self, widget, spinner0, spinner1):
+    cx = spinner0.get_value_as_int()
+    cy = spinner1.get_value_as_int()
+    if cx == cy:
+      self.logger.debug("eval plot: cx == cy and discarded")
+      return
+    if len(self.results.results) == 0:
+      return
+
+    px = 0 #self.problem.ranges[cx] / 10.
+    py = 0 #self.problem.ranges[cy] / 10.
+    xmin, xmax = self.problem.box[cx, :]
+    ymin, ymax = self.problem.box[cy, :]
+    xmin, xmax = xmin-px, xmax+px
+    ymin, ymax = ymin-py, ymax+py
+
+    rslts = zip(*[(r.x[cx], r.x[cy], r.fx) for r in self.results.results])
+    x, y, z = rslts
+    xi = np.linspace(xmin, xmax, 30)
+    yi = np.linspace(ymin, ymax, 30)
+    # grid the data.
+    from matplotlib.mlab import griddata
+    zi = griddata(x,y,z,xi,yi,interp='linear')
+
+    self.eval_ax.clear()
+    self.eval_cb_ax.clear()
+    self.eval_ax.grid(True, which="both", ls="-", color='grey')
+    # contour the gridded data
+    self.eval_ax.contour(xi,yi,zi,10,linewidths=0.5,colors='k')
+    from matplotlib.pylab import cm
+    cf = self.eval_ax.contourf(xi,yi,zi,10,cmap=cm.jet)
+    cb = colorbar.Colorbar(self.eval_cb_ax, cf)
+    cf.colorbar = cb
+
+    # plot data points.
+    self.eval_ax.scatter(x,y,marker='o',c='b',s=5,zorder=10)
+    self.eval_ax.set_xlim((xmin, xmax))
+    self.eval_ax.set_ylim((ymin, ymax))
+    self.dirty = True
+
   def _update_plot(self, plt, ax, xval, yval):
     xx = np.append(plt.get_xdata(), xval)
     if xval < 0: xx = map(lambda _:_ - xval, xx)
@@ -236,6 +316,7 @@ class UI(Module, gtk.Window, Thread):
             self.dirty = False
             self.fx_canvas.draw()
             self.pf_canvas.draw()
+            self.eval_canvas.draw()
           finally:
             gtk.threads_leave()
         from IPython.utils.timing import time

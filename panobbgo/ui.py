@@ -56,11 +56,11 @@ class UI(Module, gtk.Window, Thread):
     self.set_resize_mode(gtk.RESIZE_QUEUE)
     s = min(map(lambda _ : int(_ * .8), [geom.width, geom.height]))
     self.resize(int(s * 4./3.), s)
+    # centered
     self.set_position(gtk.WIN_POS_CENTER)
     Thread.__init__(self)
 
   def show(self):
-    self.dirty = False # used to indicate, if something needs to be drawn
     config = get_config()
     self.logger = config.get_logger("UI")
 
@@ -99,7 +99,7 @@ class UI(Module, gtk.Window, Thread):
     #self.mt = Thread(target=run_gtk_main)
     #self.mt.start()
     self.start()
-    self.draw()
+    #self.draw()
 
   def add_notebook_page(self, frame, label_text):
     label = Label(label_text)
@@ -233,13 +233,13 @@ class UI(Module, gtk.Window, Thread):
     data = zip(*all_pnts)
     self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black") # ms = ?
     self.pf_ax.autoscale() # TODO get rid of autoscale
-    self.dirty = True
+    self.pf_canvas._need_redraw = True
 
   def on_pf_slide(self, val):
     val = int(val)
     self.pf_plt.set_xdata(self.pf_plt_pnts[:val,0])
     self.pf_plt.set_ydata(self.pf_plt_pnts[:val,1])
-    self.dirty = True
+    self.pf_canvas._need_redraw = True
 
   def on_new_results(self, results):
     plt = self.pf_plt
@@ -254,7 +254,7 @@ class UI(Module, gtk.Window, Thread):
     self.pf_plt_pnts = pnts
     plt.set_xdata(pnts[:,0])
     plt.set_ydata(pnts[:,1])
-    self.dirty = True
+    self.pf_canvas._need_redraw = True
 
   def on_finished(self):
     self.eval_btn.clicked()
@@ -297,11 +297,11 @@ class UI(Module, gtk.Window, Thread):
     cb = colorbar.Colorbar(self.eval_cb_ax, cf)
     cf.colorbar = cb
 
-    # plot data points.
+    # plot data points
     self.eval_ax.scatter(x,y,marker='o',c='b',s=5,zorder=10)
     self.eval_ax.set_xlim((xmin, xmax))
     self.eval_ax.set_ylim((ymin, ymax))
-    self.dirty = True
+    self.eval_canvas._need_redraw = True
 
   def _update_plot(self, plt, ax, xval, yval):
     xx = np.append(plt.get_xdata(), xval)
@@ -313,32 +313,13 @@ class UI(Module, gtk.Window, Thread):
     ylim = [0, #min(ax.get_ylim()[0], yval),
             max(ax.get_ylim()[1], max(plt.get_ydata()))]
     ax.set_ylim(ylim)
-    self.dirty = True
+    self.fx_canvas._need_redraw = True
 
   def on_new_cv(self, cv):
     self._update_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)
 
   def on_new_min(self, min):
     self._update_plot(self.min_plot, self.ax_fx, min.cnt, min.fx)
-
-  def draw(self):
-    def task():
-      while True:
-        if self.dirty:
-          gtk.threads_enter()
-          try:
-            self.dirty = False
-            self.fx_canvas.draw()
-            self.pf_canvas.draw()
-            self.eval_canvas.draw()
-          finally:
-            gtk.threads_leave()
-        from IPython.utils.timing import time
-        time.sleep(get_config().ui_redraw_delay)
-
-    self.t = Thread(target=task)
-    self.t.daemon = True
-    self.t.start()
 
   def finish(self):
     '''called by base strategy in _cleanup for shutdown'''

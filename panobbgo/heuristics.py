@@ -111,16 +111,17 @@ class LatinHypercube(Heuristic):
 class Nearby(Heuristic):
   '''
   This provider generates new points based
-  on a cheap (i.e. fast) algorithm. For each new result,
-  it picks the so far best point (regardless of the new result)
-  and generates @new many nearby point(s). 
+  on a cheap (i.e. fast) algorithm. For each new best point,
+  it and generates ``new`` many nearby point(s).
   The @radius is scaled along each dimension's range in the search box.
 
   Arguments::
 
-    - axes:
-       * one: only desturb one axis
-       * all: desturb all axes
+  - axes:
+     * one: only desturb one axis
+     * all: desturb all axes
+
+  - new: number of new points to generate (default: 1)
   '''
   def __init__(self, cap = 3, radius = 1./100, new = 1, axes = 'one'):
     Heuristic.__init__(self, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
@@ -128,10 +129,10 @@ class Nearby(Heuristic):
     self.new    = new
     self.axes   = axes
 
-  def on_new_result(self, result):
+  def on_new_best(self, best):
     import numpy as np
     ret = []
-    x = self.strategy.analyzer('best').best.x
+    x = best.x
     if x is None: return
     # generate self.new many new points near best x
     for _ in range(self.new):
@@ -390,9 +391,10 @@ class LBFGSB(Heuristic):
       self.logger.info("x: %s" % x)
       self.emit(x)
 
-  def on_new_result(self, result):
-    if result.who == self.name:
-      self.p1.send(result.fx)
+  def on_new_results(self, results):
+    for result in results:
+      if result.who == self.name:
+        self.p1.send(result.fx)
 
 
 class Testing(Heuristic):
@@ -421,7 +423,7 @@ class Testing(Heuristic):
       #logger.info('TEST best i = %s'%self.i)
       raise StopHeuristic()
 
-  def on_new_result(self, result):
+  def on_new_results(self, results):
     #logger.info("TEST results: %s" % r)
     self.j += 1
     import numpy as np

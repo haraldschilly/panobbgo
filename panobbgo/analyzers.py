@@ -176,30 +176,29 @@ class Best(Analyzer):
     #    if is_left(p1.pp, p2.pp, p3.pp):
     #      self.logger.critical('is_left %s' % map(lambda _:_.pp, [p1, p2, p3]))
 
-  def on_new_result(self, result):
-    r = result
+  def on_new_results(self, results):
+    for r in results:
+      if r.fx < self._min.fx or (r.fx == self._min.fx and r.cv < self._min.cv):
+        #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
+        self._min = r
+        self.eventbus.publish("new_min", min = r)
 
-    if r.fx < self._min.fx or (r.fx == self._min.fx and r.cv < self._min.cv):
-      #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
-      self._min = r
-      self.eventbus.publish("new_min", min = r)
+      if r.cv < self._cv.cv or (r.cv == self._cv.cv and r.fx < self._cv.fx):
+        self._cv = r
+        self.eventbus.publish("new_cv", cv = r)
 
-    if r.cv < self._cv.cv or (r.cv == self._cv.cv and r.fx < self._cv.fx):
-      self._cv = r
-      self.eventbus.publish("new_cv", cv = r)
+      # the pareto is weighted by the _min.cv and _cv.fx values
+      # if pareto.cv is 0.0, then just the fx value counts
+      weight = np.array([self._cv.fx, self._min.cv])
+      if (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
+        or self._pareto.cv > 0.0 and \
+           weight.dot([self._pareto.cv, self._pareto.fx]) >\
+           weight.dot([r.cv,            r.fx]):
+          self._pareto = r
+          self.eventbus.publish("new_pareto", pareto = r)
+          self.eventbus.publish("new_best", best = r)
 
-    # the pareto is weighted by the _min.cv and _cv.fx values
-    # if pareto.cv is 0.0, then just the fx value counts
-    weight = np.array([self._cv.fx, self._min.cv])
-    if (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
-      or self._pareto.cv > 0.0 and \
-         weight.dot([self._pareto.cv, self._pareto.fx]) >\
-         weight.dot([r.cv,            r.fx]):
-        self._pareto = r
-        self.eventbus.publish("new_pareto", pareto = r)
-        self.eventbus.publish("new_best", best = r)
-
-    self._update_pareto(result)
+      self._update_pareto(r)
 
   def on_new_pareto(self, pareto):
     #self.logger.info("pareto: %s" % pareto)

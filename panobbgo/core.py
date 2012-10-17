@@ -78,7 +78,6 @@ class Results(object):
     self.eventbus.publish("new_results", results = new_results)
     for r in new_results:
       heapq.heappush(self.results, r)
-      self.eventbus.publish("new_result", result = r)
     if len(self.results) / 100 > self._last_nb / 100:
       #self.info()
       self._last_nb = len(self.results)
@@ -130,6 +129,8 @@ class Module(object):
     '''
     self._strategy = strategy
     self._init_()
+    if get_config().ui_show:
+      self._init_plot()
     # only after _init_ it is ready to recieve events
     self.eventbus.register(self)
 
@@ -151,6 +152,20 @@ class Module(object):
     It is called in the 2nd initialization phase, inside :meth:`._init_module`.
     Now, the strategy and all its components (e.g. :class:`panobbgo_lib.lib.Problem`, ...)
     are available.
+    '''
+    pass
+
+  def _init_plot(self):
+    '''
+    This plot initializer is called right after the :meth:`._init` method.
+    It could be used to tell the (optionally enabled) :module:`user interface <.ui>` that
+    this module wants to have a tab for displaying and visualizing some data.
+
+    It has to return a tuple consisting of a string as the label of the tab,
+    and a gtk container (e.g. :class:`gtk.VBox`)
+
+    To trigger a redraw after an update, set the ``_need_redraw`` property
+    of the :class:`~matplotlib.backends.backend_gtagg.FigureCnavasGTKAgg` to ``True``.
     '''
     pass
 

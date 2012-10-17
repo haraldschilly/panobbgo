@@ -38,7 +38,6 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanva
 from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.widgets import Slider, Cursor # SpanSelector
-from gtk import Label
 from matplotlib.axes import Axes
 from matplotlib import colorbar
 
@@ -76,16 +75,16 @@ class UI(Module, gtk.Window, Thread):
     self.top_hbox.add(notebook)
     notebook.show()
 
-    self.pf_vbox = gtk.VBox(False, 0)
-    self.add_notebook_page(self.pf_vbox, "Pareto")
+    #self.pf_vbox = gtk.VBox(False, 0)
+    #self.add_notebook_page("Pareto", self.pf_vbox)
     self.fx_vbox = gtk.VBox(False, 0)
-    self.add_notebook_page(self.fx_vbox, "Optimal")
+    self.add_notebook_page("Optimal", self.fx_vbox)
     self.eval_vbox = gtk.VBox(False, 0)
-    self.add_notebook_page(self.eval_vbox, "Values")
+    self.add_notebook_page("Values", self.eval_vbox)
 
     self.add(self.top_hbox)
 
-    self.init_pareto()
+    #self.init_pareto()
     self.init_fx()
     self.init_eval()
 
@@ -101,8 +100,9 @@ class UI(Module, gtk.Window, Thread):
     self.start()
     #self.draw()
 
-  def add_notebook_page(self, frame, label_text):
-    label = Label(label_text)
+  def add_notebook_page(self, label_text, frame):
+    if label_text is None or frame is None: return
+    label = gtk.Label(label_text)
     self.notebook.append_page(frame, label)
 
   def run(self):
@@ -117,7 +117,7 @@ class UI(Module, gtk.Window, Thread):
   def init_eval(self):
     mx = self.problem.dim
     if mx <= 1:
-      self.eval_vbox.add(Label("not enoguh dimensions"))
+      self.eval_vbox.add(gtk.Label("not enoguh dimensions"))
       return
     self.eval_fig = fig = Figure(figsize=(10,10))
     self.eval_canvas = FigureCanvas(fig)
@@ -127,12 +127,12 @@ class UI(Module, gtk.Window, Thread):
     spinner_hbox = gtk.HBox(gtk.FALSE, 5)
     adj0 = gtk.Adjustment(0, 0, mx-1, 1, 1, 0)
     spinner_0 = gtk.SpinButton(adj0, 0, 0)
-    spinner_hbox.add(Label("x coord:"))
+    spinner_hbox.add(gtk.Label("x coord:"))
     spinner_hbox.add(spinner_0)
 
     adj1 = gtk.Adjustment(1, 0, mx-1, 1, 1, 0)
     spinner_1 = gtk.SpinButton(adj1, 0, 0)
-    spinner_hbox.add(Label('y coord:'))
+    spinner_hbox.add(gtk.Label('y coord:'))
     spinner_hbox.add(spinner_1)
 
     adj0.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
@@ -146,35 +146,6 @@ class UI(Module, gtk.Window, Thread):
     self.eval_vbox.pack_start(spinner_hbox, False, False)
     self.toolbar = NavigationToolbar(self.eval_canvas, self)
     self.eval_vbox.pack_start(self.toolbar, False, False)
-
-  def init_pareto(self):
-    fig = Figure(figsize=(10,10))
-    self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
-
-    #self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
-    self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
-    fig.add_axes(self.pf_ax)
-
-    pf_ax.grid(True, which="both", ls="-", color='grey')
-    pf_ax.set_title("Pareto Front")
-    pf_ax.set_xlabel("constr. violation")
-    pf_ax.set_ylabel("obj. value")
-
-    self.pf_plt_pnts = np.empty(shape = (0, 2))
-    self.pf_plt, = pf_ax.plot([], [], marker='o', ls = '', alpha=.3, color='black')
-
-    self.pf_cursor = Cursor(pf_ax, useblit=True, color='black', alpha=0.5)
-
-    axcolor = 'lightgoldenrodyellow'
-    pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
-    fig.add_axes(pf_slider_ax)
-    v = int(get_config().max_eval * 1.1)
-    self.pf_slider = Slider(pf_slider_ax, '#', 0, v, valfmt  ="%d", valinit = v)
-    self.pf_slider.on_changed(self.on_pf_slide)
-
-    self.pf_vbox.pack_start(self.pf_canvas, True, True)
-    self.toolbar = NavigationToolbar(self.pf_canvas, self)
-    self.pf_vbox.pack_start(self.toolbar, False, False)
 
   def init_fx(self):
     fig = Figure(figsize=(10,10))
@@ -217,44 +188,6 @@ class UI(Module, gtk.Window, Thread):
     self.fx_vbox.pack_start(self.fx_canvas, True, True)
     self.toolbar = NavigationToolbar(self.fx_canvas, self)
     self.fx_vbox.pack_start(self.toolbar, False, False)
-
-  def on_new_pareto_front(self, front):
-    #self.ax1.clear()
-    pnts = map(lambda x : x.pp, front)
-    # insert points to make a staircase
-    inserts = []
-    for p1, p2 in zip(pnts[:-1], pnts[1:]):
-      inserts.append((p1[0], p2[1]))
-    all_pnts = []
-    for i in range(len(inserts)):
-      all_pnts.append(pnts[i])
-      all_pnts.append(inserts[i])
-    all_pnts.append(pnts[-1])
-    data = zip(*all_pnts)
-    self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black") # ms = ?
-    self.pf_ax.autoscale() # TODO get rid of autoscale
-    self.pf_canvas._need_redraw = True
-
-  def on_pf_slide(self, val):
-    val = int(val)
-    self.pf_plt.set_xdata(self.pf_plt_pnts[:val,0])
-    self.pf_plt.set_ydata(self.pf_plt_pnts[:val,1])
-    self.pf_canvas._need_redraw = True
-
-  def on_new_results(self, results):
-    plt = self.pf_plt
-    pnts = self.pf_plt_pnts
-    for r in results:
-      pnts = np.vstack((pnts, r.pp))
-      #self.pf_ax.plot(r.pp[0], r.pp[1], marker='.', alpha=.5, color='black')
-      #self.ax_fx.plot(r.cnt, r.fx, marker='.', alpha=.5)
-      #ylim = [min(self.ax_fx.get_ylim()[0], r.fx),
-      #        max(self.ax_fx.get_ylim()[1], r.fx)]
-    #self.ax_fx.set_ylim(ylim)
-    self.pf_plt_pnts = pnts
-    plt.set_xdata(pnts[:,0])
-    plt.set_ydata(pnts[:,1])
-    self.pf_canvas._need_redraw = True
 
   def on_finished(self):
     self.eval_btn.clicked()

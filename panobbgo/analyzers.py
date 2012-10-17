@@ -72,6 +72,60 @@ class Best(Analyzer):
     self._pareto  = r
     self._pareto_front = [] # this is a heapq, sorted by result.fx
 
+  def _init_plot(self):
+    from ui import Figure, FigureCanvas, NavigationToolbar, Axes, Cursor, Slider
+    import gtk
+    #view = gtk.TextView()
+    #view.set_cursor_visible(False)
+    #view.set_editable(False)
+    #buffer = view.get_buffer()
+    #iter = buffer.get_iter_at_offset(0)
+    #for i in range(100):
+    #  buffer.insert(iter, " " * i + "Line %d\n" % i)
+    #scrolled_window = gtk.ScrolledWindow()
+    #scrolled_window.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+    #scrolled_window.add(view)
+    #scrolled_window.show_all()
+    #return "Pareto", scrolled_window
+
+    fig = Figure(figsize=(10,10))
+    self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
+    self.pf_canvas.show()
+
+    #self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
+    self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
+    fig.add_axes(self.pf_ax)
+
+    pf_ax.grid(True, which="both", ls="-", color='grey')
+    pf_ax.set_title("Pareto Front")
+    pf_ax.set_xlabel("constr. violation")
+    pf_ax.set_ylabel("obj. value")
+
+    self.pf_plt_pnts = np.empty(shape = (0, 2))
+    self.pf_plt, = pf_ax.plot([], [], marker='o', ls = '', alpha=.3, color='black')
+
+    self.pf_cursor = Cursor(pf_ax, useblit=True, color='black', alpha=0.5)
+
+    axcolor = 'lightgoldenrodyellow'
+    pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
+    fig.add_axes(pf_slider_ax)
+    v = int(get_config().max_eval * 1.1)
+    self.pf_slider = Slider(pf_slider_ax, '#', 0, v, valfmt  ="%d", valinit = v)
+    self.pf_slider.on_changed(self.on_pf_slide)
+
+    pf_vbox = gtk.VBox(False, 0)
+    pf_vbox.pack_start(self.pf_canvas, True, True)
+    self.toolbar = NavigationToolbar(self.pf_canvas, self)
+    pf_vbox.pack_start(self.toolbar, False, False)
+    pf_vbox.show()
+    return "Pareto", pf_vbox
+
+  def on_pf_slide(self, val):
+    val = int(val)
+    self.pf_plt.set_xdata(self.pf_plt_pnts[:val,0])
+    self.pf_plt.set_ydata(self.pf_plt_pnts[:val,1])
+    self.pf_canvas._need_redraw = True
+
   @property
   def best(self):
     '''
@@ -199,10 +253,39 @@ class Best(Analyzer):
           self.eventbus.publish("new_best", best = r)
 
       self._update_pareto(r)
+    self._update_pf_plot(results)
 
   def on_new_pareto(self, pareto):
     #self.logger.info("pareto: %s" % pareto)
     pass
+
+  def _update_pf_plot(self, results):
+    plt = self.pf_plt
+    pnts = self.pf_plt_pnts
+    a = [ pnts ]
+    a.extend([r.pp for r in results])
+    pnts = np.vstack(a)
+    self.pf_plt_pnts = pnts
+    plt.set_xdata(pnts[:,0])
+    plt.set_ydata(pnts[:,1])
+    self.pf_canvas._need_redraw = True
+
+  def on_new_pareto_front(self, front):
+    #self.ax1.clear()
+    pnts = map(lambda x : x.pp, front)
+    # insert points to make a staircase
+    inserts = []
+    for p1, p2 in zip(pnts[:-1], pnts[1:]):
+      inserts.append((p1[0], p2[1]))
+    all_pnts = []
+    for i in range(len(inserts)):
+      all_pnts.append(pnts[i])
+      all_pnts.append(inserts[i])
+    all_pnts.append(pnts[-1])
+    data = zip(*all_pnts)
+    self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black") # ms = ?
+    self.pf_ax.autoscale() # TODO get rid of autoscale
+    self.pf_canvas._need_redraw = True
 
   def on_new_cv(self, cv):
     #self.logger.info("cv: %s" % cv)

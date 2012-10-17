@@ -130,7 +130,7 @@ class Module(object):
     self._strategy = strategy
     self._init_()
     if get_config().ui_show:
-      self._init_plot()
+      strategy.ui.add_notebook_page(*self._init_plot())
     # only after _init_ it is ready to recieve events
     self.eventbus.register(self)
 
@@ -167,7 +167,7 @@ class Module(object):
     To trigger a redraw after an update, set the ``_need_redraw`` property
     of the :class:`~matplotlib.backends.backend_gtagg.FigureCnavasGTKAgg` to ``True``.
     '''
-    pass
+    return None, None
 
   def __repr__(self):
     return 'Module %s' % self.name
@@ -523,6 +523,13 @@ class StrategyBase(object):
     self.eventbus    = EventBus()
     self.results     = Results(self)
 
+    # UI
+    if config.ui_show:
+      from ui import UI
+      self.ui = UI()
+      self.ui._init_module(self)
+      self.ui.show()
+
     # heuristics
     import collections
     self._heuristics = collections.OrderedDict()
@@ -537,13 +544,6 @@ class StrategyBase(object):
         'splitter':  Splitter()
     }
     map(lambda a : a._init_module(self), self._analyzers.values())
-
-    # UI
-    if config.ui_show:
-      from ui import UI
-      self.ui = UI()
-      self.ui._init_module(self)
-      self.ui.show()
 
     logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 

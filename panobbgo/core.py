@@ -130,7 +130,9 @@ class Module(object):
     self._strategy = strategy
     self._init_()
     if get_config().ui_show:
-      strategy.ui.add_notebook_page(*self._init_plot())
+      plt = self._init_plot()
+      if not isinstance(plt, list): plt = [plt]
+      [ strategy.ui.add_notebook_page(*p) for p in plt ]
     # only after _init_ it is ready to recieve events
     self.eventbus.register(self)
 
@@ -164,8 +166,8 @@ class Module(object):
     It has to return a tuple consisting of a string as the label of the tab,
     and a gtk container (e.g. :class:`gtk.VBox`)
 
-    To trigger a redraw after an update, set the ``_need_redraw`` property
-    of the :class:`~matplotlib.backends.backend_gtagg.FigureCnavasGTKAgg` to ``True``.
+    To trigger a redraw after an update, call the ``.draw_idle()`` method
+    of the :class:`~matplotlib.backends.backend_gtagg.FigureCnavasGTKAgg`.
     '''
     return None, None
 
@@ -235,7 +237,7 @@ class Heuristic(Module):
     '''
     try:
       if points is None: raise StopHeuristic()
-      if not isinstance(points, list): points = [ points ]
+      if not isinstance(points, (list, tuple)): points = [ points ]
       for point in points:
         if not isinstance(point, np.ndarray):
           raise Exception("point is not a numpy ndarray")

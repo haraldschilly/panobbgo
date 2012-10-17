@@ -49,6 +49,13 @@ class UI(Module, gtk.Window, Thread):
   def __init__(self):
     Module.__init__(self)
     gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+    # fill current window
+    screen = self.get_screen()
+    monitor = screen.get_monitor_at_window(self.get_root_window())
+    geom = screen.get_monitor_geometry(monitor)
+    self.set_resize_mode(gtk.RESIZE_QUEUE)
+    s = min(map(lambda _ : int(_ * .8), [geom.width, geom.height]))
+    self.resize(int(s * 4./3.), s)
     self.set_position(gtk.WIN_POS_CENTER)
     Thread.__init__(self)
 

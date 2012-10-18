@@ -54,6 +54,7 @@ class UI(Module, gtk.Window, Thread):
     self.set_resize_mode(gtk.RESIZE_QUEUE)
     s = min(map(lambda _ : int(_ * .8), [geom.width, geom.height]))
     self.resize(int(s * 4./3.), s)
+    self._canvases = set()
     # centered
     self.set_position(gtk.WIN_POS_CENTER)
     Thread.__init__(self)
@@ -65,7 +66,7 @@ class UI(Module, gtk.Window, Thread):
     self.set_default_size(900, 800)
     self.connect('destroy', self.destroy)
     self.set_title('Panobbgo %s@%s' % (config.version, config.git_head[:8]))
-    self.set_border_width(3)
+    self.set_border_width(0)
 
     self.top_hbox = gtk.HBox(False, 0)
 
@@ -86,12 +87,37 @@ class UI(Module, gtk.Window, Thread):
     #self.mt = Thread(target=run_gtk_main)
     #self.mt.start()
     self.start()
-    #self.draw()
+    self._auto_redraw()
+
+  def _auto_redraw(self):
+    def task():
+      while True:
+        gtk.threads_enter()
+        try:
+          [ c.draw_idle() for c in self._canvases if c._need_redraw ]
+        finally:
+          gtk.threads_leave()
+        from IPython.utils.timing import time
+        time.sleep(get_config().ui_redraw_delay)
+
+    self.t = Thread(target=task)
+    self.t.daemon = True
+    self.t.start()
+
+  def redraw_canvas(self, c):
+    '''
+    If your canvas needs to be redrawn, pass it into this function.
+    '''
+    assert isinstance(c, FigureCanvas)
+    self._canvases.add(c)
+    c._need_redraw = True
 
   def add_notebook_page(self, label_text, frame):
     if label_text is None or frame is None: return
     label = gtk.Label(label_text)
     self.notebook.append_page(frame, label)
+    frame.show_all()
+    self.notebook.show_all()
 
   def run(self):
     gtk.threads_enter()
@@ -99,7 +125,7 @@ class UI(Module, gtk.Window, Thread):
     gtk.threads_leave()
 
   def destroy(self, win):
-    self.logger.warning("window destroyed")
+    self.logger.info("window destroyed")
     gtk.main_quit()
 
   def finish(self):

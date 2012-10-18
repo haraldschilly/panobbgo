@@ -140,6 +140,9 @@ class Module(object):
   def strategy(self): return self._strategy
 
   @property
+  def ui(self): return self._strategy.ui
+
+  @property
   def eventbus(self): return self._strategy.eventbus
 
   @property

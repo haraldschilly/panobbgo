@@ -83,7 +83,6 @@ class Best(Analyzer):
     import gtk
     fig = Figure(figsize=(10,10))
     self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
-    self.fx_canvas.show()
 
     # f(x) plot
     self.ax_fx = ax_fx = fig.add_subplot(1,1,1)
@@ -123,7 +122,6 @@ class Best(Analyzer):
     vbox.pack_start(self.fx_canvas, True, True)
     self.toolbar = NavigationToolbar(self.fx_canvas, self)
     vbox.pack_start(self.toolbar, False, False)
-    vbox.show_all()
     return "f(x)", vbox
 
   def _init_plot_eval(self):
@@ -136,26 +134,28 @@ class Best(Analyzer):
       return
     self.eval_fig = fig = Figure(figsize=(10,10))
     self.eval_canvas = FigureCanvas(fig)
-    self.eval_canvas.show()
     self.eval_ax = fig.add_subplot(111)
     self.eval_cb_ax, _ = colorbar.make_axes(self.eval_ax)
 
     spinner_hbox = gtk.HBox(gtk.FALSE, 5)
-    adj0 = gtk.Adjustment(0, 0, mx-1, 1, 1, 0)
-    spinner_0 = gtk.SpinButton(adj0, 0, 0)
-    spinner_hbox.add(gtk.Label("x coord:"))
-    spinner_hbox.add(spinner_0)
+    def mk_cb(l):
+      cb = gtk.combo_box_new_text()
+      [cb.append_text('Axis %d'%i) for i in range(0, mx)]
+      cb.set_active(mk_cb.i)
+      mk_cb.i += 1
+      spinner_hbox.add(gtk.Label(l))
+      spinner_hbox.add(cb)
+      return cb
+    mk_cb.i = 0
 
-    adj1 = gtk.Adjustment(1, 0, mx-1, 1, 1, 0)
-    spinner_1 = gtk.SpinButton(adj1, 0, 0)
-    spinner_hbox.add(gtk.Label('y coord:'))
-    spinner_hbox.add(spinner_1)
+    cb_0 = mk_cb("X Coord:")
+    cb_1 = mk_cb("Y Coord:")
 
-    adj0.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
-    adj1.connect('value_changed', self.on_eval_spinner, spinner_0, spinner_1)
+    for cb in [cb_0, cb_1]:
+      cb.connect('changed', self.on_eval_spinner, cb_0, cb_1)
 
     self.eval_btn = btn = gtk.Button("redraw")
-    btn.connect('clicked', self.on_eval_spinner, spinner_0, spinner_1)
+    btn.connect('clicked', self.on_eval_spinner, cb_0, cb_1)
     spinner_hbox.add(btn)
 
     vbox = gtk.VBox(False, 0)
@@ -163,16 +163,15 @@ class Best(Analyzer):
     vbox.pack_start(spinner_hbox, False, False)
     self.toolbar = NavigationToolbar(self.eval_canvas, self)
     vbox.pack_start(self.toolbar, False, False)
-    vbox.show_all()
     return "Values", vbox
 
   def on_finished(self):
     self.eval_btn.clicked()
 
-  def on_eval_spinner(self, widget, spinner0, spinner1):
+  def on_eval_spinner(self, widget, cb0, cb1):
     from matplotlib import colorbar
-    cx = spinner0.get_value_as_int()
-    cy = spinner1.get_value_as_int()
+    cx = cb0.get_active()
+    cy = cb1.get_active()
     if cx == cy:
       self.logger.debug("eval plot: cx == cy and discarded")
       return
@@ -212,8 +211,7 @@ class Best(Analyzer):
     self.eval_ax.scatter(x,y,marker='o',c='b',s=5,zorder=10)
     self.eval_ax.set_xlim((xmin, xmax))
     self.eval_ax.set_ylim((ymin, ymax))
-    #self.eval_canvas._need_redraw = True
-    self.eval_canvas.draw_idle()
+    self.ui.redraw_canvas(self.eval_canvas)
 
   def _update_fx_plot(self, plt, ax, xval, yval):
     xx = np.append(plt.get_xdata(), xval)
@@ -225,7 +223,7 @@ class Best(Analyzer):
     ylim = [0, #min(ax.get_ylim()[0], yval),
             max(ax.get_ylim()[1], max(plt.get_ydata()))]
     ax.set_ylim(ylim)
-    self.fx_canvas.draw_idle()
+    self.ui.redraw_canvas(self.fx_canvas)
 
   def _init_plot_pareto(self):
     from ui import Figure, FigureCanvas, NavigationToolbar, Axes, Cursor, Slider
@@ -240,12 +238,10 @@ class Best(Analyzer):
     #scrolled_window = gtk.ScrolledWindow()
     #scrolled_window.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
     #scrolled_window.add(view)
-    #scrolled_window.show_all()
     #return "Pareto", scrolled_window
 
     fig = Figure(figsize=(10,10))
     self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
-    self.pf_canvas.show()
 
     #self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
     self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
@@ -272,14 +268,13 @@ class Best(Analyzer):
     pf_vbox.pack_start(self.pf_canvas, True, True)
     self.toolbar = NavigationToolbar(self.pf_canvas, self)
     pf_vbox.pack_start(self.toolbar, False, False)
-    pf_vbox.show()
     return "Pareto", pf_vbox
 
   def on_pf_slide(self, val):
     val = int(val)
     self.pf_plt.set_xdata(self.pf_plt_pnts[:val,0])
     self.pf_plt.set_ydata(self.pf_plt_pnts[:val,1])
-    self.pf_canvas.draw_idle()
+    self.ui.redraw_canvas(self.pf_canvas)
 
   @property
   def best(self):
@@ -423,7 +418,7 @@ class Best(Analyzer):
     self.pf_plt_pnts = pnts
     plt.set_xdata(pnts[:,0])
     plt.set_ydata(pnts[:,1])
-    self.pf_canvas.draw_idle()
+    self.ui.redraw_canvas(self.pf_canvas)
 
   def on_new_pareto_front(self, front):
     #self.ax1.clear()
@@ -440,7 +435,7 @@ class Best(Analyzer):
     data = zip(*all_pnts)
     self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black") # ms = ?
     self.pf_ax.autoscale() # TODO get rid of autoscale
-    self.pf_canvas.draw_idle()
+    self.ui.redraw_canvas(self.pf_canvas)
 
   def on_new_cv(self, cv):
     self._update_fx_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)

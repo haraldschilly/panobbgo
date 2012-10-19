@@ -79,10 +79,9 @@ class Best(Analyzer):
              self._init_plot_eval() ]
 
   def _init_plot_fx(self):
-    from ui import Figure, FigureCanvas, NavigationToolbar, Cursor
+    from ui import NavigationToolbar
     import gtk
-    fig = Figure(figsize=(10,10))
-    self.fx_canvas = FigureCanvas(fig) # gtk.DrawingArea
+    self.fx_canvas, fig = self.ui.mk_canvas()
 
     # f(x) plot
     self.ax_fx = ax_fx = fig.add_subplot(1,1,1)
@@ -116,6 +115,7 @@ class Best(Analyzer):
     #  tl.set_color('red')
     self.cv_plot,  = ax_cv.plot([], [], linestyle='-', marker='o', color="red", zorder=-1)
 
+    from matplotlib.widgets import Cursor
     self.fx_cursor = Cursor(self.ax_cv, useblit=True, color='black', alpha=0.5)
 
     vbox = gtk.VBox(False, 0)
@@ -125,15 +125,15 @@ class Best(Analyzer):
     return "f(x)", vbox
 
   def _init_plot_eval(self):
-    from ui import Figure, FigureCanvas, NavigationToolbar
+    from ui import NavigationToolbar
     from matplotlib import colorbar
     import gtk
     mx = self.problem.dim
+    vbox = gtk.VBox(False, 0)
     if mx <= 1:
-      self.eval_vbox.add(gtk.Label("not enoguh dimensions"))
+      vbox.add(gtk.Label("not enough dimensions"))
       return
-    self.eval_fig = fig = Figure(figsize=(10,10))
-    self.eval_canvas = FigureCanvas(fig)
+    self.eval_canvas, fig = self.ui.mk_canvas()
     self.eval_ax = fig.add_subplot(111)
     self.eval_cb_ax, _ = colorbar.make_axes(self.eval_ax)
 
@@ -154,11 +154,10 @@ class Best(Analyzer):
     for cb in [cb_0, cb_1]:
       cb.connect('changed', self.on_eval_spinner, cb_0, cb_1)
 
-    self.eval_btn = btn = gtk.Button("redraw")
+    self.eval_btn = btn = gtk.Button("Redraw")
     btn.connect('clicked', self.on_eval_spinner, cb_0, cb_1)
     spinner_hbox.add(btn)
 
-    vbox = gtk.VBox(False, 0)
     vbox.pack_start(self.eval_canvas, True, True)
     vbox.pack_start(spinner_hbox, False, False)
     self.toolbar = NavigationToolbar(self.eval_canvas, self)
@@ -226,7 +225,9 @@ class Best(Analyzer):
     self.ui.redraw_canvas(self.fx_canvas)
 
   def _init_plot_pareto(self):
-    from ui import Figure, FigureCanvas, NavigationToolbar, Axes, Cursor, Slider
+    from ui import NavigationToolbar
+    from matplotlib.widgets import Cursor, Slider
+    from matplotlib.axes import Axes
     import gtk
     #view = gtk.TextView()
     #view.set_cursor_visible(False)
@@ -240,8 +241,7 @@ class Best(Analyzer):
     #scrolled_window.add(view)
     #return "Pareto", scrolled_window
 
-    fig = Figure(figsize=(10,10))
-    self.pf_canvas = FigureCanvas(fig) # gtk.DrawingArea
+    self.pf_canvas, fig = self.ui.mk_canvas()
 
     #self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
     self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])

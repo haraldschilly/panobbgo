@@ -23,7 +23,6 @@ This draws a window and plots graphs.
    :scale:  75 %
 '''
 from config import get_config
-import numpy as np
 from core import Module
 from threading import Thread
 
@@ -36,9 +35,8 @@ import matplotlib
 matplotlib.use('GTKAgg') # 'GTKAgg' or 'GTK'
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
 from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
-from matplotlib.figure import Figure
-from matplotlib.widgets import Slider, Cursor # SpanSelector
-from matplotlib.axes import Axes
+#from matplotlib.widgets import Slider, Cursor # SpanSelector
+#from matplotlib.axes import Axes
 
 class UI(Module, gtk.Window, Thread):
   r'''
@@ -58,6 +56,15 @@ class UI(Module, gtk.Window, Thread):
     # centered
     self.set_position(gtk.WIN_POS_CENTER)
     Thread.__init__(self)
+
+  @staticmethod
+  def mk_canvas():
+    '''
+    Creates a FigureCanvas, ready to be added to a gtk layout element
+    '''
+    from matplotlib.figure import Figure
+    fig = Figure(figsize=(10,10))
+    return FigureCanvas(fig), fig
 
   def show(self):
     config = get_config()

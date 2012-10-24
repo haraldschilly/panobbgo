@@ -181,3 +181,44 @@ class Rastrigin(Problem):
     x = x - self.offset
     return self.par1 * self.dim + \
            sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
+
+class Shekel(Problem):
+  '''
+  Shekel Function [SH]_.
+
+  For :math:`m` minima in :math:`n` dimensions:
+
+  .. math::
+
+    f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
+
+  .. [SH] http://en.wikipedia.org/wiki/Shekel_function
+  '''
+  def __init__(self, dims, m = 10, a = None, c = None):
+    box = [(-2, 2)] * dims
+    Problem.__init__(self, box)
+    self.m = m
+
+    if a is None:
+      a = np.empty((dims, m), dtype=np.float)
+      phi = np.linspace(0, 2*np.pi, num=dims, endpoint=False)
+      for i in range(m):
+        a[:,i] = np.sin(phi * ((1. + i) / m))
+
+    assert a.shape == (dims, m)
+
+    if c is None:
+      from itertools import cycle
+      cc = cycle([.1, .2, .2, .4, .4, .6, .3, .7, .5, .5])
+      c = [ cc.next() for _ in range(m) ]
+
+    assert len(c) == m
+
+    self.a = a
+    self.c = c
+
+  def eval(self, x):
+    def denom(i):
+      d = x - self.a[:,i]
+      return self.c[i] + d.dot(d)
+    return - np.sum([ 1. / denom(i) for i in range(self.m)])

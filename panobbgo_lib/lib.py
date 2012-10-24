@@ -257,7 +257,9 @@ class Problem(object):
     #sleep(1e-2)
     fx = self.eval(point.x)
     cv = self.eval_constraints(point.x)
-    assert np.all(cv >= 0), 'Constraint violation values must be >= 0'
+    # TODO allow negaitve constraint values (measure of how much satisfied they are!)
+    if cv is not None:
+      assert np.all(cv >= 0), 'Constraint violation values must be >= 0'
     return Result(point, fx, cv = cv)
 
   def __repr__(self):

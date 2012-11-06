@@ -165,7 +165,7 @@ class Best(Analyzer):
     return "Values", vbox
 
   def on_finished(self):
-    self.eval_btn.clicked()
+    if hasattr(self, "eval_btn"): self.eval_btn.clicked()
 
   def on_eval_spinner(self, widget, cb0, cb1):
     from matplotlib import colorbar
@@ -410,6 +410,7 @@ class Best(Analyzer):
     pass
 
   def _update_pf_plot(self, results):
+    if not hasattr(self, "pf_plt"): return
     plt = self.pf_plt
     pnts = self.pf_plt_pnts
     a = [ pnts ]
@@ -421,6 +422,7 @@ class Best(Analyzer):
     self.ui.redraw_canvas(self.pf_canvas)
 
   def on_new_pareto_front(self, front):
+    if not hasattr(self, "pf_ax"): return
     #self.ax1.clear()
     pnts = map(lambda x : x.pp, front)
     # insert points to make a staircase
@@ -438,12 +440,12 @@ class Best(Analyzer):
     self.ui.redraw_canvas(self.pf_canvas)
 
   def on_new_cv(self, cv):
-    self._update_fx_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)
-    #self.logger.info("cv: %s" % cv)
+    if hasattr(self, "cv_plot"):
+      self._update_fx_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)
 
   def on_new_min(self, min):
-    self._update_fx_plot(self.min_plot, self.ax_fx, min.cnt, min.fx)
-    #self.logger.info("min: %s" % cv)
+    if hasattr(self, "min_plot"):
+      self._update_fx_plot(self.min_plot, self.ax_fx, min.cnt, min.fx)
 
 class Grid(Analyzer):
   '''

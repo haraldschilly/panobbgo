@@ -12,8 +12,8 @@ from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 
 from panobbgo_lib.classic import *
 
-problem = Shekel(3)
-#problem = Rosenbrock(3, par1 = 10)
+#problem = Shekel(3)
+problem = Rosenbrock(3, par1 = 10)
 #problem = RosenbrockConstraint(3, par1 = 10, par2 = .5)
 #problem = RosenbrockStochastic(3)
 #problem = Rosenbrock(2, 100)

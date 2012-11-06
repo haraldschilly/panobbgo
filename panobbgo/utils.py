@@ -31,7 +31,6 @@ class ColoredFormatter(logging.Formatter):
   COLOR_SEQ_BOLD = "\033[1;%dm"
   BOLD_SEQ = "\033[1m"
 
-
   COLORS = {
       'DEBUG': BLUE,
       #'INFO': WHITE,
@@ -41,9 +40,9 @@ class ColoredFormatter(logging.Formatter):
   }
 
   def __init__(self):
-    msg = '%(asctime)s $BOLD%(name)-5s$RESET/%(levelname)-9s %(message)s @%(filename)s:%(lineno)d'
+    msg = '%(runtime)f $BOLD%(name)-5s$RESET/%(levelname)-9s %(message)s @%(filename)s:%(lineno)d'
     msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
-    logging.Formatter.__init__(self, msg)
+    logging.Formatter.__init__(self, fmt = msg)
 
   @staticmethod
   def colorize(string, color, bold=False):
@@ -60,12 +59,23 @@ class ColoredFormatter(logging.Formatter):
       record.msg = self.colorize(record.msg, col)
     return logging.Formatter.format(self, record)
 
+class PanobbgoContext(logging.Filter):
+  def __init__(self):
+    logging.Filter.__init__(self)
+    from IPython.utils.timing import time
+    self._start = time.time()
+
+  def filter(self, record):
+    from IPython.utils.timing import time
+    record.runtime = time.time() - self._start
+    return True
 
 def create_logger(name, level = logging.INFO):
   '''
   Creates logger with ``name`` and given ``level`` logging level.
   '''
   logger = logging.getLogger(name)
+  logger.addFilter(PanobbgoContext())
   logger.setLevel(logging.DEBUG)
   log_stream_handler = logging.StreamHandler()
   log_stream_handler.setLevel(level)

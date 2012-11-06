@@ -34,6 +34,9 @@ _config = None
 class Config(object):
 
   def __init__(self):
+    import os
+    self._appdata_dir = os.path.expanduser("~/.panobbgo")
+    self._default_fn = os.path.join(self._appdata_dir, 'config.ini')
     self._loggers = {}
     self._create()
 
@@ -41,7 +44,10 @@ class Config(object):
     from utils import info, create_logger
     logger = create_logger("CONFG")
 
-    defaultself_fn = 'config.ini'
+    # create application data dir if necessary
+    import os
+    if not os.path.exists(self._appdata_dir):
+      os.mkdir(self._appdata_dir)
 
     # 1: parsing command-line arguments
     from optparse import OptionParser
@@ -49,7 +55,7 @@ class Config(object):
     _parser.add_option('-c', '--config-file',
         dest="config_file",
         help='configuration file [default: %default]',
-        default=defaultself_fn)
+        default=self._default_fn)
 
     _parser.add_option('-p', '--profile',
         dest='ipy_profile',
@@ -194,8 +200,7 @@ class Config(object):
 
 def get_config():
   global _config
-  if _config != None:
-    return _config
-  _config = Config()
+  if _config is None:
+    _config = Config()
   return _config
 

@@ -67,10 +67,9 @@ class Best(Analyzer):
   def __init__(self):
     Analyzer.__init__(self)
     self.logger   = get_config().get_logger("BEST")
-    r             = Result(None, np.infty, cv = np.infty)
-    self._min     = r
-    self._cv      = r
-    self._pareto  = r
+    self._min     = None
+    self._cv      = None
+    self._pareto  = None
     self._pareto_front = [] # this is a heapq, sorted by result.fx
 
   def _init_plot(self):
@@ -285,7 +284,7 @@ class Best(Analyzer):
 
       At the moment, this is :attr:`.pareto` but might change.
     '''
-    return self._pareto
+    return self.pareto
 
   @property
   def cv(self):
@@ -382,19 +381,20 @@ class Best(Analyzer):
 
   def on_new_results(self, results):
     for r in results:
-      if r.fx < self._min.fx or (r.fx == self._min.fx and r.cv < self._min.cv):
+      if (self._min is None) or (r.fx < self._min.fx) or (r.fx == self._min.fx and r.cv < self._min.cv):
         #self.logger.info(u"\u2318 %s by %s" %(r, r.who))
         self._min = r
         self.eventbus.publish("new_min", min = r)
 
-      if r.cv < self._cv.cv or (r.cv == self._cv.cv and r.fx < self._cv.fx):
+      if (self._cv is None) or (r.cv < self._cv.cv) or (r.cv == self._cv.cv and r.fx < self._cv.fx):
         self._cv = r
         self.eventbus.publish("new_cv", cv = r)
 
       # the pareto is weighted by the _min.cv and _cv.fx values
       # if pareto.cv is 0.0, then just the fx value counts
       weight = np.array([self._cv.fx, self._min.cv])
-      if (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
+      if self._pareto is None \
+        or (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
         or self._pareto.cv > 0.0 and \
            weight.dot([self._pareto.cv, self._pareto.fx]) >\
            weight.dot([r.cv,            r.fx]):

@@ -61,7 +61,7 @@ strategy = StrategyRewarding(problem, heurs)
 #calc.set_machines(strategy0.generators) #use nb_machines for calc. new points
 #calc.start()
 
-if not strategy.best is None:
-  print u"best: %s" % strategy.best
+if strategy.best is None:
+  print "no solution found"
 else:
-  print "best solution is None"
+  print u"best: %s" % strategy.best

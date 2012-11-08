@@ -71,11 +71,11 @@ class Result(object):
   Additionally, there is also
 
   - :attr:`.error`: estimated or calculated :math:`\Delta f(x)`.
-  - :attr:`.constraint_violation`: a possibly empty vector listing the constraint violation for
+  - :attr:`.cv_vec`: a possibly empty vector listing the constraint violation for
     each constraint.
   - :attr:`.cnt`: An integer counter, starting at 0.
   '''
-  def __init__(self, point, fx, cv = None, cv_norm = None, error = 0.0):
+  def __init__(self, point, fx, cv_vec = None, cv_norm = None, error = 0.0):
     '''
     Args:
 
@@ -88,7 +88,7 @@ class Result(object):
     self._point   = point
     self._fx      = fx
     self._error   = error
-    self._cv      = cv
+    self._cv_vec  = cv_vec
     self._cv_norm = cv_norm
     self._time    = time.time()
     self._cnt     = None
@@ -118,18 +118,30 @@ class Result(object):
     return self._fx
 
   @property
-  def constraint_violation(self):
-    '''Vector of constraint violations for each constraint, or None.'''
-    return self._cv
+  def cv_vec(self):
+    '''
+    Vector of constraint violations for each constraint, or None.
+
+    .. Note::
+
+       Be aware, that entries could be negative. This is useful if you want to know
+       how well a point is satisfied. The `.cv` property just looks at the positive
+       entries, though.
+    '''
+    return self._cv_vec
 
   @property
   def cv(self):
     '''
-    The chosen norm of :attr:`.constraint_violation`; see ``cv_norm`` in constructor.
+    The chosen norm of :attr:`.cv_vec`; see ``cv_norm`` in constructor.
+
+    .. Note::
+
+        Only the positive entries are used to calculate the norm!
     '''
-    if self._cv is None: return 0.0
+    if self._cv_vec is None: return 0.0
     from numpy.linalg import norm
-    return norm(self._cv, self._cv_norm)
+    return norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm)
 
   @property
   def pp(self):
@@ -167,7 +179,7 @@ class Result(object):
 
   def __repr__(self):
     x = ' '.join('%11.6f' % _ for _ in self.x) if self.x != None else None
-    cv = '' if self._cv is None else u'\u22DB%8.4f ' % self.cv
+    cv = '' if self._cv_vec is None else u'\u22DB%8.4f ' % self.cv
     return '%11.6f %s@ [%s]' % (self.fx, cv, x)
 
 class Problem(object):
@@ -257,10 +269,7 @@ class Problem(object):
     #sleep(1e-2)
     fx = self.eval(point.x)
     cv = self.eval_constraints(point.x)
-    # TODO allow negaitve constraint values (measure of how much satisfied they are!)
-    if cv is not None:
-      assert np.all(cv >= 0), 'Constraint violation values must be >= 0'
-    return Result(point, fx, cv = cv)
+    return Result(point, fx, cv_vec = cv)
 
   def __repr__(self):
     descr = "Problem '%s': %d dims, " % (self.__class__.__name__, self._dim)

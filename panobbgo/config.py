@@ -50,50 +50,57 @@ class Config(object):
       os.mkdir(self._appdata_dir)
 
     # 1: parsing command-line arguments
-    from optparse import OptionParser
-    _parser = OptionParser()
-    _parser.add_option('-c', '--config-file',
+    from argparse import ArgumentParser
+
+    descr = 'Panobbgo - Parallel Noisy Black-Box Global Optimizer.'
+
+    epilog = '''Note: By default, the 'debug' mode is enabled automatically.
+    Disable it via the '-O' flag of the python interpreter, e.g. 'python -O run.py'.
+    Website: http://dev.harald.schil.ly/panobbgo/
+    Sources: https://github.com/haraldschilly/panobbgo
+    '''
+
+    parser = ArgumentParser(description = descr, epilog = epilog)
+
+    parser.add_argument('-c', '--config-file',
         dest="config_file",
-        help='configuration file [default: %default]',
+        help='configuration file [default: %(default)s]',
         default=self._default_fn)
 
-    _parser.add_option('-p', '--profile',
+    from panobbgo import __version__
+    parser.add_argument('--version', action='version', version=__version__)
+
+    parser.add_argument('-p', '--profile',
         dest='ipy_profile',
         help='IPython profile for the ipcluster configuration')
 
-    _parser.add_option('--max',
+    parser.add_argument('--max',
         dest='max_eval',
         help="maximum number of evaluations",
-        type="int")
+        type=int)
 
-    _parser.add_option('--smooth',
+    parser.add_argument('--smooth',
         dest='smooth',
         help="smoothing parameter for (additive or other) smoothing",
-        type="float")
+        type=float)
 
-    _parser.add_option('--cap',
+    parser.add_argument('--cap',
         dest='capacity',
         help="capacity for each queue in each heuristic",
-        type="int")
+        type=int)
 
-    _parser.add_option("-v",
+    parser.add_argument("-v",
         action="count",
         dest="verbosity",
         help="verbosity level: -v, -vv, or -vvv")
 
-    _parser.add_option('--ui',
+    parser.add_argument('--ui',
         dest='ui',
         action='store_true',
         default=False,
         help='If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.')
 
-    _parser.add_option("-d", '--debug',
-        dest="debug",
-        action="store_true",
-        default=False,
-        help="If set, changes behavior in some cases to be more verbose or to break earlier.")
-
-    _parser.add_option('--lf', '--log-focus',
+    parser.add_argument('--lf', '--log-focus',
         dest="logger_focus",
         action="append",
         default = [],
@@ -101,86 +108,89 @@ class Config(object):
                        "You can specify this option multiple times!",
                        "e.g. --lf=CORE --lf=SPLIT"]))
 
-    _options, _args = _parser.parse_args()
+    args = parser.parse_args()
 
-    logger.info('cmdln options: %s' % _options)
+    logger.info('cmdln options: %s' % args)
 
     import os
     from ConfigParser import ConfigParser
 
     # 2/1: does config file exist?
-    if not os.path.exists(_options.config_file):
-      _cfgp = ConfigParser()
+    if not os.path.exists(args.config_file):
+      cfgp = ConfigParser()
       # create them in the reverse order
 
-      _cfgp.add_section('db') # database config
-      #_cfgp.set('db', 'port', '37010')
-      #_cfgp.set('db', 'host', 'localhost')
+      cfgp.add_section('db') # database config
+      #cfgp.set('db', 'port', '37010')
+      #cfgp.set('db', 'host', 'localhost')
 
-      _cfgp.add_section('ipython')
-      _cfgp.set('ipython', 'profile', 'default')
+      cfgp.add_section('ipython')
+      cfgp.set('ipython', 'profile', 'default')
 
-      _cfgp.add_section('heuristic')
-      _cfgp.set('heuristic', 'capacity', '20')
+      cfgp.add_section('heuristic')
+      cfgp.set('heuristic', 'capacity', '20')
 
-      _cfgp.add_section('core') # core configuration
-      _cfgp.set('core', 'loglevel', '40') # default: no debug mode
-      _cfgp.set('core', 'show_interval', '1.0')
-      _cfgp.set('core', 'max_eval', '1000')
-      _cfgp.set('core', 'discount', '0.95')
-      _cfgp.set('core', 'smooth', 0.5)
+      cfgp.add_section('core') # core configuration
+      cfgp.set('core', 'loglevel', '40') # default: no debug mode
+      cfgp.set('core', 'show_interval', '1.0')
+      cfgp.set('core', 'max_eval', '1000')
+      cfgp.set('core', 'discount', '0.95')
+      cfgp.set('core', 'smooth', 0.5)
 
-      _cfgp.add_section('ui')
-      _cfgp.set('ui', 'show', False)
+      cfgp.add_section('ui')
+      cfgp.set('ui', 'show', False)
 
-      with open(_options.config_file, 'wb') as configfile:
-        _cfgp.write(configfile)
+      with open(args.config_file, 'wb') as configfile:
+        cfgp.write(configfile)
 
     # 2/2: reading the config file
-    _cfgp = ConfigParser()
-    _cfgp.read(_options.config_file)
+    cfgp = ConfigParser()
+    cfgp.read(args.config_file)
 
     # 3: override specific settings
-    _cur_verb = _cfgp.getint('core', 'loglevel')
-    if _options.verbosity:   _cfgp.set('core',    'loglevel', str(_cur_verb - 10*_options.verbosity))
-    if _options.max_eval:    _cfgp.set('core',    'max_eval', str(_options.max_eval))
-    if _options.smooth:      _cfgp.set('core',    'smooth',   str(_options.smooth))
-    if _options.capacity:    _cfgp.set('heuristic', 'capacity', str(_options.capacity))
-    if _options.ipy_profile: _cfgp.set('ipython', 'profile',  _options.ipy_profile)
-    if _options.ui:          _cfgp.set('ui',      'show',    "True")
+    _cur_verb = cfgp.getint('core', 'loglevel')
+    if args.verbosity:   cfgp.set('core',    'loglevel', str(_cur_verb - 10*args.verbosity))
+    if args.max_eval:    cfgp.set('core',    'max_eval', str(args.max_eval))
+    if args.smooth:      cfgp.set('core',    'smooth',   str(args.smooth))
+    if args.capacity:    cfgp.set('heuristic', 'capacity', str(args.capacity))
+    if args.ipy_profile: cfgp.set('ipython', 'profile',  args.ipy_profile)
+    if args.ui:          cfgp.set('ui',      'show',    "True")
 
     ## some generic function
     def getself(section, key):
-      return _cfgp.get(section, key)
+      return cfgp.get(section, key)
 
-    def all_cfgp(sep = '.'):
+    def allcfgp(sep = '.'):
       ret = {}
-      for s in _cfgp.sections():
-        for k, v in _cfgp.items(s):
+      for s in cfgp.sections():
+        for k, v in cfgp.items(s):
           ret['%s%s%s' % (s, sep, str(k))] = v
       return ret
 
-    logger.info('config.ini: %s' % all_cfgp())
+    logger.info('config.ini: %s' % allcfgp())
     self.environment = info()
     from panobbgo import __version__
 
     ## specific data
-    self.loglevel        = _cfgp.getint  ('core', 'loglevel')
-    self.debug           = _options.debug
-    self.show_interval   = _cfgp.getfloat('core', 'show_interval')
-    self.max_eval        = _cfgp.getint  ('core', 'max_eval')
-    self.discount        = _cfgp.getfloat('core', 'discount')
-    self.smooth          = _cfgp.getfloat('core', 'smooth')
-    self.capacity        = _cfgp.getint  ('heuristic', 'capacity')
-    self.ipy_profile     = _cfgp.get     ('ipython', 'profile')
-    self.ui_show         = _cfgp.getboolean('ui', 'show')
-    self.logger_focus    = _options.logger_focus
+    self.loglevel        = cfgp.getint  ('core', 'loglevel')
+    self.show_interval   = cfgp.getfloat('core', 'show_interval')
+    self.max_eval        = cfgp.getint  ('core', 'max_eval')
+    self.discount        = cfgp.getfloat('core', 'discount')
+    self.smooth          = cfgp.getfloat('core', 'smooth')
+    self.capacity        = cfgp.getint  ('heuristic', 'capacity')
+    self.ipy_profile     = cfgp.get     ('ipython', 'profile')
+    self.ui_show         = cfgp.getboolean('ui', 'show')
+    self.logger_focus    = args.logger_focus
     self.ui_redraw_delay = 0.5
     self.version         = __version__
     self.git_head        = self.environment['git HEAD']
 
     logger.info('IPython profile: %s' % self.ipy_profile)
     logger.info("Environment: %s" % self.environment)
+
+  @property
+  def debug(self):
+    return __debug__
 
   def get_logger(self, name, loglevel = None):
     assert len(name) <= 5, 'Lenght of logger name > 5: "%s"' % name

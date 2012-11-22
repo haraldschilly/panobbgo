@@ -40,7 +40,7 @@ class ColoredFormatter(logging.Formatter):
   }
 
   def __init__(self):
-    msg = '%(runtime)f $BOLD%(name)-5s$RESET/%(levelname)-9s %(message)s @%(filename)s:%(lineno)d'
+    msg = '%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s'
     msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
     logging.Formatter.__init__(self, fmt = msg)
 
@@ -68,6 +68,7 @@ class PanobbgoContext(logging.Filter):
   def filter(self, record):
     from IPython.utils.timing import time
     record.runtime = time.time() - self._start
+    record.where = "%s:%s" % (record.filename[:-3], record.lineno)
     return True
 
 def create_logger(name, level = logging.INFO):

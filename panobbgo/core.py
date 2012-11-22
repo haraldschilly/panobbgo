@@ -709,8 +709,8 @@ class StrategyBase(object):
   def avg_time_per_task(self):
     if len(self.tasks_walltimes) > 1:
       return np.average(self.tasks_walltimes.values())
-    self.slogger.warning("avg time per task for 0 tasks!")
-    return 0.01
+    self.slogger.warning("avg time per task for 0 tasks! -> returning NaN")
+    return np.NAN
 
   @property
   def time_wall(self):

@@ -30,6 +30,8 @@ to have up to date versions without having to rely on the packages of Debian.
 For the user-interface, you also have to install `python-gtk2`, which
 also provides the `pygtk` module, right?
 
+[![Build Status](https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master)](https://travis-ci.org/haraldschilly/panobbgo)
+
 ## Dependencies
 
 * IPython &ge; 0.13
@@ -47,7 +49,7 @@ also provides the `pygtk` module, right?
 
 * It also calls `Git` to get the ref of the HEAD for logging.
 
-## Running it
+## Running
 
 ### One time
 

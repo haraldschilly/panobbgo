@@ -32,9 +32,16 @@ import gtk
 from gtk import gdk
 
 import matplotlib
-matplotlib.use('GTKAgg') # 'GTKAgg' or 'GTK'
-from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
-from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+import os
+if os.environ.get("TRAVIS") == "true":
+  matplotlib.use('Agg') # 'GTKAgg' or 'GTK', or 'Agg' ?
+  from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+  from matplotlib.backends.backend_agg import NavigationToolbar2Agg as NavigationToolbar
+else:
+  matplotlib.use('GTKAgg') # 'GTKAgg' or 'GTK', or 'Agg' ?
+  from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+  from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+del os
 #from matplotlib.widgets import Slider, Cursor # SpanSelector
 #from matplotlib.axes import Axes
 

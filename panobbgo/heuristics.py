@@ -108,6 +108,48 @@ class LatinHypercube(Heuristic):
       [ np.random.shuffle(pts[:,i]) for i in range(dim) ]
       self.emit([ p for p in pts ]) # needs to be a list of np.ndarrays
 
+class NelderMead(Heuristic):
+  r'''
+  This heuristic is similar to the
+  `Nelder Mead Method <http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method>`_
+
+  Algorithm::
+
+    * If there are more result points than dimensions, it tries to find a
+      subset of points, which are linear independent (hence, suiteable for NM)
+      and have the best (so far) function values.
+    * Then, it applies the NM heuristic in a randomized fashing, i.e. it generates
+      several promising points into the same direction as
+      the implied search direction.
+  '''
+  def __init__(self):
+    Heuristic.__init__(self, name = "Nelder Mead")
+    self.logger = get_config().get_logger('H:NM')
+
+  def _gram_schmidt(self, dim, points):
+    """
+    Calculates a orthogonal base of dimension `dim` with given list of points.
+    Retuns `None`, if not enough points or impossible.
+    """
+    pass
+
+  def _nelder_mead(self, base):
+    """
+    Retuns a new *randomized* search point for the given orthonormal base `base`
+    using the Nelder-Mead Method.
+    """
+    pass
+
+  def on_new_results(self, results):
+    dim = self.problem.dim
+    # always consider all results, this method is only triggered
+    # if there is a new batch of points available
+    results = self.results[:]
+    while True:
+      base = self._gram_schmidt(dim, results)
+      new_point = self._nelder_mead(base)
+      # while queue not full -> emit point; else return
+
 class Nearby(Heuristic):
   '''
   This provider generates new points based
@@ -227,7 +269,7 @@ class QuadraticModelMockup(Heuristic):
   def __init__(self):
     Heuristic.__init__(self)
     self.machines = None
-    self.logger = get_config().get_logger('H-QU')
+    self.logger = get_config().get_logger('H:QU')
 
   #def set_machines(self, machines):
   #  self.machines = machines # this is already a load_balanced view

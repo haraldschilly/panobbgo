@@ -516,10 +516,10 @@ class StrategyBase(object):
     self.result_counter_lock = Lock()
 
     # task accounting (tasks != points !!!)
-    self.per_client   = 1 # #tasks per client in 'chunksize'
-    self.pending      = set([])
-    self.new_finished = []
-    self.finished     = []
+    self.jobs_per_client   = 1 # number of tasks per client in 'chunksize'
+    self.pending           = set([])
+    self.new_finished      = []
+    self.finished          = []
 
     # init & start everything
     self._setup_cluster(0, problem)
@@ -623,13 +623,14 @@ class StrategyBase(object):
     while True:
       self.loops += 1
 
+      # execute the actual strategy
       points = self.execute()
 
       # distribute work
       new_tasks = self.evaluators.map_async(prob_ref, points, \
-                  chunksize = self.per_client, ordered=False)
+                  chunksize = self.jobs_per_client, ordered=False)
 
-      # don't forget, this updates the statistics - new_tasks's default is "None"
+      # and don't forget, this updates the statistics
       self._add_tasks(new_tasks)
 
       # collect new results for each finished task, hand them over to result DB
@@ -640,7 +641,7 @@ class StrategyBase(object):
             self.result_counter += 1
           self.results += r
 
-      self.per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
+      self.jobs_per_client = max(1, int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
 
       # show heuristic performances after each round
       #logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in heurs)))

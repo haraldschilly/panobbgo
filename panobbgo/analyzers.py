@@ -747,9 +747,9 @@ class Splitter(Analyzer):
 
     def split(self, dim = None):
       '''
-      Args::
+      Arguments::
 
-        - ``dim``: Dimension, along which to split. (default: None, and calculated)
+      - ``dim``: Dimension, along which to split. (default: `None`, and calculated)
       '''
       assert self.leaf, 'only leaf boxes are allowed to be split'
       if dim is None:

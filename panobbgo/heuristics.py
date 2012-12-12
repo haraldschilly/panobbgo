@@ -110,45 +110,84 @@ class LatinHypercube(Heuristic):
 
 class NelderMead(Heuristic):
   r'''
-  This heuristic is similar to the
+  This heuristic is inspired by the
   `Nelder Mead Method <http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method>`_
 
-  Algorithm::
+  Algorithm:
 
-    * If there are more result points than dimensions, it tries to find a
-      subset of points, which are linear independent (hence, suiteable for NM)
-      and have the best (so far) function values.
-    * Then, it applies the NM heuristic in a randomized fashing, i.e. it generates
-      several promising points into the same direction as
-      the implied search direction.
+  * If there are enough result points, it tries to find a
+    subset of points, which are linear independent (hence, suiteable for NM)
+    and have the best (so far) function values.
+
+  * Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
+    several promising points into the same direction as
+    the implied search direction.
   '''
   def __init__(self):
     Heuristic.__init__(self, name = "Nelder Mead")
     self.logger = get_config().get_logger('H:NM')
+    from threading import Event
+    self.got_bb = Event()
 
-  def _gram_schmidt(self, dim, points):
+  def gram_schmidt(self, dim, points, tol = 1e-6):
     """
     Calculates a orthogonal base of dimension `dim` with given list of points.
     Retuns `None`, if not enough points or impossible.
     """
+    # start empty, and append in each iteration
+    # sort points ascending by fx -> calc gs -> skip if <= tol
     pass
 
-  def _nelder_mead(self, base):
+  def nelder_mead(self, base):
     """
     Retuns a new *randomized* search point for the given orthonormal base `base`
     using the Nelder-Mead Method.
     """
     pass
 
-  def on_new_results(self, results):
+  def on_start(self):
+    '''
+    Algorithm Outline:
+
+    #. Wait until a first or new best box has been found.
+
+    #. Clear the ``got_bb`` flag, later on we use this to be notified
+       about new best boxes via :meth:`.on_new_best_box`.
+
+    #. ``bb`` is the currently used best box, it might be ``None`` if
+       we have to look up the parents when searching for more result points.
+
+    #. Inside the outer while, we try to find a suiteable base via :meth:`.gram_schmidt`.
+
+    #. If we got such a base, we generate new search points via :meth:`.nelder_mead`
+       until the queue is full (which blocks) or there is a new best box (breaks inner loop).
+
+    #. The ``break`` exits the outer while and we start fresh with the new best box.
+    '''
     dim = self.problem.dim
-    # always consider all results, this method is only triggered
-    # if there is a new batch of points available
-    results = self.results[:]
     while True:
-      base = self._gram_schmidt(dim, results)
-      new_point = self._nelder_mead(base)
-      # while queue not full -> emit point; else return
+      self.got_bb.wait()
+      bb = self.best_box
+      self.got_bb.clear()
+      while bb is not None:
+        base = self._gram_schmidt(dim, bb.results)
+        if base: # was able to find a base
+          while not self.got_bb.is_set():
+            new_point = self._nelder_mead(base)
+            self.emit(new_point)
+          break
+        # not able to find base, try with parent of current best box
+        if bb.parent:
+          bb = bb.parent
+
+  def on_new_best_box(self, best_box):
+    '''
+    When a new best box has been found by the :class:`~.analyzers.Splitter`, the
+    ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.
+    '''
+    self.best_box = best_box
+    self.got_bb.set()
+    self.clear_output() # clearing must come last
 
 class Nearby(Heuristic):
   '''
@@ -159,11 +198,11 @@ class Nearby(Heuristic):
 
   Arguments::
 
-  - axes:
-     * one: only desturb one axis
-     * all: desturb all axes
+  - ``axes``:
+     * ``one``: only desturb one axis
+     * ``all``: desturb all axes
 
-  - new: number of new points to generate (default: 1)
+  - ``new``: number of new points to generate (default: 1)
   '''
   def __init__(self, cap = 3, radius = 1./100, new = 1, axes = 'one'):
     Heuristic.__init__(self, cap=cap, name="Nearby %.3f/%s" % (radius, axes))

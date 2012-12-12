@@ -129,14 +129,31 @@ class NelderMead(Heuristic):
     from threading import Event
     self.got_bb = Event()
 
-  def gram_schmidt(self, dim, points, tol = 1e-6):
+  def gram_schmidt(self, dim, results, tol = 1e-6):
     """
-    Calculates a orthogonal base of dimension `dim` with given list of points.
+    Calculates a orthogonal base of dimension `dim` with given list of :class:`Results <panobbgo_lib.lib.Result>`.
     Retuns `None`, if not enough points or impossible.
+    The actual basis is not important, only the points for it.
     """
     # start empty, and append in each iteration
     # sort points ascending by fx -> calc gs -> skip if <= tol
-    pass
+    import numpy as np
+    base = [] # orthogonal system basis
+    ret  = [] # list of results, which will be returned
+    if len(results) < dim: return None
+    # sort the results by asc. f(x)
+    results = sorted(results, key = lambda p : p.fx)
+    first = results.pop(0)
+    base.append(first.x)
+    ret.append(first)
+    for p in results:
+      w = p.x - np.sum(((v.x.dot(p.x)/v.x.dot(v.x)) * v.x for v in base) , axis=0)
+      if np.linalg.norm(w) > tol:
+        base.append(w)
+        ret.append(p)
+        if len(ret) >= dim: return ret
+
+    return None
 
   def nelder_mead(self, base):
     """

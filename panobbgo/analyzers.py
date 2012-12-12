@@ -523,6 +523,8 @@ class Splitter(Analyzer):
     self.big_by_depth = {}
     self.big_by_depth[self.root.depth] = self.root
     self.max_depth = self.root.depth
+    # best box (with best f(x))
+    self.best_box = None
     # in which box (a list!) is each point?
     from collections import defaultdict
     self.result2boxes = defaultdict(list)
@@ -535,6 +537,12 @@ class Splitter(Analyzer):
     information for each depth level.
     '''
     self.max_depth = max(new_box.depth, self.max_depth)
+
+    # check if new box contains the best point (>= because it could
+    # be a child box)
+    if self.best_box is None or self.best_box.fx >= new_box.fx:
+      self.best_box = new_box
+      self.eventbus.publish('new_best_box', best_box = new_box)
 
     old_biggest_leaf = self.biggest_leaf
     self.biggest_leaf = max(self.leafs, key = lambda l:l.log_volume)
@@ -550,7 +558,7 @@ class Splitter(Analyzer):
       else:
         leafs_at_depth = list(filter(lambda l:l.depth == d, self.leafs))
         if len(leafs_at_depth) > 0:
-          self.big_by_depth[d] = min(leafs_at_depth, key = lambda l:l.log_volume)
+          self.big_by_depth[d] = max(leafs_at_depth, key = lambda l:l.log_volume)
 
       if self.big_by_depth[d] is not old_big_by_depth:
         self.eventbus.publish('new_biggest_by_depth',
@@ -624,10 +632,10 @@ class Splitter(Analyzer):
       In the future, this might be refactored to allow different
       splitting methods.
     '''
-    def __init__(self, parent, splitter, box, depth = 0):
+    def __init__(self, parent, splitter, box):
       self.parent    = parent
       self.logger    = splitter.logger
-      self.depth     = depth
+      self.depth     = parent.depth + 1 if parent else 0
       self.box       = box
       self.splitter  = splitter
       self.limit     = splitter.limit
@@ -738,15 +746,20 @@ class Splitter(Analyzer):
     def __len__(self): return len(self.results)
 
     def split(self, dim = None):
+      '''
+      Args::
+
+        - ``dim``: Dimension, along which to split. (default: None, and calculated)
+      '''
       assert self.leaf, 'only leaf boxes are allowed to be split'
       if dim is None:
-        scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
-        dim = np.argmax(np.std(scaled_coords, axis=0))
+        #scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
+        #dim = np.argmax(np.std(scaled_coords, axis=0))
+        dim = np.argmax(self.ranges)
       #self.logger.debug("dim: %d" % dim)
       assert dim >=0 and dim < self.dim, 'dimension along where to split is %d' % dim
-      next_depth = self.depth + 1
-      b1 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
-      b2 = Splitter.Box(self, self.splitter, self.box.copy(), depth = next_depth)
+      b1 = Splitter.Box(self, self.splitter, self.box.copy())
+      b2 = Splitter.Box(self, self.splitter, self.box.copy())
       self.split_dim = dim
       #split_point = np.median(map(lambda r:r.x[dim], self.results))
       split_point = np.average(map(lambda r:r.x[dim], self.results))

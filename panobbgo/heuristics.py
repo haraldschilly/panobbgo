@@ -187,15 +187,13 @@ class NelderMead(Heuristic):
       bb = self.best_box
       self.got_bb.clear()
       while bb is not None:
-        base = self._gram_schmidt(dim, bb.results)
+        base = self.gram_schmidt(dim, bb.results)
         if base: # was able to find a base
           while not self.got_bb.is_set():
-            new_point = self._nelder_mead(base)
-            self.emit(new_point)
+            self.emit(self.nelder_mead(base))
           break
         # not able to find base, try with parent of current best box
-        if bb.parent:
-          bb = bb.parent
+        bb = bb.parent
 
   def on_new_best_box(self, best_box):
     '''

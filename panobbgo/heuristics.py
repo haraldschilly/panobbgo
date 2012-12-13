@@ -115,13 +115,14 @@ class NelderMead(Heuristic):
 
   Algorithm:
 
-  * If there are enough result points, it tries to find a
+  * If there are enough result points available, it tries to find a
     subset of points, which are linear independent (hence, suiteable for NM)
-    and have the best (so far) function values.
+    and have the best (so far) function values, and are 
+    close (in the same :class:`Box <panobbgo.analyzers.Splitter>`).
 
   * Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
     several promising points into the same direction as
-    the implied search direction.
+    the implied search direction. See :meth:`here <.nelder_mead>`.
   '''
   def __init__(self):
     Heuristic.__init__(self, name = "Nelder Mead")
@@ -131,9 +132,11 @@ class NelderMead(Heuristic):
 
   def gram_schmidt(self, dim, results, tol = 1e-6):
     """
-    Calculates a orthogonal base of dimension `dim` with given list of :class:`Results <panobbgo_lib.lib.Result>`.
+    Tries to calculate an orthogonal base of dimension `dim` 
+    with given list of :class:`Results <panobbgo_lib.lib.Result>` points.
     Retuns `None`, if not enough points or impossible.
-    The actual basis is not important, only the points for it.
+    The actual basis is not important, only the points for it are.
+    They are used in :meth:`~.nelder_mead`.
     """
     # start empty, and append in each iteration
     # sort points ascending by fx -> calc gs -> skip if <= tol
@@ -147,20 +150,34 @@ class NelderMead(Heuristic):
     base.append(first.x)
     ret.append(first)
     for p in results:
-      w = p.x - np.sum(((v.x.dot(p.x)/v.x.dot(v.x)) * v.x for v in base) , axis=0)
-      if np.linalg.norm(w) > tol:
+      w = p.x - np.sum(((v.dot(p.x)/v.dot(v)) * v for v in base) , axis=0)
+      if np.any(np.abs(w) > tol):
         base.append(w)
         ret.append(p)
-        if len(ret) >= dim: return ret
-
+        if len(ret) >= dim:
+          return ret
     return None
 
-  def nelder_mead(self, base):
+  def nelder_mead(self, base, scale = 3, offset = 0):
     """
-    Retuns a new *randomized* search point for the given orthonormal base `base`
+    Retuns a new *randomized* search point for the given set of results (``base``),
+    which are linearly independent enough to form a orthonormal base,
     using the Nelder-Mead Method.
+
+    Optional Arguments:
+
+    - ``scale``: Used when sampling the new points via the :func:`~numpy.random.rayleigh` method.
+    - ``offset``: This is subtracted from the sample factor; i.e. negative
+      values account for the "contraction".
     """
-    pass
+    base = sorted(base, key = lambda r : r.fx)
+    worst = base.pop() # worst point, base is the remainder
+    # TODO f(x) values are available and could be used for weighting
+    #weights = [ np.log1p(worst.fx - r.fx) for r in base ]
+    weights = 1 + .1 * np.random.randn(len(base))
+    centroid = np.average([p.x for p in base], axis=0, weights = weights)
+    factor = np.random.rayleigh(scale = scale) - offset
+    return worst.x + factor * (centroid - worst.x)
 
   def on_start(self):
     '''
@@ -182,18 +199,21 @@ class NelderMead(Heuristic):
     #. The ``break`` exits the outer while and we start fresh with the new best box.
     '''
     dim = self.problem.dim
+    self.got_bb.wait()
     while True:
-      self.got_bb.wait()
       bb = self.best_box
       self.got_bb.clear()
       while bb is not None:
         base = self.gram_schmidt(dim, bb.results)
         if base: # was able to find a base
+          # TODO split nelder_mead into a init phase, and a sampling routine
           while not self.got_bb.is_set():
-            self.emit(self.nelder_mead(base))
+            new_point = self.nelder_mead(base)
+            #self.logger.info("new point: %s" % new_point)
+            self.emit(new_point)
           break
-        # not able to find base, try with parent of current best box
-        bb = bb.parent
+        else: # not able to find base, try with parent of current best box
+          bb = bb.parent
 
   def on_new_best_box(self, best_box):
     '''

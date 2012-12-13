@@ -538,12 +538,6 @@ class Splitter(Analyzer):
     '''
     self.max_depth = max(new_box.depth, self.max_depth)
 
-    # check if new box contains the best point (>= because it could
-    # be a child box)
-    if self.best_box is None or self.best_box.fx >= new_box.fx:
-      self.best_box = new_box
-      self.eventbus.publish('new_best_box', best_box = new_box)
-
     old_biggest_leaf = self.biggest_leaf
     self.biggest_leaf = max(self.leafs, key = lambda l:l.log_volume)
     if old_biggest_leaf is not self.biggest_leaf:
@@ -619,7 +613,15 @@ class Splitter(Analyzer):
     for i, chld in enumerate(children):
       self.logger.debug(" +ch%d: %s" % (i, chld))
     #logger.info("children: %s" % map(lambda x:(x.depth, len(x)), children))
-    pass
+
+    # update self.best_box
+    # check if new box contains the best point (>= because it could
+    # be a child box)
+    for new_box in children:
+      if self.best_box is None or self.best_box.fx >= new_box.fx:
+        self.best_box = new_box
+    self.eventbus.publish('new_best_box', best_box = self.best_box)
+
 
   class Box(object):
     '''

@@ -88,8 +88,8 @@ class StrategyRewarding(StrategyBase):
 
   def execute(self):
     points = []
-    target = self.per_client * len(self.evaluators)
-    self.logger.debug("per_client = %s | target = %s" % (self.per_client, target))
+    target = self.jobs_per_client * len(self.evaluators)
+    self.logger.debug("per_client = %s | target = %s" % (self.jobs_per_client, target))
     if len(self.evaluators.outstanding) < target:
       s = self.config.smooth
       while True:

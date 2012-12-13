@@ -5,7 +5,7 @@ import sys
 sys.path.append(".")
 #from panobbgo.core import Results
 from panobbgo.heuristics import Random, Nearby, \
-     Zero, LatinHypercube, Extremal, \
+     Zero, LatinHypercube, Extremal, NelderMead, \
      Center, WeightedAverage, Subprocess #, Testing
 from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 #import numpy as np
@@ -13,8 +13,8 @@ from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 from panobbgo_lib.classic import *
 
 #problem = Shekel(3)
-#problem = Rosenbrock(3, par1 = 10)
-problem = RosenbrockConstraint(3, par1 = 10, par2 = .5)
+problem = Rosenbrock(4, par1 = 10)
+#problem = RosenbrockConstraint(3, par1 = 10, par2 = .5)
 #problem = RosenbrockStochastic(3)
 #problem = Rosenbrock(2, 100)
 #problem = RosenbrockAbs(2)
@@ -42,6 +42,7 @@ extremal    = Extremal()
 center      = Center()
 avg         = WeightedAverage()
 sp          = Subprocess()
+nm          = NelderMead()
 #testing     = Testing()
 
 # target of max_eval generated points is the inverse of the gamma function
@@ -54,7 +55,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, lhyp, near_10_all, zero, extremal, avg, sp] #, testing]
+heurs = [ center, rand, lhyp, near_10_all, zero, extremal, nm] #avg , testing]
 
 strategy = StrategyRewarding(problem, heurs)
 #strategy = StrategyRoundRobin(problem, heurs)

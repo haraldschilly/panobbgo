@@ -227,9 +227,12 @@ class Heuristic(Module):
     self.performance = 0.0
 
   def clear_output(self):
-    with self.__output.mutex:
+    q = self.__output
+    with q.not_full:
+      #with q.mutex:
       #del self.__output.queue[:]  # LifoQueue
-      self.__output.queue.clear()  # Queue
+      q.queue.clear()  # Queue
+      q.not_full.notify() # to wakeup "put()"
 
   def emit(self, points):
     '''
@@ -240,7 +243,8 @@ class Heuristic(Module):
     '''
     try:
       if points is None: raise StopHeuristic()
-      if not isinstance(points, (list, tuple)): points = [ points ]
+      if not isinstance(points, (list, tuple)):
+        points = [ points ]
       for point in points:
         if not isinstance(point, np.ndarray):
           raise Exception("point is not a numpy ndarray")

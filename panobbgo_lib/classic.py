@@ -28,197 +28,206 @@ This file contains the basic objects to build a problem and to do a single evalu
 import numpy as np
 from lib import Problem
 
+
 class Rosenbrock(Problem):
-  r'''
-  Rosenbrock function with parameter ``par1``.
+    r'''
+    Rosenbrock function with parameter ``par1``.
 
-  .. math::
+    .. math::
 
-    f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+      f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
-  '''
-  def __init__(self, dims, par1 = 100):
-    box = [(-2,2)] * dims
-    box[0] = (0,2) # for cornercases + testing
-    self.par1 = par1
-    Problem.__init__(self, box)
+    '''
+    def __init__(self, dims, par1=100):
+        box = [(-2, 2)] * dims
+        box[0] = (0, 2)  # for cornercases + testing
+        self.par1 = par1
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
+    def eval(self, x):
+        return sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+
 
 class RosenbrockConstraint(Problem):
-  r'''
-  Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
+    r'''
+    Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
 
-  .. math::
+    .. math::
 
-    \min f(x) & = \sum_i \mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2 \\
-    \mathit{s.t.} \;\; & (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
-                       & x_i \geq 0 \;\;                              \forall i
+      \min f(x) & = \sum_i \mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2 \\
+      \mathit{s.t.} \;\; & (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                         & x_i \geq 0 \;\;                              \forall i
 
-  '''
-  def __init__(self, dims, par1 = 100, par2 = 0.25):
-    box = [(-2,2)] * dims
-    box[0] = (0,2) # for cornercases + testing
-    self.par1 = par1
-    self.par2 = par2
-    Problem.__init__(self, box)
+    '''
+    def __init__(self, dims, par1=100, par2=0.25):
+        box = [(-2, 2)] * dims
+        box[0] = (0, 2)  # for cornercases + testing
+        self.par1 = par1
+        self.par2 = par2
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    return sum(self.par1 * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2) - 50
+    def eval(self, x):
+        return sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2) - 50
 
-  def eval_constraints(self, x):
-    cv = - (x[1:] - x[:-1])**2.0 + self.par2
-    cv[cv < 0] = 0.0
-    pos = -x.copy() # note the -
-    pos[pos < 0] = 0.0
-    return np.concatenate([cv, pos])
+    def eval_constraints(self, x):
+        cv = - (x[1:] - x[:-1]) ** 2.0 + self.par2
+        cv[cv < 0] = 0.0
+        pos = -x.copy()  # note the -
+        pos[pos < 0] = 0.0
+        return np.concatenate([cv, pos])
+
 
 class RosenbrockAbs(Problem):
-  r'''
-  Absolute Rosenbrock function.
+    r'''
+    Absolute Rosenbrock function.
 
-  .. math::
+    .. math::
 
-   f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
+     f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
 
-  '''
-  def __init__(self, dims, par1 = 100):
-    box = [(-5,5)] * dims
-    box[0] = (0,2) # for cornercases + testing
-    self.par1 = par1
-    Problem.__init__(self, box)
+    '''
+    def __init__(self, dims, par1=100):
+        box = [(-5, 5)] * dims
+        box[0] = (0, 2)  # for cornercases + testing
+        self.par1 = par1
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
-               np.abs(1-x[:-1]))
+    def eval(self, x):
+        return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
+                   np.abs(1 - x[:-1]))
+
 
 class RosenbrockAbsConstraint(Problem):
-  r'''
-  Absolute Rosenbrock function.
+    r'''
+    Absolute Rosenbrock function.
 
-  .. math::
+    .. math::
 
-   \min f(x) & = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \| \\
-   \mathit{s.t.} \;\; & \|x_{i+1} - x_{i}\| \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
-                      & x_i \geq 0 \;\;                          \forall i
+     \min f(x) & = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \| \\
+     \mathit{s.t.} \;\; & \|x_{i+1} - x_{i}\| \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                        & x_i \geq 0 \;\;                          \forall i
 
-  '''
-  def __init__(self, dims, par1 = 100, par2 = 0.1):
-    box = [(-5,5)] * dims
-    box[0] = (0,2) # for cornercases + testing
-    self.par1 = par1
-    self.par2 = par2
-    Problem.__init__(self, box)
+    '''
+    def __init__(self, dims, par1=100, par2=0.1):
+        box = [(-5, 5)] * dims
+        box[0] = (0, 2)  # for cornercases + testing
+        self.par1 = par1
+        self.par2 = par2
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + \
-               np.abs(1-x[:-1]))
+    def eval(self, x):
+        return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
+                   np.abs(1 - x[:-1]))
 
-  def eval_constraints(self, x):
-    cv = - np.abs(x[1:] - x[:-1]) + self.par2
-    cv[cv < 0] = 0.0
-    pos = -x.copy() # note the -
-    pos[pos < 0] = 0.0
-    return np.concatenate([cv, pos])
+    def eval_constraints(self, x):
+        cv = - np.abs(x[1:] - x[:-1]) + self.par2
+        cv[cv < 0] = 0.0
+        pos = -x.copy()  # note the -
+        pos[pos < 0] = 0.0
+        return np.concatenate([cv, pos])
+
 
 class RosenbrockStochastic(Problem):
-  r'''
-  Stochastic variant of Rosenbrock function.
+    r'''
+    Stochastic variant of Rosenbrock function.
 
-  .. math ::
+    .. math ::
 
-     f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+       f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
-  where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
-  vector in :math:`\left[0, 1\right)^{n-1}`.
-  '''
-  def __init__(self, dims, par1 = 100, jitter = .1):
-    box = [(-5,5)] * dims
-    box[0] = (-1,2) # for cornercases + testing
-    self.par1 = par1
-    self.jitter = jitter
-    Problem.__init__(self, box)
+    where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
+    vector in :math:`\left[0, 1\right)^{n-1}`.
+    '''
+    def __init__(self, dims, par1=100, jitter=.1):
+        box = [(-5, 5)] * dims
+        box[0] = (-1, 2)  # for cornercases + testing
+        self.par1 = par1
+        self.jitter = jitter
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    eps = self.jitter * np.random.rand(self.dim - 1)
-    ret = sum(self.par1 * eps * (x[1:] - x[:-1]**2)**2 + (1-x[:-1])**2)
-    return ret
+    def eval(self, x):
+        eps = self.jitter * np.random.rand(self.dim - 1)
+        ret = sum(
+            self.par1 * eps * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+        return ret
+
 
 class Himmelblau(Problem):
-  '''
-  Himmelblau [HB]_ testproblem.
+    '''
+    Himmelblau [HB]_ testproblem.
 
-  .. math::
+    .. math::
 
-    f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
+      f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
 
-  .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
-  '''
-  def __init__(self):
-    Problem.__init__(self, [(-5,5)] * 2)
+    .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
+    '''
+    def __init__(self):
+        Problem.__init__(self, [(-5, 5)] * 2)
 
-  def eval(self, x):
-    x, y = x[0], x[1]
-    return (x**2+y-11)**2+(x+y**2-7)**2
+    def eval(self, x):
+        x, y = x[0], x[1]
+        return (x ** 2 + y - 11) ** 2 + (x + y ** 2 - 7) ** 2
+
 
 class Rastrigin(Problem):
-  '''
-  Rastrigin
+    '''
+    Rastrigin
 
-  .. math::
+    .. math::
 
-    f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
+      f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
 
-  '''
-  def __init__(self, dims, par1 = 10, offset=0):
-    box = [(-2,2)] * dims
-    self.offset = offset
-    self.par1 = par1
-    Problem.__init__(self, box)
+    '''
+    def __init__(self, dims, par1=10, offset=0):
+        box = [(-2, 2)] * dims
+        self.offset = offset
+        self.par1 = par1
+        Problem.__init__(self, box)
 
-  def eval(self, x):
-    x = x - self.offset
-    return self.par1 * self.dim + \
-           sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
+    def eval(self, x):
+        x = x - self.offset
+        return self.par1 * self.dim + \
+            sum(x ** 2 - self.par1 * np.cos(2 * np.pi * x))
+
 
 class Shekel(Problem):
-  '''
-  Shekel Function [SH]_.
+    '''
+    Shekel Function [SH]_.
 
-  For :math:`m` minima in :math:`n` dimensions:
+    For :math:`m` minima in :math:`n` dimensions:
 
-  .. math::
+    .. math::
 
-    f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
+      f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
 
-  .. [SH] http://en.wikipedia.org/wiki/Shekel_function
-  '''
-  def __init__(self, dims, m = 10, a = None, c = None):
-    box = [(-2, 2)] * dims
-    Problem.__init__(self, box)
-    self.m = m
+    .. [SH] http://en.wikipedia.org/wiki/Shekel_function
+    '''
+    def __init__(self, dims, m=10, a=None, c=None):
+        box = [(-2, 2)] * dims
+        Problem.__init__(self, box)
+        self.m = m
 
-    if a is None:
-      a = np.empty((dims, m), dtype=np.float)
-      phi = np.linspace(0, 2*np.pi, num=dims, endpoint=False)
-      for i in range(m):
-        a[:,i] = np.sin(phi * ((1. + i) / m))
+        if a is None:
+            a = np.empty((dims, m), dtype=np.float)
+            phi = np.linspace(0, 2 * np.pi, num=dims, endpoint=False)
+            for i in range(m):
+                a[:, i] = np.sin(phi * ((1. + i) / m))
 
-    assert a.shape == (dims, m)
+        assert a.shape == (dims, m)
 
-    if c is None:
-      from itertools import cycle
-      cc = cycle([.1, .2, .2, .4, .4, .6, .3, .7, .5, .5])
-      c = [ cc.next() for _ in range(m) ]
+        if c is None:
+            from itertools import cycle
+            cc = cycle([.1, .2, .2, .4, .4, .6, .3, .7, .5, .5])
+            c = [cc.next() for _ in range(m)]
 
-    assert len(c) == m
+        assert len(c) == m
 
-    self.a = a
-    self.c = c
+        self.a = a
+        self.c = c
 
-  def eval(self, x):
-    def denom(i):
-      d = x - self.a[:,i]
-      return self.c[i] + d.dot(d)
-    return - np.sum([ 1. / denom(i) for i in range(self.m)])
+    def eval(self, x):
+        def denom(i):
+            d = x - self.a[:, i]
+            return self.c[i] + d.dot(d)
+        return - np.sum([1. / denom(i) for i in range(self.m)])

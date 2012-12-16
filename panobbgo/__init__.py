@@ -5,4 +5,3 @@ This is the main part of Panobbgo.
 """
 
 __version__ = '0.0.1pre'
-

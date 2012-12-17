@@ -180,7 +180,8 @@ class Result(object):
         return cmp(self._fx, other._fx)
 
     def __repr__(self):
-        x = ' '.join('%11.6f' % _ for _ in self.x) if self.x is not None else None
+        x = ' '.join(
+            '%11.6f' % _ for _ in self.x) if self.x is not None else None
         cv = '' if self._cv_vec is None else u'\u22DB%8.4f ' % self.cv
         return '%11.6f %s@ [%s]' % (self.fx, cv, x)
 

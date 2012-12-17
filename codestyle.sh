@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 FILES="panobbgo*/*.py *.py doc/source/*.py"
+ARGS='--max-line-length=110'
 
-pep8 --max-line-length=110 $FILES
+pep8 $ARGS $FILES
 
-# autopep8 -i --max-line-length=110 $FILES
+for DIR in panobbgo panobbgo_lib; do
+  find $DIR -name "*.py"  | xargs autopep8 -i --aggressive $ARGS
+done

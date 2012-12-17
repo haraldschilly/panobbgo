@@ -47,6 +47,10 @@ also provides the `pygtk` module, right?
 
 * pyGTK &ge; 2.0: `python-gtk2` in Debian/Ubuntu
 
+* nose &ge; 1.1
+
+* coverage &ge; 3.4
+
 * It also calls `Git` to get the ref of the HEAD for logging.
 
 ## Running

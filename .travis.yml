@@ -4,7 +4,7 @@ python:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib ipython python-gtk2
+  - sudo apt-get install -qq python-numpy python-scipy python-matplotlib ipython python-gtk2 python-nose python-coverage
 
 virtualenv:
   system_site_packages: true

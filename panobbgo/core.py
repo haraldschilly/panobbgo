@@ -405,7 +405,8 @@ class EventBus(object):
                             if event._terminate:
                                 raise StopHeuristic("terminated")
                         except StopHeuristic, e:
-                            self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+                            self.logger.debug(
+                                "'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
                             self.unsubscribe(key, target)
                             return
                     except Exception, e:

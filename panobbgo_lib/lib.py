@@ -39,13 +39,24 @@ class Point(object):
     '''
     def __init__(self, x, who):
         if not isinstance(who, basestring):
-            raise Exception('who needs to be a string describing the heuristic, was %s of type %s' % (who, type(who)))
+            raise Exception(
+                'who needs to be a string describing the heuristic, was %s of type %s' % (who, type(who)))
         if not isinstance(x, np.ndarray):
             raise Exception('x must be a numpy ndarray')
         self._x = x
         self._who = who  # heuristic.name, a string
 
     def __repr__(self):
+        '''
+        >>> Point
+        <class 'panobbgo_lib.lib.Point'>
+
+        >>> x
+
+        >>> import numpy as np
+        >>> repr(Point(np.array([1,2]), 'test'))
+        '[1 2] by test'
+        '''
         return '%s by %s' % (self.x, self.who)
 
     @property

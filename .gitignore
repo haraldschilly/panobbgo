@@ -1,6 +1,7 @@
 .coverage
 *.swp
 *.pyc
+man/
 build/*
 doc/build
 dist/

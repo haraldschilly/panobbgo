@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+# -*- coding: utf8 -*-
 
-from setuptools import setup, find_packages
+from setuptools import setup  # , find_packages
 
 from panobbgo import __version__
 
@@ -13,9 +14,10 @@ setup(
     # installed or upgraded on the target machine
     install_requires=[
         'docutils >= 0.3',
-        #"numpy    >= 1.5.0",
-        #"scipy    >= 0.9.0",
-        "IPython  >= 0.12"
+        "numpy    >= 1.5.0",
+        "scipy    >= 0.9.0",
+        "IPython  >= 0.12",
+        "nose     >= 1.1.2"
     ],
 
     package_data={
@@ -25,7 +27,7 @@ setup(
         #    'hello': ['*.msg'],
     },
 
-    test_suite="panobbgo",
+    test_suite="nose.collector",
 
     # metadata for upload to PyPI
     author="Harald Schilly",
@@ -35,5 +37,11 @@ setup(
     license='Apache 2.0',
     keywords="optimization blackbox stochastic noisy parallel black-box ipython distributed cluster",
 
-    # could also include long_description, download_url, classifiers, etc.
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Topic :: Scientific/Engineering",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python",
+        "Operating System :: POSIX :: Linux"
+    ]
 )

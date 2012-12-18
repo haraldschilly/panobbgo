@@ -12,4 +12,5 @@ lib/
 local/
 share/
 panobbgo.egg-info/
-panobbgo_problems.egg-info/
+panobbgo_lib.egg-info/
+cover/

@@ -13,8 +13,8 @@ setup(
     # installed or upgraded on the target machine
     install_requires=[
         'docutils >= 0.3',
-        #"numpy    >= 1.5.0",
-        #"scipy    >= 0.9.0",
+        "numpy    >= 1.5.0",
+        "scipy    >= 0.9.0",
         "IPython  >= 0.12"
     ],
 
@@ -25,7 +25,7 @@ setup(
         #    'hello': ['*.msg'],
     },
 
-    # test_suite = "psnobfit.test",
+    test_suite="panobbgo_lib",
 
     # metadata for upload to PyPI
     author="Harald Schilly",

@@ -41,6 +41,10 @@ In the background, there are additional utility features for the configuration a
 This software package is licensed under the 
 `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
 
+.. image:: https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master
+   :alt: Build Status
+   :target: https://travis-ci.org/haraldschilly/panobbgo
+
 Main
 ----
 

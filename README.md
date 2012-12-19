@@ -3,6 +3,8 @@
 It minimizes a function over a box in $R^n$ (n = dimension of the problem)
 while respecting a vector of constraint violations.
 
+[![Build Status](https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master)](https://travis-ci.org/haraldschilly/panobbgo)
+
 ## Documentation
 
 * [HTML](http://haraldschilly.github.com/panobbgo/html/)
@@ -29,8 +31,6 @@ to have up to date versions without having to rely on the packages of Debian.
 
 For the user-interface, you also have to install `python-gtk2`, which
 also provides the `pygtk` module, right?
-
-[![Build Status](https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master)](https://travis-ci.org/haraldschilly/panobbgo)
 
 ## Dependencies
 

@@ -616,10 +616,6 @@ class Splitter(Analyzer):
                 self._new_result.wait()
         return self.result2leaf[result]
 
-    def in_same_leaf(self, result):
-        l = self.get_leaf(result)
-        return l.results, l
-
     def on_new_results(self, results):
         with self._new_result:
             for result in results:

@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
+# Copyright 2012 -- 2013 Harald Schilly <harald.schilly@univie.ac.at>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,10 +39,6 @@ from config import get_config
 from panobbgo_lib import Result, Point
 from IPython.utils.timing import time
 import numpy as np
-
-#
-# Result DB
-#
 
 
 class Results(object):
@@ -97,10 +93,6 @@ class Results(object):
     def n_best(self, n):
         import heapq
         return heapq.nsmallest(n, self.results)
-
-#
-# Base Module
-#
 
 
 class Module(object):
@@ -178,16 +170,12 @@ class Module(object):
         and a gtk container (e.g. :class:`gtk.VBox`)
 
         To trigger a redraw after an update, call the ``.draw_idle()`` method
-        of the :class:`~matplotlib.backends.backend_gtagg.FigureCnavasGTKAgg`.
+        of the :class:`~matplotlib.backends.backend_gtkagg.FigureCnavasGTKAgg`.
         '''
         return None, None
 
     def __repr__(self):
         return 'Module %s' % self.name
-
-#
-# Heuristic
-#
 
 
 class StopHeuristic(Exception):
@@ -505,10 +493,6 @@ class EventBus(object):
             # logger.info("EventBus: publishing %s -> %s" % (key, event))
             target._eventbus_events[key].put(event)
 
-#
-# Strategy
-#
-
 
 class StrategyBase(object):
     '''
@@ -744,7 +728,8 @@ class StrategyBase(object):
         pend = len(self.pending)
         fini = len(self.finished)
         peval = len(self.results)
-        self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | %6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
+        self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | "
+                          "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
                          (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg))
 
     @property

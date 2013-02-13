@@ -444,18 +444,15 @@ class WeightedAverage(Heuristic):
         self.minstd = min(self.problem.ranges) / 1000.
 
     def on_new_best(self, best):
-        if best is None or best.x is None:
+        assert best is not None and best.x is not None
+        box = self.strategy.analyzer('splitter').get_leaf(best)
+        if len(box.results) < 3:
             return
-        nbrs, box = self.strategy.analyzer('splitter').in_same_leaf(best)
-        if len(nbrs) < 3:
-            return
-        # self.logger.info("#nbrs: %d" % len(nbrs))
-        # self.logger.info("best: %s / box: %s" % (best, box))
 
         # actual calculation
         import numpy as np
-        xx = np.array([r.x for r in nbrs])
-        yy = np.array([r.fx for r in nbrs])
+        xx = np.array([r.x for r in box.results])
+        yy = np.array([r.fx for r in box.results])
         weights = np.log1p(yy - best.fx)
         weights = -weights + (1 + self.k) * weights.max()
         # weights = np.log1p(np.arange(len(yy) + 1, 1, -1))

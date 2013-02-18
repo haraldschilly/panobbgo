@@ -1,17 +1,13 @@
-import unittest
-from panobbgo.analyzers import Best
+from panobbgo.utils import PanobbgoTestCase
 
 
-class AnalyzersUtils(unittest.TestCase):
-
-    def setUp(self):
-        self.problem = None  # TODO mockup
-        self.strategy = None  # TODO mockup
+class AnalyzersUtils(PanobbgoTestCase):
 
     def test_best(self):
-        # self.best = Best()
-        # TODO self.best...
-        pass
+        from panobbgo.analyzers import Best
+        best = Best()
+        assert best is not None
 
 if __name__ == '__main__':
+    import unittest
     unittest.main()

@@ -187,10 +187,36 @@ class memoize(object):
             res = cache[key] = self.func(*args, **kw)
         return res
 
+### Testing
+
 import unittest
 
 
+class MockupEventBus(object):
+    def __init__(self):
+        self.targets = []
+
+    def register(self, who):
+        self.targets.append(who)
+
+
+class MockupStrategy(object):
+
+    def __init__(self, problem):
+        self.problem = problem
+        self._eventbus = MockupEventBus()
+
+    @property
+    def eventbus(self):
+        return self._eventbus
+
+
 class PanobbgoTestCase(unittest.TestCase):
+    def setUp(self):
+        from panobbgo_lib.classic import Rosenbrock
+        self.problem = Rosenbrock(2)
+        self.strategy = MockupStrategy(self.problem)
+
     def __init__(self, name):
         import panobbgo.config
         panobbgo.config.PARSE_ARGS = False

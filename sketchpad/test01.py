@@ -10,7 +10,7 @@ from panobbgo.heuristics import Random, Nearby, \
 from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 #import numpy as np
 
-from panobbgo_lib.classic import *
+from panobbgo_lib.classic import Rosenbrock
 
 #problem = Shekel(3)
 problem = Rosenbrock(4, par1 = 10)
@@ -49,6 +49,8 @@ nm          = NelderMead()
 if False:
   from scipy import special as sp
   from scipy.optimize import fmin
+  from panobbgo.config import get_config
+  config = get_config()
   m = fmin(lambda x : (sp.gamma(x) - config.max_eval / 3.0)**2, [5])
   div = max(1, int(m[0]))
 else:

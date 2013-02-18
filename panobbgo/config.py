@@ -30,6 +30,7 @@ via optional command-line arguments.
 """
 
 _config = None
+PARSE_ARGS = True
 
 
 class Config(object):
@@ -37,7 +38,7 @@ class Config(object):
     def __init__(self):
         import os
         self._appdata_dir = os.path.expanduser("~/.panobbgo")
-        self._default_fn = os.path.join(self._appdata_dir, 'config.ini')
+        self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
         self._loggers = {}
         self._create()
 
@@ -66,7 +67,7 @@ class Config(object):
         parser.add_argument('-c', '--config-file',
                             dest="config_file",
                             help='configuration file [default: %(default)s]',
-                            default=self._default_fn)
+                            default=self.config_fn)
 
         from panobbgo import __version__
         parser.add_argument('--version', action='version', version=__version__)
@@ -109,15 +110,19 @@ class Config(object):
                                            "You can specify this option multiple times!",
                                            "e.g. --lf=CORE --lf=SPLIT"]))
 
-        args = parser.parse_args()
-
-        logger.info('cmdln options: %s' % args)
+        if PARSE_ARGS:
+            args = parser.parse_args()
+            logger.info('cmdln options: %s' % args)
+            self.config_fn = args.config_file
+        else:
+            # logger.info("Parsing command-line arguments is disabled.")
+            args = None
 
         import os
         from ConfigParser import ConfigParser
 
         # 2/1: does config file exist?
-        if not os.path.exists(args.config_file):
+        if not os.path.exists(self.config_fn):
             cfgp = ConfigParser()
             # create them in the reverse order
 
@@ -141,28 +146,29 @@ class Config(object):
             cfgp.add_section('ui')
             cfgp.set('ui', 'show', False)
 
-            with open(args.config_file, 'wb') as configfile:
+            with open(self.config_fn, 'wb') as configfile:
                 cfgp.write(configfile)
 
         # 2/2: reading the config file
         cfgp = ConfigParser()
-        cfgp.read(args.config_file)
+        cfgp.read(self.config_fn)
 
         # 3: override specific settings
         _cur_verb = cfgp.getint('core', 'loglevel')
-        if args.verbosity:
-            cfgp.set(
-                'core', 'loglevel', str(_cur_verb - 10 * args.verbosity))
-        if args.max_eval:
-            cfgp.set('core', 'max_eval', str(args.max_eval))
-        if args.smooth:
-            cfgp.set('core', 'smooth', str(args.smooth))
-        if args.capacity:
-            cfgp.set('heuristic', 'capacity', str(args.capacity))
-        if args.ipy_profile:
-            cfgp.set('ipython', 'profile', args.ipy_profile)
-        if args.ui:
-            cfgp.set('ui', 'show', "True")
+        if args is not None:
+            if args.verbosity:
+                cfgp.set(
+                    'core', 'loglevel', str(_cur_verb - 10 * args.verbosity))
+            if args.max_eval:
+                cfgp.set('core', 'max_eval', str(args.max_eval))
+            if args.smooth:
+                cfgp.set('core', 'smooth', str(args.smooth))
+            if args.capacity:
+                cfgp.set('heuristic', 'capacity', str(args.capacity))
+            if args.ipy_profile:
+                cfgp.set('ipython', 'profile', args.ipy_profile)
+            if args.ui:
+                cfgp.set('ui', 'show', "True")
 
         ## some generic function
         def getself(section, key):
@@ -188,7 +194,7 @@ class Config(object):
         self.capacity = cfgp.getint('heuristic', 'capacity')
         self.ipy_profile = cfgp.get('ipython', 'profile')
         self.ui_show = cfgp.getboolean('ui', 'show')
-        self.logger_focus = args.logger_focus
+        self.logger_focus = [] if args is None else args.logger_focus
         self.ui_redraw_delay = 0.5
         self.version = __version__
         self.git_head = self.environment['git HEAD']

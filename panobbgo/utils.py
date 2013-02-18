@@ -186,3 +186,12 @@ class memoize(object):
         except KeyError:
             res = cache[key] = self.func(*args, **kw)
         return res
+
+import unittest
+
+
+class PanobbgoTestCase(unittest.TestCase):
+    def __init__(self, name):
+        import panobbgo.config
+        panobbgo.config.PARSE_ARGS = False
+        unittest.TestCase.__init__(self, name)

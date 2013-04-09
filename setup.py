@@ -17,7 +17,8 @@ setup(
         "numpy    >= 1.5.0",
         "scipy    >= 0.9.0",
         "IPython  >= 0.12",
-        "nose     >= 1.1.2"
+        "nose     >= 1.1.2",
+        "mock     >= 1.0.1"
     ],
 
     package_data={

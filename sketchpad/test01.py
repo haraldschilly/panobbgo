@@ -6,7 +6,8 @@ sys.path.append(".")
 #from panobbgo.core import Results
 from panobbgo.heuristics import Random, Nearby, \
      Zero, LatinHypercube, Extremal, NelderMead, \
-     Center, WeightedAverage, Subprocess #, Testing
+     Center, WeightedAverage, Subprocess, QuadraticOlsModel
+     #, Testing
 from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 #import numpy as np
 
@@ -43,6 +44,7 @@ center      = Center()
 avg         = WeightedAverage()
 sp          = Subprocess()
 nm          = NelderMead()
+qm          = QuadraticOlsModel()
 #testing     = Testing()
 
 # target of max_eval generated points is the inverse of the gamma function
@@ -57,7 +59,7 @@ else:
   div = 5 # for 1000, should be 7 to 8
 lhyp= LatinHypercube(div)
 
-heurs = [ center, rand, lhyp, near_10_all, zero, extremal, nm] #avg , testing]
+heurs = [ center, rand, lhyp, near_10_all, zero, extremal, nm, qm] #avg , testing]
 
 strategy = StrategyRewarding(problem, heurs)
 #strategy = StrategyRoundRobin(problem, heurs)

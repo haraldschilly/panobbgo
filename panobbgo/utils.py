@@ -190,6 +190,7 @@ class memoize(object):
 ### Testing
 
 import unittest
+import mock
 
 
 class MockupEventBus(object):
@@ -200,24 +201,29 @@ class MockupEventBus(object):
         self.targets.append(who)
 
 
-class MockupStrategy(object):
-
-    def __init__(self, problem):
-        self.problem = problem
-        self._eventbus = MockupEventBus()
-
-    @property
-    def eventbus(self):
-        return self._eventbus
-
+# class MockupStrategy(object):
+#
+#    def __init__(self, problem):
+#        self.problem = problem
+#        self._eventbus = MockupEventBus()
+#
+#    @property
+#    def eventbus(self):
+#        return self._eventbus
 
 class PanobbgoTestCase(unittest.TestCase):
-    def setUp(self):
-        from panobbgo_lib.classic import Rosenbrock
-        self.problem = Rosenbrock(2)
-        self.strategy = MockupStrategy(self.problem)
-
     def __init__(self, name):
         import panobbgo.config
         panobbgo.config.PARSE_ARGS = False
         unittest.TestCase.__init__(self, name)
+
+    def setUp(self):
+        from panobbgo_lib.classic import Rosenbrock
+        self.problem = Rosenbrock(2)
+        # self.strategy = MockupStrategy(self.problem)
+
+    @mock.patch('panobbgo.core.StrategyBase')
+    def get_strategy(self, heur, strat):
+        from core import StrategyBase
+        strategy = StrategyBase(self.problem, [heur])
+        return strategy

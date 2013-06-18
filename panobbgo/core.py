@@ -117,20 +117,6 @@ class Module(object):
         '''
         return self._name
 
-    def _init_module(self, strategy):
-        '''
-        :class:`~panobbgo.strategies.StrategyBase` calls this method.
-        '''
-        self._strategy = strategy
-        self._init_()
-        if get_config().ui_show:
-            plt = self._init_plot()
-            if not isinstance(plt, list):
-                plt = [plt]
-            [strategy.ui.add_notebook_page(*p) for p in plt]
-        # only after _init_ it is ready to recieve events
-        self.eventbus.register(self)
-
     @property
     def strategy(self):
         return self._strategy
@@ -602,6 +588,20 @@ class StrategyBase(object):
             "Names of analyzers need to be unique. '%s' is already used." % name
         self._analyzers[name] = a
         a._init_module(self)
+
+    def init_module(self, module):
+        '''
+        :class:`~panobbgo.strategies.StrategyBase` calls this method.
+        '''
+        module._strategy = strategy
+        module._init_()
+        if get_config().ui_show:
+            plt = module._init_plot()
+            if not isinstance(plt, list):
+                plt = [plt]
+            [self.ui.add_notebook_page(*p) for p in plt]
+        # only after _init_ it is ready to recieve events
+        module.eventbus.register(module)
 
     def _setup_cluster(self, nb_gens, problem):
         from IPython.parallel import Client

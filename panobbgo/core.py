@@ -552,7 +552,7 @@ class StrategyBase(object):
             'grid': Grid(),
             'splitter': Splitter()
         }
-        map(lambda a: a._init_module(self), self._analyzers.values())
+        map(self.add_analyzer, self._analyzers.values())
 
         logger.debug("Eventbus keys: %s" % self.eventbus.keys)
 
@@ -580,20 +580,20 @@ class StrategyBase(object):
         assert name not in self._heuristics, \
             "Names of heuristics need to be unique. '%s' is already used." % name
         self._heuristics[name] = h
-        h._init_module(self)
+        self.init_module(h)
 
     def add_analyzer(self, a):
         name = a.name
         assert name not in self._analyzers, \
             "Names of analyzers need to be unique. '%s' is already used." % name
         self._analyzers[name] = a
-        a._init_module(self)
+        self.init_module(a)
 
     def init_module(self, module):
         '''
         :class:`~panobbgo.strategies.StrategyBase` calls this method.
         '''
-        module._strategy = strategy
+        module._strategy = self
         module._init_()
         if get_config().ui_show:
             plt = module._init_plot()

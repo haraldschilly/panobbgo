@@ -371,63 +371,78 @@ class Center(Heuristic):
         return box[:, 0] + (box[:, 1] - box[:, 0]) / 2.0
 
 
-class QuadraticModelMockup(Heuristic):
+class QuadraticOlsModel(Heuristic):
     '''
+    This heuristic uses an quadratic OLS model to find an approximate new best point
+    for each new best box (the latter is subject to change).
+
+    The actual calculation is performed out of process.
     '''
     def __init__(self):
         Heuristic.__init__(self)
-        self.machines = None
-        self.logger = get_config().get_logger('H:QU')
+        self.logger = get_config().get_logger('H:QM')
 
-    # def set_machines(self, machines):
-    #  self.machines = machines # this is already a load_balanced view
+        from multiprocessing import Process, Pipe
+        # a pipe has two ends, parent and child.
+        self.p1, self.p2 = Pipe()
+        self.process = Process(
+              target=self.solve_ols,
+              args=(self.p2,),
+              name='%s-Subprocess' % (self.name))
+        self.process.daemon = True
+        self.process.start()
 
-    def on_start(self):
-        self.eventbus.publish('calc_quadratic_model')
+    @staticmethod
+    def solve_ols(pipe):
+        def predict(xx):
+            '''
+            helper for the while loop: calculates the prediction
+            based on the model result
+            '''
+            dim = len(xx)
+            res = [1]
+            res.extend(xx)
+            for i in range(dim - 1):
+                for j in range(i + 1, dim):
+                    res.append(xx[i] * xx[j])
+            for i in range(dim):
+                res.append(xx[i] ** 2)
+            return result.predct(np.array(res))
 
-    def on_calc_quadratic_model(self):
-        self.logger.warning("%s is broken, don't use it" % self.name)
-        return None
 
-        best = self.results.best
-        if best is None or best.x is None:
-            return []
-        nbrs = self.results.in_same_grid(best)
-        if len(nbrs) < 3:
-            return []
+        while True:
+            points, bounds = pipe.recv()
+            dim = len(points[0].x)
 
-        # actual calculation
-        import numpy as np
-        from scipy.optimize import fmin_bfgs
+            import numpy as np
+            from pandas import DataFrame
+            import statsmodels.api as sm
+            data = {}
+            for i in dim:
+                data['x%s' % i] = [ x.x[i] for x in points]
+            X = DataFrame({'Intercept' : np.ones(dim)})
+            X = X.join(data)
 
-        N = self.problem.dim
+            y = DataFrame({'y' : [ _.fx for _  in points ]})
 
-        def approx(x, *params):
-            a, b, c = params
-            return a * x.dot(x) + x.dot(np.repeat(b, N)) + c
+            model = sm.OLS(y, X)
+            result = model.fit()
 
-        xx = np.array([r.x for r in nbrs])
-        yy = np.array([r.fx for r in nbrs])
+            # optimize predict with x \in bounds
+            from scipy.optimize import fmin_l_bfgs_b
+            sol, fval, info = fmin_l_bfgs_b(predict, np.zeros(dim),
+                              bounds=bounds, approx_grad=True)
 
-        def residual(params):
-            fx = np.array([approx(x, *params) - y for x, y in zip(xx, yy)])
-            return fx.dot(fx)
+            pipe.send((sol, fval, info)) # end while loop
 
-        def gradient(params):
-            a, b, c = params
-            ret = np.empty(3)
-            v1 = 2. * np.array([approx(x, *params) - y for x,
-                               y in zip(xx, yy)])
-            ret[0] = v1.dot(xx.dot(xx.T).diagonal())
-            ret[1] = v1.dot(xx.sum(axis=1))
-            ret[2] = v1.sum()
-            return ret
-
-        params = np.random.normal(0, 1, size=3)
-        sol = fmin_bfgs(residual, params, fprime=gradient)
-        self.logger.info("params: %s %s %s" % (sol[0], sol[1], sol[2]))
-        # self.emit(...)
-        self.eventbus.publish('calc_quadratic_model')
+    def on_new_best_box(self, best_box):
+        #self.logger.info("")
+        self.p1.send((best_box.points, self.problem.box))
+        sol, fval, info = self.p1.recv()
+        print 'solution:', sol
+        print 'fval:', fval
+        print 'info:', info
+        self.emit(sol)
 
 
 class WeightedAverage(Heuristic):

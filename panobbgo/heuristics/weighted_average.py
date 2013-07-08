@@ -1,0 +1,57 @@
+# -*- coding: utf8 -*-
+# Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.config import get_config
+
+class WeightedAverage(Heuristic):
+    '''
+    This strategy calculates the weighted average of all points
+    in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
+    '''
+    def __init__(self, k=.1):
+        Heuristic.__init__(self)
+        self.k = k
+        self.logger = get_config().get_logger('WAvg')
+
+    def _init_(self):
+        self.minstd = min(self.problem.ranges) / 1000.
+
+    def on_new_best(self, best):
+        assert best is not None and best.x is not None
+        box = self.strategy.analyzer('splitter').get_leaf(best)
+        if len(box.results) < 3:
+            return
+
+        # actual calculation
+        import numpy as np
+        xx = np.array([r.x for r in box.results])
+        yy = np.array([r.fx for r in box.results])
+        weights = np.log1p(yy - best.fx)
+        weights = -weights + (1 + self.k) * weights.max()
+        # weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
+        # self.logger.info("weights: %s" % zip(weights, yy))
+        self.clear_output()
+        ret = np.average(xx, axis=0, weights=weights)
+        std = xx.std(axis=0)
+        # std must be > 0
+        std[std < self.minstd] = self.minstd
+        # self.logger.info("std: %s" % std)
+        for i in range(self.cap):
+            ret = ret.copy()
+            ret += (float(i) / self.cap) * np.random.normal(0, std)
+            if np.linalg.norm(best.x - ret) > .01:
+                # self.logger.info("out: %s" % ret)
+                self.emit(ret)

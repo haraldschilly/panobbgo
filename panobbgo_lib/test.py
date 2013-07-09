@@ -37,6 +37,7 @@ def Disturbance(dim, nb=10, sd=.001, minimum=0.0001):
 
 
 class Lib(unittest.TestCase):
+
     def test_point(self):
         x = np.array([5, -2.2, 0, 1.1], dtype=np.float)
         p = Point(x, 'test')

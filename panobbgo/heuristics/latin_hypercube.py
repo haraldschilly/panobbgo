@@ -15,7 +15,9 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class LatinHypercube(Heuristic):
+
     '''
     Partitions the search box into n x n x ... x n cubes.
     Selects randomly in such a way, that there is only one cube in each dimension.
@@ -33,6 +35,7 @@ class LatinHypercube(Heuristic):
       |   |   | X |   |
       +---+---+---+---+
     '''
+
     def __init__(self, div):
         '''
         Args:

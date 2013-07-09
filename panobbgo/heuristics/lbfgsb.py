@@ -15,10 +15,13 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class LBFGSB(Heuristic):
+
     '''
     This uses :func:`scipy.optimize.fmin_l_bfgs_b` in a subprocess.
     '''
+
     def __init__(self):
         Heuristic.__init__(self, cap=1)
         self.logger = get_config().get_logger("LBFGS")
@@ -59,4 +62,3 @@ class LBFGSB(Heuristic):
         for result in results:
             if result.who == self.name:
                 self.p1.send(result.fx)
-

@@ -64,6 +64,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 class PanobbgoContext(logging.Filter):
+
     def __init__(self):
         logging.Filter.__init__(self)
         from IPython.utils.timing import time
@@ -135,6 +136,7 @@ def is_right(p0, p1, ptest):
 
 
 class memoize(object):
+
     """
     Caches the return value of a method inside the instance's function!
 
@@ -163,6 +165,7 @@ class memoize(object):
 
     Derived from `ActiveState 577432 <http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/>`_.
     """
+
     def __init__(self, func):
         self.func = func
 
@@ -187,13 +190,14 @@ class memoize(object):
             res = cache[key] = self.func(*args, **kw)
         return res
 
-### Testing
+# Testing
 
 import unittest
 import mock
 
 
 class MockupEventBus(object):
+
     def __init__(self):
         self.targets = []
 
@@ -212,6 +216,7 @@ class MockupEventBus(object):
 #        return self._eventbus
 
 class PanobbgoTestCase(unittest.TestCase):
+
     def __init__(self, name):
         import panobbgo.config
         panobbgo.config.PARSE_ARGS = False

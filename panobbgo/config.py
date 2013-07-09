@@ -170,7 +170,7 @@ class Config(object):
             if args.ui:
                 cfgp.set('ui', 'show', "True")
 
-        ## some generic function
+        # some generic function
         def getself(section, key):
             return cfgp.get(section, key)
 
@@ -185,7 +185,7 @@ class Config(object):
         self.environment = info()
         from panobbgo import __version__
 
-        ## specific data
+        # specific data
         self.loglevel = cfgp.getint('core', 'loglevel')
         self.show_interval = cfgp.getfloat('core', 'show_interval')
         self.max_eval = cfgp.getint('core', 'max_eval')

@@ -47,9 +47,11 @@ del os
 
 
 class UI(Module, gtk.Window, Thread):
+
     r'''
     UI
     '''
+
     def __init__(self):
         Module.__init__(self)
         gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)

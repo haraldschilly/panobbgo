@@ -15,7 +15,9 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class Extremal(Heuristic):
+
     '''
     This heuristic is specifically seeking for points at the
     border of the box and around 0.
@@ -23,6 +25,7 @@ class Extremal(Heuristic):
     from 0 to 1, which indicate the probability for sampling from the
     minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
     '''
+
     def __init__(self, diameter=1. / 10, prob=None):
         Heuristic.__init__(self, name="Extremal")
         import numpy as np
@@ -63,4 +66,3 @@ class Extremal(Heuristic):
                             ret[i] = self.vals[idx, i] + jitter
                         break  # since we found the idx, break!
             self.emit(ret)
-

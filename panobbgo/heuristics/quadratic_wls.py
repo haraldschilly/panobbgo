@@ -14,13 +14,17 @@
 # limitations under the License.
 
 from panobbgo.core import Heuristic, StopHeuristic
+
+
 class QuadraticWlsModel(Heuristic):
+
     '''
     This heuristic uses an quadratic OLS model to find an approximate new best point
     for each new best box (the latter is subject to change).
 
     The actual calculation is performed out of process.
     '''
+
     def __init__(self):
         Heuristic.__init__(self)
         self.logger = get_config().get_logger('H:QM')
@@ -29,9 +33,9 @@ class QuadraticWlsModel(Heuristic):
         # a pipe has two ends, parent and child.
         self.p1, self.p2 = Pipe()
         self.process = Process(
-              target=self.solve_ols,
-              args=(self.p2,),
-              name='%s-Subprocess' % (self.name))
+            target=self.solve_ols,
+            args=(self.p2,),
+            name='%s-Subprocess' % (self.name))
         self.process.daemon = True
         self.process.start()
 
@@ -52,7 +56,6 @@ class QuadraticWlsModel(Heuristic):
                 res.append(xx[i] ** 2)
             return result.predct(np.array(res))
 
-
         while True:
             points, bounds = pipe.recv()
             dim = len(points[0].x)
@@ -62,24 +65,24 @@ class QuadraticWlsModel(Heuristic):
             import statsmodels.api as sm
             data = {}
             for i in dim:
-                data['x%s' % i] = [ x.x[i] for x in points]
-            X = DataFrame({'Intercept' : np.ones(dim)})
+                data['x%s' % i] = [x.x[i] for x in points]
+            X = DataFrame({'Intercept': np.ones(dim)})
             X = X.join(data)
 
-            y = DataFrame({'y' : [ _.fx for _  in points ]})
+            y = DataFrame({'y': [_.fx for _ in points]})
 
-            model = sm.OLS(y, X) # TODO WLS 
+            model = sm.OLS(y, X)  # TODO WLS
             result = model.fit()
 
             # optimize predict with x \in bounds
             from scipy.optimize import fmin_l_bfgs_b
             sol, fval, info = fmin_l_bfgs_b(predict, np.zeros(dim),
-                              bounds=bounds, approx_grad=True)
+                                            bounds=bounds, approx_grad=True)
 
-            pipe.send((sol, fval, info)) # end while loop
+            pipe.send((sol, fval, info))  # end while loop
 
     def on_new_best_box(self, best_box):
-        #self.logger.info("")
+        # self.logger.info("")
         self.p1.send((best_box.points, self.problem.box))
         sol, fval, info = self.p1.recv()
         print 'solution:', sol

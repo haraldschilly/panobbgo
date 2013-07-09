@@ -17,11 +17,12 @@ from panobbgo.config import get_config
 from panobbgo.core import Analyzer
 
 
-
 class Grid(Analyzer):
+
     '''
     packs nearby points into grid boxes
     '''
+
     def __init__(self):
         Analyzer.__init__(self)
 
@@ -53,4 +54,3 @@ class Grid(Analyzer):
     def on_new_results(self, results):
         for result in results:
             self._grid_add(result)
-

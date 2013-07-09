@@ -15,11 +15,14 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class Random(Heuristic):
+
     '''
     always generates random points inside the box of the
     "best leaf" (see "Splitter") until the capped queue is full.
     '''
+
     def __init__(self, cap=None, name=None):
         name = "Random" if name is None else name
         self.leaf = None

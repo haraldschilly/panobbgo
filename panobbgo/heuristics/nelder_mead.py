@@ -15,7 +15,9 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class NelderMead(Heuristic):
+
     r'''
     This heuristic is inspired by the
     `Nelder Mead Method <http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method>`_
@@ -31,6 +33,7 @@ class NelderMead(Heuristic):
       several promising points into the same direction as
       the implied search direction. See :meth:`here <.nelder_mead>`.
     '''
+
     def __init__(self):
         Heuristic.__init__(self, name="Nelder Mead")
         self.logger = get_config().get_logger('H:NM')
@@ -151,4 +154,3 @@ class NelderMead(Heuristic):
         self.best_box = best_box
         self.got_bb.set()
         self.clear_output()  # clearing must come last
-

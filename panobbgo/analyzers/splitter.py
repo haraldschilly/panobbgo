@@ -27,6 +27,7 @@ Inside is its Box class.
 
 
 class Splitter(Analyzer):
+
     '''
     Manages a tree of splits.
     Each split in this tree is a :class:`box <.Splitter.Box>`, which
@@ -39,6 +40,7 @@ class Splitter(Analyzer):
     A heuristic can build upon this hierarchy
     to investigate interesting subregions.
     '''
+
     def __init__(self):
         Analyzer.__init__(self)
         # split, if there are more than this number of points in the box
@@ -164,6 +166,7 @@ class Splitter(Analyzer):
         self.eventbus.publish('new_best_box', best_box=self.best_box)
 
     class Box(object):
+
         '''
         Used by :class:`.Splitter`, therefore nested.
 
@@ -174,6 +177,7 @@ class Splitter(Analyzer):
           In the future, this might be refactored to allow different
           splitting methods.
         '''
+
         def __init__(self, parent, splitter, box):
             self.parent = parent
             self.logger = splitter.logger

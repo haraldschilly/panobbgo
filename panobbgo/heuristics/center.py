@@ -15,14 +15,16 @@
 
 from panobbgo.core import Heuristic, StopHeuristic
 
+
 class Center(Heuristic):
+
     '''
     This heuristic checks the point in the center of the box.
     '''
+
     def __init__(self):
         Heuristic.__init__(self, name="Center", cap=1)
 
     def on_start(self):
         box = self.problem.box
         return box[:, 0] + (box[:, 1] - box[:, 0]) / 2.0
-

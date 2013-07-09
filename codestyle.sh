@@ -9,4 +9,5 @@ pep8 $ARGS $FILES
 for DIR in panobbgo panobbgo_lib; do
   find $DIR -name "*.py"  | xargs $AUTOPEP
 done
+
 $AUTOPEP setup*.py

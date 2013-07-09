@@ -16,7 +16,9 @@
 from panobbgo.core import Analyzer
 from panobbgo.config import get_config
 
+
 class Best(Analyzer):
+
     '''
     Listens on all results, does accounting for "best" results,
     manages a pareto front of good points and emits the following events:
@@ -46,6 +48,7 @@ class Best(Analyzer):
 
     It also creates UI plots.
     '''
+
     def __init__(self):
         Analyzer.__init__(self)
         self.logger = get_config().get_logger("BEST")
@@ -325,17 +328,17 @@ class Best(Analyzer):
         # old code for convex front, below the one for a monotone step function
         # from utils import is_left
         # pf = self.pareto_front
-        ## pf needs to be sorted
+        # pf needs to be sorted
         # pf.append(result)
         # pf = sorted(pf)
-        ## ... and re-calculate the front
+        # ... and re-calculate the front
         # new_front = pf[:1]
         # for p in pf[1:]:
         #  new_front.append(p)
-        #  # next point needs to be left (smaller cv) and and above (higher fx)
+        # next point needs to be left (smaller cv) and and above (higher fx)
         #  while len(new_front) > 1 and new_front[-1].cv >= new_front[-2].cv:
         #    del new_front[-1]
-        #  # always a "right turn", concerning the ".pp" pareto points
+        # always a "right turn", concerning the ".pp" pareto points
         #  while len(new_front) > 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):
         #    del new_front[-2]
 

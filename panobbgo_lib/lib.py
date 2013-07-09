@@ -33,10 +33,12 @@ from IPython.utils.timing import time
 
 
 class Point(object):
+
     '''
     This contains the x vector for a new point and a
     reference to :attr:`.who` has generated it.
     '''
+
     def __init__(self, x, who):
         if not isinstance(who, basestring):
             raise Exception(
@@ -76,6 +78,7 @@ class Point(object):
 
 
 class Result(object):
+
     r'''
     This represents one result, wich is a mapping of a :class:`.Point`
     :math:`x \rightarrow f(x)`.
@@ -87,6 +90,7 @@ class Result(object):
       each constraint.
     - :attr:`.cnt`: An integer counter, starting at 0.
     '''
+
     def __init__(self, point, fx, cv_vec=None, cv_norm=None, error=0.0):
         '''
         Args:
@@ -198,10 +202,12 @@ class Result(object):
 
 
 class Problem(object):
+
     '''
     this is used to store the objective function,
     information about the problem, etc.
     '''
+
     def __init__(self, box):
         r'''
         box must be a list of tuples, which specify

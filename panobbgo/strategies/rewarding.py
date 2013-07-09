@@ -15,11 +15,14 @@
 
 from panobbgo.core import StrategyBase
 
+
 class StrategyRewarding(StrategyBase):
+
     '''
     This strategy rewards given :mod:`.heuristics` by selecting
     those more ofte, which produce better search points.
     '''
+
     def __init__(self, problem, heurs):
         self.last_best = None
         StrategyBase.__init__(self, problem, heurs)

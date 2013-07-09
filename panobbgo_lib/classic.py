@@ -30,6 +30,7 @@ from lib import Problem
 
 
 class Rosenbrock(Problem):
+
     r'''
     Rosenbrock function with parameter ``par1``.
 
@@ -38,6 +39,7 @@ class Rosenbrock(Problem):
       f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
     '''
+
     def __init__(self, dims, par1=100):
         box = [(-2, 2)] * dims
         box[0] = (0, 2)  # for cornercases + testing
@@ -49,6 +51,7 @@ class Rosenbrock(Problem):
 
 
 class RosenbrockConstraint(Problem):
+
     r'''
     Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
 
@@ -59,6 +62,7 @@ class RosenbrockConstraint(Problem):
                          & x_i \geq 0 \;\;                              \forall i
 
     '''
+
     def __init__(self, dims, par1=100, par2=0.25):
         box = [(-2, 2)] * dims
         box[0] = (0, 2)  # for cornercases + testing
@@ -78,6 +82,7 @@ class RosenbrockConstraint(Problem):
 
 
 class RosenbrockAbs(Problem):
+
     r'''
     Absolute Rosenbrock function.
 
@@ -86,6 +91,7 @@ class RosenbrockAbs(Problem):
      f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
 
     '''
+
     def __init__(self, dims, par1=100):
         box = [(-5, 5)] * dims
         box[0] = (0, 2)  # for cornercases + testing
@@ -98,6 +104,7 @@ class RosenbrockAbs(Problem):
 
 
 class RosenbrockAbsConstraint(Problem):
+
     r'''
     Absolute Rosenbrock function.
 
@@ -108,6 +115,7 @@ class RosenbrockAbsConstraint(Problem):
                         & x_i \geq 0 \;\;                          \forall i
 
     '''
+
     def __init__(self, dims, par1=100, par2=0.1):
         box = [(-5, 5)] * dims
         box[0] = (0, 2)  # for cornercases + testing
@@ -128,6 +136,7 @@ class RosenbrockAbsConstraint(Problem):
 
 
 class RosenbrockStochastic(Problem):
+
     r'''
     Stochastic variant of Rosenbrock function.
 
@@ -138,6 +147,7 @@ class RosenbrockStochastic(Problem):
     where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
     vector in :math:`\left[0, 1\right)^{n-1}`.
     '''
+
     def __init__(self, dims, par1=100, jitter=.1):
         box = [(-5, 5)] * dims
         box[0] = (-1, 2)  # for cornercases + testing
@@ -153,6 +163,7 @@ class RosenbrockStochastic(Problem):
 
 
 class Himmelblau(Problem):
+
     '''
     Himmelblau [HB]_ testproblem.
 
@@ -162,6 +173,7 @@ class Himmelblau(Problem):
 
     .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
     '''
+
     def __init__(self):
         Problem.__init__(self, [(-5, 5)] * 2)
 
@@ -171,6 +183,7 @@ class Himmelblau(Problem):
 
 
 class Rastrigin(Problem):
+
     '''
     Rastrigin
 
@@ -179,6 +192,7 @@ class Rastrigin(Problem):
       f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
 
     '''
+
     def __init__(self, dims, par1=10, offset=0):
         box = [(-2, 2)] * dims
         self.offset = offset
@@ -192,6 +206,7 @@ class Rastrigin(Problem):
 
 
 class Shekel(Problem):
+
     '''
     Shekel Function [SH]_.
 
@@ -203,6 +218,7 @@ class Shekel(Problem):
 
     .. [SH] http://en.wikipedia.org/wiki/Shekel_function
     '''
+
     def __init__(self, dims, m=10, a=None, c=None):
         box = [(-2, 2)] * dims
         Problem.__init__(self, box)

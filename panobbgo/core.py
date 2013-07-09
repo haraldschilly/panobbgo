@@ -42,6 +42,7 @@ import numpy as np
 
 
 class Results(object):
+
     '''
     A very simple database of results with a notificaton for new results.
     The new results are fed directly by the :class:`.StrategyBase`, outside of the
@@ -53,6 +54,7 @@ class Results(object):
       persistenly store past evaluations for a given problem.
       This would allow resuming and further a-posteriory analysis.
     '''
+
     def __init__(self, strategy):
         self.logger = get_config().get_logger('RSLTS')
         self.strategy = strategy
@@ -96,10 +98,12 @@ class Results(object):
 
 
 class Module(object):
+
     '''
     "Abstract" parent class for various panobbgo modules, e.g.
     :class:`.Heuristic` and :class:`.Analyzer`.
     '''
+
     def __init__(self, name=None):
         name = name if name else self.__class__.__name__
         self._name = name
@@ -165,9 +169,11 @@ class Module(object):
 
 
 class StopHeuristic(Exception):
+
     '''
     Indicates the heuristic has finished and should be ignored/removed.
     '''
+
     def __init__(self, msg="stopped"):
         '''
         Args:
@@ -178,6 +184,7 @@ class StopHeuristic(Exception):
 
 
 class Heuristic(Module):
+
     '''
     This is the "abstract" parent class for all types of point generating classes,
     which we call collectively ":mod:`Heuristics <.heuristics>`".
@@ -199,6 +206,7 @@ class Heuristic(Module):
        own events, too. This can be used to signal related heuristics something
        or to queue up tasks for itself.
     '''
+
     def __init__(self, name=None, cap=None):
         Module.__init__(self, name)
         self.config = get_config()
@@ -275,9 +283,11 @@ class Heuristic(Module):
 
 
 class Analyzer(Module):
+
     '''
     Abstract parent class for all types of analyzers.
     '''
+
     def __init__(self, name=None):
         Module.__init__(self, name)
 
@@ -287,9 +297,11 @@ class Analyzer(Module):
 
 
 class Event(object):
+
     '''
     This class holds the data for one single :class:`~.EventBus` event.
     '''
+
     def __init__(self, **kwargs):
         self._when = time.time()
         self._kwargs = kwargs
@@ -301,6 +313,7 @@ class Event(object):
 
 
 class EventBus(object):
+
     '''
     This event bus is used to publish and send events.
     E.g. it is used to send information like "new best point"
@@ -359,7 +372,7 @@ class EventBus(object):
                             target.emit(new_points)
                         if terminate:
                             raise StopHeuristic("terminated")
-                    except StopHeuristic, e:
+                    except StopHeuristic as e:
                         self.logger.debug("'%s/on_%s' %s -> unsubscribing." %
                                           (target.name, key, e.message))
                         self.unsubscribe(key, target)
@@ -378,12 +391,12 @@ class EventBus(object):
                                 target.emit(new_points)
                             if event._terminate:
                                 raise StopHeuristic("terminated")
-                        except StopHeuristic, e:
+                        except StopHeuristic as e:
                             self.logger.debug(
                                 "'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
                             self.unsubscribe(key, target)
                             return
-                    except Exception, e:
+                    except Exception as e:
                         # usually, they only happen during shutdown
                         if get_config().debug:
                             # sys.exc_info() -> re-create original exception
@@ -481,6 +494,7 @@ class EventBus(object):
 
 
 class StrategyBase(object):
+
     '''
     This abstract BaseStrategy is the parent class of all Strategies.
 

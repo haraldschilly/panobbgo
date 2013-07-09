@@ -39,4 +39,3 @@ from quadratic_wls import QuadraticWlsModel
 from random import Random
 from weighted_average import WeightedAverage
 from zero import Zero
-

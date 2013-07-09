@@ -16,11 +16,14 @@
 from panobbgo.core import Heuristic, StopHeuristic
 from panobbgo.config import get_config
 
+
 class WeightedAverage(Heuristic):
+
     '''
     This strategy calculates the weighted average of all points
     in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
     '''
+
     def __init__(self, k=.1):
         Heuristic.__init__(self)
         self.k = k

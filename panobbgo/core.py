@@ -141,7 +141,7 @@ class Module(object):
     def results(self):
         return self._strategy.results
 
-    def _init_(self):
+    def __start__(self):
         '''
         This method should be overwritten by the respective subclass.
         It is called in the 2nd initialization phase, inside :meth:`._init_module`.
@@ -276,6 +276,37 @@ class Heuristic(Module):
         t = any(t.isAlive() for t in self._threads)
         q = self.__output.qsize() > 0
         return t or q
+
+class HeuristicSubprocess(Heuristic):
+    r'''
+    This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting
+    a subprocess, which communicates with the main thread via a pipe in a blocking
+    communication scheme.
+    '''
+    def __init__(self, name=None, cap=None):
+        Heuristic.__init__(self, name=name, cap = cap)
+
+        from multiprocessing import Process, Pipe
+        # a pipe has two ends, parent and child.
+        self.pipe, self.pipe_child = Pipe()
+        self.__subprocess = Process(
+            target=self.subprocess,
+            args=(self.pipe_child,),
+            name='%s-subprocess' % (self.name))
+        self.__subprocess.daemon = True
+        self.__subprocess.start()
+
+    @staticmethod
+    def subprocess(pipe):
+        '''
+        overwrite this pipe.recv() & pipe.send() loop and
+        compute something in between.
+        '''
+        while True:
+            payload = pipe.recv()
+            pipe.send("subprocess recieved: %s" % payload)
+
+
 
 #
 # Analyzer
@@ -608,7 +639,7 @@ class StrategyBase(object):
         :class:`~panobbgo.strategies.StrategyBase` calls this method.
         '''
         module._strategy = self
-        module._init_()
+        module.__start__()
         if get_config().ui_show:
             plt = module._init_plot()
             if not isinstance(plt, list):

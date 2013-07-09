@@ -26,7 +26,7 @@ class Grid(Analyzer):
     def __init__(self):
         Analyzer.__init__(self)
 
-    def _init_(self):
+    def __start__(self):
         # grid for storing points which are nearby.
         # maps from rounded coordinates tuple to point
         self._grid = dict()

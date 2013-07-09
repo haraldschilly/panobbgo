@@ -47,7 +47,7 @@ class LatinHypercube(Heuristic):
             raise Exception("LH: div needs to be an integer")
         self.div = div
 
-    def _init_(self):
+    def __start__(self):
         # length of each box'es dimension
         self.lengths = self.problem.ranges / float(self.div)
 

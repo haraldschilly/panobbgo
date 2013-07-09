@@ -26,7 +26,7 @@ class LBFGSB(Heuristic):
         Heuristic.__init__(self, cap=1)
         self.logger = get_config().get_logger("LBFGS")
 
-    def _init_(self):
+    def __start__(self):
         from multiprocessing import Process, Pipe
         self.p1, self.p2 = Pipe()
         self.out1, self.out2 = Pipe(False)

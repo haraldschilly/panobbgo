@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.core import HeuristicSubprocess
 
 
-class QuadraticWlsModel(Heuristic):
+class QuadraticWlsModel(HeuristicSubprocess):
 
     '''
     This heuristic uses an quadratic OLS model to find an approximate new best point
@@ -26,21 +26,11 @@ class QuadraticWlsModel(Heuristic):
     '''
 
     def __init__(self):
-        Heuristic.__init__(self)
+        HeuristicSubprocess.__init__(self)
         self.logger = get_config().get_logger('H:QM')
 
-        from multiprocessing import Process, Pipe
-        # a pipe has two ends, parent and child.
-        self.p1, self.p2 = Pipe()
-        self.process = Process(
-            target=self.solve_ols,
-            args=(self.p2,),
-            name='%s-Subprocess' % (self.name))
-        self.process.daemon = True
-        self.process.start()
-
     @staticmethod
-    def solve_ols(pipe):
+    def subprocess(pipe):
         def predict(xx):
             '''
             helper for the while loop: calculates the prediction
@@ -83,8 +73,8 @@ class QuadraticWlsModel(Heuristic):
 
     def on_new_best_box(self, best_box):
         # self.logger.info("")
-        self.p1.send((best_box.points, self.problem.box))
-        sol, fval, info = self.p1.recv()
+        self.pipe.send((best_box.points, self.problem.box))
+        sol, fval, info = self.pipe.recv()
         print 'solution:', sol
         print 'fval:', fval
         print 'info:', info

@@ -29,7 +29,7 @@ class WeightedAverage(Heuristic):
         self.k = k
         self.logger = get_config().get_logger('WAvg')
 
-    def _init_(self):
+    def __start__(self):
         self.minstd = min(self.problem.ranges) / 1000.
 
     def on_new_best(self, best):

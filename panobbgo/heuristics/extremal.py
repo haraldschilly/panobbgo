@@ -38,7 +38,7 @@ class Extremal(Heuristic):
         self.probabilities = prob.cumsum()
         self.diameter = diameter  # inside the box or around zero
 
-    def _init_(self):
+    def __start_(self):
         import numpy as np
         problem = self.problem
         low = problem.box[:, 0]

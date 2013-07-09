@@ -53,7 +53,7 @@ class Splitter(Analyzer):
         from threading import Condition
         self._new_result = Condition()
 
-    def _init_(self):
+    def __start__(self):
         # root box is equal to problem's box
         self.dim = self.problem.dim
         self.limit = max(20, self.max_eval / self.dim ** 2)

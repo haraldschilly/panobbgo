@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.core import Heuristic
+from panobbgo.config import get_config
 
+import numpy as np
 
 class NelderMead(Heuristic):
 

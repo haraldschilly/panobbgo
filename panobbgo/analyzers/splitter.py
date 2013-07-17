@@ -17,6 +17,8 @@ from panobbgo.config import get_config
 from panobbgo.core import Analyzer
 from panobbgo.utils import memoize
 
+import numpy as np
+
 
 '''
 Splitter

@@ -4,10 +4,7 @@
 import sys
 sys.path.append(".")
 #from panobbgo.core import Results
-from panobbgo.heuristics import Random, Nearby, \
-     Zero, LatinHypercube, Extremal, NelderMead, \
-     Center, WeightedAverage, Subprocess, QuadraticOlsModel
-     #, Testing
+from panobbgo.heuristics import Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead, Center, WeightedAverage, QuadraticWlsModel
 from panobbgo.strategies import StrategyRewarding#, StrategyRoundRobin
 #import numpy as np
 
@@ -42,10 +39,8 @@ zero        = Zero()
 extremal    = Extremal()
 center      = Center()
 avg         = WeightedAverage()
-sp          = Subprocess()
 nm          = NelderMead()
-qm          = QuadraticOlsModel()
-#testing     = Testing()
+qm          = QuadraticWlsModel()
 
 # target of max_eval generated points is the inverse of the gamma function
 if False:

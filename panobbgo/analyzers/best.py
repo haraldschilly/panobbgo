@@ -16,6 +16,7 @@
 from panobbgo.core import Analyzer
 from panobbgo.config import get_config
 
+import numpy as np
 
 class Best(Analyzer):
 

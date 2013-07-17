@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from panobbgo.core import HeuristicSubprocess
+from panobbgo.config import get_config
 
 
 class QuadraticWlsModel(HeuristicSubprocess):

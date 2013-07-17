@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.core import Heuristic
 
 
 class Extremal(Heuristic):
@@ -38,7 +38,7 @@ class Extremal(Heuristic):
         self.probabilities = prob.cumsum()
         self.diameter = diameter  # inside the box or around zero
 
-    def __start_(self):
+    def __start__(self):
         import numpy as np
         problem = self.problem
         low = problem.box[:, 0]

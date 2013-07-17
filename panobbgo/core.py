@@ -371,7 +371,6 @@ class EventBus(object):
         It needs to have suitable ``on_<key>`` methods.
         For each of them, a :class:`~threading.Thread` is spawn as a daemon.
         '''
-        from heuristics import StopHeuristic
         from Queue import Empty, Queue  # LifoQueue
         from threading import Thread
 

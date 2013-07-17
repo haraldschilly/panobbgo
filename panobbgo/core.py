@@ -61,6 +61,7 @@ class Results(object):
         self.eventbus = strategy.eventbus
         self.problem = strategy.problem
         self.results = []
+        self.results_df = None
         self._last_nb = 0  # for logging
         self.fx_delta_last = None
 
@@ -70,16 +71,35 @@ class Results(object):
         Then, publish a ``new_result`` event.
         '''
         import heapq
+        from pandas import (DataFrame, MultiIndex)
+        if self.results_df is None:
+            r = new_results[0]
+            cnt = [ ('cnt', 0) ]
+            midx_x = [('x', _) for _ in range(len(r.x))]
+            len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
+            midx_cv = [('cv', _) for _ in range(len_cv_vec)]
+            midx = MultiIndex.from_tuples( \
+                 cnt + midx_x  + [('fx', 0)] + midx_cv + [('cv', 0)])
+            self.results_df = DataFrame(columns = midx)
+
         if isinstance(new_results, Result):
             new_results = [new_results]
         assert all(map(lambda _: isinstance(_, Result), new_results))
         # notification for all recieved results at once
         self.eventbus.publish("new_results", results=new_results)
+
+        new_rows = []
         for r in new_results:
             heapq.heappush(self.results, r)
+            new_rows.append(np.r_[r.cnt, r.x, r.fx, [] if r.cv_vec is None else r.cv_vec, r.cv])
+        df2 = DataFrame(new_rows, columns = self.results_df.columns)
+        self.results_df = self.results_df.append(df2, ignore_index=True)
+
         if len(self.results) / 100 > self._last_nb / 100:
             # self.info()
             self._last_nb = len(self.results)
+
+        self.logger.info("Dataframe Results:\n%s" % self.results_df.tail(10))
 
     def info(self):
         self.logger.info("%d results in DB" % len(self.results))
@@ -699,12 +719,14 @@ class StrategyBase(object):
 
             # collect new results for each finished task, hand them over to
             # result DB
+            new_results = []
             for msg_id in self.new_finished:
                 for r in self.evaluators.get_result(msg_id).result:
                     with self.result_counter_lock:
                         r._cnt = self.result_counter
                         self.result_counter += 1
-                    self.results += r
+                    new_results.append(r)
+            self.results += new_results
 
             self.jobs_per_client = max(1, int(
                 min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))

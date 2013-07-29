@@ -34,8 +34,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
     def subprocess(pipe):
         def predict(xx):
             '''
-            helper for the while loop: calculates the prediction
-            based on the model result
+            helper for the while loop:
+            calculates the prediction based on the model result
             '''
             dim = len(xx)
             res = [1]
@@ -45,7 +45,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
                     res.append(xx[i] * xx[j])
             for i in range(dim):
                 res.append(xx[i] ** 2)
-            return result.predct(np.array(res))
+            return result.predict(np.array(res))
 
         while True:
             points, bounds = pipe.recv()
@@ -54,29 +54,45 @@ class QuadraticWlsModel(HeuristicSubprocess):
             import numpy as np
             from pandas import DataFrame
             import statsmodels.api as sm
+            #import statsmodels.formula.api as sm_formula
             data = {}
-            for i in dim:
+            for i in range(dim):
                 data['x%s' % i] = [x.x[i] for x in points]
-            X = DataFrame({'Intercept': np.ones(dim)})
-            X = X.join(data)
+            for i in range(dim):
+                for j in range(i + 1, dim):
+                    data['x%s:x%s' % (i, j)] = [ x.x[i] * x.x[j] for x in points]
+            for i in range(dim):
+                data['x%s^2' % i] = [ x.x[i] ** 2 for x in points]
+            data.update({'Intercept': np.ones(len(points))})
+            X = DataFrame(data)
+            # X.columns = 
+            cols = ['Intercept'] + ['x%i'%i for i in range(dim)]
+            cols.extend(
+                reduce(
+                    lambda a,b : a + b, 
+                    [['x%s:x%s'%(i,j) for j in range(i + 1, dim)] for i in range(dim)]))
+            cols.extend(['x%s^2'%i for i in range(dim)])
+            X.columns = cols
 
             y = DataFrame({'y': [_.fx for _ in points]})
-
+            
             model = sm.OLS(y, X)  # TODO WLS
             result = model.fit()
 
             # optimize predict with x \in bounds
             from scipy.optimize import fmin_l_bfgs_b
-            sol, fval, info = fmin_l_bfgs_b(predict, np.zeros(dim),
-                                            bounds=bounds, approx_grad=True)
+            sol, fval, info = fmin_l_bfgs_b(predict,
+                                            np.zeros(dim),
+                                            bounds=bounds,
+                                            approx_grad=True)
 
             pipe.send((sol, fval, info))  # end while loop
 
     def on_new_best_box(self, best_box):
         # self.logger.info("")
-        self.pipe.send((best_box.points, self.problem.box))
+        self.pipe.send((best_box.results, self.problem.box))
         sol, fval, info = self.pipe.recv()
-        print 'solution:', sol
-        print 'fval:', fval
-        print 'info:', info
+        #print 'solution:', sol
+        #print 'fval:', fval
+        #print 'info:', info
         self.emit(sol)

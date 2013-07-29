@@ -131,8 +131,7 @@ class UI(Module, gtk.Window, Thread):
         c._need_redraw = True
 
     def add_notebook_page(self, label_text, frame):
-        if label_text is None or frame is None:
-            return
+        assert label_text is not None and frame is not None
         label = gtk.Label(label_text)
         self.notebook.append_page(frame, label)
         frame.show_all()

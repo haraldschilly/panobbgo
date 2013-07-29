@@ -99,7 +99,7 @@ class Results(object):
             # self.info()
             self._last_nb = len(self.results)
 
-        self.logger.info("Dataframe Results:\n%s" % self.results_df.tail(10))
+        #self.logger.info("Dataframe Results:\n%s" % self.results_df.tail(10))
 
     def info(self):
         self.logger.info("%d results in DB" % len(self.results))
@@ -728,8 +728,8 @@ class StrategyBase(object):
                     new_results.append(r)
             self.results += new_results
 
-            self.jobs_per_client = max(1, int(
-                min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
+            self.jobs_per_client = max(1,
+                int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in

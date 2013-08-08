@@ -2,8 +2,12 @@
 # -*- coding: utf8 -*-
 
 from setuptools import setup  # , find_packages
-
+from pip.req import parse_requirements
 from panobbgo import __version__
+
+# read requirements.txt
+install_reqs = parse_requirements("requirements.txt")
+required = [str(ir.req) for ir in install_reqs]
 
 setup(
     name="panobbgo",
@@ -12,14 +16,7 @@ setup(
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
-    install_requires=[
-        'docutils >= 0.3',
-        "numpy    >= 1.5.0",
-        "scipy    >= 0.9.0",
-        "IPython  >= 0.12",
-        "nose     >= 1.1.2",
-        "mock     >= 1.0.1"
-    ],
+    install_requires=required,
 
     package_data={
         # If any package contains *.txt or *.rst files, include them:

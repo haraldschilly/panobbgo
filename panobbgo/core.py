@@ -63,14 +63,12 @@ class Results(object):
         self.problem = strategy.problem
         self.results = None
         self._last_nb = 0  # for logging
-        self.fx_delta_last = None   
 
     def add_results(self, new_results):
         '''
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         '''
-        import heapq
         from pandas import (DataFrame, MultiIndex)
         if self.results is None:
             r = new_results[0]

@@ -15,6 +15,7 @@
 
 from panobbgo.core import HeuristicSubprocess
 from panobbgo.config import get_config
+import numpy as np
 
 
 class QuadraticWlsModel(HeuristicSubprocess):
@@ -28,7 +29,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
     def __init__(self):
         HeuristicSubprocess.__init__(self)
-        self.logger = get_config().get_logger('H:QM')
+        self.logger = get_config().get_logger('H:WLS')
 
     @staticmethod
     def subprocess(pipe):
@@ -48,8 +49,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
             return result.predict(np.array(res))
 
         while True:
-            points, bounds = pipe.recv()
-            dim = len(points[0].x)
+            points, bounds, best_point, fx_vals = pipe.recv()
+            dim = points.shape[1]
 
             import numpy as np
             from pandas import DataFrame
@@ -57,26 +58,28 @@ class QuadraticWlsModel(HeuristicSubprocess):
             #import statsmodels.formula.api as sm_formula
             data = {}
             for i in range(dim):
-                data['x%s' % i] = [x.x[i] for x in points]
+                data['x%s' % i] = [x[i] for x in points]
             for i in range(dim):
                 for j in range(i + 1, dim):
-                    data['x%s:x%s' % (i, j)] = [ x.x[i] * x.x[j] for x in points]
+                    data['x%s:x%s' % (i, j)] = [ x[i] * x[j] for x in points]
             for i in range(dim):
-                data['x%s^2' % i] = [ x.x[i] ** 2 for x in points]
+                data['x%s^2' % i] = [ x[i] ** 2 for x in points]
             data.update({'Intercept': np.ones(len(points))})
             X = DataFrame(data)
             # X.columns = 
             cols = ['Intercept'] + ['x%i'%i for i in range(dim)]
-            cols.extend(
-                reduce(
-                    lambda a,b : a + b, 
-                    [['x%s:x%s'%(i,j) for j in range(i + 1, dim)] for i in range(dim)]))
+            mixedterms = reduce(lambda a, b: a + b,
+                [['x%s:x%s'%(i,j) for j in range(i + 1, dim)] for i in range(dim)])
+            cols.extend(mixedterms)
             cols.extend(['x%s^2'%i for i in range(dim)])
             X.columns = cols
 
-            y = DataFrame({'y': [_.fx for _ in points]})
-            
-            model = sm.OLS(y, X)  # TODO WLS
+            y = DataFrame({'y': fx_vals})
+
+            distances = np.apply_along_axis(np.linalg.norm, 1, points - best_point)
+            weights = 1. / (1 + np.argsort(distances))
+
+            model = sm.WLS(y, X, weights = weights)
             result = model.fit()
 
             # optimize predict with x \in bounds
@@ -86,11 +89,16 @@ class QuadraticWlsModel(HeuristicSubprocess):
                                             bounds=bounds,
                                             approx_grad=True)
 
-            pipe.send((sol, fval, info))  # end while loop
+            pipe.send((sol, fval, info))  
+            # end while loop
 
     def on_new_best_box(self, best_box):
         # self.logger.info("")
-        self.pipe.send((best_box.results, self.problem.box))
+        #self.logger.debug("best_box.best: %s" % best_box.best)
+        pointarray = np.r_[[ r.x for r in best_box.results]]
+        #self.logger.debug("pointarray: \n%s" % pointarray)
+        fx_vals = [_.fx for _ in best_box.results]
+        self.pipe.send((pointarray, self.problem.box, best_box.best.x, fx_vals))
         sol, fval, info = self.pipe.recv()
         #print 'solution:', sol
         #print 'fval:', fval

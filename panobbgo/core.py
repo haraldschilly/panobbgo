@@ -53,6 +53,7 @@ class Results(object):
       Later on, maybe this will be a cool actual database which allows to
       persistenly store past evaluations for a given problem.
       This would allow resuming and further a-posteriory analysis.
+      In the meantime, this is a pandas DataFrame.
     '''
 
     def __init__(self, strategy):
@@ -60,10 +61,9 @@ class Results(object):
         self.strategy = strategy
         self.eventbus = strategy.eventbus
         self.problem = strategy.problem
-        self.results = []
-        self.results_df = None
+        self.results = None
         self._last_nb = 0  # for logging
-        self.fx_delta_last = None
+        self.fx_delta_last = None   
 
     def add_results(self, new_results):
         '''
@@ -72,49 +72,43 @@ class Results(object):
         '''
         import heapq
         from pandas import (DataFrame, MultiIndex)
-        if self.results_df is None:
+        if self.results is None:
             r = new_results[0]
-            cnt = [ ('cnt', 0) ]
             midx_x = [('x', _) for _ in range(len(r.x))]
             len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
             midx_cv = [('cv', _) for _ in range(len_cv_vec)]
             midx = MultiIndex.from_tuples( \
-                 cnt + midx_x  + [('fx', 0)] + midx_cv + [('cv', 0)])
-            self.results_df = DataFrame(columns = midx)
+                 midx_x  + [('fx', 0)] + 
+                 midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
+            self.results = DataFrame(columns = midx)
 
-        if isinstance(new_results, Result):
-            new_results = [new_results]
         assert all(map(lambda _: isinstance(_, Result), new_results))
         # notification for all recieved results at once
         self.eventbus.publish("new_results", results=new_results)
 
         new_rows = []
         for r in new_results:
-            heapq.heappush(self.results, r)
-            new_rows.append(np.r_[r.cnt, r.x, r.fx, [] if r.cv_vec is None else r.cv_vec, r.cv])
-        df2 = DataFrame(new_rows, columns = self.results_df.columns)
-        self.results_df = self.results_df.append(df2, ignore_index=True)
+            new_rows.append(
+                np.r_[r.x, r.fx, 
+                   [] if r.cv_vec is None else r.cv_vec, 
+                   [r.cv, r.who, r.error]])
+        results_new = DataFrame(new_rows, columns = self.results.columns)
+        self.results = self.results.append(results_new, ignore_index=True)
 
         if len(self.results) / 100 > self._last_nb / 100:
-            # self.info()
+            self.info()
             self._last_nb = len(self.results)
 
-        #self.logger.info("Dataframe Results:\n%s" % self.results_df.tail(10))
-
     def info(self):
-        self.logger.info("%d results in DB" % len(self.results))
+        self.logger.info("%d results in DB" % len(self))
+        self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
 
     def __iadd__(self, results):
         self.add_results(results)
         return self
 
     def __len__(self):
-        return len(self.results)
-
-    # TODO move this into the best analyzer
-    def n_best(self, n):
-        import heapq
-        return heapq.nsmallest(n, self.results)
+        return len(self.results) if self.results is not None else 0
 
 
 class Module(object):
@@ -573,6 +567,12 @@ class StrategyBase(object):
         logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
         logger.debug("Heuristics %s" % heurs)
         logger.info("%s" % problem)
+
+        # aux configuration
+        import pandas as pd 
+        # determine width based on console info
+        pd.set_option('display.width', None)
+        pd.set_option('display.precision', 2) # default 7
 
         # statistics
         self.cnt = 0  # show info about evaluated points

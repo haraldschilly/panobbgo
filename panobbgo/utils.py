@@ -58,6 +58,8 @@ class ColoredFormatter(logging.Formatter):
         levelname = record.levelname
         if levelname in ColoredFormatter.COLORS:
             col = ColoredFormatter.COLORS[levelname]
+            record.name = self.colorize(record.name, col, True)
+            record.lineno = self.colorize(record.lineno, col, True)
             record.levelname = self.colorize(levelname, col, True)
             record.msg = self.colorize(record.msg, col)
         return logging.Formatter.format(self, record)

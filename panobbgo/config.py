@@ -32,6 +32,12 @@ via optional command-line arguments.
 _config = None
 PARSE_ARGS = True
 
+_EPILOG = '''\
+Note: By default, the 'debug' mode is enabled automatically.
+Disable it via the '-O' flag of the python interpreter, e.g. 'python -O run.py'.
+Website: http://dev.harald.schil.ly/panobbgo/
+Sources: https://github.com/haraldschilly/panobbgo
+'''
 
 class Config(object):
 
@@ -56,11 +62,7 @@ class Config(object):
 
         descr = 'Panobbgo - Parallel Noisy Black-Box Global Optimizer.'
 
-        epilog = '''Note: By default, the 'debug' mode is enabled automatically.
-    Disable it via the '-O' flag of the python interpreter, e.g. 'python -O run.py'.
-    Website: http://dev.harald.schil.ly/panobbgo/
-    Sources: https://github.com/haraldschilly/panobbgo
-    '''
+        epilog = _EPILOG
 
         parser = ArgumentParser(description=descr, epilog=epilog)
 

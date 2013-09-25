@@ -18,13 +18,13 @@ from panobbgo.core import Heuristic
 
 class Extremal(Heuristic):
 
-    '''
+    """
     This heuristic is specifically seeking for points at the
     border of the box and around 0.
     The @where parameter takes a list or tuple, which has values
     from 0 to 1, which indicate the probability for sampling from the
     minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
-    '''
+    """
 
     def __init__(self, diameter=1. / 10, prob=None):
         Heuristic.__init__(self, name="Extremal")

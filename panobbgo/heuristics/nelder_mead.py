@@ -66,8 +66,9 @@ class NelderMead(Heuristic):
         base.append(first.x)
         ret.append(first)
         for p in results:
-            w = p.x - np.sum(((v.dot(p.x) / v.dot(v)) *
-                             v for v in base), axis=0)
+            w = p.x - np.sum(
+                ((v.dot(p.x) / v.dot(v)) * v
+                              for v in base), axis=0)
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 ret.append(p)
@@ -98,7 +99,7 @@ class NelderMead(Heuristic):
         worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
         del base[worst_idx]
 
-        # TODO f(x) values are available and could be used for weighting
+        # TODO f(x) values are available and could be used for weighting (or their rank number)
         # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
         # weights = 1 + .1 * np.random.randn(len(base))
         centroid = np.average(
@@ -107,7 +108,7 @@ class NelderMead(Heuristic):
         return worst.x + factor * (centroid - worst.x)
 
     def on_start(self):
-        '''
+        """
         Algorithm Outline:
 
         #. Wait until a first or new best box has been found.
@@ -124,7 +125,7 @@ class NelderMead(Heuristic):
            until the queue is full (which blocks) or there is a new best box (breaks inner loop).
 
         #. The ``break`` exits the outer while and we start fresh with the new best box.
-        '''
+        """
         dim = self.problem.dim
         while True:
             self.got_bb.wait()

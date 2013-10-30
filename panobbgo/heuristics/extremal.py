@@ -32,11 +32,11 @@ class Extremal(Heuristic):
         if prob is None:
             prob = (1, .2, .2, 1)
         for i in prob:
-            if i < 0 or i > 1:
-                raise Exception("entries in prob must be in [0, 1]")
+            assert 0 <= i <= 1, "entries in prob must be in [0, 1]"
         prob = np.array(prob) / float(sum(prob))
         self.probabilities = prob.cumsum()
         self.diameter = diameter  # inside the box or around zero
+        self.vals = None
 
     def __start__(self):
         import numpy as np

@@ -20,3 +20,13 @@ class HeuristicTests(PanobbgoTestCase):
         lhyp = LatinHypercube(3)
         strategy = self.init_strategy(lhyp)
         assert lhyp is not None
+
+    def test_nelder_mead(self):
+        from panobbgo.heuristics import NelderMead
+        nm = NelderMead()
+        strategy = self.init_strategy(nm)
+        assert nm is not None
+        dim = 3
+        pts = self.random_results(3, 10)
+        base = nm.gram_schmidt(dim, pts)
+        

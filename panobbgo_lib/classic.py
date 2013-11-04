@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Classic Problems
 ================
 This file contains the basic objects to build a problem and to do a single evaluation.
@@ -21,7 +21,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 .. inheritance-diagram:: panobbgo_lib.classic
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
@@ -31,14 +31,14 @@ from lib import Problem
 
 class Rosenbrock(Problem):
 
-    r'''
+    r"""
     Rosenbrock function with parameter ``par1``.
 
     .. math::
 
       f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
-    '''
+    """
 
     def __init__(self, dims, par1=100):
         box = [(-2, 2)] * dims
@@ -52,7 +52,7 @@ class Rosenbrock(Problem):
 
 class RosenbrockConstraint(Problem):
 
-    r'''
+    r"""
     Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
 
     .. math::
@@ -61,7 +61,7 @@ class RosenbrockConstraint(Problem):
       \mathit{s.t.} \;\; & (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
                          & x_i \geq 0 \;\;                              \forall i
 
-    '''
+    """
 
     def __init__(self, dims, par1=100, par2=0.25):
         box = [(-2, 2)] * dims
@@ -83,14 +83,14 @@ class RosenbrockConstraint(Problem):
 
 class RosenbrockAbs(Problem):
 
-    r'''
+    r"""
     Absolute Rosenbrock function.
 
     .. math::
 
      f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
 
-    '''
+    """
 
     def __init__(self, dims, par1=100):
         box = [(-5, 5)] * dims
@@ -105,7 +105,7 @@ class RosenbrockAbs(Problem):
 
 class RosenbrockAbsConstraint(Problem):
 
-    r'''
+    r"""
     Absolute Rosenbrock function.
 
     .. math::
@@ -114,7 +114,7 @@ class RosenbrockAbsConstraint(Problem):
      \mathit{s.t.} \;\; & \|x_{i+1} - x_{i}\| \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
                         & x_i \geq 0 \;\;                          \forall i
 
-    '''
+    """
 
     def __init__(self, dims, par1=100, par2=0.1):
         box = [(-5, 5)] * dims
@@ -137,7 +137,7 @@ class RosenbrockAbsConstraint(Problem):
 
 class RosenbrockStochastic(Problem):
 
-    r'''
+    r"""
     Stochastic variant of Rosenbrock function.
 
     .. math ::
@@ -146,7 +146,7 @@ class RosenbrockStochastic(Problem):
 
     where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
     vector in :math:`\left[0, 1\right)^{n-1}`.
-    '''
+    """
 
     def __init__(self, dims, par1=100, jitter=.1):
         box = [(-5, 5)] * dims
@@ -164,7 +164,7 @@ class RosenbrockStochastic(Problem):
 
 class Himmelblau(Problem):
 
-    '''
+    """
     Himmelblau [HB]_ testproblem.
 
     .. math::
@@ -172,7 +172,7 @@ class Himmelblau(Problem):
       f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
 
     .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
-    '''
+    """
 
     def __init__(self):
         Problem.__init__(self, [(-5, 5)] * 2)
@@ -184,14 +184,14 @@ class Himmelblau(Problem):
 
 class Rastrigin(Problem):
 
-    '''
+    """
     Rastrigin
 
     .. math::
 
       f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
 
-    '''
+    """
 
     def __init__(self, dims, par1=10, offset=0):
         box = [(-2, 2)] * dims
@@ -207,7 +207,7 @@ class Rastrigin(Problem):
 
 class Shekel(Problem):
 
-    '''
+    """
     Shekel Function [SH]_.
 
     For :math:`m` minima in :math:`n` dimensions:
@@ -217,7 +217,7 @@ class Shekel(Problem):
       f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
 
     .. [SH] http://en.wikipedia.org/wiki/Shekel_function
-    '''
+    """
 
     def __init__(self, dims, m=10, a=None, c=None):
         box = [(-2, 2)] * dims

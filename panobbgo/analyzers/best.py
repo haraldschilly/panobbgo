@@ -20,7 +20,7 @@ import numpy as np
 
 class Best(Analyzer):
 
-    '''
+    """
     Listens on all results, does accounting for "best" results,
     manages a pareto front of good points and emits the following events:
 
@@ -48,7 +48,7 @@ class Best(Analyzer):
        This is an example of how several pareto fronts progress during the optimization.
 
     It also creates UI plots.
-    '''
+    """
 
     def __init__(self):
         Analyzer.__init__(self)
@@ -275,22 +275,22 @@ class Best(Analyzer):
 
     @property
     def best(self):
-        '''
+        """
         Currently best :class:`~panobbgo_lib.lib.Result`.
 
         .. Note::
 
           At the moment, this is :attr:`.pareto` but might change.
-        '''
+        """
         return self.pareto
 
     @property
     def cv(self):
-        '''
+        """
         The point with currently minimal constraint violation, likely 0.0.
         If there are several points with the same minimal constraint violation,
         the value of the objective function is a secondary selection argument.
-        '''
+        """
         return self._cv
 
     @property
@@ -299,29 +299,29 @@ class Best(Analyzer):
 
     @property
     def min(self):
-        '''
+        """
         The point, with currently smallest objective function value.
-        '''
+        """
         return self._min
 
     @property
     def pareto_front(self):
-        '''
+        """
         This is the list of points building the current pareto front.
 
         .. Note::
 
           This is a shallow copy.
-        '''
+        """
         return self._pareto_front[:]
 
     def _update_pareto(self, result):
-        '''
+        """
         Update the pareto front with this new @result.
 
         Either ignore it, or add it to the front and remove
         all points from the front which are obsolete.
-        '''
+        """
         # Note: result.pp returns np.array([cv, fx])
         # add the new point
         pf_old = self.pareto_front
@@ -365,9 +365,9 @@ class Best(Analyzer):
             self.eventbus.publish("new_pareto_front", front=new_front)
 
     def _check_pareto_front(self):
-        '''
+        """
         just used for testing
-        '''
+        """
         pf = self.pareto_front
         for p1, p2 in zip(pf[:-1], pf[1:]):
             assert p1.fx <= p2.fx, u'fx > fx for %s, %s' % (p1, p2)

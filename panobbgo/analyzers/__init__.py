@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r'''
+r"""
 Analyzers
 =========
 
@@ -27,7 +27,7 @@ the strategy.
 .. inheritance-diagram:: panobbgo.analyzers
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 
 from best import Best
 from splitter import Splitter

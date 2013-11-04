@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Library Classes
 ===============
 
@@ -24,7 +24,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 .. Note:: This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
@@ -34,10 +34,10 @@ from IPython.utils.timing import time
 
 class Point(object):
 
-    '''
+    """
     This contains the x vector for a new point and a
     reference to :attr:`.who` has generated it.
-    '''
+    """
 
     def __init__(self, x, who):
         if not isinstance(who, basestring):
@@ -50,7 +50,7 @@ class Point(object):
         self._who = who  # heuristic.name, a string
 
     def __repr__(self):
-        '''
+        """
         >>> Point
         <class 'panobbgo_lib.lib.Point'>
 
@@ -59,7 +59,7 @@ class Point(object):
         >>> import numpy as np
         >>> repr(Point(np.array([1,2]), 'test'))
         '[1 2] by test'
-        '''
+        """
         return '%s by %s' % (self.x, self.who)
 
     @property
@@ -69,18 +69,18 @@ class Point(object):
 
     @property
     def who(self):
-        '''
+        """
         A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
 
         To get the actual heuristic, use the
         :meth:`strategie's heuristic <panobbgo.core.StrategyBase.heuristic>` method.
-        '''
+        """
         return self._who
 
 
 class Result(object):
 
-    r'''
+    r"""
     This represents one result, wich is a mapping of a :class:`.Point`
     :math:`x \rightarrow f(x)`.
 
@@ -90,16 +90,16 @@ class Result(object):
     - :attr:`.cv_vec`: a possibly empty vector listing the constraint violation for
       each constraint.
     - :attr:`.cnt`: An integer counter, starting at 0.
-    '''
+    """
 
     def __init__(self, point, fx, cv_vec=None, cv_norm=None, error=0.0):
-        '''
+        """
         Args:
 
         - ``cv``: the constraint violation vector
         - ``cv_norm``: the norm used to calculate :attr:`.cv`.
           (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
-        '''
+        """
         if point and not isinstance(point, Point):
             raise Exception("point must be a Point")
         self._point = point
@@ -112,31 +112,35 @@ class Result(object):
 
     @property
     def cnt(self):
-        '''
+        """
         Integer ID for this result.
-        '''
+        """
         return self._cnt
 
     @property
     def x(self):
-        '''
+        """
         Point :math:`x` where this result has been evaluated.
-        '''
+        """
         return self.point.x if self.point else None
 
     @property
     def point(self):
-        '''Returns the actual :class:`.Point` object.'''
+        """
+        Returns the actual :class:`.Point` object.
+        """
         return self._point
 
     @property
     def fx(self):
-        '''The function value :math:`f(x)` after :meth:`evaluating <panobbgo_lib.lib.Problem.eval>` it.'''
+        """
+        The function value :math:`f(x)` after :meth:`evaluating <panobbgo_lib.lib.Problem.eval>` it.
+        """
         return self._fx
 
     @property
     def cv_vec(self):
-        '''
+        """
         Vector of constraint violations for each constraint, or None.
 
         .. Note::
@@ -144,18 +148,18 @@ class Result(object):
            Be aware, that entries could be negative. This is useful if you want to know
            how well a point is satisfied. The `.cv` property just looks at the positive
            entries, though.
-        '''
+        """
         return self._cv_vec
 
     @property
     def cv(self):
-        '''
+        """
         The chosen norm of :attr:`.cv_vec`; see ``cv_norm`` in constructor.
 
         .. Note::
 
             Only the positive entries are used to calculate the norm!
-        '''
+        """
         if self._cv_vec is None:
             return 0.0
         from numpy.linalg import norm
@@ -163,35 +167,35 @@ class Result(object):
 
     @property
     def pp(self):
-        '''
+        """
         pareto point, i.e. array([cv, fx])
-        '''
+        """
         return np.array([self.cv, self.fx])
 
     @property
     def who(self):
-        '''
+        """
         The :attr:`~panobbgo.core.Module.name` of the heuristic, who
         did generate this point (String).
-        '''
+        """
         return self.point.who
 
     @property
     def error(self):
-        '''
+        """
         Error margin of function evaluation, usually 0.0.
-        '''
+        """
         return self._error
 
     def __cmp__(self, other):
-        '''
+        """
         Compare with other point by fx (and fx only!).
 
         .. Note ::
 
           This is also used by mechanism
           like Best -> pareto_front
-        '''
+        """
         assert isinstance(other, Result)
         return cmp(self._fx, other._fx)
 
@@ -204,18 +208,18 @@ class Result(object):
 
 class Problem(object):
 
-    '''
+    """
     this is used to store the objective function,
     information about the problem, etc.
-    '''
+    """
 
     def __init__(self, box):
-        r'''
+        r"""
         box must be a list of tuples, which specify
         the range of each variable.
 
         example: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
-        '''
+        """
         # validate
         if not isinstance(box, (list, tuple)):
             raise Exception("box argument must be a list or tuple")
@@ -235,55 +239,59 @@ class Problem(object):
 
     @property
     def dim(self):
-        '''The number of dimensions.'''
+        """
+        The number of dimensions.
+        """
         return self._dim
 
     @property
     def ranges(self):
-        '''The ranges along each dimension, a :class:`numpy.ndarray`.'''
+        """
+        The ranges along each dimension, a :class:`numpy.ndarray`.
+        """
         return self._ranges
 
     @property
     def box(self):
-        r'''
+        r"""
         The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array <numpy.ndarray>`.
 
         .. Note::
 
           This might change to a more sophisticated ``Box`` object.
-        '''
+        """
         return self._box
 
     def project(self, point):
-        r'''
+        r"""
         projects given point into the search box.
         e.g. :math:`[-1.1, 1]` with box :math:`[(-1,1),(-1,1)]`
         gives :math:`[-1,1]`
-        '''
+        """
         assert isinstance(point, np.ndarray), 'point must be a numpy ndarray'
         return np.minimum(np.maximum(point, self.box[:, 0]), self.box[:, 1])
 
     def random_point(self):
-        '''
+        """
         generates a random point inside the given search box (ranges).
-        '''
+        """
         # uniformly
         return self._ranges * np.random.rand(self.dim) + self._box[:, 0]
         # TODO other distributions, too?
 
     def eval(self, x):
-        '''
+        """
         This is called to evaluate the given black-box function.
         The problem should be called directly (``__call__`` special function wraps this)
         and the given problem should subclass this ``eval`` method.
-        '''
+        """
         raise Exception("You have to subclass and overwrite the eval function")
 
     def eval_constraints(self, x):
-        '''
+        """
         This method is optionally overwritten by the problem to calculate the constraint violations.
         It has to return a :class:`numpy.ndarray` of ``floats``.
-        '''
+        """
         pass
 
     def __call__(self, point):

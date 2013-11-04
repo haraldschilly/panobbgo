@@ -18,10 +18,10 @@ from panobbgo.core import Heuristic, StopHeuristic
 
 class Random(Heuristic):
 
-    '''
+    """
     always generates random points inside the box of the
     "best leaf" (see "Splitter") until the capped queue is full.
-    '''
+    """
 
     def __init__(self, cap=None, name=None):
         name = "Random" if name is None else name
@@ -41,10 +41,10 @@ class Random(Heuristic):
             self.emit(r)
 
     def on_new_split(self, box, children, dim):
-        '''
+        """
         we are only interested in the (possibly new)
         leaf around the best point
-        '''
+        """
         best = self.strategy.analyzer("best").best
         self.leaf = self.strategy.analyzer("splitter").get_leaf(best)
         self.clear_output()

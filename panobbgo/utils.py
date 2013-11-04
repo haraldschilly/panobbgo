@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r'''
+r"""
 Utilities
 ---------
 
 Some utility functions, will move eventually.
-'''
+"""
 
 import logging
 
@@ -80,9 +80,9 @@ class PanobbgoContext(logging.Filter):
 
 
 def create_logger(name, level=logging.INFO):
-    '''
+    """
     Creates logger with ``name`` and given ``level`` logging level.
-    '''
+    """
     logger = logging.getLogger(name)
     logger.addFilter(PanobbgoContext())
     logger.setLevel(logging.DEBUG)
@@ -95,9 +95,9 @@ def create_logger(name, level=logging.INFO):
 
 
 def info():
-    '''
+    """
     Shows a bit of info about the libraries and other environment information.
-    '''
+    """
     import subprocess
     git = subprocess.Popen(
         ["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
@@ -123,14 +123,14 @@ def is_left(p0, p1, ptest):
 
 
 def is_right(p0, p1, ptest):
-    '''
+    """
     p0->p1 existing results, ptest other point
     return true, if ptest is on the right of p0->p1
 
     Args::
 
       - p0, p1, ptest: :class:`numpy.ndarray`.
-    '''
+    """
     import numpy as np
     v1 = p1 - p0
     v2 = ptest - p0

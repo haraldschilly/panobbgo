@@ -18,7 +18,7 @@ from panobbgo.core import Heuristic, StopHeuristic
 
 class Nearby(Heuristic):
 
-    '''
+    """
     This provider generates new points based
     on a cheap (i.e. fast) algorithm. For each new best point,
     it and generates ``new`` many nearby point(s).
@@ -31,7 +31,7 @@ class Nearby(Heuristic):
        * ``all``: desturb all axes
 
     - ``new``: number of new points to generate (default: 1)
-    '''
+    """
 
     def __init__(self, cap=3, radius=1. / 100, new=1, axes='one'):
         Heuristic.__init__(

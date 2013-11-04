@@ -20,7 +20,7 @@ import numpy as np
 
 class NelderMead(Heuristic):
 
-    r'''
+    r"""
     This heuristic is inspired by the
     `Nelder Mead Method <http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method>`_
 
@@ -34,7 +34,7 @@ class NelderMead(Heuristic):
     * Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
       several promising points into the same direction as
       the implied search direction. See :meth:`here <.nelder_mead>`.
-    '''
+    """
 
     def __init__(self):
         Heuristic.__init__(self, name="Nelder Mead")
@@ -150,10 +150,10 @@ class NelderMead(Heuristic):
                         )  # the "wait()" at the top is now active
 
     def on_new_best_box(self, best_box):
-        '''
+        """
         When a new best box has been found by the :class:`~.analyzers.Splitter`, the
         ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.
-        '''
+        """
         self.best_box = best_box
         self.got_bb.set()
         self.clear_output()  # clearing must come last

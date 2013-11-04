@@ -19,9 +19,9 @@ from panobbgo.core import Analyzer
 
 class Grid(Analyzer):
 
-    '''
+    """
     packs nearby points into grid boxes
-    '''
+    """
 
     def __init__(self):
         Analyzer.__init__(self)

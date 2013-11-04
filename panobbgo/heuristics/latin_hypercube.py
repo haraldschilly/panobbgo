@@ -18,7 +18,7 @@ from panobbgo.core import Heuristic, StopHeuristic
 
 class LatinHypercube(Heuristic):
 
-    '''
+    """
     Partitions the search box into n x n x ... x n cubes.
     Selects randomly in such a way, that there is only one cube in each dimension.
     Then, it randomly selects one point from inside such a cube.
@@ -34,13 +34,13 @@ class LatinHypercube(Heuristic):
       +---+---+---+---+
       |   |   | X |   |
       +---+---+---+---+
-    '''
+    """
 
     def __init__(self, div):
-        '''
+        """
         Args:
            - `div`: number of divisions, positive integer.
-        '''
+        """
         cap = div
         Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
         if not isinstance(div, int):

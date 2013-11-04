@@ -18,10 +18,10 @@ from panobbgo.core import StrategyBase
 
 class StrategyRewarding(StrategyBase):
 
-    '''
+    """
     This strategy rewards given :mod:`.heuristics` by selecting
     those more often, which produce better search points.
-    '''
+    """
 
     def __init__(self, problem, heurs):
         self.last_best = None
@@ -32,26 +32,26 @@ class StrategyRewarding(StrategyBase):
             h.performance = 1.0
 
     def discount(self, heur, discount=None, times=1):
-        '''
+        """
         Discount the given heuristic after emitting a point.
 
         Args:
 
         - ``discount``: positive float, default ``config.default``
         - ``times``: how often
-        '''
+        """
         d = discount if discount is not None else self.config.discount
         d = d ** times
         heur.performance *= d
 
     def reward(self, best):
-        '''
+        """
         Give this heuristic a reward (e.g. when it finds a new point)
 
         Args:
 
         - ``best``: new (best) result
-        '''
+        """
         if self.last_best is None:
             return 1.0
         import numpy as np

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''
+"""
 Core
 ====
 
@@ -34,7 +34,7 @@ and base-classes for the modules:
 .. inheritance-diagram:: panobbgo.core
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 from config import get_config
 from panobbgo_lib import Result, Point
 from IPython.utils.timing import time
@@ -43,7 +43,7 @@ import numpy as np
 
 class Results(object):
 
-    '''
+    """
     A very simple database of results with a notificaton for new results.
     The new results are fed directly by the :class:`.StrategyBase`, outside of the
     :class:`.EventBus`.
@@ -54,7 +54,7 @@ class Results(object):
       persistenly store past evaluations for a given problem.
       This would allow resuming and further a-posteriory analysis.
       In the meantime, this is a pandas DataFrame.
-    '''
+    """
 
     def __init__(self, strategy):
         self.logger = get_config().get_logger('RSLTS')
@@ -65,23 +65,25 @@ class Results(object):
         self._last_nb = 0  # for logging
 
     def add_results(self, new_results):
-        '''
+        """
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
-        '''
+        """
         from pandas import (DataFrame, MultiIndex)
         if self.results is None:
+            if len(new_results) == 0:
+                return
             r = new_results[0]
             midx_x = [('x', _) for _ in range(len(r.x))]
             len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
             midx_cv = [('cv', _) for _ in range(len_cv_vec)]
-            midx = MultiIndex.from_tuples( \
+            midx = MultiIndex.from_tuples(
                  midx_x  + [('fx', 0)] + 
                  midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
             self.results = DataFrame(columns = midx)
 
         assert all(map(lambda _: isinstance(_, Result), new_results))
-        # notification for all recieved results at once
+        # notification for all received results at once
         self.eventbus.publish("new_results", results=new_results)
 
         new_rows = []
@@ -111,10 +113,10 @@ class Results(object):
 
 class Module(object):
 
-    '''
+    """
     "Abstract" parent class for various panobbgo modules, e.g.
     :class:`.Heuristic` and :class:`.Analyzer`.
-    '''
+    """
 
     def __init__(self, name=None):
         name = name if name else self.__class__.__name__
@@ -123,14 +125,14 @@ class Module(object):
 
     @property
     def name(self):
-        '''
+        """
         The module's name.
 
         .. Note::
 
           It should be unique, which is important for
           parameterized heuristics or analyzers!
-        '''
+        """
         return self._name
 
     @property
@@ -154,16 +156,28 @@ class Module(object):
         return self._strategy.results
 
     def __start__(self):
-        '''
+        """
         This method should be overwritten by the respective subclass.
         It is called in the 2nd initialization phase, inside :meth:`._init_module`.
         Now, the strategy and all its components (e.g. :class:`panobbgo_lib.lib.Problem`, ...)
         are available.
-        '''
+        """
         pass
 
+    def __stop__(self):
+        """
+        Called right at the end after the strategy has finished.
+        """
+        for t in self._threads:
+            if t.isAlive():
+                try:
+                    t._Thread__stop()
+                except:
+                    pass
+            t.join()
+
     def _init_plot(self):
-        '''
+        """
         This plot initializer is called right after the :meth:`._init` method.
         It could be used to tell the (optionally enabled) :module:`user interface <.ui>` that
         this module wants to have a tab for displaying and visualizing some data.
@@ -173,7 +187,7 @@ class Module(object):
 
         To trigger a redraw after an update, call the ``.draw_idle()`` method
         of the :class:`~matplotlib.backends.backend_gtkagg.FigureCnavasGTKAgg`.
-        '''
+        """
         return None, None
 
     def __repr__(self):
@@ -182,22 +196,22 @@ class Module(object):
 
 class StopHeuristic(Exception):
 
-    '''
+    """
     Indicates the heuristic has finished and should be ignored/removed.
-    '''
+    """
 
     def __init__(self, msg="stopped"):
-        '''
+        """
         Args:
 
         - ``msg``: a custom message, will be visible in the log. (default: "stopped")
-        '''
+        """
         Exception.__init__(self, msg)
 
 
 class Heuristic(Module):
 
-    '''
+    """
     This is the "abstract" parent class for all types of point generating classes,
     which we call collectively ":mod:`Heuristics <.heuristics>`".
 
@@ -217,13 +231,14 @@ class Heuristic(Module):
     #. The :class:`.EventBus` inside this strategy instance allows them to publish their
        own events, too. This can be used to signal related heuristics something
        or to queue up tasks for itself.
-    '''
+    """
 
     def __init__(self, name=None, cap=None):
         Module.__init__(self, name)
         self.config = get_config()
         self.logger = self.config.get_logger('HEUR')
         self.cap = cap if cap is not None else get_config().capacity
+        self._stopped = False
         from Queue import Queue
         self.__output = Queue(self.cap)
 
@@ -239,12 +254,12 @@ class Heuristic(Module):
             q.not_full.notify()  # to wakeup "put()"
 
     def emit(self, points):
-        '''
+        """
         This is used to send out new search points for evaluation.
         Args:
 
         - ``points``: Either a :class:`numpy.ndarray` of ``float64`` or preferrably a list of them.
-        '''
+        """
         try:
             if points is None:
                 raise StopHeuristic()
@@ -261,13 +276,13 @@ class Heuristic(Module):
             self.logger.info("'%s' heuristic stopped." % self.name)
 
     def get_points(self, limit=None):
-        '''
+        """
         this drains the output Queue until ``limit``
         elements are removed or the Queue is empty.
         For each actually emitted point,
         the performance value is discounted (i.e. "punishment" or "energy
         consumption")
-        '''
+        """
         from Queue import Empty
         new_points = []
         try:
@@ -279,22 +294,22 @@ class Heuristic(Module):
 
     @property
     def active(self):
-        '''
+        """
         This is queried by the strategy to determine, if it should still consider it.
         This is the case, iff there is still something in its output queue
         or if there is a chance that there will be something in the future (at least
         one thread is running).
-        '''
+        """
         t = any(t.isAlive() for t in self._threads)
         q = self.__output.qsize() > 0
         return t or q
 
 class HeuristicSubprocess(Heuristic):
-    r'''
+    r"""
     This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting
     a subprocess, which communicates with the main thread via a pipe in a blocking
     communication scheme.
-    '''
+    """
     def __init__(self, name=None, cap=None):
         Heuristic.__init__(self, name=name, cap = cap)
 
@@ -310,10 +325,10 @@ class HeuristicSubprocess(Heuristic):
 
     @staticmethod
     def subprocess(pipe):
-        '''
+        """
         overwrite this pipe.recv() & pipe.send() loop and
         compute something in between.
-        '''
+        """
         while True:
             payload = pipe.recv()
             pipe.send("subprocess recieved: %s" % payload)
@@ -327,9 +342,9 @@ class HeuristicSubprocess(Heuristic):
 
 class Analyzer(Module):
 
-    '''
+    """
     Abstract parent class for all types of analyzers.
-    '''
+    """
 
     def __init__(self, name=None):
         Module.__init__(self, name)
@@ -341,9 +356,9 @@ class Analyzer(Module):
 
 class Event(object):
 
-    '''
+    """
     This class holds the data for one single :class:`~.EventBus` event.
-    '''
+    """
 
     def __init__(self, **kwargs):
         self._when = time.time()
@@ -357,11 +372,11 @@ class Event(object):
 
 class EventBus(object):
 
-    '''
+    """
     This event bus is used to publish and send events.
     E.g. it is used to send information like "new best point"
     to all subscribing heuristics.
-    '''
+    """
     # pattern for a valid key
     import re
     _re_key = re.compile(r'^[a-z_]+$')
@@ -372,17 +387,17 @@ class EventBus(object):
 
     @property
     def keys(self):
-        '''
+        """
         List of all keys where you can send an :class:`Event` to.
-        '''
+        """
         return self._subs.keys()
 
     def register(self, target):
-        '''
+        """
         Registers a given ``target`` for this EventBus instance.
         It needs to have suitable ``on_<key>`` methods.
         For each of them, a :class:`~threading.Thread` is spawn as a daemon.
-        '''
+        """
         from Queue import Empty, Queue  # LifoQueue
         from threading import Thread
 
@@ -474,11 +489,11 @@ class EventBus(object):
             raise Exception('"%s" key not allowed' % key)
 
     def subscribe(self, key, target):
-        '''
+        """
         Called by :meth:`.register`.
 
         .. Note:: counterpart is :func:`unsubscribe`.
-        '''
+        """
         self._check_key(key)
         if not key in self._subs:
             self._subs[key] = []
@@ -487,12 +502,12 @@ class EventBus(object):
         self._subs[key].append(target)
 
     def unsubscribe(self, key, target):
-        '''
+        """
         Args:
 
         - if ``key`` is ``None``, the target is removed from all keys.
 
-        '''
+        """
         if key is None:
             for k, v in self._subs.iteritems():
                 for t in v:
@@ -509,7 +524,7 @@ class EventBus(object):
             self._subs[key].remove(target)
 
     def publish(self, key, event=None, terminate=False, **kwargs):
-        '''
+        """
         Publishes a new :class:`.Event` to all subscribers,
         who listen to the given ``key``.
         It is either possible to send an existing event or to create an event
@@ -522,7 +537,7 @@ class EventBus(object):
                          (use it for ``on_start`` and similar).
         - ``**kwargs``: any additional keyword arguments are stored inside the Event
                         if ``event`` is ``None``.
-        '''
+        """
         if key not in self._subs:
             if get_config().debug:
                 self.logger.warning("key '%s' unknown." % key)
@@ -537,7 +552,7 @@ class EventBus(object):
 
 class StrategyBase(object):
 
-    '''
+    """
     This abstract BaseStrategy is the parent class of all Strategies.
 
     Use it this way:
@@ -552,7 +567,7 @@ class StrategyBase(object):
 
     This ``execute`` method will be called repeatedly as long as there are less than the
     given maximum number of search points evaluated.
-    '''
+    """
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
@@ -573,13 +588,9 @@ class StrategyBase(object):
         pd.set_option('display.precision', 2) # default 7
 
         # statistics
-        self.cnt = 0  # show info about evaluated points
         self.show_last = 0  # for printing the info line in _add_tasks()
         self.time_start = time.time()
         self.tasks_walltimes = {}
-        self.result_counter = 0  # for setting _cnt in Result objects
-        from threading import Lock
-        self.result_counter_lock = Lock()
 
         # task accounting (tasks != points !!!)
         self.jobs_per_client = 1  # number of tasks per client in 'chunksize'
@@ -616,7 +627,7 @@ class StrategyBase(object):
         }
         map(self.add_analyzer, self._analyzers.values())
 
-        logger.debug("Eventbus keys: %s" % self.eventbus.keys)
+        logger.debug("EventBus keys: %s" % self.eventbus.keys)
 
         try:
             import threading
@@ -624,12 +635,16 @@ class StrategyBase(object):
                 raise Exception("change run() to start()")
             self.run()
         except KeyboardInterrupt:
-            logger.critical("KeyboardInterrupt recieved, e.g. via Ctrl-C")
+            logger.critical("KeyboardInterrupt received, e.g. via Ctrl-C")
             self._cleanup()
 
     @property
     def heuristics(self):
         return filter(lambda h: h.active, self._heuristics.values())
+
+    @property
+    def analyzers(self):
+        return self._analyzers.values()
 
     def heuristic(self, who):
         return self._heuristics[who]
@@ -652,9 +667,9 @@ class StrategyBase(object):
         self.init_module(a)
 
     def init_module(self, module):
-        '''
+        """
         :class:`~panobbgo.strategies.StrategyBase` calls this method.
-        '''
+        """
         module._strategy = self
         module.__start__()
         if get_config().ui_show:
@@ -662,7 +677,7 @@ class StrategyBase(object):
             if not isinstance(plt, list):
                 plt = [plt]
             [self.ui.add_notebook_page(*p) for p in plt]
-        # only after _init_ it is ready to recieve events
+        # only after _init_ it is ready to receive events
         module.eventbus.register(module)
 
     def _setup_cluster(self, nb_gens, problem):
@@ -709,21 +724,18 @@ class StrategyBase(object):
             points = self.execute()
 
             # distribute work
-            new_tasks = self.evaluators.map_async(prob_ref, points,
-                                                  chunksize=self.jobs_per_client, ordered=False)
+            new_tasks = self.evaluators.map_async(prob_ref,
+                                                  points,
+                                                  chunksize=self.jobs_per_client,
+                                                  ordered=False)
 
             # and don't forget, this updates the statistics
             self._add_tasks(new_tasks)
 
-            # collect new results for each finished task, hand them over to
-            # result DB
+            # collect new results for each finished task, hand them over to result DB
             new_results = []
             for msg_id in self.new_finished:
-                for r in self.evaluators.get_result(msg_id).result:
-                    with self.result_counter_lock:
-                        r._cnt = self.result_counter
-                        self.result_counter += 1
-                    new_results.append(r)
+                map(new_results.append, self.evaluators.get_result(msg_id).result)
             self.results += new_results
 
             self.jobs_per_client = max(1,
@@ -743,15 +755,15 @@ class StrategyBase(object):
         self._cleanup()
 
     def execute(self):
-        '''
+        """
         Overwrite this method when you extend this base strategy.
-        '''
+        """
         raise Exception('You need to extend the class StrategyBase and overwrite this execute method.')
 
     def _cleanup(self):
-        '''
+        """
         cleanup + shutdown
-        '''
+        """
         self.eventbus.publish('finished')
         self._end = time.time()
         for msg_id in self.evaluators.outstanding:
@@ -764,28 +776,26 @@ class StrategyBase(object):
 
         self.info()
         self.results.info()
+        [m.__stop__() for m in self.analyzers + self.heuristics]
         if get_config().ui_show:
             self.ui.finish()  # blocks figure window
 
     def _add_tasks(self, new_tasks):
-        '''
+        """
         Accounting routine for the parallel tasks, only used by :meth:`.run`.
-        '''
+        """
         if new_tasks is not None:
             for mid in new_tasks.msg_ids:
                 self.pending.add(mid)
-                self.cnt += len(self.evaluators.get_result(mid).result)
-        self.new_finished = self.pending.difference(
-            self.evaluators.outstanding)
+        self.new_finished = self.pending.difference(self.evaluators.outstanding)
         self.pending = self.pending.difference(self.new_finished)
         for tid in self.new_finished:
             self.finished.append(tid)
             self.tasks_walltimes[tid] = self.evaluators.get_result(tid).elapsed
 
-        # if self.cnt / 100 > self.show_last / 100:
         if time.time() - self.show_last > self.config.show_interval:
             self.info()
-            self.show_last = time.time()  # self.cnt
+            self.show_last = time.time()
 
     def info(self):
         avg = self.avg_time_per_task
@@ -794,7 +804,7 @@ class StrategyBase(object):
         peval = len(self.results)
         self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | "
                           "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
-                         (peval, self.cnt, pend, fini, self.time_cpu, self.time_wall, avg))
+                         (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg))
 
     @property
     def avg_time_per_task(self):
@@ -805,16 +815,16 @@ class StrategyBase(object):
 
     @property
     def time_wall(self):
-        '''
+        """
         wall time in seconds
-        '''
+        """
         return time.time() - self.time_start
 
     @property
     def time_cpu(self):
-        '''
+        """
         effective cpu time in seconds
-        '''
+        """
         return time.clock()
 
     @property

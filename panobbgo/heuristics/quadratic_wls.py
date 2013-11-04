@@ -20,12 +20,12 @@ import numpy as np
 
 class QuadraticWlsModel(HeuristicSubprocess):
 
-    '''
+    """
     This heuristic uses an quadratic OLS model to find an approximate new best point
     for each new best box (the latter is subject to change).
 
     The actual calculation is performed out of process.
-    '''
+    """
 
     def __init__(self):
         HeuristicSubprocess.__init__(self)
@@ -34,10 +34,10 @@ class QuadraticWlsModel(HeuristicSubprocess):
     @staticmethod
     def subprocess(pipe):
         def predict(xx):
-            '''
+            """
             helper for the while loop:
             calculates the prediction based on the model result
-            '''
+            """
             dim = len(xx)
             res = [1]
             res.extend(xx)

@@ -57,11 +57,11 @@ class Classics(unittest.TestCase):
         pass
 
     def is_optimal(self, func, opt_pt):
-        r'''
+        r"""
         This heuristic disturbs a known optimal point by a random
         :func:`~.Disturbance` to assess, if the given ``opt_pt``
         is really optimal.
-        '''
+        """
         dim = func.dim
         opt_val = func.eval(opt_pt)
         self.assertTrue(

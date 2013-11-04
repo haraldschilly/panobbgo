@@ -20,17 +20,17 @@ from panobbgo.utils import memoize
 import numpy as np
 
 
-'''
+"""
 Splitter
 --------
 
 Inside is its Box class.
-'''
+"""
 
 
 class Splitter(Analyzer):
 
-    '''
+    """
     Manages a tree of splits.
     Each split in this tree is a :class:`box <.Splitter.Box>`, which
     partitions the search space into smaller boxes and can have children.
@@ -41,7 +41,7 @@ class Splitter(Analyzer):
 
     A heuristic can build upon this hierarchy
     to investigate interesting subregions.
-    '''
+    """
 
     def __init__(self):
         Analyzer.__init__(self)
@@ -75,11 +75,11 @@ class Splitter(Analyzer):
         self.result2leaf = {}
 
     def _new_box(self, new_box):
-        '''
+        """
         Called for each new box when there is a split.
         E.g. it updates the ``biggest`` box and related
         information for each depth level.
-        '''
+        """
         self.max_depth = max(new_box.depth, self.max_depth)
 
         old_biggest_leaf = self.biggest_leaf
@@ -111,26 +111,26 @@ class Splitter(Analyzer):
         self.logger.debug("big by depth: %d -> %s" % (depth, box))
 
     def get_box(self, point):
-        '''
+        """
         return "leftmost" leaf box, where given point is contained in
-        '''
+        """
         box = self.root
         while not box.leaf:
             box = box.get_child_boxes(point)[0]
         return box
 
     def get_all_boxes(self, result):
-        '''
+        """
         return all boxes, where point is contained in
-        '''
+        """
         from panobbgo_lib import Result
         assert isinstance(result, Result)
         return self.result2boxes[result]
 
     def get_leaf(self, result):
-        '''
+        """
         returns the leaf box, where given result is currently sitting in
-        '''
+        """
         from panobbgo_lib import Result
         assert isinstance(result, Result)
         # it might happen, that the result isn't in the result2leaf map
@@ -169,7 +169,7 @@ class Splitter(Analyzer):
 
     class Box(object):
 
-        '''
+        """
         Used by :class:`.Splitter`, therefore nested.
 
         Most important routine is :meth:`.split`.
@@ -178,7 +178,7 @@ class Splitter(Analyzer):
 
           In the future, this might be refactored to allow different
           splitting methods.
-        '''
+        """
 
         def __init__(self, parent, splitter, box):
             self.parent = parent
@@ -197,16 +197,16 @@ class Splitter(Analyzer):
 
         @property
         def leaf(self):
-            '''
+            """
             returns ``true``, if this box is a leaf. i.e. no children
-            '''
+            """
             return len(self.children) == 0
 
         @property
         def fx(self):
-            '''
+            """
             Function value of best point in this particular box.
-            '''
+            """
             return self.best.fx
 
         @memoize
@@ -215,10 +215,10 @@ class Splitter(Analyzer):
 
         @property
         def ranges(self):
-            '''
+            """
             Gives back a vector with all the ranges of this box,
             i.e. upper - lower bound.
-            '''
+            """
             return self.__ranges()
 
         @memoize
@@ -227,9 +227,9 @@ class Splitter(Analyzer):
 
         @property
         def log_volume(self):
-            '''
+            """
             Returns the `logarithmic` volume of this box.
-            '''
+            """
             return self.__log_volume()
 
         @memoize
@@ -238,20 +238,20 @@ class Splitter(Analyzer):
 
         @property
         def volume(self):
-            '''
+            """
             Returns the volume of the box.
 
             .. Note::
 
               Currently, the exponential of :attr:`.log_volume`
-            '''
+            """
             return self.__volume()
 
         def _register_result(self, result):
-            '''
+            """
             This updates the splitter and box specific datatypes,
             i.e. the maps from a result to the corresponding boxes or leafs.
-            '''
+            """
             from panobbgo_lib import Result
             assert isinstance(result, Result)
             self.results.append(result)
@@ -268,7 +268,7 @@ class Splitter(Analyzer):
                 self.splitter.result2leaf[result] = self
 
         def add_result(self, result):
-            '''
+            """
             Registers and adds a new :class:`~panobbgo_lib.lib.Result`.
             In particular, it adds the given ``result`` to the
             current box and it's children (also all descendents).
@@ -279,7 +279,7 @@ class Splitter(Analyzer):
             .. Note::
 
               ``box += result`` is fine, too.
-            '''
+            """
             self._register_result(result)
             if not self.leaf:
                 for child in self.get_child_boxes(result.x):
@@ -288,7 +288,9 @@ class Splitter(Analyzer):
                 self.split()
 
         def __iadd__(self, result):
-            '''Convenience wrapper for :meth:`.add_result`.'''
+            """
+            Convenience wrapper for :meth:`.add_result`.
+            """
             self.add_result(result)
             return self
 
@@ -296,11 +298,11 @@ class Splitter(Analyzer):
             return len(self.results)
 
         def split(self, dim=None):
-            '''
+            """
             Arguments::
 
             - ``dim``: Dimension, along which to split. (default: `None`, and calculated)
-            '''
+            """
             assert self.leaf, 'only leaf boxes are allowed to be split'
             if dim is None:
                 # scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
@@ -327,16 +329,16 @@ class Splitter(Analyzer):
                                            box=self, children=self.children, dim=dim)
 
         def contains(self, point):
-            '''
+            """
             true, if given point is inside this box (including boundaries).
-            '''
+            """
             l, u = self.box[:, 0], self.box[:, 1]
             return (l <= point).all() and (u >= point).all()
 
         def get_child_boxes(self, point):
-            '''
+            """
             returns all immediate child boxes, which contain given point.
-            '''
+            """
             assert not self.leaf, 'not applicable for "leaf" box'
             ret = filter(lambda c: c.contains(point), self.children)
             assert len(ret) > 0, "no child box containing %s found!" % point

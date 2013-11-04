@@ -18,9 +18,9 @@ from panobbgo.core import Heuristic, StopHeuristic
 
 class Center(Heuristic):
 
-    '''
+    """
     This heuristic checks the point in the center of the box.
-    '''
+    """
 
     def __init__(self):
         Heuristic.__init__(self, name="Center", cap=1)

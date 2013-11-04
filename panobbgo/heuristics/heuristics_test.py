@@ -1,4 +1,5 @@
 from panobbgo.utils import PanobbgoTestCase
+import numpy as np
 
 
 class HeuristicTests(PanobbgoTestCase):
@@ -26,7 +27,10 @@ class HeuristicTests(PanobbgoTestCase):
         nm = NelderMead()
         strategy = self.init_strategy(nm)
         assert nm is not None
-        dim = 3
-        pts = self.random_results(3, 10)
+        dim = 5
+        pts = self.random_results(dim, 10)
+        # make it ill conditioned
+        pts.insert(0, pts[0])
         base = nm.gram_schmidt(dim, pts)
-        
+        M = np.array([_.x for _ in base])
+        assert np.linalg.matrix_rank(M) == dim

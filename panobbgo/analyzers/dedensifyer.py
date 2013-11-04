@@ -17,9 +17,9 @@ from panobbgo.config import get_config
 from panobbgo.core import Analyzer
 
 class Box(object):
-    r'''
+    r"""
     :class:`Dedensifyer's <.Dedensifyer>` helper class, that registeres points for the given box.
-    '''
+    """
     def __init__(self):
         self.count = 0
         self.max_fx = None
@@ -43,13 +43,13 @@ class Box(object):
             self.min_cv = result
 
 class Dedensifyer(Analyzer):
-    r'''
+    r"""
     This analyzer stores points in a fixed hierarchical grid.
     It discards previously added points in order to avoid a high number of points 
     in a close neighbourhood. The rules for discarding older points take
     the function value and the constraint violation into account to store
     the minimal and maximal representants for that region.
-    '''
+    """
 
     def __init__(self, max_depth = 5):
         Analyzer.__init__(self)
@@ -72,9 +72,9 @@ class Dedensifyer(Analyzer):
         return self._boxes.get(key, None)
 
     def register(result):
-        '''
+        """
         analyzes a new result
-        '''
+        """
         key = self.gridkey(result.x)
         if key not in self._boxes:
             self._boxes[key] = Box()

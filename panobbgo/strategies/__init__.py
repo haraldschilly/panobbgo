@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r'''
+r"""
 Strategies
 ==========
 
@@ -29,7 +29,7 @@ a new strategy.
 .. inheritance-diagram:: panobbgo.strategies
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 
 from rewarding import StrategyRewarding
 from round_robin import StrategyRoundRobin

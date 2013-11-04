@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r'''
+r"""
 User Interface
 --------------
 
@@ -21,7 +21,7 @@ This draws a window and plots graphs.
 
 .. figure:: img/ui1.png
    :scale:  75 %
-'''
+"""
 from config import get_config
 from core import Module
 from threading import Thread
@@ -48,9 +48,9 @@ del os
 
 class UI(Module, gtk.Window, Thread):
 
-    r'''
+    r"""
     UI
-    '''
+    """
 
     def __init__(self):
         Module.__init__(self)
@@ -69,9 +69,9 @@ class UI(Module, gtk.Window, Thread):
 
     @staticmethod
     def mk_canvas():
-        '''
+        """
         Creates a FigureCanvas, ready to be added to a gtk layout element
-        '''
+        """
         from matplotlib.figure import Figure
         fig = Figure(figsize=(10, 10))
         return FigureCanvas(fig), fig
@@ -123,9 +123,9 @@ class UI(Module, gtk.Window, Thread):
         self.t.start()
 
     def redraw_canvas(self, c):
-        '''
+        """
         If your canvas needs to be redrawn, pass it into this function.
-        '''
+        """
         assert isinstance(c, FigureCanvas)
         self._canvases.add(c)
         c._need_redraw = True
@@ -147,6 +147,6 @@ class UI(Module, gtk.Window, Thread):
         gtk.main_quit()
 
     def finish(self):
-        '''called by base strategy in _cleanup for shutdown'''
+        """called by base strategy in _cleanup for shutdown'''
         # plt.ioff()
         self.join()  # not necessary, since not a daemon

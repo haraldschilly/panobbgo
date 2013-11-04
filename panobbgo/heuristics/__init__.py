@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r'''
+r"""
 Heuristics
 ==========
 The main idea behind all heuristics is, ...
@@ -27,7 +27,7 @@ Most likely, it is the `one-shot` event ``start``, which is
 .. inheritance-diagram:: panobbgo.heuristics
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
-'''
+"""
 
 from center import Center
 from extremal import Extremal

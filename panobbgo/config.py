@@ -32,12 +32,12 @@ via optional command-line arguments.
 _config = None
 PARSE_ARGS = True
 
-_EPILOG = '''\
+_EPILOG = """\
 Note: By default, the 'debug' mode is enabled automatically.
 Disable it via the '-O' flag of the python interpreter, e.g. 'python -O run.py'.
 Website: http://dev.harald.schil.ly/panobbgo/
 Sources: https://github.com/haraldschilly/panobbgo
-'''
+"""
 
 class Config(object):
 

@@ -18,12 +18,12 @@ from panobbgo.core import StrategyBase
 
 class StrategyRoundRobin(StrategyBase):
 
-    r'''
+    r"""
     This is a very primitive strategy for testing purposes only.
     It selects the heuristics based on a fixed
     `round-robin <http://en.wikipedia.org/wiki/Round-robin_scheduling>`_
     scheme.
-    '''
+    """
 
     def __init__(self, problem, heurs, size=10):
         self.size = size

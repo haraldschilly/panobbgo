@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.config import get_config
 from panobbgo.core import Analyzer
 from panobbgo.utils import memoize
 
@@ -43,13 +42,13 @@ class Splitter(Analyzer):
     to investigate interesting subregions.
     """
 
-    def __init__(self):
-        Analyzer.__init__(self)
+    def __init__(self, strategy):
+        Analyzer.__init__(self, strategy)
         # split, if there are more than this number of points in the box
         self.leafs = []
         self._id = 0  # block id
-        self.logger = get_config().get_logger('SPLIT')  # , 10)
-        self.max_eval = get_config().max_eval
+        self.logger = self.config.get_logger('SPLIT')  # , 10)
+        self.max_eval = self.config.max_eval
         # _new_result used to signal get_leaf and others when there
         # are updates regarding box/split/leaf status
         from threading import Condition

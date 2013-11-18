@@ -30,7 +30,6 @@ via optional command-line arguments.
 """
 
 _config = None
-PARSE_ARGS = True
 
 _EPILOG = """\
 Note: By default, the 'debug' mode is enabled automatically.
@@ -39,10 +38,12 @@ Website: http://dev.harald.schil.ly/panobbgo/
 Sources: https://github.com/haraldschilly/panobbgo
 """
 
+
 class Config(object):
 
-    def __init__(self):
+    def __init__(self, parse_args=False):
         import os
+        self.parse_args = parse_args
         self._appdata_dir = os.path.expanduser("~/.panobbgo")
         self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
         self._loggers = {}
@@ -112,7 +113,7 @@ class Config(object):
                                            "You can specify this option multiple times!",
                                            "e.g. --lf=CORE --lf=SPLIT"]))
 
-        if PARSE_ARGS:
+        if self.parse_args:
             args = parser.parse_args()
             logger.info('cmdln options: %s' % args)
             self.config_fn = args.config_file
@@ -224,10 +225,3 @@ class Config(object):
         l = create_logger(name, loglevel)
         self._loggers[key] = l
         return l
-
-
-def get_config():
-    global _config
-    if _config is None:
-        _config = Config()
-    return _config

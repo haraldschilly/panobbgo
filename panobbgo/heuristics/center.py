@@ -22,8 +22,8 @@ class Center(Heuristic):
     This heuristic checks the point in the center of the box.
     """
 
-    def __init__(self):
-        Heuristic.__init__(self, name="Center", cap=1)
+    def __init__(self, strategy):
+        Heuristic.__init__(self, strategy, name="Center", cap=1)
 
     def on_start(self):
         box = self.problem.box

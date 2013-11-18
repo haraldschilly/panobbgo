@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from panobbgo.core import Heuristic
-from panobbgo.config import get_config
 
 import numpy as np
+
 
 class NelderMead(Heuristic):
 
@@ -36,9 +36,9 @@ class NelderMead(Heuristic):
       the implied search direction. See :meth:`here <.nelder_mead>`.
     """
 
-    def __init__(self):
-        Heuristic.__init__(self, name="Nelder Mead")
-        self.logger = get_config().get_logger('H:NM')
+    def __init__(self, strategy):
+        Heuristic.__init__(self, strategy, name="Nelder Mead")
+        self.logger = self.config.get_logger('H:NM')
         from threading import Event
         self.got_bb = Event()
 
@@ -68,7 +68,7 @@ class NelderMead(Heuristic):
         for p in results:
             w = p.x - np.sum(
                 ((v.dot(p.x) / v.dot(v)) * v
-                              for v in base), axis=0)
+                 for v in base), axis=0)
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 ret.append(p)

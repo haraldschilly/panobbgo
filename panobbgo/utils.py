@@ -220,9 +220,9 @@ class MockupEventBus(object):
 class PanobbgoTestCase(unittest.TestCase):
 
     def __init__(self, name):
-        import panobbgo.config
-        panobbgo.config.PARSE_ARGS = False
         unittest.TestCase.__init__(self, name)
+        from panobbgo.config import Config
+        self.config = Config(parse_args=False)
 
     def setUp(self):
         from panobbgo_lib.classic import Rosenbrock

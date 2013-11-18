@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.config import get_config
 from panobbgo.core import Analyzer
 
 
@@ -23,8 +22,8 @@ class Grid(Analyzer):
     packs nearby points into grid boxes
     """
 
-    def __init__(self):
-        Analyzer.__init__(self)
+    def __init__(self, strategy):
+        Analyzer.__init__(self, strategy)
 
     def __start__(self):
         # grid for storing points which are nearby.

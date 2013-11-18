@@ -22,9 +22,9 @@ class LBFGSB(Heuristic):
     This uses :func:`scipy.optimize.fmin_l_bfgs_b` in a subprocess.
     """
 
-    def __init__(self):
-        Heuristic.__init__(self, cap=1)
-        self.logger = get_config().get_logger("LBFGS")
+    def __init__(self, strategy):
+        Heuristic.__init__(self, strategy, cap=1)
+        self.logger = self.config.get_logger("LBFGS")
 
     def __start__(self):
         from multiprocessing import Process, Pipe

@@ -35,7 +35,7 @@ and base-classes for the modules:
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
-from config import get_config
+from config import Config
 from panobbgo_lib import Result, Point
 from IPython.utils.timing import time
 import numpy as np
@@ -57,7 +57,7 @@ class Results(object):
     """
 
     def __init__(self, strategy):
-        self.logger = get_config().get_logger('RSLTS')
+        self.logger = strategy.config.get_logger('RSLTS')
         self.strategy = strategy
         self.eventbus = strategy.eventbus
         self.problem = strategy.problem
@@ -78,9 +78,9 @@ class Results(object):
             len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
             midx_cv = [('cv', _) for _ in range(len_cv_vec)]
             midx = MultiIndex.from_tuples(
-                 midx_x  + [('fx', 0)] + 
-                 midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
-            self.results = DataFrame(columns = midx)
+                midx_x + [('fx', 0)] +
+                midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
+            self.results = DataFrame(columns=midx)
 
         assert all(map(lambda _: isinstance(_, Result), new_results))
         # notification for all received results at once
@@ -89,10 +89,10 @@ class Results(object):
         new_rows = []
         for r in new_results:
             new_rows.append(
-                np.r_[r.x, r.fx, 
-                   [] if r.cv_vec is None else r.cv_vec, 
-                   [r.cv, r.who, r.error]])
-        results_new = DataFrame(new_rows, columns = self.results.columns)
+                np.r_[r.x, r.fx,
+                      [] if r.cv_vec is None else r.cv_vec,
+                      [r.cv, r.who, r.error]])
+        results_new = DataFrame(new_rows, columns=self.results.columns)
         self.results = self.results.append(results_new, ignore_index=True)
 
         if len(self.results) / 100 > self._last_nb / 100:
@@ -118,8 +118,10 @@ class Module(object):
     :class:`.Heuristic` and :class:`.Analyzer`.
     """
 
-    def __init__(self, name=None):
+    def __init__(self, strategy, name=None):
         name = name if name else self.__class__.__name__
+        self._strategy = strategy
+        self.config = strategy.config
         self._name = name
         self._threads = []
 
@@ -233,11 +235,11 @@ class Heuristic(Module):
        or to queue up tasks for itself.
     """
 
-    def __init__(self, name=None, cap=None):
-        Module.__init__(self, name)
-        self.config = get_config()
+    def __init__(self, strategy, name=None, cap=None):
+        Module.__init__(self, strategy, name)
+        self.config = strategy.config
         self.logger = self.config.get_logger('HEUR')
-        self.cap = cap if cap is not None else get_config().capacity
+        self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
         from Queue import Queue
         self.__output = Queue(self.cap)
@@ -304,14 +306,17 @@ class Heuristic(Module):
         q = self.__output.qsize() > 0
         return t or q
 
+
 class HeuristicSubprocess(Heuristic):
+
     r"""
     This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting
     a subprocess, which communicates with the main thread via a pipe in a blocking
     communication scheme.
     """
-    def __init__(self, name=None, cap=None):
-        Heuristic.__init__(self, name=name, cap = cap)
+
+    def __init__(self, strategy, name=None, cap=None):
+        Heuristic.__init__(self, strategy, name=name, cap=cap)
 
         from multiprocessing import Process, Pipe
         # a pipe has two ends, parent and child.
@@ -331,23 +336,20 @@ class HeuristicSubprocess(Heuristic):
         """
         while True:
             payload = pipe.recv()
-            pipe.send("subprocess recieved: %s" % payload)
-
+            pipe.send("subprocess received: %s" % payload)
 
 
 #
 # Analyzer
 #
-
-
 class Analyzer(Module):
 
     """
     Abstract parent class for all types of analyzers.
     """
 
-    def __init__(self, name=None):
-        Module.__init__(self, name)
+    def __init__(self, strategy, name=None):
+        Module.__init__(self, strategy, name)
 
 #
 # EventBus
@@ -381,9 +383,10 @@ class EventBus(object):
     import re
     _re_key = re.compile(r'^[a-z_]+$')
 
-    def __init__(self):
+    def __init__(self, config):
         self._subs = {}
-        self.logger = get_config().get_logger('EVBUS')
+        self.config = config
+        self.logger = config.get_logger('EVBUS')
 
     @property
     def keys(self):
@@ -455,7 +458,7 @@ class EventBus(object):
                             return
                     except Exception as e:
                         # usually, they only happen during shutdown
-                        if get_config().debug:
+                        if self.config.debug:
                             # sys.exc_info() -> re-create original exception
                             # (otherwise we don't know the actual cause!)
                             import sys
@@ -539,7 +542,7 @@ class EventBus(object):
                         if ``event`` is ``None``.
         """
         if key not in self._subs:
-            if get_config().debug:
+            if self.config.debug:
                 self.logger.warning("key '%s' unknown." % key)
             return
 
@@ -571,21 +574,19 @@ class StrategyBase(object):
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
-    def __init__(self, problem, heurs):
+    def __init__(self, problem, parse_args=False):
         self._name = name = self.__class__.__name__
-        # threading.Thread.__init__(self, name=name)
-        self.config = config = get_config()
+        self.config = config = Config(parse_args)
         self.logger = logger = config.get_logger('STRAT')
         self.slogger = config.get_logger('STATS')
-        logger.info("Init of '%s' w/ %d heuristics." % (name, len(heurs)))
-        logger.debug("Heuristics %s" % heurs)
+        logger.info("Init of '%s'" % (name))
         logger.info("%s" % problem)
 
         # aux configuration
-        import pandas as pd 
+        import pandas as pd
         # determine width based on console info
         pd.set_option('display.width', None)
-        pd.set_option('display.precision', 2) # default 7
+        pd.set_option('display.precision', 2)  # default 7
 
         # statistics
         self.show_last = 0  # for printing the info line in _add_tasks()
@@ -601,8 +602,11 @@ class StrategyBase(object):
         # init & start everything
         self._setup_cluster(0, problem)
         self._threads = []
+        self._hs = []
+        import collections
+        self._heuristics = collections.OrderedDict()
         self.problem = problem
-        self.eventbus = EventBus()
+        self.eventbus = EventBus(config)
         self.results = Results(self)
 
         # UI
@@ -612,30 +616,33 @@ class StrategyBase(object):
             self.ui._init_module(self)
             self.ui.show()
 
+    def add(self, Strat, **kwargs):
+        self.logger.debug("init: %s %s" % (Strat.__name__, kwargs))
+        self._hs.append(Strat(self, **kwargs))
+
+    def start(self):
         # heuristics
-        import collections
-        self._heuristics = collections.OrderedDict()
-        map(self.add_heuristic, sorted(heurs, key=lambda h: h.name))
+        map(self.add_heuristic, sorted(self._hs, key=lambda h: h.name))
 
         # analyzers
         from analyzers import Best, Grid, Splitter
-        best = Best()
+        best = Best(self)
         self._analyzers = {
             'best': best,
-            'grid': Grid(),
-            'splitter': Splitter()
+            'grid': Grid(self),
+            'splitter': Splitter(self)
         }
         map(self.add_analyzer, self._analyzers.values())
 
-        logger.debug("EventBus keys: %s" % self.eventbus.keys)
+        self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
 
         try:
             import threading
             if isinstance(self, threading.Thread):
                 raise Exception("change run() to start()")
-            self.run()
+            self._run()
         except KeyboardInterrupt:
-            logger.critical("KeyboardInterrupt received, e.g. via Ctrl-C")
+            self.logger.critical("KeyboardInterrupt received, e.g. via Ctrl-C")
             self._cleanup()
 
     @property
@@ -657,6 +664,7 @@ class StrategyBase(object):
         assert name not in self._heuristics, \
             "Names of heuristics need to be unique. '%s' is already used." % name
         self._heuristics[name] = h
+        print self._heuristics
         self.init_module(h)
 
     def add_analyzer(self, a):
@@ -670,9 +678,8 @@ class StrategyBase(object):
         """
         :class:`~panobbgo.strategies.StrategyBase` calls this method.
         """
-        module._strategy = self
         module.__start__()
-        if get_config().ui_show:
+        if self.config.ui_show:
             plt = module._init_plot()
             if not isinstance(plt, list):
                 plt = [plt]
@@ -709,7 +716,7 @@ class StrategyBase(object):
     def name(self):
         return self._name
 
-    def run(self):
+    def _run(self):
         self.eventbus.publish('start', terminate=True)
         from IPython.parallel import Reference
         prob_ref = Reference(StrategyBase.PROBLEM_KEY)  # see _setup_cluster
@@ -739,7 +746,7 @@ class StrategyBase(object):
             self.results += new_results
 
             self.jobs_per_client = max(1,
-                int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
+                                       int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -777,7 +784,7 @@ class StrategyBase(object):
         self.info()
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
-        if get_config().ui_show:
+        if self.config.ui_show:
             self.ui.finish()  # blocks figure window
 
     def _add_tasks(self, new_tasks):

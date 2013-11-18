@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from panobbgo.core import Analyzer
-from panobbgo.config import get_config
 
 import numpy as np
+
 
 class Best(Analyzer):
 
@@ -50,9 +50,9 @@ class Best(Analyzer):
     It also creates UI plots.
     """
 
-    def __init__(self):
-        Analyzer.__init__(self)
-        self.logger = get_config().get_logger("BEST")
+    def __init__(self, strategy):
+        Analyzer.__init__(self, strategy)
+        self.logger = self.config.get_logger("BEST")
         self._min = None
         self._cv = None
         self._pareto = None
@@ -78,7 +78,7 @@ class Best(Analyzer):
         ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
         ax_fx.set_xlabel("evaluation")
         ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
-        ax_fx.set_xlim([0, get_config().max_eval])
+        ax_fx.set_xlim([0, self.config.max_eval])
         ax_fx.set_yscale('symlog', linthreshy=0.001)
         ax_fx.set_ylim((0, 1))
         # for tl in self.ax_fx.get_yticklabels():
@@ -96,7 +96,7 @@ class Best(Analyzer):
         # color='red')
         ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$")
                          #, color="blue")
-        ax_cv.set_xlim([0, get_config().max_eval])
+        ax_cv.set_xlim([0, self.config.max_eval])
         # ax_cv.set_yscale('symlog', linthreshy=0.001)
         ax_cv.set_ylim((0, 1))
         # for tl in self.ax_cv.get_yticklabels():
@@ -256,7 +256,7 @@ class Best(Analyzer):
         axcolor = 'lightgoldenrodyellow'
         pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
         fig.add_axes(pf_slider_ax)
-        v = int(get_config().max_eval * 1.1)
+        v = int(self.config.max_eval * 1.1)
         self.pf_slider = Slider(
             pf_slider_ax, '#', 0, v, valfmt="%d", valinit=v)
         self.pf_slider.on_changed(self.on_pf_slide)

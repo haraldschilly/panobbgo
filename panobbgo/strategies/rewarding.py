@@ -23,9 +23,9 @@ class StrategyRewarding(StrategyBase):
     those more often, which produce better search points.
     """
 
-    def __init__(self, problem, heurs):
+    def __init__(self, problem, **kwargs):
         self.last_best = None
-        StrategyBase.__init__(self, problem, heurs)
+        StrategyBase.__init__(self, problem, **kwargs)
 
     def __start__(self):
         for h in self.heuristics:

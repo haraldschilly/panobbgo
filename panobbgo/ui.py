@@ -22,7 +22,6 @@ This draws a window and plots graphs.
 .. figure:: img/ui1.png
    :scale:  75 %
 """
-from config import get_config
 from core import Module
 from threading import Thread
 
@@ -77,7 +76,7 @@ class UI(Module, gtk.Window, Thread):
         return FigureCanvas(fig), fig
 
     def show(self):
-        config = get_config()
+        config = self.config
         self.logger = config.get_logger("UI")
 
         self.set_default_size(900, 800)
@@ -116,7 +115,7 @@ class UI(Module, gtk.Window, Thread):
                 finally:
                     gtk.threads_leave()
                 from IPython.utils.timing import time
-                time.sleep(get_config().ui_redraw_delay)
+                time.sleep(self.config.ui_redraw_delay)
 
         self.t = Thread(target=task)
         self.t.daemon = True
@@ -147,6 +146,8 @@ class UI(Module, gtk.Window, Thread):
         gtk.main_quit()
 
     def finish(self):
-        """called by base strategy in _cleanup for shutdown'''
+        """
+        called by base strategy in _cleanup for shutdown
+        """
         # plt.ioff()
         self.join()  # not necessary, since not a daemon

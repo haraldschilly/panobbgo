@@ -26,8 +26,8 @@ class Extremal(Heuristic):
     minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
     """
 
-    def __init__(self, diameter=1. / 10, prob=None):
-        Heuristic.__init__(self, name="Extremal")
+    def __init__(self, strategy, diameter=1. / 10, prob=None):
+        Heuristic.__init__(self, strategy, name="Extremal")
         import numpy as np
         if prob is None:
             prob = (1, .2, .2, 1)

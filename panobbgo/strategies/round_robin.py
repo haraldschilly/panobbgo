@@ -25,10 +25,10 @@ class StrategyRoundRobin(StrategyBase):
     scheme.
     """
 
-    def __init__(self, problem, heurs, size=10):
+    def __init__(self, problem, size=10, **kwargs):
         self.size = size
         self.current = 0
-        StrategyBase.__init__(self, problem, heurs)
+        StrategyBase.__init__(self, problem, **kwargs)
 
     def execute(self):
         from IPython.utils.timing import time

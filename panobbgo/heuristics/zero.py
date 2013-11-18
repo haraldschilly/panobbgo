@@ -22,8 +22,8 @@ class Zero(Heuristic):
     This heuristic only returns the 0 vector once.
     """
 
-    def __init__(self):
-        Heuristic.__init__(self, name="Zero", cap=1)
+    def __init__(self, strategy):
+        Heuristic.__init__(self, strategy, name="Zero", cap=1)
 
     def on_start(self):
         from numpy import zeros

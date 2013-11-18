@@ -23,13 +23,13 @@ class Random(Heuristic):
     "best leaf" (see "Splitter") until the capped queue is full.
     """
 
-    def __init__(self, cap=None, name=None):
+    def __init__(self, strategy, cap=None, name=None):
         name = "Random" if name is None else name
         self.leaf = None
         from threading import Event
         # used in on_start, to continue when we have a leaf.
         self.first_split = Event()
-        Heuristic.__init__(self, name=name)
+        Heuristic.__init__(self, strategy, name=name)
 
     def on_start(self):
         import numpy as np

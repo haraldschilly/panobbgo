@@ -36,13 +36,13 @@ class LatinHypercube(Heuristic):
       +---+---+---+---+
     """
 
-    def __init__(self, div):
+    def __init__(self, strategy, div):
         """
         Args:
            - `div`: number of divisions, positive integer.
         """
         cap = div
-        Heuristic.__init__(self, cap=cap, name="Latin Hypercube")
+        Heuristic.__init__(self, strategy, cap=cap, name="Latin Hypercube")
         if not isinstance(div, int):
             raise Exception("LH: div needs to be an integer")
         self.div = div

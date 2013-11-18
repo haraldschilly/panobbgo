@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from panobbgo.core import Heuristic, StopHeuristic
-from panobbgo.config import get_config
 
 
 class WeightedAverage(Heuristic):
@@ -24,10 +23,10 @@ class WeightedAverage(Heuristic):
     in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
     """
 
-    def __init__(self, k=.1):
-        Heuristic.__init__(self)
+    def __init__(self, strategy, k=.1):
+        Heuristic.__init__(self, strategy)
         self.k = k
-        self.logger = get_config().get_logger('WAvg')
+        self.logger = self.config.get_logger('WAvg')
 
     def __start__(self):
         self.minstd = min(self.problem.ranges) / 1000.

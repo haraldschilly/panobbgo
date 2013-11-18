@@ -6,7 +6,7 @@ AUTOPEP="autopep8 -i --aggressive $ARGS"
 
 pep8 $ARGS $FILES
 
-for DIR in panobbgo panobbgo_lib; do
+for DIR in panobbgo panobbgo_lib sketchpad; do
   find $DIR -name "*.py"  | xargs $AUTOPEP
 done
 

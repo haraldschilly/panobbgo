@@ -33,9 +33,10 @@ class Nearby(Heuristic):
     - ``new``: number of new points to generate (default: 1)
     """
 
-    def __init__(self, cap=3, radius=1. / 100, new=1, axes='one'):
+    def __init__(self, strategy, cap=3, radius=1. / 100, new=1, axes='one'):
         Heuristic.__init__(
-            self, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
+            self, strategy,
+            cap=cap, name="Nearby %.3f/%s" % (radius, axes))
         self.radius = radius
         self.new = new
         self.axes = axes

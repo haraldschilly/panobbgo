@@ -124,6 +124,8 @@ class Module(object):
         self.config = strategy.config
         self._name = name
         self._threads = []
+        # implicit dependency check (only class references)
+        self._depends_on = []
 
     @property
     def name(self):
@@ -156,6 +158,19 @@ class Module(object):
     @property
     def results(self):
         return self._strategy.results
+
+    def check_dependencies(self, analyzers, heuristics):
+        """
+        This method is called by the core initialization to assess,
+        if the dependencies for the given module are met.
+
+        By default, it returns true. Return false if there is
+        a problem.
+
+        The arguments are the list of pre-initialized analyzers
+        and heuristics.
+        """
+        return True
 
     def __start__(self):
         """
@@ -634,6 +649,8 @@ class StrategyBase(object):
         }
         map(self.add_analyzer, self._analyzers.values())
 
+        self.check_dependencies()
+
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
 
         try:
@@ -672,6 +689,25 @@ class StrategyBase(object):
             "Names of analyzers need to be unique. '%s' is already used." % name
         self._analyzers[name] = a
         self.init_module(a)
+
+    def check_dependencies(self):
+        """
+        This method is called in self.start() (and only there)
+        for checking all the dependencies of all modules.
+        """
+        heuristics = self._heuristics.values()
+        analyzers = self._analyzers.values()
+        all_mod_classes = map(lambda m: m.__class__, heuristics)
+        all_mod_classes.extend(map(lambda m: m.__class__, analyzers))
+        all_mod_classes = set(all_mod_classes)
+        for module in analyzers + heuristics:
+            # explicit
+            if not module.check_dependencies(analyzers, heuristics):
+                raise Exception("%s does not satisfy dependencies. #1" % module)
+            # implicit (just list of respective classes)
+            for mod_class in module._depends_on:
+                if not mod_class in all_mod_classes:
+                    raise Exception("%s depends on %s, but missing." % (module, mod_class))
 
     def init_module(self, module):
         """

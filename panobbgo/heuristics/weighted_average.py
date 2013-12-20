@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from panobbgo.analyzers.best import Best
 
 from panobbgo.core import Heuristic, StopHeuristic
 
@@ -30,6 +31,9 @@ class WeightedAverage(Heuristic):
 
     def __start__(self):
         self.minstd = min(self.problem.ranges) / 1000.
+
+    def check_dependencies(self, analyzers, heuristics):
+        return any(isinstance(a, Best) for a in analyzers)
 
     def on_new_best(self, best):
         assert best is not None and best.x is not None

@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from panobbgo.analyzers.best import Best
+
 
 from panobbgo.core import Heuristic, StopHeuristic
 
@@ -40,6 +42,7 @@ class Nearby(Heuristic):
         self.radius = radius
         self.new = new
         self.axes = axes
+        self._depends_on = [Best]
 
     def on_new_best(self, best):
         import numpy as np

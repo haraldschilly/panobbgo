@@ -110,6 +110,8 @@ def info():
     version("numpy")
     version("scipy")
     version("IPython")
+    version("pandas")
+    version("statsmodels")
     try:
         version("matplotlib")
     except:

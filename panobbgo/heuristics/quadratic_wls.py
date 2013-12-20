@@ -16,6 +16,7 @@
 from panobbgo.core import HeuristicSubprocess
 import numpy as np
 from functools import reduce
+import operator
 
 
 class QuadraticWlsModel(HeuristicSubprocess):
@@ -68,7 +69,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
             X = DataFrame(data)
             # X.columns =
             cols = ['Intercept'] + ['x%i' % i for i in range(dim)]
-            mixedterms = reduce(lambda a, b: a + b,
+            mixedterms = reduce(operator.add,
                                 [['x%s:x%s' % (i, j) for j in range(i + 1, dim)] for i in range(dim)])
             cols.extend(mixedterms)
             cols.extend(['x%s^2' % i for i in range(dim)])

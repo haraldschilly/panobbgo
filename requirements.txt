@@ -5,3 +5,4 @@ IPython  >= 0.12
 nose     >= 1.1.2
 mock     >= 1.0.1
 pandas   >= 0.11
+statsmodels

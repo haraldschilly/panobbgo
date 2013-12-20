@@ -664,7 +664,6 @@ class StrategyBase(object):
         assert name not in self._heuristics, \
             "Names of heuristics need to be unique. '%s' is already used." % name
         self._heuristics[name] = h
-        print self._heuristics
         self.init_module(h)
 
     def add_analyzer(self, a):

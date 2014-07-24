@@ -846,7 +846,7 @@ class StrategyBase(object):
         peval = len(self.results)
         self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | "
                           "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
-                         (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg))
+                          (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg))
 
     @property
     def avg_time_per_task(self):

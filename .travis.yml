@@ -5,6 +5,8 @@ python:
 install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq python-numpy python-scipy python-matplotlib ipython python-gtk2 python-nose python-coverage python-mock python-pandas
+  - "pip install patsy"
+  - "pip install statsmodels"
 
 virtualenv:
   system_site_packages: true

@@ -40,14 +40,14 @@ class Rosenbrock(Problem):
 
     """
 
-    def __init__(self, dims, par1=100):
+    def __init__(self, dims, par1=100, **kwargs):
         box = [(-2, 2)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+        return np.sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
 
 
 class RosenbrockConstraint(Problem):
@@ -63,12 +63,12 @@ class RosenbrockConstraint(Problem):
 
     """
 
-    def __init__(self, dims, par1=100, par2=0.25):
+    def __init__(self, dims, par1=100, par2=0.25, **kwargs):
         box = [(-2, 2)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         self.par2 = par2
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
         return sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2) - 50
@@ -92,15 +92,15 @@ class RosenbrockAbs(Problem):
 
     """
 
-    def __init__(self, dims, par1=100):
+    def __init__(self, dims, par1=100, **kwargs):
         box = [(-5, 5)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
-                   np.abs(1 - x[:-1]))
+        return np.sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
+                      np.abs(1 - x[:-1]))
 
 
 class RosenbrockAbsConstraint(Problem):
@@ -116,12 +116,12 @@ class RosenbrockAbsConstraint(Problem):
 
     """
 
-    def __init__(self, dims, par1=100, par2=0.1):
+    def __init__(self, dims, par1=100, par2=0.1, **kwargs):
         box = [(-5, 5)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         self.par2 = par2
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
         return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
@@ -148,12 +148,12 @@ class RosenbrockStochastic(Problem):
     vector in :math:`\left[0, 1\right)^{n-1}`.
     """
 
-    def __init__(self, dims, par1=100, jitter=.1):
+    def __init__(self, dims, par1=100, jitter=.1, **kwargs):
         box = [(-5, 5)] * dims
         box[0] = (-1, 2)  # for cornercases + testing
         self.par1 = par1
         self.jitter = jitter
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
         eps = self.jitter * np.random.rand(self.dim - 1)
@@ -164,7 +164,7 @@ class RosenbrockStochastic(Problem):
 
 class Himmelblau(Problem):
 
-    """
+    r"""
     Himmelblau [HB]_ testproblem.
 
     .. math::
@@ -174,8 +174,8 @@ class Himmelblau(Problem):
     .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
     """
 
-    def __init__(self):
-        Problem.__init__(self, [(-5, 5)] * 2)
+    def __init__(self, **kwargs):
+        Problem.__init__(self, [(-5, 5)] * 2, **kwargs)
 
     def eval(self, x):
         x, y = x[0], x[1]
@@ -184,7 +184,7 @@ class Himmelblau(Problem):
 
 class Rastrigin(Problem):
 
-    """
+    r"""
     Rastrigin
 
     .. math::
@@ -193,21 +193,21 @@ class Rastrigin(Problem):
 
     """
 
-    def __init__(self, dims, par1=10, offset=0):
-        box = [(-2, 2)] * dims
+    def __init__(self, dims, par1=10, offset=0, box=None, **kwargs):
+        box = box or [(-2, 2)] * dims
         self.offset = offset
         self.par1 = par1
-        Problem.__init__(self, box)
+        Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
         x = x - self.offset
         return self.par1 * self.dim + \
-            sum(x ** 2 - self.par1 * np.cos(2 * np.pi * x))
+            np.sum(x ** 2 - self.par1 * np.cos(2 * np.pi * x))
 
 
 class Shekel(Problem):
 
-    """
+    r"""
     Shekel Function [SH]_.
 
     For :math:`m` minima in :math:`n` dimensions:
@@ -219,9 +219,9 @@ class Shekel(Problem):
     .. [SH] http://en.wikipedia.org/wiki/Shekel_function
     """
 
-    def __init__(self, dims, m=10, a=None, c=None):
-        box = [(-2, 2)] * dims
-        Problem.__init__(self, box)
+    def __init__(self, dims, m=10, a=None, c=None, box=None, **kwargs):
+        box = box or [(-2, 2)] * dims
+        Problem.__init__(self, box, **kwargs)
         self.m = m
 
         if a is None:
@@ -247,3 +247,105 @@ class Shekel(Problem):
             d = x - self.a[:, i]
             return self.c[i] + d.dot(d)
         return - np.sum([1. / denom(i) for i in range(self.m)])
+
+
+class DeJong(Problem):
+
+    r"""
+    De Jong function:
+
+    .. math::
+
+        \operatorname{DJ}(x) = c \, \sum_{i=1}^n (x - dx)_i^2
+
+    with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
+    """
+
+    def __init__(self, dims, c=1, box=None, **kwargs):
+        box = box or [(-5, 5)] * dims
+        self.c = c
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return self.c * np.dot(x, x)
+
+
+class Quadruple(Problem):
+
+    r"""
+    Quadruple Function [QuadF]_
+
+    .. math::
+
+        Q(x) = c \, \sum_{i=1}^n \left( \frac{x_i - dx}{4} \right)^4
+
+    with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
+
+    .. [QuadF] Hewlett, Joel D., Bogdan M. Wilamowski, and Gunhan Dundar.
+        "Optimization using a modified second-order approach with evolutionary enhancement."
+        Industrial Electronics, IEEE Transactions on 55.9 (2008): 3374-3380.
+    """
+
+    def __init__(self, dims, c=1, box=None, **kwargs):
+        box = box or [(-10, 10)] * dims
+        self.c = c
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return self.c * np.sum((x / 4.) ** 4)
+
+
+class Powell(Problem):
+
+    r"""
+    Powell singular function [UncTest]_
+
+    .. math::
+        P(x) = (x_1 + 10 x_2)^2 +
+               (\sqrt{5} (x_3 - x_4))^2 +
+               ((x_2 + 2 x_3)^2)^2 +
+               (\sqrt{10} (x_1 - x_4)^2)^2
+
+    .. [UncTest] Moré, Jorge J., Burton S. Garbow, and Kenneth E. Hillstrom.
+        "Testing unconstrained optimization software."
+        ACM Transactions on Mathematical Software (TOMS) 7.1 (1981): 17-41.
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-10, 10)] * 4
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        f = (x[0] + 10 * x[1]) ** 2 + \
+            (np.sqrt(5) * (x[2] - x[3])) ** 2 + \
+            ((x[1] - 2 * x[2]) ** 2) ** 2 +\
+            (np.sqrt(10) * (x[0] - x[3])) ** 2
+        return f
+
+
+class Trigonometric(Problem):
+
+    r"""
+    Trigonometric function [UncTest]_
+
+    .. math::
+
+        f_i(x) = n - \sum_{j=1}^{n} \cos x_j  + i (1-\cos x_i)-\sin x_i
+
+        f(x, n) = \sum_{i=1}^{m} f_i^2
+
+    with :math:`n = m`.
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-1, 1)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        ret = 0
+        n = m = self.dim
+        for i in range(n):
+            tmp = i * (1 - np.cos(x[i])) - np.sin(x[i])
+            fi = n - np.sum(np.cos(x) - tmp)
+            ret += fi ** 2
+        return ret

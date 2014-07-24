@@ -31,7 +31,7 @@ class LBFGSB(Heuristic):
         self.p1, self.p2 = Pipe()
         self.out1, self.out2 = Pipe(False)
         self.lbfgsb = Process(target=self.worker, args=(self.p2, self.out2,
-                              self.problem.dim), name='%s-LBFGS' % self.name)
+                                                        self.problem.dim), name='%s-LBFGS' % self.name)
         self.lbfgsb.daemon = True
         self.lbfgsb.start()
 

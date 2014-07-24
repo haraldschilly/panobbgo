@@ -95,7 +95,7 @@ class Best(Analyzer):
         # ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$',
         # color='red')
         ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$")
-                         #, color="blue")
+        #, color="blue")
         ax_cv.set_xlim([0, self.config.max_eval])
         # ax_cv.set_yscale('symlog', linthreshy=0.001)
         ax_cv.set_ylim((0, 1))

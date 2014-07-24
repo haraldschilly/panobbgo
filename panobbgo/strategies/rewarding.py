@@ -61,7 +61,7 @@ class StrategyRewarding(StrategyBase):
         fx_delta, reward = 0.0, 0.0
         # fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
         fx_delta = 1.0 - np.exp(-1.0 * (self.last_best.fx -
-                                best.fx))  # saturates to 1
+                                        best.fx))  # saturates to 1
         fx_delta = 0.0 if fx_delta <= 0 else fx_delta
         # if self.fx_delta_last == None: self.fx_delta_last = fx_delta
         reward = fx_delta  # / self.fx_delta_last

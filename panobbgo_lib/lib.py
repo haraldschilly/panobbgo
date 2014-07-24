@@ -213,29 +213,33 @@ class Problem(object):
     information about the problem, etc.
     """
 
-    def __init__(self, box):
+    def __init__(self, box, dx=None):
         r"""
-        box must be a list of tuples, which specify
-        the range of each variable.
-
-        example: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
+        :param list box: list of tuples for the bounding box with length n,
+                          e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
+        :param dx: translational offset which also affects the box,
+                   n-dimensional vector (default: None)
         """
         # validate
-        if not isinstance(box, (list, tuple)):
-            raise Exception("box argument must be a list or tuple")
+        assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"
+
+        from numbers import Number
         for entry in box:
-            if not len(entry) == 2:
-                raise Exception("box entries must be of length 2")
+            assert len(entry) == 2, "box entries must be of length 2"
             for e in entry:
-                import numbers
-                if not isinstance(e, numbers.Number):
-                    raise Exception("box entries must be numbers")
-            if entry[0] > entry[1]:
-                raise Exception("box entries must be non decreasing")
+                assert isinstance(e, Number), "box entries must be numbers"
+            assert entry[0] <= entry[1], "box entries must be non-decreasing"
 
         self._dim = len(box)
         self._box = np.array(box, dtype=np.float64)
         self._ranges = self._box.ptp(axis=1)  # self._box[:,1] - self._box[:,0]
+
+        if dx:
+            assert len(dx) == self._dim, "dx vector must have dimension n"
+            dx = np.array(dx, dtype=np.float64)
+            self._box -= dx
+
+        self.dx = dx
 
     @property
     def dim(self):
@@ -284,6 +288,8 @@ class Problem(object):
         This is called to evaluate the given black-box function.
         The problem should be called directly (``__call__`` special function wraps this)
         and the given problem should subclass this ``eval`` method.
+
+        :rtype: numpy.float64
         """
         raise Exception("You have to subclass and overwrite the eval function")
 
@@ -291,18 +297,19 @@ class Problem(object):
         """
         This method is optionally overwritten by the problem to calculate the constraint violations.
         It has to return a :class:`numpy.ndarray` of ``floats``.
+
+        :rtype: numpy.ndarray
         """
         pass
 
     def __call__(self, point):
-        # from time import sleep
-        # sleep(1e-2)
-        fx = self.eval(point.x)
-        cv = self.eval_constraints(point.x)
+        x = point.x - self.dx if self.dx else point.x
+        fx = self.eval(x)
+        cv = self.eval_constraints(x)
         return Result(point, fx, cv_vec=cv)
 
     def __repr__(self):
-        descr = "Problem '%s': %d dims, " % (
+        descr = "Problem '{}': {:d} dims, ".format(
             self.__class__.__name__, self._dim)
         p = filter(
             lambda _: not _[0].startswith("_"), self.__dict__.iteritems())

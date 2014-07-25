@@ -6,26 +6,22 @@ class HeuristicTests(PanobbgoTestCase):
 
     def test_weighted_average(self):
         from panobbgo.heuristics import WeightedAverage
-        avg = WeightedAverage()
-        strategy = self.init_strategy(avg)
+        avg = WeightedAverage(self.strategy)
         assert avg is not None
 
     def test_random(self):
         from panobbgo.heuristics import Random
-        rnd = Random()
-        strategy = self.init_strategy(rnd)
+        rnd = Random(self.strategy)
         assert rnd is not None
 
     def test_latin_hypercube(self):
         from panobbgo.heuristics import LatinHypercube
-        lhyp = LatinHypercube(3)
-        strategy = self.init_strategy(lhyp)
+        lhyp = LatinHypercube(self.strategy, 3)
         assert lhyp is not None
 
     def test_nelder_mead(self):
         from panobbgo.heuristics import NelderMead
-        nm = NelderMead()
-        strategy = self.init_strategy(nm)
+        nm = NelderMead(self.strategy)
         assert nm is not None
         dim = 5
         pts = self.random_results(dim, 10)

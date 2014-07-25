@@ -5,7 +5,7 @@ class AnalyzersUtils(PanobbgoTestCase):
 
     def test_best(self):
         from panobbgo.analyzers import Best
-        best = Best()
+        best = Best(self.strategy)
         assert best is not None
 
 if __name__ == '__main__':

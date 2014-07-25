@@ -229,7 +229,7 @@ class PanobbgoTestCase(unittest.TestCase):
     def setUp(self):
         from panobbgo_lib.classic import Rosenbrock
         self.problem = Rosenbrock(2)
-        # self.strategy = MockupStrategy(self.problem)
+        self.strategy = self.init_strategy()
 
     def random_results(self, dim, N):
         import numpy.random as rnd
@@ -242,6 +242,6 @@ class PanobbgoTestCase(unittest.TestCase):
         return results
 
     @mock.patch('panobbgo.core.StrategyBase')
-    def init_strategy(self, heur, StrategyBaseMock):
-        strategy = StrategyBaseMock(self.problem, [heur])
+    def init_strategy(self, StrategyBaseMock):
+        strategy = StrategyBaseMock(self.problem)
         return strategy

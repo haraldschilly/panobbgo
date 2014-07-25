@@ -317,9 +317,9 @@ class Powell(Problem):
 
     def eval(self, x):
         f = (x[0] + 10 * x[1]) ** 2 + \
-            (np.sqrt(5) * (x[2] - x[3])) ** 2 + \
+            5 * (x[2] - x[3]) ** 2 + \
             ((x[1] - 2 * x[2]) ** 2) ** 2 +\
-            (np.sqrt(10) * (x[0] - x[3])) ** 2
+            10 * (x[0] - x[3]) ** 2
         return f
 
 
@@ -348,4 +348,99 @@ class Trigonometric(Problem):
             tmp = i * (1 - np.cos(x[i])) - np.sin(x[i])
             fi = n - np.sum(np.cos(x) - tmp)
             ret += fi ** 2
+        return ret
+
+
+class SumDifferentPower(Problem):
+
+    r"""
+    Sum of different power function [CompStudy]_
+
+    .. :math:
+
+        F(x) = \sum_{i=1}^n |x_i|^{i+1}
+
+    .. [CompStudy] Pham, Nam, A. Malinowski, and T. Bartczak.
+        "Comparative study of derivative free optimization algorithms."
+        Industrial Informatics, IEEE Transactions on 7.4 (2011): 592-600.
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-5, 5)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return np.abs(np.power(x, np.arange(self.dim) + 2)).sum()
+
+
+class Step(Problem):
+
+    r"""
+    Step function [CompStudy]_
+
+    .. :math:
+
+        F(x) = \sum_{i=1}^n |x_i + 0.5|^2
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-5, 5)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return np.sum(np.abs(x + 0.5) ** 2)
+
+
+class Box(Problem):
+
+    r"""
+    Box function [UncTest]_
+
+    :param int m: positive integer (default 1)
+
+    .. :math:
+
+        F(x) = \sum_{i=1}^m \left(e^{-t_i x_1} - e^{-t_i x_2} - x_3(e^{-t_i} - e^{-10 t_i}\right)^2
+
+        \text{where}
+
+        t_i = i / 10
+    """
+
+    def __init__(self, m=1, box=None, **kwargs):
+        box = box or [(-5, 5)] * 3
+        self.m = m
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        ret = 0.
+        for i in range(1, self.m + 1):
+            ti = i / 10.
+            tmp = np.exp(ti * x[0]) - np.exp(-ti * x[1]) - \
+                x[2] * (np.exp(-ti) - np.exp(-10 * ti))
+            ret += tmp ** 2
+        return ret
+
+
+class Wood(Problem):
+
+    r"""
+    Wood function [UncTest]_
+
+     .. :math:
+
+        F(x) = 100 (x_2 - x_1^2)^2 + (1-x_1)^2 +
+            90 (x_4-x_3^2)^2 + (1-x_3)^2 +
+            10 (x_2 + x_4 - 2)^2 + 10 (x_2-x_4)^2
+
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-5, 5)] * 4
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        ret = 10 * (x[1] - x[0] ** 2) + (1 - x[0]) ** 2 + \
+            90 * (x[3] - x[2] ** 2) + (1 - x[2]) ** 2 + \
+            10 * (x[1] + x[3] - 2) ** 2 + 10 * (x[1] - x[3])
         return ret

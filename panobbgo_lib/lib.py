@@ -213,14 +213,13 @@ class Problem(object):
     information about the problem, etc.
     """
 
-    def __init__(self, box, dx=None):
+    def __init__(self, box=None, dx=None):
         r"""
         :param list box: list of tuples for the bounding box with length n,
                           e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
         :param dx: translational offset which also affects the box,
                    n-dimensional vector (default: None)
         """
-        # validate
         assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"
 
         from numbers import Number
@@ -232,6 +231,7 @@ class Problem(object):
 
         self._dim = len(box)
         self._box = np.array(box, dtype=np.float64)
+        assert self._box.shape == (self._dim, 2), "converting box to n x 2 array failed"
         self._ranges = self._box.ptp(axis=1)  # self._box[:,1] - self._box[:,0]
 
         if dx:

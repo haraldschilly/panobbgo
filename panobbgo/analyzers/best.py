@@ -64,7 +64,7 @@ class Best(Analyzer):
                 self._init_plot_eval()]
 
     def _init_plot_fx(self):
-        from ui import NavigationToolbar
+        from panobbgo.ui import NavigationToolbar
         import gtk
         self.fx_canvas, fig = self.ui.mk_canvas()
 
@@ -115,7 +115,7 @@ class Best(Analyzer):
         return "f(x)", vbox
 
     def _init_plot_eval(self):
-        from ui import NavigationToolbar
+        from panobbgo.ui import NavigationToolbar
         from matplotlib import colorbar
         import gtk
         mx = self.problem.dim
@@ -220,7 +220,7 @@ class Best(Analyzer):
         self.ui.redraw_canvas(self.fx_canvas)
 
     def _init_plot_pareto(self):
-        from ui import NavigationToolbar
+        from panobbgo.ui import NavigationToolbar
         from matplotlib.widgets import Cursor, Slider
         from matplotlib.axes import Axes
         import gtk

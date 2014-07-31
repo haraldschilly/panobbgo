@@ -513,7 +513,7 @@ class EventBus(object):
         .. Note:: counterpart is :func:`unsubscribe`.
         """
         self._check_key(key)
-        if not key in self._subs:
+        if key not in self._subs:
             self._subs[key] = []
 
         assert target not in self._subs[key]
@@ -534,7 +534,7 @@ class EventBus(object):
             return
 
         self._check_key(key)
-        if not key in self._subs:
+        if key not in self._subs:
             self.logger.critical("cannot unsubscribe unknown key '%s'" % key)
             return
 
@@ -706,7 +706,7 @@ class StrategyBase(object):
                 raise Exception("%s does not satisfy dependencies. #1" % module)
             # implicit (just list of respective classes)
             for mod_class in module._depends_on:
-                if not mod_class in all_mod_classes:
+                if mod_class not in all_mod_classes:
                     raise Exception("%s depends on %s, but missing." % (module, mod_class))
 
     def init_module(self, module):

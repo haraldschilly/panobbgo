@@ -25,10 +25,19 @@ This draws a window and plots graphs.
 from core import Module
 from threading import Thread
 
-import pygtk
-pygtk.require('2.0')
-import gtk
-from gtk import gdk
+try:
+    import pygtk
+    pygtk.require('2.0')
+except:
+    print "WARNING: no module pygtk installed"
+
+try:
+    import gtk
+    from gtk import gdk
+    gtk_Window = gtk.Window
+except:
+    print "WARNING: no module gtk installed"
+    gtk_Window = type("Mock_gtk_Window", tuple(), {})
 
 import matplotlib
 import os
@@ -37,15 +46,18 @@ if os.environ.get("TRAVIS") == "true":
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
     from matplotlib.backends.backend_agg import NavigationToolbar2Agg as NavigationToolbar
 else:
-    matplotlib.use('GTKAgg')  # 'GTKAgg' or 'GTK', or 'Agg' ?
-    from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
-    from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+    try:
+        matplotlib.use('GTKAgg')  # 'GTKAgg' or 'GTK', or 'Agg' ?
+        from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+        from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+    except Exception as ex:
+        print "ERROR: not able to initialize GTKAgg: %s" % ex
 del os
 # from matplotlib.widgets import Slider, Cursor # SpanSelector
 # from matplotlib.axes import Axes
 
 
-class UI(Module, gtk.Window, Thread):
+class UI(Module, gtk_Window, Thread):
 
     r"""
     UI

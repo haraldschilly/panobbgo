@@ -10,4 +10,4 @@ for DIR in panobbgo panobbgo_lib sketchpad; do
   find $DIR -name "*.py" -print0 | xargs -0 $AUTOPEP
 done
 
-$AUTOPEP setup*.py
+$AUTOPEP setup*.py fabfile.py

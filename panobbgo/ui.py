@@ -22,9 +22,8 @@ This draws a window and plots graphs.
 .. figure:: img/ui1.png
    :scale:  75 %
 """
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import unicode_literals
+from __future__ import division, absolute_import, unicode_literals
+from future.utils import native_str
 from .core import Module
 from threading import Thread
 
@@ -40,7 +39,7 @@ try:
     gtk_Window = gtk.Window
 except:
     print "WARNING: no module gtk installed"
-    gtk_Window = type("Mock_gtk_Window", tuple(), {})
+    gtk_Window = type(native_str("Mock_gtk_Window"), tuple(), {})
 
 import matplotlib
 import os

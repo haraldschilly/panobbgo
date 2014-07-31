@@ -666,7 +666,7 @@ class StrategyBase(object):
             'splitter': Splitter(self)
         })
         for a in self._analyzers.values():
-        self.add_analyzer(a)
+            self.add_analyzer(a)
 
         self.check_dependencies()
 

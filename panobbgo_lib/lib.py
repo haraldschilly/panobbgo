@@ -54,11 +54,9 @@ class Point(object):
         >>> Point
         <class 'panobbgo_lib.lib.Point'>
 
-        >>> x
-
-        >>> import numpy as np
-        >>> repr(Point(np.array([1,2]), 'test'))
-        '[1 2] by test'
+        >>> x = np.array([1,2])
+        >>> repr(Point(x, 'doctest'))
+        '[1 2] by doctest'
         """
         return '%s by %s' % (self.x, self.who)
 
@@ -77,6 +75,15 @@ class Point(object):
         """
         return self._who
 
+    def __getitem__(self, item):
+        """
+        get x vector
+
+        >>> p = Point(np.array([1,42]), "doctest")
+        >>> p[1]
+        42
+        """
+        return self._x[item]
 
 class Result(object):
 
@@ -217,7 +224,7 @@ class Problem(object):
         r"""
         :param list box: list of tuples for the bounding box with length n,
                           e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
-        :param dx: translational offset which also affects the box,
+        :param np.ndarray dx: translational offset which also affects the box,
                    n-dimensional vector (default: None)
         """
         assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"

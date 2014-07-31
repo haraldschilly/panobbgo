@@ -140,7 +140,7 @@ class RosenbrockStochastic(Problem):
     r"""
     Stochastic variant of Rosenbrock function.
 
-    .. math ::
+    .. math::
 
        f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
@@ -170,8 +170,6 @@ class Himmelblau(Problem):
     .. math::
 
       f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
-
-    .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
     """
 
     def __init__(self, **kwargs):
@@ -215,8 +213,6 @@ class Shekel(Problem):
     .. math::
 
       f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
-
-    .. [SH] http://en.wikipedia.org/wiki/Shekel_function
     """
 
     def __init__(self, dims, m=10, a=None, c=None, box=None, **kwargs):
@@ -280,10 +276,6 @@ class Quadruple(Problem):
         Q(x) = c \, \sum_{i=1}^n \left( \frac{x_i - dx}{4} \right)^4
 
     with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
-
-    .. [QuadF] Hewlett, Joel D., Bogdan M. Wilamowski, and Gunhan Dundar.
-        "Optimization using a modified second-order approach with evolutionary enhancement."
-        Industrial Electronics, IEEE Transactions on 55.9 (2008): 3374-3380.
     """
 
     def __init__(self, dims, c=1, box=None, **kwargs):
@@ -302,13 +294,9 @@ class Powell(Problem):
 
     .. math::
         P(x) = (x_1 + 10 x_2)^2 +
-               (\sqrt{5} (x_3 - x_4))^2 +
+               5 (x_3 - x_4)^2 +
                ((x_2 + 2 x_3)^2)^2 +
-               (\sqrt{10} (x_1 - x_4)^2)^2
-
-    .. [UncTest] Moré, Jorge J., Burton S. Garbow, and Kenneth E. Hillstrom.
-        "Testing unconstrained optimization software."
-        ACM Transactions on Mathematical Software (TOMS) 7.1 (1981): 17-41.
+               10 ((x_1 - x_4)^2)^2
     """
 
     def __init__(self, box=None, **kwargs):
@@ -359,10 +347,6 @@ class SumDifferentPower(Problem):
     .. :math:
 
         F(x) = \sum_{i=1}^n |x_i|^{i+1}
-
-    .. [CompStudy] Pham, Nam, A. Malinowski, and T. Bartczak.
-        "Comparative study of derivative free optimization algorithms."
-        Industrial Informatics, IEEE Transactions on 7.4 (2011): 592-600.
     """
 
     def __init__(self, dims, box=None, **kwargs):
@@ -396,8 +380,6 @@ class Box(Problem):
     r"""
     Box function [UncTest]_
 
-    :param int m: positive integer (default 1)
-
     .. :math:
 
         F(x) = \sum_{i=1}^m \left(e^{-t_i x_1} - e^{-t_i x_2} - x_3(e^{-t_i} - e^{-10 t_i}\right)^2
@@ -408,6 +390,9 @@ class Box(Problem):
     """
 
     def __init__(self, m=1, box=None, **kwargs):
+        """
+        :param int m: positive integer (default 1)
+        """
         box = box or [(-5, 5)] * 3
         self.m = m
         Problem.__init__(self, box, **kwargs)
@@ -427,7 +412,7 @@ class Wood(Problem):
     r"""
     Wood function [UncTest]_
 
-     .. :math:
+     .. math::
 
         F(x) = 100 (x_2 - x_1^2)^2 + (1-x_1)^2 +
             90 (x_4-x_3^2)^2 + (1-x_3)^2 +
@@ -440,7 +425,115 @@ class Wood(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        ret = 10 * (x[1] - x[0] ** 2) + (1 - x[0]) ** 2 + \
+        return 10 * (x[1] - x[0] ** 2) + (1 - x[0]) ** 2 + \
             90 * (x[3] - x[2] ** 2) + (1 - x[2]) ** 2 + \
             10 * (x[1] + x[3] - 2) ** 2 + 10 * (x[1] - x[3])
+
+class HelicalValley(Problem):
+    r"""
+    Helical valley function [UncTest]_
+
+    .. math::
+
+        F(x) = \left(10(x_3 - 10 \, \Theta (x_1, x_2) \right)^2 +
+            \left(10 \sqrt{ x_1^2 + x_2^2 } - 1\right)^2 + x_3^2
+
+    where
+
+    .. math::
+
+        \Theta(x_1, x_2) =
+            \begin{cases}
+                \frac{1}{2 \pi} \arctan (\frac{x_2}{x_1}),      & \text{if} & x_1 > 0 \\
+                \frac{1}{2 \pi} \arctan (\frac{x_2}{x_1}) + .5, & \text{if} & x_1 < 0
+            \end{cases}
+
+    """
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-5, 5)] * 3
+        Problem.__init__(self, box, **kwargs)
+
+    @staticmethod
+    def _theta(x0, x1):
+        ret = 1. / (2*np.pi) * np.arctan(x1 / x0)
+        if x0 < 0:
+            ret += 0.5
         return ret
+
+    def eval(self, x):
+        f0 = 10 * (x[2] - 10 * self._theta(x[0], x[1]))
+        f1 = 10 * (np.sqrt(x[0]**2 + x[1]**2) - 1)
+        f2 = x[2]
+        return f0**2 + f1**2 + f2**2
+
+class Beale(Problem):
+    r"""
+    Beale function [UncTest]_
+
+    .. math::
+
+        F(x) = \sum_{i=1}^3 \left( y_i - x_1 ( 1-x_2^i) \right) ^2
+
+    where
+
+    .. math::
+
+        y_1 = 1.5, \, y_2 = 2.25, \, y_3 = 2.625
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-5, 5)] * 2
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        y = [1.5, 2.25, 2.625]
+        v = [y[i] - x[0] * (1 - x[1] ** (i+1)) for i in range(3)]
+        return sum(_ ** 2 for _ in v)
+
+class NesterovQuadratic(Problem):
+    r"""
+    Nesterov's Quadratic Function [NQuad]_
+
+    .. math::
+
+            F(x) = \frac{1}{2} \| A x - b \|_2^2 + \|x\|_1
+    """
+    def __init__(self, dim = None, box = None, A = None, b = None, nonsmooth=True, **kwargs):
+        """
+        :param boolean nonsmooth: add the nonsmooth :math:`\|x\|_1` part (default: True)
+        """
+        self.nonsmooth = nonsmooth
+        if A is None and b is None:
+            dim = 2
+        else:
+            dim = b.shape[0]
+        box = box or [(-5, 5)] * dim
+        if A is None:
+            A = np.random.randn(dim, dim)
+        if b is None:
+            b = np.random.randn(dim)
+        self.A, self.b = A, b
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        ret = .5 * ((self.A.dot(x) - self.b)**2).sum()
+        if self.nonsmooth:
+            ret += np.abs(x).sum()
+        return ret
+
+class Arwhead(Problem):
+    r"""
+    ARWHEAD test problem [Conn]_
+
+    .. math::
+        F(x) = \sum_{i=1}^{n-1} \left(x_i^2 + x_n^2)^2 - 4 x_i + 3
+    """
+
+    def __init__(self, dim = None, box=None, **kwargs):
+        if dim is None:
+            dim = box.shape[0] if box else 3
+        box = box or [(-5, 5)] * dim
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return ((x[:-1]**2 + x[-1]**2)**2 - 4*x[:-1] + 3).sum()

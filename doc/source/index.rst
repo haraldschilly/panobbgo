@@ -48,6 +48,8 @@ This software package is licensed under the
 Main
 ----
 
+This component is the main part of the program.
+
 .. automodule:: panobbgo
 
 .. toctree::
@@ -63,6 +65,10 @@ Main
 
 Library
 -------
+
+The library component contains the code for constructing the problem instances
+and running them on the computational nodes.
+
 .. automodule:: panobbgo_lib
 
 .. toctree::
@@ -84,4 +90,23 @@ Links
   * :ref:`modindex`
   * :ref:`search`
 
+References
+==========
+
 .. [IP] http://www.ipython.org
+.. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
+.. [SH] http://en.wikipedia.org/wiki/Shekel_function
+.. [QuadF] Hewlett, Joel D., Bogdan M. Wilamowski, and Gunhan Dundar.
+    "Optimization using a modified second-order approach with evolutionary enhancement."
+    Industrial Electronics, IEEE Transactions on 55.9 (2008): 3374-3380.
+.. [UncTest] Moré, Jorge J., Burton S. Garbow, and Kenneth E. Hillstrom.
+    "Testing unconstrained optimization software."
+    ACM Transactions on Mathematical Software (TOMS) 7.1 (1981): 17-41.
+.. [CompStudy] Pham, Nam, A. Malinowski, and T. Bartczak.
+    "Comparative study of derivative free optimization algorithms."
+    Industrial Informatics, IEEE Transactions on 7.4 (2011): 592-600.
+.. [NQuad] Nesterov, Yurii.
+    "Gradient methods for minimizing composite objective function." (2007).
+.. [Conn] Conn, A. R., et al.
+    "Performance of a multifrontal scheme for partially separable optimization."
+    Springer Netherlands, 1994.

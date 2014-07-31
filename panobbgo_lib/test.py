@@ -73,5 +73,35 @@ class Classics(unittest.TestCase):
         opt_pt = np.array([1.] * dim)
         self.is_optimal(rbrk, opt_pt)
 
+    def test_helicalvalley(self):
+        assert np.isclose(0., HelicalValley._theta(1, 0))
+        hv = HelicalValley()
+        x0 = np.array([1.0, 0., 0.])
+        x = Point(x0, "test")
+        r = hv(x)
+        self.is_optimal(hv, x0)
+        assert np.isclose(0., hv(x).fx)
+
+    def test_nesterovquadratic(self):
+        np.random.seed(1)
+        A = np.random.randn(10, 10)
+        b = np.random.randn(10)
+        x = np.random.randn(10)
+        x = Point(x, "test")
+        nq = NesterovQuadratic(A = A, b = b)
+        assert np.isclose(nq(x).fx, 45.961712020840039)
+
+    def test_arwhead(self):
+        x = Point(np.arange(10) - 5, "test")
+        arwhead = Arwhead(dim = 10)
+
+        # slow sum
+        sum = 0
+        for i in range(9):
+            sum += (x[i]**2 + x[9]**2)**2 - 4*x[i] + 3
+
+        assert np.isclose(arwhead(x).fx, sum)
+
+
 if __name__ == '__main__':
     unittest.main()

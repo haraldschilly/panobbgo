@@ -88,17 +88,17 @@ class Classics(unittest.TestCase):
         b = np.random.randn(10)
         x = np.random.randn(10)
         x = Point(x, "test")
-        nq = NesterovQuadratic(A = A, b = b)
+        nq = NesterovQuadratic(A=A, b=b)
         assert np.isclose(nq(x).fx, 45.961712020840039)
 
     def test_arwhead(self):
         x = Point(np.arange(10) - 5, "test")
-        arwhead = Arwhead(dim = 10)
+        arwhead = Arwhead(dim=10)
 
         # slow sum
         sum = 0
         for i in range(9):
-            sum += (x[i]**2 + x[9]**2)**2 - 4*x[i] + 3
+            sum += (x[i] ** 2 + x[9] ** 2) ** 2 - 4 * x[i] + 3
 
         assert np.isclose(arwhead(x).fx, sum)
 

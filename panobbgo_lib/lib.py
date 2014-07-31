@@ -85,6 +85,7 @@ class Point(object):
         """
         return self._x[item]
 
+
 class Result(object):
 
     r"""

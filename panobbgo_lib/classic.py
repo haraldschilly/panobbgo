@@ -429,7 +429,9 @@ class Wood(Problem):
             90 * (x[3] - x[2] ** 2) + (1 - x[2]) ** 2 + \
             10 * (x[1] + x[3] - 2) ** 2 + 10 * (x[1] - x[3])
 
+
 class HelicalValley(Problem):
+
     r"""
     Helical valley function [UncTest]_
 
@@ -449,24 +451,27 @@ class HelicalValley(Problem):
             \end{cases}
 
     """
+
     def __init__(self, box=None, **kwargs):
         box = box or [(-5, 5)] * 3
         Problem.__init__(self, box, **kwargs)
 
     @staticmethod
     def _theta(x0, x1):
-        ret = 1. / (2*np.pi) * np.arctan(x1 / x0)
+        ret = 1. / (2 * np.pi) * np.arctan(x1 / x0)
         if x0 < 0:
             ret += 0.5
         return ret
 
     def eval(self, x):
         f0 = 10 * (x[2] - 10 * self._theta(x[0], x[1]))
-        f1 = 10 * (np.sqrt(x[0]**2 + x[1]**2) - 1)
+        f1 = 10 * (np.sqrt(x[0] ** 2 + x[1] ** 2) - 1)
         f2 = x[2]
-        return f0**2 + f1**2 + f2**2
+        return f0 ** 2 + f1 ** 2 + f2 ** 2
+
 
 class Beale(Problem):
+
     r"""
     Beale function [UncTest]_
 
@@ -487,10 +492,12 @@ class Beale(Problem):
 
     def eval(self, x):
         y = [1.5, 2.25, 2.625]
-        v = [y[i] - x[0] * (1 - x[1] ** (i+1)) for i in range(3)]
+        v = [y[i] - x[0] * (1 - x[1] ** (i + 1)) for i in range(3)]
         return sum(_ ** 2 for _ in v)
 
+
 class NesterovQuadratic(Problem):
+
     r"""
     Nesterov's Quadratic Function [NQuad]_
 
@@ -498,7 +505,8 @@ class NesterovQuadratic(Problem):
 
             F(x) = \frac{1}{2} \| A x - b \|_2^2 + \|x\|_1
     """
-    def __init__(self, dim = None, box = None, A = None, b = None, nonsmooth=True, **kwargs):
+
+    def __init__(self, dim=None, box=None, A=None, b=None, nonsmooth=True, **kwargs):
         """
         :param boolean nonsmooth: add the nonsmooth :math:`\|x\|_1` part (default: True)
         """
@@ -516,12 +524,14 @@ class NesterovQuadratic(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        ret = .5 * ((self.A.dot(x) - self.b)**2).sum()
+        ret = .5 * ((self.A.dot(x) - self.b) ** 2).sum()
         if self.nonsmooth:
             ret += np.abs(x).sum()
         return ret
 
+
 class Arwhead(Problem):
+
     r"""
     ARWHEAD test problem [Conn]_
 
@@ -529,11 +539,11 @@ class Arwhead(Problem):
         F(x) = \sum_{i=1}^{n-1} \left(x_i^2 + x_n^2)^2 - 4 x_i + 3
     """
 
-    def __init__(self, dim = None, box=None, **kwargs):
+    def __init__(self, dim=None, box=None, **kwargs):
         if dim is None:
             dim = box.shape[0] if box else 3
         box = box or [(-5, 5)] * dim
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return ((x[:-1]**2 + x[-1]**2)**2 - 4*x[:-1] + 3).sum()
+        return ((x[:-1] ** 2 + x[-1] ** 2) ** 2 - 4 * x[:-1] + 3).sum()

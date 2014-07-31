@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+from __future__ import unicode_literals
 import scipy.cluster.hierarchy as hcluster
 import numpy.random as random
 import numpy
@@ -18,7 +20,7 @@ clusters = hcluster.fclusterdata(numpy.transpose(data), thresh, criterion='maxcl
 pylab.scatter(*data[:, :], c=clusters)
 pylab.axis("equal")
 title = "threshold: %f, number of clusters: %d" % (thresh, len(set(clusters)))
-print title
+print(title)
 pylab.title(title)
 # pylab.draw()
 pylab.ioff()

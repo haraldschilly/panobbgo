@@ -1,3 +1,5 @@
+from __future__ import division, unicode_literals
+from future.builtins import map, range, object
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #
@@ -83,4 +85,5 @@ class Dedensifyer(Analyzer):
         self.boxes[key].register(result)
 
     def on_new_results(self, results):
-        map(self.register, results)
+        for r in results:
+            self.register(r)

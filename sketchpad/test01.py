@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 sys.path.append(".")
 #from panobbgo.core import Results
@@ -60,6 +63,6 @@ strategy.add(LatinHypercube, div=div)
 strategy.start()
 
 if strategy.best is None:
-    print "no solution found"
+    print("no solution found")
 else:
-    print u"best: %s" % strategy.best
+    print(u"best: %s" % strategy.best)

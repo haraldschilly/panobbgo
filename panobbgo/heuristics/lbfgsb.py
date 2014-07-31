@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #
@@ -46,7 +48,7 @@ class LBFGSB(Heuristic):
             return fx
 
         solution = fmin_l_bfgs_b(f, np.zeros(dims), approx_grad=True)
-        print solution
+        print(solution)
         output.send(solution)
 
     def on_start(self):

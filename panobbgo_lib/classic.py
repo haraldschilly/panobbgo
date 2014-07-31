@@ -22,11 +22,15 @@ This file contains the basic objects to build a problem and to do a single evalu
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future.builtins import range
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
 import numpy as np
-from lib import Problem
+from .lib import Problem
 
 
 class Rosenbrock(Problem):
@@ -231,7 +235,7 @@ class Shekel(Problem):
         if c is None:
             from itertools import cycle
             cc = cycle([.1, .2, .2, .4, .4, .6, .3, .7, .5, .5])
-            c = [cc.next() for _ in range(m)]
+            c = [next(cc) for _ in range(m)]
 
         assert len(c) == m
 

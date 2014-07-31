@@ -2,6 +2,11 @@
 # some tests regarding selection from a population
 # based on their fitness
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future.builtins import str
+from future.builtins import range
 from random import random
 from math import exp, sin
 #from collections import Counter
@@ -43,10 +48,10 @@ for x in range(1000):
     for idx, f in enumerate(fits):
         t += f
         if t > thld:
-            print " " * idx, idx
+            print(" " * idx, idx)
             cnt[str(idx)] = cnt.get(str(idx), 0) + 1
             # if idx % 100 == 0: print cnt
             break
 
-print
-print cnt
+print()
+print(cnt)

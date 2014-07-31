@@ -28,7 +28,9 @@ the strategy.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
-from best import Best
-from splitter import Splitter
-from grid import Grid
+from .best import Best
+from .splitter import Splitter
+from .grid import Grid

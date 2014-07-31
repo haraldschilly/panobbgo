@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import unicode_literals
+from future.builtins import zip
+from future.builtins import range
 #!/usr/bin/env python
 from scipy.optimize import fmin_bfgs
 import numpy as np
@@ -36,8 +40,8 @@ def gradient(guess):
 guess = np.random.normal(0, 1, size=3)
 sol = fmin_bfgs(residual, guess, fprime=gradient)
 
-print "params:", params
-print sol
+print("params:", params)
+print(sol)
 
 y_est = func(xx[0], *sol)
-print "f(%s) = %s [really: %s]" % (xx[0], y_est, yy[0])
+print("f(%s) = %s [really: %s]" % (xx[0], y_est, yy[0]))

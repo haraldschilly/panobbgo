@@ -28,14 +28,16 @@ Most likely, it is the `one-shot` event ``start``, which is
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
-from center import Center
-from extremal import Extremal
-from latin_hypercube import LatinHypercube
-from lbfgsb import LBFGSB
-from nearby import Nearby
-from nelder_mead import NelderMead
-from quadratic_wls import QuadraticWlsModel
-from random import Random
-from weighted_average import WeightedAverage
-from zero import Zero
+from .center import Center
+from .extremal import Extremal
+from .latin_hypercube import LatinHypercube
+from .lbfgsb import LBFGSB
+from .nearby import Nearby
+from .nelder_mead import NelderMead
+from .quadratic_wls import QuadraticWlsModel
+from .random import Random
+from .weighted_average import WeightedAverage
+from .zero import Zero

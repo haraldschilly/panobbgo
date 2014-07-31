@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # just testing basic parallelization that will be used in the actual project
+from __future__ import division,unicode_literals
+from future.builtins import map,zip, range
 import numpy as np
 import itertools as it
 
@@ -168,7 +170,7 @@ while pending or added < MAX:
             [cur_best_x],
             ordered=False)
         # print ">>>", new_points_tasks.msg_ids
-        map(pending_generators.add, new_points_tasks.msg_ids)
+        list(map(pending_generators.add, new_points_tasks.msg_ids))
 
     finished_generators = pending_generators.difference(generators.outstanding)
     pending_generators = pending_generators.difference(finished_generators)
@@ -197,8 +199,8 @@ while pending or added < MAX:
         tids, vals = list(it.islice(tid_counter, new)), gen_points(new, DIMSIZE)
         chunksize = max(1, min(new, len(c.ids)))
         newt = evaluators.map_async(func, tids, vals, chunksize=chunksize, ordered=False)
-        allx.update(zip(tids, vals))
-        map(pending.add, newt.msg_ids)
+        allx.update(list(zip(tids, vals)))
+        list(map(pending.add, newt.msg_ids))
     else:
         new = 0
 
@@ -227,7 +229,7 @@ while pending or added < MAX:
 
 status()
 logger.debug("queues:")
-for k, v in sorted(evaluators.queue_status().iteritems()):
+for k, v in sorted(evaluators.queue_status().items()):
     logger.debug("%5s: %s" % (k, v))
 
 logger.info("pending: %s" % pending)

@@ -1,3 +1,5 @@
+from __future__ import division, unicode_literals
+from future.builtins import map, object
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #
@@ -94,7 +96,7 @@ class Splitter(Analyzer):
                 self.big_by_depth[d] = new_box
             else:
                 leafs_at_depth = list(
-                    filter(lambda l: l.depth == d, self.leafs))
+                    [l for l in self.leafs if l.depth == d])
                 if len(leafs_at_depth) > 0:
                     self.big_by_depth[d] = max(
                         leafs_at_depth, key=lambda l: l.log_volume)
@@ -313,12 +315,12 @@ class Splitter(Analyzer):
             b2 = Splitter.Box(self, self.splitter, self.box.copy())
             self.split_dim = dim
             # split_point = np.median(map(lambda r:r.x[dim], self.results))
-            split_point = np.average(map(lambda r: r.x[dim], self.results))
+            split_point = np.average([r.x[dim] for r in self.results])
             b1.box[dim, 1] = split_point
             b2.box[dim, 0] = split_point
             self.children.extend([b1, b2])
             self.splitter.leafs.remove(self)
-            map(self.splitter.leafs.append, self.children)
+            list(map(self.splitter.leafs.append, self.children))
             for c in self.children:
                 self.splitter._new_box(c)
                 for r in self.results:
@@ -339,7 +341,7 @@ class Splitter(Analyzer):
             returns all immediate child boxes, which contain given point.
             """
             assert not self.leaf, 'not applicable for "leaf" box'
-            ret = filter(lambda c: c.contains(point), self.children)
+            ret = [c for c in self.children if c.contains(point)]
             assert len(ret) > 0, "no child box containing %s found!" % point
             return ret
 

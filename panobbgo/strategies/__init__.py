@@ -30,6 +30,8 @@ a new strategy.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
-from rewarding import StrategyRewarding
-from round_robin import StrategyRoundRobin
+from .rewarding import StrategyRewarding
+from .round_robin import StrategyRoundRobin

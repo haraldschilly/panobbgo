@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+from future.builtins import zip
+from future.builtins import range
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #
@@ -176,7 +179,7 @@ class Best(Analyzer):
         xmin, xmax = xmin - px, xmax + px
         ymin, ymax = ymin - py, ymax + py
 
-        rslts = zip(*[(r.x[cx], r.x[cy], r.fx) for r in self.results.results])
+        rslts = list(zip(*[(r.x[cx], r.x[cy], r.fx) for r in self.results.results]))
         x, y, z = rslts
         xi = np.linspace(xmin, xmax, 30)
         yi = np.linspace(ymin, ymax, 30)
@@ -208,10 +211,10 @@ class Best(Analyzer):
     def _update_fx_plot(self, plt, ax, xval, yval):
         xx = np.append(plt.get_xdata(), xval)
         if xval < 0:
-            xx = map(lambda _: _ - xval, xx)
+            xx = [_ - xval for _ in xx]
         yy = np.append(plt.get_ydata(), yval)
         if yval < 0:
-            yy = map(lambda _: _ - yval, yy)
+            yy = [_ - yval for _ in yy]
         plt.set_xdata(xx)
         plt.set_ydata(yy)
         ylim = [0,  # min(ax.get_ylim()[0], yval),
@@ -360,8 +363,7 @@ class Best(Analyzer):
             self._check_pareto_front()
 
             if len(self.pareto_front) > 2:
-                self.logger.debug("pareto: %s" % map(
-                    lambda x: (x.cv, x.fx), self.pareto_front))
+                self.logger.debug("pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front])
             self.eventbus.publish("new_pareto_front", front=new_front)
 
     def _check_pareto_front(self):
@@ -425,7 +427,7 @@ class Best(Analyzer):
         if not hasattr(self, "pf_ax"):
             return
         # self.ax1.clear()
-        pnts = map(lambda x: x.pp, front)
+        pnts = [x.pp for x in front]
         # insert points to make a staircase
         inserts = []
         for p1, p2 in zip(pnts[:-1], pnts[1:]):
@@ -435,7 +437,7 @@ class Best(Analyzer):
             all_pnts.append(pnts[i])
             all_pnts.append(inserts[i])
         all_pnts.append(pnts[-1])
-        data = zip(*all_pnts)
+        data = list(zip(*all_pnts))
         self.pf_ax.plot(
             data[0], data[1], '-', alpha=.7, color="black")  # ms = ?
         self.pf_ax.autoscale()  # TODO get rid of autoscale

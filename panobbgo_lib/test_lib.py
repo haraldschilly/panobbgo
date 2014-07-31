@@ -16,8 +16,8 @@ import unittest
 import nose
 import numpy as np
 
-from classic import *
-from lib import *
+from .classic import *
+from .lib import *
 from panobbgo.utils import expected_failure
 
 

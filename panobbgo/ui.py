@@ -22,7 +22,10 @@ This draws a window and plots graphs.
 .. figure:: img/ui1.png
    :scale:  75 %
 """
-from core import Module
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from .core import Module
 from threading import Thread
 
 try:
@@ -71,7 +74,7 @@ class UI(Module, gtk_Window, Thread):
         monitor = screen.get_monitor_at_window(self.get_root_window())
         geom = screen.get_monitor_geometry(monitor)
         self.set_resize_mode(gtk.RESIZE_QUEUE)
-        s = min(map(lambda _: int(_ * .8), [geom.width, geom.height]))
+        s = min([int(_ * .8) for _ in [geom.width, geom.height]])
         self.resize(int(s * 4. / 3.), s)
         self._canvases = set()
         # centered

@@ -19,13 +19,17 @@ Utilities
 
 Some utility functions, will move eventually.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
+from future.builtins import range
+from future.builtins import object
 
 import logging
 
 
 class ColoredFormatter(logging.Formatter):
 
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = list(range(8))
 
     RESET_SEQ = "\033[0m"
     COLOR_SEQ = "\033[0;%dm"
@@ -115,7 +119,7 @@ def info():
     try:
         version("matplotlib")
     except:
-        print "matplotlib broken :("
+        print("matplotlib broken :(")
     v['git HEAD'] = git.communicate()[0].splitlines()[0]
     return v
 
@@ -187,7 +191,7 @@ class memoize(object):
             cache = obj.__cache
         except AttributeError:
             cache = obj.__cache = {}
-        key = (self.func, args[1:], frozenset(kw.items()))
+        key = (self.func, args[1:], frozenset(list(kw.items())))
         try:
             res = cache[key]
         except KeyError:

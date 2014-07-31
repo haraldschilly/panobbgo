@@ -35,11 +35,15 @@ and base-classes for the modules:
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import division, absolute_import, unicode_literals
+from future import standard_library
+standard_library.install_hooks()
+from future.builtins import *
+
+from .config import Config
+from panobbgo_lib import Result, Point
 from IPython.utils.timing import time
 import numpy as np
-
-from config import Config
-from panobbgo_lib import Result, Point
 
 
 class Results(object):
@@ -83,7 +87,7 @@ class Results(object):
                 midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
             self.results = DataFrame(columns=midx)
 
-        assert all(map(lambda _: isinstance(_, Result), new_results))
+        assert all([isinstance(_, Result) for _ in new_results])
         # notification for all received results at once
         self.eventbus.publish("new_results", results=new_results)
 
@@ -261,7 +265,7 @@ class Heuristic(Module):
         self.logger = self.config.get_logger('HEUR')
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
-        from Queue import Queue
+        from queue import Queue
         self._output = Queue(self.cap)
 
         # statistics; performance
@@ -305,7 +309,7 @@ class Heuristic(Module):
         the performance value is discounted (i.e. "punishment" or "energy
         consumption")
         """
-        from Queue import Empty
+        from queue import Empty
         new_points = []
         try:
             while limit is None or len(new_points) < limit:
@@ -385,8 +389,7 @@ class Event(object):
     def __init__(self, **kwargs):
         self._when = time.time()
         self._kwargs = kwargs
-        self.terminate = False
-        for k, v in kwargs.iteritems():
+        for k, v in list(kwargs.items()):
             setattr(self, k, v)
 
     def __repr__(self):
@@ -414,7 +417,7 @@ class EventBus(object):
         """
         List of all keys where you can send an :class:`Event` to.
         """
-        return self._subs.keys()
+        return list(self._subs.keys())
 
     def register(self, target):
         """
@@ -424,7 +427,7 @@ class EventBus(object):
 
         :param Module target:
         """
-        from Queue import Empty, Queue  # LifoQueue
+        from queue import Empty, Queue  # LifoQueue
         from threading import Thread
 
         # important: this decouples the dispatcher's thread from the actual
@@ -539,7 +542,7 @@ class EventBus(object):
 
         """
         if key is None:
-            for k, v in self._subs.iteritems():
+            for k, v in list(self._subs.items()):
                 for t in v:
                     if t is target:
                         self.unsubscribe(k, t)
@@ -633,13 +636,14 @@ class StrategyBase(object):
         self._hs = []
         import collections
         self._heuristics = collections.OrderedDict()
+        self._analyzers = collections.OrderedDict()
         self.problem = problem
         self.eventbus = EventBus(config)
         self.results = Results(self)
 
         # UI
         if config.ui_show:
-            from ui import UI
+            from .ui import UI
             self.ui = UI()
             self.ui._init_module(self)
             self.ui.show()
@@ -650,17 +654,19 @@ class StrategyBase(object):
 
     def start(self):
         # heuristics
-        map(self.add_heuristic, sorted(self._hs, key=lambda h: h.name))
+        for h in sorted(self._hs, key=lambda h: h.name):
+            self.add_heuristic(h)
 
         # analyzers
-        from analyzers import Best, Grid, Splitter
+        from .analyzers import Best, Grid, Splitter
         best = Best(self)
-        self._analyzers = {
+        self._analyzers.update({
             'best': best,
             'grid': Grid(self),
             'splitter': Splitter(self)
-        }
-        map(self.add_analyzer, self._analyzers.values())
+        })
+        for a in self._analyzers.values():
+        self.add_analyzer(a)
 
         self.check_dependencies()
 
@@ -677,11 +683,11 @@ class StrategyBase(object):
 
     @property
     def heuristics(self):
-        return filter(lambda h: h.active, self._heuristics.values())
+        return [h for h in list(self._heuristics.values()) if h.active]
 
     @property
     def analyzers(self):
-        return self._analyzers.values()
+        return list(self._analyzers.values())
 
     def heuristic(self, who):
         return self._heuristics[who]
@@ -716,8 +722,8 @@ class StrategyBase(object):
         This method is called in self.start() (and only there)
         for checking all the dependencies of all modules.
         """
-        heuristics = self._heuristics.values()
-        analyzers = self._analyzers.values()
+        heuristics = list(self._heuristics.values())
+        analyzers = list(self._analyzers.values())
         all_mods = [m.__class__ for m in heuristics]
         all_mods.extend([m.__class__ for m in analyzers])
         all_mods = set(all_mods)
@@ -800,7 +806,7 @@ class StrategyBase(object):
             # collect new results for each finished task, hand them over to result DB
             new_results = []
             for msg_id in self.new_finished:
-                map(new_results.append, self.evaluators.get_result(msg_id).result)
+                list(map(new_results.append, self.evaluators.get_result(msg_id).result))
             self.results += new_results
 
             self.jobs_per_client = max(1,
@@ -883,7 +889,7 @@ class StrategyBase(object):
         :return float: average time per task
         """
         if len(self.tasks_walltimes) > 1:
-            return np.average(self.tasks_walltimes.values())
+            return np.average(list(self.tasks_walltimes.values()))
         self.slogger.warning("avg time per task for 0 tasks! -> returning NaN")
         return np.NAN
 

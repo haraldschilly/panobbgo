@@ -25,6 +25,9 @@ This file contains the basic objects to build a problem and to do a single evalu
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+from __future__ import unicode_literals
+from past.builtins import cmp
+from future.builtins import object
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
@@ -352,8 +355,7 @@ class Problem(object):
     def __repr__(self):
         descr = "Problem '{}': {:d} dims, ".format(
             self.__class__.__name__, self._dim)
-        p = filter(
-            lambda _: not _[0].startswith("_"), self.__dict__.iteritems())
+        p = [_ for _ in iter(self.__dict__.items()) if not _[0].startswith("_")]
         descr += "params: %s, " % dict(p)
         descr += "box: [%s]" % ', '.join(
             '[%.2f %.2f]' % (l, u) for l, u in self._box)

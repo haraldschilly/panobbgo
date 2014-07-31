@@ -28,6 +28,12 @@ via optional command-line arguments.
 
 .. inheritance-diagram:: panobbgo.configuration
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future.builtins import str
+from future import standard_library
+standard_library.install_hooks()
+from future.builtins import object
 
 _config = None
 
@@ -56,7 +62,7 @@ class Config(object):
         self._create()
 
     def _create(self):
-        from utils import info, create_logger
+        from .utils import info, create_logger
         logger = create_logger("CONFG")
 
         # create application data dir if necessary
@@ -128,7 +134,7 @@ class Config(object):
             args = None
 
         import os
-        from ConfigParser import ConfigParser
+        from configparser import ConfigParser
 
         # 2/1: does config file exist?
         if not os.path.exists(self.config_fn):
@@ -220,14 +226,14 @@ class Config(object):
         name = "%-5s" % name
         loglevel = loglevel or self.loglevel
         # logger focus
-        lf = map(lambda _: _.upper(), ["%-5s" % _ for _ in self.logger_focus])
+        lf = [_.upper() for _ in ["%-5s" % _ for _ in self.logger_focus]]
         if name in lf:
             loglevel = 0
         # cache
         key = '%s::%s' % (name, loglevel)
         if key in self._loggers:
             return self._loggers[key]
-        from utils import create_logger
+        from .utils import create_logger
         l = create_logger(name, loglevel)
         self._loggers[key] = l
         return l

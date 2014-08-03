@@ -88,7 +88,7 @@ class RosenbrockAbs(Problem):
 
     .. math::
 
-     f(x) = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \|
+     f(x) = \sum_i \mathit{par}_1 \Big\lVert x_{i+1} - \lVert x_i \rVert \Big\rVert + \lVert 1 - x_i \rVert
 
     """
 
@@ -110,8 +110,8 @@ class RosenbrockAbsConstraint(Problem):
 
     .. math::
 
-     \min f(x) & = \sum_i \mathit{par}_1 \Big\| x_{i+1} - \| x_i \| \Big\| + \| 1 - x_i \| \\
-     \mathit{s.t.} \;\; & \|x_{i+1} - x_{i}\| \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+     \min f(x) & = \sum_i \mathit{par}_1 \Big\lVert x_{i+1} - \lVert x_i \rVert \Big\rVert + \lVert 1 - x_i \rVert \\
+     \mathit{s.t.} \;\; & \lVert x_{i+1} - x_{i}\rVert \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
                         & x_i \geq 0 \;\;                          \forall i
 
     """
@@ -503,12 +503,12 @@ class NesterovQuadratic(Problem):
 
     .. math::
 
-            F(x) = \frac{1}{2} \| A x - b \|_2^2 + \|x\|_1
+            F(x) = \frac{1}{2} \lVert A x - b \rVert_2^2 + \lVert x \rVert_1
     """
 
     def __init__(self, dim=None, box=None, A=None, b=None, nonsmooth=True, **kwargs):
         """
-        :param boolean nonsmooth: add the nonsmooth :math:`\|x\|_1` part (default: True)
+        :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
         """
         self.nonsmooth = nonsmooth
         if A is None and b is None:

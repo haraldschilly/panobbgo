@@ -41,11 +41,11 @@ class Point(object):
 
     def __init__(self, x, who):
         if not isinstance(who, basestring):
-            raise Exception(
+            raise ValueError(
                 'who needs to be a string describing the heuristic, was %s of type %s'
                 % (who, type(who)))
         if not isinstance(x, np.ndarray):
-            raise Exception('x must be a numpy ndarray')
+            x = np.array(x, dtype=np.float64)
         self._x = x
         self._who = who  # heuristic.name, a string
 
@@ -109,7 +109,7 @@ class Result(object):
           (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
         """
         if point and not isinstance(point, Point):
-            raise Exception("point must be a Point")
+            raise ValueError("point must be an instance of lib.Point")
         self._point = point
         self._fx = fx
         self._error = error
@@ -208,10 +208,11 @@ class Result(object):
         return cmp(self._fx, other._fx)
 
     def __repr__(self):
-        x = ' '.join(
-            '%11.6f' % _ for _ in self.x) if self.x is not None else None
+        x = u' '.join(
+            u'%11.6f' % _ for _ in self.x) if self.x is not None else None
         cv = '' if self._cv_vec is None else u'\u22DB%8.4f ' % self.cv
-        return '%11.6f %s@ [%s]' % (self.fx, cv, x)
+        ret = u'{:11.6f} {}@ [{}]'.format(self.fx, cv, x)
+        return ret
 
 
 class Problem(object):
@@ -245,9 +246,12 @@ class Problem(object):
         if dx:
             assert len(dx) == self._dim, "dx vector must have dimension n"
             dx = np.array(dx, dtype=np.float64)
-            self._box -= dx
+            self._box += dx
 
         self.dx = dx
+        for arr in [self._box, self._ranges, self.dx]:
+            if arr is not None:
+                arr.setflags(write=False)
 
     @property
     def dim(self):
@@ -311,7 +315,7 @@ class Problem(object):
         pass
 
     def __call__(self, point):
-        x = point.x - self.dx if self.dx else point.x
+        x = point.x + self.dx if self.dx is not None else point.x
         fx = self.eval(x)
         cv = self.eval_constraints(x)
         return Result(point, fx, cv_vec=cv)

@@ -243,5 +243,6 @@ class PanobbgoTestCase(unittest.TestCase):
 
     @mock.patch('panobbgo.core.StrategyBase')
     def init_strategy(self, StrategyBaseMock):
-        strategy = StrategyBaseMock(self.problem)
+        strategy = StrategyBaseMock()
+        strategy.problem = self.problem
         return strategy

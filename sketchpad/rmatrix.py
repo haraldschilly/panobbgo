@@ -17,3 +17,5 @@ while len(m) / full <= .1:
         m[i, j] = sqrt3
     else:
         m[i, j] = - sqrt3
+
+print m

@@ -198,6 +198,35 @@ class memoize(object):
 
 import unittest
 import mock
+import functools
+
+
+def expected_failure(exptn, msg=None):
+    """
+    Wrapper for a test function, which expects a certain Exception.
+
+    Example::
+
+        @expected_failure(ValueError, "point must be an instance of lib.Point")
+        def test_result_error(self):
+            Result([1., 1.], 1.1)
+
+    @param Exception exptn: exception class
+    @param str msg: expected message
+    """
+    def wrapper(testfn):
+        @functools.wraps(testfn)
+        def inner(*args, **kwargs):
+            try:
+                testfn(*args, **kwargs)
+            except exptn as ex:
+                if msg is not None:
+                    assert ex.message == msg, "message: '%s'" % ex.message
+            else:
+                raise AssertionError("No Exception '%s' raised in '%s'" %
+                                     (exptn.__name__, testfn.__name__))
+        return inner
+    return wrapper
 
 
 class MockupEventBus(object):

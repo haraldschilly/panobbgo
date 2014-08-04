@@ -116,14 +116,6 @@ class Result(object):
         self._cv_vec = cv_vec
         self._cv_norm = cv_norm
         self._time = time.time()
-        self._cnt = None
-
-    @property
-    def cnt(self):
-        """
-        Integer ID for this result.
-        """
-        return self._cnt
 
     @property
     def x(self):

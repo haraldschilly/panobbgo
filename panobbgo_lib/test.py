@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
+import nose
 import numpy as np
 
 from classic import *
 from lib import *
+from panobbgo.utils import expected_failure
+
 
 def Disturbance(dim, nb=10, sd=.001, minimum=0.0001):
     r"""
@@ -43,12 +46,12 @@ class Lib(unittest.TestCase):
         self.assertEqual(p.who, 'test')
         np.testing.assert_array_equal(p.x, x)
         self.assertEqual(repr(p), '[ 5.  -2.2  0.   1.1] by test')
-        try:
-            Point(x, 0)
-            assert False
-        except Exception as ex:
-            assert ex.message == "who needs to be a string describing the heuristic, " \
-                                 "was 0 of type <type 'int'>"
+
+    @expected_failure(Exception, "who needs to be a string describing the heuristic, "
+                                 "was 0 of type <type 'int'>")
+    def test_point_who(self):
+        x = np.array([5, -2.2, 0, 1.1])
+        Point(x, 0)
 
     def test_disturbance(self):
         d = list(Disturbance(3))
@@ -58,24 +61,13 @@ class Lib(unittest.TestCase):
     def test_problem(self):
         rbrk = Rosenbrock(4)
         assert rbrk.dim == 4
-        try:
-            rbrk._box[0, 0] = 0.
-            assert False
-        except ValueError as ve:
-            assert ve.message == "assignment destination is read-only"
-        try:
-            rbrk._ranges[0] = 1.
-            assert False
-        except ValueError as ve:
-            assert ve.message == "assignment destination is read-only"
-        assert rbrk.dx is None
         p = Point([1., 1.], "nose")
         assert rbrk(p).fx == 0.
-
         assert np.allclose(
             rbrk.project(np.array([22, 0, -33, 2], dtype=np.float64)),
-            [2.,  0., - 2.,  2.])
-
+            [2., 0., - 2., 2.])
+        assert rbrk.dx is None
+        assert np.allclose(rbrk.ranges, [2., 4., 4., 4.])
 
         # with dx
         rbrk = Rosenbrock(2, dx=[2.41, 3.14])
@@ -85,36 +77,46 @@ class Lib(unittest.TestCase):
         assert rbrk(p).fx > 5000.
         p = Point([-1.41, -2.14], "nose")
         assert np.isclose(rbrk(p).fx, 0.)
+        rp = rbrk.random_point()
+        assert np.all(rbrk.box[:, 0] <= rp)
+        assert np.all(rbrk.box[:, 1] >= rp)
+        assert repr(rbrk) == "Problem 'Rosenbrock': 2 dims, " \
+                             "params: {'par1': 100, 'dx': array([ 2.41,  3.14])}, " \
+                             "box: [[2.41 5.14], [0.41 5.14]]"
 
-        try:
-            rbrk.dx[0] = 1.
-            assert False
-        except ValueError as ve:
-            assert ve.message == "assignment destination is read-only"
+    @expected_failure(ValueError, "assignment destination is read-only")
+    def test_problem_dx_assign(self):
+        rbrk = Rosenbrock(2, dx=[2.41, 3.14])
+        rbrk.dx[0] = 1.
 
+    @expected_failure(ValueError, "assignment destination is read-only")
+    def test_problem_box_assign(self):
+        rbrk = Rosenbrock(2, dx=[2.41, 3.14])
+        rbrk._box[0, 0] = 0.
+
+    @expected_failure(ValueError, "assignment destination is read-only")
+    def test_problem_ranges_assign(self):
+        rbrk = Rosenbrock(2, dx=[2.41, 3.14])
+        rbrk._ranges[0] = 1.
+
+    @expected_failure(ValueError, "point must be an instance of lib.Point")
+    def test_result_error(self):
+        Result([1., 1.], 1.1)
 
     def test_result(self):
         r0 = Result(Point([1., 1.], "nose"), 1.0)
         assert r0.who == "nose"
         assert r0.cv == 0.
         r = Result(Point([1., 1.], "nose"), 1.1,
-                   cv_vec = np.array([2., 3., -1.]),
-                   error = 1e-5)
+                   cv_vec=np.array([2., 3., -1.]),
+                   error=1e-5)
         assert r.fx == 1.1
         assert np.allclose(r.x, [1., 1.])
         assert np.allclose(r.cv_vec, [2., 3., -1])
         assert np.allclose(r.cv, np.sqrt(13))
         assert np.allclose(r.pp, [np.sqrt(13), 1.1])
         assert r.error == 1e-5
-
-        try:
-            r = Result([1., 1.], 1.1)
-            assert False
-        except ValueError as ve:
-            assert ve.message == "point must be an instance of lib.Point"
-
         assert r0 < r
-
         assert unicode(r) == u"   1.100000 \u22DB  3.6056 @ [   1.000000    1.000000]"
 
 

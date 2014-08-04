@@ -23,14 +23,19 @@ from panobbgo.utils import expected_failure
 
 def Disturbance(dim, nb=10, sd=.001, minimum=0.0001):
     r"""
-    Returns a generator.
+    A generator for random vectors.
 
     It generates ``nb`` many ``dim`` sized "disturbance" vectors,
-    which are based on :func:`~numpy.random.randn` and
+    based on :func:`~numpy.random.randn` and
     have a minimum value of ``minimum``.
-    ``sd`` is the standard deviation of the generated numbers.
+
+    :param int dim: dimension of the disturbance vector.
+    :param nb: a positive integer or None (default: 10).
+               If set to None, the generator will run infinitely.
+    :param double sd: the standard deviation of the generated numbers
+    :param double minimum: minimum value for each entry.
     """
-    while nb > 0:
+    while nb is None or nb > 0:
         x = np.random.randn(dim) * float(sd)
         if np.any(np.abs(x) < minimum):
             continue

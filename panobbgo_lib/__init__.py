@@ -8,4 +8,4 @@ For example, the basic :class:`~panobbgo_lib.lib.Problem` class is defined here.
 
 from lib import Point, Problem, Result
 
-__version__ = '1.0'
+__version__ = '0.1'

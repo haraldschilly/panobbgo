@@ -31,9 +31,7 @@ class Extremal(Heuristic):
         import numpy as np
         if prob is None:
             prob = (1, .2, .2, 1)
-        for i in prob:
-            assert 0 <= i <= 1, "entries in prob must be in [0, 1]"
-        prob = np.array(prob) / float(sum(prob))
+        prob = np.array(prob) / float(np.sum(prob))
         self.probabilities = prob.cumsum()
         self.diameter = diameter  # inside the box or around zero
         self.vals = None
@@ -44,7 +42,7 @@ class Extremal(Heuristic):
         low = problem.box[:, 0]
         high = problem.box[:, 1]
         zero = np.zeros(problem.dim)
-        center = low + (high - low) / 2.0
+        center = low + (high - low) / 2.
         self.vals = np.row_stack((low, zero, center, high))
 
     def on_start(self):
@@ -59,10 +57,16 @@ class Extremal(Heuristic):
                         # jitter = radius * (np.random.rand() - .5)
                         jitter = np.random.normal(0, radius)
                         if idx == 0:
+                            # minimum border
                             ret[i] = self.vals[idx, i] + abs(jitter)
                         elif idx == len(self.probabilities) - 1:
+                            # maximum border
                             ret[i] = self.vals[idx, i] - abs(jitter)
                         else:
+                            # around center or zero
                             ret[i] = self.vals[idx, i] + jitter
                         break  # since we found the idx, break!
             self.emit(ret)
+            # stop early, if run by unittests
+            if self.strategy.config.testing_mode:
+                return

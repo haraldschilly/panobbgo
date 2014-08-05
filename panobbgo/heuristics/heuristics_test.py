@@ -50,5 +50,29 @@ class HeuristicTests(PanobbgoTestCase):
         from . import Center
         cntr = Center(self.strategy)
         assert cntr is not None
-        box = cntr.on_start()
-        assert np.allclose(box, [1, 0.])
+        #box = cntr.on_start()
+        #assert np.allclose(box, [1, 0.])
+
+    def test_extremal(self):
+        from . import Extremal
+        extr = Extremal(self.strategy, prob=range(10))
+        assert isinstance(extr.probabilities, np.ndarray)
+        assert np.isclose(sum(np.diff(extr.probabilities)), 1.)
+        extr = Extremal(self.strategy)
+        extr.__start__()
+
+        # min, max, center, zero
+        box = self.problem.box
+        assert np.allclose(extr.vals[0], box[:, 0])
+        assert np.allclose(extr.vals[1], np.zeros_like(extr.vals[1]))
+        assert np.allclose(extr.vals[2], self.problem.center)
+        assert np.allclose(extr.vals[3], box[:, 1])
+
+        # simulate on_start, produces one point in testing mode
+        extr.on_start()
+        from Queue import Queue
+        assert isinstance(extr._output, Queue)
+        p = extr._output.get()
+        from panobbgo_lib import Point
+        assert isinstance(p, Point)
+        assert p in self.problem.box

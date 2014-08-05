@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from collections import defaultdict
 
 from panobbgo.core import Analyzer
 
@@ -58,10 +59,9 @@ class Dedensifyer(Analyzer):
     def __init__(self, max_depth=5):
         Analyzer.__init__(self)
         self.max_depth = max_depth
-        self.boxes = dict()
+        self.boxes = defaultdict(Box)
         for depth in range(self.max_depth):
             self.boxes[depth] = dict()
-        self._
 
     def __start__(self):
         for depth in range(self.max_depth):
@@ -80,9 +80,7 @@ class Dedensifyer(Analyzer):
         analyzes a new result
         """
         key = self.gridkey(result.x)
-        if key not in self._boxes:
-            self._boxes[key] = Box()
-        self._boxes[key].register(result)
+        self.boxes[key].register(result)
 
     def on_new_results(self, results):
         map(self.register, results)

@@ -41,9 +41,15 @@ Sources: https://github.com/haraldschilly/panobbgo
 
 class Config(object):
 
-    def __init__(self, parse_args=False):
+    def __init__(self, parse_args=False, testing_mode=False):
+        """
+
+        :param boolean parse_args:
+        :param boolean testing_mode: if True, signals that it is run by the unittests
+        """
         import os
         self.parse_args = parse_args
+        self.testing_mode = testing_mode
         self._appdata_dir = os.path.expanduser("~/.panobbgo")
         self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
         self._loggers = {}
@@ -210,7 +216,7 @@ class Config(object):
         return __debug__
 
     def get_logger(self, name, loglevel=None):
-        assert len(name) <= 5, 'Lenght of logger name > 5: "%s"' % name
+        assert len(name) <= 5, 'Length of logger name > 5: "%s"' % name
         name = "%-5s" % name
         loglevel = loglevel or self.loglevel
         # logger focus

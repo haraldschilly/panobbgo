@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
+r"""
 Core
 ====
 
@@ -35,23 +35,24 @@ and base-classes for the modules:
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
-from config import Config
-from panobbgo_lib import Result, Point
 from IPython.utils.timing import time
 import numpy as np
+
+from config import Config
+from panobbgo_lib import Result, Point
 
 
 class Results(object):
 
     """
-    A very simple database of results with a notificaton for new results.
+    A very simple database of results with a notification for new results.
     The new results are fed directly by the :class:`.StrategyBase`, outside of the
     :class:`.EventBus`.
 
     .. Note::
 
       Later on, maybe this will be a cool actual database which allows to
-      persistenly store past evaluations for a given problem.
+      persistently store past evaluations for a given problem.
       This would allow resuming and further a-posteriory analysis.
       In the meantime, this is a pandas DataFrame.
     """
@@ -119,6 +120,10 @@ class Module(object):
     """
 
     def __init__(self, strategy, name=None):
+        """
+        :param StrategyBase strategy:
+        :param str name:
+        """
         name = name if name else self.__class__.__name__
         self._strategy = strategy
         self.config = strategy.config
@@ -257,16 +262,16 @@ class Heuristic(Module):
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
         from Queue import Queue
-        self.__output = Queue(self.cap)
+        self._output = Queue(self.cap)
 
         # statistics; performance
         self.performance = 0.0
 
     def clear_output(self):
-        q = self.__output
+        q = self._output
         with q.not_full:
             # with q.mutex:
-            # del self.__output.queue[:]  # LifoQueue
+            # del self._output.queue[:]  # LifoQueue
             q.queue.clear()  # Queue
             q.not_full.notify()  # to wakeup "put()"
 
@@ -287,7 +292,7 @@ class Heuristic(Module):
                     raise Exception("point is not a numpy ndarray")
                 x = self.problem.project(point)
                 point = Point(x, self.name)
-                self.__output.put(point)
+                self._output.put(point)
         except StopHeuristic:
             self._stopped = True
             self.logger.info("'%s' heuristic stopped." % self.name)
@@ -304,7 +309,7 @@ class Heuristic(Module):
         new_points = []
         try:
             while limit is None or len(new_points) < limit:
-                new_points.append(self.__output.get(block=False))
+                new_points.append(self._output.get(block=False))
         except Empty:
             pass
         return new_points
@@ -318,7 +323,7 @@ class Heuristic(Module):
         one thread is running).
         """
         t = any(t.isAlive() for t in self._threads)
-        q = self.__output.qsize() > 0
+        q = self._output.qsize() > 0
         return t or q
 
 
@@ -380,6 +385,7 @@ class Event(object):
     def __init__(self, **kwargs):
         self._when = time.time()
         self._kwargs = kwargs
+        self.terminate = False
         for k, v in kwargs.iteritems():
             setattr(self, k, v)
 
@@ -415,6 +421,8 @@ class EventBus(object):
         Registers a given ``target`` for this EventBus instance.
         It needs to have suitable ``on_<key>`` methods.
         For each of them, a :class:`~threading.Thread` is spawn as a daemon.
+
+        :param Module target:
         """
         from Queue import Empty, Queue  # LifoQueue
         from threading import Thread
@@ -432,9 +440,9 @@ class EventBus(object):
                     terminate = False
                     try:
                         while True:
-                            event = target._eventbus_events[
-                                key].get(block=isfirst)
-                            terminate |= event._terminate
+                            event = \
+                                target.eventbus_events[key].get(block=isfirst)
+                            terminate |= event.terminate
                             events.append(event)
                             isfirst = False
                     except Empty:
@@ -446,7 +454,7 @@ class EventBus(object):
                         if new_points is not None:
                             target.emit(new_points)
                         if terminate:
-                            raise StopHeuristic("terminated")
+                            raise StopHeuristic("%s terminated" % target.name)
                     except StopHeuristic as e:
                         self.logger.debug("'%s/on_%s' %s -> unsubscribing." %
                                           (target.name, key, e.message))
@@ -456,7 +464,8 @@ class EventBus(object):
             else:  # not draining (default)
                 while True:
                     try:
-                        event = target._eventbus_events[key].get(block=True)
+                        event = target.eventbus_events[key].get(block=True)
+                        assert isinstance(event, Event)
                         try:
                             new_points = getattr(
                                 target, 'on_%s' % key)(**event._kwargs)
@@ -464,11 +473,12 @@ class EventBus(object):
                             # list
                             if new_points is not None:
                                 target.emit(new_points)
-                            if event._terminate:
-                                raise StopHeuristic("terminated")
+                            if event.terminate:
+                                raise StopHeuristic("%s terminated" % target.name)
                         except StopHeuristic as e:
                             self.logger.debug(
-                                "'%s/on_%s' %s -> unsubscribing." % (target.name, key, e.message))
+                                "'%s/on_%s' %s -> unsubscribing." %
+                                (target.name, key, e.message))
                             self.unsubscribe(key, target)
                             return
                     except Exception as e:
@@ -484,16 +494,16 @@ class EventBus(object):
                                 "Exception: %s in %s: %s" % (key, target, e))
                         return
 
-        target._eventbus_events = {}
+        target.eventbus_events = {}
         # bind all 'on_<key>' methods to events in the eventbus
         import inspect
         for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
             if not name.startswith("on_"):
                 continue
-            key = name[3:]
-            self._check_key(key)
-            target._eventbus_events[key] = Queue()
-            t = Thread(target=run, args=(key, target,),
+            key = self._check_key(name[3:])
+            target.eventbus_events[key] = Queue()
+            t = Thread(target=run,
+                       args=(key, target,),
                        name='EventBus::%s/%s' % (target.name, key))
             t.daemon = True
             t.start()
@@ -502,9 +512,11 @@ class EventBus(object):
             self.subscribe(key, target)
             # logger.debug("%s subscribed and running." % t.name)
 
-    def _check_key(self, key):
+    @staticmethod
+    def _check_key(key):
         if not EventBus._re_key.match(key):
-            raise Exception('"%s" key not allowed' % key)
+            raise ValueError('"%s" key not allowed' % key)
+        return key
 
     def subscribe(self, key, target):
         """
@@ -563,9 +575,9 @@ class EventBus(object):
 
         for target in self._subs[key]:
             event = Event(**kwargs) if event is None else event
-            event._terminate = terminate
+            event.terminate = terminate
             # logger.info("EventBus: publishing %s -> %s" % (key, event))
-            target._eventbus_events[key].put(event)
+            target.eventbus_events[key].put(event)
 
 
 class StrategyBase(object):
@@ -603,6 +615,7 @@ class StrategyBase(object):
         pd.set_option('display.width', None)
         pd.set_option('display.precision', 2)  # default 7
 
+
         # statistics
         self.show_last = 0  # for printing the info line in _add_tasks()
         self.time_start = time.time()
@@ -631,9 +644,9 @@ class StrategyBase(object):
             self.ui._init_module(self)
             self.ui.show()
 
-    def add(self, Strat, **kwargs):
-        self.logger.debug("init: %s %s" % (Strat.__name__, kwargs))
-        self._hs.append(Strat(self, **kwargs))
+    def add(self, Heur, **kwargs):
+        self.logger.debug("init: %s %s" % (Heur.__name__, kwargs))
+        self._hs.append(Heur(self, **kwargs))
 
     def start(self):
         # heuristics
@@ -677,6 +690,10 @@ class StrategyBase(object):
         return self._analyzers[who]
 
     def add_heuristic(self, h):
+        """
+
+        :param Heuristic h:
+        """
         name = h.name
         assert name not in self._heuristics, \
             "Names of heuristics need to be unique. '%s' is already used." % name
@@ -684,6 +701,10 @@ class StrategyBase(object):
         self.init_module(h)
 
     def add_analyzer(self, a):
+        """
+
+        :param Analyzer a:
+        """
         name = a.name
         assert name not in self._analyzers, \
             "Names of analyzers need to be unique. '%s' is already used." % name
@@ -697,21 +718,23 @@ class StrategyBase(object):
         """
         heuristics = self._heuristics.values()
         analyzers = self._analyzers.values()
-        all_mod_classes = map(lambda m: m.__class__, heuristics)
-        all_mod_classes.extend(map(lambda m: m.__class__, analyzers))
-        all_mod_classes = set(all_mod_classes)
+        all_mods = [m.__class__ for m in heuristics]
+        all_mods.extend([m.__class__ for m in analyzers])
+        all_mods = set(all_mods)
         for module in analyzers + heuristics:
             # explicit
             if not module.check_dependencies(analyzers, heuristics):
                 raise Exception("%s does not satisfy dependencies. #1" % module)
             # implicit (just list of respective classes)
             for mod_class in module._depends_on:
-                if mod_class not in all_mod_classes:
+                if mod_class not in all_mods:
                     raise Exception("%s depends on %s, but missing." % (module, mod_class))
 
     def init_module(self, module):
         """
         :class:`~panobbgo.strategies.StrategyBase` calls this method.
+
+        :param Module module:
         """
         module.__start__()
         if self.config.ui_show:
@@ -781,7 +804,8 @@ class StrategyBase(object):
             self.results += new_results
 
             self.jobs_per_client = max(1,
-                                       int(min(self.config.max_eval / 50, 1.0 / self.avg_time_per_task)))
+                                       int(min(self.config.max_eval / 50.,
+                                               1. / self.avg_time_per_task)))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -840,16 +864,24 @@ class StrategyBase(object):
             self.show_last = time.time()
 
     def info(self):
+        """
+
+
+        """
         avg = self.avg_time_per_task
         pend = len(self.pending)
         fini = len(self.finished)
         peval = len(self.results)
-        self.slogger.info("%4d (%4d) pnts | Tasks: %3d pend, %3d finished | "
-                          "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" %
-                          (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg))
+        s = "%4d (%4d) pnts | Tasks: %3d pend, %3d finished | " +\
+            "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" % \
+            (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg)
+        self.slogger.info(s)
 
     @property
     def avg_time_per_task(self):
+        """
+        :return float: average time per task
+        """
         if len(self.tasks_walltimes) > 1:
             return np.average(self.tasks_walltimes.values())
         self.slogger.warning("avg time per task for 0 tasks! -> returning NaN")

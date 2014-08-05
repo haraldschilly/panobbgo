@@ -76,7 +76,7 @@ class Lib(unittest.TestCase):
 
         # with dx
         rbrk = Rosenbrock(2, dx=[2.41, 3.14])
-        assert np.allclose(rbrk.box,
+        assert np.allclose(rbrk.box.box,
                            [[2.41, 5.14],
                             [0.41, 5.14]])
         assert rbrk(p).fx > 5000.
@@ -85,9 +85,11 @@ class Lib(unittest.TestCase):
         rp = rbrk.random_point()
         assert np.all(rbrk.box[:, 0] <= rp)
         assert np.all(rbrk.box[:, 1] >= rp)
-        assert repr(rbrk) == "Problem 'Rosenbrock': 2 dims, " \
-                             "params: {'par1': 100, 'dx': array([ 2.41,  3.14])}, " \
-                             "box: [[2.41 5.14], [0.41 5.14]]"
+        r = repr(rbrk)  # ordering of dict is arbitrary, hence this:
+        assert "Problem 'Rosenbrock': 2 dims, params: " in r
+        assert "'par1': 100" in r
+        assert "'dx': array([ 2.41,  3.14])" in r
+        assert "box: [[2.41 5.14], [0.41 5.14]]" in r
 
     @expected_failure(ValueError, "assignment destination is read-only")
     def test_problem_dx_assign(self):
@@ -102,7 +104,7 @@ class Lib(unittest.TestCase):
     @expected_failure(ValueError, "assignment destination is read-only")
     def test_problem_ranges_assign(self):
         rbrk = Rosenbrock(2, dx=[2.41, 3.14])
-        rbrk._ranges[0] = 1.
+        rbrk.ranges[0] = 1.
 
     @expected_failure(ValueError, "point must be an instance of lib.Point")
     def test_result_error(self):

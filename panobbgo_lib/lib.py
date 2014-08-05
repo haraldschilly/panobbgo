@@ -62,7 +62,9 @@ class Point(object):
 
     @property
     def x(self):
-        "The vector :math:`x`, a :class:`numpy.ndarray`"
+        """
+        The vector :math:`x`, a :class:`numpy.ndarray`
+        """
         return self._x
 
     @property
@@ -79,11 +81,13 @@ class Point(object):
         """
         get x vector
 
-        >>> p = Point(np.array([1,42]), "doctest")
+        >>> p = Point(np.array([1, 42]), "doctest")
         >>> p[1]
         42
         """
         return self._x[item]
+
+
 
 
 class Result(object):
@@ -207,6 +211,43 @@ class Result(object):
         return ret
 
 
+class BoundingBox(object):
+    """
+    The bounding box of the :class:`Problem`
+    """
+    # this follows http://docs.scipy.org/doc/numpy/user/basics.subclassing.html
+    # #slightly-more-realistic-example-attribute-added-to-existing-array
+    def __init__(self, box, dx=None):
+        self.box = np.asarray(box, dtype=np.float64)
+        assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
+
+        if dx is not None:
+            self.box += dx
+
+        self.ranges = self.box.ptp(axis=1)  # self._box[:,1] - self._box[:,0]
+        self.center = self.box[:, 0] + self.ranges / 2.
+
+        for arr in [self.box, dx, self.ranges, self.center]:
+            if arr is not None:
+                arr.setflags(write=False)
+
+
+    def __contains__(self, point):
+        """
+        :param Point point: the box of the problem
+        """
+        l = np.alltrue(point.x >= self.box[:, 0])
+        u = np.alltrue(point.x <= self.box[:, 1])
+        return l and u
+
+
+    def __getitem__(self, item):
+        return self.box.__getitem__(item)
+
+    def __setitem__(self, key, value):
+        return self.box.__setitem__(key, value)
+
+
 class Problem(object):
 
     """
@@ -218,7 +259,7 @@ class Problem(object):
         r"""
         :param list box: list of tuples for the bounding box with length n,
                           e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
-        :param np.ndarray dx: translational offset which also affects the box,
+        :param list dx: translational offset which also affects the box,
                    n-dimensional vector (default: None)
         """
         assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"
@@ -231,19 +272,12 @@ class Problem(object):
             assert entry[0] <= entry[1], "box entries must be non-decreasing"
 
         self._dim = len(box)
-        self._box = np.array(box, dtype=np.float64)
-        assert self._box.shape == (self._dim, 2), "converting box to n x 2 array failed"
-        self._ranges = self._box.ptp(axis=1)  # self._box[:,1] - self._box[:,0]
-
-        if dx:
-            assert len(dx) == self._dim, "dx vector must have dimension n"
+        if dx is not None:
             dx = np.array(dx, dtype=np.float64)
-            self._box += dx
+            dx.setflags(write=False)
+        self._box = BoundingBox(box, dx)
 
         self.dx = dx
-        for arr in [self._box, self._ranges, self.dx]:
-            if arr is not None:
-                arr.setflags(write=False)
 
     @property
     def dim(self):
@@ -257,18 +291,21 @@ class Problem(object):
         """
         The ranges along each dimension, a :class:`numpy.ndarray`.
         """
-        return self._ranges
+        return self.box.ranges
 
     @property
     def box(self):
         r"""
-        The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array <numpy.ndarray>`.
-
-        .. Note::
-
-          This might change to a more sophisticated ``Box`` object.
+        The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array <.BoundingBox>`.
         """
         return self._box
+
+    @property
+    def center(self):
+        r"""
+        center of the box
+        """
+        return self.box.center
 
     def project(self, point):
         r"""
@@ -284,7 +321,7 @@ class Problem(object):
         generates a random point inside the given search box (ranges).
         """
         # uniformly
-        return self._ranges * np.random.rand(self.dim) + self._box[:, 0]
+        return self.ranges * np.random.rand(self.dim) + self._box[:, 0]
         # TODO other distributions, too?
 
     def eval(self, x):

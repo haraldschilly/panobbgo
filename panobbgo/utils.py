@@ -253,7 +253,7 @@ class PanobbgoTestCase(unittest.TestCase):
     def __init__(self, name):
         unittest.TestCase.__init__(self, name)
         from panobbgo.config import Config
-        self.config = Config(parse_args=False)
+        self.config = Config(parse_args=False, testing_mode=True)
 
     def setUp(self):
         from panobbgo_lib.classic import Rosenbrock
@@ -274,4 +274,5 @@ class PanobbgoTestCase(unittest.TestCase):
     def init_strategy(self, StrategyBaseMock):
         strategy = StrategyBaseMock()
         strategy.problem = self.problem
+        strategy.config = self.config
         return strategy

@@ -260,13 +260,19 @@ class PanobbgoTestCase(unittest.TestCase):
         self.problem = Rosenbrock(2)
         self.strategy = self.init_strategy()
 
-    def random_results(self, dim, N):
+    def random_results(self, dim, N, pcv = 0.0):
+        import numpy as np
         import numpy.random as rnd
         from panobbgo_lib.lib import Result, Point
         results = []
         for i in range(N):
             p = Point(rnd.rand(dim), 'test')
-            r = Result(p, rnd.rand())
+            cv_vec = np.zeros(dim)
+            if pcv > 0.0:
+                for cvidx in range(dim):
+                    if np.random.random() < pcv:
+                        cv_vec[cvidx] = np.random.randn()
+            r = Result(p, rnd.rand(), cv_vec=cv_vec)
             results.append(r)
         return results
 

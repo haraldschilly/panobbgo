@@ -232,6 +232,9 @@ class BoundingBox(object):
                 arr.setflags(write=False)
 
 
+    def copy(self):
+        return type(self)(self.box.copy())
+
     def __contains__(self, point):
         """
         :param Point point: the box of the problem

@@ -63,7 +63,7 @@ class Splitter(Analyzer):
         self.leafs.append(self.root)
         # big boxes
         self.biggest_leaf = self.root
-        self.big_by_depth = {}
+        self.big_by_depth = dict()
         self.big_by_depth[self.root.depth] = self.root
         self.max_depth = self.root.depth
         # best box (with best f(x))

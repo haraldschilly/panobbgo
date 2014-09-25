@@ -425,7 +425,7 @@ class Best(Analyzer):
         if not hasattr(self, "pf_ax"):
             return
         # self.ax1.clear()
-        pnts = map(lambda x: x.pp, front)
+        pnts = [x.pp for x in front]
         # insert points to make a staircase
         inserts = []
         for p1, p2 in zip(pnts[:-1], pnts[1:]):
@@ -436,8 +436,7 @@ class Best(Analyzer):
             all_pnts.append(inserts[i])
         all_pnts.append(pnts[-1])
         data = zip(*all_pnts)
-        self.pf_ax.plot(
-            data[0], data[1], '-', alpha=.7, color="black")  # ms = ?
+        self.pf_ax.plot(data[0], data[1], '-', alpha=.7, color="black")
         self.pf_ax.autoscale()  # TODO get rid of autoscale
         self.ui.redraw_canvas(self.pf_canvas)
 

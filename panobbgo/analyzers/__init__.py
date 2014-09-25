@@ -25,6 +25,27 @@ on their own and they are accessible via the
 the strategy.
 
 .. inheritance-diagram:: panobbgo.analyzers
+    :parts: 1
+
+.. automodule:: panobbgo.analyzers.best
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: panobbgo.analyzers.grid
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: panobbgo.analyzers.dedensifyer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: panobbgo.analyzers.splitter
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
@@ -32,3 +53,4 @@ the strategy.
 from best import Best
 from splitter import Splitter
 from grid import Grid
+from dedensifyer import Dedensifyer

@@ -12,8 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import division
+import random
+import numpy as np
+import numpy.random as rnd
 
 from panobbgo.utils import PanobbgoTestCase
+from panobbgo_lib.lib import Point, Result
 
 
 class AnalyzersUtils(PanobbgoTestCase):
@@ -27,9 +32,15 @@ class AnalyzersUtils(PanobbgoTestCase):
         from panobbgo.analyzers import Best
         best = Best(self.strategy)
         assert best is not None
-        results = self.random_results(2, 100, pcv=.99)
-        #for r in results:
-        #    print unicode(r)
+        results = self.random_results(2, 10, pcv=.99)
+        N = 10
+        for i in range(N):
+            p = Point(rnd.random(self.problem.dim), "test")
+            cv_vec = np.zeros(self.problem.dim)
+            cv_vec[0] = N - (N / ( i+1))
+            r =  Result(p, 1. / (i+1), cv_vec = cv_vec)
+            results.append(r)
+        #random.shuffle(results)
         best.on_new_results(results)
         best._check_pareto_front()
         print "Pareto Front:"

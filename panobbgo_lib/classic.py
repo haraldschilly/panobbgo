@@ -583,3 +583,24 @@ class Branin(Problem):
         term2 = self.s*(1-self.t)*np.cos(x1)
         y = term1 + term2 + s;
         return y
+
+
+class GoldsteinPrice(Problem):
+    r"""
+    Goldstein-Price test function [branin]_
+
+    .. math:
+        f(x,y) = \left(1+\left(x+y+1\right)^{2}\left(19-14x+3x^{2}-14y+6xy+3y^{2}\right)\right)
+                 \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
+    """
+    def __init__(self, **kwargs):
+        box = np.array([-2, 2], [-2, 2])
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x
+        a = 1+(x1+x2+1)**2*(19-14*x1+3*x1**2-14*x2+6*x1*x2+3*x2**2)
+        b = 30+(2*x1-3*x2)**2*(18-32*x1+12*x1**2+48*x2-36*x1*x2+27*x2**2)
+        return a*b
+
+

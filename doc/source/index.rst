@@ -110,3 +110,6 @@ References
 .. [Conn] Conn, A. R., et al.
     "Performance of a multifrontal scheme for partially separable optimization."
     Springer Netherlands, 1994.
+.. [branin] LCW Dixon, GP Szegö.
+    "Towards global optimisation 2."
+    Amsterdam: North-Holland, 1978.

@@ -126,6 +126,7 @@ class Module(object):
         """
         :param StrategyBase strategy:
         :param str name:
+        @type strategy: StrategyBase
         """
         name = name if name else self.__class__.__name__
         self._strategy = strategy
@@ -604,6 +605,13 @@ class StrategyBase(object):
     PROBLEM_KEY = "problem"
 
     def __init__(self, problem, parse_args=False):
+        """
+
+
+        @type problem: panobbgo_lib.lib.Problem
+        @param problem: 
+        @param parse_args: 
+        """
         self._name = name = self.__class__.__name__
         self.config = config = Config(parse_args)
         self.logger = logger = config.get_logger('STRAT')
@@ -877,9 +885,9 @@ class StrategyBase(object):
         pend = len(self.pending)
         fini = len(self.finished)
         peval = len(self.results)
-        s = "%4d (%4d) pnts | Tasks: %3d pend, %3d finished | " +\
-            "%6.3f [s] cpu, %6.3f [s] wall, %6.3f [s/task]" % \
-            (peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg)
+        s = '{0:4d} ({1:4d}) pnts | Tasks: {2:3d} pend, {3:3d} finished | ' \
+            '{4:6.3f} [s] cpu, {5:6.3f} [s] wall, {6:6.3f} [s/task]' \
+            .format(peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg)
         self.slogger.info(s)
 
     @property

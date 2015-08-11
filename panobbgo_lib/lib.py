@@ -206,7 +206,7 @@ class Result(object):
         assert isinstance(other, Result)
         return cmp(self._fx, other._fx)
 
-    def __repr__(self):
+    def __unicode__(self):
         x = u' '.join(
             u'%11.6f' % _ for _ in self.x) if self.x is not None else None
         cv = '' if self._cv_vec is None else u'\u22DB%8.4f ' % self.cv
@@ -234,6 +234,9 @@ class BoundingBox(object):
             if arr is not None:
                 arr.setflags(write=False)
 
+
+    def copy(self):
+        return type(self)(self.box.copy())
 
     def __contains__(self, point):
         """

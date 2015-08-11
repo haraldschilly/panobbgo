@@ -551,3 +551,60 @@ class Arwhead(Problem):
 
     def eval(self, x):
         return ((x[:-1] ** 2 + x[-1] ** 2) ** 2 - 4 * x[:-1] + 3).sum()
+
+
+class Branin(Problem):
+
+    r"""
+    BRANIN test problem [branin]_
+
+    .. math::
+        F(X) = a(x_2 - b x_1^2 + c x_1 - r)^2 + s(1-t) \cos(x_1) + s
+
+        a = 1,\,b = 5.1 ⁄ (4 π^2),\, c = 5 ⁄ π,\, r = 6,\, s = 10 and t = 1 ⁄ (8π)
+    """
+
+    def __init__(self,
+            a = 1,
+            b = 5.1 / (4 * np.pi**2),
+            c = 5 / np.pi,
+            r = 6,
+            s = 10,
+            t = 1,
+            **kwargs):
+        box = np.array([[-5, 10], [0, 15]])
+        self.a = a
+        self.b = b
+        self.c = c
+        self.r = r
+        self.s = s
+        self.t = t
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x
+        term1 = self.a * (x2 - self.b*x1**2 + self.c*x1 - self.r)**2
+        term2 = self.s*(1-self.t)*np.cos(x1)
+        y = term1 + term2 + s;
+        return y
+
+
+class GoldsteinPrice(Problem):
+    r"""
+    Goldstein-Price test function [branin]_
+
+    .. math:
+        f(x,y) = \left(1+\left(x+y+1\right)^{2}\left(19-14x+3x^{2}-14y+6xy+3y^{2}\right)\right)
+                 \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
+    """
+    def __init__(self, **kwargs):
+        box = np.array([-2, 2], [-2, 2])
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x
+        a = 1+(x1+x2+1)**2*(19-14*x1+3*x1**2-14*x2+6*x1*x2+3*x2**2)
+        b = 30+(2*x1-3*x2)**2*(18-32*x1+12*x1**2+48*x2-36*x1*x2+27*x2**2)
+        return a*b
+
+

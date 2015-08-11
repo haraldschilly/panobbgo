@@ -13,15 +13,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from __future__ import unicode_literals
+from __future__ import division
+from __future__ import print_function
+
+import numpy as np
+import numpy.random as rnd
+
 from panobbgo.utils import PanobbgoTestCase
+from panobbgo_lib.lib import Point, Result
 
 
 class AnalyzersUtils(PanobbgoTestCase):
+
+    def setUp(self):
+        from panobbgo_lib.classic import RosenbrockConstraint
+        self.problem = RosenbrockConstraint(2)
+        self.strategy = self.init_strategy()
 
     def test_best(self):
         from panobbgo.analyzers import Best
         best = Best(self.strategy)
         assert best is not None
+        results = self.random_results(2, 10, pcv=.99)
+        N = 10
+        for i in range(N):
+            p = Point(rnd.random(self.problem.dim), "test")
+            cv_vec = np.zeros(self.problem.dim)
+            cv_vec[0] = N - (N / ( i+1))
+            r =  Result(p, 1. / (i+1), cv_vec = cv_vec)
+            results.append(r)
+        #import random
+        #random.shuffle(results)
+        best.on_new_results(results)
+        best._check_pareto_front()
+        print("Pareto Front:")
+        for r in best.pareto_front:
+            print(r)
+
 
 if __name__ == '__main__':
     import unittest

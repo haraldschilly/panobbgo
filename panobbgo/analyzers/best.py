@@ -396,9 +396,9 @@ class Best(Analyzer):
             weight = np.array([self._cv.fx, self._min.cv])
             if self._pareto is None \
                 or (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
-                or self._pareto.cv > 0.0 and \
-                weight.dot([self._pareto.cv, self._pareto.fx]) >\
-                    weight.dot([r.cv, r.fx]):
+                or (self._pareto.cv > 0.0 and
+                    weight.dot([self._pareto.cv, self._pareto.fx]) >
+                       weight.dot([r.cv, r.fx])):
                 self._pareto = r
                 self.eventbus.publish("new_pareto", pareto=r)
                 self.eventbus.publish("new_best", best=r)

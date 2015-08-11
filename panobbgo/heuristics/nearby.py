@@ -18,7 +18,7 @@ from future.builtins import range
 from panobbgo.analyzers.best import Best
 
 
-from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.core import Heuristic
 
 
 class Nearby(Heuristic):

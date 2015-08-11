@@ -23,9 +23,12 @@ This draws a window and plots graphs.
    :scale:  75 %
 """
 from __future__ import division, absolute_import, unicode_literals
-from future.utils import native_str
-from .core import Module
 from threading import Thread
+
+from future.utils import native_str
+
+from .core import Module
+
 
 try:
     import pygtk
@@ -46,7 +49,6 @@ import os
 if os.environ.get("TRAVIS") == "true":
     matplotlib.use('Agg')  # 'GTKAgg' or 'GTK', or 'Agg' ?
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-    from matplotlib.backends.backend_agg import NavigationToolbar2Agg as NavigationToolbar
 else:
     try:
         matplotlib.use('GTKAgg')  # 'GTKAgg' or 'GTK', or 'Agg' ?

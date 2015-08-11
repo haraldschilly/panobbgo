@@ -14,10 +14,10 @@
 # limitations under the License.
 
 import mock
-from panobbgo.heuristics.latin_hypercube import LatinHypercube
 
+from panobbgo.heuristics.latin_hypercube import LatinHypercube
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding
+from panobbgo.strategies import StrategyRoundRobin
 from panobbgo_lib.classic import Rosenbrock
 
 

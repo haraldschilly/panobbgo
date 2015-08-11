@@ -1,5 +1,5 @@
 from __future__ import division, unicode_literals
-from future.builtins import map, range, object
+from future.builtins import range, object
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #

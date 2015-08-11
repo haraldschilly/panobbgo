@@ -1,6 +1,3 @@
-from __future__ import unicode_literals
-from future.builtins import zip
-from future.builtins import range
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #
@@ -15,10 +12,13 @@ from future.builtins import range
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import unicode_literals
+
+from future.builtins import zip
+from future.builtins import range
+import numpy as np
 
 from panobbgo.core import Analyzer
-
-import numpy as np
 
 
 class Best(Analyzer):

@@ -17,7 +17,7 @@ from future.builtins import range
 # limitations under the License.
 from panobbgo.analyzers.best import Best
 
-from panobbgo.core import Heuristic, StopHeuristic
+from panobbgo.core import Heuristic
 
 
 class WeightedAverage(Heuristic):

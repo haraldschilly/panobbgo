@@ -38,7 +38,6 @@ and base-classes for the modules:
 from __future__ import division, absolute_import, unicode_literals
 from future import standard_library
 standard_library.install_hooks()
-from future.builtins import *
 
 from .config import Config
 from panobbgo_lib import Result, Point

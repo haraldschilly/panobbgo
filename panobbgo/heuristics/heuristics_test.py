@@ -14,8 +14,9 @@
 # limitations under the License.
 from __future__ import unicode_literals
 
-from panobbgo.utils import PanobbgoTestCase
 import numpy as np
+
+from panobbgo.utils import PanobbgoTestCase
 
 
 class HeuristicTests(PanobbgoTestCase):

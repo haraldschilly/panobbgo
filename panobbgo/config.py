@@ -28,11 +28,6 @@ via optional command-line arguments.
 
 .. inheritance-diagram:: panobbgo.configuration
 """
-from __future__ import absolute_import, unicode_literals
-from future.builtins import str
-from future import standard_library
-standard_library.install_hooks()
-from future.builtins import object
 
 _config = None
 

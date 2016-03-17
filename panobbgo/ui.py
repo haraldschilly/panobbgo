@@ -22,11 +22,7 @@ This draws a window and plots graphs.
 .. figure:: img/ui1.png
    :scale:  75 %
 """
-from __future__ import division, absolute_import, unicode_literals
 from threading import Thread
-
-from future.utils import native_str
-
 from .core import Module
 
 

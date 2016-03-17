@@ -22,10 +22,6 @@ This file contains the basic objects to build a problem and to do a single evalu
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import unicode_literals
-from future.builtins import range
 
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!

@@ -35,9 +35,6 @@ and base-classes for the modules:
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
-from __future__ import division, absolute_import, unicode_literals
-from future import standard_library
-standard_library.install_hooks()
 
 from .config import Config
 from panobbgo_lib import Result, Point
@@ -265,7 +262,7 @@ class Heuristic(Module):
         self.logger = self.config.get_logger('HEUR')
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
-        from queue import Queue
+        from Queue import Queue
         self._output = Queue(self.cap)
 
         # statistics; performance

@@ -19,12 +19,8 @@ Utilities
 
 Some utility functions, will move eventually.
 """
-from __future__ import print_function
-from __future__ import unicode_literals
-import logging
 
-from future.builtins import range
-from future.builtins import object
+import logging
 
 
 class ColoredFormatter(logging.Formatter):

@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import unicode_literals
-from future.builtins import range
 # -*- coding: utf8 -*-
 # Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
 #

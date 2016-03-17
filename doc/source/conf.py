@@ -216,8 +216,7 @@ latex_font_size = '10pt'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'panobbgo.tex', u'Panobbgo Documentation', u'Harald Schilly',
-     'manual'),
+    ('index', 'panobbgo-api.tex', u'Panobbgo Documentation', u'Harald Schilly', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

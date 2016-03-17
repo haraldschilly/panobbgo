@@ -34,7 +34,8 @@ help:
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 
 clean:
-	@echo "rm -rf of html, pdf and doctree ... nothing else!"
+	@echo "rm -rf of html, pdf, latex and doctree ... nothing else!"
+	-rm -rf $(BUILDDIR)/latex
 	-rm -rf $(BUILDDIR)/html
 	-rm -rf $(BUILDDIR)/pdf
 	-rm -rf $(BUILDDIR)/doctree

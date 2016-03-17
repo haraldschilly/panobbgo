@@ -6,6 +6,7 @@
 
 nosetests -v -s \
     --with-coverage --with-doctest --cover-erase \
+    --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE' \
     --cover-package=panobbgo --cover-package=panobbgo_lib
 
 exit $?

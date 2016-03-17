@@ -51,7 +51,7 @@ class Point:
     def __repr__(self):
         """
         >>> Point
-        <class 'panobbgo_lib.lib.Point'>
+        <class panobbgo_lib.lib.Point at ...>
 
         >>> x = np.array([1,2])
         >>> repr(Point(x, 'doctest'))

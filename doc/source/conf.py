@@ -199,7 +199,8 @@ html_use_opensearch = 'http://dev.harald.schil.ly/panobbgo/html'
 htmlhelp_basename = 'panobbgodoc'
 
 intersphinx_mapping = {
-    'python': ('http://docs.python.org/2.7', None),
+    'python': ('https://docs.python.org/3.5', None),
+    #'python': ('http://docs.python.org/2.7', None),
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     'IPython': ('http://ipython.org/', None)
 }

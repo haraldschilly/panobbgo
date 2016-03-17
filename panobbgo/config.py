@@ -39,7 +39,7 @@ Sources: https://github.com/haraldschilly/panobbgo
 """
 
 
-class Config(object):
+class Config:
 
     def __init__(self, parse_args=False, testing_mode=False):
         """

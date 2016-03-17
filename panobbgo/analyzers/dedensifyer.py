@@ -17,7 +17,7 @@ from collections import defaultdict
 from panobbgo.core import Analyzer
 
 
-class Box(object):
+class Box:
 
     r"""
     :class:`Dedensifyer's <.Dedensifyer>` helper class, that registeres points for the given box.

@@ -166,7 +166,7 @@ class Splitter(Analyzer):
                 self.best_box = new_box
         self.eventbus.publish('new_best_box', best_box=self.best_box)
 
-    class Box(object):
+    class Box:
 
         """
         Used by :class:`.Splitter`, therefore nested.

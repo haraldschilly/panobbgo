@@ -139,7 +139,7 @@ def is_right(p0, p1, ptest):
     return np.linalg.det(np.vstack([v1, v2])) < 0
 
 
-class memoize(object):
+class memoize:
 
     """
     Caches the return value of a method inside the instance's function!
@@ -151,7 +151,7 @@ class memoize(object):
 
     Usage::
 
-      class Obj(object):
+      class Obj:
         @memoize
         def method(self, hashable):
           result = do_calc(...)
@@ -160,7 +160,7 @@ class memoize(object):
     If a memoized method is invoked directly on its class the result will not
     be cached. Instead the method will be invoked like a static method::
 
-      class Obj(object):
+      class Obj:
         @memoize
         def add_to(self, arg):
           return self + arg
@@ -229,7 +229,7 @@ def expected_failure(exptn, msg=None):
     return wrapper
 
 
-class MockupEventBus(object):
+class MockupEventBus:
 
     def __init__(self):
         self.targets = []
@@ -238,7 +238,7 @@ class MockupEventBus(object):
         self.targets.append(who)
 
 
-# class MockupStrategy(object):
+# class MockupStrategy:
 #
 #    def __init__(self, problem):
 #        self.problem = problem

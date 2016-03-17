@@ -42,7 +42,7 @@ from IPython.utils.timing import time
 import numpy as np
 
 
-class Results(object):
+class Results:
 
     """
     A very simple database of results with a notification for new results.
@@ -112,7 +112,7 @@ class Results(object):
         return len(self.results) if self.results is not None else 0
 
 
-class Module(object):
+class Module:
 
     """
     "Abstract" parent class for various panobbgo modules, e.g.
@@ -377,7 +377,7 @@ class Analyzer(Module):
 #
 
 
-class Event(object):
+class Event:
 
     """
     This class holds the data for one single :class:`~.EventBus` event.
@@ -393,7 +393,7 @@ class Event(object):
         return "Event[%s]" % self._kwargs
 
 
-class EventBus(object):
+class EventBus:
 
     """
     This event bus is used to publish and send events.
@@ -580,7 +580,7 @@ class EventBus(object):
             target.eventbus_events[key].put(event)
 
 
-class StrategyBase(object):
+class StrategyBase:
 
     """
     This abstract BaseStrategy is the parent class of all Strategies.

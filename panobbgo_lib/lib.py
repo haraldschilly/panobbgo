@@ -25,15 +25,13 @@ This file contains the basic objects to build a problem and to do a single evalu
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
-from __future__ import unicode_literals
-
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
 import numpy as np
 from IPython.utils.timing import time
 
 
-class Point(object):
+class Point:
 
     """
     This contains the x vector for a new point and a
@@ -91,7 +89,7 @@ class Point(object):
 
 
 
-class Result(object):
+class Result:
 
     r"""
     This represents one result, wich is a mapping of a :class:`.Point`
@@ -212,7 +210,7 @@ class Result(object):
         return ret
 
 
-class BoundingBox(object):
+class BoundingBox:
     """
     The bounding box of the :class:`Problem`
     """
@@ -252,7 +250,7 @@ class BoundingBox(object):
         return self.box.__setitem__(key, value)
 
 
-class Problem(object):
+class Problem:
 
     """
     this is used to store the objective function,

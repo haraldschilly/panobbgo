@@ -742,7 +742,7 @@ class StrategyBase:
 
     def init_module(self, module):
         """
-        :class:`~panobbgo.strategies.StrategyBase` calls this method.
+        :class:`.StrategyBase` calls this method.
 
         :param Module module:
         """

@@ -71,8 +71,8 @@ class Point:
         """
         A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
 
-        To get the actual heuristic, use the
-        :meth:`strategie's heuristic <panobbgo.core.StrategyBase.heuristic>` method.
+        To get the actual heuristic, use the strategie's
+        :meth:`~panobbgo.core.StrategyBase.heuristic` method.
         """
         return self._who
 
@@ -100,7 +100,6 @@ class Result:
     - :attr:`.error`: estimated or calculated :math:`\Delta f(x)`.
     - :attr:`.cv_vec`: a possibly empty vector listing the constraint violation for
       each constraint.
-    - :attr:`.cnt`: An integer counter, starting at 0.
     """
 
     def __init__(self, point, fx, cv_vec=None, cv_norm=None, error=0.0):
@@ -157,6 +156,8 @@ class Result:
     @property
     def cv(self):
         """
+        Constraint Violation.
+
         The chosen norm of :attr:`.cv_vec`; see ``cv_norm`` in constructor.
 
         .. Note::

@@ -30,15 +30,16 @@ try:
     import pygtk
     pygtk.require('2.0')
 except:
-    print "WARNING: no module pygtk installed"
+    print("WARNING: no module pygtk installed")
 
 try:
     import gtk
     from gtk import gdk
     gtk_Window = gtk.Window
 except:
-    print "WARNING: no module gtk installed"
-    gtk_Window = type(native_str("Mock_gtk_Window"), tuple(), {})
+    print("WARNING: no module gtk installed")
+    # create a mock metaclass
+    gtk_Window = type("Mock_gtk_Window", tuple(), {})
 
 import matplotlib
 import os
@@ -51,7 +52,7 @@ else:
         from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
         from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
     except Exception as ex:
-        print "ERROR: not able to initialize GTKAgg: %s" % ex
+        print("ERROR: not able to initialize GTKAgg: %s" % ex)
 del os
 # from matplotlib.widgets import Slider, Cursor # SpanSelector
 # from matplotlib.axes import Axes

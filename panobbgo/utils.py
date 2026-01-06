@@ -55,6 +55,8 @@ class ColoredFormatter(logging.Formatter):
         return string
 
     def format(self, record):
+        import copy
+        record = copy.copy(record)
         levelname = record.levelname
         if levelname in ColoredFormatter.COLORS:
             col = ColoredFormatter.COLORS[levelname]
@@ -197,7 +199,7 @@ class memoize:
 # Testing
 
 import unittest
-import mock
+from unittest import mock
 import functools
 
 
@@ -221,7 +223,7 @@ def expected_failure(exptn, msg=None):
                 testfn(*args, **kwargs)
             except exptn as ex:
                 if msg is not None:
-                    assert ex.message == msg, "message: '%s'" % ex.message
+                    assert str(ex) == msg, "message: '%s'" % str(ex)
             else:
                 raise AssertionError("No Exception '%s' raised in '%s'" %
                                      (exptn.__name__, testfn.__name__))
@@ -256,14 +258,14 @@ class PanobbgoTestCase(unittest.TestCase):
         self.config = Config(parse_args=False, testing_mode=True)
 
     def setUp(self):
-        from panobbgo_lib.classic import Rosenbrock
+        from panobbgo.lib.classic import Rosenbrock
         self.problem = Rosenbrock(2)
         self.strategy = self.init_strategy()
 
     def random_results(self, dim, N, pcv = 0.0):
         import numpy as np
         import numpy.random as rnd
-        from panobbgo_lib.lib import Result, Point
+        from panobbgo.lib.lib import Result, Point
         results = []
         for i in range(N):
             p = Point(rnd.rand(dim), 'test')

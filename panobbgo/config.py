@@ -150,12 +150,12 @@ class Config:
             cfgp.set('core', 'show_interval', '1.0')
             cfgp.set('core', 'max_eval', '1000')
             cfgp.set('core', 'discount', '0.95')
-            cfgp.set('core', 'smooth', 0.5)
+            cfgp.set('core', 'smooth', '0.5')
 
             cfgp.add_section('ui')
-            cfgp.set('ui', 'show', False)
+            cfgp.set('ui', 'show', 'False')
 
-            with open(self.config_fn, 'wb') as configfile:
+            with open(self.config_fn, 'w') as configfile:
                 cfgp.write(configfile)
 
         # 2/2: reading the config file

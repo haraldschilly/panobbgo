@@ -22,22 +22,22 @@ from panobbgo.utils import PanobbgoTestCase
 class HeuristicTests(PanobbgoTestCase):
 
     def test_weighted_average(self):
-        from . import WeightedAverage
+        from panobbgo.heuristics.weighted_average import WeightedAverage
         avg = WeightedAverage(self.strategy)
         assert avg is not None
 
     def test_random(self):
-        from . import Random
+        from panobbgo.heuristics.random import Random
         rnd = Random(self.strategy)
         assert rnd is not None
 
     def test_latin_hypercube(self):
-        from . import LatinHypercube
+        from panobbgo.heuristics.latin_hypercube import LatinHypercube
         lhyp = LatinHypercube(self.strategy, 3)
         assert lhyp is not None
 
     def test_nelder_mead(self):
-        from . import NelderMead
+        from panobbgo.heuristics.nelder_mead import NelderMead
         nm = NelderMead(self.strategy)
         assert nm is not None
         dim = 5
@@ -49,14 +49,14 @@ class HeuristicTests(PanobbgoTestCase):
         assert np.linalg.matrix_rank(M) == dim
 
     def test_center(self):
-        from . import Center
+        from panobbgo.heuristics.center import Center
         cntr = Center(self.strategy)
         assert cntr is not None
         #box = cntr.on_start()
         #assert np.allclose(box, [1, 0.])
 
     def test_extremal(self):
-        from . import Extremal
+        from panobbgo.heuristics.extremal import Extremal
         extr = Extremal(self.strategy, prob=range(10))
         assert isinstance(extr.probabilities, np.ndarray)
         assert np.isclose(sum(np.diff(extr.probabilities)), 1.)
@@ -72,9 +72,9 @@ class HeuristicTests(PanobbgoTestCase):
 
         # simulate on_start, produces one point in testing mode
         extr.on_start()
-        from Queue import Queue
+        from queue import Queue
         assert isinstance(extr._output, Queue)
         p = extr._output.get()
-        from panobbgo_lib import Point
+        from panobbgo.lib.lib import Point
         assert isinstance(p, Point)
         assert p in self.problem.box

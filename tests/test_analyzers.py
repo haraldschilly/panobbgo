@@ -20,18 +20,18 @@ import numpy as np
 import numpy.random as rnd
 
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo_lib.lib import Point, Result
+from panobbgo.lib.lib import Point, Result
 
 
 class AnalyzersUtils(PanobbgoTestCase):
 
     def setUp(self):
-        from panobbgo_lib.classic import RosenbrockConstraint
+        from panobbgo.lib.classic import RosenbrockConstraint
         self.problem = RosenbrockConstraint(2)
         self.strategy = self.init_strategy()
 
     def test_best(self):
-        from panobbgo.analyzers import Best
+        from panobbgo.analyzers.best import Best
         best = Best(self.strategy)
         assert best is not None
         results = self.random_results(2, 10, pcv=.99)

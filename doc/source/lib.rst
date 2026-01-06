@@ -1,4 +1,4 @@
-.. automodule:: panobbgo_lib.lib
+.. automodule:: panobbgo.lib.lib
    :members:
    :undoc-members:
    :show-inheritance:

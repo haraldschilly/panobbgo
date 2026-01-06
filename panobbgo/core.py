@@ -37,7 +37,7 @@ and base-classes for the modules:
 """
 
 from .config import Config
-from panobbgo_lib import Result, Point
+from panobbgo.lib.lib import Result, Point
 from IPython.utils.timing import time
 import numpy as np
 
@@ -182,7 +182,7 @@ class Module:
         """
         This method should be overwritten by the respective subclass.
         It is called in the 2nd initialization phase, inside :meth:`._init_module`.
-        Now, the strategy and all its components (e.g. :class:`panobbgo_lib.lib.Problem`, ...)
+        Now, the strategy and all its components (e.g. :class:`panobbgo.lib.lib.Problem`, ...)
         are available.
         """
         pass
@@ -605,7 +605,7 @@ class StrategyBase:
         """
 
 
-        @type problem: panobbgo_lib.lib.Problem
+        @type problem: panobbgo.lib.lib.Problem
         @param problem: 
         @param parse_args: 
         """

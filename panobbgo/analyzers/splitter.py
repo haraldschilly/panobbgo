@@ -122,7 +122,7 @@ class Splitter(Analyzer):
         """
         return all boxes, where point is contained in
         """
-        from panobbgo_lib import Result
+        from panobbgo.lib.lib import Result
         assert isinstance(result, Result)
         return self.result2boxes[result]
 
@@ -130,7 +130,7 @@ class Splitter(Analyzer):
         """
         returns the leaf box, where given result is currently sitting in
         """
-        from panobbgo_lib import Result
+        from panobbgo.lib.lib import Result
         assert isinstance(result, Result)
         # it might happen, that the result isn't in the result2leaf map
         # then we have to wait until on_new_results got it
@@ -251,7 +251,7 @@ class Splitter(Analyzer):
             This updates the splitter and box specific datatypes,
             i.e. the maps from a result to the corresponding boxes or leafs.
             """
-            from panobbgo_lib import Result
+            from panobbgo.lib.lib import Result
             assert isinstance(result, Result)
             self.results.append(result)
 
@@ -268,7 +268,7 @@ class Splitter(Analyzer):
 
         def add_result(self, result):
             """
-            Registers and adds a new :class:`~panobbgo_lib.lib.Result`.
+            Registers and adds a new :class:`~panobbgo.lib.lib.Result`.
             In particular, it adds the given ``result`` to the
             current box and it's children (also all descendents).
 

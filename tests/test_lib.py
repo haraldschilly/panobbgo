@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
-import nose
 import numpy as np
 
-from .classic import *
-from .lib import *
+from panobbgo.lib.classic import *
+from panobbgo.lib.lib import *
 from panobbgo.utils import expected_failure
 
 
@@ -46,14 +45,14 @@ def Disturbance(dim, nb=10, sd=.001, minimum=0.0001):
 class Lib(unittest.TestCase):
 
     def test_point(self):
-        x = np.array([5, -2.2, 0, 1.1], dtype=np.float)
+        x = np.array([5, -2.2, 0, 1.1], dtype=float)
         p = Point(x, 'test')
         self.assertEqual(p.who, 'test')
         np.testing.assert_array_equal(p.x, x)
         self.assertEqual(repr(p), '[ 5.  -2.2  0.   1.1] by test')
 
     @expected_failure(Exception, "who needs to be a string describing the heuristic, "
-                                 "was 0 of type <type 'int'>")
+                                 "was 0 of type <class 'int'>")
     def test_point_who(self):
         x = np.array([5, -2.2, 0, 1.1])
         Point(x, 0)

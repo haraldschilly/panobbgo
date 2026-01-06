@@ -28,7 +28,7 @@ class Best(Analyzer):
     - ``new_best``: when a new "best" point,
     - ``new_min``: a point with smallest objective function value,
     - ``new_cv``: one with a smaller
-      :attr:`~panobbgo_lib.lib.Result.cv`, or
+      :attr:`~panobbgo.lib.lib.Result.cv`, or
     - ``new_pareto``: when a best point on the pareto front of the
       objective value and constraint violation
 
@@ -277,7 +277,7 @@ class Best(Analyzer):
     @property
     def best(self):
         """
-        Currently best :class:`~panobbgo_lib.lib.Result`.
+        Currently best :class:`~panobbgo.lib.lib.Result`.
 
         .. Note::
 

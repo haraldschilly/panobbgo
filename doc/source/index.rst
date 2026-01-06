@@ -69,7 +69,7 @@ Library
 The library component contains the code for constructing the problem instances
 and running them on the computational nodes.
 
-.. automodule:: panobbgo_lib
+.. automodule:: panobbgo.lib
 
 .. toctree::
    :maxdepth: 2

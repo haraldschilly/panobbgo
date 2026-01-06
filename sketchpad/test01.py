@@ -11,7 +11,7 @@ from panobbgo.heuristics import Random, Nearby, Zero, LatinHypercube, Extremal, 
 from panobbgo.strategies import StrategyRewarding  # , StrategyRoundRobin
 #import numpy as np
 
-from panobbgo_lib.classic import Rosenbrock
+from panobbgo.lib.classic import Rosenbrock
 
 #problem = Shekel(3)
 problem = Rosenbrock(4, par1=10)

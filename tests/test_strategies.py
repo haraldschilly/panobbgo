@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import mock
+from unittest import mock
 
 from panobbgo.heuristics.latin_hypercube import LatinHypercube
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo.strategies import StrategyRoundRobin
-from panobbgo_lib.classic import Rosenbrock
+from panobbgo.strategies.round_robin import StrategyRoundRobin
+from panobbgo.lib.classic import Rosenbrock
 
 
 def get_my_setup_cluster():

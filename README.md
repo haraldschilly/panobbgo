@@ -59,7 +59,7 @@ also provides the `pygtk` module, right?
 
 1. Setup your cluster according to the IPython documentation (you have to 
    know the profile name, default is `default`)
-1. `panobbgo_lib` must be available on all nodes.
+1. `panobbgo.lib` must be available on all nodes.
    It contains the problem definitions you want to use.
    In particular, you have to create a script to execute everything -
    while especially the problem definition needs to be available for deserialization

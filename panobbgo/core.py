@@ -790,7 +790,7 @@ class StrategyBase:
 
     @property
     def best(self):
-        best_analyzer = self._analyzers.get('best')
+        best_analyzer = self._analyzers.get('Best')
         return best_analyzer.best if best_analyzer else None
 
     @property

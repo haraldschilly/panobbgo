@@ -127,7 +127,7 @@ class UI(Module, gtk_Window, Thread):
                     [c.draw_idle() for c in self._canvases if c._need_redraw]
                 finally:
                     gtk.threads_leave()
-                from IPython.utils.timing import time
+                import time
                 time.sleep(self.config.ui_redraw_delay)
 
         self.t = Thread(target=task)

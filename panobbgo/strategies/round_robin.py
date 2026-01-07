@@ -32,7 +32,7 @@ class StrategyRoundRobin(StrategyBase):
         StrategyBase.__init__(self, problem, **kwargs)
 
     def execute(self):
-        from IPython.utils.timing import time
+        import time
         points = []
         while len(points) == 0:
             hs = self.heuristics

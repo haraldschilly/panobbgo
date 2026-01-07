@@ -71,11 +71,11 @@ class PanobbgoContext(logging.Filter):
 
     def __init__(self):
         logging.Filter.__init__(self)
-        from IPython.utils.timing import time
+        import time
         self._start = time.time()
 
     def filter(self, record):
-        from IPython.utils.timing import time
+        import time
         record.runtime = time.time() - self._start
         record.where = "%s:%s" % (record.filename[:-3], record.lineno)
         return True
@@ -111,13 +111,16 @@ def info():
 
     version("numpy")
     version("scipy")
-    version("IPython")
     version("pandas")
     version("statsmodels")
     try:
         version("matplotlib")
     except:
         print("matplotlib broken :(")
+    try:
+        version("dask")
+    except:
+        pass
     v['git HEAD'] = git.communicate()[0].splitlines()[0]
     return v
 

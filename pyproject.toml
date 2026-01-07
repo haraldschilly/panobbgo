@@ -26,7 +26,8 @@ dependencies = [
     "matplotlib",
     "pandas",
     "statsmodels",
-    "ipython",
+    "dask[distributed]",
+    "pyyaml",
     "future",
 ]
 requires-python = ">=3.8"

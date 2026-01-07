@@ -45,6 +45,16 @@ This software package is licensed under the
    :alt: Build Status
    :target: https://travis-ci.org/haraldschilly/panobbgo
 
+User Guide
+----------
+
+Comprehensive guide covering concepts, usage, and extension.
+
+.. toctree::
+   :maxdepth: 2
+
+   guide
+
 Main
 ----
 

@@ -488,7 +488,7 @@ When you're called to work on panobbgo:
 **When you need orientation:**
 - Re-read "Current State" to remember what's done
 - Re-read "Key Concepts" to recall architecture
-- Re-read relevant section of PANOBBGO_GUIDE.md
+- Re-read relevant section of the User Guide (`doc/source/guide*.rst`)
 
 **When adding features:**
 - Check "Common Development Tasks" for templates
@@ -560,9 +560,15 @@ def on_event_name(self, arg1, arg2=None):
 ## Resources
 
 ### Documentation
-- Full guide: `PANOBBGO_GUIDE.md` (this repository)
-- API docs: http://haraldschilly.github.com/panobbgo/html/
-- README: `README.md`
+- **User Guide**: See `doc/source/guide*.rst` files, or online at http://haraldschilly.github.com/panobbgo/html/guide.html
+  - Introduction: `doc/source/guide_introduction.rst`
+  - Mathematical Foundation: `doc/source/guide_mathematical_foundation.rst`
+  - Architecture: `doc/source/guide_architecture.rst`
+  - Usage: `doc/source/guide_usage.rst`
+  - Extending: `doc/source/guide_extending.rst`
+  - Research: `doc/source/guide_research.rst`
+- **API docs**: http://haraldschilly.github.com/panobbgo/html/
+- **README**: `README.md`
 
 ### Code Structure
 - Core: `panobbgo/core.py` (Results, EventBus, StrategyBase, Module, Heuristic, Analyzer)

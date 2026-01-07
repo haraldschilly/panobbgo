@@ -1,5 +1,12 @@
 # Panobbgo: A Comprehensive Guide to Black-Box Global Optimization
 
+> **Note:** This guide has been superseded by the official documentation in `doc/source/guide*.rst`.
+> Please refer to the Sphinx documentation for the most up-to-date information:
+> - Online: http://haraldschilly.github.com/panobbgo/html/guide.html
+> - Source: `doc/source/guide*.rst` files
+>
+> This file is preserved for historical reference only.
+
 **Version:** 0.0.1 (Alpha)
 **Author:** Harald Schilly
 **License:** Apache 2.0

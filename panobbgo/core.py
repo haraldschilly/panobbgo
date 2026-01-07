@@ -797,6 +797,29 @@ class StrategyBase:
     def name(self):
         return self._name
 
+    @property
+    def evaluators(self):
+        """
+        Compatibility property for legacy code that references evaluators.
+        Returns a mock object with attributes needed by strategies.
+        """
+        class DaskEvaluatorsMock:
+            def __init__(self, strategy):
+                self.strategy = strategy
+
+            @property
+            def outstanding(self):
+                # Return list of pending task keys
+                return list(self.strategy.pending.keys())
+
+            def __len__(self):
+                # Return number of Dask workers
+                if hasattr(self.strategy, '_client'):
+                    return len(self.strategy._client.scheduler_info()['workers'])
+                return 0
+
+        return DaskEvaluatorsMock(self)
+
     def _run(self):
         self.eventbus.publish('start', terminate=True)
         self._start = time_module.time()
@@ -927,7 +950,7 @@ class StrategyBase:
                     except:
                         pass
 
-        if time_module.time() - self.show_last > self.config.show_interval:
+        if time_module.time() - self.show_last > float(self.config.show_interval):
             self.info()
             self.show_last = time_module.time()
 

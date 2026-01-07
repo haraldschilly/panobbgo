@@ -40,7 +40,10 @@ dev = [
     "pytest-cov",
     "flake8",
     "black",
-    "mypy"
+    "mypy",
+    "pyright",
+    "types-setuptools",
+    "pandas-stubs",
 ]
 
 [tool.setuptools.packages.find]
@@ -49,3 +52,19 @@ include = ["panobbgo*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+include = ["panobbgo"]
+exclude = ["**/__pycache__", ".venv", "build", "dist"]
+pythonVersion = "3.8"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"  # Can be "off", "basic", or "strict"
+reportMissingImports = "warning"  # Warn instead of error for missing imports
+reportMissingTypeStubs = false
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"
+reportGeneralTypeIssues = "warning"  # Warn instead of error for general type issues
+reportAttributeAccessIssue = "warning"  # Warn instead of error for attribute access
+reportCallIssue = "warning"  # Warn for missing arguments
+reportArgumentType = "warning"  # Warn for argument type mismatches
+reportPrivateImportUsage = "warning"  # Warn for imports from private modules like IPython internals

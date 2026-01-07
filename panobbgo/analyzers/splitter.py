@@ -206,6 +206,8 @@ class Splitter(Analyzer):
             """
             Function value of best point in this particular box.
             """
+            if self.best is None:
+                return float('inf')
             return self.best.fx
 
         @memoize

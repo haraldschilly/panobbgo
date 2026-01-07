@@ -1,77 +1,114 @@
-# Panobbgo: Parallel Noisy Black-Box Global Optimization.
+# Panobbgo: Parallel Noisy Black-Box Global Optimization
 
-It minimizes a function over a box in $R^n$ (n = dimension of the problem)
+[![Tests](https://github.com/haraldschilly/panobbgo/actions/workflows/tests.yml/badge.svg)](https://github.com/haraldschilly/panobbgo/actions/workflows/tests.yml)
+
+Panobbgo minimizes a function over a box in $R^n$ (n = dimension of the problem)
 while respecting a vector of constraint violations.
-
-[![Build Status](https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master)](https://travis-ci.org/haraldschilly/panobbgo)
 
 ## Documentation
 
 * [HTML](http://haraldschilly.github.com/panobbgo/html/)
 * [PDF](http://haraldschilly.github.com/panobbgo/pdf/panobbgo.pdf)
 
-## DOWNLOAD & INSTALL
+## Installation
 
-This program is work in progress. Only do `python setup.py build|install` if you know what you are doing.
+### Using UV (Recommended)
 
-To get it running, you have to install the reqired dependencies.
-I installed `IPython` 0.13 (or higher) from their git sources,
-`git checkout v0.13`, and installed it locally: `python setup.py install --user`
-(which required to install the `python-zmq` Debian package, too).
+[UV](https://github.com/astral-sh/uv) is a fast Python package manager. Install it first:
 
-To meet the other dependencies, I used [virtualenv](http://www.virtualenv.org/en/latest/)
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-    $ virtualenv --system-site-packages .
-    $ . bin/activate #remember, you have to source this *always*
-    $ pip install numpy
-    $ pip install scipy
-    $ pip install matplotlib
+Then clone and install panobbgo:
 
-to have up to date versions without having to rely on the packages of Debian.
+```bash
+git clone https://github.com/haraldschilly/panobbgo.git
+cd panobbgo
+uv sync --extra dev
+```
 
-For the user-interface, you also have to install `python-gtk2`, which
-also provides the `pygtk` module, right?
+### Using pip
+
+```bash
+git clone https://github.com/haraldschilly/panobbgo.git
+cd panobbgo
+pip install -e .
+```
+
+For development:
+```bash
+pip install -e ".[dev]"
+```
 
 ## Dependencies
 
-* IPython &ge; 0.13
+* Python &ge; 3.8
+* NumPy &ge; 2.0
+* SciPy &ge; 1.16
+* matplotlib &ge; 3.0
+* pandas &ge; 2.0
+* statsmodels &ge; 0.14
+* IPython &ge; 9.0
 
-  * and you have to start your cluster via `ipcluster start ...` and tell Panobbgo 
-    about it :-)
+Development dependencies:
+* pytest &ge; 9.0
+* pytest-cov &ge; 7.0
+* black, flake8, mypy
 
-* NumPy &ge; 1.5.0
+## Running Tests
 
-* SciPy &ge; 0.8.0
+```bash
+# With UV
+uv run pytest
 
-* matplotlib &ge; 1.1.0 (at least)
+# With pip/virtualenv
+pytest
 
-* pyGTK &ge; 2.0: `python-gtk2` in Debian/Ubuntu
+# Run with coverage
+pytest --cov=panobbgo
+```
 
-* nose &ge; 1.1
+All 27 tests should pass.
 
-* coverage &ge; 3.4
+## Type Checking
 
-* It also calls `Git` to get the ref of the HEAD for logging.
+This project uses Pyright for static type checking:
 
-## Running
+```bash
+# Run type checker
+uv run pyright panobbgo
 
-### One time
+# Or with pip/virtualenv
+pyright panobbgo
+```
 
-1. Setup your cluster according to the IPython documentation (you have to 
-   know the profile name, default is `default`)
-1. `panobbgo.lib` must be available on all nodes.
-   It contains the problem definitions you want to use.
-   In particular, you have to create a script to execute everything -
-   while especially the problem definition needs to be available for deserialization
-   on the remote machine.
-1. After running it the first time, it will create a configuration file.
-   There you have to enter the profile name, if it is not `default`.
+## Usage
 
-### Every time
+### One-time Setup
 
-1. Start the cluster.
-1. If you use `virtualenv`, do `$ . bin/activate` in another terminal.
-1. Run the script, examples are included.
+1. Setup your IPython cluster according to the [IPython parallel documentation](https://ipyparallel.readthedocs.io/)
+2. `panobbgo.lib` contains the problem definitions (Rosenbrock, HelicalValley, etc.)
+3. After running it the first time, it will create a `config.ini` file
+4. Configure your IPython profile name if it's not `default`
+
+### Running Optimization
+
+1. Start your IPython cluster: `ipcluster start`
+2. Run your optimization script (see examples in the repository)
+
+Example:
+```python
+from panobbgo.lib.classic import Rosenbrock
+from panobbgo.core import StrategyRoundRobin
+
+# Define the problem
+problem = Rosenbrock(dim=5)
+
+# Setup and run optimization
+strategy = StrategyRoundRobin(problem)
+# ... configure heuristics and run
+```
 
 ## License
 

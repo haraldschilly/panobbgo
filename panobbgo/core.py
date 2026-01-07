@@ -102,7 +102,8 @@ class Results:
 
     def info(self):
         self.logger.info("%d results in DB" % len(self))
-        self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
+        if self.results is not None:
+            self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
 
     def __iadd__(self, results):
         self.add_results(results)
@@ -262,7 +263,7 @@ class Heuristic(Module):
         self.logger = self.config.get_logger('HEUR')
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
-        from Queue import Queue
+        from queue import Queue
         self._output = Queue(self.cap)
 
         # statistics; performance

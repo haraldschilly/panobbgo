@@ -87,7 +87,7 @@ class Lib(unittest.TestCase):
         r = repr(rbrk)  # ordering of dict is arbitrary, hence this:
         assert "Problem 'Rosenbrock': 2 dims, params: " in r
         assert "'par1': 100" in r
-        assert "'dx': array([ 2.41,  3.14])" in r
+        assert "'dx': array([2.41, 3.14])" in r
         assert "box: [[2.41 5.14], [0.41 5.14]]" in r
 
     @expected_failure(ValueError, "assignment destination is read-only")

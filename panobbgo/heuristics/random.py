@@ -36,6 +36,7 @@ class Random(Heuristic):
         import numpy as np
         self.first_split.wait()
         splitter = self.strategy.analyzer("splitter")
+        assert self.leaf is not None, "leaf must be set before generating random points"
         while True:
             r = self.leaf.ranges * np.random.rand(
                 splitter.dim) + self.leaf.box[:, 0]

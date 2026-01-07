@@ -207,7 +207,7 @@ class Config:
         def get_config(yaml_path, ini_section, ini_key, default=None, type_cast=str):
             """Get config value from YAML first, then INI, then default"""
             # Check YAML first
-            if self.yaml_config:
+            if yaml_path and self.yaml_config:
                 val = self.yaml_config
                 for part in yaml_path.split('.'):
                     if isinstance(val, dict) and part in val:
@@ -219,7 +219,7 @@ class Config:
                     return type_cast(val) if type_cast != bool else bool(val)
 
             # Fall back to INI
-            if cfgp.has_option(ini_section, ini_key):
+            if ini_section and ini_key and cfgp.has_option(ini_section, ini_key):
                 if type_cast == int:
                     return cfgp.getint(ini_section, ini_key)
                 elif type_cast == float:

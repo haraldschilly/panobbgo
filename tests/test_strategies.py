@@ -22,9 +22,10 @@ from panobbgo.lib.classic import Rosenbrock
 
 
 def get_my_setup_cluster():
-    def my_setup_cluster(self, nb_gens, problem):
-        self.generators = mock.MagicMock()
-        self.evaluators = mock.MagicMock()
+    def my_setup_cluster(self, problem):
+        # Mock Dask client instead of IPython generators/evaluators
+        self._client = mock.MagicMock()
+        self._problem_future = mock.MagicMock()
     return my_setup_cluster
 
 

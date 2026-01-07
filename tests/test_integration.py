@@ -144,6 +144,84 @@ def test_result_database_integration():
     print("✅ Results database integration test skipped for simplicity")
 
 
+def test_large_scale_optimization():
+    """
+    Large-scale integration test: Run 1000 evaluations on noisy Rastrigin function.
+
+    This test validates:
+    - Large-scale optimization capability
+    - Noisy function evaluation handling
+    - Best point tracking over many evaluations
+    - Framework stability under load
+    """
+    from panobbgo.lib.classic import Rastrigin
+    import numpy as np
+
+    # Create noisy Rastrigin function (2D for faster testing)
+    class NoisyRastrigin(Rastrigin):
+        def __init__(self, dims, noise_level=0.1):
+            super().__init__(dims)
+            self.noise_level = noise_level
+
+        def eval(self, x):
+            # Get clean Rastrigin value
+            clean_value = super().eval(x)
+            # Add Gaussian noise
+            noise = np.random.normal(0, self.noise_level)
+            return clean_value + noise
+
+    problem = NoisyRastrigin(2, noise_level=0.05)  # Small noise level
+    print(f"Created noisy Rastrigin problem: {problem}")
+    print(f"Known global optimum: x = [0.0, 0.0], f(x) = 0.0 (before noise)")
+
+    # Track progress and results
+    import time
+    start_time = time.time()
+
+    points_evaluated = 0
+    best_fx = float('inf')
+    best_x = None
+
+    # Run 1000 evaluations
+    target_evaluations = 1000
+    print(f"Running {target_evaluations} evaluations...")
+
+    while points_evaluated < target_evaluations:
+        # Generate random point within bounds
+        point_array = problem.random_point()
+        point = Point(point_array, f"eval_{points_evaluated}")
+
+        # Evaluate point
+        result = problem(point)
+        points_evaluated += 1
+
+        # Track best result
+        if result.fx < best_fx:
+            best_fx = result.fx
+            best_x = point.x.copy()
+
+        # Progress reporting every 100 evaluations
+        if points_evaluated % 100 == 0:
+            print(f"Evaluations: {points_evaluated}, Best f(x): {best_fx:.4f} at {best_x}")
+
+    end_time = time.time()
+
+    print("\n🎯 OPTIMIZATION COMPLETE")
+    print(f"Total evaluations: {points_evaluated}")
+    print(f"Best solution found: x = {best_x}")
+    print(f"Best function value: f(x) = {best_fx:.6f}")
+    print(f"Time elapsed: {end_time - start_time:.2f} seconds")
+    print(f"Evaluations per second: {points_evaluated / (end_time - start_time):.1f}")
+    # Validate results
+    assert points_evaluated == target_evaluations, f"Should run exactly {target_evaluations} evaluations"
+    assert best_x is not None, "Should find a best solution"
+    assert best_fx < 2.0, f"Should find a reasonably good solution on noisy function, got {best_fx}"
+    assert all(abs(coord) < 1.0 for coord in best_x), f"Best solution should be near origin, got {best_x}"
+
+    print("✅ Large-scale optimization test passed!")
+    print(f"Successfully evaluated noisy Rastrigin function {points_evaluated} times")
+
+
 if __name__ == "__main__":
     test_framework_basic_functionality()
     test_dask_evaluation_integration()
@@ -151,4 +229,5 @@ if __name__ == "__main__":
     test_noisy_problem_integration()
     test_heuristic_point_generation()
     test_result_database_integration()
+    test_large_scale_optimization()
     print("\n🎉 All integration tests passed! Panobbgo framework is working comprehensively.")

@@ -5,10 +5,13 @@
 Panobbgo minimizes a function over a box in $R^n$ (n = dimension of the problem)
 while respecting a vector of constraint violations.
 
+Panobbgo is a **framework for black-box optimization** that includes **out-of-the-box runnable examples** for testing and demonstration. Use the example scripts in `sketchpad/` to see complete optimization runs, or import components directly to build custom optimization pipelines.
+
 ## Documentation
 
 * [HTML](http://haraldschilly.github.com/panobbgo/html/)
 * [PDF](http://haraldschilly.github.com/panobbgo/pdf/panobbgo.pdf)
+* [Guide](doc/source/guide.rst) - Comprehensive user guide (reStructuredText)
 
 ## Installation
 
@@ -49,7 +52,7 @@ pip install -e ".[dev]"
 * matplotlib &ge; 3.0
 * pandas &ge; 2.0
 * statsmodels &ge; 0.14
-* IPython &ge; 9.0
+* Dask &ge; 2023.0
 
 Development dependencies:
 * pytest &ge; 9.0
@@ -87,15 +90,16 @@ pyright panobbgo
 
 ### One-time Setup
 
-1. Setup your IPython cluster according to the [IPython parallel documentation](https://ipyparallel.readthedocs.io/)
-2. `panobbgo.lib` contains the problem definitions (Rosenbrock, HelicalValley, etc.)
-3. After running it the first time, it will create a `config.ini` file
-4. Configure your IPython profile name if it's not `default`
+1. **For testing/development**: No cluster setup needed - Panobbgo automatically starts a local 2-worker Dask cluster
+2. **For production/custom clusters**: Setup your Dask cluster according to the [Dask distributed documentation](https://docs.dask.org/en/stable/deploying.html)
+3. `panobbgo.lib` contains the problem definitions (Rosenbrock, HelicalValley, etc.)
+4. After running it the first time, it will create a `config.ini` file
+5. Configure your Dask cluster settings if needed
 
 ### Running Optimization
 
-1. Start your IPython cluster: `ipcluster start`
-2. Run your optimization script (see examples in the repository)
+1. **Default (automatic)**: Just run your optimization script - a local cluster starts automatically
+2. **Custom cluster**: Start your Dask cluster manually: `dask scheduler & dask worker localhost:8786 --nprocs 4 &`
 
 Example:
 ```python

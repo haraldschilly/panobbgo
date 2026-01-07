@@ -43,7 +43,7 @@ While inspired by SNOBFIT, Panobbgo introduces several innovations:
      - **Event-driven** plug-in architecture
    * - Parallelism
      - Sequential
-     - **IPython cluster** integration from start
+     - **Dask distributed** integration from start
 
 Related Algorithms
 ------------------
@@ -188,7 +188,7 @@ Complexity Analysis
 
 - Up to :math:`P` simultaneous evaluations (cluster size)
 - Wall-clock time: :math:`O(N_{max} / P)` assuming balanced load
-- Communication overhead: Minimal (IPython handles efficiently)
+- Communication overhead: Minimal (Dask handles efficiently)
 
 Current Research Challenges
 ---------------------------

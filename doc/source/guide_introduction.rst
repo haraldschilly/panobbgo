@@ -46,7 +46,7 @@ Panobbgo addresses these challenges through:
 2. **Adaptive strategy selection** (multi-armed bandit approach)
 3. **Result database** to avoid re-evaluations and learn from history
 4. **Event-driven architecture** for modular, extensible design
-5. **IPython cluster integration** for distributed parallel evaluation
+5. **Dask distributed integration** for parallel evaluation
 
 Key Features
 ------------

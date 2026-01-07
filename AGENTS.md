@@ -28,5 +28,17 @@ This file provides instructions for agents working on the Panobbgo repository.
 
 ## Build & Install
 
-*   Use `pip install -e .` for development installation.
-*   The project uses `setuptools` (and ideally `pyproject.toml`).
+*   **UV-based setup (recommended)**: Use `uv sync --extra dev` for development installation with all dependencies.
+*   **Traditional pip**: Use `pip install -e ".[dev]"` for development installation.
+*   The project uses `setuptools` with `pyproject.toml` configuration.
+
+## Running Panobbgo
+
+Panobbgo is designed as a **framework for black-box optimization** but includes **out-of-the-box runnable examples** for testing and demonstration:
+
+*   **Framework nature**: Panobbgo is a library that provides components (strategies, heuristics, analyzers) for building custom optimization pipelines
+*   **Runnable demos**: Example scripts in `sketchpad/` demonstrate complete optimization runs (e.g., `python sketchpad/test01.py`)
+*   **Testing**: Run `uv run pytest` or `pytest` to execute the test suite and verify functionality
+*   **Interactive use**: Import and use components directly in Python scripts for custom optimization problems
+
+The framework runs on **Dask distributed** for parallel evaluation, supporting both local clusters and remote distributed computing.

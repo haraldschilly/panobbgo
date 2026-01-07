@@ -291,7 +291,7 @@ Complexity Analysis
 
 **Parallelism:**
 
-- Up to :math:`P` evaluations simultaneously (IPython cluster size)
+- Up to :math:`P` evaluations simultaneously (Dask cluster size)
 - Wall-clock time: :math:`O(N_{max} / P)` assuming load balance
 
 References

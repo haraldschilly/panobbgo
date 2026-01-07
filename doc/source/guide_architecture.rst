@@ -24,7 +24,7 @@ Data Flow Diagram
    │                         Strategy                            │
    │  ┌─────────────┐      ┌──────────────┐     ┌─────────────┐│
    │  │  Heuristic  │─────▶│ Point Queue  │────▶│  Evaluator  ││
-   │  │ (generates) │      │              │     │ (IPython    ││
+   │  │ (generates) │      │              │     │ (Dask       ││
    │  └─────────────┘      └──────────────┘     │  cluster)   ││
    │         ▲                                   └──────┬──────┘│
    │         │                                          │       │
@@ -46,7 +46,7 @@ StrategyBase
 - Manages the optimization loop
 - Coordinates heuristics, analyzers, and evaluators
 - Tracks budget (number of evaluations)
-- Connects to IPython parallel cluster for distributed evaluation
+- Connects to Dask distributed cluster for parallel evaluation
 
 **Key methods:**
 
@@ -337,7 +337,7 @@ Initialization Phase
 Startup
 ~~~~~~~
 
-1. Strategy connects to IPython parallel cluster
+1. Strategy connects to Dask distributed cluster
 2. Strategy calls ``__start__()`` on all modules
 3. EventBus publishes ``start`` event
 4. Modules initialize (e.g., LatinHypercube generates initial grid)
@@ -357,10 +357,10 @@ While budget remaining:
 
    .. code-block:: python
 
-      # Send points to IPython cluster
-      jobs = [evaluators.apply_async(problem, p) for p in points]
-      # Wait for results
-      results = [job.get() for job in jobs]
+   # Send points to Dask cluster
+   futures = [client.submit(problem, p) for p in points]
+   # Wait for results
+   results = client.gather(futures)
 
 3. **Store results**:
 
@@ -416,21 +416,22 @@ Each event subscription runs in a **daemon thread**:
 - Heuristic queues use thread-safe operations
 - Analyzers should use locks if maintaining mutable state
 
-IPython Parallel
+Dask Distributed
 ~~~~~~~~~~~~~~~~
 
-Function evaluations run on IPython cluster:
+Function evaluations run on Dask cluster:
 
-- **Load-balanced view**: Distributes jobs to available engines
-- **Asynchronous execution**: Returns AsyncResult objects immediately
-- **Result collection**: Wait for completion with ``job.get()``
+- **Load-balanced scheduling**: Distributes jobs to available workers
+- **Asynchronous execution**: Returns Future objects immediately
+- **Result collection**: Wait for completion with ``future.result()`` or ``client.gather()``
 
 **Cluster setup:**
 
 .. code-block:: bash
 
-   # Start cluster with 4 engines
-   ipcluster start -n 4
+   # Start local cluster with 4 workers
+   dask scheduler &
+   dask worker localhost:8786 --nprocs 4 &
 
 Configuration
 ~~~~~~~~~~~~~

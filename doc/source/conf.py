@@ -202,7 +202,7 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3.5', None),
     #'python': ('http://docs.python.org/2.7', None),
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'IPython': ('http://ipython.org/', None)
+    'Dask': ('https://docs.dask.org/en/stable/', None)
 }
 
 # -- Options for LaTeX output --------------------------------------------

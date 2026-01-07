@@ -15,7 +15,7 @@ Requirements
 - matplotlib ≥ 3.0
 - pandas ≥ 2.0
 - statsmodels ≥ 0.14
-- IPython ≥ 9.0
+- Dask ≥ 2023.0
 
 Using UV (Recommended)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -41,21 +41,29 @@ Using pip
    cd panobbgo
    pip install -e ".[dev]"
 
-Setup IPython Cluster
-~~~~~~~~~~~~~~~~~~~~~
+Dask Cluster Setup
+~~~~~~~~~~~~~~~~~~~
 
-Panobbgo requires an IPython parallel cluster for distributed evaluation:
+**Automatic Local Cluster (Default):**
+
+Panobbgo automatically starts a local Dask cluster with 2 workers for testing and development.
+No manual setup required - just run your optimization script!
+
+**Custom Cluster Setup:**
+
+For production use or custom configurations, you can connect to external clusters:
 
 .. code-block:: bash
 
-   # Install IPython parallel
-   pip install ipyparallel
+   # Install Dask distributed
+   pip install dask[distributed]
 
-   # Start cluster with 4 engines
-   ipcluster start -n 4
+   # Start local cluster with custom workers
+   dask scheduler &
+   dask worker localhost:8786 --nprocs 4 &
 
-See `IPython parallel documentation <https://ipyparallel.readthedocs.io/>`_ for advanced setup
-(remote clusters, PBS/SLURM integration, etc.).
+See `Dask distributed documentation <https://docs.dask.org/en/stable/deploying.html>`_ for advanced setup
+(remote clusters, Kubernetes, SLURM integration, etc.).
 
 Configuration
 ~~~~~~~~~~~~~
@@ -64,9 +72,13 @@ On first run, Panobbgo creates ``~/.panobbgo/config.ini``:
 
 .. code-block:: ini
 
-   [ipython]
-   profile = default          # IPython profile name
-   max_wait_for_job = 10     # Timeout for job completion
+   [dask]
+   cluster_type = local                    # 'local' (auto-start) or 'remote'
+   local.n_workers = 2                    # Number of local workers (default: 2)
+   local.threads_per_worker = 1           # Threads per worker (default: 1)
+   local.memory_limit = 2GB               # Memory per worker (default: 2GB)
+   local.dashboard_address = :8787        # Dashboard port (default: :8787)
+   remote.scheduler_address = tcp://localhost:8786  # For remote clusters
 
    [optimization]
    max_evaluations = 1000    # Evaluation budget
@@ -105,7 +117,7 @@ Minimal Example
    strategy.add(Random)       # Exploration
    strategy.add(NelderMead)   # Exploitation
 
-   # Run optimization (requires: ipcluster start)
+   # Run optimization (requires: dask scheduler & workers)
    strategy.start()
 
    # Get results
@@ -129,12 +141,11 @@ Complete Example
    # Define 10-dimensional Rosenbrock
    problem = Rosenbrock(dim=10)
 
-   # Create adaptive strategy
-   strategy = StrategyRewarding(
-       problem,
-       size=10,                  # Jobs per client
-       max_evaluations=2000      # Budget
-   )
+    # Create adaptive strategy
+    strategy = StrategyRewarding(
+        problem,
+        max_evaluations=2000      # Budget
+    )
 
    # Add analyzers (optional - Best is default)
    strategy.add_analyzer(Best)      # Track best points
@@ -508,7 +519,7 @@ Parallel Evaluation
        jobs_per_client=5      # Batch size
    )
 
-   # With 4 IPython engines, evaluates up to 4*5 = 20 points simultaneously
+   # With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously
 
 Custom Events
 ~~~~~~~~~~~~~
@@ -543,16 +554,17 @@ Logging
 Troubleshooting
 ---------------
 
-IPython Cluster Not Found
+Dask Cluster Not Found
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Error:** ``TimeoutError: Cluster not found``
 
-**Solution:** Start IPython cluster before running:
+**Solution:** Start Dask cluster before running:
 
 .. code-block:: bash
 
-   ipcluster start -n 4
+   dask scheduler &
+   dask worker localhost:8786 --nprocs 4 &
 
 Function Evaluation Fails
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

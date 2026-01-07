@@ -17,9 +17,7 @@ Introduction
   Date: |today|
   Version: |version|
 
-.. Warning ::
 
-  It is currently work in progress and definitely not ready for any kind of usage.
 
 |name| is an open-source framework for parallel noisy black-box global optimization.
 The primary aim is to experiment with new ideas and algorithms.
@@ -32,11 +30,11 @@ There are three basic types of parts that work together:
 * several :mod:`Heuristics <panobbgo.heuristics>`
 * and :mod:`Analyzers <panobbgo.analyzers>`
 
-Various tools for extracting statistical data and inspecting the optimization process are included (`planned`).
+Various tools for extracting statistical data and inspecting the optimization process are included.
 Additionally, parallel evaluation of the objective black-box function can be
-archived as SMP or on a cluster via IPython [IP]_.
+achieved as SMP or on a cluster via Dask distributed.
 
-In the background, there are additional utility features for the configuration and dependency management (`planned`) available.
+In the background, there are additional utility features for the configuration and dependency management available.
 
 This software package is licensed under the 
 `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
@@ -103,7 +101,7 @@ Links
 References
 ==========
 
-.. [IP] http://www.ipython.org
+.. [Dask] https://dask.org/
 .. [HB] http://en.wikipedia.org/wiki/Himmelblau%27s_function
 .. [SH] http://en.wikipedia.org/wiki/Shekel_function
 .. [QuadF] Hewlett, Joel D., Bogdan M. Wilamowski, and Gunhan Dundar.

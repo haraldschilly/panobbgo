@@ -109,7 +109,7 @@ A typical Panobbgo workflow looks like this:
       strategy.add(Random)
       strategy.add(NelderMead)
 
-4. **Run optimization** (requires IPython cluster)
+4. **Run optimization** (local Dask cluster starts automatically)
 
    .. code-block:: python
 
@@ -140,7 +140,7 @@ Panobbgo's design is guided by several principles:
    Loose coupling through the EventBus—modules communicate without direct dependencies.
 
 **Parallel-First**
-   Built for distributed evaluation on IPython clusters from the ground up.
+   Built for distributed evaluation on Dask clusters from the ground up.
 
 **Research-Oriented**
    Designed for experimentation and prototyping new optimization ideas.
@@ -191,8 +191,8 @@ System Requirements
 -------------------
 
 - Python ≥ 3.8
-- NumPy, SciPy, pandas, matplotlib, statsmodels, IPython
-- IPython parallel cluster for distributed evaluation
+- NumPy, SciPy, pandas, matplotlib, statsmodels, Dask
+- Dask distributed cluster for parallel evaluation
 - Tested on Linux and macOS (Windows should work but less tested)
 
 Community and Support

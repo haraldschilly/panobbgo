@@ -18,3 +18,4 @@ panobbgo.egg-info/
 panobbgo_lib.egg-info/
 cover/
 *.sublime-workspace
+coverage.xml

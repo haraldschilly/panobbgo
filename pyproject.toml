@@ -40,7 +40,8 @@ dev = [
     "pytest-cov",
     "flake8",
     "black",
-    "mypy"
+    "mypy",
+    "pyright"
 ]
 
 [tool.setuptools.packages.find]
@@ -49,3 +50,14 @@ include = ["panobbgo*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+include = ["panobbgo"]
+exclude = ["**/__pycache__", ".venv", "build", "dist"]
+pythonVersion = "3.8"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"  # Can be "off", "basic", or "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"

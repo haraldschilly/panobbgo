@@ -1,0 +1,61 @@
+# Panobbgo Configuration File
+# ===========================
+
+# Dask Cluster Configuration
+# ---------------------------
+dask:
+  # Cluster type: 'local' or 'remote'
+  cluster_type: 'local'
+
+  # Local cluster configuration (used when cluster_type is 'local')
+  local:
+    # Number of worker processes to spawn
+    n_workers: 2
+
+    # Number of threads per worker
+    threads_per_worker: 1
+
+    # Memory limit per worker (e.g., '2GB', '500MB')
+    # Set to null for no limit
+    memory_limit: '2GB'
+
+    # Dashboard address (set to null to disable)
+    dashboard_address: ':8787'
+
+  # Remote cluster configuration (used when cluster_type is 'remote')
+  remote:
+    # Scheduler address (e.g., 'tcp://scheduler-address:8786')
+    scheduler_address: 'tcp://localhost:8786'
+
+# Core Configuration
+# ------------------
+core:
+  # Logging level (10=DEBUG, 20=INFO, 30=WARNING, 40=ERROR)
+  loglevel: 40
+
+  # Show statistics interval in seconds
+  show_interval: 1.0
+
+  # Maximum number of evaluations
+  max_eval: 1000
+
+  # Discount factor for performance calculation
+  discount: 0.95
+
+  # Smoothing parameter
+  smooth: 0.5
+
+# Heuristic Configuration
+# -----------------------
+heuristic:
+  # Queue capacity for each heuristic
+  capacity: 20
+
+# UI Configuration
+# ----------------
+ui:
+  # Show user interface (true/false)
+  show: false
+
+  # UI redraw delay in seconds
+  redraw_delay: 0.5

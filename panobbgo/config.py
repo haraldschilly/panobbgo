@@ -52,6 +52,7 @@ class Config:
         self.testing_mode = testing_mode
         self._appdata_dir = os.path.expanduser("~/.panobbgo")
         self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
+        self.config_yaml = 'config.yaml'  # YAML config in current directory
         self._loggers = {}
         self._create()
 
@@ -162,6 +163,14 @@ class Config:
         cfgp = ConfigParser()
         cfgp.read(self.config_fn)
 
+        # 2/3: reading YAML config if it exists (takes precedence)
+        import yaml
+        self.yaml_config = {}
+        if os.path.exists(self.config_yaml):
+            with open(self.config_yaml, 'r') as f:
+                self.yaml_config = yaml.safe_load(f) or {}
+            logger.info('config.yaml loaded from: %s' % self.config_yaml)
+
         # 3: override specific settings
         _cur_verb = cfgp.getint('core', 'loglevel')
         if args is not None:
@@ -194,21 +203,60 @@ class Config:
         self.environment = info()
         from panobbgo import __version__
 
+        # Helper function to get config value (YAML takes precedence over INI)
+        def get_config(yaml_path, ini_section, ini_key, default=None, type_cast=str):
+            """Get config value from YAML first, then INI, then default"""
+            # Check YAML first
+            if self.yaml_config:
+                val = self.yaml_config
+                for part in yaml_path.split('.'):
+                    if isinstance(val, dict) and part in val:
+                        val = val[part]
+                    else:
+                        val = None
+                        break
+                if val is not None:
+                    return type_cast(val) if type_cast != bool else bool(val)
+
+            # Fall back to INI
+            if cfgp.has_option(ini_section, ini_key):
+                if type_cast == int:
+                    return cfgp.getint(ini_section, ini_key)
+                elif type_cast == float:
+                    return cfgp.getfloat(ini_section, ini_key)
+                elif type_cast == bool:
+                    return cfgp.getboolean(ini_section, ini_key)
+                else:
+                    return cfgp.get(ini_section, ini_key)
+
+            return default
+
         # specific data
-        self.loglevel = cfgp.getint('core', 'loglevel')
-        self.show_interval = cfgp.getfloat('core', 'show_interval')
-        self.max_eval = cfgp.getint('core', 'max_eval')
-        self.discount = cfgp.getfloat('core', 'discount')
-        self.smooth = cfgp.getfloat('core', 'smooth')
-        self.capacity = cfgp.getint('heuristic', 'capacity')
-        self.ipy_profile = cfgp.get('ipython', 'profile')
-        self.ui_show = cfgp.getboolean('ui', 'show')
+        self.loglevel = get_config('core.loglevel', 'core', 'loglevel', 40, int)
+        self.show_interval = get_config('core.show_interval', 'core', 'show_interval', 1.0, float)
+        self.max_eval = get_config('core.max_eval', 'core', 'max_eval', 1000, int)
+        self.discount = get_config('core.discount', 'core', 'discount', 0.95, float)
+        self.smooth = get_config('core.smooth', 'core', 'smooth', 0.5, float)
+        self.capacity = get_config('heuristic.capacity', 'heuristic', 'capacity', 20, int)
+        self.ui_show = get_config('ui.show', 'ui', 'show', False, bool)
+        self.ui_redraw_delay = get_config('ui.redraw_delay', 'ui', 'redraw_delay', 0.5, float)
+
+        # Dask cluster configuration (YAML only)
+        self.dask_cluster_type = get_config('dask.cluster_type', None, None, 'local', str)
+        self.dask_n_workers = get_config('dask.local.n_workers', None, None, 2, int)
+        self.dask_threads_per_worker = get_config('dask.local.threads_per_worker', None, None, 1, int)
+        self.dask_memory_limit = get_config('dask.local.memory_limit', None, None, '2GB', str)
+        self.dask_dashboard_address = get_config('dask.local.dashboard_address', None, None, ':8787', str)
+        self.dask_scheduler_address = get_config('dask.remote.scheduler_address', None, None, 'tcp://localhost:8786', str)
+
+        # Legacy IPython support (kept for backward compatibility)
+        self.ipy_profile = get_config(None, 'ipython', 'profile', 'default', str)
+
         self.logger_focus = [] if args is None else args.logger_focus
-        self.ui_redraw_delay = 0.5
         self.version = __version__
         self.git_head = self.environment['git HEAD']
 
-        logger.info('IPython profile: %s' % self.ipy_profile)
+        logger.info('Dask cluster type: %s' % self.dask_cluster_type)
         logger.info("Environment: %s" % self.environment)
 
     @property

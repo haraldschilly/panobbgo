@@ -71,11 +71,11 @@ class PanobbgoContext(logging.Filter):
 
     def __init__(self):
         logging.Filter.__init__(self)
-        from IPython.utils.timing import time
+        import time
         self._start = time.time()
 
     def filter(self, record):
-        from IPython.utils.timing import time
+        import time
         record.runtime = time.time() - self._start
         record.where = "%s:%s" % (record.filename[:-3], record.lineno)
         return True

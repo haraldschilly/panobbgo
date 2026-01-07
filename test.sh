@@ -1,12 +1,17 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
-# assume modern unittest and python 2.7 + nose
+echo "Syncing dependencies..."
+uv sync --extra dev
 
-#python -m unittest discover -s `dirname "$0"` -p '*_test.py'
+echo "Running flake8 linting..."
+# Stop the build if there are Python syntax errors or undefined names
+uv run flake8 panobbgo --count --select=E9,F63,F7,F82 --show-source --statistics
+# exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+uv run flake8 panobbgo --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-nosetests -v -s \
-    --with-coverage --with-doctest --cover-erase \
-    --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE' \
-    --cover-package=panobbgo --cover-package=panobbgo.lib
+echo "Running type checking with pyright..."
+uv run pyright panobbgo
 
-exit $?
+echo "Running tests with pytest..."
+uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term

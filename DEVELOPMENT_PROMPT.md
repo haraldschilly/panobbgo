@@ -400,10 +400,10 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
 - Test-driven development across diverse problem scenarios
 - Shape overall framework to be robust and usable in the real world
 - Validate framework stability before advanced features
+- **🎯 Improve test coverage via full integration tests** (current: 45% overall coverage)
 
-**🎯 Advanced Bandit Strategies (Top Priority)**
-- Implement UCB (Upper Confidence Bound), Thompson Sampling
-- Add contextual bandits using problem features
+**🎯 Advanced Bandit Strategies**  
+- Implement UCB, Thompson Sampling, contextual bandits
 - Create comprehensive benchmarks to test bandit performance
 - Compare different bandit strategies empirically
 

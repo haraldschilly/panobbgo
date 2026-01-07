@@ -40,21 +40,41 @@ Sources: https://github.com/haraldschilly/panobbgo
 
 
 class Config:
+    # Singleton instance
+    _instance = None
+    # Class variable to track if config info has been logged
+    _config_logged = False
+
+    def __new__(cls, parse_args=False, testing_mode=False):
+        """Singleton pattern implementation."""
+        if cls._instance is None:
+            cls._instance = super(Config, cls).__new__(cls)
+        return cls._instance
 
     def __init__(self, parse_args=False, testing_mode=False):
         """
+        Initialize Config singleton.
 
         :param boolean parse_args:
         :param boolean testing_mode: if True, signals that it is run by the unittests
         """
-        import os
-        self.parse_args = parse_args
-        self.testing_mode = testing_mode
-        self._appdata_dir = os.path.expanduser("~/.panobbgo")
-        self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
-        self.config_yaml = 'config.yaml'  # YAML config in current directory
-        self._loggers = {}
-        self._create()
+        # Allow reinitialization for testing or if parameters changed
+        current_parse_args = getattr(self, 'parse_args', None)
+        current_testing_mode = getattr(self, 'testing_mode', None)
+
+        if (current_parse_args != parse_args or
+            current_testing_mode != testing_mode or
+            not hasattr(self, '_initialized')):
+
+            import os
+            self.parse_args = parse_args
+            self.testing_mode = testing_mode
+            self._appdata_dir = os.path.expanduser("~/.panobbgo")
+            self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
+            self.config_yaml = 'config.yaml'  # YAML config in current directory
+            self._loggers = {}
+            self._create()
+            self._initialized = True
 
     def _create(self):
         import os
@@ -169,7 +189,8 @@ class Config:
         if os.path.exists(self.config_yaml):
             with open(self.config_yaml, 'r') as f:
                 self.yaml_config = yaml.safe_load(f) or {}
-            logger.info('config.yaml loaded from: %s' % self.config_yaml)
+            if not Config._config_logged:
+                logger.info('config.yaml loaded from: %s' % self.config_yaml)
 
         # 3: override specific settings
         _cur_verb = cfgp.getint('core', 'loglevel')
@@ -199,7 +220,8 @@ class Config:
                     ret['%s%s%s' % (s, sep, str(k))] = v
             return ret
 
-        logger.info('config.ini: %s' % allcfgp())
+        if not Config._config_logged:
+            logger.info('config.ini: %s' % allcfgp())
         self.environment = info()
         from panobbgo import __version__
 
@@ -256,8 +278,11 @@ class Config:
         self.version = __version__
         self.git_head = self.environment['git HEAD']
 
-        logger.info('Dask cluster type: %s' % self.dask_cluster_type)
-        logger.info("Environment: %s" % self.environment)
+        # Only log configuration info once per session to avoid spam
+        if not Config._config_logged:
+            logger.info('Dask cluster type: %s' % self.dask_cluster_type)
+            logger.info("Environment: %s" % self.environment)
+            Config._config_logged = True
 
     @property
     def debug(self):

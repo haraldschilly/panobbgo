@@ -33,6 +33,7 @@ from __future__ import unicode_literals
 
 from .center import Center
 from .extremal import Extremal
+from .gaussian_process import GaussianProcessHeuristic
 from .latin_hypercube import LatinHypercube
 from .lbfgsb import LBFGSB
 from .nearby import Nearby

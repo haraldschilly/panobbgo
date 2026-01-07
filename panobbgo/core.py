@@ -193,7 +193,7 @@ class Module:
         Called right at the end after the strategy has finished.
         """
         for t in self._threads:
-            if t.isAlive():
+            if t.is_alive():
                 try:
                     t._Thread__stop()
                 except:
@@ -324,7 +324,7 @@ class Heuristic(Module):
         or if there is a chance that there will be something in the future (at least
         one thread is running).
         """
-        t = any(t.isAlive() for t in self._threads)
+        t = any(t.is_alive() for t in self._threads)
         q = self._output.qsize() > 0
         return t or q
 
@@ -479,7 +479,7 @@ class EventBus:
                         except StopHeuristic as e:
                             self.logger.debug(
                                 "'%s/on_%s' %s -> unsubscribing." %
-                                (target.name, key, e.message))
+                                (target.name, key, str(e)))
                             self.unsubscribe(key, target)
                             return
                     except Exception as e:
@@ -664,13 +664,12 @@ class StrategyBase:
 
         # analyzers
         from .analyzers import Best, Grid, Splitter
-        best = Best(self)
-        self._analyzers.update({
-            'best': best,
-            'grid': Grid(self),
-            'splitter': Splitter(self)
-        })
-        for a in self._analyzers.values():
+        new_analyzers = [
+            Best(self),
+            Grid(self),
+            Splitter(self)
+        ]
+        for a in new_analyzers:
             self.add_analyzer(a)
 
         self.check_dependencies()
@@ -791,7 +790,8 @@ class StrategyBase:
 
     @property
     def best(self):
-        return self._analyzers['best'].best
+        best_analyzer = self._analyzers.get('Best')
+        return best_analyzer.best if best_analyzer else None
 
     @property
     def name(self):
@@ -976,7 +976,7 @@ class StrategyBase:
         if len(self.tasks_walltimes) > 1:
             return np.average(list(self.tasks_walltimes.values()))
         self.slogger.warning("avg time per task for 0 tasks! -> returning NaN")
-        return np.NAN
+        return np.nan
 
     @property
     def time_wall(self):

@@ -78,3 +78,11 @@ class HeuristicTests(PanobbgoTestCase):
         from panobbgo.lib.lib import Point
         assert isinstance(p, Point)
         assert p in self.problem.box
+
+    def test_gaussian_process(self):
+        from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
+        gp = GaussianProcessHeuristic(self.strategy)
+        assert gp is not None
+        assert gp.acquisition_func is not None
+        assert gp.kappa == 1.96
+        assert gp.xi == 0.01

@@ -393,51 +393,69 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
 
 ## Future Directions
 
+### Immediate Goals (Framework Robustness & Testing)
+
+**🎯 Framework Robustness & Testing**
+- Extend tests with artificial but "realistic" examples
+- Test-driven development across diverse problem scenarios
+- Shape overall framework to be robust and usable in the real world
+- Validate framework stability before advanced features
+- **🎯 Improve test coverage via full integration tests** (current: 45% overall coverage)
+
+**🎯 Advanced Bandit Strategies**  
+- Implement UCB, Thompson Sampling, contextual bandits
+- Create comprehensive benchmarks to test bandit performance
+- Compare different bandit strategies empirically
+
 ### High-Priority Improvements
 
-1. **Gaussian Process Surrogate**
-   - Replace QuadraticWLS with GP model
-   - Use acquisition functions (EI, UCB, PI)
-   - Libraries: scikit-learn, GPy, or GPyTorch
+1. **Better Constraint Handling** ⭐
+    - Research real-world constraint handling approaches
+    - Implement penalty function methods
+    - Add augmented Lagrangian methods
+    - Develop constraint-specific heuristics
 
-2. **Persistent Storage**
-   - SQLite backend for Results
-   - Save/load optimization state
-   - Resume from checkpoint
+2. **Convergence Detection** (Tier 2)
+    - Statistical tests for stagnation
+    - Automatic termination criteria
+    - Publish "converged" event
+    - Adaptive stopping rules
 
-3. **Better Constraint Handling**
-   - Penalty function methods
-   - Augmented Lagrangian
-   - Constraint-specific heuristics
+3. **Persistent Storage** (Later)
+    - SQLite backend for Results
+    - Save/load optimization state
+    - Resume from checkpoint
 
-4. **Advanced Bandit Strategies**
-   - UCB (Upper Confidence Bound)
-   - Thompson Sampling
-   - Contextual bandits using problem features
+4. **Gaussian Process Surrogate** ✅ COMPLETED
+    - GP model added alongside QuadraticWLS (not replaced)
+    - EI, UCB, PI acquisition functions implemented
+    - scikit-learn integration complete
 
-5. **Convergence Detection**
-   - Statistical tests for stagnation
-   - Automatic termination
-   - Publish "converged" event
+### Infrastructure & Testing Improvements
+
+**🎯 Framework Robustness & Error Handling**
+- Add informative errors when optimization setup is insufficient (missing analyzers, etc.)
+- Ensure strategies always terminate with reasonable defaults (never unbounded)
+- Add validation for proper framework initialization
 
 ### Research Extensions
 
 1. **Multi-Fidelity Optimization**
-   - Use cheap low-fidelity evaluations to guide high-fidelity
-   - Hierarchical accuracy levels
+    - Use cheap low-fidelity evaluations to guide high-fidelity
+    - Hierarchical accuracy levels
 
 2. **Transfer Learning**
-   - Learn heuristic performance across related problems
-   - Meta-learning for initialization
+    - Learn heuristic performance across related problems
+    - Meta-learning for initialization
 
 3. **High-Dimensional Methods**
-   - Random embeddings
-   - Additive models
-   - Coordinate descent
+    - Random embeddings
+    - Additive models
+    - Coordinate descent
 
 4. **Parallel Batch Selection**
-   - Generate batches considering pending evaluations (q-EI)
-   - Avoid redundancy in parallel sampling
+    - Generate batches considering pending evaluations (q-EI)
+    - Avoid redundancy in parallel sampling
 
 ---
 
@@ -602,11 +620,11 @@ You're building **a flexible framework for black-box global optimization** as pa
 ✅ Parallel evaluation support
 
 Your focus now is on:
-- 🎯 Improving surrogate models (GP)
-- 🎯 Enhancing documentation and examples
-- 🎯 Adding advanced features (persistence, convergence detection)
-- 🎯 Validating experimentally
-- 🎯 Publishing results
+- 🎯 **Framework robustness** through realistic testing scenarios
+- 🎯 **Advanced bandit strategies** implementation and benchmarking
+- 🎯 **Constraint handling** research and implementation
+- 🎯 **Real-world usability** and stability
+- 🎯 Publishing results with solid experimental validation
 
 **Work iteratively:** Each call, pick one clear task, implement it well, test thoroughly, document completely.
 

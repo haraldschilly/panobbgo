@@ -25,6 +25,7 @@ dependencies = [
     "scipy>=1.15",
     "matplotlib>=3.8",
     "pandas>=2.2",
+    "scikit-learn>=1.5",
     "statsmodels>=0.14",
     "dask[distributed]>=2024.12",
     "pyyaml>=6.0",

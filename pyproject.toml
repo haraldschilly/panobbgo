@@ -67,3 +67,4 @@ reportGeneralTypeIssues = "warning"  # Warn instead of error for general type is
 reportAttributeAccessIssue = "warning"  # Warn instead of error for attribute access
 reportCallIssue = "warning"  # Warn for missing arguments
 reportArgumentType = "warning"  # Warn for argument type mismatches
+reportPrivateImportUsage = "warning"  # Warn for imports from private modules like IPython internals

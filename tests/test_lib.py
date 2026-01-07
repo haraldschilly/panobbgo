@@ -123,7 +123,7 @@ class Lib(unittest.TestCase):
         assert np.allclose(r.pp, [np.sqrt(13), 1.1])
         assert r.error == 1e-5
         assert r0 < r
-        assert unicode(r) == u"   1.100000 \u22DB  3.6056 @ [   1.000000    1.000000]"
+        assert str(r) == "   1.100000 \u22DB  3.6056 @ [   1.000000    1.000000]"
 
 
 class Classics(unittest.TestCase):

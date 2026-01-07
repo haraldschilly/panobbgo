@@ -431,24 +431,31 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
     - EI, UCB, PI acquisition functions implemented
     - scikit-learn integration complete
 
+### Infrastructure & Testing Improvements
+
+**🎯 Framework Robustness & Error Handling**
+- Add informative errors when optimization setup is insufficient (missing analyzers, etc.)
+- Ensure strategies always terminate with reasonable defaults (never unbounded)
+- Add validation for proper framework initialization
+
 ### Research Extensions
 
 1. **Multi-Fidelity Optimization**
-   - Use cheap low-fidelity evaluations to guide high-fidelity
-   - Hierarchical accuracy levels
+    - Use cheap low-fidelity evaluations to guide high-fidelity
+    - Hierarchical accuracy levels
 
 2. **Transfer Learning**
-   - Learn heuristic performance across related problems
-   - Meta-learning for initialization
+    - Learn heuristic performance across related problems
+    - Meta-learning for initialization
 
 3. **High-Dimensional Methods**
-   - Random embeddings
-   - Additive models
-   - Coordinate descent
+    - Random embeddings
+    - Additive models
+    - Coordinate descent
 
 4. **Parallel Batch Selection**
-   - Generate batches considering pending evaluations (q-EI)
-   - Avoid redundancy in parallel sampling
+    - Generate batches considering pending evaluations (q-EI)
+    - Avoid redundancy in parallel sampling
 
 ---
 

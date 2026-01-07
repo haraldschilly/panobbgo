@@ -393,32 +393,43 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
 
 ## Future Directions
 
+### Immediate Goals (Framework Robustness & Testing)
+
+**🎯 Framework Robustness & Testing**
+- Extend tests with artificial but "realistic" examples
+- Test-driven development across diverse problem scenarios
+- Shape overall framework to be robust and usable in the real world
+- Validate framework stability before advanced features
+
+**🎯 Advanced Bandit Strategies (Top Priority)**
+- Implement UCB (Upper Confidence Bound), Thompson Sampling
+- Add contextual bandits using problem features
+- Create comprehensive benchmarks to test bandit performance
+- Compare different bandit strategies empirically
+
 ### High-Priority Improvements
 
-1. **Gaussian Process Surrogate**
-   - Replace QuadraticWLS with GP model
-   - Use acquisition functions (EI, UCB, PI)
-   - Libraries: scikit-learn, GPy, or GPyTorch
+1. **Better Constraint Handling** ⭐
+    - Research real-world constraint handling approaches
+    - Implement penalty function methods
+    - Add augmented Lagrangian methods
+    - Develop constraint-specific heuristics
 
-2. **Persistent Storage**
-   - SQLite backend for Results
-   - Save/load optimization state
-   - Resume from checkpoint
+2. **Convergence Detection** (Tier 2)
+    - Statistical tests for stagnation
+    - Automatic termination criteria
+    - Publish "converged" event
+    - Adaptive stopping rules
 
-3. **Better Constraint Handling**
-   - Penalty function methods
-   - Augmented Lagrangian
-   - Constraint-specific heuristics
+3. **Persistent Storage** (Later)
+    - SQLite backend for Results
+    - Save/load optimization state
+    - Resume from checkpoint
 
-4. **Advanced Bandit Strategies**
-   - UCB (Upper Confidence Bound)
-   - Thompson Sampling
-   - Contextual bandits using problem features
-
-5. **Convergence Detection**
-   - Statistical tests for stagnation
-   - Automatic termination
-   - Publish "converged" event
+4. **Gaussian Process Surrogate** ✅ COMPLETED
+    - GP model added alongside QuadraticWLS (not replaced)
+    - EI, UCB, PI acquisition functions implemented
+    - scikit-learn integration complete
 
 ### Research Extensions
 
@@ -602,11 +613,11 @@ You're building **a flexible framework for black-box global optimization** as pa
 ✅ Parallel evaluation support
 
 Your focus now is on:
-- 🎯 Improving surrogate models (GP)
-- 🎯 Enhancing documentation and examples
-- 🎯 Adding advanced features (persistence, convergence detection)
-- 🎯 Validating experimentally
-- 🎯 Publishing results
+- 🎯 **Framework robustness** through realistic testing scenarios
+- 🎯 **Advanced bandit strategies** implementation and benchmarking
+- 🎯 **Constraint handling** research and implementation
+- 🎯 **Real-world usability** and stability
+- 🎯 Publishing results with solid experimental validation
 
 **Work iteratively:** Each call, pick one clear task, implement it well, test thoroughly, document completely.
 

@@ -9,6 +9,12 @@ This file provides instructions for agents working on the Panobbgo repository.
 *   **Testing**: All new code must be tested. Existing tests should be migrated to `pytest`.
 *   **Dependencies**: Keep dependencies up-to-date. Avoid using deprecated libraries.
 
+## Development Roadmap
+
+*   **DEVELOPMENT_PROMPT.md**: Contains the comprehensive development roadmap, current priorities, and implementation guidelines.
+*   **Immediate Focus**: Framework robustness through realistic testing scenarios, advanced bandit strategies, and constraint handling.
+*   **Long-term Goals**: Persistent storage, convergence detection, and advanced optimization features.
+
 ## Repository Structure
 
 *   `panobbgo/`: Main package source code.
@@ -25,6 +31,7 @@ This file provides instructions for agents working on the Panobbgo repository.
 *   Use `pytest` for running tests.
 *   Tests are currently scattered in files ending with `_test.py` alongside the source code.
 *   Goal: Move tests to a dedicated `tests/` directory.
+*   **Priority**: Extend tests with artificial but "realistic" examples for framework robustness validation.
 
 ## Build & Install
 

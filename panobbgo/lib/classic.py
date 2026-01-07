@@ -507,19 +507,20 @@ class NesterovQuadratic(Problem):
     """
 
     def __init__(self, dim=None, box=None, A=None, b=None, nonsmooth=True, **kwargs):
-        """
+        r"""
         :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
         """
         self.nonsmooth = nonsmooth
         if A is None and b is None:
             dim = 2
-        else:
-            dim = b.shape[0]
-        box = box or [(-5, 5)] * dim
-        if A is None:
             A = np.random.randn(dim, dim)
-        if b is None:
             b = np.random.randn(dim)
+        else:
+            assert b is not None, "b must be provided if A is provided"
+            dim = b.shape[0]
+            if A is None:
+                A = np.random.randn(dim, dim)
+        box = box or [(-5, 5)] * dim
         self.A, self.b = A, b
         Problem.__init__(self, box, **kwargs)
 
@@ -581,7 +582,7 @@ class Branin(Problem):
         x1, x2 = x
         term1 = self.a * (x2 - self.b*x1**2 + self.c*x1 - self.r)**2
         term2 = self.s*(1-self.t)*np.cos(x1)
-        y = term1 + term2 + s;
+        y = term1 + term2 + self.s
         return y
 
 

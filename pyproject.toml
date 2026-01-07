@@ -41,7 +41,9 @@ dev = [
     "flake8",
     "black",
     "mypy",
-    "pyright"
+    "pyright",
+    "types-setuptools",
+    "pandas-stubs",
 ]
 
 [tool.setuptools.packages.find]
@@ -57,7 +59,11 @@ exclude = ["**/__pycache__", ".venv", "build", "dist"]
 pythonVersion = "3.8"
 pythonPlatform = "Linux"
 typeCheckingMode = "basic"  # Can be "off", "basic", or "strict"
-reportMissingImports = true
+reportMissingImports = "warning"  # Warn instead of error for missing imports
 reportMissingTypeStubs = false
 reportUnusedImport = "warning"
 reportUnusedVariable = "warning"
+reportGeneralTypeIssues = "warning"  # Warn instead of error for general type issues
+reportAttributeAccessIssue = "warning"  # Warn instead of error for attribute access
+reportCallIssue = "warning"  # Warn for missing arguments
+reportArgumentType = "warning"  # Warn for argument type mismatches

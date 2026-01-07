@@ -47,6 +47,7 @@ class Extremal(Heuristic):
 
     def on_start(self):
         import numpy as np
+        assert self.vals is not None, "vals must be initialized in __start__"
         while True:
             ret = np.empty(self.problem.dim)
             for i in range(self.problem.dim):

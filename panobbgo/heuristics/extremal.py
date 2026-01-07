@@ -43,7 +43,7 @@ class Extremal(Heuristic):
         high = problem.box[:, 1]
         zero = np.zeros(problem.dim)
         center = low + (high - low) / 2.
-        self.vals = np.row_stack((low, zero, center, high))
+        self.vals = np.vstack((low, zero, center, high))
 
     def on_start(self):
         import numpy as np

@@ -69,8 +69,8 @@ class NelderMead(Heuristic):
         ret.append(first)
         for p in results:
             w = p.x - np.sum(
-                ((v.dot(p.x) / v.dot(v)) * v
-                 for v in base), axis=0)
+                [((v.dot(p.x) / v.dot(v)) * v)
+                 for v in base], axis=0)
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 ret.append(p)

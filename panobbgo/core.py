@@ -262,7 +262,7 @@ class Heuristic(Module):
         self.logger = self.config.get_logger('HEUR')
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
-        from Queue import Queue
+        from queue import Queue
         self._output = Queue(self.cap)
 
         # statistics; performance

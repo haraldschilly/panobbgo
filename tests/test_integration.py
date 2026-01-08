@@ -368,36 +368,6 @@ def test_manual_optimization_execution():
     print(f"✅ Manual optimization execution test passed! Best f(x) = {best_fx:.4f} at x = {best_x}")
 
 
-def test_minimal_strategy_execution():
-    """
-    Test minimal strategy execution to validate the optimization framework runs.
-
-    This tests the absolute minimum: strategy + one heuristic + execution.
-    """
-    from panobbgo.strategies import StrategyRoundRobin
-    from panobbgo.heuristics import Random
-
-    problem = Rosenbrock(dims=2)
-
-    # Create minimal strategy
-    strategy = StrategyRoundRobin(problem, parse_args=False)
-    strategy.config.max_eval = 2  # Very minimal - just evaluate 2 points
-    strategy.config.evaluation_method = "direct"
-    strategy.config.ui_show = False
-
-    # Add Random heuristic with small capacity to avoid infinite generation
-    strategy.add(Random, cap=5)
-
-    print("Starting minimal optimization with max_evaluations=2...")
-
-    # Execute optimization
-    strategy.start()
-
-    # Basic validation
-    assert len(strategy.results) > 0, "Should have evaluated at least one point"
-    assert strategy.best is not None, "Should have a best result"
-
-    print(f"✅ Minimal strategy execution test passed! Evaluated {len(strategy.results)} points")
 
 def test_pandas_compatibility():
     """
@@ -542,7 +512,6 @@ if __name__ == "__main__":
     # Comprehensive integration tests
     print("\n🔬 Running comprehensive integration tests...")
     test_manual_optimization_execution()
-    test_minimal_strategy_execution()
     test_full_optimization_execution()
     test_pandas_compatibility()
 

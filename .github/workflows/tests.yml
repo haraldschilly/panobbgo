@@ -90,3 +90,27 @@ jobs:
     - name: Run Pyright
       run: |
         uv run pyright panobbgo
+
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install UV
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev
+
+    - name: Check formatting with ruff
+      run: |
+        uv run ruff format --check panobbgo tests sketchpad *.py

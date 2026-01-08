@@ -35,3 +35,4 @@ from __future__ import unicode_literals
 
 from .rewarding import StrategyRewarding
 from .round_robin import StrategyRoundRobin
+from .ucb import StrategyUCB

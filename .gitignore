@@ -18,3 +18,4 @@ panobbgo_lib.egg-info/
 cover/
 *.sublime-workspace
 coverage.xml
+.claude/settings.local.json

@@ -4,6 +4,12 @@ Panobbgo Logging System Demo
 Shows the new logging display in action
 
 Run with: uv run python logging_demo.py
+
+Note: The core functionality demonstrated here is thoroughly tested in
+tests/test_logging.py, including:
+- ANSI mode output with cursor positioning
+- Fallback mode for non-TTY environments
+- Complete workflow with multiple evaluation types
 """
 
 import sys

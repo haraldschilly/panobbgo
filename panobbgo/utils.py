@@ -199,6 +199,18 @@ class memoize:
             res = cache[key] = self.func(*args, **kw)
         return res
 
+def evaluate_point_subprocess(problem, point):
+    """
+    Evaluate a point using a problem instance.
+    This function is designed to be called from a subprocess for direct evaluation.
+
+    @param problem: The optimization problem instance
+    @param point: The point to evaluate
+    @return: The evaluation result
+    """
+    return problem(point)
+
+
 # Testing
 
 import unittest

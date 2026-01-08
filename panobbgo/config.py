@@ -263,7 +263,10 @@ class Config:
         self.ui_show = get_config('ui.show', 'ui', 'show', False, bool)
         self.ui_redraw_delay = get_config('ui.redraw_delay', 'ui', 'redraw_delay', 0.5, float)
 
-        # Dask cluster configuration (YAML only)
+        # Evaluation method configuration (YAML only)
+        self.evaluation_method = get_config('evaluation.method', None, None, 'direct', str)
+
+        # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
         self.dask_cluster_type = get_config('dask.cluster_type', None, None, 'local', str)
         self.dask_n_workers = get_config('dask.local.n_workers', None, None, 2, int)
         self.dask_threads_per_worker = get_config('dask.local.threads_per_worker', None, None, 1, int)
@@ -280,7 +283,9 @@ class Config:
 
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:
-            logger.info('Dask cluster type: %s' % self.dask_cluster_type)
+            logger.info('Evaluation method: %s' % self.evaluation_method)
+            if self.evaluation_method == 'dask':
+                logger.info('Dask cluster type: %s' % self.dask_cluster_type)
             logger.info("Environment: %s" % self.environment)
             Config._config_logged = True
 

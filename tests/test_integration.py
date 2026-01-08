@@ -47,6 +47,33 @@ def test_framework_basic_functionality():
     print("Core components (problems, evaluation, points, heuristics) work correctly.")
 
 
+def test_direct_evaluation_integration():
+    """
+    Test direct subprocess evaluation.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.utils import evaluate_point_subprocess
+
+    # Set up problem and minimal strategy
+    problem = Rosenbrock(2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+
+    # Force direct evaluation method by modifying the strategy's config
+    strategy.config.evaluation_method = 'direct'
+
+    # Test single evaluation through direct subprocess
+    test_point = Point([1.0, 1.0], "test")
+
+    # Test the subprocess evaluation function directly
+    result = evaluate_point_subprocess(problem, test_point)
+
+    assert isinstance(result, Result), "Direct evaluation should return Result"
+    assert result.fx == 0.0, "Direct evaluation should work correctly"
+
+    print("✅ Direct evaluation integration test passed!")
+    print("Direct subprocess evaluation works correctly.")
+
+
 def test_dask_evaluation_integration():
     """
     Test Dask integration for distributed evaluation.
@@ -56,6 +83,12 @@ def test_dask_evaluation_integration():
     # Set up problem and minimal strategy
     problem = Rosenbrock(2)
     strategy = StrategyRoundRobin(problem, parse_args=False)
+
+    # Force dask evaluation method by modifying the strategy's config
+    strategy.config.evaluation_method = 'dask'
+
+    # Set up dask cluster
+    strategy._setup_cluster(problem)
 
     # Test single evaluation through Dask
     def evaluate_point(point):
@@ -225,6 +258,7 @@ def test_large_scale_optimization():
 
 if __name__ == "__main__":
     test_framework_basic_functionality()
+    test_direct_evaluation_integration()
     test_dask_evaluation_integration()
     test_constrained_problem_integration()
     test_noisy_problem_integration()

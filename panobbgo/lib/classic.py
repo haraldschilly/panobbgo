@@ -221,7 +221,7 @@ class Shekel(Problem):
         self.m = m
 
         if a is None:
-            a = np.empty((dims, m), dtype=np.float)
+            a = np.empty((dims, m), dtype=float)
             phi = np.linspace(0, 2 * np.pi, num=dims, endpoint=False)
             for i in range(m):
                 a[:, i] = np.sin(phi * ((1. + i) / m))

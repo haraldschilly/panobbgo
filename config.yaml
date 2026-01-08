@@ -4,8 +4,8 @@
 # Evaluation Configuration
 # --------------------------
 evaluation:
-  # Evaluation method: 'direct' (subprocess) or 'dask' (distributed)
-  method: 'direct'
+  # Evaluation method: 'threaded' (fast, for testing), 'processes' (subprocess), or 'dask' (distributed)
+  method: 'threaded'
 
 # Dask Cluster Configuration (only used when evaluation.method is 'dask')
 # -------------------------------------------------------------------------

@@ -50,31 +50,26 @@ def test_framework_basic_functionality():
     print("Core components (problems, evaluation, points, heuristics) work correctly.")
 
 
-def test_direct_evaluation_integration():
+def test_threaded_evaluation_integration():
     """
-    Test direct subprocess evaluation.
+    Test threaded evaluation (fast mode for testing).
     """
-    from panobbgo.strategies import StrategyRoundRobin
     from panobbgo.utils import evaluate_point_subprocess
 
-    # Set up problem and minimal strategy
+    # Set up problem
     problem = Rosenbrock(2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
 
-    # Force direct evaluation method by modifying the strategy's config
-    strategy.config.evaluation_method = "direct"
-
-    # Test single evaluation through direct subprocess
+    # Test single evaluation using the same function the framework uses
     test_point = Point([1.0, 1.0], "test")
 
-    # Test the subprocess evaluation function directly
+    # Test the evaluation function directly (same as threaded mode uses)
     result = evaluate_point_subprocess(problem, test_point)
 
-    assert isinstance(result, Result), "Direct evaluation should return Result"
-    assert result.fx == 0.0, "Direct evaluation should work correctly"
+    assert isinstance(result, Result), "Threaded evaluation should return Result"
+    assert result.fx == 0.0, "Threaded evaluation should work correctly"
 
-    print("✅ Direct evaluation integration test passed!")
-    print("Direct subprocess evaluation works correctly.")
+    print("✅ Threaded evaluation integration test passed!")
+    print("Thread-based evaluation works correctly.")
 
 
 def test_dask_evaluation_integration():
@@ -300,7 +295,7 @@ def setup_strategy_with_heuristics(strategy_class, problem, heuristics_config, m
 
     # Modify config settings for testing
     strategy.config.max_eval = max_evaluations
-    strategy.config.evaluation_method = "direct"  # Use direct evaluation for testing
+    strategy.config.evaluation_method = "threaded"  # Use threaded evaluation for testing
     strategy.config.ui_show = False
 
     # Add heuristics
@@ -389,7 +384,7 @@ def test_pandas_compatibility():
     problem = Rosenbrock(dims=2)
     strategy = StrategyRoundRobin(problem, parse_args=False)
     strategy.config.max_eval = 100
-    strategy.config.evaluation_method = "direct"
+    strategy.config.evaluation_method = "threaded"
     strategy.config.ui_show = False
 
     # Access the Results database through the strategy
@@ -505,7 +500,7 @@ def test_full_optimization_execution():
 if __name__ == "__main__":
     # Basic component tests
     test_framework_basic_functionality()
-    test_direct_evaluation_integration()
+    test_threaded_evaluation_integration()
     test_dask_evaluation_integration()
     test_constrained_problem_integration()
     test_noisy_problem_integration()

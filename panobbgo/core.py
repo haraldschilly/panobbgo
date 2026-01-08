@@ -839,12 +839,18 @@ class StrategyBase:
     def _setup_cluster(self, problem):
         """
         Set up evaluation infrastructure based on configuration.
-        Supports both direct subprocess evaluation and Dask distributed evaluation.
+
+        Evaluation methods:
+        - 'threaded': Thread pool for fast testing with pure Python functions (default for tests)
+        - 'processes': Subprocess evaluation for isolation (legacy, slower)
+        - 'dask': Distributed evaluation for heavy workloads
         """
         if self.config.evaluation_method == "dask":
             self._setup_dask_cluster(problem)
-        elif self.config.evaluation_method == "direct":
-            self._setup_direct_evaluation(problem)
+        elif self.config.evaluation_method == "processes":
+            self._setup_process_evaluation(problem)
+        elif self.config.evaluation_method == "threaded":
+            self._setup_threaded_evaluation(problem)
         else:
             raise ValueError(
                 f"Unknown evaluation method: {self.config.evaluation_method}"
@@ -892,9 +898,9 @@ class StrategyBase:
                 % self.config.dask_dashboard_address
             )
 
-    def _setup_direct_evaluation(self, problem):
+    def _setup_process_evaluation(self, problem):
         """
-        Set up direct subprocess evaluation.
+        Set up process pool evaluation using subprocesses.
         """
         import multiprocessing
         import pickle
@@ -911,7 +917,7 @@ class StrategyBase:
             else multiprocessing.cpu_count()
         )
         self.logger.info(
-            "Setting up direct evaluation with %d subprocesses" % self._n_processes
+            "Setting up process evaluation with %d subprocesses" % self._n_processes
         )
 
         # Create a temporary file to store the problem for subprocesses
@@ -924,7 +930,42 @@ class StrategyBase:
             os.unlink(self._problem_file.name)
             raise e
 
-        self.logger.info("Direct evaluation ready")
+        self.logger.info("Process evaluation ready")
+
+    def _setup_threaded_evaluation(self, problem):
+        """
+        Set up thread pool evaluation for fast testing with pure Python functions.
+
+        This is ideal for:
+        - Unit tests and CI
+        - Pure Python objective functions
+        - Quick prototyping
+
+        NOT suitable for:
+        - External process calls
+        - Functions that release the GIL
+        - CPU-intensive parallel work (use Dask instead)
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        import multiprocessing
+
+        # Store problem directly (shared memory, no pickling needed)
+        self._problem = problem
+
+        # Determine number of threads
+        self._n_processes = (
+            self.config.dask_n_workers
+            if hasattr(self.config, "dask_n_workers")
+            else multiprocessing.cpu_count()
+        )
+
+        # Create thread pool
+        self._thread_pool = ThreadPoolExecutor(max_workers=self._n_processes)
+        self._futures = {}  # Track pending futures
+
+        self.logger.info(
+            "Threaded evaluation ready with %d threads" % self._n_processes
+        )
 
     @property
     def best(self):
@@ -959,7 +1000,7 @@ class StrategyBase:
                     return 0
 
             return DaskEvaluatorsMock(self)
-        else:  # direct evaluation
+        else:  # process or threaded evaluation
 
             class DirectEvaluatorsMock:
                 def __init__(self, strategy):
@@ -994,8 +1035,10 @@ class StrategyBase:
 
             if self.config.evaluation_method == "dask":
                 self._run_dask_evaluation(points)
-            elif self.config.evaluation_method == "direct":
-                self._run_direct_evaluation(points)
+            elif self.config.evaluation_method == "processes":
+                self._run_process_evaluation(points)
+            elif self.config.evaluation_method == "threaded":
+                self._run_threaded_evaluation(points)
 
             self.jobs_per_client = max(
                 1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task))
@@ -1053,8 +1096,8 @@ class StrategyBase:
 
         self.results += new_results
 
-    def _run_direct_evaluation(self, points):
-        """Run evaluation using direct subprocess calls."""
+    def _run_process_evaluation(self, points):
+        """Run evaluation using subprocess calls."""
         import subprocess
         import pickle
         import tempfile
@@ -1069,7 +1112,7 @@ class StrategyBase:
 
         for i, point in enumerate(points):
             # Create task ID
-            task_id = f"direct_task_{self.loops}_{i}"
+            task_id = f"process_task_{self.loops}_{i}"
             task_ids.append(task_id)
 
             # Create temporary file for the point
@@ -1161,6 +1204,60 @@ with open('{result_file.name}', 'wb') as f:
 
         self.results += new_results
 
+    def _run_threaded_evaluation(self, points):
+        """
+        Run evaluation using thread pool for fast testing.
+
+        This is much faster than subprocess evaluation for pure Python functions
+        since it avoids process creation overhead and pickle serialization.
+        """
+        from concurrent.futures import as_completed
+        import time as time_mod
+
+        if not points:
+            return
+
+        # Submit all points to thread pool
+        task_start_times = {}
+        for i, point in enumerate(points):
+            task_id = f"thread_task_{self.loops}_{i}"
+            future = self._thread_pool.submit(self._problem, point)
+            self._futures[task_id] = future
+            self.pending[task_id] = future
+            task_start_times[task_id] = time_mod.time()
+
+        # Wait for completion with short timeout for responsiveness
+        self.new_finished = []
+        new_results = []
+
+        # Check which futures are done
+        completed_ids = []
+        for task_id, future in list(self._futures.items()):
+            if future.done():
+                completed_ids.append(task_id)
+                self.new_finished.append(task_id)
+                self.finished.append(task_id)
+
+                # Record wall time
+                if task_id in task_start_times:
+                    self.tasks_walltimes[task_id] = time_mod.time() - task_start_times[task_id]
+
+                try:
+                    result = future.result()
+                    if isinstance(result, list):
+                        new_results.extend(result)
+                    else:
+                        new_results.append(result)
+                except Exception as e:
+                    self.logger.error("Threaded evaluation failed: %s" % e)
+
+        # Clean up completed futures
+        for task_id in completed_ids:
+            self._futures.pop(task_id, None)
+            self.pending.pop(task_id, None)
+
+        self.results += new_results
+
     def _update_progress_status(self):
         """
         Update the progress status line with current optimization information.
@@ -1245,8 +1342,8 @@ with open('{result_file.name}', 'wb') as f:
             # Close Dask client
             if hasattr(self, "_client"):
                 self._client.close()
-        elif self.config.evaluation_method == "direct":
-            # Clean up problem file for direct evaluation
+        elif self.config.evaluation_method == "processes":
+            # Clean up problem file for process evaluation
             if hasattr(self, "_problem_file"):
                 import os
 
@@ -1254,6 +1351,10 @@ with open('{result_file.name}', 'wb') as f:
                     os.unlink(self._problem_file.name)
                 except:
                     pass
+        elif self.config.evaluation_method == "threaded":
+            # Shutdown thread pool
+            if hasattr(self, "_thread_pool"):
+                self._thread_pool.shutdown(wait=False)
 
         # Finalize progress reporting
         if hasattr(self, 'panobbgo_logger'):

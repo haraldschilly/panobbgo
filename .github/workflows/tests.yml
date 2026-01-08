@@ -6,9 +6,8 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Common variables
-variables:
-  python-version: &python-version '3.12'
+# YAML anchor for Python version - change here to update all jobs
+python-version: &python-version '3.12'
 
 jobs:
   test:

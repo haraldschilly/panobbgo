@@ -6,6 +6,7 @@ import numpy.random as random
 import numpy
 
 import pylab
+
 pylab.ion()
 
 data = random.randn(2, 200)
@@ -16,7 +17,7 @@ data[:, 40] = [0, 8]
 data[:, 80] = [9, 3]
 
 thresh = 4
-clusters = hcluster.fclusterdata(numpy.transpose(data), thresh, criterion='maxclust')
+clusters = hcluster.fclusterdata(numpy.transpose(data), thresh, criterion="maxclust")
 pylab.scatter(*data[:, :], c=clusters)
 pylab.axis("equal")
 title = "threshold: %f, number of clusters: %d" % (thresh, len(set(clusters)))

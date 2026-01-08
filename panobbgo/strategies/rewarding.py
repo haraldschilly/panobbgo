@@ -19,7 +19,6 @@ from panobbgo.core import StrategyBase
 
 
 class StrategyRewarding(StrategyBase):
-
     """
     This strategy rewards given :mod:`.heuristics` by selecting
     those more often, which produce better search points.
@@ -43,7 +42,7 @@ class StrategyRewarding(StrategyBase):
         - ``times``: how often
         """
         d = float(discount if discount is not None else self.config.discount)
-        d = d ** times
+        d = d**times
         heur.performance *= d
 
     def reward(self, best):
@@ -57,13 +56,13 @@ class StrategyRewarding(StrategyBase):
         if self.last_best is None:
             return 1.0
         import numpy as np
+
         # currently, only reward if better point found.
         # TODO in the future also reward if near the best value (but
         # e.g. not in the proximity of the best x)
         fx_delta, reward = 0.0, 0.0
         # fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
-        fx_delta = 1.0 - np.exp(-1.0 * (self.last_best.fx -
-                                        best.fx))  # saturates to 1
+        fx_delta = 1.0 - np.exp(-1.0 * (self.last_best.fx - best.fx))  # saturates to 1
         fx_delta = 0.0 if fx_delta <= 0 else fx_delta
         # if self.fx_delta_last == None: self.fx_delta_last = fx_delta
         reward = fx_delta  # / self.fx_delta_last
@@ -73,15 +72,15 @@ class StrategyRewarding(StrategyBase):
 
     def on_new_best(self, best):
         reward = self.reward(best)
-        self.logger.info(
-            u"\u2318 %s | \u0394 %.7f %s" % (best, reward, best.who))
+        self.logger.info("\u2318 %s | \u0394 %.7f %s" % (best, reward, best.who))
         self.last_best = best
 
     def execute(self):
         points = []
         target = self.jobs_per_client * len(self.evaluators)
         self.logger.debug(
-            "per_client = %s | target = %s" % (self.jobs_per_client, target))
+            "per_client = %s | target = %s" % (self.jobs_per_client, target)
+        )
         if len(self.evaluators.outstanding) < target:
             s = float(self.config.smooth)
             while True:

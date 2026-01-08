@@ -49,6 +49,7 @@ the strategy.
 
 .. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
 """
+
 from __future__ import absolute_import
 from __future__ import unicode_literals
 

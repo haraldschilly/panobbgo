@@ -43,7 +43,6 @@ import numpy as np
 
 
 class Results:
-
     """
     A very simple database of results with a notification for new results.
     The new results are fed directly by the :class:`.StrategyBase`, outside of the
@@ -58,7 +57,7 @@ class Results:
     """
 
     def __init__(self, strategy):
-        self.logger = strategy.config.get_logger('RSLTS')
+        self.logger = strategy.config.get_logger("RSLTS")
         self.strategy = strategy
         self.eventbus = strategy.eventbus
         self.problem = strategy.problem
@@ -70,17 +69,18 @@ class Results:
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         """
-        from pandas import (DataFrame, MultiIndex)
+        from pandas import DataFrame, MultiIndex
+
         if self.results is None:
             if len(new_results) == 0:
                 return
             r = new_results[0]
-            midx_x = [('x', _) for _ in range(len(r.x))]
+            midx_x = [("x", _) for _ in range(len(r.x))]
             len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
-            midx_cv = [('cv', _) for _ in range(len_cv_vec)]
+            midx_cv = [("cv", _) for _ in range(len_cv_vec)]
             midx = MultiIndex.from_tuples(
-                midx_x + [('fx', 0)] +
-                midx_cv + [('cv', 0), ('who', 0), ('error', 0)])
+                midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
+            )
             self.results = DataFrame(columns=midx)
 
         assert all([isinstance(_, Result) for _ in new_results])
@@ -90,9 +90,13 @@ class Results:
         new_rows = []
         for r in new_results:
             new_rows.append(
-                np.r_[r.x, r.fx,
-                      [] if r.cv_vec is None else r.cv_vec,
-                      [r.cv, r.who, r.error]])
+                np.r_[
+                    r.x,
+                    r.fx,
+                    [] if r.cv_vec is None else r.cv_vec,
+                    [r.cv, r.who, r.error],
+                ]
+            )
         results_new = DataFrame(new_rows, columns=self.results.columns)
         self.results = self.results.append(results_new, ignore_index=True)
 
@@ -114,7 +118,6 @@ class Results:
 
 
 class Module:
-
     """
     "Abstract" parent class for various panobbgo modules, e.g.
     :class:`.Heuristic` and :class:`.Analyzer`.
@@ -215,11 +218,10 @@ class Module:
         return None, None
 
     def __repr__(self):
-        return 'Module %s' % self.name
+        return "Module %s" % self.name
 
 
 class StopHeuristic(Exception):
-
     """
     Indicates the heuristic has finished and should be ignored/removed.
     """
@@ -234,7 +236,6 @@ class StopHeuristic(Exception):
 
 
 class Heuristic(Module):
-
     """
     This is the "abstract" parent class for all types of point generating classes,
     which we call collectively ":mod:`Heuristics <.heuristics>`".
@@ -260,10 +261,11 @@ class Heuristic(Module):
     def __init__(self, strategy, name=None, cap=None):
         Module.__init__(self, strategy, name)
         self.config = strategy.config
-        self.logger = self.config.get_logger('HEUR')
+        self.logger = self.config.get_logger("HEUR")
         self.cap = cap if cap is not None else self.config.capacity
         self._stopped = False
         from queue import Queue
+
         self._output = Queue(self.cap)
 
         # statistics; performance
@@ -308,6 +310,7 @@ class Heuristic(Module):
         consumption")
         """
         from queue import Empty
+
         new_points = []
         try:
             while limit is None or len(new_points) < limit:
@@ -330,7 +333,6 @@ class Heuristic(Module):
 
 
 class HeuristicSubprocess(Heuristic):
-
     r"""
     This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting
     a subprocess, which communicates with the main thread via a pipe in a blocking
@@ -341,12 +343,14 @@ class HeuristicSubprocess(Heuristic):
         Heuristic.__init__(self, strategy, name=name, cap=cap)
 
         from multiprocessing import Process, Pipe
+
         # a pipe has two ends, parent and child.
         self.pipe, self.pipe_child = Pipe()
         self.__subprocess = Process(
             target=self.subprocess,
             args=(self.pipe_child,),
-            name='%s-subprocess' % (self.name))
+            name="%s-subprocess" % (self.name),
+        )
         self.__subprocess.daemon = True
         self.__subprocess.start()
 
@@ -365,7 +369,6 @@ class HeuristicSubprocess(Heuristic):
 # Analyzer
 #
 class Analyzer(Module):
-
     """
     Abstract parent class for all types of analyzers.
     """
@@ -373,13 +376,13 @@ class Analyzer(Module):
     def __init__(self, strategy, name=None):
         Module.__init__(self, strategy, name)
 
+
 #
 # EventBus
 #
 
 
 class Event:
-
     """
     This class holds the data for one single :class:`~.EventBus` event.
     """
@@ -395,20 +398,21 @@ class Event:
 
 
 class EventBus:
-
     """
     This event bus is used to publish and send events.
     E.g. it is used to send information like "new best point"
     to all subscribing heuristics.
     """
+
     # pattern for a valid key
     import re
-    _re_key = re.compile(r'^[a-z_]+$')
+
+    _re_key = re.compile(r"^[a-z_]+$")
 
     def __init__(self, config):
         self._subs = {}
         self.config = config
-        self.logger = config.get_logger('EVBUS')
+        self.logger = config.get_logger("EVBUS")
 
     @property
     def keys(self):
@@ -441,8 +445,7 @@ class EventBus:
                     terminate = False
                     try:
                         while True:
-                            event = \
-                                target.eventbus_events[key].get(block=isfirst)
+                            event = target.eventbus_events[key].get(block=isfirst)
                             terminate |= event.terminate
                             events.append(event)
                             isfirst = False
@@ -450,15 +453,17 @@ class EventBus:
                         isfirst = True
 
                     try:
-                        new_points = getattr(target, 'on_%s' % key)(events)
+                        new_points = getattr(target, "on_%s" % key)(events)
                         # heuristics might call self.emit and/or return a list
                         if new_points is not None:
                             target.emit(new_points)
                         if terminate:
                             raise StopHeuristic("%s terminated" % target.name)
                     except StopHeuristic as e:
-                        self.logger.debug("'%s/on_%s' %s -> unsubscribing." %
-                                          (target.name, key, e.message))
+                        self.logger.debug(
+                            "'%s/on_%s' %s -> unsubscribing."
+                            % (target.name, key, e.message)
+                        )
                         self.unsubscribe(key, target)
                         return
 
@@ -468,8 +473,7 @@ class EventBus:
                         event = target.eventbus_events[key].get(block=True)
                         assert isinstance(event, Event)
                         try:
-                            new_points = getattr(
-                                target, 'on_%s' % key)(**event._kwargs)
+                            new_points = getattr(target, "on_%s" % key)(**event._kwargs)
                             # heuristics might call self.emit and/or return a
                             # list
                             if new_points is not None:
@@ -478,8 +482,9 @@ class EventBus:
                                 raise StopHeuristic("%s terminated" % target.name)
                         except StopHeuristic as e:
                             self.logger.debug(
-                                "'%s/on_%s' %s -> unsubscribing." %
-                                (target.name, key, str(e)))
+                                "'%s/on_%s' %s -> unsubscribing."
+                                % (target.name, key, str(e))
+                            )
                             self.unsubscribe(key, target)
                             return
                     except Exception as e:
@@ -488,24 +493,32 @@ class EventBus:
                             # sys.exc_info() -> re-create original exception
                             # (otherwise we don't know the actual cause!)
                             import sys
+
                             ex = sys.exc_info()
                             raise (ex[1], None, ex[2])
                         else:  # just issue a critical warning
                             self.logger.critical(
-                                "Exception: %s in %s: %s" % (key, target, e))
+                                "Exception: %s in %s: %s" % (key, target, e)
+                            )
                         return
 
         target.eventbus_events = {}
         # bind all 'on_<key>' methods to events in the eventbus
         import inspect
+
         for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
             if not name.startswith("on_"):
                 continue
             key = self._check_key(name[3:])
             target.eventbus_events[key] = Queue()
-            t = Thread(target=run,
-                       args=(key, target,),
-                       name='EventBus::%s/%s' % (target.name, key))
+            t = Thread(
+                target=run,
+                args=(
+                    key,
+                    target,
+                ),
+                name="EventBus::%s/%s" % (target.name, key),
+            )
             t.daemon = True
             t.start()
             target._threads.append(t)
@@ -582,7 +595,6 @@ class EventBus:
 
 
 class StrategyBase:
-
     """
     This abstract BaseStrategy is the parent class of all Strategies.
 
@@ -599,6 +611,7 @@ class StrategyBase:
     This ``execute`` method will be called repeatedly as long as there are less than the
     given maximum number of search points evaluated.
     """
+
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
@@ -607,22 +620,22 @@ class StrategyBase:
 
 
         @type problem: panobbgo.lib.lib.Problem
-        @param problem: 
-        @param parse_args: 
+        @param problem:
+        @param parse_args:
         """
         self._name = name = self.__class__.__name__
         self.config = config = Config(parse_args)
-        self.logger = logger = config.get_logger('STRAT')
-        self.slogger = config.get_logger('STATS')
+        self.logger = logger = config.get_logger("STRAT")
+        self.slogger = config.get_logger("STATS")
         logger.info("Init of '%s'" % (name))
         logger.info("%s" % problem)
 
         # aux configuration
         import pandas as pd
-        # determine width based on console info
-        pd.set_option('display.width', None)
-        pd.set_option('display.precision', 2)  # default 7
 
+        # determine width based on console info
+        pd.set_option("display.width", None)
+        pd.set_option("display.precision", 2)  # default 7
 
         # statistics
         self.show_last = 0  # for printing the info line in _add_tasks()
@@ -640,6 +653,7 @@ class StrategyBase:
         self._threads = []
         self._hs = []
         import collections
+
         self._heuristics = collections.OrderedDict()
         self._analyzers = collections.OrderedDict()
         self.problem = problem
@@ -649,6 +663,7 @@ class StrategyBase:
         # UI
         if config.ui_show:
             from .ui import UI
+
             self.ui = UI()
             self.ui._init_module(self)
             self.ui.show()
@@ -664,11 +679,8 @@ class StrategyBase:
 
         # analyzers
         from .analyzers import Best, Grid, Splitter
-        new_analyzers = [
-            Best(self),
-            Grid(self),
-            Splitter(self)
-        ]
+
+        new_analyzers = [Best(self), Grid(self), Splitter(self)]
         for a in new_analyzers:
             self.add_analyzer(a)
 
@@ -678,6 +690,7 @@ class StrategyBase:
 
         try:
             import threading
+
             if isinstance(self, threading.Thread):
                 raise Exception("change run() to start()")
             self._run()
@@ -705,8 +718,9 @@ class StrategyBase:
         :param Heuristic h:
         """
         name = h.name
-        assert name not in self._heuristics, \
+        assert name not in self._heuristics, (
             "Names of heuristics need to be unique. '%s' is already used." % name
+        )
         self._heuristics[name] = h
         self.init_module(h)
 
@@ -716,8 +730,9 @@ class StrategyBase:
         :param Analyzer a:
         """
         name = a.name
-        assert name not in self._analyzers, \
+        assert name not in self._analyzers, (
             "Names of analyzers need to be unique. '%s' is already used." % name
+        )
         self._analyzers[name] = a
         self.init_module(a)
 
@@ -738,7 +753,9 @@ class StrategyBase:
             # implicit (just list of respective classes)
             for mod_class in module._depends_on:
                 if mod_class not in all_mods:
-                    raise Exception("%s depends on %s, but missing." % (module, mod_class))
+                    raise Exception(
+                        "%s depends on %s, but missing." % (module, mod_class)
+                    )
 
     def init_module(self, module):
         """
@@ -757,40 +774,97 @@ class StrategyBase:
 
     def _setup_cluster(self, problem):
         """
+        Set up evaluation infrastructure based on configuration.
+        Supports both direct subprocess evaluation and Dask distributed evaluation.
+        """
+        if self.config.evaluation_method == "dask":
+            self._setup_dask_cluster(problem)
+        elif self.config.evaluation_method == "direct":
+            self._setup_direct_evaluation(problem)
+        else:
+            raise ValueError(
+                f"Unknown evaluation method: {self.config.evaluation_method}"
+            )
+
+    def _setup_dask_cluster(self, problem):
+        """
         Set up a Dask cluster based on configuration.
         Supports both local and remote clusters.
         """
         from dask.distributed import Client, LocalCluster
 
-        if self.config.dask_cluster_type == 'local':
+        if self.config.dask_cluster_type == "local":
             # Create a local cluster
-            self.logger.info('Setting up local Dask cluster with %d workers' %
-                           self.config.dask_n_workers)
+            self.logger.info(
+                "Setting up local Dask cluster with %d workers"
+                % self.config.dask_n_workers
+            )
             cluster = LocalCluster(
                 n_workers=self.config.dask_n_workers,
                 threads_per_worker=self.config.dask_threads_per_worker,
                 memory_limit=self.config.dask_memory_limit,
                 dashboard_address=self.config.dask_dashboard_address,
-                silence_logs=False
+                silence_logs=False,
             )
             self._client = Client(cluster)
         else:
             # Connect to remote cluster
-            self.logger.info('Connecting to remote Dask cluster at %s' %
-                           self.config.dask_scheduler_address)
+            self.logger.info(
+                "Connecting to remote Dask cluster at %s"
+                % self.config.dask_scheduler_address
+            )
             self._client = Client(self.config.dask_scheduler_address)
 
         # Scatter the problem to all workers (similar to IPython Reference)
         self._problem_future = self._client.scatter(problem, broadcast=True)
 
-        self.logger.info('Dask cluster ready with %d workers' % len(self._client.scheduler_info()['workers']))
-        if self.config.dask_cluster_type == 'local':
-            self.logger.info('Dashboard available at: http://localhost%s' %
-                           self.config.dask_dashboard_address)
+        self.logger.info(
+            "Dask cluster ready with %d workers"
+            % len(self._client.scheduler_info()["workers"])
+        )
+        if self.config.dask_cluster_type == "local":
+            self.logger.info(
+                "Dashboard available at: http://localhost%s"
+                % self.config.dask_dashboard_address
+            )
+
+    def _setup_direct_evaluation(self, problem):
+        """
+        Set up direct subprocess evaluation.
+        """
+        import multiprocessing
+        import pickle
+        import os
+        import tempfile
+
+        # Store problem for subprocess evaluation
+        self._problem = problem
+
+        # Determine number of processes (default to number of CPU cores)
+        self._n_processes = (
+            self.config.dask_n_workers
+            if hasattr(self.config, "dask_n_workers")
+            else multiprocessing.cpu_count()
+        )
+        self.logger.info(
+            "Setting up direct evaluation with %d subprocesses" % self._n_processes
+        )
+
+        # Create a temporary file to store the problem for subprocesses
+        self._problem_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+        try:
+            pickle.dump(problem, self._problem_file)
+            self._problem_file.close()
+        except Exception as e:
+            self._problem_file.close()
+            os.unlink(self._problem_file.name)
+            raise e
+
+        self.logger.info("Direct evaluation ready")
 
     @property
     def best(self):
-        best_analyzer = self._analyzers.get('Best')
+        best_analyzer = self._analyzers.get("Best")
         return best_analyzer.best if best_analyzer else None
 
     @property
@@ -803,34 +877,47 @@ class StrategyBase:
         Compatibility property for legacy code that references evaluators.
         Returns a mock object with attributes needed by strategies.
         """
-        class DaskEvaluatorsMock:
-            def __init__(self, strategy):
-                self.strategy = strategy
+        if self.config.evaluation_method == "dask":
 
-            @property
-            def outstanding(self):
-                # Return list of pending task keys
-                return list(self.strategy.pending.keys())
+            class DaskEvaluatorsMock:
+                def __init__(self, strategy):
+                    self.strategy = strategy
 
-            def __len__(self):
-                # Return number of Dask workers
-                if hasattr(self.strategy, '_client'):
-                    return len(self.strategy._client.scheduler_info()['workers'])
-                return 0
+                @property
+                def outstanding(self):
+                    # Return list of pending task keys
+                    return list(self.strategy.pending.keys())
 
-        return DaskEvaluatorsMock(self)
+                def __len__(self):
+                    # Return number of Dask workers
+                    if hasattr(self.strategy, "_client"):
+                        return len(self.strategy._client.scheduler_info()["workers"])
+                    return 0
+
+            return DaskEvaluatorsMock(self)
+        else:  # direct evaluation
+
+            class DirectEvaluatorsMock:
+                def __init__(self, strategy):
+                    self.strategy = strategy
+
+                @property
+                def outstanding(self):
+                    # Return list of pending task keys
+                    return list(self.strategy.pending.keys())
+
+                def __len__(self):
+                    # Return number of subprocesses
+                    return getattr(self.strategy, "_n_processes", 1)
+
+            return DirectEvaluatorsMock(self)
 
     def _run(self):
-        self.eventbus.publish('start', terminate=True)
+        self.eventbus.publish("start", terminate=True)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' started" % self._name)
         self.loops = 0
-
-        # Helper function to evaluate a point using the problem
-        def evaluate_point(problem, point):
-            """Evaluate a single point using the problem instance"""
-            return problem(point)
 
         while True:
             self.loops += 1
@@ -838,40 +925,14 @@ class StrategyBase:
             # execute the actual strategy
             points = self.execute()
 
-            # distribute work using Dask futures
-            # Submit each point as a separate task
-            new_futures = []
-            for point in points:
-                future = self._client.submit(
-                    evaluate_point,
-                    self._problem_future,
-                    point,
-                    pure=False  # Function may have side effects
-                )
-                new_futures.append(future)
+            if self.config.evaluation_method == "dask":
+                self._run_dask_evaluation(points)
+            elif self.config.evaluation_method == "direct":
+                self._run_direct_evaluation(points)
 
-            # and don't forget, this updates the statistics
-            self._add_tasks(new_futures)
-
-            # collect new results for each finished task, hand them over to result DB
-            new_results = []
-            for future_id in self.new_finished:
-                future = self.pending.pop(future_id, None)
-                if future is not None:
-                    try:
-                        result = future.result()
-                        if isinstance(result, list):
-                            new_results.extend(result)
-                        else:
-                            new_results.append(result)
-                    except Exception as e:
-                        self.logger.error("Task failed with error: %s" % e)
-
-            self.results += new_results
-
-            self.jobs_per_client = max(1,
-                                       int(min(self.config.max_eval / 50.,
-                                               1. / self.avg_time_per_task)))
+            self.jobs_per_client = max(
+                1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task))
+            )
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -886,35 +947,200 @@ class StrategyBase:
 
         self._cleanup()
 
+    def _run_dask_evaluation(self, points):
+        """Run evaluation using Dask distributed computing."""
+
+        # Helper function to evaluate a point using the problem
+        def evaluate_point(problem, point):
+            """Evaluate a single point using the problem instance"""
+            return problem(point)
+
+        # distribute work using Dask futures
+        # Submit each point as a separate task
+        new_futures = []
+        for point in points:
+            future = self._client.submit(
+                evaluate_point,
+                self._problem_future,
+                point,
+                pure=False,  # Function may have side effects
+            )
+            new_futures.append(future)
+
+        # and don't forget, this updates the statistics
+        self._add_tasks(new_futures)
+
+        # collect new results for each finished task, hand them over to result DB
+        new_results = []
+        for future_id in self.new_finished:
+            future = self.pending.pop(future_id, None)
+            if future is not None:
+                try:
+                    result = future.result()
+                    if isinstance(result, list):
+                        new_results.extend(result)
+                    else:
+                        new_results.append(result)
+                except Exception as e:
+                    self.logger.error("Task failed with error: %s" % e)
+
+        self.results += new_results
+
+    def _run_direct_evaluation(self, points):
+        """Run evaluation using direct subprocess calls."""
+        import subprocess
+        import pickle
+        import tempfile
+        import os
+        import tempfile
+        import os
+
+        # Submit each point as a separate subprocess task
+        new_processes = []
+        temp_files = []
+        task_ids = []
+
+        for i, point in enumerate(points):
+            # Create task ID
+            task_id = f"direct_task_{self.loops}_{i}"
+            task_ids.append(task_id)
+
+            # Create temporary file for the point
+            point_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+            try:
+                pickle.dump(point, point_file)
+                point_file.close()
+                temp_files.append(point_file.name)
+
+                # Create temporary file for the result
+                result_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+                result_file.close()
+                temp_files.append(result_file.name)
+
+                # Launch subprocess
+                cmd = [
+                    "python3",
+                    "-c",
+                    f"""
+import pickle
+import sys
+sys.path.insert(0, '{os.path.dirname(os.path.abspath(__file__))}')
+from panobbgo.utils import evaluate_point_subprocess
+
+# Load problem and point
+with open('{self._problem_file.name}', 'rb') as f:
+    problem = pickle.load(f)
+with open('{point_file.name}', 'rb') as f:
+    point = pickle.load(f)
+
+# Evaluate and save result
+result = evaluate_point_subprocess(problem, point)
+with open('{result_file.name}', 'wb') as f:
+    pickle.dump(result, f)
+""",
+                ]
+
+                process = subprocess.Popen(cmd)
+                new_processes.append((process, result_file.name, task_id))
+
+            except Exception as e:
+                point_file.close()
+                os.unlink(point_file.name)
+                if "result_file" in locals():
+                    result_file.close()
+                    os.unlink(result_file.name)
+                raise e
+
+        # Add tasks to pending (for compatibility with existing code)
+        for task_id in task_ids:
+            self.pending[task_id] = task_id  # Mock pending entry
+
+        # Wait for all processes to complete and collect results
+        self.new_finished = []
+        new_results = []
+        for process, result_file, task_id in new_processes:
+            try:
+                process.wait(timeout=30)  # 30 second timeout per evaluation
+                if process.returncode == 0:
+                    with open(result_file, "rb") as f:
+                        result = pickle.load(f)
+                        if isinstance(result, list):
+                            new_results.extend(result)
+                        else:
+                            new_results.append(result)
+                    self.new_finished.append(task_id)
+                    self.finished.append(task_id)
+                else:
+                    self.logger.error(
+                        "Subprocess evaluation failed with return code: %d"
+                        % process.returncode
+                    )
+            except subprocess.TimeoutExpired:
+                process.kill()
+                self.logger.error("Subprocess evaluation timed out")
+            except Exception as e:
+                self.logger.error("Task failed with error: %s" % e)
+
+        # Remove completed tasks from pending
+        for task_id in self.new_finished:
+            self.pending.pop(task_id, None)
+
+        # Clean up temporary files
+        for temp_file in temp_files:
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+        self.results += new_results
+
     def execute(self):
         """
         Overwrite this method when you extend this base strategy.
         """
-        raise Exception('You need to extend the class StrategyBase and overwrite this execute method.')
+        raise Exception(
+            "You need to extend the class StrategyBase and overwrite this execute method."
+        )
 
     def _cleanup(self):
         """
         cleanup + shutdown
         """
-        self.eventbus.publish('finished')
+        self.eventbus.publish("finished")
         self._end = time_module.time()
 
-        # Cancel any outstanding Dask futures
-        for future_id, future in list(self.pending.items()):
-            try:
-                future.cancel()
-            except:
-                pass
+        if self.config.evaluation_method == "dask":
+            # Cancel any outstanding Dask futures
+            for future_id, future in list(self.pending.items()):
+                try:
+                    future.cancel()
+                except:
+                    pass
 
-        self.logger.info("Strategy '%s' finished after %.3f [s] and %d loops."
-                         % (self._name, self._end - self._start, self.loops))
+            # Close Dask client
+            if hasattr(self, "_client"):
+                self._client.close()
+        elif self.config.evaluation_method == "direct":
+            # Clean up problem file for direct evaluation
+            if hasattr(self, "_problem_file"):
+                import os
+
+                try:
+                    os.unlink(self._problem_file.name)
+                except:
+                    pass
+
+        self.logger.info(
+            "Strategy '%s' finished after %.3f [s] and %d loops."
+            % (self._name, self._end - self._start, self.loops)
+        )
 
         self.info()
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
 
         # Close Dask client
-        if hasattr(self, '_client'):
+        if hasattr(self, "_client"):
             self._client.close()
 
         if self.config.ui_show:
@@ -931,7 +1157,6 @@ class StrategyBase:
                 self.pending[future.key] = future
 
         # Find completed futures
-        from dask.distributed import as_completed
         self.new_finished = []
         completed_keys = []
 
@@ -942,7 +1167,7 @@ class StrategyBase:
                 self.finished.append(future_id)
 
                 # Calculate elapsed time if available
-                if hasattr(future, 'done') and future.done():
+                if hasattr(future, "done") and future.done():
                     try:
                         # Get task duration from Dask
                         # Note: This is approximate, based on completion time
@@ -955,17 +1180,17 @@ class StrategyBase:
             self.show_last = time_module.time()
 
     def info(self):
-        """
-
-
-        """
+        """ """
         avg = self.avg_time_per_task
         pend = len(self.pending)
         fini = len(self.finished)
         peval = len(self.results)
-        s = '{0:4d} ({1:4d}) pnts | Tasks: {2:3d} pend, {3:3d} finished | ' \
-            '{4:6.3f} [s] cpu, {5:6.3f} [s] wall, {6:6.3f} [s/task]' \
-            .format(peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg)
+        s = (
+            "{0:4d} ({1:4d}) pnts | Tasks: {2:3d} pend, {3:3d} finished | "
+            "{4:6.3f} [s] cpu, {5:6.3f} [s] wall, {6:6.3f} [s/task]".format(
+                peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg
+            )
+        )
         self.slogger.info(s)
 
     @property

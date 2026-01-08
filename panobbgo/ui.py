@@ -22,19 +22,22 @@ This draws a window and plots graphs.
 .. figure:: img/ui1.png
    :scale:  75 %
 """
+
 from threading import Thread
 from .core import Module
 
 
 try:
     import pygtk
-    pygtk.require('2.0')
+
+    pygtk.require("2.0")
 except:
     print("WARNING: no module pygtk installed")
 
 try:
     import gtk
     from gtk import gdk
+
     gtk_Window = gtk.Window
 except:
     print("WARNING: no module gtk installed")
@@ -43,14 +46,19 @@ except:
 
 import matplotlib
 import os
+
 if os.environ.get("TRAVIS") == "true":
-    matplotlib.use('Agg')  # 'GTKAgg' or 'GTK', or 'Agg' ?
+    matplotlib.use("Agg")  # 'GTKAgg' or 'GTK', or 'Agg' ?
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 else:
     try:
-        matplotlib.use('GTKAgg')  # 'GTKAgg' or 'GTK', or 'Agg' ?
-        from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
-        from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+        matplotlib.use("GTKAgg")  # 'GTKAgg' or 'GTK', or 'Agg' ?
+        from matplotlib.backends.backend_gtkagg import (
+            FigureCanvasGTKAgg as FigureCanvas,
+        )
+        from matplotlib.backends.backend_gtkagg import (
+            NavigationToolbar2GTKAgg as NavigationToolbar,
+        )
     except Exception as ex:
         print("ERROR: not able to initialize GTKAgg: %s" % ex)
 del os
@@ -59,7 +67,6 @@ del os
 
 
 class UI(Module, gtk_Window, Thread):
-
     r"""
     UI
     """
@@ -72,8 +79,8 @@ class UI(Module, gtk_Window, Thread):
         monitor = screen.get_monitor_at_window(self.get_root_window())
         geom = screen.get_monitor_geometry(monitor)
         self.set_resize_mode(gtk.RESIZE_QUEUE)
-        s = min([int(_ * .8) for _ in [geom.width, geom.height]])
-        self.resize(int(s * 4. / 3.), s)
+        s = min([int(_ * 0.8) for _ in [geom.width, geom.height]])
+        self.resize(int(s * 4.0 / 3.0), s)
         self._canvases = set()
         # centered
         self.set_position(gtk.WIN_POS_CENTER)
@@ -85,6 +92,7 @@ class UI(Module, gtk_Window, Thread):
         Creates a FigureCanvas, ready to be added to a gtk layout element
         """
         from matplotlib.figure import Figure
+
         fig = Figure(figsize=(10, 10))
         return FigureCanvas(fig), fig
 
@@ -93,9 +101,8 @@ class UI(Module, gtk_Window, Thread):
         self.logger = config.get_logger("UI")
 
         self.set_default_size(900, 800)
-        self.connect('destroy', self.destroy)
-        self.set_title(
-            'Panobbgo %s@%s' % (config.version, config.git_head[:8]))
+        self.connect("destroy", self.destroy)
+        self.set_title("Panobbgo %s@%s" % (config.version, config.git_head[:8]))
         self.set_border_width(0)
 
         self.top_hbox = gtk.HBox(False, 0)
@@ -107,9 +114,9 @@ class UI(Module, gtk_Window, Thread):
 
         self.add(self.top_hbox)
 
-        self.add_events(gdk.BUTTON_PRESS_MASK |
-                        gdk.KEY_PRESS_MASK |
-                        gdk.KEY_RELEASE_MASK)
+        self.add_events(
+            gdk.BUTTON_PRESS_MASK | gdk.KEY_PRESS_MASK | gdk.KEY_RELEASE_MASK
+        )
 
         self.show_all()
         gdk.threads_init()
@@ -128,6 +135,7 @@ class UI(Module, gtk_Window, Thread):
                 finally:
                     gtk.threads_leave()
                 import time
+
                 time.sleep(self.config.ui_redraw_delay)
 
         self.t = Thread(target=task)

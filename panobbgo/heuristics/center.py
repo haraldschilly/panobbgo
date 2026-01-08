@@ -19,7 +19,6 @@ from panobbgo.core import Heuristic
 
 
 class Center(Heuristic):
-
     """
     This heuristic checks the point in the center of the box.
     """

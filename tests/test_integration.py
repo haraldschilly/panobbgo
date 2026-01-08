@@ -33,7 +33,9 @@ def test_framework_basic_functionality():
     random_result = problem(random_point)
     print(f"Random point {random_point.x} -> f(x) = {random_result.fx}")
     assert random_point in problem.box, "Random point should be within bounds"
-    assert isinstance(random_result.fx, (int, float)), "Function value should be numeric"
+    assert isinstance(random_result.fx, (int, float)), (
+        "Function value should be numeric"
+    )
 
     # Test basic point generation (simplified)
     test_points = [Point(problem.random_point(), "manual") for _ in range(3)]
@@ -47,6 +49,33 @@ def test_framework_basic_functionality():
     print("Core components (problems, evaluation, points, heuristics) work correctly.")
 
 
+def test_direct_evaluation_integration():
+    """
+    Test direct subprocess evaluation.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.utils import evaluate_point_subprocess
+
+    # Set up problem and minimal strategy
+    problem = Rosenbrock(2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+
+    # Force direct evaluation method by modifying the strategy's config
+    strategy.config.evaluation_method = "direct"
+
+    # Test single evaluation through direct subprocess
+    test_point = Point([1.0, 1.0], "test")
+
+    # Test the subprocess evaluation function directly
+    result = evaluate_point_subprocess(problem, test_point)
+
+    assert isinstance(result, Result), "Direct evaluation should return Result"
+    assert result.fx == 0.0, "Direct evaluation should work correctly"
+
+    print("✅ Direct evaluation integration test passed!")
+    print("Direct subprocess evaluation works correctly.")
+
+
 def test_dask_evaluation_integration():
     """
     Test Dask integration for distributed evaluation.
@@ -56,6 +85,12 @@ def test_dask_evaluation_integration():
     # Set up problem and minimal strategy
     problem = Rosenbrock(2)
     strategy = StrategyRoundRobin(problem, parse_args=False)
+
+    # Force dask evaluation method by modifying the strategy's config
+    strategy.config.evaluation_method = "dask"
+
+    # Set up dask cluster
+    strategy._setup_cluster(problem)
 
     # Test single evaluation through Dask
     def evaluate_point(point):
@@ -89,14 +124,24 @@ def test_constrained_problem_integration():
     feasible_result = problem(feasible_point)
     infeasible_result = problem(infeasible_point)
 
-    print(f"Feasible point {feasible_point.x}: f(x)={feasible_result.fx}, cv={feasible_result.cv_vec}")
-    print(f"Infeasible point {infeasible_point.x}: f(x)={infeasible_result.fx}, cv={infeasible_result.cv_vec}")
+    print(
+        f"Feasible point {feasible_point.x}: f(x)={feasible_result.fx}, cv={feasible_result.cv_vec}"
+    )
+    print(
+        f"Infeasible point {infeasible_point.x}: f(x)={infeasible_result.fx}, cv={infeasible_result.cv_vec}"
+    )
 
-    assert feasible_result.cv_vec is not None, "Feasible point should have constraint values"
-    assert infeasible_result.cv_vec is not None, "Infeasible point should have constraint values"
+    assert feasible_result.cv_vec is not None, (
+        "Feasible point should have constraint values"
+    )
+    assert infeasible_result.cv_vec is not None, (
+        "Infeasible point should have constraint values"
+    )
 
     # Check that constraints are evaluated
-    assert isinstance(feasible_result.cv_vec, (list, tuple, type(feasible_result.cv_vec))), "CV should be array-like"
+    assert isinstance(
+        feasible_result.cv_vec, (list, tuple, type(feasible_result.cv_vec))
+    ), "CV should be array-like"
     assert len(feasible_result.cv_vec) > 0, "Should have constraint values"
 
     print("✅ Constrained problem integration test passed!")
@@ -119,10 +164,12 @@ def test_noisy_problem_integration():
     for i in range(5):  # Try more evaluations
         result = problem(test_point)
         results.append(result.fx)
-        print(f"Noisy evaluation {i+1}: f(x)={result.fx}")
+        print(f"Noisy evaluation {i + 1}: f(x)={result.fx}")
 
     # Check that results are numeric (even if noise level is low)
-    assert all(isinstance(fx, (int, float)) for fx in results), "All results should be numeric"
+    assert all(isinstance(fx, (int, float)) for fx in results), (
+        "All results should be numeric"
+    )
 
     # The stochastic problem should at least be defined and work
     print("✅ Noisy problem integration test passed!")
@@ -176,10 +223,11 @@ def test_large_scale_optimization():
 
     # Track progress and results
     import time
+
     start_time = time.time()
 
     points_evaluated = 0
-    best_fx = float('inf')
+    best_fx = float("inf")
     best_x = None
 
     # Run 1000 evaluations
@@ -202,7 +250,9 @@ def test_large_scale_optimization():
 
         # Progress reporting every 100 evaluations
         if points_evaluated % 100 == 0:
-            print(f"Evaluations: {points_evaluated}, Best f(x): {best_fx:.4f} at {best_x}")
+            print(
+                f"Evaluations: {points_evaluated}, Best f(x): {best_fx:.4f} at {best_x}"
+            )
 
     end_time = time.time()
 
@@ -213,11 +263,17 @@ def test_large_scale_optimization():
     print(f"Time elapsed: {end_time - start_time:.2f} seconds")
     print(f"Evaluations per second: {points_evaluated / (end_time - start_time):.1f}")
     # Validate results
-    assert points_evaluated == target_evaluations, f"Should run exactly {target_evaluations} evaluations"
+    assert points_evaluated == target_evaluations, (
+        f"Should run exactly {target_evaluations} evaluations"
+    )
     assert best_x is not None, "Should find a best solution"
-    assert best_fx < 5.0, f"Should find a reasonably good solution on noisy multimodal function, got {best_fx}"
+    assert best_fx < 5.0, (
+        f"Should find a reasonably good solution on noisy multimodal function, got {best_fx}"
+    )
     # For multimodal functions like Rastrigin, we just check that we found a finite solution within bounds
-    assert all(problem.box[0][0] <= coord <= problem.box[0][1] for coord in best_x), f"Best solution should be within bounds, got {best_x}"
+    assert all(problem.box[0][0] <= coord <= problem.box[0][1] for coord in best_x), (
+        f"Best solution should be within bounds, got {best_x}"
+    )
 
     print("✅ Large-scale optimization test passed!")
     print(f"Successfully evaluated noisy Rastrigin function {points_evaluated} times")
@@ -225,10 +281,13 @@ def test_large_scale_optimization():
 
 if __name__ == "__main__":
     test_framework_basic_functionality()
+    test_direct_evaluation_integration()
     test_dask_evaluation_integration()
     test_constrained_problem_integration()
     test_noisy_problem_integration()
     test_heuristic_point_generation()
     test_result_database_integration()
     test_large_scale_optimization()
-    print("\n🎉 All integration tests passed! Panobbgo framework is working comprehensively.")
+    print(
+        "\n🎉 All integration tests passed! Panobbgo framework is working comprehensively."
+    )

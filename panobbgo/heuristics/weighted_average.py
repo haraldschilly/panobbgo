@@ -18,31 +18,31 @@ from panobbgo.core import Heuristic
 
 
 class WeightedAverage(Heuristic):
-
     """
     This strategy calculates the weighted average of all points
     in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
     """
 
-    def __init__(self, strategy, k=.1):
+    def __init__(self, strategy, k=0.1):
         Heuristic.__init__(self, strategy)
         self.k = k
-        self.logger = self.config.get_logger('WAvg')
+        self.logger = self.config.get_logger("WAvg")
 
     def __start__(self):
-        self.minstd = min(self.problem.ranges) / 1000.
+        self.minstd = min(self.problem.ranges) / 1000.0
 
     def check_dependencies(self, analyzers, heuristics):
         return any(isinstance(a, Best) for a in analyzers)
 
     def on_new_best(self, best):
         assert best is not None and best.x is not None
-        box = self.strategy.analyzer('splitter').get_leaf(best)
+        box = self.strategy.analyzer("splitter").get_leaf(best)
         if len(box.results) < 3:
             return
 
         # actual calculation
         import numpy as np
+
         xx = np.array([r.x for r in box.results])
         yy = np.array([r.fx for r in box.results])
         weights = np.log1p(yy - best.fx)
@@ -58,6 +58,6 @@ class WeightedAverage(Heuristic):
         for i in range(self.cap):
             ret = ret.copy()
             ret += (float(i) / self.cap) * np.random.normal(0, std)
-            if np.linalg.norm(best.x - ret) > .01:
+            if np.linalg.norm(best.x - ret) > 0.01:
                 # self.logger.info("out: %s" % ret)
                 self.emit(ret)

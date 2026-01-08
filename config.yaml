@@ -1,8 +1,14 @@
 # Panobbgo Configuration File
 # ===========================
 
-# Dask Cluster Configuration
-# ---------------------------
+# Evaluation Configuration
+# --------------------------
+evaluation:
+  # Evaluation method: 'direct' (subprocess) or 'dask' (distributed)
+  method: 'direct'
+
+# Dask Cluster Configuration (only used when evaluation.method is 'dask')
+# -------------------------------------------------------------------------
 dask:
   # Cluster type: 'local' or 'remote'
   cluster_type: 'local'

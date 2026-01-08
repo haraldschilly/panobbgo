@@ -31,6 +31,7 @@ from enum import Enum
 
 class AcquisitionFunction(Enum):
     """Acquisition functions for Bayesian optimization."""
+
     EI = "expected_improvement"  # Expected Improvement
     UCB = "upper_confidence_bound"  # Upper Confidence Bound
     PI = "probability_of_improvement"  # Probability of Improvement
@@ -54,8 +55,14 @@ class GaussianProcessHeuristic(Heuristic):
         y_train: Training function values (n_samples,)
     """
 
-    def __init__(self, strategy, acquisition_func=AcquisitionFunction.EI,
-                 kappa=1.96, xi=0.01, n_restarts=10):
+    def __init__(
+        self,
+        strategy,
+        acquisition_func=AcquisitionFunction.EI,
+        kappa=1.96,
+        xi=0.01,
+        n_restarts=10,
+    ):
         """
         Initialize the Gaussian Process heuristic.
 
@@ -67,7 +74,7 @@ class GaussianProcessHeuristic(Heuristic):
             n_restarts: Number of random restarts for optimization (default: 10)
         """
         super().__init__(strategy)
-        self.logger = self.config.get_logger('H:GP')
+        self.logger = self.config.get_logger("H:GP")
 
         # Acquisition function parameters
         self.acquisition_func = acquisition_func
@@ -125,14 +132,16 @@ class GaussianProcessHeuristic(Heuristic):
                 kernel=kernel,
                 alpha=1e-6,  # Small regularization
                 normalize_y=True,
-                n_restarts_optimizer=10
+                n_restarts_optimizer=10,
             )
 
             self.gp_model.fit(self.X_train, self.y_train)
             self.logger.debug(f"GP model fitted with {len(self.X_train)} points")
 
         except ImportError:
-            self.logger.error("scikit-learn not available. Install with: pip install scikit-learn")
+            self.logger.error(
+                "scikit-learn not available. Install with: pip install scikit-learn"
+            )
             raise
 
     def _acquire_candidates(self, n_candidates):
@@ -190,8 +199,8 @@ class GaussianProcessHeuristic(Heuristic):
                     acquisition,
                     start,
                     bounds=bounds,
-                    method='L-BFGS-B',
-                    options={'maxiter': 100}
+                    method="L-BFGS-B",
+                    options={"maxiter": 100},
                 )
 
                 if result.success:
@@ -238,7 +247,7 @@ class GaussianProcessHeuristic(Heuristic):
         EI(x) = (μ(x) - f*) * Φ(Z) + σ(x) * φ(Z)
         where Z = (μ(x) - f*) / σ(x)
         """
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
             ei = (self.best_y - y_pred) * self._norm_cdf(z) + y_std * self._norm_pdf(z)
             ei[y_std == 0] = 0.0  # Handle zero variance
@@ -254,7 +263,7 @@ class GaussianProcessHeuristic(Heuristic):
 
         PI(x) = Φ((f* - μ(x)) / σ(x))
         """
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
             pi = self._norm_cdf(z)
             pi[y_std == 0] = 0.0  # Handle zero variance
@@ -270,16 +279,18 @@ class GaussianProcessHeuristic(Heuristic):
         """Standard normal cumulative distribution function."""
         try:
             from scipy.stats import norm
+
             return norm.cdf(x)
         except ImportError:
             # Simple approximation for erf
-            a =  0.886226899
+            a = 0.886226899
             b = -1.645349621
-            c =  0.914624893
+            c = 0.914624893
             d = -0.140543331
 
             x_abs = np.abs(x)
             t = 1.0 / (1.0 + 0.5 * x_abs)
-            erf_approx = 1 - t * np.exp(-x_abs**2 + a*t + b*t**2 + c*t**3 + d*t**4)
+            erf_approx = 1 - t * np.exp(
+                -(x_abs**2) + a * t + b * t**2 + c * t**3 + d * t**4
+            )
             return 0.5 * (1 + np.sign(x) * erf_approx)
-

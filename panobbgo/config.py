@@ -59,19 +59,21 @@ class Config:
         :param boolean testing_mode: if True, signals that it is run by the unittests
         """
         # Allow reinitialization for testing or if parameters changed
-        current_parse_args = getattr(self, 'parse_args', None)
-        current_testing_mode = getattr(self, 'testing_mode', None)
+        current_parse_args = getattr(self, "parse_args", None)
+        current_testing_mode = getattr(self, "testing_mode", None)
 
-        if (current_parse_args != parse_args or
-            current_testing_mode != testing_mode or
-            not hasattr(self, '_initialized')):
-
+        if (
+            current_parse_args != parse_args
+            or current_testing_mode != testing_mode
+            or not hasattr(self, "_initialized")
+        ):
             import os
+
             self.parse_args = parse_args
             self.testing_mode = testing_mode
             self._appdata_dir = os.path.expanduser("~/.panobbgo")
-            self.config_fn = os.path.join(self._appdata_dir, 'config.ini')
-            self.config_yaml = 'config.yaml'  # YAML config in current directory
+            self.config_fn = os.path.join(self._appdata_dir, "config.ini")
+            self.config_yaml = "config.yaml"  # YAML config in current directory
             self._loggers = {}
             self._create()
             self._initialized = True
@@ -79,6 +81,7 @@ class Config:
     def _create(self):
         import os
         from .utils import info, create_logger
+
         logger = create_logger("CONFG")
 
         # create application data dir if necessary
@@ -88,61 +91,82 @@ class Config:
         # 1: parsing command-line arguments
         from argparse import ArgumentParser
 
-        descr = 'Panobbgo - Parallel Noisy Black-Box Global Optimizer.'
+        descr = "Panobbgo - Parallel Noisy Black-Box Global Optimizer."
 
         epilog = _EPILOG
 
         parser = ArgumentParser(description=descr, epilog=epilog)
 
-        parser.add_argument('-c', '--config-file',
-                            dest="config_file",
-                            help='configuration file [default: %(default)s]',
-                            default=self.config_fn)
+        parser.add_argument(
+            "-c",
+            "--config-file",
+            dest="config_file",
+            help="configuration file [default: %(default)s]",
+            default=self.config_fn,
+        )
 
         from panobbgo import __version__
-        parser.add_argument('--version', action='version', version=__version__)
 
-        parser.add_argument('-p', '--profile',
-                            dest='ipy_profile',
-                            help='IPython profile for the ipcluster configuration')
+        parser.add_argument("--version", action="version", version=__version__)
 
-        parser.add_argument('--max',
-                            dest='max_eval',
-                            help="maximum number of evaluations",
-                            type=int)
+        parser.add_argument(
+            "-p",
+            "--profile",
+            dest="ipy_profile",
+            help="IPython profile for the ipcluster configuration",
+        )
 
-        parser.add_argument('--smooth',
-                            dest='smooth',
-                            help="smoothing parameter for (additive or other) smoothing",
-                            type=float)
+        parser.add_argument(
+            "--max", dest="max_eval", help="maximum number of evaluations", type=int
+        )
 
-        parser.add_argument('--cap',
-                            dest='capacity',
-                            help="capacity for each queue in each heuristic",
-                            type=int)
+        parser.add_argument(
+            "--smooth",
+            dest="smooth",
+            help="smoothing parameter for (additive or other) smoothing",
+            type=float,
+        )
 
-        parser.add_argument("-v",
-                            action="count",
-                            dest="verbosity",
-                            help="verbosity level: -v, -vv, or -vvv")
+        parser.add_argument(
+            "--cap",
+            dest="capacity",
+            help="capacity for each queue in each heuristic",
+            type=int,
+        )
 
-        parser.add_argument('--ui',
-                            dest='ui',
-                            action='store_true',
-                            default=False,
-                            help='If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.')
+        parser.add_argument(
+            "-v",
+            action="count",
+            dest="verbosity",
+            help="verbosity level: -v, -vv, or -vvv",
+        )
 
-        parser.add_argument('--lf', '--log-focus',
-                            dest="logger_focus",
-                            action="append",
-                            default=[],
-                            help=' '.join(["List names of loggers, which should be shown verbosely.",
-                                           "You can specify this option multiple times!",
-                                           "e.g. --lf=CORE --lf=SPLIT"]))
+        parser.add_argument(
+            "--ui",
+            dest="ui",
+            action="store_true",
+            default=False,
+            help="If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.",
+        )
+
+        parser.add_argument(
+            "--lf",
+            "--log-focus",
+            dest="logger_focus",
+            action="append",
+            default=[],
+            help=" ".join(
+                [
+                    "List names of loggers, which should be shown verbosely.",
+                    "You can specify this option multiple times!",
+                    "e.g. --lf=CORE --lf=SPLIT",
+                ]
+            ),
+        )
 
         if self.parse_args:
             args = parser.parse_args()
-            logger.info('cmdln options: %s' % args)
+            logger.info("cmdln options: %s" % args)
             self.config_fn = args.config_file
         else:
             # logger.info("Parsing command-line arguments is disabled.")
@@ -156,27 +180,27 @@ class Config:
             cfgp = ConfigParser()
             # create them in the reverse order
 
-            cfgp.add_section('db')  # database config
+            cfgp.add_section("db")  # database config
             # cfgp.set('db', 'port', '37010')
             # cfgp.set('db', 'host', 'localhost')
 
-            cfgp.add_section('ipython')
-            cfgp.set('ipython', 'profile', 'default')
+            cfgp.add_section("ipython")
+            cfgp.set("ipython", "profile", "default")
 
-            cfgp.add_section('heuristic')
-            cfgp.set('heuristic', 'capacity', '20')
+            cfgp.add_section("heuristic")
+            cfgp.set("heuristic", "capacity", "20")
 
-            cfgp.add_section('core')  # core configuration
-            cfgp.set('core', 'loglevel', '40')  # default: no debug mode
-            cfgp.set('core', 'show_interval', '1.0')
-            cfgp.set('core', 'max_eval', '1000')
-            cfgp.set('core', 'discount', '0.95')
-            cfgp.set('core', 'smooth', '0.5')
+            cfgp.add_section("core")  # core configuration
+            cfgp.set("core", "loglevel", "40")  # default: no debug mode
+            cfgp.set("core", "show_interval", "1.0")
+            cfgp.set("core", "max_eval", "1000")
+            cfgp.set("core", "discount", "0.95")
+            cfgp.set("core", "smooth", "0.5")
 
-            cfgp.add_section('ui')
-            cfgp.set('ui', 'show', 'False')
+            cfgp.add_section("ui")
+            cfgp.set("ui", "show", "False")
 
-            with open(self.config_fn, 'w') as configfile:
+            with open(self.config_fn, "w") as configfile:
                 cfgp.write(configfile)
 
         # 2/2: reading the config file
@@ -185,43 +209,43 @@ class Config:
 
         # 2/3: reading YAML config if it exists (takes precedence)
         import yaml
+
         self.yaml_config = {}
         if os.path.exists(self.config_yaml):
-            with open(self.config_yaml, 'r') as f:
+            with open(self.config_yaml, "r") as f:
                 self.yaml_config = yaml.safe_load(f) or {}
             if not Config._config_logged:
-                logger.info('config.yaml loaded from: %s' % self.config_yaml)
+                logger.info("config.yaml loaded from: %s" % self.config_yaml)
 
         # 3: override specific settings
-        _cur_verb = cfgp.getint('core', 'loglevel')
+        _cur_verb = cfgp.getint("core", "loglevel")
         if args is not None:
             if args.verbosity:
-                cfgp.set(
-                    'core', 'loglevel', str(_cur_verb - 10 * args.verbosity))
+                cfgp.set("core", "loglevel", str(_cur_verb - 10 * args.verbosity))
             if args.max_eval:
-                cfgp.set('core', 'max_eval', str(args.max_eval))
+                cfgp.set("core", "max_eval", str(args.max_eval))
             if args.smooth:
-                cfgp.set('core', 'smooth', str(args.smooth))
+                cfgp.set("core", "smooth", str(args.smooth))
             if args.capacity:
-                cfgp.set('heuristic', 'capacity', str(args.capacity))
+                cfgp.set("heuristic", "capacity", str(args.capacity))
             if args.ipy_profile:
-                cfgp.set('ipython', 'profile', args.ipy_profile)
+                cfgp.set("ipython", "profile", args.ipy_profile)
             if args.ui:
-                cfgp.set('ui', 'show', "True")
+                cfgp.set("ui", "show", "True")
 
         # some generic function
         def getself(section, key):
             return cfgp.get(section, key)
 
-        def allcfgp(sep='.'):
+        def allcfgp(sep="."):
             ret = {}
             for s in cfgp.sections():
                 for k, v in cfgp.items(s):
-                    ret['%s%s%s' % (s, sep, str(k))] = v
+                    ret["%s%s%s" % (s, sep, str(k))] = v
             return ret
 
         if not Config._config_logged:
-            logger.info('config.ini: %s' % allcfgp())
+            logger.info("config.ini: %s" % allcfgp())
         self.environment = info()
         from panobbgo import __version__
 
@@ -231,7 +255,7 @@ class Config:
             # Check YAML first
             if yaml_path and self.yaml_config:
                 val = self.yaml_config
-                for part in yaml_path.split('.'):
+                for part in yaml_path.split("."):
                     if isinstance(val, dict) and part in val:
                         val = val[part]
                     else:
@@ -254,33 +278,56 @@ class Config:
             return default
 
         # specific data
-        self.loglevel = get_config('core.loglevel', 'core', 'loglevel', 40, int)
-        self.show_interval = get_config('core.show_interval', 'core', 'show_interval', 1.0, float)
-        self.max_eval = get_config('core.max_eval', 'core', 'max_eval', 1000, int)
-        self.discount = get_config('core.discount', 'core', 'discount', 0.95, float)
-        self.smooth = get_config('core.smooth', 'core', 'smooth', 0.5, float)
-        self.capacity = get_config('heuristic.capacity', 'heuristic', 'capacity', 20, int)
-        self.ui_show = get_config('ui.show', 'ui', 'show', False, bool)
-        self.ui_redraw_delay = get_config('ui.redraw_delay', 'ui', 'redraw_delay', 0.5, float)
+        self.loglevel = get_config("core.loglevel", "core", "loglevel", 40, int)
+        self.show_interval = get_config(
+            "core.show_interval", "core", "show_interval", 1.0, float
+        )
+        self.max_eval = get_config("core.max_eval", "core", "max_eval", 1000, int)
+        self.discount = get_config("core.discount", "core", "discount", 0.95, float)
+        self.smooth = get_config("core.smooth", "core", "smooth", 0.5, float)
+        self.capacity = get_config(
+            "heuristic.capacity", "heuristic", "capacity", 20, int
+        )
+        self.ui_show = get_config("ui.show", "ui", "show", False, bool)
+        self.ui_redraw_delay = get_config(
+            "ui.redraw_delay", "ui", "redraw_delay", 0.5, float
+        )
 
-        # Dask cluster configuration (YAML only)
-        self.dask_cluster_type = get_config('dask.cluster_type', None, None, 'local', str)
-        self.dask_n_workers = get_config('dask.local.n_workers', None, None, 2, int)
-        self.dask_threads_per_worker = get_config('dask.local.threads_per_worker', None, None, 1, int)
-        self.dask_memory_limit = get_config('dask.local.memory_limit', None, None, '2GB', str)
-        self.dask_dashboard_address = get_config('dask.local.dashboard_address', None, None, ':8787', str)
-        self.dask_scheduler_address = get_config('dask.remote.scheduler_address', None, None, 'tcp://localhost:8786', str)
+        # Evaluation method configuration (YAML only)
+        self.evaluation_method = get_config(
+            "evaluation.method", None, None, "direct", str
+        )
+
+        # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
+        self.dask_cluster_type = get_config(
+            "dask.cluster_type", None, None, "local", str
+        )
+        self.dask_n_workers = get_config("dask.local.n_workers", None, None, 2, int)
+        self.dask_threads_per_worker = get_config(
+            "dask.local.threads_per_worker", None, None, 1, int
+        )
+        self.dask_memory_limit = get_config(
+            "dask.local.memory_limit", None, None, "2GB", str
+        )
+        self.dask_dashboard_address = get_config(
+            "dask.local.dashboard_address", None, None, ":8787", str
+        )
+        self.dask_scheduler_address = get_config(
+            "dask.remote.scheduler_address", None, None, "tcp://localhost:8786", str
+        )
 
         # Legacy IPython support (kept for backward compatibility)
-        self.ipy_profile = get_config(None, 'ipython', 'profile', 'default', str)
+        self.ipy_profile = get_config(None, "ipython", "profile", "default", str)
 
         self.logger_focus = [] if args is None else args.logger_focus
         self.version = __version__
-        self.git_head = self.environment['git HEAD']
+        self.git_head = self.environment["git HEAD"]
 
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:
-            logger.info('Dask cluster type: %s' % self.dask_cluster_type)
+            logger.info("Evaluation method: %s" % self.evaluation_method)
+            if self.evaluation_method == "dask":
+                logger.info("Dask cluster type: %s" % self.dask_cluster_type)
             logger.info("Environment: %s" % self.environment)
             Config._config_logged = True
 
@@ -297,10 +344,11 @@ class Config:
         if name in lf:
             loglevel = 0
         # cache
-        key = '%s::%s' % (name, loglevel)
+        key = "%s::%s" % (name, loglevel)
         if key in self._loggers:
             return self._loggers[key]
         from .utils import create_logger
+
         l = create_logger(name, loglevel)
         self._loggers[key] = l
         return l

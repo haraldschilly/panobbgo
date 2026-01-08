@@ -90,3 +90,32 @@ jobs:
     - name: Run Pyright
       run: |
         uv run pyright panobbgo
+
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install UV
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev
+
+    - name: Check formatting with ruff
+      run: |
+        if uv run ruff format --diff panobbgo tests sketchpad *.py | grep -q "would reformat"; then
+          echo "Some files need formatting. Please run 'uv run ruff format' locally."
+          exit 1
+        else
+          echo "All files are properly formatted!"
+        fi

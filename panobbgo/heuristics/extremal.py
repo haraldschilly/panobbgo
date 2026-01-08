@@ -17,7 +17,6 @@ from panobbgo.core import Heuristic
 
 
 class Extremal(Heuristic):
-
     """
     This heuristic is specifically seeking for points at the
     border of the box and around 0.
@@ -26,11 +25,12 @@ class Extremal(Heuristic):
     minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )
     """
 
-    def __init__(self, strategy, diameter=1. / 10, prob=None):
+    def __init__(self, strategy, diameter=1.0 / 10, prob=None):
         Heuristic.__init__(self, strategy, name="Extremal")
         import numpy as np
+
         if prob is None:
-            prob = (1, .2, .2, 1)
+            prob = (1, 0.2, 0.2, 1)
         prob = np.array(prob) / float(np.sum(prob))
         self.probabilities = prob.cumsum()
         self.diameter = diameter  # inside the box or around zero
@@ -38,15 +38,17 @@ class Extremal(Heuristic):
 
     def __start__(self):
         import numpy as np
+
         problem = self.problem
         low = problem.box[:, 0]
         high = problem.box[:, 1]
         zero = np.zeros(problem.dim)
-        center = low + (high - low) / 2.
+        center = low + (high - low) / 2.0
         self.vals = np.vstack((low, zero, center, high))
 
     def on_start(self):
         import numpy as np
+
         assert self.vals is not None, "vals must be initialized in __start__"
         while True:
             ret = np.empty(self.problem.dim)

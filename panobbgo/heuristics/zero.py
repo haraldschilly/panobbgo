@@ -18,7 +18,6 @@ from panobbgo.core import Heuristic
 
 
 class Zero(Heuristic):
-
     """
     This heuristic only returns the 0 vector once.
     """
@@ -28,4 +27,5 @@ class Zero(Heuristic):
 
     def on_start(self):
         from numpy import zeros
+
         return zeros(self.problem.dim)

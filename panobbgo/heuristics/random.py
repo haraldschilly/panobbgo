@@ -18,7 +18,6 @@ from panobbgo.core import Heuristic
 
 
 class Random(Heuristic):
-
     """
     always generates random points inside the box of the
     "best leaf" (see "Splitter") until the capped queue is full.
@@ -28,18 +27,19 @@ class Random(Heuristic):
         name = "Random" if name is None else name
         self.leaf = None
         from threading import Event
+
         # used in on_start, to continue when we have a leaf.
         self.first_split = Event()
         Heuristic.__init__(self, strategy, name=name)
 
     def on_start(self):
         import numpy as np
+
         self.first_split.wait()
         splitter = self.strategy.analyzer("splitter")
         assert self.leaf is not None, "leaf must be set before generating random points"
         while True:
-            r = self.leaf.ranges * np.random.rand(
-                splitter.dim) + self.leaf.box[:, 0]
+            r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
             self.emit(r)
 
     def on_new_split(self, box, children, dim):

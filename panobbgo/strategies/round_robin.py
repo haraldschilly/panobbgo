@@ -18,7 +18,6 @@ from panobbgo.core import StrategyBase
 
 
 class StrategyRoundRobin(StrategyBase):
-
     r"""
     This is a very primitive strategy for testing purposes only.
     It selects the heuristics based on a fixed
@@ -33,6 +32,7 @@ class StrategyRoundRobin(StrategyBase):
 
     def execute(self):
         import time
+
         points = []
         while len(points) == 0:
             hs = self.heuristics

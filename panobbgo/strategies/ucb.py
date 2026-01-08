@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 from panobbgo.core import StrategyBase
 import numpy as np
 
+
 class StrategyUCB(StrategyBase):
     """
     This strategy uses the Upper Confidence Bound (UCB1) algorithm to select
@@ -43,7 +44,7 @@ class StrategyUCB(StrategyBase):
 
         # Update the heuristic that produced this point
         h = self.heuristic(best.who)
-        if hasattr(h, 'ucb_count'):
+        if hasattr(h, "ucb_count"):
             # Update running mean of rewards
             # Q_{n+1} = Q_n + (R - Q_n) / (n + 1)
             # But here ucb_count tracks selections, not necessarily successes.
@@ -74,7 +75,7 @@ class StrategyUCB(StrategyBase):
         # will have 0 reward. This is fine.
         # But we need to count selections properly.
 
-        if hasattr(h, 'ucb_total_reward'):
+        if hasattr(h, "ucb_total_reward"):
             # Update average reward.
             # We treat every point generated as a 'trial'.
             # If a heuristic generates N points and one of them is a new best with reward R,
@@ -86,8 +87,7 @@ class StrategyUCB(StrategyBase):
             h.ucb_total_reward += reward
             # h.ucb_count is updated in execute() when we ask for points.
 
-        self.logger.info(
-            u"\u2318 %s | \u0394 %.7f %s (UCB)" % (best, reward, best.who))
+        self.logger.info("\u2318 %s | \u0394 %.7f %s (UCB)" % (best, reward, best.who))
 
     def on_new_result(self, result):
         # We might want to penalize or at least count evaluations that are not best?
@@ -102,7 +102,7 @@ class StrategyUCB(StrategyBase):
         if len(self.evaluators.outstanding) < target:
             # UCB Parameter c (exploration weight)
             # A common value is sqrt(2), but can be tuned.
-            c = float(self.config.ucb_c) if hasattr(self.config, 'ucb_c') else 1.414
+            c = float(self.config.ucb_c) if hasattr(self.config, "ucb_c") else 1.414
 
             # Ensure every heuristic is tried at least once
             heurs = self.heuristics
@@ -115,13 +115,12 @@ class StrategyUCB(StrategyBase):
             # We can ask for 1 point from the winner of UCB.
 
             while len(self.evaluators.outstanding) + len(points) < target:
-
-                best_ucb = -float('inf')
+                best_ucb = -float("inf")
                 selected_h = None
 
                 # Calculate UCB for each heuristic
                 for h in heurs:
-                    if not hasattr(h, 'ucb_count'):
+                    if not hasattr(h, "ucb_count"):
                         h.ucb_count = 0
                         h.ucb_total_reward = 0.0
 
@@ -131,7 +130,9 @@ class StrategyUCB(StrategyBase):
                         break
 
                     average_reward = h.ucb_total_reward / h.ucb_count
-                    exploration_term = c * np.sqrt(np.log(self.total_selections) / h.ucb_count)
+                    exploration_term = c * np.sqrt(
+                        np.log(self.total_selections) / h.ucb_count
+                    )
                     ucb_score = average_reward + exploration_term
 
                     if ucb_score > best_ucb:
@@ -153,7 +154,7 @@ class StrategyUCB(StrategyBase):
                     break
 
                 # Break if we have enough points
-                if len(points) >= target: # simplified logic, target is rough
-                     break
+                if len(points) >= target:  # simplified logic, target is rough
+                    break
 
         return points

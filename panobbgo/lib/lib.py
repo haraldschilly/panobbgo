@@ -208,6 +208,16 @@ class Result:
             return NotImplemented
         return self._fx == other._fx
 
+    def __hash__(self):
+        """
+        Hash function for Result objects, needed for use in sets and dictionaries.
+
+        Uses the point coordinates and function value for uniqueness.
+        """
+        # Convert numpy array to tuple for hashing
+        x_tuple = tuple(self.x) if self.x is not None else ()
+        return hash((x_tuple, self._fx, self.who))
+
     def __str__(self):
         x = ' '.join(
             '%11.6f' % _ for _ in self.x) if self.x is not None else None

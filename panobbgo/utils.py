@@ -114,16 +114,22 @@ def info():
 
     version("numpy")
     version("scipy")
-    version("pandas")
-    version("statsmodels")
+    try:
+        version("pandas")
+    except:
+        print("pandas not available")
+    try:
+        version("statsmodels")
+    except:
+        print("statsmodels not available")
     try:
         version("matplotlib")
     except:
-        print("matplotlib broken :(")
+        print("matplotlib not available")
     try:
         version("dask")
     except:
-        pass
+        print("dask not available")
     v["git HEAD"] = git.communicate()[0].splitlines()[0]
     return v
 

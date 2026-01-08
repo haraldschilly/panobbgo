@@ -6,20 +6,20 @@ on:
   pull_request:
     branches: [ main, master ]
 
+env:
+  PYTHON: "3.12"
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12']
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ env.PYTHON }}
 
     - name: Install UV
       run: |
@@ -30,13 +30,12 @@ jobs:
       run: |
         uv sync --extra dev
 
-    - name: Run tests
+    - name: Run pytest
       run: |
         uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.11'
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
@@ -47,17 +46,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON }}
+
+    - name: Cache UV and dependencies
+      id: cache-uv
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/uv
+          .venv
+        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
     - name: Install UV
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         uv sync --extra dev
 
@@ -73,17 +85,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON }}
+
+    - name: Cache UV and dependencies
+      id: cache-uv
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/uv
+          .venv
+        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
     - name: Install UV
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         uv sync --extra dev
 
@@ -97,17 +122,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON }}
+
+    - name: Cache UV and dependencies
+      id: cache-uv
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/uv
+          .venv
+        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
     - name: Install UV
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         uv sync --extra dev
 
@@ -126,17 +164,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON }}
+
+    - name: Cache UV and dependencies
+      id: cache-uv
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/uv
+          .venv
+        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
     - name: Install UV
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
+      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         uv sync --extra dev
 

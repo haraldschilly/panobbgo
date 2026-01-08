@@ -113,5 +113,4 @@ jobs:
 
     - name: Check formatting with ruff
       run: |
-        uv run ruff format --check panobbgo tests *.py
-        uv run ruff format --check sketchpad --exclude rmatrix.py
+        uv run ruff format --check panobbgo tests sketchpad *.py

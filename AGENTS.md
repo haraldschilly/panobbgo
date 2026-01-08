@@ -18,6 +18,19 @@ This file provides instructions for agents working on the Panobbgo repository.
 *   **Traditional pip**: Use `pip install -e ".[dev]"` for development installation.
 *   The project uses `setuptools` with `pyproject.toml` configuration.
 
+## Python Environment Usage
+
+*   **CRITICAL**: When running Python commands, ALWAYS use `uv run python` instead of bare `python`
+*   The system Python has version conflicts (NumPy 2.x vs scipy/matplotlib compiled for 1.x)
+*   `uv run python` uses the virtual environment with compatible package versions
+*   Example: `uv run python script.py` instead of `python script.py`
+
+## Known Issues
+
+*   **Pandas Compatibility**: Framework uses deprecated `DataFrame.append()` method, incompatible with pandas 2.x
+*   **Result Hashing**: Result objects need `__hash__` method for Splitter analyzer
+*   **Dependency Management**: Some optional dependencies (matplotlib) fail with NumPy 2.x
+
 ## Running Panobbgo
 
 Panobbgo is designed as a **framework for black-box optimization** but includes **out-of-the-box runnable examples** for testing and demonstration:

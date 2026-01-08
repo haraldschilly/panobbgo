@@ -69,7 +69,7 @@ class Results:
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         """
-        from pandas import DataFrame, MultiIndex
+        from pandas import DataFrame, MultiIndex, concat
 
         if self.results is None:
             if len(new_results) == 0:
@@ -98,7 +98,7 @@ class Results:
                 ]
             )
         results_new = DataFrame(new_rows, columns=self.results.columns)
-        self.results = self.results.append(results_new, ignore_index=True)
+        self.results = concat([self.results, results_new], ignore_index=True)
 
         if len(self.results) / 100 > self._last_nb / 100:
             self.info()

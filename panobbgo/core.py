@@ -38,6 +38,7 @@ and base-classes for the modules:
 
 from .config import Config
 from panobbgo.lib.lib import Result, Point
+from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
 
@@ -87,6 +88,10 @@ class Results:
         # notification for all received results at once
         self.eventbus.publish("new_results", results=new_results)
 
+        # Report progress for each result
+        for result in new_results:
+            self._report_evaluation_progress(result)
+
         new_rows = []
         for r in new_results:
             new_rows.append(
@@ -115,6 +120,57 @@ class Results:
 
     def __len__(self):
         return len(self.results) if self.results is not None else 0
+
+    def _report_evaluation_progress(self, result: Result):
+        """
+        Report progress for a single evaluation result.
+
+        Args:
+            result: The evaluation result to report
+        """
+        from .logging.progress import ProgressContext
+
+        # Get strategy's logger for progress reporting
+        if hasattr(self.strategy, 'panobbgo_logger'):
+            progress_reporter = self.strategy.panobbgo_logger.progress_reporter
+
+            # Determine progress context
+            context = ProgressContext()
+
+            # Check if this is a new global best
+            if self.results is not None and len(self.results) > 0:
+                current_best_fx = self.results['fx', 0].min()
+                if result.fx is not None and result.fx < current_best_fx:
+                    context.is_global_best = True
+
+            # Check for significant improvement (top 10% of results)
+            if self.results is not None and len(self.results) > 10:
+                sorted_fx = sorted(self.results['fx', 0].dropna())
+                threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
+                if threshold_idx > 0:
+                    threshold = sorted_fx[threshold_idx]
+                    if result.fx is not None and result.fx < threshold:
+                        context.is_significant_improvement = True
+
+            # Check for general improvement over previous results
+            if self.results is not None and len(self.results) > 1:
+                prev_best = self.results['fx', 0].iloc[:-1].min()  # exclude current result
+                if result.fx is not None and result.fx < prev_best:
+                    context.is_improvement = True
+
+            # Check for analyzer learning (this would be set by analyzers)
+            # For now, we can detect splitter activity by checking recent events
+
+            # Check for failure
+            if result.failed or result.error:
+                context.evaluation_failed = True
+
+            # Check for warnings (constraint violations, etc.)
+            if result.cv is not None and result.cv > 0:
+                context.has_warnings = True
+
+            # Report the evaluation
+            progress_reporter.report_evaluation(result, context)
 
 
 class Module:
@@ -660,6 +716,9 @@ class StrategyBase:
         self.eventbus = EventBus(config)
         self.results = Results(self)
 
+        # Initialize new logging system
+        self.panobbgo_logger = PanobbgoLogger(config.logging if hasattr(config, 'logging') else {})
+
         # UI
         if config.ui_show:
             from .ui import UI
@@ -925,6 +984,9 @@ class StrategyBase:
             # execute the actual strategy
             points = self.execute()
 
+            # Update progress status
+            self._update_progress_status()
+
             if self.config.evaluation_method == "dask":
                 self._run_dask_evaluation(points)
             elif self.config.evaluation_method == "direct":
@@ -1094,6 +1156,64 @@ with open('{result_file.name}', 'wb') as f:
 
         self.results += new_results
 
+    def _update_progress_status(self):
+        """
+        Update the progress status line with current optimization information.
+        """
+        if not hasattr(self, 'panobbgo_logger'):
+            return
+
+        progress_reporter = self.panobbgo_logger.progress_reporter
+        if not progress_reporter.status_enabled:
+            return
+
+        # Gather status information
+        current_evals = len(self.results)
+        try:
+            max_evals = int(self.config.max_eval)
+        except (TypeError, ValueError):
+            max_evals = 1000
+        budget_pct = (current_evals / max_evals) * 100 if max_evals > 0 else 0
+
+        # Calculate ETA
+        if hasattr(self, '_start') and self._start is not None:
+            elapsed_time = time_module.time() - self._start
+            if current_evals > 0:
+                avg_time_per_eval = elapsed_time / current_evals
+                remaining_evals = max(0, max_evals - current_evals)
+                eta_seconds = int(avg_time_per_eval * remaining_evals)
+            else:
+                eta_seconds = 0
+        else:
+            eta_seconds = 0
+
+        # Get convergence estimate (simplified: distance to best known)
+        convergence = 0.0
+        if hasattr(self, 'best') and self.best is not None:
+            # Simple convergence measure: could be improved
+            convergence = min(100.0, (current_evals / max_evals) * 100)
+
+        # Get best function value
+        best_value = None
+        if hasattr(self, 'best') and self.best is not None:
+            best_value = self.best.fx
+
+        # Get strategy-specific information (for bandit strategies)
+        extra_fields = {}
+        if hasattr(self, '_get_status_info'):
+            extra_fields = self._get_status_info()
+
+        # Update status
+        progress_reporter.update_status(
+            budget_pct=budget_pct,
+            eta_seconds=eta_seconds,
+            convergence=convergence,
+            best_value=best_value,
+            current_evals=current_evals,
+            max_evals=max_evals,
+            extra_fields=extra_fields
+        )
+
     def execute(self):
         """
         Overwrite this method when you extend this base strategy.
@@ -1129,6 +1249,10 @@ with open('{result_file.name}', 'wb') as f:
                     os.unlink(self._problem_file.name)
                 except:
                     pass
+
+        # Finalize progress reporting
+        if hasattr(self, 'panobbgo_logger'):
+            self.panobbgo_logger.progress_reporter.finalize()
 
         self.logger.info(
             "Strategy '%s' finished after %.3f [s] and %d loops."

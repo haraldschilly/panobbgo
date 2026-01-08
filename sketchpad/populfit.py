@@ -9,9 +9,9 @@ from future.builtins import str
 from future.builtins import range
 from random import random
 from math import exp, sin
-#from collections import Counter
+# from collections import Counter
 
-alpha = .3
+alpha = 0.3
 
 # make statistics
 cnt = {}  # Counter()
@@ -27,6 +27,7 @@ def pop2(x):
 
 def pop3(x):
     return random()
+
 
 for x in range(1000):
     # all fit-values are between 0 and 1

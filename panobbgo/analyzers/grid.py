@@ -19,7 +19,6 @@ from panobbgo.core import Analyzer
 
 
 class Grid(Analyzer):
-
     """
     packs nearby points into grid boxes
     """
@@ -31,7 +30,7 @@ class Grid(Analyzer):
         # grid for storing points which are nearby.
         # maps from rounded coordinates tuple to point
         self._grid = dict()
-        self._grid_div = 5.
+        self._grid_div = 5.0
         self._grid_lengths = self.problem.ranges / float(self._grid_div)
 
     def in_same_grid(self, point):
@@ -40,6 +39,7 @@ class Grid(Analyzer):
 
     def _grid_mapping(self, x):
         from numpy import floor
+
         l = self._grid_lengths
         # m = self._problem.box[:,0]
         return tuple(floor(x / l) * l)

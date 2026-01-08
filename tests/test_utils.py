@@ -20,7 +20,6 @@ from panobbgo.utils import is_right, is_left
 
 
 class TestUtils(unittest.TestCase):
-
     def setUp(self):
         pass
 
@@ -36,11 +35,7 @@ class TestUtils(unittest.TestCase):
     def test_is_right_vertical(self):
         p0 = np.array([1, 1])
         p1 = np.array([1, 3])
-        testpoints = [
-            np.array([1.1, 2.2]),
-            np.array([1.1, -2.2]),
-            np.array([5, 2])
-        ]
+        testpoints = [np.array([1.1, 2.2]), np.array([1.1, -2.2]), np.array([5, 2])]
 
         for tp in testpoints:
             self.assertTrue(is_right(p0, p1, tp), "%s" % tp)
@@ -50,10 +45,7 @@ class TestUtils(unittest.TestCase):
     def test_is_right_diagonal(self):
         p0 = np.array([0, 2])
         p1 = np.array([1, 3])
-        testpoints = [
-            np.array([.5, 1]),
-            np.array([1.2, 3.1])
-        ]
+        testpoints = [np.array([0.5, 1]), np.array([1.2, 3.1])]
 
         for tp in testpoints:
             self.assertTrue(is_right(p0, p1, tp), "%s" % tp)
@@ -61,10 +53,7 @@ class TestUtils(unittest.TestCase):
     def test_is_right_horizontal(self):
         p0 = np.array([2, 2])
         p1 = np.array([3, 2])
-        testpoints = [
-            np.array([2, 2.2]),
-            np.array([0, 5])
-        ]
+        testpoints = [np.array([2, 2.2]), np.array([0, 5])]
 
         for tp in testpoints:
             self.assertFalse(is_right(p0, p1, tp), "%s" % tp)
@@ -76,5 +65,6 @@ class TestUtils(unittest.TestCase):
         # self.assertTrue(element in self.seq)
         pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

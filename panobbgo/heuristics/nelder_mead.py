@@ -21,7 +21,6 @@ import numpy as np
 
 
 class NelderMead(Heuristic):
-
     r"""
     This heuristic is inspired by the
     `Nelder Mead Method <http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method>`_
@@ -40,8 +39,9 @@ class NelderMead(Heuristic):
 
     def __init__(self, strategy):
         Heuristic.__init__(self, strategy, name="Nelder Mead")
-        self.logger = self.config.get_logger('H:NM')
+        self.logger = self.config.get_logger("H:NM")
         from threading import Event
+
         self.got_bb = Event()
 
     def gram_schmidt(self, dim, results, tol=1e-4):
@@ -55,6 +55,7 @@ class NelderMead(Heuristic):
         # start empty, and append in each iteration
         # sort points ascending by fx -> calc gs -> skip if <= tol
         import numpy as np
+
         base = []  # orthogonal system basis
         ret = []  # list of results, which will be returned
         if len(results) < dim:
@@ -68,9 +69,7 @@ class NelderMead(Heuristic):
         base.append(first.x)
         ret.append(first)
         for p in results:
-            w = p.x - np.sum(
-                [((v.dot(p.x) / v.dot(v)) * v)
-                 for v in base], axis=0)
+            w = p.x - np.sum([((v.dot(p.x) / v.dot(v)) * v) for v in base], axis=0)
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 ret.append(p)
@@ -104,8 +103,7 @@ class NelderMead(Heuristic):
         # TODO f(x) values are available and could be used for weighting (or their rank number)
         # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
         # weights = 1 + .1 * np.random.randn(len(base))
-        centroid = np.average(
-            [p.x for p in base], axis=0)  # , weights = weights)
+        centroid = np.average([p.x for p in base], axis=0)  # , weights = weights)
         factor = np.random.rayleigh(scale=scale) - offset
         return worst.x + factor * (centroid - worst.x)
 
@@ -148,8 +146,7 @@ class NelderMead(Heuristic):
                 else:  # not able to find base, try with parent of current best box
                     bb = bb.parent
                     if bb is None:
-                        self.got_bb.clear(
-                        )  # the "wait()" at the top is now active
+                        self.got_bb.clear()  # the "wait()" at the top is now active
 
     def on_new_best_box(self, best_box):
         """

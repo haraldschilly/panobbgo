@@ -24,7 +24,6 @@ import logging
 
 
 class ColoredFormatter(logging.Formatter):
-
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = list(range(8))
 
     RESET_SEQ = "\033[0m"
@@ -33,29 +32,32 @@ class ColoredFormatter(logging.Formatter):
     BOLD_SEQ = "\033[1m"
 
     COLORS = {
-        'DEBUG': BLUE,
-        'INFO': WHITE,
-        'WARNING': YELLOW,
-        'CRITICAL': MAGENTA,
-        'ERROR': RED
+        "DEBUG": BLUE,
+        "INFO": WHITE,
+        "WARNING": YELLOW,
+        "CRITICAL": MAGENTA,
+        "ERROR": RED,
     }
 
     def __init__(self):
-        msg = '%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s'
+        msg = (
+            "%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s"
+        )
         msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace(
-            "$BOLD", ColoredFormatter.BOLD_SEQ)
+            "$BOLD", ColoredFormatter.BOLD_SEQ
+        )
         logging.Formatter.__init__(self, fmt=msg)
 
     @staticmethod
     def colorize(string, color, bold=False):
         cs = ColoredFormatter.COLOR_SEQ_BOLD if bold else ColoredFormatter.COLOR_SEQ
-        string = '%s%s%s' % (
-            cs % (30 + color), string, ColoredFormatter.RESET_SEQ)
+        string = "%s%s%s" % (cs % (30 + color), string, ColoredFormatter.RESET_SEQ)
         string = "%-20s" % string
         return string
 
     def format(self, record):
         import copy
+
         record = copy.copy(record)
         levelname = record.levelname
         if levelname in ColoredFormatter.COLORS:
@@ -68,14 +70,15 @@ class ColoredFormatter(logging.Formatter):
 
 
 class PanobbgoContext(logging.Filter):
-
     def __init__(self):
         logging.Filter.__init__(self)
         import time
+
         self._start = time.time()
 
     def filter(self, record):
         import time
+
         record.runtime = time.time() - self._start
         record.where = "%s:%s" % (record.filename[:-3], record.lineno)
         return True
@@ -101,8 +104,8 @@ def info():
     Shows a bit of info about the libraries and other environment information.
     """
     import subprocess
-    git = subprocess.Popen(
-        ["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
+
+    git = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
     v = {}
 
     def version(what):
@@ -121,7 +124,7 @@ def info():
         version("dask")
     except:
         pass
-    v['git HEAD'] = git.communicate()[0].splitlines()[0]
+    v["git HEAD"] = git.communicate()[0].splitlines()[0]
     return v
 
 
@@ -139,13 +142,13 @@ def is_right(p0, p1, ptest):
       - p0, p1, ptest: :class:`numpy.ndarray`.
     """
     import numpy as np
+
     v1 = p1 - p0
     v2 = ptest - p0
     return np.linalg.det(np.vstack([v1, v2])) < 0
 
 
 class memoize:
-
     """
     Caches the return value of a method inside the instance's function!
 
@@ -182,6 +185,7 @@ class memoize:
         if obj is None:
             return self.func
         from functools import partial  # , update_wrapper
+
         p = partial(self, obj)
         # update_wrapper(p, self.func)
         return p
@@ -198,6 +202,7 @@ class memoize:
         except KeyError:
             res = cache[key] = self.func(*args, **kw)
         return res
+
 
 def evaluate_point_subprocess(problem, point):
     """
@@ -231,6 +236,7 @@ def expected_failure(exptn, msg=None):
     @param Exception exptn: exception class
     @param str msg: expected message
     """
+
     def wrapper(testfn):
         @functools.wraps(testfn)
         def inner(*args, **kwargs):
@@ -240,14 +246,17 @@ def expected_failure(exptn, msg=None):
                 if msg is not None:
                     assert str(ex) == msg, "message: '%s'" % str(ex)
             else:
-                raise AssertionError("No Exception '%s' raised in '%s'" %
-                                     (exptn.__name__, testfn.__name__))
+                raise AssertionError(
+                    "No Exception '%s' raised in '%s'"
+                    % (exptn.__name__, testfn.__name__)
+                )
+
         return inner
+
     return wrapper
 
 
 class MockupEventBus:
-
     def __init__(self):
         self.targets = []
 
@@ -265,25 +274,28 @@ class MockupEventBus:
 #    def eventbus(self):
 #        return self._eventbus
 
-class PanobbgoTestCase(unittest.TestCase):
 
+class PanobbgoTestCase(unittest.TestCase):
     def __init__(self, name):
         unittest.TestCase.__init__(self, name)
         from panobbgo.config import Config
+
         self.config = Config(parse_args=False, testing_mode=True)
 
     def setUp(self):
         from panobbgo.lib.classic import Rosenbrock
+
         self.problem = Rosenbrock(2)
         self.strategy = self.init_strategy()
 
-    def random_results(self, dim, N, pcv = 0.0):
+    def random_results(self, dim, N, pcv=0.0):
         import numpy as np
         import numpy.random as rnd
         from panobbgo.lib.lib import Result, Point
+
         results = []
         for i in range(N):
-            p = Point(rnd.rand(dim), 'test')
+            p = Point(rnd.rand(dim), "test")
             cv_vec = np.zeros(dim)
             if pcv > 0.0:
                 for cvidx in range(dim):
@@ -293,7 +305,7 @@ class PanobbgoTestCase(unittest.TestCase):
             results.append(r)
         return results
 
-    @mock.patch('panobbgo.core.StrategyBase')
+    @mock.patch("panobbgo.core.StrategyBase")
     def init_strategy(self, StrategyBaseMock):
         strategy = StrategyBaseMock()
         strategy.problem = self.problem

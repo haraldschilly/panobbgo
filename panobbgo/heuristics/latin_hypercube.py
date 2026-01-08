@@ -17,7 +17,6 @@ from panobbgo.core import Heuristic
 
 
 class LatinHypercube(Heuristic):
-
     """
     Partitions the search box into n x n x ... x n cubes.
     Selects randomly in such a way, that there is only one cube in each dimension.
@@ -53,13 +52,13 @@ class LatinHypercube(Heuristic):
 
     def on_start(self):
         import numpy as np
+
         div = self.div
         dim = self.problem.dim
         while True:
-            pts = np.repeat(
-                np.arange(div, dtype=np.float64), dim).reshape(div, dim)
+            pts = np.repeat(np.arange(div, dtype=np.float64), dim).reshape(div, dim)
             pts += np.random.rand(div, dim)  # add [0,1) jitter
-            pts *= self.lengths             # scale with length, already divided by div
-            pts += self.problem.box[:, 0]    # shift with min
+            pts *= self.lengths  # scale with length, already divided by div
+            pts += self.problem.box[:, 0]  # shift with min
             [np.random.shuffle(pts[:, i]) for i in range(dim)]
             self.emit([p for p in pts])  # needs to be a list of np.ndarrays

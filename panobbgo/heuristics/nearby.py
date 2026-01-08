@@ -19,7 +19,6 @@ from panobbgo.core import Heuristic
 
 
 class Nearby(Heuristic):
-
     """
     This provider generates new points based
     on a cheap (i.e. fast) algorithm. For each new best point,
@@ -35,10 +34,10 @@ class Nearby(Heuristic):
     - ``new``: number of new points to generate (default: 1)
     """
 
-    def __init__(self, strategy, cap=3, radius=1. / 100, new=1, axes='one'):
+    def __init__(self, strategy, cap=3, radius=1.0 / 100, new=1, axes="one"):
         Heuristic.__init__(
-            self, strategy,
-            cap=cap, name="Nearby %.3f/%s" % (radius, axes))
+            self, strategy, cap=cap, name="Nearby %.3f/%s" % (radius, axes)
+        )
         self.radius = radius
         self.new = new
         self.axes = axes
@@ -46,6 +45,7 @@ class Nearby(Heuristic):
 
     def on_new_best(self, best):
         import numpy as np
+
         ret = []
         x = best.x
         if x is None:
@@ -53,12 +53,11 @@ class Nearby(Heuristic):
         # generate self.new many new points near best x
         for _ in range(self.new):
             new_x = x.copy()
-            if self.axes == 'all':
-                dx = (2.0 * np.random.rand(
-                    self.problem.dim) - 1.0) * self.radius
+            if self.axes == "all":
+                dx = (2.0 * np.random.rand(self.problem.dim) - 1.0) * self.radius
                 dx *= self.problem.ranges
                 new_x += dx
-            elif self.axes == 'one':
+            elif self.axes == "one":
                 idx = np.random.randint(self.problem.dim)
                 dx = (2.0 * np.random.rand() - 1.0) * self.radius
                 dx *= self.problem.ranges[idx]

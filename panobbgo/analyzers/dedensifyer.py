@@ -18,7 +18,6 @@ from panobbgo.core import Analyzer
 
 
 class Box:
-
     r"""
     :class:`Dedensifyer's <.Dedensifyer>` helper class, that registeres points for the given box.
     """
@@ -47,7 +46,6 @@ class Box:
 
 
 class Dedensifyer(Analyzer):
-
     r"""
     This analyzer stores points in a fixed hierarchical grid.
     It discards previously added points in order to avoid a high number of points
@@ -69,6 +67,7 @@ class Dedensifyer(Analyzer):
 
     def gridkey(self, x, depth):
         from numpy import floor
+
         return tuple(floor(x / self.box_dims[depth]) * self.box_dims[depth])
 
     def get_box(self, x, depth):

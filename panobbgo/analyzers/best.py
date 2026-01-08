@@ -20,7 +20,6 @@ from panobbgo.core import Analyzer
 
 
 class Best(Analyzer):
-
     """
     Listens on all results, does accounting for "best" results,
     manages a pareto front of good points and emits the following events:
@@ -60,13 +59,12 @@ class Best(Analyzer):
         self._pareto_front = []  # this is a heapq, sorted by result.fx
 
     def _init_plot(self):
-        return [self._init_plot_pareto(),
-                self._init_plot_fx(),
-                self._init_plot_eval()]
+        return [self._init_plot_pareto(), self._init_plot_fx(), self._init_plot_eval()]
 
     def _init_plot_fx(self):
         from panobbgo.ui import NavigationToolbar
         import gtk
+
         self.fx_canvas, fig = self.ui.mk_canvas()
 
         # f(x) plot
@@ -80,12 +78,13 @@ class Best(Analyzer):
         ax_fx.set_xlabel("evaluation")
         ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
         ax_fx.set_xlim([0, self.config.max_eval])
-        ax_fx.set_yscale('symlog', linthreshy=0.001)
+        ax_fx.set_yscale("symlog", linthreshy=0.001)
         ax_fx.set_ylim((0, 1))
         # for tl in self.ax_fx.get_yticklabels():
         #  tl.set_color('blue')
-        self.min_plot, = ax_fx.plot(
-            [], [], linestyle='-', marker='o', color="blue", zorder=-1)
+        (self.min_plot,) = ax_fx.plot(
+            [], [], linestyle="-", marker="o", color="blue", zorder=-1
+        )
 
         # cv plot
         # self.ax_cv = ax_cv = self.ax_fx.twinx()
@@ -96,18 +95,19 @@ class Best(Analyzer):
         # ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$',
         # color='red')
         ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$")
-        #, color="blue")
+        # , color="blue")
         ax_cv.set_xlim([0, self.config.max_eval])
         # ax_cv.set_yscale('symlog', linthreshy=0.001)
         ax_cv.set_ylim((0, 1))
         # for tl in self.ax_cv.get_yticklabels():
         #  tl.set_color('red')
-        self.cv_plot, = ax_cv.plot(
-            [], [], linestyle='-', marker='o', color="red", zorder=-1)
+        (self.cv_plot,) = ax_cv.plot(
+            [], [], linestyle="-", marker="o", color="red", zorder=-1
+        )
 
         from matplotlib.widgets import Cursor
-        self.fx_cursor = Cursor(
-            self.ax_cv, useblit=True, color='black', alpha=0.5)
+
+        self.fx_cursor = Cursor(self.ax_cv, useblit=True, color="black", alpha=0.5)
 
         vbox = gtk.VBox(False, 0)
         vbox.pack_start(self.fx_canvas, True, True)
@@ -119,6 +119,7 @@ class Best(Analyzer):
         from panobbgo.ui import NavigationToolbar
         from matplotlib import colorbar
         import gtk
+
         mx = self.problem.dim
         vbox = gtk.VBox(False, 0)
         if mx <= 1:
@@ -132,22 +133,23 @@ class Best(Analyzer):
 
         def mk_cb(l):
             cb = gtk.combo_box_new_text()
-            [cb.append_text('Axis %d' % i) for i in range(0, mx)]
+            [cb.append_text("Axis %d" % i) for i in range(0, mx)]
             cb.set_active(mk_cb.i)
             mk_cb.i += 1
             spinner_hbox.add(gtk.Label(l))
             spinner_hbox.add(cb)
             return cb
+
         mk_cb.i = 0
 
         cb_0 = mk_cb("X Coord:")
         cb_1 = mk_cb("Y Coord:")
 
         for cb in [cb_0, cb_1]:
-            cb.connect('changed', self.on_eval_spinner, cb_0, cb_1)
+            cb.connect("changed", self.on_eval_spinner, cb_0, cb_1)
 
         self.eval_btn = btn = gtk.Button("Redraw")
-        btn.connect('clicked', self.on_eval_spinner, cb_0, cb_1)
+        btn.connect("clicked", self.on_eval_spinner, cb_0, cb_1)
         spinner_hbox.add(btn)
 
         vbox.pack_start(self.eval_canvas, True, True)
@@ -162,6 +164,7 @@ class Best(Analyzer):
 
     def on_eval_spinner(self, widget, cb0, cb1):
         from matplotlib import colorbar
+
         cx = cb0.get_active()
         cy = cb1.get_active()
         if cx == cy:
@@ -183,25 +186,26 @@ class Best(Analyzer):
         yi = np.linspace(ymin, ymax, 30)
         # grid the data.
         from matplotlib.mlab import griddata
-        zi = griddata(x, y, z, xi, yi, interp='linear')
+
+        zi = griddata(x, y, z, xi, yi, interp="linear")
         # ci = griddata(x,y,c,xi,yi,interp='linear')
 
         self.eval_ax.clear()
         self.eval_cb_ax.clear()
-        self.eval_ax.grid(True, which="both", ls="-", color='grey')
+        self.eval_ax.grid(True, which="both", ls="-", color="grey")
         # contour the gridded data
         # constraint violation
         # self.eval_ax.contourf(xi, yi, ci, 10, colors='k', zorder=5, alpha=.5, levels=[0,1])
         # f(x)
-        self.eval_ax.contour(
-            xi, yi, zi, 10, linewidths=0.5, colors='k', zorder=3)
+        self.eval_ax.contour(xi, yi, zi, 10, linewidths=0.5, colors="k", zorder=3)
         from matplotlib.pylab import cm
+
         cf = self.eval_ax.contourf(xi, yi, zi, 10, cmap=cm.jet, zorder=2)
         cb = colorbar.Colorbar(self.eval_cb_ax, cf)
         cf.colorbar = cb
 
         # plot data points
-        self.eval_ax.scatter(x, y, marker='o', c='b', s=5, zorder=10)
+        self.eval_ax.scatter(x, y, marker="o", c="b", s=5, zorder=10)
         self.eval_ax.set_xlim((xmin, xmax))
         self.eval_ax.set_ylim((ymin, ymax))
         self.ui.redraw_canvas(self.eval_canvas)
@@ -215,8 +219,10 @@ class Best(Analyzer):
             yy = [_ - yval for _ in yy]
         plt.set_xdata(xx)
         plt.set_ydata(yy)
-        ylim = [0,  # min(ax.get_ylim()[0], yval),
-                max(ax.get_ylim()[1], max(plt.get_ydata()))]
+        ylim = [
+            0,  # min(ax.get_ylim()[0], yval),
+            max(ax.get_ylim()[1], max(plt.get_ydata())),
+        ]
         ax.set_ylim(ylim)
         self.ui.redraw_canvas(self.fx_canvas)
 
@@ -243,23 +249,21 @@ class Best(Analyzer):
         self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
         fig.add_axes(self.pf_ax)
 
-        pf_ax.grid(True, which="both", ls="-", color='grey')
+        pf_ax.grid(True, which="both", ls="-", color="grey")
         pf_ax.set_title("Pareto Front")
         pf_ax.set_xlabel("constr. violation")
         pf_ax.set_ylabel("obj. value")
 
         self.pf_plt_pnts = np.empty(shape=(0, 2))
-        self.pf_plt, = pf_ax.plot(
-            [], [], marker='o', ls='', alpha=.3, color='black')
+        (self.pf_plt,) = pf_ax.plot([], [], marker="o", ls="", alpha=0.3, color="black")
 
-        self.pf_cursor = Cursor(pf_ax, useblit=True, color='black', alpha=0.5)
+        self.pf_cursor = Cursor(pf_ax, useblit=True, color="black", alpha=0.5)
 
-        axcolor = 'lightgoldenrodyellow'
+        axcolor = "lightgoldenrodyellow"
         pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
         fig.add_axes(pf_slider_ax)
         v = int(self.config.max_eval * 1.1)
-        self.pf_slider = Slider(
-            pf_slider_ax, '#', 0, v, valfmt="%d", valinit=v)
+        self.pf_slider = Slider(pf_slider_ax, "#", 0, v, valfmt="%d", valinit=v)
         self.pf_slider.on_changed(self.on_pf_slide)
 
         pf_vbox = gtk.VBox(False, 0)
@@ -361,7 +365,9 @@ class Best(Analyzer):
             self._check_pareto_front()
 
             if len(self.pareto_front) > 2:
-                self.logger.debug("pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front])
+                self.logger.debug(
+                    "pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front]
+                )
             self.eventbus.publish("new_pareto_front", front=new_front)
 
     def _check_pareto_front(self):
@@ -370,8 +376,8 @@ class Best(Analyzer):
         """
         pf = self.pareto_front
         for p1, p2 in zip(pf[:-1], pf[1:]):
-            assert p1.fx <= p2.fx, u'fx > fx for %s, %s' % (p1, p2)
-            assert p1.cv >= p2.cv, u'cv < cv for %s, %s' % (p1, p2)
+            assert p1.fx <= p2.fx, "fx > fx for %s, %s" % (p1, p2)
+            assert p1.cv >= p2.cv, "cv < cv for %s, %s" % (p1, p2)
         # if len(pf) >= 3:
         #  from utils import is_left
         #  for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):
@@ -380,23 +386,35 @@ class Best(Analyzer):
 
     def on_new_results(self, results):
         for r in results:
-            if (self._min is None) or (r.fx < self._min.fx) or (r.fx == self._min.fx and r.cv < self._min.cv):
+            if (
+                (self._min is None)
+                or (r.fx < self._min.fx)
+                or (r.fx == self._min.fx and r.cv < self._min.cv)
+            ):
                 # self.logger.info(u"\u2318 %s by %s" %(r, r.who))
                 self._min = r
                 self.eventbus.publish("new_min", min=r)
 
-            if (self._cv is None) or (r.cv < self._cv.cv) or (r.cv == self._cv.cv and r.fx < self._cv.fx):
+            if (
+                (self._cv is None)
+                or (r.cv < self._cv.cv)
+                or (r.cv == self._cv.cv and r.fx < self._cv.fx)
+            ):
                 self._cv = r
                 self.eventbus.publish("new_cv", cv=r)
 
             # the pareto is weighted by the _min.cv and _cv.fx values
             # if pareto.cv is 0.0, then just the fx value counts
             weight = np.array([self._cv.fx, self._min.cv])
-            if self._pareto is None \
-                or (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)  \
-                or (self._pareto.cv > 0.0 and
-                    weight.dot([self._pareto.cv, self._pareto.fx]) >
-                       weight.dot([r.cv, r.fx])):
+            if (
+                self._pareto is None
+                or (self._pareto.cv == 0.0 and r.cv == 0.0 and self._pareto.fx > r.fx)
+                or (
+                    self._pareto.cv > 0.0
+                    and weight.dot([self._pareto.cv, self._pareto.fx])
+                    > weight.dot([r.cv, r.fx])
+                )
+            ):
                 self._pareto = r
                 self.eventbus.publish("new_pareto", pareto=r)
                 self.eventbus.publish("new_best", best=r)
@@ -436,8 +454,7 @@ class Best(Analyzer):
             all_pnts.append(inserts[i])
         all_pnts.append(pnts[-1])
         data = list(zip(*all_pnts))
-        self.pf_ax.plot(
-            data[0], data[1], '-', alpha=.7, color="black")  # ms = ?
+        self.pf_ax.plot(data[0], data[1], "-", alpha=0.7, color="black")  # ms = ?
         self.pf_ax.autoscale()  # TODO get rid of autoscale
         self.ui.redraw_canvas(self.pf_canvas)
 

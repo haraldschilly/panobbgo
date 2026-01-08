@@ -5,6 +5,7 @@ def info():
     run("uname -a")
     run("lsb_release -a")
 
+
 # def freeze():
 #    local("pip freeze > requirements.txt")
 #    local("git add requirements.txt")
@@ -13,6 +14,7 @@ def info():
 
 def pip_upgrade():
     import pip
+
     for dist in pip.get_installed_distributions():
         local("pip install --upgrade {0}".format(dist.project_name))
 

@@ -5,23 +5,34 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 import sys
+
 sys.path.append(".")
-#from panobbgo.core import Results
-from panobbgo.heuristics import Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead, Center, WeightedAverage, QuadraticWlsModel
+# from panobbgo.core import Results
+from panobbgo.heuristics import (
+    Random,
+    Nearby,
+    Zero,
+    LatinHypercube,
+    Extremal,
+    NelderMead,
+    Center,
+    WeightedAverage,
+    QuadraticWlsModel,
+)
 from panobbgo.strategies import StrategyRewarding  # , StrategyRoundRobin
-#import numpy as np
+# import numpy as np
 
 from panobbgo.lib.classic import Rosenbrock
 
-#problem = Shekel(3)
+# problem = Shekel(3)
 problem = Rosenbrock(4, par1=10)
-#problem = RosenbrockConstraint(3, par1 = 10, par2 = .5)
-#problem = RosenbrockStochastic(3)
-#problem = Rosenbrock(2, 100)
-#problem = RosenbrockAbs(2)
-#problem = RosenbrockAbsConstraint(2)
-#problem = Rastrigin(2, offset=1.11111)
-#problem = Himmelblau()
+# problem = RosenbrockConstraint(3, par1 = 10, par2 = .5)
+# problem = RosenbrockStochastic(3)
+# problem = Rosenbrock(2, 100)
+# problem = RosenbrockAbs(2)
+# problem = RosenbrockAbsConstraint(2)
+# problem = Rastrigin(2, offset=1.11111)
+# problem = Himmelblau()
 
 # class LocalProblem(Problem):
 #  def __init__(self):
@@ -31,16 +42,16 @@ problem = Rosenbrock(4, par1=10)
 #  def eval(self, x):
 #    return np.cos(np.abs(x))**2.0
 #
-#problem = LocalProblem()
+# problem = LocalProblem()
 
 strategy = StrategyRewarding(problem, parse_args=True)
-#strategy = StrategyRoundRobin(problem, parse_args = True)
+# strategy = StrategyRoundRobin(problem, parse_args = True)
 
 strategy.add(Random)
-strategy.add(Nearby, radius=1. / 1000, axes='all', new=3)
-strategy.add(Nearby, radius=1. / 100, axes='all', new=3)
-strategy.add(Nearby, radius=1. / 10, axes='all', new=3)
-strategy.add(Nearby, radius=1. / 10, new=3)
+strategy.add(Nearby, radius=1.0 / 1000, axes="all", new=3)
+strategy.add(Nearby, radius=1.0 / 100, axes="all", new=3)
+strategy.add(Nearby, radius=1.0 / 10, axes="all", new=3)
+strategy.add(Nearby, radius=1.0 / 10, new=3)
 strategy.add(Zero)
 strategy.add(Extremal)
 strategy.add(Center)
@@ -53,6 +64,7 @@ if False:
     from scipy import special as sp
     from scipy.optimize import fmin
     from panobbgo.config import get_config
+
     config = get_config()
     m = fmin(lambda x: (sp.gamma(x) - config.max_eval / 3.0) ** 2, [5])
     div = max(1, int(m[0]))
@@ -65,4 +77,4 @@ strategy.start()
 if strategy.best is None:
     print("no solution found")
 else:
-    print(u"best: %s" % strategy.best)
+    print("best: %s" % strategy.best)

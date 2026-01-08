@@ -28,7 +28,6 @@ Inside is its Box class.
 
 
 class Splitter(Analyzer):
-
     """
     Manages a tree of splits.
     Each split in this tree is a :class:`box <.Splitter.Box>`, which
@@ -47,17 +46,18 @@ class Splitter(Analyzer):
         # split, if there are more than this number of points in the box
         self.leafs = []
         self._id = 0  # block id
-        self.logger = self.config.get_logger('SPLIT')  # , 10)
+        self.logger = self.config.get_logger("SPLIT")  # , 10)
         self.max_eval = self.config.max_eval
         # _new_result used to signal get_leaf and others when there
         # are updates regarding box/split/leaf status
         from threading import Condition
+
         self._new_result = Condition()
 
     def __start__(self):
         # root box is equal to problem's box
         self.dim = self.problem.dim
-        self.limit = max(20, self.max_eval / self.dim ** 2)
+        self.limit = max(20, self.max_eval / self.dim**2)
         self.logger.debug("limit = %s" % self.limit)
         self.root = Splitter.Box(None, self, self.problem.box.copy())
         self.leafs.append(self.root)
@@ -70,6 +70,7 @@ class Splitter(Analyzer):
         self.best_box = None
         # in which box (a list!) is each point?
         from collections import defaultdict
+
         self.result2boxes = defaultdict(list)
         self.result2leaf = {}
 
@@ -84,7 +85,7 @@ class Splitter(Analyzer):
         old_biggest_leaf = self.biggest_leaf
         self.biggest_leaf = max(self.leafs, key=lambda l: l.log_volume)
         if old_biggest_leaf is not self.biggest_leaf:
-            self.eventbus.publish('new_biggest_leaf', box=new_box)
+            self.eventbus.publish("new_biggest_leaf", box=new_box)
 
         dpth = new_box.depth
         # also consider the parent depth level
@@ -93,15 +94,16 @@ class Splitter(Analyzer):
             if old_big_by_depth is None:
                 self.big_by_depth[d] = new_box
             else:
-                leafs_at_depth = list(
-                    [l for l in self.leafs if l.depth == d])
+                leafs_at_depth = list([l for l in self.leafs if l.depth == d])
                 if len(leafs_at_depth) > 0:
                     self.big_by_depth[d] = max(
-                        leafs_at_depth, key=lambda l: l.log_volume)
+                        leafs_at_depth, key=lambda l: l.log_volume
+                    )
 
             if self.big_by_depth[d] is not old_big_by_depth:
-                self.eventbus.publish('new_biggest_by_depth',
-                                      depth=d, box=self.big_by_depth[d])
+                self.eventbus.publish(
+                    "new_biggest_by_depth", depth=d, box=self.big_by_depth[d]
+                )
 
     def on_new_biggest_leaf(self, box):
         self.logger.debug("biggest leaf at depth %d -> %s" % (box.depth, box))
@@ -123,6 +125,7 @@ class Splitter(Analyzer):
         return all boxes, where point is contained in
         """
         from panobbgo.lib.lib import Result
+
         assert isinstance(result, Result)
         return self.result2boxes[result]
 
@@ -131,6 +134,7 @@ class Splitter(Analyzer):
         returns the leaf box, where given result is currently sitting in
         """
         from panobbgo.lib.lib import Result
+
         assert isinstance(result, Result)
         # it might happen, that the result isn't in the result2leaf map
         # then we have to wait until on_new_results got it
@@ -164,10 +168,9 @@ class Splitter(Analyzer):
         for new_box in children:
             if self.best_box is None or self.best_box.fx >= new_box.fx:
                 self.best_box = new_box
-        self.eventbus.publish('new_best_box', best_box=self.best_box)
+        self.eventbus.publish("new_best_box", best_box=self.best_box)
 
     class Box:
-
         """
         Used by :class:`.Splitter`, therefore nested.
 
@@ -187,7 +190,7 @@ class Splitter(Analyzer):
             self.splitter = splitter
             self.limit = splitter.limit
             self.dim = splitter.dim
-            self.best = None              # best point
+            self.best = None  # best point
             self.results = []
             self.children = []
             self.split_dim = None
@@ -207,7 +210,7 @@ class Splitter(Analyzer):
             Function value of best point in this particular box.
             """
             if self.best is None:
-                return float('inf')
+                return float("inf")
             return self.best.fx
 
         @memoize
@@ -254,6 +257,7 @@ class Splitter(Analyzer):
             i.e. the maps from a result to the corresponding boxes or leafs.
             """
             from panobbgo.lib.lib import Result
+
             assert isinstance(result, Result)
             self.results.append(result)
 
@@ -304,13 +308,15 @@ class Splitter(Analyzer):
 
             - ``dim``: Dimension, along which to split. (default: `None`, and calculated)
             """
-            assert self.leaf, 'only leaf boxes are allowed to be split'
+            assert self.leaf, "only leaf boxes are allowed to be split"
             if dim is None:
                 # scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
                 # dim = np.argmax(np.std(scaled_coords, axis=0))
                 dim = np.argmax(self.ranges)
             # self.logger.debug("dim: %d" % dim)
-            assert dim >= 0 and dim < self.dim, 'dimension along where to split is %d' % dim
+            assert dim >= 0 and dim < self.dim, (
+                "dimension along where to split is %d" % dim
+            )
             b1 = Splitter.Box(self, self.splitter, self.box.copy())
             b2 = Splitter.Box(self, self.splitter, self.box.copy())
             self.split_dim = dim
@@ -326,8 +332,9 @@ class Splitter(Analyzer):
                 for r in self.results:
                     if c.contains(r.x):
                         c._register_result(r)
-            self.splitter.eventbus.publish('new_split',
-                                           box=self, children=self.children, dim=dim)
+            self.splitter.eventbus.publish(
+                "new_split", box=self, children=self.children, dim=dim
+            )
 
         def contains(self, point):
             """
@@ -347,7 +354,7 @@ class Splitter(Analyzer):
 
         def __repr__(self):
             v = self.volume
-            l = ',leaf' if self.leaf else ''
-            l = '(%d,%.3f%s) ' % (len(self), v, l)
-            b = ','.join('%s' % _ for _ in self.box)
-            return 'Box-%d %s[%s]' % (self.id, l, b)
+            l = ",leaf" if self.leaf else ""
+            l = "(%d,%.3f%s) " % (len(self), v, l)
+            b = ",".join("%s" % _ for _ in self.box)
+            return "Box-%d %s[%s]" % (self.id, l, b)

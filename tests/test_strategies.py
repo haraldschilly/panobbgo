@@ -32,30 +32,35 @@ def get_my_setup_cluster():
         self._problem_future = mock.MagicMock()
         # Initialize pending dict for evaluators property to work
         self.pending = {}
+
     return my_setup_cluster
 
 
 class StrategiesTests(PanobbgoTestCase):
-
     def setUp(self):
         self.problem = Rosenbrock(3)
 
-    @mock.patch('panobbgo.core.StrategyBase._setup_cluster', new_callable=get_my_setup_cluster)
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_round_robin(self, my_setup_cluster):
         rr = StrategyRoundRobin(self.problem, size=20)
         rr.add(LatinHypercube, div=3)
         assert rr.size == 20
-        #rr.start()
-        #print rr._heuristics
+        # rr.start()
+        # print rr._heuristics
 
-
-    @mock.patch('panobbgo.core.StrategyBase._setup_cluster', new_callable=get_my_setup_cluster)
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_rewarding(self, my_setup_cluster):
-        #rwd = StrategyRewarding(self.problem)
-        #assert rwd is not None
+        # rwd = StrategyRewarding(self.problem)
+        # assert rwd is not None
         pass
 
-    @mock.patch('panobbgo.core.StrategyBase._setup_cluster', new_callable=get_my_setup_cluster)
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_ucb_initialization(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         assert ucb is not None
@@ -70,7 +75,9 @@ class StrategiesTests(PanobbgoTestCase):
             assert h.ucb_count == 0
             assert h.ucb_total_reward == 0.0
 
-    @mock.patch('panobbgo.core.StrategyBase._setup_cluster', new_callable=get_my_setup_cluster)
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_ucb_execution(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         ucb.add(Random)
@@ -91,7 +98,9 @@ class StrategiesTests(PanobbgoTestCase):
         # We need to mock len(evaluators) to be > 0.
 
         # Configure the mock client's scheduler_info to return some workers
-        ucb._client.scheduler_info.return_value = {'workers': {'worker1': {}, 'worker2': {}}}
+        ucb._client.scheduler_info.return_value = {
+            "workers": {"worker1": {}, "worker2": {}}
+        }
 
         # Initial execution should pick each heuristic at least once
         # Mock get_points to return dummy points
@@ -105,7 +114,9 @@ class StrategiesTests(PanobbgoTestCase):
         for h in ucb.heuristics:
             assert h.ucb_count > 0
 
-    @mock.patch('panobbgo.core.StrategyBase._setup_cluster', new_callable=get_my_setup_cluster)
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_ucb_reward(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         ucb.add(Random)
@@ -117,7 +128,7 @@ class StrategiesTests(PanobbgoTestCase):
             ucb.add_heuristic(h)
 
         # After start, heuristics are in self._heuristics
-        h_random = ucb.heuristic('Random')
+        h_random = ucb.heuristic("Random")
 
         # Simulate initial execution
         h_random.ucb_count = 1
@@ -125,7 +136,7 @@ class StrategiesTests(PanobbgoTestCase):
 
         # Simulate a result
         p = Point(np.array([1, 2, 3]), who=h_random.name)
-        result_best = Result(p, 10.0) # fx=10.0
+        result_best = Result(p, 10.0)  # fx=10.0
 
         # First best (no improvement, reward 1.0)
         ucb.on_new_best(result_best)
@@ -134,7 +145,7 @@ class StrategiesTests(PanobbgoTestCase):
 
         # Second result, improvement
         p2 = Point(np.array([1, 2, 3]), who=h_random.name)
-        result_better = Result(p2, 5.0) # fx=5.0
+        result_better = Result(p2, 5.0)  # fx=5.0
 
         ucb.on_new_best(result_better)
 
@@ -145,6 +156,7 @@ class StrategiesTests(PanobbgoTestCase):
         assert abs(h_random.ucb_total_reward - (1.0 + expected_reward)) < 1e-6
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import unittest
+
     unittest.main()

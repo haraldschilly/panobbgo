@@ -97,10 +97,8 @@ class StrategiesTests(PanobbgoTestCase):
         # By default jobs_per_client=1, len(evaluators)=len(workers).
         # We need to mock len(evaluators) to be > 0.
 
-        # Configure the mock client's scheduler_info to return some workers
-        ucb._client.scheduler_info.return_value = {
-            "workers": {"worker1": {}, "worker2": {}}
-        }
+        # For direct evaluation, set up multiple processes to simulate multiple evaluators
+        ucb._n_processes = 2
 
         # Initial execution should pick each heuristic at least once
         # Mock get_points to return dummy points

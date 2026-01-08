@@ -119,3 +119,29 @@ jobs:
         else
           echo "All files are properly formatted!"
         fi
+
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install UV
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev
+
+    - name: Run benchmark suite
+      run: |
+        # Run benchmarks with timeout - should complete in under 1 minute
+        timeout 60 uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q
+        echo "✅ Benchmark suite completed successfully in under 1 minute"

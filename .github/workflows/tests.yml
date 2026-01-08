@@ -21,25 +21,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Cache UV and dependencies
-      id: cache-uv
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/uv
-          .venv
-        key: uv-${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-python-${{ matrix.python-version }}-
-
     - name: Install UV
-      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
-      if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         uv sync --extra dev
 

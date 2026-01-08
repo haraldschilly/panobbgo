@@ -1,10 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv run python:*)",
+      "Bash(uv run:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd comprehensive logging infrastructure with real-time progress reporting\n\nImplements a complete logging system for panobbgo with:\n\n- Component-based logging \\(Strategy, Heuristic, Analyzer, Results\\)\n- Real-time progress reporting with symbolic indicators \\(🎉🎊⭐🆕.⚠️❌\\)\n- Professional status line showing evaluations, ETA, convergence, and best value\n- ANSI terminal support with save/restore cursor positioning\n- Automatic fallback for non-TTY environments\n- Comprehensive test coverage \\(13 test cases\\)\n\nThe progress reporter displays:\n- Progress symbols accumulating on one line\n- Status line updating in-place on the line below\n- Format: [ Evals: XX% \\(N/MAX\\) | ETA: Xs | Convergence: XX% | Best: X.XXX ]\n\nThis provides excellent visibility into optimization processes while\nmaintaining clean, professional output.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh run:*)"
     ]
   }
 }

@@ -131,46 +131,51 @@ class Results:
         from .logging.progress import ProgressContext
 
         # Get strategy's logger for progress reporting
-        if hasattr(self.strategy, 'panobbgo_logger'):
-            progress_reporter = self.strategy.panobbgo_logger.progress_reporter
+        if not hasattr(self.strategy, 'panobbgo_logger'):
+            return  # No logger configured, skip progress reporting
 
-            # Determine progress context
-            context = ProgressContext()
+        progress_reporter = self.strategy.panobbgo_logger.progress_reporter
 
-            # Check if this is a new global best
-            if self.results is not None and len(self.results) > 0:
-                current_best_fx = self.results['fx', 0].min()
-                if result.fx is not None and result.fx < current_best_fx:
-                    context.is_global_best = True
+        # Determine progress context
+        context = ProgressContext()
 
-            # Check for significant improvement (top 10% of results)
-            if self.results is not None and len(self.results) > 10:
-                sorted_fx = sorted(self.results['fx', 0].dropna())
-                threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
-                if threshold_idx > 0:
-                    threshold = sorted_fx[threshold_idx]
-                    if result.fx is not None and result.fx < threshold:
-                        context.is_significant_improvement = True
+        # Only analyze if we have valid fx
+        if result.fx is not None:
+            try:
+                # Check if this is a new global best
+                if self.results is not None and len(self.results) > 0:
+                    current_best_fx = float(self.results['fx', 0].min())
+                    if result.fx < current_best_fx:
+                        context.is_global_best = True
 
-            # Check for general improvement over previous results
-            if self.results is not None and len(self.results) > 1:
-                prev_best = self.results['fx', 0].iloc[:-1].min()  # exclude current result
-                if result.fx is not None and result.fx < prev_best:
-                    context.is_improvement = True
+                # Check for significant improvement (top 10% of results)
+                if self.results is not None and len(self.results) > 10:
+                    sorted_fx = sorted([float(x) for x in self.results['fx', 0].dropna()])
+                    threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
+                    if threshold_idx > 0:
+                        threshold = sorted_fx[threshold_idx]
+                        if result.fx < threshold:
+                            context.is_significant_improvement = True
 
-            # Check for analyzer learning (this would be set by analyzers)
-            # For now, we can detect splitter activity by checking recent events
+                # Check for general improvement over previous results
+                if self.results is not None and len(self.results) > 1:
+                    prev_best = float(self.results['fx', 0].iloc[:-1].min())  # exclude current result
+                    if result.fx < prev_best:
+                        context.is_improvement = True
+            except (ValueError, TypeError, KeyError):
+                # If we can't determine improvement status, skip it
+                pass
 
-            # Check for failure
-            if result.failed or result.error:
-                context.evaluation_failed = True
+        # Check for failure (fx is None or has error)
+        if result.fx is None or (result.error and result.error > 0):
+            context.evaluation_failed = True
 
-            # Check for warnings (constraint violations, etc.)
-            if result.cv is not None and result.cv > 0:
-                context.has_warnings = True
+        # Check for warnings (constraint violations, etc.)
+        if result.cv is not None and result.cv > 0:
+            context.has_warnings = True
 
-            # Report the evaluation
-            progress_reporter.report_evaluation(result, context)
+        # Report the evaluation
+        progress_reporter.report_evaluation(result, context)
 
 
 class Module:

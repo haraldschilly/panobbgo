@@ -28,3 +28,11 @@ Panobbgo is designed as a **framework for black-box optimization** but includes 
 *   **Interactive use**: Import and use components directly in Python scripts for custom optimization problems
 
 The framework runs on **Dask distributed** for parallel evaluation, supporting both local clusters and remote distributed computing.
+
+## CI/CD and Testing
+
+*   **Local Testing**: Run `./test.sh` to replicate the full CI pipeline locally
+*   **CI Status**: Check GitHub Actions status with `gh pr checks <PR_NUMBER>` or `gh run list`
+*   **CI Logs**: View detailed CI logs with `gh run view <RUN_ID> --log` or `gh run view --web <RUN_ID>`
+*   **Code Formatting**: Use `uv run ruff format` to format code, `./codestyle.sh` for convenience
+*   **Linting**: Run `uv run flake8 panobbgo` to check for style issues

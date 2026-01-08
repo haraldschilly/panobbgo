@@ -21,6 +21,10 @@ jobs:
       with:
         python-version: ${{ env.PYTHON }}
 
+    - name: Setup UV PATH
+      run: |
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
     - name: Install UV
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -62,50 +66,19 @@ jobs:
         restore-keys: |
           uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
-    - name: Install UV
-      if: steps.cache-uv.outputs.cache-hit != 'true'
+    - name: Setup UV PATH
       run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-    - name: Install dependencies
-      if: steps.cache-uv.outputs.cache-hit != 'true'
-      run: |
-        uv sync --extra dev
-
-    - name: Run flake8
-      run: |
-        uv run flake8 panobbgo --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 panobbgo --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      continue-on-error: true
-
-  typecheck:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON }}
-
-    - name: Cache UV and dependencies
-      id: cache-uv
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/uv
-          .venv
-        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
     - name: Install UV
       if: steps.cache-uv.outputs.cache-hit != 'true'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install UV
+      if: steps.cache-uv.outputs.cache-hit != 'true'
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
 
     - name: Install dependencies
       if: steps.cache-uv.outputs.cache-hit != 'true'
@@ -137,6 +110,10 @@ jobs:
         key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
         restore-keys: |
           uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+    - name: Setup UV PATH
+      run: |
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install UV
       if: steps.cache-uv.outputs.cache-hit != 'true'
@@ -179,6 +156,10 @@ jobs:
         key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
         restore-keys: |
           uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+    - name: Setup UV PATH
+      run: |
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install UV
       if: steps.cache-uv.outputs.cache-hit != 'true'

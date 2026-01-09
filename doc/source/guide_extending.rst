@@ -246,7 +246,9 @@ Basic Template
 Example: Convergence Detector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Detect when optimization has stagnated:
+Detect when optimization has stagnated. Note that a built-in `Convergence` analyzer
+is now available in `panobbgo.analyzers.convergence`, but here is how you could implement
+a simple version yourself:
 
 .. code-block:: python
 
@@ -281,6 +283,14 @@ Detect when optimization has stagnated:
        def on_converged(self):
            """React to convergence (even if detected by another instance)."""
            self.logger.info("Optimization has converged")
+
+The built-in `Convergence` analyzer supports two modes: 'std' (standard deviation) and
+'improv' (relative improvement). It can be added to your strategy like this:
+
+.. code-block:: python
+
+   from panobbgo.analyzers.convergence import Convergence
+   strategy.add_analyzer(Convergence, window_size=50, threshold=1e-6, mode='std')
 
 Example: Clustering Analyzer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

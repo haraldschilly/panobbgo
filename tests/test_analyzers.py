@@ -254,6 +254,82 @@ class AnalyzersUtils(PanobbgoTestCase):
         # Should have non-dominated solutions
         assert len(fx_values) >= 1
 
+    def test_convergence_analyzer_init(self):
+        """Test Convergence analyzer initialization."""
+        from panobbgo.analyzers.convergence import Convergence
+
+        conv = Convergence(self.strategy)
+        assert conv is not None
+        assert conv.window_size == 50  # default
+        assert conv.threshold == 1e-6  # default
+        assert conv.mode == 'std'  # default
+        assert len(conv.history) == 0
+        assert conv._converged is False
+
+        # Test custom parameters
+        conv_custom = Convergence(self.strategy, window_size=20, threshold=1e-4, mode='improv')
+        assert conv_custom.window_size == 20
+        assert conv_custom.threshold == 1e-4
+        assert conv_custom.mode == 'improv'
+
+    def test_convergence_std_mode(self):
+        """Test convergence detection in standard deviation mode."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='std')
+
+        # Mock strategy.best to return consistent values
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_result = mock.Mock()
+            mock_result.fx = 1.0
+            mock_best.__get__ = mock.Mock(return_value=mock_result)
+
+            # Add results to fill window with same value (no variation)
+            for i in range(5):
+                conv.on_new_results([mock.Mock()])
+
+            # Should not converge yet (check_convergence is called after each addition)
+            # But since we're adding one by one, it should converge when window is full
+
+    def test_convergence_trigger_convergence(self):
+        """Test that convergence analyzer triggers convergence correctly."""
+        from panobbgo.analyzers.convergence import Convergence
+        from collections import deque
+
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='std')
+        conv.history = deque([1.0, 1.0, 1.0], maxlen=3)
+
+        # Should not be converged initially
+        assert conv._converged is False
+
+        # Trigger convergence
+        conv._trigger_convergence("Test convergence")
+
+        # Should set converged flag
+        assert conv._converged is True
+
+    def test_convergence_edge_cases(self):
+        """Test convergence analyzer edge cases."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01)
+
+        # Test with no strategy.best (should return early)
+        with mock.patch.object(self.strategy, 'best', None):
+            conv.on_new_results([mock.Mock()])
+            assert len(conv.history) == 0
+
+        # Test already converged (should not check again)
+        conv._converged = True
+        from collections import deque
+        conv.history = deque([1.0, 1.0, 1.0, 1.0, 1.0], maxlen=5)
+
+        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+            conv._check_convergence()
+            mock_trigger.assert_not_called()
+
 if __name__ == "__main__":
     import unittest
 

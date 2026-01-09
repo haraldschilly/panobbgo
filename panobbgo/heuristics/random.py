@@ -37,7 +37,12 @@ class Random(Heuristic):
 
         self.first_split.wait()
         splitter = self.strategy.analyzer("splitter")
-        assert self.leaf is not None, "leaf must be set before generating random points"
+        if self.leaf is None:
+            raise RuntimeError(
+                "Random heuristic failed to initialize: no search leaf available. "
+                "This usually means the Splitter analyzer hasn't created any leaf nodes yet. "
+                "Make sure the Splitter analyzer is properly configured and has processed some results."
+            )
         while True:
             r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
             self.emit(r)

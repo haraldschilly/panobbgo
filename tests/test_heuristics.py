@@ -17,14 +17,11 @@ from __future__ import unicode_literals
 import numpy as np
 
 from panobbgo.utils import PanobbgoTestCase
+from panobbgo.lib.lib import Point, Result
 
 
 class HeuristicTests(PanobbgoTestCase):
-    def test_weighted_average(self):
-        from panobbgo.heuristics.weighted_average import WeightedAverage
 
-        avg = WeightedAverage(self.strategy)
-        assert avg is not None
 
     def test_random(self):
         from panobbgo.heuristics.random import Random
@@ -94,3 +91,79 @@ class HeuristicTests(PanobbgoTestCase):
         assert gp.acquisition_func is not None
         assert gp.kappa == 1.96
         assert gp.xi == 0.01
+
+    def test_nearby(self):
+        """Test Nearby heuristic functionality."""
+        from panobbgo.heuristics.nearby import Nearby
+        from panobbgo.lib.lib import Point
+
+        # Test valid initialization
+        nearby = Nearby(self.strategy, radius=0.1, new=2, axes="one")
+        assert nearby is not None
+        assert nearby.radius == 0.1
+        assert nearby.new == 2
+        assert nearby.axes == "one"
+
+        # Test invalid axes parameter
+        try:
+            invalid_nearby = Nearby(self.strategy, axes="invalid")
+            invalid_nearby.on_new_best(Point(np.array([0.5, 0.5]), "test"))
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "invalid 'axes' parameter" in str(e)
+
+        # Test valid axes parameters
+        nearby_one = Nearby(self.strategy, axes="one")
+        nearby_all = Nearby(self.strategy, axes="all")
+
+        # Create a test point for on_new_best
+        test_point = Point(np.array([0.5, 0.5]), "test")
+
+        # Should not crash
+        nearby_one.on_new_best(test_point)
+        nearby_all.on_new_best(test_point)
+
+    def test_lbfgsb_error_handling(self):
+        """Test LBFGSB heuristic error handling."""
+        from panobbgo.heuristics.lbfgsb import LBFGSB
+
+        # Should initialize without errors in test environment
+        lbfgsb = LBFGSB(self.strategy)
+        assert lbfgsb is not None
+
+        # Test that __start__ method has error handling
+        # (We can't fully test multiprocessing in unit tests)
+
+    def test_weighted_average(self):
+        """Test WeightedAverage heuristic."""
+        from panobbgo.heuristics.weighted_average import WeightedAverage
+        from panobbgo.analyzers.splitter import Splitter
+        from panobbgo.lib.lib import Point, Result
+
+        # Create weighted average heuristic
+        wa = WeightedAverage(self.strategy, k=0.1)
+        wa.__start__()
+
+        # Create a splitter with some results
+        splitter = Splitter(self.strategy)
+        splitter.__start__()
+
+        # Add some results to the splitter
+        results = []
+        for i in range(5):
+            x = np.array([0.5, 0.5])  # Same point for all to create a box
+            point = Point(x, f"wa_test_{i}")
+            result = Result(point, 1.0 + i * 0.1, cv_vec=None)  # Slightly different fx
+            results.append(result)
+
+        splitter.on_new_results(results)
+
+        # Create a "best" result
+        best_point = Point(np.array([0.5, 0.5]), "best")
+        best_result = Result(best_point, 1.0, cv_vec=None)
+
+        # Should not crash when processing best result
+        wa.on_new_best(best_result)
+
+        # Should work without errors
+        assert wa is not None

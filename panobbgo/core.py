@@ -806,27 +806,51 @@ class StrategyBase:
 
     def add_heuristic(self, h):
         """
+        Add a heuristic to the strategy.
 
-        :param Heuristic h:
+        :param Heuristic h: The heuristic instance to add
         """
         name = h.name
-        assert name not in self._heuristics, (
-            "Names of heuristics need to be unique. '%s' is already used." % name
-        )
+        if name in self._heuristics:
+            existing_names = list(self._heuristics.keys())
+            raise ValueError(
+                f"Heuristic name '{name}' is already used by another heuristic. "
+                f"Each heuristic must have a unique name. "
+                f"Existing heuristics: {existing_names}"
+            )
         self._heuristics[name] = h
-        self.init_module(h)
+        try:
+            self.init_module(h)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize heuristic '{name}' ({h.__class__.__name__}). "
+                f"This usually indicates an error in the heuristic's __start__() method. "
+                f"Original error: {e}"
+            ) from e
 
     def add_analyzer(self, a):
         """
+        Add an analyzer to the strategy.
 
-        :param Analyzer a:
+        :param Analyzer a: The analyzer instance to add
         """
         name = a.name
-        assert name not in self._analyzers, (
-            "Names of analyzers need to be unique. '%s' is already used." % name
-        )
+        if name in self._analyzers:
+            existing_names = list(self._analyzers.keys())
+            raise ValueError(
+                f"Analyzer name '{name}' is already used by another analyzer. "
+                f"Each analyzer must have a unique name. "
+                f"Existing analyzers: {existing_names}"
+            )
         self._analyzers[name] = a
-        self.init_module(a)
+        try:
+            self.init_module(a)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize analyzer '{name}' ({a.__class__.__name__}). "
+                f"This usually indicates an error in the analyzer's __start__() method. "
+                f"Original error: {e}"
+            ) from e
 
     def check_dependencies(self):
         """
@@ -1139,12 +1163,38 @@ class StrategyBase:
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' started" % self._name)
         self.loops = 0
+        self._last_results_count = 0
+        self._loops_without_progress = 0
+        self._max_loops_without_progress = 50  # Allow 50 loops without progress before giving up
+        max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
+        self._max_total_loops = max(1000, max_eval_int * 2)  # Reasonable upper bound
 
         while True:
             self.loops += 1
 
+            # Safety check: prevent infinite loops
+            if self.loops > self._max_total_loops:
+                self.logger.warning(
+                    f"Strategy exceeded maximum loops ({self._max_total_loops}). "
+                    f"Results so far: {len(self.results)}. Stopping optimization."
+                )
+                break
+
             # execute the actual strategy
             points = self.execute()
+
+            # Check for progress (points generated)
+            if len(points) == 0:
+                self._loops_without_progress += 1
+                if self._loops_without_progress > self._max_loops_without_progress:
+                    self.logger.warning(
+                        f"No points generated for {self._loops_without_progress} consecutive loops. "
+                        f"This may indicate a configuration issue or exhausted search space. "
+                        f"Results so far: {len(self.results)}. Stopping optimization."
+                    )
+                    break
+            else:
+                self._loops_without_progress = 0
 
             # Update progress status
             self._update_progress_status()
@@ -1163,6 +1213,14 @@ class StrategyBase:
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
             # heurs)))
+
+            # Check for additional progress (results added)
+            current_results_count = len(self.results)
+            if current_results_count == self._last_results_count:
+                self._loops_without_progress += 1
+            else:
+                self._loops_without_progress = 0
+                self._last_results_count = current_results_count
 
             # stopping criteria
             if len(self.results) > self.config.max_eval:

@@ -28,17 +28,25 @@ class LBFGSB(Heuristic):
         self.logger = self.config.get_logger("LBFGS")
 
     def __start__(self):
-        from multiprocessing import Process, Pipe
+        try:
+            from multiprocessing import Process, Pipe
 
-        self.p1, self.p2 = Pipe()
-        self.out1, self.out2 = Pipe(False)
-        self.lbfgsb = Process(
-            target=self.worker,
-            args=(self.p2, self.out2, self.problem.dim),
-            name="%s-LBFGS" % self.name,
-        )
-        self.lbfgsb.daemon = True
-        self.lbfgsb.start()
+            self.p1, self.p2 = Pipe()
+            self.out1, self.out2 = Pipe(False)
+            self.lbfgsb = Process(
+                target=self.worker,
+                args=(self.p2, self.out2, self.problem.dim),
+                name="%s-LBFGS" % self.name,
+            )
+            self.lbfgsb.daemon = True
+            self.lbfgsb.start()
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to start LBFGSB subprocess for heuristic '{self.name}'. "
+                f"This usually indicates a multiprocessing issue. "
+                f"Make sure multiprocessing is supported on this system. "
+                f"Original error: {e}"
+            ) from e
 
     @staticmethod
     def worker(pipe, output, dims):

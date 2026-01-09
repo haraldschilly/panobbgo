@@ -79,6 +79,9 @@ def demo_logging():
 
         time.sleep(0.3)  # Visual delay
 
+    # Finalize the progress display
+    logger.progress_reporter.finalize()
+
     print()
     print("✅ Demo complete!")
     print()

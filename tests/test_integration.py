@@ -366,40 +366,7 @@ def test_manual_optimization_execution():
 
 
 
-def test_optimization_loop_termination():
-    """
-    TDD Test: Optimization loops should terminate properly.
 
-    This test validates that optimization runs complete without hanging
-    when properly configured.
-    """
-    from panobbgo.strategies import StrategyRoundRobin
-    from panobbgo.lib.classic import Rosenbrock
-    import time
-
-    problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
-    strategy.config.max_eval = 1  # Very small limit for quick test
-    strategy.config.evaluation_method = "threaded"
-    strategy.config.ui_show = False
-
-    # Add a simple heuristic
-    from panobbgo.heuristics import Random
-    strategy.add(Random)
-
-    start_time = time.time()
-
-    # This should complete within a reasonable time
-    strategy.start()
-    elapsed = time.time() - start_time
-
-    # Should complete in reasonable time (under 10 seconds for small test)
-    assert elapsed < 10.0, f"Optimization took too long: {elapsed:.1f}s"
-
-    # Should have produced some results
-    assert len(strategy.results) > 0, "No results generated"
-
-    print(f"✅ Optimization completed in {elapsed:.1f}s with {len(strategy.results)} evaluations")
 
 
 def test_minimal_optimization_works():

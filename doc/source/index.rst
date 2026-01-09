@@ -87,6 +87,11 @@ and running them on the computational nodes.
 
 .. include:: examples.rst
 
+History
+========
+
+This project was revived in 2026 with the help of coding agents like Jules and Claude Code.
+
 Links
 =====
 

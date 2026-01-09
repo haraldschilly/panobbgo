@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@univie.ac.at>
+# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ Most likely, it is the `one-shot` event ``start``, which is
 
 .. inheritance-diagram:: panobbgo.heuristics
 
-.. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
+.. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
 from __future__ import absolute_import

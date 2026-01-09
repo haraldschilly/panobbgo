@@ -1,7 +1,7 @@
 """
 This is the main part of Panobbgo.
 
-.. moduleauthor:: Harald Schilly <harald.schilly@univie.ac.at>
+.. moduleauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
 from __future__ import unicode_literals

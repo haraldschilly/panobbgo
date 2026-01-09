@@ -63,6 +63,9 @@ class Nearby(Heuristic):
                 dx *= self.problem.ranges[idx]
                 new_x[idx] += dx
             else:
-                raise Exception("axis parameter not 'one' or 'all'")
+                raise ValueError(
+                    f"Nearby heuristic received invalid 'axes' parameter: '{self.axes}'. "
+                    f"Valid options are 'one' (perturb one axis) or 'all' (perturb all axes)."
+                )
             ret.append(new_x)
         self.emit(ret)

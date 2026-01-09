@@ -292,6 +292,201 @@ class TestStrategyBase(PanobbgoTestCase):
         assert strategy.best is None, "Best should be None before any evaluations"
 
 
+class TestFrameworkValidation(PanobbgoTestCase):
+    """Test framework validation during initialization."""
+
+    def setUp(self):
+        self.problem = Rosenbrock(2)
+
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
+    def test_validation_success_with_heuristics(self, my_setup_cluster):
+        """Test that validation passes when setup is correct."""
+        from panobbgo.strategies.round_robin import StrategyRoundRobin
+        from panobbgo.analyzers import Best, Grid, Splitter
+
+        strategy = StrategyRoundRobin(self.problem, parse_args=False)
+        strategy.add(Random)  # Add a heuristic
+
+        # Manually set up heuristics like start() does
+        for h in sorted(strategy._hs, key=lambda h: h.name):
+            strategy.add_heuristic(h)
+
+        # Manually add analyzers like start() does
+        strategy.add_analyzer(Best(strategy))
+        strategy.add_analyzer(Grid(strategy))
+        strategy.add_analyzer(Splitter(strategy))
+
+        # This should not raise an exception
+        try:
+            strategy.validate_setup()
+        except ValueError:
+            self.fail("validate_setup() raised ValueError unexpectedly")
+
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
+    def test_validation_fails_without_heuristics(self, my_setup_cluster):
+        """Test that validation fails when no heuristics are added."""
+        from panobbgo.strategies.round_robin import StrategyRoundRobin
+
+        strategy = StrategyRoundRobin(self.problem, parse_args=False)
+        # Don't add any heuristics
+
+        with self.assertRaises(ValueError) as cm:
+            strategy.validate_setup()
+
+        error_msg = str(cm.exception)
+        self.assertIn("No active heuristics found", error_msg)
+        self.assertIn("You must add at least one heuristic", error_msg)
+        self.assertIn("strategy.add(Random)", error_msg)
+
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
+    def test_validation_fails_with_inactive_heuristics(self, my_setup_cluster):
+        """Test that validation fails when all heuristics are inactive."""
+        from panobbgo.strategies.round_robin import StrategyRoundRobin
+
+        strategy = StrategyRoundRobin(self.problem, parse_args=False)
+        strategy.add(Random)
+
+        # Manually deactivate the heuristic
+        for h in strategy._heuristics.values():
+            h.active = False
+
+        with self.assertRaises(ValueError) as cm:
+            strategy.validate_setup()
+
+        error_msg = str(cm.exception)
+        self.assertIn("No active heuristics found", error_msg)
+
+    def test_config_validation_max_eval_invalid(self):
+        """Test config validation for invalid max_eval."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        # Use mock config to avoid affecting global state
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = -1
+        mock_config.discount = 0.95
+        mock_config.smooth = 0.5
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("max_eval must be positive" in error for error in errors))
+
+    def test_config_validation_max_eval_too_high(self):
+        """Test config validation for unreasonably high max_eval."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = 200000  # Too high
+        mock_config.discount = 0.95
+        mock_config.smooth = 0.5
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("seems unreasonably high" in error for error in errors))
+
+    def test_config_validation_discount_invalid(self):
+        """Test config validation for invalid discount."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = 1000
+        mock_config.discount = 1.5  # Invalid (should be <= 1)
+        mock_config.smooth = 0.5
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("discount must be between 0 and 1" in error for error in errors))
+
+    def test_config_validation_discount_negative(self):
+        """Test config validation for negative discount."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = 1000
+        mock_config.discount = -0.1  # Invalid (should be > 0)
+        mock_config.smooth = 0.5
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("discount must be between 0 and 1" in error for error in errors))
+
+    def test_config_validation_smooth_negative(self):
+        """Test config validation for negative smooth."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = 1000
+        mock_config.discount = 0.95
+        mock_config.smooth = -1.0  # Invalid
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("smooth must be non-negative" in error for error in errors))
+
+    def test_config_validation_evaluation_method_invalid(self):
+        """Test config validation for invalid evaluation method."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = 1000
+        mock_config.discount = 0.95
+        mock_config.smooth = 0.5
+        mock_config.evaluation_method = "invalid_method"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        self.assertTrue(any("evaluation_method must be one of" in error for error in errors))
+
+    def test_config_validation_multiple_errors(self):
+        """Test config validation with multiple errors."""
+        from panobbgo.core import StrategyBase
+
+        base = StrategyBase(self.problem, parse_args=False)
+        mock_config = mock.MagicMock()
+        mock_config.max_eval = -1
+        mock_config.discount = 2.0
+        mock_config.smooth = -1.0
+        mock_config.evaluation_method = "threaded"
+        base.config = mock_config
+
+        errors = base._validate_config()
+        num_errors = len(errors)
+        self.assertGreaterEqual(num_errors, 3, f"Expected at least 3 errors, got {num_errors}: {errors}")  # Should have at least 3 errors
+
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
+    def test_start_fails_validation(self, my_setup_cluster):
+        """Test that start() fails when validation fails."""
+        from panobbgo.strategies.round_robin import StrategyRoundRobin
+
+        strategy = StrategyRoundRobin(self.problem, parse_args=False)
+        # Don't add any heuristics
+
+        with self.assertRaises(ValueError) as cm:
+            strategy.start()
+
+        error_msg = str(cm.exception)
+        self.assertIn("Framework setup validation failed", error_msg)
+        self.assertIn("No active heuristics found", error_msg)
+
+
 if __name__ == "__main__":
     import unittest
 

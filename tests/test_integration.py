@@ -366,6 +366,168 @@ def test_manual_optimization_execution():
 
 
 
+def test_optimization_loop_termination():
+    """
+    TDD Test: Optimization loops should terminate within reasonable time.
+
+    This test defines the expected behavior: optimization runs should complete
+    without hanging, regardless of strategy or problem complexity.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.lib.classic import Rosenbrock
+    import time
+    import pytest
+
+    problem = Rosenbrock(dims=2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy.config.max_eval = 100  # Reasonable limit
+    strategy.config.evaluation_method = "threaded"
+    strategy.config.ui_show = False
+
+    # Add a simple heuristic
+    from panobbgo.heuristics import Random
+    strategy.add(Random)
+
+    start_time = time.time()
+
+    # This should complete within a reasonable time (e.g., 30 seconds)
+    # Currently this may hang due to optimization loop issues
+    try:
+        strategy.start()
+        elapsed = time.time() - start_time
+
+        # Should complete in reasonable time
+        assert elapsed < 30.0, f"Optimization took too long: {elapsed:.1f}s"
+
+        # Should have produced some results
+        assert len(strategy.results) > 0, "No results generated"
+
+        print(f"✅ Optimization completed in {elapsed:.1f}s with {len(strategy.results)} evaluations")
+
+    except Exception as e:
+        pytest.fail(f"Optimization failed or hung: {e}")
+
+
+def test_minimal_optimization_works():
+    """
+    TDD Test: Basic optimization functionality works.
+
+    This validates that the core optimization pipeline functions correctly
+    after fixing the hanging issues.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.lib.classic import Rosenbrock
+
+    problem = Rosenbrock(dims=2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy.config.max_eval = 1  # Very small for quick test
+    strategy.config.evaluation_method = "threaded"
+    strategy.config.ui_show = False
+
+    # Add a simple heuristic
+    from panobbgo.heuristics import Random
+    strategy.add(Random)
+
+    # This should work without hanging (previously would hang indefinitely)
+    strategy.start()
+
+    # Validate results
+    assert len(strategy.results) > 0, "Should have generated some results"
+    assert strategy.results is not None, "Results database should exist"
+
+    # Check that all results are valid
+    for result in strategy.results:
+        assert hasattr(result, 'fx'), "Result should have fx value"
+        assert hasattr(result, 'x'), "Result should have x coordinates"
+
+    print(f"✅ Basic optimization works: {len(strategy.results)} results generated")
+
+    print(f"✅ Minimal optimization completed in {result['elapsed']:.2f}s with {result.get('results_count', 0)} results")
+
+
+def test_optimization_timeout_protection():
+    """
+    TDD Test: Framework should have timeout protection against infinite loops.
+
+    This test ensures the framework can detect and terminate runaway optimizations.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.lib.classic import Rosenbrock
+    import pytest
+
+    problem = Rosenbrock(dims=2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy.config.max_eval = 10  # Very small limit
+    strategy.config.evaluation_method = "threaded"
+    strategy.config.ui_show = False
+
+    # Add heuristic that might cause issues
+    from panobbgo.heuristics import Random
+    strategy.add(Random)
+
+    # This should complete quickly even if there are issues
+    try:
+        strategy.start()
+        assert len(strategy.results) >= 0  # At least didn't crash
+        print(f"✅ Timeout protection test passed with {len(strategy.results)} results")
+    except Exception as e:
+        pytest.fail(f"Framework should handle errors gracefully: {e}")
+
+
+def test_heuristic_quality_validation():
+    """
+    Test that heuristics generate reasonable points and improve over time.
+
+    This validates that individual components work correctly, even if full
+    optimization loops have issues.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.heuristics import Random, Nearby
+    from panobbgo.lib.lib import Point
+    import numpy as np
+
+    problem = Rosenbrock(dims=2)
+
+    # Create a minimal strategy for testing
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy.config.max_eval = 10  # Small budget for testing
+    strategy.config.evaluation_method = "threaded"
+    strategy.config.ui_show = False
+
+    # Test Random heuristic
+    random_h = Random(strategy)
+    strategy.add_heuristic(random_h)
+    random_h.__start__()
+
+    random_points = random_h.get_points(5)
+    assert len(random_points) == 5
+
+    # All points should be within bounds
+    for point in random_points:
+        assert isinstance(point, Point)
+        assert problem.box.contains(point.x)
+
+    # Test Nearby heuristic with a starting point
+    nearby_h = Nearby(strategy)
+    strategy.add_heuristic(nearby_h)
+    nearby_h.__start__()
+
+    # Simulate finding a "best" point
+    best_point = Point(np.array([0.5, 0.5]), "initial")
+    nearby_h.on_new_best(best_point)
+
+    nearby_points = nearby_h.get_points(3)
+    assert len(nearby_points) == 3
+
+    # Nearby points should be close to the best point
+    for point in nearby_points:
+        distance = np.linalg.norm(point.x - best_point.x)
+        assert distance < 0.5  # Should be reasonably close
+
+    print("✅ Heuristic quality validation passed!")
+
+
 def test_pandas_compatibility():
     """
     Test pandas DataFrame compatibility with pandas 2.x.

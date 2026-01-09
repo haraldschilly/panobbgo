@@ -775,6 +775,9 @@ class StrategyBase:
 
         self.check_dependencies()
 
+        # Validate framework setup before starting optimization
+        self.validate_setup()
+
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
 
         try:
@@ -845,6 +848,94 @@ class StrategyBase:
                     raise Exception(
                         "%s depends on %s, but missing." % (module, mod_class)
                     )
+
+    def validate_setup(self):
+        """
+        Validate that the framework is properly set up before starting optimization.
+
+        This method checks for common configuration errors and missing components
+        that would cause the optimization to fail or behave unexpectedly.
+
+        Raises:
+            ValueError: If the setup is invalid with descriptive error messages.
+        """
+        errors = []
+
+        # Check for at least one heuristic
+        active_heuristics = [h for h in self._heuristics.values() if h.active]
+        if len(active_heuristics) == 0:
+            errors.append(
+                "No active heuristics found. You must add at least one heuristic before starting optimization.\n"
+                "Example: strategy.add(Random)\n"
+                "Available heuristics: Center, Zero, Random, Extremal, LatinHypercube, Nearby, WeightedAverage, NelderMead, LBFGSB, QuadraticWlsModel"
+            )
+
+        # Check for required analyzers
+        required_analyzers = ['Best', 'Grid', 'Splitter']
+        missing_analyzers = []
+        for analyzer_name in required_analyzers:
+            if analyzer_name not in self._analyzers:
+                missing_analyzers.append(analyzer_name)
+
+        if missing_analyzers:
+            errors.append(
+                f"Missing required analyzers: {', '.join(missing_analyzers)}.\n"
+                "These analyzers are automatically added by StrategyBase.start(). "
+                "If you're seeing this error, there may be an initialization issue."
+            )
+
+        # Check configuration validity
+        config_errors = self._validate_config()
+        errors.extend(config_errors)
+
+        # If any errors found, raise ValueError with all issues
+        if errors:
+            error_msg = "Framework setup validation failed:\n\n"
+            error_msg += "\n\n".join(f"• {error}" for error in errors)
+            error_msg += "\n\nPlease fix these issues before starting optimization."
+            raise ValueError(error_msg)
+
+    def _validate_config(self):
+        """
+        Validate configuration parameters.
+
+        Returns:
+            List of error messages (empty if no errors).
+        """
+        errors = []
+
+        # Check max_eval is reasonable
+        try:
+            max_eval = int(self.config.max_eval)
+            if max_eval <= 0:
+                errors.append(f"max_eval must be positive, got {max_eval}")
+            elif max_eval > 100000:  # Reasonable upper bound
+                errors.append(f"max_eval ({max_eval}) seems unreasonably high. Consider values < 100,000")
+        except (ValueError, TypeError):
+            errors.append(f"max_eval must be a valid integer, got {self.config.max_eval}")
+
+        # Check discount factor (used by rewarding strategy)
+        try:
+            discount = float(self.config.discount)
+            if not (0 < discount <= 1):
+                errors.append(f"discount must be between 0 and 1, got {discount}")
+        except (ValueError, TypeError):
+            errors.append(f"discount must be a valid float between 0 and 1, got {self.config.discount}")
+
+        # Check smoothing parameter
+        try:
+            smooth = float(self.config.smooth)
+            if smooth < 0:
+                errors.append(f"smooth must be non-negative, got {smooth}")
+        except (ValueError, TypeError):
+            errors.append(f"smooth must be a valid float, got {self.config.smooth}")
+
+        # Check evaluation method
+        valid_methods = ['threaded', 'processes', 'dask']
+        if self.config.evaluation_method not in valid_methods:
+            errors.append(f"evaluation_method must be one of {valid_methods}, got '{self.config.evaluation_method}'")
+
+        return errors
 
     def init_module(self, module):
         """

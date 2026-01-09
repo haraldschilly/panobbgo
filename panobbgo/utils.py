@@ -213,11 +213,18 @@ class memoize:
 def evaluate_point_subprocess(problem, point):
     """
     Evaluate a point using a problem instance.
-    This function is designed to be called from a subprocess for direct evaluation.
 
-    @param problem: The optimization problem instance
-    @param point: The point to evaluate
-    @return: The evaluation result
+    This function is used by all evaluation modes:
+    - 'threaded': Called directly in thread pool
+    - 'processes': Called in subprocess after deserializing problem/point
+    - 'dask': Called on worker nodes
+
+    Args:
+        problem: The optimization problem instance
+        point: The point to evaluate
+
+    Returns:
+        The evaluation result (Result object)
     """
     return problem(point)
 

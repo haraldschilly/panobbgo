@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(uv run:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr merge:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",

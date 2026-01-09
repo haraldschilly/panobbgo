@@ -294,8 +294,9 @@ class Config:
         )
 
         # Evaluation method configuration (YAML only)
+        # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)
         self.evaluation_method = get_config(
-            "evaluation.method", None, None, "direct", str
+            "evaluation.method", None, None, "threaded", str
         )
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')

@@ -4,53 +4,22 @@ Progress Reporting and Error Handling
 
 Real-time progress reporting with symbols and status line updates.
 
+Uses the Rich library for robust terminal handling.
+
 .. codeauthor:: Panobbgo Development Team
 """
 
 import sys
 import time
-import shutil
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
+from rich.live import Live
+from rich.console import Console
+from rich.text import Text
+from rich.table import Table
+
 from panobbgo.lib.lib import Result
-
-
-class CursorManager:
-    """Helper class for managing terminal cursor position."""
-
-    @staticmethod
-    def save_position():
-        """Save current cursor position."""
-        print("\033[s", end="", flush=True)
-
-    @staticmethod
-    def restore_position():
-        """Restore saved cursor position."""
-        print("\033[u", end="", flush=True)
-
-    @staticmethod
-    def move_to_line(line_offset: int):
-        """Move cursor to a specific line relative to current position."""
-        if line_offset > 0:
-            print(f"\033[{line_offset}B", end="", flush=True)
-        elif line_offset < 0:
-            print(f"\033[{-line_offset}A", end="", flush=True)
-
-    @staticmethod
-    def move_to_column(col: int):
-        """Move cursor to a specific column."""
-        print(f"\033[{col}G", end="", flush=True)
-
-    @staticmethod
-    def clear_line():
-        """Clear the current line."""
-        print("\033[2K", end="", flush=True)
-
-    @staticmethod
-    def clear_to_end_of_line():
-        """Clear from cursor to end of line."""
-        print("\033[K", end="", flush=True)
 
 
 @dataclass
@@ -69,7 +38,8 @@ class ProgressReporter:
     """
     Handles real-time progress reporting during optimization.
 
-    Provides character-by-character progress updates and status line.
+    Uses Rich library for robust terminal handling with proper emoji support
+    and automatic cursor management.
     """
 
     def __init__(self):
@@ -78,17 +48,21 @@ class ProgressReporter:
         self.status_enabled = True
         self.update_frequency = 5  # Update status every N evaluations
 
-        self.progress_line = ""
-        self.status_line = ""
         self.evaluation_count = 0
         self.start_time = time.time()
         self.last_status_update = 0
 
-        # Terminal state tracking - we keep cursor on progress line always
-        self.status_line_printed = False
+        # Rich components
+        self.console = Console(file=sys.stdout, force_terminal=None)
+        self.progress_text = Text()  # Accumulates progress symbols
+        self.status_text = ""
+        self.live = None  # Live display (started on first use)
 
-        # Check if we can use ANSI codes (need a real TTY)
-        self.supports_ansi = sys.stdout.isatty()
+        # Check if terminal supports rich features
+        self.supports_ansi = self.console.is_terminal
+
+        # Fallback mode tracking
+        self._fallback_line_position = 0  # Position on current line (for 40-char wrap)
 
         # Symbol sets
         self.symbols = {
@@ -113,16 +87,72 @@ class ProgressReporter:
             'fatal': 'F'
         }
 
-    def _get_terminal_width(self) -> int:
-        """Get terminal width, defaulting to 80."""
-        try:
-            return shutil.get_terminal_size().columns
-        except (OSError, AttributeError):
-            return 80
-
     def _get_symbol_set(self) -> Dict[str, str]:
         """Get the appropriate symbol set."""
         return self.symbols if self.use_symbols else self.plain_symbols
+
+    def _print_fallback_status(self):
+        """Print status line in fallback mode (non-ANSI)."""
+        if self.status_text and self.status_enabled:
+            sys.stdout.write("\n" + self.status_text + "\n")
+            sys.stdout.flush()
+        else:
+            # Just newline if no status yet
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    # Backward compatibility properties
+    @property
+    def progress_line(self) -> str:
+        """Get progress line as string (for backward compatibility)."""
+        return self.progress_text.plain
+
+    @property
+    def status_line(self) -> str:
+        """Get status line as string (for backward compatibility)."""
+        return self.status_text
+
+    @property
+    def status_line_printed(self) -> bool:
+        """Check if status line has been printed (for backward compatibility)."""
+        return self.live is not None and len(self.status_text) > 0
+
+    @status_line_printed.setter
+    def status_line_printed(self, value: bool):
+        """Set status line printed flag (for backward compatibility with tests)."""
+        # This is a no-op for Rich implementation, but needed for test compatibility
+        pass
+
+    def _get_display_renderable(self):
+        """Create the display renderable (progress + status)."""
+        # Create a simple grid table with progress on top, status below
+        table = Table.grid(padding=0)
+        table.add_column()
+        table.add_row(self.progress_text)
+        if self.status_enabled and self.status_text:
+            table.add_row(self.status_text)
+        return table
+
+    def _ensure_live_started(self):
+        """Start the Rich Live display if not already started."""
+        if self.live is None and self.enabled and self.supports_ansi:
+            self.live = Live(
+                self._get_display_renderable(),
+                console=self.console,
+                refresh_per_second=4,
+                screen=False,  # Don't use alternate screen - keep in terminal history
+                auto_refresh=True
+            )
+            self.live.start()
+
+    def _update_display(self):
+        """Update the Rich Live display."""
+        if self.live is not None:
+            self.live.update(self._get_display_renderable())
+        elif not self.supports_ansi:
+            # Fallback mode: print directly (no live updating)
+            # This just accumulates output in terminal
+            pass  # Output is handled in report_evaluation fallback
 
     def get_progress_symbol(self, result: Result, context: ProgressContext) -> str:
         """
@@ -171,65 +201,24 @@ class ProgressReporter:
         # Get progress symbol
         symbol = self.get_progress_symbol(result, context)
 
-        # Add to progress line
-        self.progress_line += symbol
+        # Add symbol to progress text
+        self.progress_text.append(symbol)
         self.evaluation_count += 1
 
-        # Print symbol
-        self._print_progress_symbol(symbol)
-
-    def _print_progress_symbol(self, symbol: str):
-        """
-        Print a progress symbol on the progress line.
-
-        Args:
-            symbol: The symbol to print
-
-        Strategy:
-        - Progress line is always the "current" line where the cursor lives
-        - When status exists, it's on the line below
-        - To add a symbol: just write it (cursor is already at end of progress line)
-        """
-        # Update our internal state
-        self.progress_line += symbol
-
         if self.supports_ansi:
-            # Simple: just write the symbol (cursor is at end of progress line)
+            # ANSI mode: use Rich Live
+            self._ensure_live_started()
+            self._update_display()
+        else:
+            # Fallback mode: print directly with 40-char line wrapping
             sys.stdout.write(symbol)
             sys.stdout.flush()
-        else:
-            # Fallback: just print symbols inline
-            sys.stdout.write(symbol)
-            sys.stdout.flush()
+            self._fallback_line_position += 1
 
-    def _print_status_line(self):
-        """Print the status line below the progress line.
-
-        Strategy:
-        - Cursor is currently at the end of the progress line
-        - We need to go down one line, update the status, and return to progress line
-        - Use save/restore cursor position or explicit positioning
-        """
-        if self.supports_ansi:
-            # Save current cursor position (end of progress line)
-            sys.stdout.write("\x1b7")  # Save cursor (ESC 7)
-
-            # Go to next line and clear it
-            sys.stdout.write("\n\r\x1b[K")
-
-            # Print status line
-            sys.stdout.write(self.status_line)
-
-            # Restore cursor position (back to end of progress line)
-            sys.stdout.write("\x1b8")  # Restore cursor (ESC 8)
-
-            sys.stdout.flush()
-            self.status_line_printed = True
-        else:
-            # Fallback: print status on new lines
-            sys.stdout.write("\n" + self.status_line + "\n")
-            sys.stdout.flush()
-            self.status_line_printed = True
+            # Every 40 characters, print newline and status if available
+            if self._fallback_line_position >= 40:
+                self._print_fallback_status()
+                self._fallback_line_position = 0
 
 
 
@@ -249,6 +238,9 @@ class ProgressReporter:
             max_evals: Total evaluation budget
             extra_fields: Additional strategy-specific fields
         """
+        if not self.status_enabled:
+            return
+
         # Build status line
         parts = []
 
@@ -277,15 +269,20 @@ class ProgressReporter:
                     parts.append(f"{key}: {value}")
 
         # Create status line
-        self.status_line = "  |  ".join(parts)
-        if self.status_line:
-            self.status_line = f"[ {self.status_line} ]"
+        self.status_text = "  |  ".join(parts)
+        if self.status_text:
+            self.status_text = f"[ {self.status_text} ]"
 
         # Store max_evals for periodic updates
         self._max_evals = max_evals
 
-        # Position cursor and print status line
-        self._print_status_line()
+        if self.supports_ansi:
+            # ANSI mode: use Rich Live
+            self._ensure_live_started()
+            self._update_display()
+        else:
+            # Fallback mode: status is stored, will be printed at next 40-char wrap or finalize
+            pass
 
     def _format_eta(self, seconds: int) -> str:
         """Format ETA in human-readable form."""
@@ -308,21 +305,40 @@ class ProgressReporter:
             return f"{value:.4f}"
 
     def finalize(self):
-        """Finalize progress reporting (move to clean state)."""
-        # Move past the status line to a clean new line
-        if self.status_line_printed:
-            sys.stdout.write("\n")  # Move past status line
-        sys.stdout.write("\n")  # Extra line for clean separation
-        sys.stdout.flush()
+        """Finalize progress reporting and commit to terminal."""
+        if self.live is not None:
+            # ANSI mode: Stop the live display (this commits the current display to terminal)
+            self.live.stop()
+            self.live = None
+            # Add final newline for clean separation from next output
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        else:
+            # Fallback mode: Print final status if any progress was made
+            if self._fallback_line_position > 0 or self.status_text:
+                # Print newline if we're mid-line
+                if self._fallback_line_position > 0:
+                    sys.stdout.write("\n")
+                # Print final status
+                if self.status_text and self.status_enabled:
+                    sys.stdout.write(self.status_text + "\n")
+                sys.stdout.write("\n")  # Final separation newline
+                sys.stdout.flush()
 
     def reset(self):
         """Reset progress state."""
-        self.progress_line = ""
-        self.status_line = ""
+        # Stop live display if running
+        if self.live is not None:
+            self.live.stop()
+            self.live = None
+
+        # Reset state
+        self.progress_text = Text()
+        self.status_text = ""
         self.evaluation_count = 0
         self.start_time = time.time()
         self.last_status_update = 0
-        self.status_line_printed = False
+        self._fallback_line_position = 0
 
 
 class ErrorReporter:

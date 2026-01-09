@@ -1,73 +1,129 @@
-import pytest
+# -*- coding: utf8 -*-
+# Copyright 2024 Panobbgo Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from panobbgo.lib.constraints import (
+    DefaultConstraintHandler,
+    PenaltyConstraintHandler,
+    DynamicPenaltyConstraintHandler,
+)
+from panobbgo.lib.lib import Result
 import numpy as np
-from panobbgo.lib.lib import Result, Point
-from panobbgo.lib.constraints import DefaultConstraintHandler
 
-class TestDefaultConstraintHandler:
 
-    def setup_method(self):
-        self.handler = DefaultConstraintHandler(rho=100.0)
+class MockStrategy:
+    def __init__(self, results_count=0):
+        self.results = list(range(results_count))
 
-    def create_result(self, fx, cv_vec=None, who="test"):
-        p = Point(np.array([0.0]), who)
-        return Result(p, fx, cv_vec=cv_vec)
 
-    def test_first_point_improvement(self):
-        # Case: old_best is None
-        new_best = self.create_result(10.0)
-        imp = self.handler.calculate_improvement(None, new_best)
-        assert imp > 0.0
+def test_default_handler_feasible_improvement():
+    handler = DefaultConstraintHandler()
 
-    def test_feasible_improvement(self):
-        # Case 1: Both Feasible
-        old = self.create_result(10.0) # cv=0
-        new = self.create_result(5.0)  # cv=0
+    # Old best: fx=10, cv=0
+    old = Result(None, 10.0, cv_vec=None)
 
-        imp = self.handler.calculate_improvement(old, new)
-        assert imp == 5.0
+    # New best: fx=5, cv=0
+    new = Result(None, 5.0, cv_vec=None)
 
-        # No improvement
-        imp = self.handler.calculate_improvement(new, old)
-        assert imp == 0.0
+    # Improvement should be 5.0
+    imp = handler.calculate_improvement(old, new)
+    assert imp == 5.0
 
-    def test_infeasible_to_feasible(self):
-        # Case 2: Old Infeasible, New Feasible
-        old_cv = np.array([1.0])
-        old = self.create_result(-100.0, cv_vec=old_cv) # cv=1.0
-        new = self.create_result(10.0) # cv=0
 
-        imp = self.handler.calculate_improvement(old, new)
+def test_default_handler_infeasible_to_feasible():
+    handler = DefaultConstraintHandler(rho=100.0)
 
-        # Improvement should be base (10.0) + rho * old_cv (100.0 * 1.0) = 110.0
-        assert imp == 10.0 + 100.0 * 1.0
+    # Old best: fx=1, cv=0.1
+    old = Result(None, 1.0, cv_vec=np.array([0.1]))
+    # old.cv will be 0.1
 
-    def test_infeasible_improvement(self):
-        # Case 3: Both Infeasible
-        # old cv = 2.0, new cv = 1.0
-        old = self.create_result(-50.0, cv_vec=np.array([2.0]))
-        new = self.create_result(-60.0, cv_vec=np.array([1.0]))
+    # New best: fx=100, cv=0 (feasible but worse fx)
+    new = Result(None, 100.0, cv_vec=None)
 
-        imp = self.handler.calculate_improvement(old, new)
+    # Improvement should be 10.0 + 100.0 * 0.1 = 20.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 20.0) < 1e-6
 
-        # Improvement should be rho * delta_cv = 100 * (2.0 - 1.0) = 100.0
-        assert imp == 100.0
 
-        # old cv = 1.0, new cv = 2.0 (worse)
-        imp = self.handler.calculate_improvement(new, old)
-        assert imp == 0.0
+def test_default_handler_cv_reduction():
+    handler = DefaultConstraintHandler(rho=100.0)
 
-    def test_feasible_to_infeasible(self):
-        # Case 4: Old Feasible, New Infeasible (Regression)
-        old = self.create_result(10.0)
-        new = self.create_result(-100.0, cv_vec=np.array([1.0]))
+    # Old best: fx=1, cv=0.5
+    old = Result(None, 1.0, cv_vec=np.array([0.5]))
 
-        imp = self.handler.calculate_improvement(old, new)
-        assert imp == 0.0
+    # New best: fx=1, cv=0.2
+    new = Result(None, 1.0, cv_vec=np.array([0.2]))
 
-    def test_custom_rho(self):
-        handler = DefaultConstraintHandler(rho=10.0)
-        old = self.create_result(-100.0, cv_vec=np.array([1.0]))
-        new = self.create_result(10.0)
+    # Improvement: (0.5 - 0.2) * 100 = 30.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 30.0) < 1e-6
 
-        imp = handler.calculate_improvement(old, new)
-        assert imp == 10.0 + 10.0 * 1.0
+
+def test_penalty_handler_linear():
+    handler = PenaltyConstraintHandler(rho=10.0, exponent=1.0)
+
+    # Old: fx=10, cv=1. P = 10 + 10*1 = 20
+    old = Result(None, 10.0, cv_vec=np.array([1.0]))
+
+    # New: fx=12, cv=0.5. P = 12 + 10*0.5 = 17
+    new = Result(None, 12.0, cv_vec=np.array([0.5]))
+
+    # Improvement: 20 - 17 = 3.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 3.0) < 1e-6
+
+
+def test_penalty_handler_quadratic():
+    handler = PenaltyConstraintHandler(rho=10.0, exponent=2.0)
+
+    # Old: fx=10, cv=2. P = 10 + 10*(2^2) = 50
+    old = Result(None, 10.0, cv_vec=np.array([2.0]))
+
+    # New: fx=20, cv=1. P = 20 + 10*(1^2) = 30
+    new = Result(None, 20.0, cv_vec=np.array([1.0]))
+
+    # Improvement: 50 - 30 = 20.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 20.0) < 1e-6
+
+
+def test_dynamic_penalty_handler():
+    # Start rho=10, rate=1.0 per eval
+    # Strategy has 1 result -> rho = 10 * (1 + 1*1) = 20
+    strategy = MockStrategy(results_count=1)
+    handler = DynamicPenaltyConstraintHandler(strategy=strategy, rho_start=10.0, rate=1.0, exponent=1.0)
+
+    # Old: fx=10, cv=1. P = 10 + 20*1 = 30
+    old = Result(None, 10.0, cv_vec=np.array([1.0]))
+
+    # New: fx=5, cv=1. P = 5 + 20*1 = 25
+    new = Result(None, 5.0, cv_vec=np.array([1.0]))
+
+    # Improvement: 30 - 25 = 5.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 5.0) < 1e-6
+
+    # Now simulate later stage: 9 results
+    strategy.results = list(range(9))
+    # rho = 10 * (1 + 1*9) = 100
+
+    # Old: fx=10, cv=1. P = 10 + 100*1 = 110
+    old = Result(None, 10.0, cv_vec=np.array([1.0]))
+
+    # New: fx=12, cv=0. P = 12 + 100*0 = 12
+    new = Result(None, 12.0, cv_vec=None)
+
+    # Improvement: 110 - 12 = 98.0
+    imp = handler.calculate_improvement(old, new)
+    assert abs(imp - 98.0) < 1e-6

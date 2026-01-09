@@ -198,6 +198,12 @@ class StrategiesTests(PanobbgoTestCase):
         assert abs(h_random.ucb_total_reward - (1.0 + expected_reward)) < 1e-6
 
 
+
+
+
+
+
+
 class TestEvaluationModes(PanobbgoTestCase):
     """Test different evaluation modes."""
 

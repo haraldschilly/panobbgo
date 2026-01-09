@@ -35,10 +35,36 @@ The total constraint violation is the L2 norm:
 
    CV(x) = \|cv(x)\|_2 = \sqrt{\sum_{i=1}^m g_i(x)_+^2}
 
+Improvement Calculation
+~~~~~~~~~~~~~~~~~~~~~~~
+
+When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated :class:`~panobbgo.lib.constraints.ConstraintHandler`. The default implementation prioritizes feasibility using a penalty-like logic but handles the transition from infeasible to feasible explicitly to ensure strong rewards.
+
+The improvement :math:`I(x_{old}, x_{new})` is calculated as follows:
+
+1. **Both Feasible**: Standard improvement in objective function.
+
+   .. math::
+      I = \max(0, f(x_{old}) - f(x_{new}))
+
+2. **Infeasible to Feasible**: Significant improvement, rewarding the transition to feasibility.
+
+   .. math::
+      I = C + \rho \cdot CV(x_{old})
+
+   where :math:`C` is a base constant (e.g., 10.0) and :math:`\rho` is a penalty factor (e.g., 100.0).
+
+3. **Both Infeasible**: Improvement based on reduction of constraint violation.
+
+   .. math::
+      I = \rho \cdot \max(0, CV(x_{old}) - CV(x_{new}))
+
+4. **Feasible to Infeasible**: No improvement (:math:`I=0`).
+
 Lexicographic Ordering
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Point :math:`x` is considered better than :math:`y` if:
+For maintaining the global "best" point, point :math:`x` is considered better than :math:`y` if:
 
 1. :math:`CV(x) < CV(y)` (less constraint violation), **OR**
 2. :math:`CV(x) = CV(y) = 0` **AND** :math:`f(x) < f(y)` (better objective value)

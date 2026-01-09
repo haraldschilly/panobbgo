@@ -127,6 +127,40 @@ class HeuristicTests(PanobbgoTestCase):
         # Should return a list (may be empty)
         assert isinstance(nearby_points, list), "Nearby get_points should return a list"
 
+    def test_nearby_direct_functionality(self):
+        """
+        Test Nearby heuristic direct functionality without event system.
+        """
+        from panobbgo.heuristics.nearby import Nearby
+        from panobbgo.lib.lib import Point
+
+        # Create heuristic
+        nearby_h = Nearby(self.strategy, new=2, radius=0.1, axes="one")
+        nearby_h.__start__()
+
+        # Create a test best point
+        best_point = Point(np.array([0.5, 0.5]), "test")
+
+        # Directly call on_new_best to test point generation
+        nearby_h.on_new_best(best_point)
+
+        # Should have generated points
+        points = nearby_h.get_points(10)
+
+        assert isinstance(points, list), "Should return a list"
+        assert len(points) >= 2, f"Should generate at least 2 points, got {len(points)}"
+
+        # Check that points are within bounds and close to original
+        for point in points:
+            assert point in self.problem.box, f"Point {point.x} out of bounds"
+
+            # Should be close to the best point (within radius * range)
+            distance = np.max(np.abs(point.x - best_point.x))
+            max_allowed_distance = 0.1 * np.max(self.problem.ranges)
+            assert distance <= max_allowed_distance, f"Point too far: {distance} > {max_allowed_distance}"
+
+        print(f"✅ Nearby heuristic generated {len(points)} valid points")
+
     def test_lbfgsb_error_handling(self):
         """Test LBFGSB heuristic error handling."""
         from panobbgo.heuristics.lbfgsb import LBFGSB

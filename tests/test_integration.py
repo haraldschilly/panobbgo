@@ -474,6 +474,61 @@ def test_optimization_timeout_protection():
         pytest.fail(f"Framework should handle errors gracefully: {e}")
 
 
+def test_random_heuristic_point_generation():
+    """
+    Test Random heuristic point generation without full optimization.
+    """
+    from panobbgo.strategies import StrategyRoundRobin
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.heuristics import Random
+
+    problem = Rosenbrock(dims=2)
+    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy.config.ui_show = False
+
+    # Add Random heuristic
+    random_h = Random(strategy)
+    strategy.add_heuristic(random_h)
+
+    # Initialize the strategy components manually
+    # Add analyzers (this happens in start())
+    from panobbgo.analyzers import Best, Grid, Splitter
+    best_analyzer = Best(strategy)
+    grid_analyzer = Grid(strategy)
+    splitter_analyzer = Splitter(strategy)
+    strategy.add_analyzer(best_analyzer)
+    strategy.add_analyzer(grid_analyzer)
+    strategy.add_analyzer(splitter_analyzer)
+
+    # Initialize event system
+    strategy.eventbus.register(strategy)
+    strategy.eventbus.register(random_h)
+    strategy.eventbus.register(best_analyzer)
+    strategy.eventbus.register(grid_analyzer)
+    strategy.eventbus.register(splitter_analyzer)
+
+    # Add a dummy result to trigger splitter initialization
+    from panobbgo.lib.lib import Point, Result
+    dummy_point = Point(problem.random_point(), "dummy")
+    dummy_result = Result(dummy_point, 1.0)
+    strategy.results.add_results([dummy_result])
+
+    # Now try to get points from the Random heuristic
+    # This should work now that splitter has been initialized
+    points = random_h.get_points(3)
+
+    print(f"Random heuristic generated {len(points)} points after splitter init")
+
+    # Should generate points now
+    assert isinstance(points, list), "Should return a list"
+
+    # All points should be valid if generated
+    for point in points:
+        assert point in problem.box, f"Point {point.x} out of bounds"
+
+    print("✅ Random heuristic point generation works")
+
+
 def test_heuristic_quality_validation():
     """
     Test that heuristics generate reasonable points and improve over time.

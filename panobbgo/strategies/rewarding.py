@@ -41,7 +41,18 @@ class StrategyRewarding(StrategyBase):
         - ``discount``: positive float, default ``config.default``
         - ``times``: how often
         """
-        d = float(discount if discount is not None else self.config.discount)
+        # Ensure discount is a float. If None, fetch from config which might return a string/float.
+        val = discount if discount is not None else self.config.discount
+        if val is None:
+            # Fallback if config returns None, though typically it has a default
+            d = 0.95
+        else:
+            try:
+                d = float(val)
+            except (ValueError, TypeError):
+                # Handle cases where val cannot be converted to float
+                d = 0.95
+
         d = d**times
         heur.performance *= d
 
@@ -62,7 +73,9 @@ class StrategyRewarding(StrategyBase):
         # e.g. not in the proximity of the best x)
         fx_delta, reward = 0.0, 0.0
         # fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
-        fx_delta = 1.0 - np.exp(-1.0 * (self.last_best.fx - best.fx))  # saturates to 1
+
+        improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
+        fx_delta = 1.0 - np.exp(-1.0 * improvement)  # saturates to 1
         fx_delta = 0.0 if fx_delta <= 0 else fx_delta
         # if self.fx_delta_last == None: self.fx_delta_last = fx_delta
         reward = fx_delta  # / self.fx_delta_last
@@ -82,7 +95,10 @@ class StrategyRewarding(StrategyBase):
             "per_client = %s | target = %s" % (self.jobs_per_client, target)
         )
         if len(self.evaluators.outstanding) < target:
-            s = float(self.config.smooth)
+            try:
+                s = float(self.config.smooth)
+            except (ValueError, TypeError):
+                s = 0.5
             while True:
                 heurs = self.heuristics
                 perf_sum = sum(h.performance for h in heurs)

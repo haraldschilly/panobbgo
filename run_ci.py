@@ -55,7 +55,8 @@ def extract_run_commands(workflow_config):
             step_name = step.get('name', '').lower()
             if any(skip in step_name for skip in [
                 'set up python', 'install uv', 'checkout',
-                'upload coverage', 'install dependencies'
+                'upload coverage', 'install dependencies', 'setup uv path',
+                'cache uv'
             ]):
                 continue
 

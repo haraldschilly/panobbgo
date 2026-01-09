@@ -79,7 +79,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
             y = DataFrame({"y": fx_vals})
 
-            distances = np.apply_along_axis(np.linalg.norm, 1, points - best_point)
+            # Type hint for apply_along_axis is tricky, ignoring for now as linalg.norm is well-defined
+            distances = np.apply_along_axis(np.linalg.norm, 1, points - best_point) # type: ignore
             weights = 1.0 / (1 + np.argsort(distances))
 
             model = sm.WLS(y, X, weights=weights)
@@ -88,11 +89,11 @@ class QuadraticWlsModel(HeuristicSubprocess):
             # optimize predict with x \in bounds
             from scipy.optimize import fmin_l_bfgs_b
 
-            sol, fval, info = fmin_l_bfgs_b(
+            sol, _fval, _info = fmin_l_bfgs_b(
                 predict, np.zeros(dim), bounds=bounds, approx_grad=True
             )
 
-            pipe.send((sol, fval, info))
+            pipe.send((sol, _fval, _info))
             # end while loop
 
     def on_new_best_box(self, best_box):

@@ -38,6 +38,11 @@ and base-classes for the modules:
 
 from .config import Config
 from panobbgo.lib.lib import Result, Point
+from panobbgo.lib.constraints import (
+    DefaultConstraintHandler,
+    PenaltyConstraintHandler,
+    DynamicPenaltyConstraintHandler,
+)
 from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
@@ -718,6 +723,26 @@ class StrategyBase:
         self._heuristics = collections.OrderedDict()
         self._analyzers = collections.OrderedDict()
         self.problem = problem
+
+        # Configure Constraint Handler
+        rho = float(config.rho) if hasattr(config, "rho") else 100.0
+        exponent = float(config.constraint_exponent) if hasattr(config, "constraint_exponent") else 1.0
+        rate = float(config.dynamic_penalty_rate) if hasattr(config, "dynamic_penalty_rate") else 0.01
+        handler_name = getattr(config, "constraint_handler", "DefaultConstraintHandler")
+
+        if handler_name == "PenaltyConstraintHandler":
+            self.constraint_handler = PenaltyConstraintHandler(
+                strategy=self, rho=rho, exponent=exponent
+            )
+        elif handler_name == "DynamicPenaltyConstraintHandler":
+            self.constraint_handler = DynamicPenaltyConstraintHandler(
+                strategy=self, rho_start=rho, rate=rate, exponent=exponent
+            )
+        else:
+            self.constraint_handler = DefaultConstraintHandler(
+                strategy=self, rho=rho
+            )
+
         self.eventbus = EventBus(config)
         self.results = Results(self)
 

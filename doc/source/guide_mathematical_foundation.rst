@@ -35,10 +35,60 @@ The total constraint violation is the L2 norm:
 
    CV(x) = \|cv(x)\|_2 = \sqrt{\sum_{i=1}^m g_i(x)_+^2}
 
+Improvement Calculation
+~~~~~~~~~~~~~~~~~~~~~~~
+
+When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated :class:`~panobbgo.lib.constraints.ConstraintHandler`.
+
+Default Constraint Handler
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`~panobbgo.lib.constraints.DefaultConstraintHandler` prioritizes feasibility using a lexicographic approach:
+
+1. **Both Feasible**: Standard improvement in objective function.
+
+   .. math::
+      I = \max(0, f(x_{old}) - f(x_{new}))
+
+2. **Infeasible to Feasible**: Significant improvement, rewarding the transition to feasibility.
+
+   .. math::
+      I = C + \rho \cdot CV(x_{old})
+
+   where :math:`C` is a base constant (e.g., 10.0) and :math:`\rho` is a penalty factor (e.g., 100.0).
+
+3. **Both Infeasible**: Improvement based on reduction of constraint violation.
+
+   .. math::
+      I = \rho \cdot \max(0, CV(x_{old}) - CV(x_{new}))
+
+4. **Feasible to Infeasible**: No improvement (:math:`I=0`).
+
+Penalty Constraint Handlers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alternatively, Panobbgo supports penalty-based handlers which combine the objective and constraint violation into a single scalar metric :math:`P(x)`.
+
+**PenaltyConstraintHandler**:
+Uses a static penalty function:
+
+.. math::
+   P(x) = f(x) + \rho \cdot CV(x)^\gamma
+
+where :math:`\gamma` is an exponent (typically 1 or 2). Improvement is defined as reduction in :math:`P(x)`.
+
+**DynamicPenaltyConstraintHandler**:
+Uses a penalty factor that increases over time to gradually enforce constraints:
+
+.. math::
+   P(x, t) = f(x) + \rho(t) \cdot CV(x)^\gamma
+
+where :math:`\rho(t)` grows with the number of evaluations.
+
 Lexicographic Ordering
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Point :math:`x` is considered better than :math:`y` if:
+For maintaining the global "best" point, point :math:`x` is considered better than :math:`y` if:
 
 1. :math:`CV(x) < CV(y)` (less constraint violation), **OR**
 2. :math:`CV(x) = CV(y) = 0` **AND** :math:`f(x) < f(y)` (better objective value)

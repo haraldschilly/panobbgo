@@ -226,7 +226,21 @@ class GaussianProcessHeuristic(Heuristic):
             Acquisition function values at each point
         """
         if self.gp_model is None:
-            return np.zeros(len(X))
+            # We can't check len(X) directly if X is unknown type or numpy array
+            # But typically X is a numpy array here.
+            # Using shape[0] is safer for numpy arrays, but len() works too.
+            # Pyright was complaining about len() on Unknown|None elsewhere,
+            # but here X comes from minimize, so it should be fine.
+            # The previous error was: Argument of type "Unknown | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+            # It was likely referring to a different line.
+            # Line 139 was: return np.zeros(len(X))
+            try:
+                length = len(X) # type: ignore
+            except TypeError:
+                # Fallback if len() fails (e.g. 0-d array or None)
+                return np.array([0.0])
+
+            return np.zeros(length)
 
         # Get GP predictions and uncertainties
         y_pred, y_std = self.gp_model.predict(X, return_std=True)

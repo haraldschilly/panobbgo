@@ -9,8 +9,7 @@ Centralized logging infrastructure with component-based control.
 
 import logging
 import sys
-from typing import Dict, Optional, Any, List
-from pathlib import Path
+from typing import Dict, Optional, Any, List, Union
 
 from .progress import ProgressReporter, ErrorReporter
 
@@ -44,7 +43,7 @@ class ComponentLogger:
         return self._level
 
     @level.setter
-    def level(self, value: str | int):
+    def level(self, value: Union[str, int]):
         if isinstance(value, str):
             self._level = getattr(logging, value.upper())
         elif isinstance(value, int):

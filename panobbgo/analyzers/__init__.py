@@ -32,6 +32,11 @@ the strategy.
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: panobbgo.analyzers.convergence
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: panobbgo.analyzers.grid
    :members:
    :undoc-members:
@@ -54,6 +59,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from .best import Best
+from .convergence import Convergence
 from .splitter import Splitter
 from .grid import Grid
 from .dedensifyer import Dedensifyer

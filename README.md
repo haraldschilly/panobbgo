@@ -126,3 +126,10 @@ Based on ideas of Snobfit:
 
 * http://www.mat.univie.ac.at/~neum/software/snobfit/
 
+## Authors
+
+* Harald Schilly <harald.schilly@gmail.com>
+
+## History
+
+This project was revived in 2026 with the help of coding agents like Jules and Claude Code.

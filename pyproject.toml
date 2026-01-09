@@ -8,7 +8,7 @@ version = "0.0.1"
 description = "Parallel Noisy Black-Box Global Optimization"
 readme = "README.md"
 authors = [
-  { name = "Harald Schilly", email = "harald.schilly@univie.ac.at" },
+  { name = "Harald Schilly", email = "harald.schilly@gmail.com" },
 ]
 license = { text = "Apache 2.0" }
 classifiers = [

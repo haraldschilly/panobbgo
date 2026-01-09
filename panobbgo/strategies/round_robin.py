@@ -34,9 +34,14 @@ class StrategyRoundRobin(StrategyBase):
         import time
 
         points = []
-        while len(points) == 0:
+        attempts = 0
+        max_attempts = 10  # Prevent infinite loop
+        while len(points) == 0 and attempts < max_attempts:
             hs = self.heuristics
             self.current = (self.current + 1) % len(hs)
-            points.extend(hs[self.current].get_points(self.size))
-            time.sleep(1e-3)
+            new_points = hs[self.current].get_points(self.size)
+            points.extend(new_points)
+            attempts += 1
+            if len(new_points) == 0:
+                time.sleep(1e-3)  # Only sleep if no points generated
         return points

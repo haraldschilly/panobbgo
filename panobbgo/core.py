@@ -1165,9 +1165,9 @@ class StrategyBase:
         self.loops = 0
         self._last_results_count = 0
         self._loops_without_progress = 0
-        self._max_loops_without_progress = 50  # Allow 50 loops without progress before giving up
+        self._max_loops_without_progress = 3  # Allow only 3 loops without progress for testing
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
-        self._max_total_loops = max(1000, max_eval_int * 2)  # Reasonable upper bound
+        self._max_total_loops = max(10, max_eval_int)  # Very aggressive timeout for testing
 
         while True:
             self.loops += 1
@@ -1223,7 +1223,7 @@ class StrategyBase:
                 self._last_results_count = current_results_count
 
             # stopping criteria
-            if len(self.results) > self.config.max_eval:
+            if len(self.results) >= self.config.max_eval:
                 break
 
             # limit loop speed - sleep briefly

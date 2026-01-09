@@ -38,9 +38,12 @@ The total constraint violation is the L2 norm:
 Improvement Calculation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated :class:`~panobbgo.lib.constraints.ConstraintHandler`. The default implementation prioritizes feasibility using a penalty-like logic but handles the transition from infeasible to feasible explicitly to ensure strong rewards.
+When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated :class:`~panobbgo.lib.constraints.ConstraintHandler`.
 
-The improvement :math:`I(x_{old}, x_{new})` is calculated as follows:
+Default Constraint Handler
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`~panobbgo.lib.constraints.DefaultConstraintHandler` prioritizes feasibility using a lexicographic approach:
 
 1. **Both Feasible**: Standard improvement in objective function.
 
@@ -60,6 +63,27 @@ The improvement :math:`I(x_{old}, x_{new})` is calculated as follows:
       I = \rho \cdot \max(0, CV(x_{old}) - CV(x_{new}))
 
 4. **Feasible to Infeasible**: No improvement (:math:`I=0`).
+
+Penalty Constraint Handlers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alternatively, Panobbgo supports penalty-based handlers which combine the objective and constraint violation into a single scalar metric :math:`P(x)`.
+
+**PenaltyConstraintHandler**:
+Uses a static penalty function:
+
+.. math::
+   P(x) = f(x) + \rho \cdot CV(x)^\gamma
+
+where :math:`\gamma` is an exponent (typically 1 or 2). Improvement is defined as reduction in :math:`P(x)`.
+
+**DynamicPenaltyConstraintHandler**:
+Uses a penalty factor that increases over time to gradually enforce constraints:
+
+.. math::
+   P(x, t) = f(x) + \rho(t) \cdot CV(x)^\gamma
+
+where :math:`\rho(t)` grows with the number of evaluations.
 
 Lexicographic Ordering
 ~~~~~~~~~~~~~~~~~~~~~~

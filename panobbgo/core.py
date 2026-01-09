@@ -38,6 +38,7 @@ and base-classes for the modules:
 
 from .config import Config
 from panobbgo.lib.lib import Result, Point
+from panobbgo.lib.constraints import DefaultConstraintHandler
 from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
@@ -718,6 +719,9 @@ class StrategyBase:
         self._heuristics = collections.OrderedDict()
         self._analyzers = collections.OrderedDict()
         self.problem = problem
+        self.constraint_handler = DefaultConstraintHandler(
+            rho=float(config.rho) if hasattr(config, "rho") else 100.0
+        )
         self.eventbus = EventBus(config)
         self.results = Results(self)
 

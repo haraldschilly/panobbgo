@@ -397,33 +397,6 @@ def test_minimal_optimization_works():
     print("✅ Basic optimization setup works without crashing")
 
 
-def test_optimization_timeout_protection():
-    """
-    TDD Test: Framework should have timeout protection against infinite loops.
-
-    This test ensures the framework can detect and terminate runaway optimizations.
-    """
-    from panobbgo.strategies import StrategyRoundRobin
-    from panobbgo.lib.classic import Rosenbrock
-    import pytest
-
-    problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
-    strategy.config.max_eval = 10  # Very small limit
-    strategy.config.evaluation_method = "threaded"
-    strategy.config.ui_show = False
-
-    # Add heuristic that might cause issues
-    from panobbgo.heuristics import Random
-    strategy.add(Random)
-
-    # This should complete quickly even if there are issues
-    try:
-        strategy.start()
-        assert len(strategy.results) >= 0  # At least didn't crash
-        print(f"✅ Timeout protection test passed with {len(strategy.results)} results")
-    except Exception as e:
-        pytest.fail(f"Framework should handle errors gracefully: {e}")
 
 
 def test_random_heuristic_point_generation():

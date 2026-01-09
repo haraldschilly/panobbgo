@@ -128,6 +128,132 @@ class AnalyzersUtils(PanobbgoTestCase):
         best_analyzer = Best(self.strategy)
 
         # Create results that form a Pareto front
+        results = []
+        # Point 1: (fx=1.0, cv=2.0)
+        # Point 2: (fx=2.0, cv=1.0) - dominates point 1
+        # Point 3: (fx=1.5, cv=1.5) - non-dominated
+        points_data = [
+            (np.array([0.0, 0.0]), 1.0, np.array([2.0, 0.0])),
+            (np.array([1.0, 1.0]), 2.0, np.array([1.0, 0.0])),
+            (np.array([2.0, 2.0]), 1.5, np.array([1.5, 0.0])),
+        ]
+
+        for x, fx, cv_vec in points_data:
+            point = Point(x, "pareto_test")
+            result = Result(point, fx, cv_vec=cv_vec)
+            results.append(result)
+
+        best_analyzer.on_new_results(results)
+
+        # Check pareto front
+        assert len(best_analyzer.pareto_front) >= 1
+        best_analyzer._check_pareto_front()  # Should not raise assertion
+
+    def test_best_edge_cases(self):
+        """Test Best analyzer edge cases and error conditions."""
+        from panobbgo.analyzers.best import Best
+
+        best_analyzer = Best(self.strategy)
+
+        # Test with empty results
+        best_analyzer.on_new_results([])
+
+        # Test with results having zero constraint violation
+        x = np.array([1.0, 2.0])
+        point = Point(x, "zero_cv")
+        result = Result(point, 5.0, cv_vec=np.array([0.0, 0.0]))
+        best_analyzer.on_new_results([result])
+
+        assert best_analyzer.best is not None
+        assert best_analyzer.best.fx == 5.0
+
+        # Test with infeasible results only
+        results_infeasible = []
+        for i in range(3):
+            x = np.array([float(i), float(i+1)])
+            point = Point(x, f"infeasible_{i}")
+            cv_vec = np.array([1.0, 0.0])  # Infeasible
+            result = Result(point, float(i), cv_vec=cv_vec)
+            results_infeasible.append(result)
+
+        best_analyzer.on_new_results(results_infeasible)
+
+        # Should have best (lowest cv) and cv (lowest fx among infeasible)
+        assert best_analyzer.cv is not None
+        assert best_analyzer.best is not None  # From previous feasible result
+
+    def test_best_event_publishing(self):
+        """Test that Best analyzer publishes appropriate events."""
+        from panobbgo.analyzers.best import Best
+        import unittest.mock as mock
+
+        best_analyzer = Best(self.strategy)
+
+        # Mock the eventbus to capture published events
+        with mock.patch.object(best_analyzer, 'eventbus') as mock_eventbus:
+            # Create a result that should trigger new_best
+            x = np.array([1.0, 2.0])
+            point = Point(x, "event_test")
+            result = Result(point, 1.0, cv_vec=None)
+            best_analyzer.on_new_results([result])
+
+            # Should publish new_best event
+            mock_eventbus.publish.assert_called()
+
+    def test_best_properties_after_updates(self):
+        """Test Best analyzer properties after multiple updates."""
+        from panobbgo.analyzers.best import Best
+
+        best_analyzer = Best(self.strategy)
+
+        # First batch of results
+        results1 = [
+            Result(Point(np.array([0.0, 0.0]), "test1"), 10.0, cv_vec=None),
+            Result(Point(np.array([1.0, 1.0]), "test2"), 5.0, cv_vec=None),
+        ]
+        best_analyzer.on_new_results(results1)
+
+        assert best_analyzer.best is not None
+        assert best_analyzer.best.fx == 5.0
+        assert best_analyzer.min is not None
+        assert best_analyzer.min.fx == 5.0
+
+        # Second batch with better result
+        results2 = [
+            Result(Point(np.array([2.0, 2.0]), "test3"), 3.0, cv_vec=None),
+        ]
+        best_analyzer.on_new_results(results2)
+
+        assert best_analyzer.best is not None
+        assert best_analyzer.best.fx == 3.0
+        assert best_analyzer.min is not None
+        assert best_analyzer.min.fx == 3.0
+
+        # Check pareto front has at least the best point
+        assert len(best_analyzer.pareto_front) > 0
+
+    def test_best_event_handlers(self):
+        """Test Best analyzer event handler methods that don't require UI."""
+        from panobbgo.analyzers.best import Best
+
+        best_analyzer = Best(self.strategy)
+
+        # Test on_new_pareto (line 425) - currently just passes
+        pareto_result = Result(Point(np.array([1.0, 1.0]), "pareto"), 2.0, cv_vec=np.array([1.0, 0.0]))
+        # Should not raise an exception
+        best_analyzer.on_new_pareto(pareto_result)
+
+        # Test on_new_pareto_front (line 442) - updates pareto front if UI not present
+        front = [Result(Point(np.array([4.0, 4.0]), "front"), 4.0, cv_vec=None)]
+        # Should not raise an exception (UI not present so early return)
+        best_analyzer.on_new_pareto_front(front)
+
+        # Test on_new_cv and on_new_min - should not raise exceptions
+        cv_result = Result(Point(np.array([2.0, 2.0]), "cv"), 3.0, cv_vec=np.array([0.5, 0.0]))
+        best_analyzer.on_new_cv(cv_result)
+
+        min_result = Result(Point(np.array([3.0, 3.0]), "min"), 1.0, cv_vec=None)
+        best_analyzer.on_new_min(min_result)
         results = [
             Result(Point(np.array([0.0, 0.0]), "p1"), 5.0, cv_vec=np.array([0.0, 0.0])),  # Feasible
             Result(Point(np.array([1.0, 1.0]), "p2"), 3.0, cv_vec=np.array([2.0, 0.0])),  # Better obj, worse cv

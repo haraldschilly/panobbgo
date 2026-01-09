@@ -134,6 +134,55 @@ class HeuristicTests(PanobbgoTestCase):
         # Test that __start__ method has error handling
         # (We can't fully test multiprocessing in unit tests)
 
+    def test_quadratic_wls_model(self):
+        """Test QuadraticWlsModel heuristic initialization."""
+        from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
+
+        # Should initialize without errors in test environment
+        wls = QuadraticWlsModel(self.strategy)
+        assert wls is not None
+
+        # Test that __start__ method works (subprocess initialization)
+        # We can't fully test the subprocess functionality in unit tests
+        # but can verify it doesn't crash on init
+
+    def test_gaussian_process_heuristic(self):
+        """Test GaussianProcessHeuristic initialization and basic functionality."""
+        from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic, AcquisitionFunction
+        from panobbgo.lib.lib import Point, Result
+        import unittest.mock as mock
+
+        # Test initialization with different acquisition functions
+        for acq_func in [AcquisitionFunction.EI, AcquisitionFunction.UCB, AcquisitionFunction.PI]:
+            gp = GaussianProcessHeuristic(self.strategy, acquisition_func=acq_func)
+            assert gp is not None
+            assert gp.acquisition_func == acq_func
+
+        gp = GaussianProcessHeuristic(self.strategy)
+        assert gp is not None
+        gp.__start__()
+
+        # Mock GP model for testing acquisition functions
+        with mock.patch('sklearn.gaussian_process.GaussianProcessRegressor') as mock_gp:
+            mock_gp_instance = mock.Mock()
+            mock_gp_instance.predict.return_value = (np.array([1.0]), np.array([0.5]))
+            mock_gp.return_value = mock_gp_instance
+
+            gp.gp_model = mock_gp_instance
+            gp.best_y = 0.5
+
+            # Test acquisition function evaluation
+            X_test = np.array([[0.5, 0.5]])
+            acq_values = gp._evaluate_acquisition(X_test)
+            assert len(acq_values) == 1
+
+        # Test with insufficient data (should not crash)
+        gp.on_new_results([])
+
+        # Test with mock results but insufficient for GP
+        mock_results = [Result(Point([0.1, 0.1], "test"), 1.0, 0.0)]
+        gp.on_new_results(mock_results)
+
     def test_weighted_average(self):
         """Test WeightedAverage heuristic."""
         from panobbgo.heuristics.weighted_average import WeightedAverage

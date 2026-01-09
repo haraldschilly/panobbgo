@@ -92,7 +92,7 @@ Your framework is substantially complete with the following components:
 #### Infrastructure
 - ✅ IPython parallel integration for distributed evaluation
 - ✅ Configuration system (`~/.panobbgo/config.ini`)
-- ✅ Pytest test suite (27 tests)
+- ✅ Pytest test suite (91 tests)
 - ✅ Type hints (partial, ongoing migration)
 - ✅ CI/CD with GitHub Actions
 - ✅ Sphinx documentation framework

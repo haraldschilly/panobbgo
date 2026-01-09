@@ -102,7 +102,11 @@ class StrategyUCB(StrategyBase):
         if len(self.evaluators.outstanding) < target:
             # UCB Parameter c (exploration weight)
             # A common value is sqrt(2), but can be tuned.
-            c = float(self.config.ucb_c) if hasattr(self.config, "ucb_c") else 1.414
+            c_val = getattr(self.config, "ucb_c", 1.414)
+            try:
+                c = float(c_val) # type: ignore
+            except (ValueError, TypeError):
+                c = 1.414
 
             # Ensure every heuristic is tried at least once
             heurs = self.heuristics

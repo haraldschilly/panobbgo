@@ -137,7 +137,9 @@ class ProgressReporter:
         """
         symbols = self._get_symbol_set()
 
-        if context.evaluation_failed or (result.fx is None and not result.failed):
+        # Check for failure (assuming Result has a failed attribute, if not fallback to fx check)
+        failed = getattr(result, 'failed', False)
+        if context.evaluation_failed or (result.fx is None and not failed):
             return symbols['failed']
         elif context.has_warnings:
             return symbols['warning']

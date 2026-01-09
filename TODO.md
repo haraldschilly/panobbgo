@@ -11,40 +11,45 @@
 - [x] Update `README.md` with new installation and usage instructions.
 - [x] Setup CI/CD (GitHub Actions) - *optional but recommended*.
 
-## Framework Completion Tasks
+## Framework Quality Assurance & Completion
 
-### 🎯 Coverage Goal: 75% (Revised - Quality First)
-**Current**: 58% coverage with 96 tests
-**Revised Goal**: 75% coverage, but only after validating core component correctness
+### 🔴 CRITICAL: TDD Bug Fixes & Quality Validation (Priority 1)
+**TDD Approach**: Write failing tests first, then implement fixes
+**Order**: Optimization hangs → Heuristics → Dedensifyer
+- [ ] **Optimization Loop Stability** - Fix hangs/crashes in full runs
+  - [ ] Write TDD tests for loop termination behavior
+  - [ ] Identify root causes (threading, infinite loops, missing timeouts)
+  - [ ] Implement fixes and validate with tests
+- [ ] **Heuristic Functionality** - Fix point generation failures
+  - [ ] Write TDD tests requiring valid point generation from Random/Nearby
+  - [ ] Debug event handling and queue management issues
+  - [ ] Validate all heuristics work in framework context
+- [ ] **Dedensifyer Analyzer** - Fix critical implementation bugs
+  - [ ] Write TDD tests for proper initialization and grid management
+  - [ ] Fix constructor (missing strategy parameter)
+  - [ ] Fix undefined variables and wrong method signatures
+  - [ ] Validate hierarchical grid functionality
+- [ ] **Optimization Correctness Validation** - Add tests proving algorithms work
+  - [ ] Write tests validating convergence to known optima
+  - [ ] Compare optimization vs random baseline performance
+  - [ ] Add statistical significance testing
 
-### 🚨 CRITICAL: Code Quality Assessment Needed
-**Finding**: Current tests may be covering buggy implementations rather than robust code.
-- Dedensifyer analyzer has clear bugs (undefined variables, wrong constructors)
-- Heuristics fail basic functionality tests (point generation)
-- Full optimization loops may hang/crash
-- Integration tests validate "doesn't crash" but not "actually optimizes"
+### 🟡 MEDIUM: Coverage Expansion on Validated Code (Priority 2)
+**Revised Goal**: 75% coverage on components proven to work correctly
+- [ ] Expand UCB strategy tests (currently 91% - add edge cases)
+- [ ] Complete Best analyzer test coverage (currently 34%)
+- [ ] Add Grid analyzer comprehensive tests (currently 56%)
+- [ ] Test remaining heuristics: LBFGSB (30%), Nelder-Mead (51%)
+- [ ] Add integration tests for constrained optimization scenarios
 
-**Action Required**: Before increasing coverage to 75%, validate that core components actually work.
+### 🟢 LOW: Documentation & Polish (Priority 3)
+- [ ] Update documentation references from IPython parallel to Dask
+- [ ] Review and fix minor naming inconsistencies in guide documentation
+- [ ] Remove remaining IPython parallel references from code and documentation
+- [ ] Review and potentially simplify UI components
+- [ ] Add performance benchmarks comparing different strategies
+- [ ] Review and optimize threading/event handling
 
-### High Priority - Code Quality & Bug Fixes
-- [ ] **URGENT**: Fix Dedensifyer analyzer bugs (undefined box_dims, wrong constructor calls)
-- [ ] **URGENT**: Validate heuristic point generation works correctly
-- [ ] **URGENT**: Fix optimization loop hangs/crashes
-- [ ] Complete test coverage for UCB strategy implementation
-- [ ] Add tests for convergence analyzer edge cases and event handling
-- [ ] Add tests for grid and dedensifyer analyzers (currently 56% and 29% coverage)
-- [ ] Add tests for remaining low-coverage heuristics (lbfgsb 30%, nelder_mead 51%, etc.)
-
-### Medium Priority - Integration & Validation
-- [ ] Add more integration tests for end-to-end optimization scenarios with different strategies
-- [ ] Improve error handling and edge case testing for all components
-- [ ] Add tests for constraint handling integration with different strategies
-- [ ] Add validation for framework configuration and component compatibility
-
-### Low Priority - Documentation & Polish
-- [ ] Update documentation references from IPython parallel to Dask throughout codebase
-- [ ] Review and fix minor naming inconsistencies in guide documentation (e.g., QuadraticWlsModel naming)
-- [ ] Remove remaining IPython parallel references from code and documentation, replace with Dask references
-- [ ] Review and potentially simplify UI components or ensure they work with current framework
-- [ ] Add performance benchmarks comparing different strategies on benchmark problems
-- [ ] Review and optimize threading/event handling for better performance
+### 🎯 TARGET: 75% Coverage on Validated Components
+**Prerequisites**: All Priority 1 items completed with TDD validation
+**Quality Metrics**: Correctness + Coverage (not just coverage)

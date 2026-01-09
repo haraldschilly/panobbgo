@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 -- 2013 Harald Schilly <harald.schilly@univie.ac.at>
+# Copyright 2012 -- 2013 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ and base-classes for the modules:
 
 .. inheritance-diagram:: panobbgo.core
 
-.. codeauthor:: Harald Schilly <harald.schilly@univie.ac.at>
+.. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
 from .config import Config

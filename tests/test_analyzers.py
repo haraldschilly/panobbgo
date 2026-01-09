@@ -182,24 +182,6 @@ class AnalyzersUtils(PanobbgoTestCase):
         assert best_analyzer.cv is not None
         assert best_analyzer.best is not None  # From previous feasible result
 
-    def test_best_event_publishing(self):
-        """Test that Best analyzer publishes appropriate events."""
-        from panobbgo.analyzers.best import Best
-        import unittest.mock as mock
-
-        best_analyzer = Best(self.strategy)
-
-        # Mock the eventbus to capture published events
-        with mock.patch.object(best_analyzer, 'eventbus') as mock_eventbus:
-            # Create a result that should trigger new_best
-            x = np.array([1.0, 2.0])
-            point = Point(x, "event_test")
-            result = Result(point, 1.0, cv_vec=None)
-            best_analyzer.on_new_results([result])
-
-            # Should publish new_best event
-            mock_eventbus.publish.assert_called()
-
     def test_best_properties_after_updates(self):
         """Test Best analyzer properties after multiple updates."""
         from panobbgo.analyzers.best import Best

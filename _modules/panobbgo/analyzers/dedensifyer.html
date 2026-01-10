@@ -150,7 +150,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
-</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+</span><span data-line="15"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="16">
 </span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
 </span><span data-line="18">
@@ -200,47 +200,59 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="54"><span class="sd">    the minimal and maximal representants for that region.</span>
 </span><span data-line="55"><span class="sd">    &quot;&quot;&quot;</span>
 </span><span data-line="56">
-</span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
-</span><span data-line="58">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+</span><span data-line="58">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>
 </span><span data-line="59">        <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="n">max_depth</span>
-</span><span data-line="60">        <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">Box</span><span class="p">)</span>
-</span><span data-line="61">        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
-</span><span data-line="62">            <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+</span><span data-line="60">        <span class="c1"># boxes[depth] is a dict mapping gridkey -&gt; Box</span>
+</span><span data-line="61">        <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">)]</span>
+</span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="63">
 </span><span data-line="64">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="65">        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
-</span><span data-line="66">            <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
-</span><span data-line="67">
+</span><span data-line="65">        <span class="c1"># Initialize grid dimensions for each depth level.</span>
+</span><span data-line="66">        <span class="c1"># We use a hierarchical decomposition where each depth k divides the space</span>
+</span><span data-line="67">        <span class="c1"># into 2^k segments per dimension (or cell size scales by 1/2^k).</span>
+</span><span data-line="68">        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
+</span><span data-line="69">             <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">**</span> <span class="n">depth</span><span class="p">)</span>
+</span><span data-line="70">
 <div class="viewcode-block" id="Dedensifyer.gridkey">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey">[docs]</a>
-</span><span data-line="68">    <span class="k">def</span><span class="w"> </span><span class="nf">gridkey</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
-</span><span data-line="69">        <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">floor</span>
-</span><span data-line="70">
-</span><span data-line="71">        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">])</span></div>
+</span><span data-line="71">    <span class="k">def</span><span class="w"> </span><span class="nf">gridkey</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+</span><span data-line="72">        <span class="c1"># Calculate grid coordinates for point x at given depth.</span>
+</span><span data-line="73">        <span class="c1"># x is a point coordinate (numpy array)</span>
+</span><span data-line="74">        <span class="c1"># box_dims[depth] is the size of a grid cell at this depth</span>
+</span><span data-line="75">
+</span><span data-line="76">        <span class="c1"># box[:, 0] is the vector of lower bounds.</span>
+</span><span data-line="77">        <span class="n">box_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="78">
+</span><span data-line="79">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">box_min</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">])</span>
+</span><span data-line="80">        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">idx</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span></div>
 
-</span><span data-line="72">
+</span><span data-line="81">
 <div class="viewcode-block" id="Dedensifyer.get_box">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box">[docs]</a>
-</span><span data-line="73">    <span class="k">def</span><span class="w"> </span><span class="nf">get_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
-</span><span data-line="74">        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="75">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boxes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+</span><span data-line="82">    <span class="k">def</span><span class="w"> </span><span class="nf">get_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+</span><span data-line="83">        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span>
+</span><span data-line="84">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
-</span><span data-line="76">
+</span><span data-line="85">
 <div class="viewcode-block" id="Dedensifyer.register">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.register">[docs]</a>
-</span><span data-line="77">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="78"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="79"><span class="sd">        analyzes a new result</span>
-</span><span data-line="80"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="81">        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="82">        <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+</span><span data-line="86">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="87"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="88"><span class="sd">        analyzes a new result</span>
+</span><span data-line="89"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="90">        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
+</span><span data-line="91">            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span>
+</span><span data-line="92">            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">]:</span>
+</span><span data-line="93">                <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">Box</span><span class="p">()</span>
+</span><span data-line="94">            <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
 
-</span><span data-line="83">
+</span><span data-line="95">
 <div class="viewcode-block" id="Dedensifyer.on_new_results">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results">[docs]</a>
-</span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="85">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="86">            <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
+</span><span data-line="96">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="97">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="98">            <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

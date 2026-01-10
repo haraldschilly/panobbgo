@@ -57,7 +57,7 @@ master_doc = 'index'
 # General information about the project.
 project = u'Panobbgo'
 author = u'Harald Schilly'
-copyright = u'2012, %s. License Apache 2.0' % author
+copyright = u'2012-2026, %s. License Apache 2.0' % author
 
 rst_prolog = """\
 .. |name|   replace:: %(project)s

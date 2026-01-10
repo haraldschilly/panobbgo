@@ -42,6 +42,7 @@ from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
+    AugmentedLagrangianConstraintHandler,
 )
 from .logging import PanobbgoLogger
 import time as time_module
@@ -739,12 +740,17 @@ class StrategyBase:
             self.constraint_handler = DynamicPenaltyConstraintHandler(
                 strategy=self, rho_start=rho, rate=rate, exponent=exponent
             )
+        elif handler_name == "AugmentedLagrangianConstraintHandler":
+            self.constraint_handler = AugmentedLagrangianConstraintHandler(
+                strategy=self, rho=rho, rate=rate
+            )
         else:
             self.constraint_handler = DefaultConstraintHandler(
                 strategy=self, rho=rho
             )
 
         self.eventbus = EventBus(config)
+        self.eventbus.register(self.constraint_handler)
         self.results = Results(self)
 
         # Initialize new logging system

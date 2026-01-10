@@ -37,6 +37,12 @@ class ConstraintHandler:
             **kwargs: Additional configuration parameters.
         """
         self.strategy = strategy
+        self._threads = []
+        self._name = self.__class__.__name__
+
+    @property
+    def name(self):
+        return self._name
 
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
         """
@@ -181,3 +187,114 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         p_new = new_best.fx + rho * (cv_new ** self.exponent)
 
         return max(0.0, p_old - p_new)
+
+
+class AugmentedLagrangianConstraintHandler(ConstraintHandler):
+    """
+    Handles constraints using the Augmented Lagrangian Method.
+
+    L(x, lambda, mu) = f(x) + sum(Psi(c_i(x), lambda_i, mu))
+
+    Where Psi is the penalty-Lagrangian term for inequality constraints g(x) <= 0:
+       Psi = (1/2mu) * ( max(0, lambda + mu*g)^2 - lambda^2 )
+
+    Parameters update:
+       lambda_i <- max(0, lambda_i + mu * g_i(x))
+       mu <- mu * rate (if violation not decreasing sufficiently)
+    """
+    def __init__(self, strategy=None, rho=10.0, rate=2.0, update_interval=20, **kwargs):
+        """
+        Args:
+            strategy: Reference to strategy.
+            rho (float): Initial penalty parameter (mu). Defaults to 10.0.
+            rate (float): Multiplier for mu increase. Defaults to 2.0.
+            update_interval (int): Number of results between updates. Defaults to 20.
+        """
+        super().__init__(strategy, **kwargs)
+        self.mu = rho
+        self.rate = rate
+        self.update_interval = update_interval
+        self.lambdas = None  # Will be initialized on first result
+        self.counter = 0
+        self.last_cv_norm = float('inf')
+
+        # Logging
+        if strategy:
+            self.logger = strategy.config.get_logger("ALM")
+
+    def on_new_results(self, results):
+        """
+        Called when new results are available.
+        Updates Lagrangian parameters based on the new batch of results.
+        """
+        if not results:
+            return
+
+        self.counter += len(results)
+        if self.counter >= self.update_interval:
+            self.counter = 0
+            self._update_parameters()
+
+    def _update_parameters(self):
+        # We need the current best point.
+        # StrategyBase.best is the best feasible (or min cv) point found so far.
+        # However, for ALM, we might want to look at the best point w.r.t the Lagrangian?
+        # Standard ALM updates based on the solution of the subproblem.
+        # Here we approximate by taking the current global best.
+
+        best = self.strategy.best if self.strategy else None
+        if best is None:
+            return
+
+        if best.cv_vec is None:
+            return
+
+        # Initialize lambdas if needed
+        if self.lambdas is None:
+            self.lambdas = np.zeros_like(best.cv_vec)
+
+        cv = best.cv_vec
+        # Update lambdas
+        # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
+        # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec?
+        # Wait, if cv_vec > 0 is violation, then g(x) <= 0 constraint is violated if g(x) > 0.
+        # So cv_vec IS g(x).
+        new_lambdas = np.maximum(0, self.lambdas + self.mu * cv)
+
+        # Update mu (penalty)
+        # If constraint violation has not decreased significantly, increase penalty
+        current_cv_norm = best.cv # This is norm of positive parts
+
+        # We only increase penalty if we are still infeasible
+        if current_cv_norm > 0:
+            if current_cv_norm > 0.9 * self.last_cv_norm:
+                 self.mu *= self.rate
+                 if hasattr(self, 'logger'):
+                     self.logger.info(f"Increasing penalty mu to {self.mu:.2f} (cv: {current_cv_norm:.4f})")
+
+            self.last_cv_norm = current_cv_norm
+
+        self.lambdas = new_lambdas
+
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"Updated AL params: mu={self.mu:.2f}, lambdas={self.lambdas}")
+
+    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
+        # Calculate Lagrangian value for both
+        L_old = self._calculate_lagrangian(old_best)
+        L_new = self._calculate_lagrangian(new_best)
+        return max(0.0, L_old - L_new)
+
+    def _calculate_lagrangian(self, result: Result):
+        if result is None: return float('inf')
+        if result.cv_vec is None: return result.fx
+
+        if self.lambdas is None:
+             self.lambdas = np.zeros_like(result.cv_vec)
+
+        # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
+        # term = max(0, lambda + mu * g)
+        term = np.maximum(0, self.lambdas + self.mu * result.cv_vec)
+        penalty_term = (1.0 / (2.0 * self.mu)) * (np.sum(term**2) - np.sum(self.lambdas**2))
+
+        return result.fx + penalty_term

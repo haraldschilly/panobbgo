@@ -997,7 +997,7 @@ class Branin(Problem):
             s = 10,
             t = 1,
             **kwargs):
-        box = np.array([[-5, 10], [0, 15]])
+        box = [[-5, 10], [0, 15]]
         self.a = a
         self.b = b
         self.c = c
@@ -1023,7 +1023,7 @@ class GoldsteinPrice(Problem):
                  \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
     """
     def __init__(self, **kwargs):
-        box = np.array([-2, 2], [-2, 2])
+        box = [(-2, 2), (-2, 2)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):

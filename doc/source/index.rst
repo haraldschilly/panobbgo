@@ -64,7 +64,7 @@ Core Components
 The fundamental building blocks of Panobbgo.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    core
    config
@@ -76,7 +76,7 @@ Optimization Components
 Strategies, heuristics, and analyzers for optimization.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    strategies
    heuristics
@@ -90,7 +90,7 @@ Built-in test problems and problem definition utilities.
 .lib
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    classic
    lib
@@ -101,7 +101,7 @@ User Interface
 Graphical and command-line interfaces.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    ui
 

@@ -50,7 +50,7 @@ dev = [
     "types-setuptools",
     "pandas-stubs",
     "sphinx>=7.0",
-    "sphinx-rtd-theme>=2.0",
+    "shibuya",
 ]
 
 [tool.setuptools.packages.find]
@@ -78,5 +78,6 @@ reportPrivateImportUsage = "warning"  # Warn for imports from private modules li
 
 [dependency-groups]
 dev = [
+    "shibuya>=2026.1.9",
     "sphinx>=8.1.3",
 ]

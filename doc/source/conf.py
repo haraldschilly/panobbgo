@@ -126,23 +126,22 @@ html_context = {
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'shibuya'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'canonical_url': '',
-    'analytics_id': '',
-    'display_version': True,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': False,
-    # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False
+    'accent_color': 'blue',
+    'color_mode': 'auto',
+    'github_url': 'https://github.com/haraldschilly/panobbgo',
+    'nav_links': [
+        {
+            'title': 'GitHub',
+            'url': 'https://github.com/haraldschilly/panobbgo',
+            'icon': 'fa-brands fa-github',
+        },
+    ],
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

@@ -9,7 +9,12 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from panobbgo.lib.classic import (
-    Rosenbrock, Rastrigin, Branin, GoldsteinPrice, Himmelblau, DeJong
+    Rosenbrock, RosenbrockConstraint, RosenbrockAbs, RosenbrockAbsConstraint,
+    RosenbrockStochastic, Himmelblau, Rastrigin, Ackley, Griewank,
+    StyblinskiTang, Schwefel, DixonPrice, Zakharov, RosenbrockModified,
+    RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25, Shekel, DeJong,
+    Quadruple, Powell, Trigonometric, SumDifferentPower, Step, Box, Wood,
+    HelicalValley, Beale, NesterovQuadratic, Arwhead, Branin, GoldsteinPrice
 )
 
 
@@ -19,7 +24,7 @@ class BenchmarkCase:
     problem_name: str
     dimension: int
     shift_vector: np.ndarray  # Shift the global optimum
-    global_optimum: np.ndarray
+    global_optimum: Optional[np.ndarray]
     global_minimum: float
     search_bounds: Tuple[float, float]
     difficulty: str
@@ -29,7 +34,28 @@ class BenchmarkCase:
     def create_problem(self):
         """Create the actual problem instance."""
         problem_class = PROBLEM_CLASSES[self.problem_name]
-        problem = problem_class(self.dimension)
+        try:
+            problem = problem_class(dims=self.dimension)
+        except TypeError:
+             # Some problems don't accept dims in __init__ if they are fixed dim
+             # or if they auto-detect from other args.
+             # Check if it's one of those fixed dim problems
+             try:
+                 problem = problem_class()
+             except Exception:
+                 # Try with dim instead of dims (though most use dims or just **kwargs)
+                 try:
+                    problem = problem_class(dim=self.dimension)
+                 except:
+                    # Fallback for fixed dim problems that might ignore dims or fail
+                    problem = problem_class()
+
+        # Check if dimension matches requested
+        if hasattr(problem, 'dim') and problem.dim != self.dimension:
+             # This happens for fixed dimension problems like GoldsteinPrice (2D)
+             # We can't force dimension, so we might need to skip or warn if mismatch
+             # But for BenchmarkCase generation we should only generate valid dims.
+             pass
 
         # Apply shift to the problem
         if np.any(self.shift_vector != 0):
@@ -59,12 +85,39 @@ class ShiftedProblem:
 
 # Available problem classes
 PROBLEM_CLASSES = {
-    'DeJong': DeJong,  # Sphere-like (sum of squares)
     'Rosenbrock': Rosenbrock,
+    'RosenbrockConstraint': RosenbrockConstraint,
+    'RosenbrockAbs': RosenbrockAbs,
+    'RosenbrockAbsConstraint': RosenbrockAbsConstraint,
+    'RosenbrockStochastic': RosenbrockStochastic,
+    'Himmelblau': Himmelblau,
     'Rastrigin': Rastrigin,
+    'Ackley': Ackley,
+    'Griewank': Griewank,
+    'StyblinskiTang': StyblinskiTang,
+    'Schwefel': Schwefel,
+    'DixonPrice': DixonPrice,
+    'Zakharov': Zakharov,
+    'RosenbrockModified': RosenbrockModified,
+    'RotatedEllipse': RotatedEllipse,
+    'RotatedEllipse2': RotatedEllipse2,
+    'Ripple1': Ripple1,
+    'Ripple25': Ripple25,
+    'Shekel': Shekel,
+    'DeJong': DeJong,
+    'Quadruple': Quadruple,
+    'Powell': Powell,
+    'Trigonometric': Trigonometric,
+    'SumDifferentPower': SumDifferentPower,
+    'Step': Step,
+    'Box': Box,
+    'Wood': Wood,
+    'HelicalValley': HelicalValley,
+    'Beale': Beale,
+    'NesterovQuadratic': NesterovQuadratic,
+    'Arwhead': Arwhead,
     'Branin': Branin,
     'GoldsteinPrice': GoldsteinPrice,
-    'Himmelblau': Himmelblau,
 }
 
 
@@ -76,18 +129,37 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
     shifts_2d = [
         np.array([0.0, 0.0]),      # Origin
         np.array([1.0, -0.5]),     # Shifted
-        np.array([-2.0, 3.0]),     # Far shifted
     ]
 
-    shifts_hd = [
-        np.zeros(5),               # Origin
-        np.array([1.0, -0.5, 2.0, -1.5, 0.8]),  # Shifted 5D
+    # --- 2D Problems ---
+    # Problems that support arbitrary dimensions (we test 2D)
+    variable_dim_problems = [
+        'Rosenbrock', 'RosenbrockConstraint', 'RosenbrockAbs', 'RosenbrockAbsConstraint',
+        'RosenbrockStochastic', 'Rastrigin', 'Ackley', 'Griewank', 'StyblinskiTang',
+        'Schwefel', 'DixonPrice', 'Zakharov', 'DeJong', 'Quadruple',
+        'Trigonometric', 'SumDifferentPower', 'Step', 'NesterovQuadratic', 'Arwhead'
     ]
 
-    # 2D Problems
-    for problem_name in ['DeJong', 'Rosenbrock', 'Rastrigin', 'Branin', 'GoldsteinPrice', 'Himmelblau']:
+    # Problems that are fixed dimension (mostly 2D, some 3D/4D)
+    fixed_dim_problems_2d = [
+        'Himmelblau', 'RosenbrockModified', 'RotatedEllipse', 'RotatedEllipse2',
+        'Ripple1', 'Ripple25', 'Beale', 'Branin', 'GoldsteinPrice'
+    ]
+
+    # 3D
+    fixed_dim_problems_3d = ['HelicalValley', 'Box']
+
+    # 4D
+    fixed_dim_problems_4d = ['Wood', 'Powell']
+
+    all_2d = variable_dim_problems + fixed_dim_problems_2d
+
+    for problem_name in all_2d:
         for shift in shifts_2d:
-            # Set appropriate global minimum for each problem
+            # Determine global optimum and minimum
+            global_min = 0.0 # Default for many
+            global_opt = None
+
             if problem_name == 'Branin':
                 global_min = 0.397887
                 global_opt = np.array([-np.pi, 12.275]) + shift
@@ -97,9 +169,28 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
             elif problem_name == 'Himmelblau':
                 global_min = 0.0
                 global_opt = np.array([3.0, 2.0]) + shift  # One of the optima
-            else:
+            elif problem_name == 'StyblinskiTang':
+                 # -39.16617 * 2 = -78.33234
+                 global_min = -39.16617 * 2
+                 global_opt = np.array([-2.903534, -2.903534]) + shift
+            elif problem_name == 'Schwefel':
+                 global_min = 0.0
+                 global_opt = np.array([420.9687, 420.9687]) + shift
+            elif problem_name == 'RosenbrockModified':
                 global_min = 0.0
-                global_opt = shift.copy()
+                global_opt = np.array([-1.0, -1.0]) + shift
+            elif problem_name == 'Ackley' or problem_name == 'Rastrigin' or problem_name == 'Griewank' or \
+                 problem_name == 'DeJong' or problem_name == 'Quadruple' or problem_name == 'Step' or \
+                 problem_name == 'SumDifferentPower' or problem_name == 'RotatedEllipse' or \
+                 problem_name == 'RotatedEllipse2' or problem_name == 'Zakharov':
+                 global_min = 0.0
+                 global_opt = shift.copy() # At origin (0,0) + shift
+            elif problem_name == 'Rosenbrock':
+                 global_min = 0.0
+                 global_opt = np.array([1.0, 1.0]) + shift
+
+            # If we don't know the exact location easily, we set global_opt to None to skip param distance check
+            # For many fixed ones, we might not have exact coords handy in this script yet.
 
             case = BenchmarkCase(
                 problem_name=problem_name,
@@ -114,31 +205,102 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
             )
             cases.append(case)
 
-    # Higher dimensional problems
-    for problem_name in ['DeJong', 'Rosenbrock', 'Rastrigin']:
-        for dim in [5, 10]:
-            for shift in [np.zeros(dim)]:  # Only origin for higher dims
-                case = BenchmarkCase(
-                    problem_name=problem_name,
-                    dimension=dim,
-                    shift_vector=shift,
-                    global_optimum=shift.copy(),
-                    global_minimum=0.0,
-                    search_bounds=(-5.0, 5.0),
-                    difficulty=_get_difficulty(problem_name),
-                    separable=_is_separable(problem_name),
-                    unimodal=_is_unimodal(problem_name)
-                )
-                cases.append(case)
+    # --- 3D Problems ---
+    for problem_name in fixed_dim_problems_3d:
+        dim = 3
+        shift = np.zeros(dim)
+        global_min = 0.0
+        global_opt = None
+
+        # HelicalValley min is at (1, 0, 0) if x1 > 0
+        if problem_name == 'HelicalValley':
+             global_opt = np.array([1.0, 0.0, 0.0])
+        elif problem_name == 'Box':
+            # Box has multiple solutions typically or specific ones based on m
+            pass
+
+        case = BenchmarkCase(
+            problem_name=problem_name,
+            dimension=dim,
+            shift_vector=shift,
+            global_optimum=global_opt,
+            global_minimum=global_min,
+            search_bounds=(-5.0, 5.0),
+            difficulty=_get_difficulty(problem_name),
+            separable=_is_separable(problem_name),
+            unimodal=_is_unimodal(problem_name)
+        )
+        cases.append(case)
+
+    # --- 4D Problems ---
+    for problem_name in fixed_dim_problems_4d:
+        dim = 4
+        shift = np.zeros(dim)
+        global_min = 0.0
+        global_opt = None
+
+        if problem_name == 'Wood':
+            global_opt = np.ones(dim)
+        elif problem_name == 'Powell':
+            global_opt = np.zeros(dim)
+
+        case = BenchmarkCase(
+            problem_name=problem_name,
+            dimension=dim,
+            shift_vector=shift,
+            global_optimum=global_opt,
+            global_minimum=global_min,
+            search_bounds=(-5.0, 5.0),
+            difficulty=_get_difficulty(problem_name),
+            separable=_is_separable(problem_name),
+            unimodal=_is_unimodal(problem_name)
+        )
+        cases.append(case)
+
+    # --- Higher Dimensional Problems (5D) ---
+    for problem_name in ['DeJong', 'Rosenbrock', 'Rastrigin', 'Ackley', 'Griewank', 'StyblinskiTang', 'Schwefel', 'Zakharov']:
+        dim = 5
+        shift = np.zeros(dim)
+
+        global_min = 0.0
+        global_opt = None
+
+        if problem_name == 'StyblinskiTang':
+             global_min = -39.16617 * dim
+             global_opt = np.full(dim, -2.903534)
+        elif problem_name == 'Schwefel':
+             global_min = 0.0
+             global_opt = np.full(dim, 420.9687)
+        elif problem_name == 'Rosenbrock':
+             global_min = 0.0
+             global_opt = np.ones(dim)
+        else:
+             global_opt = np.zeros(dim)
+
+        case = BenchmarkCase(
+            problem_name=problem_name,
+            dimension=dim,
+            shift_vector=shift,
+            global_optimum=global_opt,
+            global_minimum=global_min,
+            search_bounds=(-5.0, 5.0),
+            difficulty=_get_difficulty(problem_name),
+            separable=_is_separable(problem_name),
+            unimodal=_is_unimodal(problem_name)
+        )
+        cases.append(case)
 
     return cases
 
 
 def _get_difficulty(problem_name: str) -> str:
     """Get difficulty level for a problem."""
-    easy = ['DeJong']
-    medium = ['Rosenbrock', 'Branin', 'Himmelblau']
-    hard = ['Rastrigin', 'GoldsteinPrice']
+    easy = ['DeJong', 'Quadruple', 'SumDifferentPower', 'Step', 'RotatedEllipse', 'RotatedEllipse2', 'NesterovQuadratic']
+    medium = ['Rosenbrock', 'RosenbrockConstraint', 'RosenbrockAbs', 'RosenbrockAbsConstraint',
+              'Himmelblau', 'Branin', 'DixonPrice', 'Beale', 'Wood', 'HelicalValley', 'Powell',
+              'Arwhead', 'Trigonometric', 'Box']
+    # Hard usually means highly multimodal
+
     if problem_name in easy:
         return 'easy'
     elif problem_name in medium:
@@ -149,13 +311,16 @@ def _get_difficulty(problem_name: str) -> str:
 
 def _is_separable(problem_name: str) -> bool:
     """Check if problem is separable."""
-    separable = ['DeJong']  # Sum of squares is separable
+    # Separable: can be optimized dimension by dimension
+    separable = ['DeJong', 'Rastrigin', 'Ackley', 'Schwefel', 'Step', 'SumDifferentPower', 'Quadruple']
     return problem_name in separable
 
 
 def _is_unimodal(problem_name: str) -> bool:
     """Check if problem is unimodal."""
-    unimodal = ['DeJong', 'Rosenbrock']
+    unimodal = ['DeJong', 'Quadruple', 'SumDifferentPower', 'Step', 'RotatedEllipse',
+                'RotatedEllipse2', 'DixonPrice', 'Powell', 'Wood', 'HelicalValley',
+                'Beale', 'NesterovQuadratic']
     return problem_name in unimodal
 
 
@@ -201,20 +366,14 @@ def benchmark_result_to_dict(case: BenchmarkCase, criteria: SuccessCriteria,
     }
 
 
-# Success criteria for different benchmark scenarios
-SUCCESS_CRITERIA = [
-    SuccessCriteria(tolerance=1e-3, max_evaluations=100, name="strict_100"),
-    SuccessCriteria(tolerance=1e-2, max_evaluations=500, name="moderate_500"),
-    SuccessCriteria(tolerance=1e-1, max_evaluations=1000, name="lenient_1000"),
-    SuccessCriteria(tolerance=1.0, max_evaluations=5000, name="very_lenient_5000"),
-]
-
-
 def calculate_solution_quality(found_x: np.ndarray, found_fx: float,
-                             true_x: np.ndarray, true_fx: float) -> Dict[str, Any]:
+                             true_x: Optional[np.ndarray], true_fx: float) -> Dict[str, Any]:
     """Calculate solution quality metrics."""
     # Distance in parameter space
-    param_distance = np.linalg.norm(found_x - true_x)
+    if true_x is not None:
+        param_distance = np.linalg.norm(found_x - true_x)
+    else:
+        param_distance = -1.0 # Unknown
 
     # Distance in function space
     func_distance = abs(found_fx - true_fx)

@@ -63,18 +63,35 @@ jobs:
         echo "✅ Documentation built successfully"
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
+        name: github-pages
         path: doc/build/html
 
   deploy:
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Download built docs
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: built-docs
+
+      - name: Deploy to gh-pages
+        run: |
+          cd gh-pages
+          rm -rf *
+          mv ../built-docs/* .
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy documentation for ${GITHUB_SHA}" || echo "No changes to commit"
+          git push

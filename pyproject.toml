@@ -49,6 +49,8 @@ dev = [
     "pyright>=1.1",
     "types-setuptools",
     "pandas-stubs",
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
 ]
 
 [tool.setuptools.packages.find]

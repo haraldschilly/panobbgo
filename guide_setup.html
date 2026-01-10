@@ -1,19 +1,23 @@
+
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<html lang="en" data-content_root="./">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setup and Quick Start Guide &mdash; Panobbgo 0.0.1pre documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
 
-    <title>Setup and Quick Start Guide &#8212; Panobbgo 0.0.1pre documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
-    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    
-    <script src="_static/documentation_options.js?v=1859ee8a"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="search" type="application/opensearchdescription+xml"
           title="Search within Panobbgo 0.0.1pre documentation"
           href="_static/opensearch.xml"/>
@@ -21,39 +25,157 @@
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Introduction to Panobbgo" href="guide_introduction.html" />
     <link rel="prev" title="Panobbgo User Guide" href="guide.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="guide_introduction.html" title="Introduction to Panobbgo"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="guide.html" title="Panobbgo User Guide"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Setup and Quick Start Guide</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Panobbgo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="guide.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#quick-navigation">Quick Navigation</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="guide.html#guide-contents">Guide Contents</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Setup and Quick Start Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#basic-problem-definition">Basic Problem Definition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#basic-optimization-setup">Basic Optimization Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#using-built-in-problems">Using Built-in Problems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#constrained-problems">Constrained Problems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#complete-example">Complete Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#design-philosophy">Design Philosophy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#when-to-use-panobbgo">When to Use Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#community-and-support">Community and Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#what-s-next">What’s Next?</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Panobbgo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="guide.html">Panobbgo User Guide</a></li>
+      <li class="breadcrumb-item active">Setup and Quick Start Guide</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/haraldschilly/panobbgo/blob/master/doc/source/guide_setup.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="setup-and-quick-start-guide">
-<h1>Setup and Quick Start Guide<a class="headerlink" href="#setup-and-quick-start-guide" title="Link to this heading">¶</a></h1>
+<h1>Setup and Quick Start Guide<a class="headerlink" href="#setup-and-quick-start-guide" title="Link to this heading"></a></h1>
 <p>This guide provides a step-by-step introduction to setting up and using Panobbgo for black-box optimization.
 Each step includes executable doctests that verify the setup works correctly.</p>
 <section id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <p>Before starting, ensure you have Python ≥ 3.8 installed:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python version: </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -62,9 +184,9 @@ Each step includes executable doctests that verify the setup works correctly.</p
 </div>
 </section>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <section id="step-1-install-panobbgo">
-<h3>Step 1: Install Panobbgo<a class="headerlink" href="#step-1-install-panobbgo" title="Link to this heading">¶</a></h3>
+<h3>Step 1: Install Panobbgo<a class="headerlink" href="#step-1-install-panobbgo" title="Link to this heading"></a></h3>
 <p>Install Panobbgo using UV (recommended) or pip:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using UV (recommended)</span>
 curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
@@ -84,7 +206,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-2-check-dependencies">
-<h3>Step 2: Check Dependencies<a class="headerlink" href="#step-2-check-dependencies" title="Link to this heading">¶</a></h3>
+<h3>Step 2: Check Dependencies<a class="headerlink" href="#step-2-check-dependencies" title="Link to this heading"></a></h3>
 <p>Verify that required dependencies are available:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
@@ -101,9 +223,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="basic-problem-definition">
-<h2>Basic Problem Definition<a class="headerlink" href="#basic-problem-definition" title="Link to this heading">¶</a></h2>
+<h2>Basic Problem Definition<a class="headerlink" href="#basic-problem-definition" title="Link to this heading"></a></h2>
 <section id="step-3-define-your-first-problem">
-<h3>Step 3: Define Your First Problem<a class="headerlink" href="#step-3-define-your-first-problem" title="Link to this heading">¶</a></h3>
+<h3>Step 3: Define Your First Problem<a class="headerlink" href="#step-3-define-your-first-problem" title="Link to this heading"></a></h3>
 <p>Create a simple optimization problem by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
@@ -134,7 +256,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-4-evaluate-points-manually">
-<h3>Step 4: Evaluate Points Manually<a class="headerlink" href="#step-4-evaluate-points-manually" title="Link to this heading">¶</a></h3>
+<h3>Step 4: Evaluate Points Manually<a class="headerlink" href="#step-4-evaluate-points-manually" title="Link to this heading"></a></h3>
 <p>Test point evaluation and bounds checking:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Generate a random point within bounds</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">random_point</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
@@ -156,9 +278,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="basic-optimization-setup">
-<h2>Basic Optimization Setup<a class="headerlink" href="#basic-optimization-setup" title="Link to this heading">¶</a></h2>
+<h2>Basic Optimization Setup<a class="headerlink" href="#basic-optimization-setup" title="Link to this heading"></a></h2>
 <section id="step-5-create-a-strategy">
-<h3>Step 5: Create a Strategy<a class="headerlink" href="#step-5-create-a-strategy" title="Link to this heading">¶</a></h3>
+<h3>Step 5: Create a Strategy<a class="headerlink" href="#step-5-create-a-strategy" title="Link to this heading"></a></h3>
 <p>Set up an optimization strategy:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
 
@@ -171,7 +293,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-6-add-heuristics">
-<h3>Step 6: Add Heuristics<a class="headerlink" href="#step-6-add-heuristics" title="Link to this heading">¶</a></h3>
+<h3>Step 6: Add Heuristics<a class="headerlink" href="#step-6-add-heuristics" title="Link to this heading"></a></h3>
 <p>Add point generation heuristics to the strategy:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">Nearby</span>
 
@@ -185,7 +307,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-7-verify-strategy-setup">
-<h3>Step 7: Verify Strategy Setup<a class="headerlink" href="#step-7-verify-strategy-setup" title="Link to this heading">¶</a></h3>
+<h3>Step 7: Verify Strategy Setup<a class="headerlink" href="#step-7-verify-strategy-setup" title="Link to this heading"></a></h3>
 <p>Verify that the strategy is properly configured:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Check strategy configuration</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -202,7 +324,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-8-basic-optimization-concepts">
-<h3>Step 8: Basic Optimization Concepts<a class="headerlink" href="#step-8-basic-optimization-concepts" title="Link to this heading">¶</a></h3>
+<h3>Step 8: Basic Optimization Concepts<a class="headerlink" href="#step-8-basic-optimization-concepts" title="Link to this heading"></a></h3>
 <p>The optimization workflow is:</p>
 <ol class="arabic simple">
 <li><p>Call <code class="docutils literal notranslate"><span class="pre">strategy.start()</span></code> to begin optimization</p></li>
@@ -226,9 +348,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="using-built-in-problems">
-<h2>Using Built-in Problems<a class="headerlink" href="#using-built-in-problems" title="Link to this heading">¶</a></h2>
+<h2>Using Built-in Problems<a class="headerlink" href="#using-built-in-problems" title="Link to this heading"></a></h2>
 <section id="step-9-try-built-in-test-functions">
-<h3>Step 9: Try Built-in Test Functions<a class="headerlink" href="#step-9-try-built-in-test-functions" title="Link to this heading">¶</a></h3>
+<h3>Step 9: Try Built-in Test Functions<a class="headerlink" href="#step-9-try-built-in-test-functions" title="Link to this heading"></a></h3>
 <p>Use Panobbgo’s built-in test problems:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
 
@@ -252,7 +374,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-10-setup-optimization-for-built-in-problem">
-<h3>Step 10: Setup Optimization for Built-in Problem<a class="headerlink" href="#step-10-setup-optimization-for-built-in-problem" title="Link to this heading">¶</a></h3>
+<h3>Step 10: Setup Optimization for Built-in Problem<a class="headerlink" href="#step-10-setup-optimization-for-built-in-problem" title="Link to this heading"></a></h3>
 <p>Configure optimization for the Rosenbrock function:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create strategy for Rosenbrock</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">rosenbrock</span><span class="p">)</span>
@@ -271,9 +393,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="constrained-problems">
-<h2>Constrained Problems<a class="headerlink" href="#constrained-problems" title="Link to this heading">¶</a></h2>
+<h2>Constrained Problems<a class="headerlink" href="#constrained-problems" title="Link to this heading"></a></h2>
 <section id="step-11-define-constrained-problem">
-<h3>Step 11: Define Constrained Problem<a class="headerlink" href="#step-11-define-constrained-problem" title="Link to this heading">¶</a></h3>
+<h3>Step 11: Define Constrained Problem<a class="headerlink" href="#step-11-define-constrained-problem" title="Link to this heading"></a></h3>
 <p>Create a problem with constraints:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">ConstrainedSphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 <span class="gp">... </span><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sphere with constraint: sum(x) &lt;= 1&quot;&quot;&quot;</span>
@@ -312,9 +434,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="complete-example">
-<h2>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading">¶</a></h2>
+<h2>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h2>
 <section id="step-13-full-setup-workflow">
-<h3>Step 13: Full Setup Workflow<a class="headerlink" href="#step-13-full-setup-workflow" title="Link to this heading">¶</a></h3>
+<h3>Step 13: Full Setup Workflow<a class="headerlink" href="#step-13-full-setup-workflow" title="Link to this heading"></a></h3>
 <p>Put it all together in a complete setup example:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Import everything needed</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
@@ -354,9 +476,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </section>
 </section>
 <section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="step-14-verify-dask-setup">
-<h3>Step 14: Verify Dask Setup<a class="headerlink" href="#step-14-verify-dask-setup" title="Link to this heading">¶</a></h3>
+<h3>Step 14: Verify Dask Setup<a class="headerlink" href="#step-14-verify-dask-setup" title="Link to this heading"></a></h3>
 <p>Check that Dask is properly configured:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dask version: </span><span class="si">{</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -369,7 +491,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="step-15-run-framework-tests">
-<h3>Step 15: Run Framework Tests<a class="headerlink" href="#step-15-run-framework-tests" title="Link to this heading">¶</a></h3>
+<h3>Step 15: Run Framework Tests<a class="headerlink" href="#step-15-run-framework-tests" title="Link to this heading"></a></h3>
 <p>Verify the framework is working with built-in tests:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run integration tests</span>
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>tests/test_integration.py
@@ -380,7 +502,7 @@ If all doctests pass, your Panobbgo installation is ready for optimization tasks
 </section>
 </section>
 <section id="next-steps">
-<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h2>
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Learn about advanced strategies: <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a></p></li>
 <li><p>Customize heuristics: <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a></p></li>
@@ -390,111 +512,31 @@ If all doctests pass, your Panobbgo installation is ready for optimization tasks
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">Setup and Quick Start Guide</a><ul>
-<li><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
-<li><a class="reference internal" href="#installation">Installation</a><ul>
-<li><a class="reference internal" href="#step-1-install-panobbgo">Step 1: Install Panobbgo</a></li>
-<li><a class="reference internal" href="#step-2-check-dependencies">Step 2: Check Dependencies</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#basic-problem-definition">Basic Problem Definition</a><ul>
-<li><a class="reference internal" href="#step-3-define-your-first-problem">Step 3: Define Your First Problem</a></li>
-<li><a class="reference internal" href="#step-4-evaluate-points-manually">Step 4: Evaluate Points Manually</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#basic-optimization-setup">Basic Optimization Setup</a><ul>
-<li><a class="reference internal" href="#step-5-create-a-strategy">Step 5: Create a Strategy</a></li>
-<li><a class="reference internal" href="#step-6-add-heuristics">Step 6: Add Heuristics</a></li>
-<li><a class="reference internal" href="#step-7-verify-strategy-setup">Step 7: Verify Strategy Setup</a></li>
-<li><a class="reference internal" href="#step-8-basic-optimization-concepts">Step 8: Basic Optimization Concepts</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#using-built-in-problems">Using Built-in Problems</a><ul>
-<li><a class="reference internal" href="#step-9-try-built-in-test-functions">Step 9: Try Built-in Test Functions</a></li>
-<li><a class="reference internal" href="#step-10-setup-optimization-for-built-in-problem">Step 10: Setup Optimization for Built-in Problem</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#constrained-problems">Constrained Problems</a><ul>
-<li><a class="reference internal" href="#step-11-define-constrained-problem">Step 11: Define Constrained Problem</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#complete-example">Complete Example</a><ul>
-<li><a class="reference internal" href="#step-13-full-setup-workflow">Step 13: Full Setup Workflow</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
-<li><a class="reference internal" href="#step-14-verify-dask-setup">Step 14: Verify Dask Setup</a></li>
-<li><a class="reference internal" href="#step-15-run-framework-tests">Step 15: Run Framework Tests</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#next-steps">Next Steps</a></li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="guide.html" class="btn btn-neutral float-left" title="Panobbgo User Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="guide_introduction.html" class="btn btn-neutral float-right" title="Introduction to Panobbgo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2012, Harald Schilly. License Apache 2.0.</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="guide.html"
-                          title="previous chapter">Panobbgo User Guide</a></p>
-  </div>
-  <div>
-    <h4>Next topic</h4>
-    <p class="topless"><a href="guide_introduction.html"
-                          title="next chapter">Introduction to Panobbgo</a></p>
-  </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/guide_setup.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="guide_introduction.html" title="Introduction to Panobbgo"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="guide.html" title="Panobbgo User Guide"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Setup and Quick Start Guide</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>

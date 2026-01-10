@@ -1,19 +1,23 @@
+
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<html lang="en" data-content_root="./">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Guide &mdash; Panobbgo 0.0.1pre documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
 
-    <title>Usage Guide &#8212; Panobbgo 0.0.1pre documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
-    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    
-    <script src="_static/documentation_options.js?v=1859ee8a"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="search" type="application/opensearchdescription+xml"
           title="Search within Panobbgo 0.0.1pre documentation"
           href="_static/opensearch.xml"/>
@@ -21,40 +25,158 @@
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Extending Panobbgo" href="guide_extending.html" />
     <link rel="prev" title="Architecture Overview" href="guide_architecture.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="guide_extending.html" title="Extending Panobbgo"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="guide_architecture.html" title="Architecture Overview"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Usage Guide</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Panobbgo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="guide.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#quick-navigation">Quick Navigation</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="guide.html#guide-contents">Guide Contents</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#defining-custom-problems">Defining Custom Problems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#choosing-heuristics">Choosing Heuristics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#choosing-a-strategy">Choosing a Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#analyzing-results">Analyzing Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced-topics">Advanced Topics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#design-philosophy">Design Philosophy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#when-to-use-panobbgo">When to Use Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#community-and-support">Community and Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#what-s-next">What’s Next?</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Panobbgo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="guide.html">Panobbgo User Guide</a></li>
+      <li class="breadcrumb-item active">Usage Guide</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/haraldschilly/panobbgo/blob/master/doc/source/guide_usage.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="usage-guide">
-<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading">¶</a></h1>
+<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading"></a></h1>
 <p>This guide covers installation, basic usage, and common workflows for Panobbgo.</p>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <section id="requirements">
-<h3>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h3>
+<h3>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Python ≥ 3.8</p></li>
 <li><p>NumPy ≥ 2.0</p></li>
@@ -66,7 +188,7 @@
 </ul>
 </section>
 <section id="using-uv-recommended">
-<h3>Using UV (Recommended)<a class="headerlink" href="#using-uv-recommended" title="Link to this heading">¶</a></h3>
+<h3>Using UV (Recommended)<a class="headerlink" href="#using-uv-recommended" title="Link to this heading"></a></h3>
 <p><a class="reference external" href="https://github.com/astral-sh/uv">UV</a> is a fast Python package manager:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install UV</span>
 curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
@@ -79,7 +201,7 @@ uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </
 </div>
 </section>
 <section id="using-pip">
-<h3>Using pip<a class="headerlink" href="#using-pip" title="Link to this heading">¶</a></h3>
+<h3>Using pip<a class="headerlink" href="#using-pip" title="Link to this heading"></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/haraldschilly/panobbgo.git
 <span class="nb">cd</span><span class="w"> </span>panobbgo
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
@@ -87,7 +209,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </div>
 </section>
 <section id="dask-cluster-setup">
-<h3>Dask Cluster Setup<a class="headerlink" href="#dask-cluster-setup" title="Link to this heading">¶</a></h3>
+<h3>Dask Cluster Setup<a class="headerlink" href="#dask-cluster-setup" title="Link to this heading"></a></h3>
 <p><strong>Automatic Local Cluster (Default):</strong></p>
 <p>Panobbgo automatically starts a local Dask cluster with 2 workers for testing and development.
 No manual setup required - just run your optimization script!</p>
@@ -105,7 +227,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 (remote clusters, Kubernetes, SLURM integration, etc.).</p>
 </section>
 <section id="configuration">
-<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 <p>On first run, Panobbgo creates <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[dask]</span>
 <span class="na">cluster_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">local</span><span class="w">                    </span><span class="c1"># &#39;local&#39; (auto-start) or &#39;remote&#39;</span>
@@ -132,9 +254,9 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </section>
 </section>
 <section id="basic-usage">
-<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">¶</a></h2>
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h2>
 <section id="minimal-example">
-<h3>Minimal Example<a class="headerlink" href="#minimal-example" title="Link to this heading">¶</a></h3>
+<h3>Minimal Example<a class="headerlink" href="#minimal-example" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">NelderMead</span>
@@ -161,7 +283,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="complete-example">
-<h3>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading">¶</a></h3>
+<h3>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Best</span><span class="p">,</span> <span class="n">Splitter</span>
@@ -210,9 +332,9 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </section>
 </section>
 <section id="defining-custom-problems">
-<h2>Defining Custom Problems<a class="headerlink" href="#defining-custom-problems" title="Link to this heading">¶</a></h2>
+<h2>Defining Custom Problems<a class="headerlink" href="#defining-custom-problems" title="Link to this heading"></a></h2>
 <section id="basic-problem">
-<h3>Basic Problem<a class="headerlink" href="#basic-problem" title="Link to this heading">¶</a></h3>
+<h3>Basic Problem<a class="headerlink" href="#basic-problem" title="Link to this heading"></a></h3>
 <p>Subclass <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
@@ -237,7 +359,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="noisy-problem">
-<h3>Noisy Problem<a class="headerlink" href="#noisy-problem" title="Link to this heading">¶</a></h3>
+<h3>Noisy Problem<a class="headerlink" href="#noisy-problem" title="Link to this heading"></a></h3>
 <p>Add stochasticity in <code class="docutils literal notranslate"><span class="pre">eval()</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">NoisySphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
@@ -254,7 +376,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="constrained-problem">
-<h3>Constrained Problem<a class="headerlink" href="#constrained-problem" title="Link to this heading">¶</a></h3>
+<h3>Constrained Problem<a class="headerlink" href="#constrained-problem" title="Link to this heading"></a></h3>
 <p>Override <code class="docutils literal notranslate"><span class="pre">eval_constraints()</span></code> to return violation vector:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ConstrainedProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -295,7 +417,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="constraint-handling-methods">
-<h3>Constraint Handling Methods<a class="headerlink" href="#constraint-handling-methods" title="Link to this heading">¶</a></h3>
+<h3>Constraint Handling Methods<a class="headerlink" href="#constraint-handling-methods" title="Link to this heading"></a></h3>
 <p>Panobbgo supports different constraint handling strategies, configurable in <code class="docutils literal notranslate"><span class="pre">config.ini</span></code>:</p>
 <ol class="arabic simple">
 <li><p><strong>DefaultConstraintHandler</strong> (default):
@@ -312,7 +434,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </ol>
 </section>
 <section id="expensive-external-function">
-<h3>Expensive External Function<a class="headerlink" href="#expensive-external-function" title="Link to this heading">¶</a></h3>
+<h3>Expensive External Function<a class="headerlink" href="#expensive-external-function" title="Link to this heading"></a></h3>
 <p>Wrap subprocess or external program:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
@@ -350,9 +472,9 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </section>
 </section>
 <section id="choosing-heuristics">
-<h2>Choosing Heuristics<a class="headerlink" href="#choosing-heuristics" title="Link to this heading">¶</a></h2>
+<h2>Choosing Heuristics<a class="headerlink" href="#choosing-heuristics" title="Link to this heading"></a></h2>
 <section id="heuristic-portfolio">
-<h3>Heuristic Portfolio<a class="headerlink" href="#heuristic-portfolio" title="Link to this heading">¶</a></h3>
+<h3>Heuristic Portfolio<a class="headerlink" href="#heuristic-portfolio" title="Link to this heading"></a></h3>
 <p>A good portfolio balances exploration and exploitation:</p>
 <table class="docutils align-default">
 <colgroup>
@@ -395,7 +517,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </table>
 </section>
 <section id="recommended-configurations">
-<h3>Recommended Configurations<a class="headerlink" href="#recommended-configurations" title="Link to this heading">¶</a></h3>
+<h3>Recommended Configurations<a class="headerlink" href="#recommended-configurations" title="Link to this heading"></a></h3>
 <p><strong>Low-dimensional (dim ≤ 5):</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
 <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
@@ -431,9 +553,9 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </section>
 </section>
 <section id="choosing-a-strategy">
-<h2>Choosing a Strategy<a class="headerlink" href="#choosing-a-strategy" title="Link to this heading">¶</a></h2>
+<h2>Choosing a Strategy<a class="headerlink" href="#choosing-a-strategy" title="Link to this heading"></a></h2>
 <section id="strategyroundrobin">
-<h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading">¶</a></h3>
+<h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading"></a></h3>
 <p>Use when:</p>
 <ul class="simple">
 <li><p>You want predictable, deterministic behavior</p></li>
@@ -446,7 +568,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="strategyrewarding">
-<h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading">¶</a></h3>
+<h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading"></a></h3>
 <p>Use when (recommended for most cases):</p>
 <ul class="simple">
 <li><p>You want adaptive selection based on performance</p></li>
@@ -465,9 +587,9 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </section>
 </section>
 <section id="analyzing-results">
-<h2>Analyzing Results<a class="headerlink" href="#analyzing-results" title="Link to this heading">¶</a></h2>
+<h2>Analyzing Results<a class="headerlink" href="#analyzing-results" title="Link to this heading"></a></h2>
 <section id="accessing-the-database">
-<h3>Accessing the Database<a class="headerlink" href="#accessing-the-database" title="Link to this heading">¶</a></h3>
+<h3>Accessing the Database<a class="headerlink" href="#accessing-the-database" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get results DataFrame</span>
 <span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
 
@@ -485,7 +607,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="plotting-convergence">
-<h3>Plotting Convergence<a class="headerlink" href="#plotting-convergence" title="Link to this heading">¶</a></h3>
+<h3>Plotting Convergence<a class="headerlink" href="#plotting-convergence" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
 <span class="c1"># Get objective values in evaluation order</span>
@@ -506,7 +628,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="heuristic-performance">
-<h3>Heuristic Performance<a class="headerlink" href="#heuristic-performance" title="Link to this heading">¶</a></h3>
+<h3>Heuristic Performance<a class="headerlink" href="#heuristic-performance" title="Link to this heading"></a></h3>
 <p>For <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Heuristic performance scores</span>
 <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">strategy</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
@@ -518,7 +640,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="pareto-front-constrained-problems">
-<h3>Pareto Front (Constrained Problems)<a class="headerlink" href="#pareto-front-constrained-problems" title="Link to this heading">¶</a></h3>
+<h3>Pareto Front (Constrained Problems)<a class="headerlink" href="#pareto-front-constrained-problems" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Access Pareto front from Best analyzer</span>
 <span class="n">best_analyzer</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s1">&#39;Best&#39;</span><span class="p">)</span>
 <span class="n">pareto_front</span> <span class="o">=</span> <span class="n">best_analyzer</span><span class="o">.</span><span class="n">pareto_front</span>
@@ -540,9 +662,9 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </section>
 </section>
 <section id="advanced-topics">
-<h2>Advanced Topics<a class="headerlink" href="#advanced-topics" title="Link to this heading">¶</a></h2>
+<h2>Advanced Topics<a class="headerlink" href="#advanced-topics" title="Link to this heading"></a></h2>
 <section id="budget-management">
-<h3>Budget Management<a class="headerlink" href="#budget-management" title="Link to this heading">¶</a></h3>
+<h3>Budget Management<a class="headerlink" href="#budget-management" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set evaluation budget</span>
 <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 
@@ -552,7 +674,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="parallel-evaluation">
-<h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">¶</a></h3>
+<h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Control batch size</span>
 <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span>
     <span class="n">problem</span><span class="p">,</span>
@@ -565,7 +687,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="custom-events">
-<h3>Custom Events<a class="headerlink" href="#custom-events" title="Link to this heading">¶</a></h3>
+<h3>Custom Events<a class="headerlink" href="#custom-events" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Publish custom event from a heuristic</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
@@ -580,7 +702,7 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </div>
 </section>
 <section id="logging">
-<h3>Logging<a class="headerlink" href="#logging" title="Link to this heading">¶</a></h3>
+<h3>Logging<a class="headerlink" href="#logging" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure in ~/.panobbgo/config.ini</span>
 <span class="p">[</span><span class="n">logging</span><span class="p">]</span>
 <span class="n">level</span> <span class="o">=</span> <span class="n">DEBUG</span>
@@ -594,9 +716,9 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 </section>
 </section>
 <section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="dask-cluster-not-found">
-<h3>Dask Cluster Not Found<a class="headerlink" href="#dask-cluster-not-found" title="Link to this heading">¶</a></h3>
+<h3>Dask Cluster Not Found<a class="headerlink" href="#dask-cluster-not-found" title="Link to this heading"></a></h3>
 <p><strong>Error:</strong> <code class="docutils literal notranslate"><span class="pre">TimeoutError:</span> <span class="pre">Cluster</span> <span class="pre">not</span> <span class="pre">found</span></code></p>
 <p><strong>Solution:</strong> Start Dask cluster before running:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
@@ -605,7 +727,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="function-evaluation-fails">
-<h3>Function Evaluation Fails<a class="headerlink" href="#function-evaluation-fails" title="Link to this heading">¶</a></h3>
+<h3>Function Evaluation Fails<a class="headerlink" href="#function-evaluation-fails" title="Link to this heading"></a></h3>
 <p><strong>Error:</strong> Exception during evaluation</p>
 <p><strong>Solution:</strong> Ensure your <code class="docutils literal notranslate"><span class="pre">eval()</span></code> method handles all inputs in the bounding box:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
@@ -618,12 +740,12 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </div>
 </section>
 <section id="out-of-memory">
-<h3>Out of Memory<a class="headerlink" href="#out-of-memory" title="Link to this heading">¶</a></h3>
+<h3>Out of Memory<a class="headerlink" href="#out-of-memory" title="Link to this heading"></a></h3>
 <p><strong>Error:</strong> MemoryError with large result database</p>
 <p><strong>Solution:</strong> Reduce <code class="docutils literal notranslate"><span class="pre">max_evaluations</span></code> or implement result pruning.</p>
 </section>
 <section id="slow-convergence">
-<h3>Slow Convergence<a class="headerlink" href="#slow-convergence" title="Link to this heading">¶</a></h3>
+<h3>Slow Convergence<a class="headerlink" href="#slow-convergence" title="Link to this heading"></a></h3>
 <p><strong>Issue:</strong> Not finding good solutions</p>
 <p><strong>Solutions:</strong></p>
 <ol class="arabic simple">
@@ -635,7 +757,7 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </section>
 </section>
 <section id="next-steps">
-<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h2>
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Learn about the mathematical foundation: <a class="reference internal" href="guide_mathematical_foundation.html"><span class="doc">Mathematical Foundation</span></a></p></li>
 <li><p>Understand the architecture: <a class="reference internal" href="guide_architecture.html"><span class="doc">Architecture Overview</span></a></p></li>
@@ -646,127 +768,31 @@ dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span cl
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">Usage Guide</a><ul>
-<li><a class="reference internal" href="#installation">Installation</a><ul>
-<li><a class="reference internal" href="#requirements">Requirements</a></li>
-<li><a class="reference internal" href="#using-uv-recommended">Using UV (Recommended)</a></li>
-<li><a class="reference internal" href="#using-pip">Using pip</a></li>
-<li><a class="reference internal" href="#dask-cluster-setup">Dask Cluster Setup</a></li>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#basic-usage">Basic Usage</a><ul>
-<li><a class="reference internal" href="#minimal-example">Minimal Example</a></li>
-<li><a class="reference internal" href="#complete-example">Complete Example</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#defining-custom-problems">Defining Custom Problems</a><ul>
-<li><a class="reference internal" href="#basic-problem">Basic Problem</a></li>
-<li><a class="reference internal" href="#noisy-problem">Noisy Problem</a></li>
-<li><a class="reference internal" href="#constrained-problem">Constrained Problem</a></li>
-<li><a class="reference internal" href="#constraint-handling-methods">Constraint Handling Methods</a></li>
-<li><a class="reference internal" href="#expensive-external-function">Expensive External Function</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#choosing-heuristics">Choosing Heuristics</a><ul>
-<li><a class="reference internal" href="#heuristic-portfolio">Heuristic Portfolio</a></li>
-<li><a class="reference internal" href="#recommended-configurations">Recommended Configurations</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#choosing-a-strategy">Choosing a Strategy</a><ul>
-<li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
-<li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#analyzing-results">Analyzing Results</a><ul>
-<li><a class="reference internal" href="#accessing-the-database">Accessing the Database</a></li>
-<li><a class="reference internal" href="#plotting-convergence">Plotting Convergence</a></li>
-<li><a class="reference internal" href="#heuristic-performance">Heuristic Performance</a></li>
-<li><a class="reference internal" href="#pareto-front-constrained-problems">Pareto Front (Constrained Problems)</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#advanced-topics">Advanced Topics</a><ul>
-<li><a class="reference internal" href="#budget-management">Budget Management</a></li>
-<li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
-<li><a class="reference internal" href="#custom-events">Custom Events</a></li>
-<li><a class="reference internal" href="#logging">Logging</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
-<li><a class="reference internal" href="#dask-cluster-not-found">Dask Cluster Not Found</a></li>
-<li><a class="reference internal" href="#function-evaluation-fails">Function Evaluation Fails</a></li>
-<li><a class="reference internal" href="#out-of-memory">Out of Memory</a></li>
-<li><a class="reference internal" href="#slow-convergence">Slow Convergence</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#next-steps">Next Steps</a></li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="guide_architecture.html" class="btn btn-neutral float-left" title="Architecture Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="guide_extending.html" class="btn btn-neutral float-right" title="Extending Panobbgo" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2012, Harald Schilly. License Apache 2.0.</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="guide_architecture.html"
-                          title="previous chapter">Architecture Overview</a></p>
-  </div>
-  <div>
-    <h4>Next topic</h4>
-    <p class="topless"><a href="guide_extending.html"
-                          title="next chapter">Extending Panobbgo</a></p>
-  </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/guide_usage.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="guide_extending.html" title="Extending Panobbgo"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="guide_architecture.html" title="Architecture Overview"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Usage Guide</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>

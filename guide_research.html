@@ -1,20 +1,24 @@
+
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<html lang="en" data-content_root="./">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Context and Future Directions &mdash; Panobbgo 0.0.1pre documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
 
-    <title>Research Context and Future Directions &#8212; Panobbgo 0.0.1pre documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
-    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    
-    <script src="_static/documentation_options.js?v=1859ee8a"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
-    
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="search" type="application/opensearchdescription+xml"
           title="Search within Panobbgo 0.0.1pre documentation"
           href="_static/opensearch.xml"/>
@@ -22,42 +26,159 @@
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Core" href="core.html" />
     <link rel="prev" title="Extending Panobbgo" href="guide_extending.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="core.html" title="Core"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="guide_extending.html" title="Extending Panobbgo"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Research Context and Future Directions</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Panobbgo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="guide.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#quick-navigation">Quick Navigation</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="guide.html#guide-contents">Guide Contents</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Research Context and Future Directions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#inspiration-snobfit">Inspiration: SNOBFIT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#related-algorithms">Related Algorithms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#theoretical-properties">Theoretical Properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#current-research-challenges">Current Research Challenges</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#future-directions">Future Directions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#contributing-to-research">Contributing to Research</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#experimental-validation">Experimental Validation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#key-concepts">Key Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#typical-workflow">Typical Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#design-philosophy">Design Philosophy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#when-to-use-panobbgo">When to Use Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#community-and-support">Community and Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide.html#what-s-next">What’s Next?</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Panobbgo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="guide.html">Panobbgo User Guide</a></li>
+      <li class="breadcrumb-item active">Research Context and Future Directions</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/haraldschilly/panobbgo/blob/master/doc/source/guide_research.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="research-context-and-future-directions">
-<h1>Research Context and Future Directions<a class="headerlink" href="#research-context-and-future-directions" title="Link to this heading">¶</a></h1>
+<h1>Research Context and Future Directions<a class="headerlink" href="#research-context-and-future-directions" title="Link to this heading"></a></h1>
 <p>This section places Panobbgo in the broader context of optimization research and outlines future research directions.</p>
 <section id="inspiration-snobfit">
-<h2>Inspiration: SNOBFIT<a class="headerlink" href="#inspiration-snobfit" title="Link to this heading">¶</a></h2>
+<h2>Inspiration: SNOBFIT<a class="headerlink" href="#inspiration-snobfit" title="Link to this heading"></a></h2>
 <p>Panobbgo is inspired by <a class="reference external" href="http://www.mat.univie.ac.at/~neum/software/snobfit/">SNOBFIT</a>
 (Stable Noisy Optimization by Branch and Fit) <a class="reference internal" href="#huyer2008" id="id1"><span>[Huyer2008]</span></a>.</p>
 <section id="snobfit-s-key-ideas">
-<h3>SNOBFIT’s Key Ideas<a class="headerlink" href="#snobfit-s-key-ideas" title="Link to this heading">¶</a></h3>
+<h3>SNOBFIT’s Key Ideas<a class="headerlink" href="#snobfit-s-key-ideas" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p><strong>Quadratic local models</strong> with uncertainty quantification</p></li>
 <li><p><strong>Branch-and-bound</strong> spatial decomposition of search space</p></li>
@@ -66,7 +187,7 @@
 </ol>
 </section>
 <section id="panobbgo-s-innovations">
-<h3>Panobbgo’s Innovations<a class="headerlink" href="#panobbgo-s-innovations" title="Link to this heading">¶</a></h3>
+<h3>Panobbgo’s Innovations<a class="headerlink" href="#panobbgo-s-innovations" title="Link to this heading"></a></h3>
 <p>While inspired by SNOBFIT, Panobbgo introduces several innovations:</p>
 <table class="docutils align-default">
 <colgroup>
@@ -106,10 +227,10 @@
 </section>
 </section>
 <section id="related-algorithms">
-<h2>Related Algorithms<a class="headerlink" href="#related-algorithms" title="Link to this heading">¶</a></h2>
+<h2>Related Algorithms<a class="headerlink" href="#related-algorithms" title="Link to this heading"></a></h2>
 <p>Black-box optimization is a rich research area with many approaches.</p>
 <section id="bayesian-optimization">
-<h3>Bayesian Optimization<a class="headerlink" href="#bayesian-optimization" title="Link to this heading">¶</a></h3>
+<h3>Bayesian Optimization<a class="headerlink" href="#bayesian-optimization" title="Link to this heading"></a></h3>
 <p><strong>Approach</strong>: Fit Gaussian process (GP) surrogate model, optimize acquisition function</p>
 <p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>
 uses simpler quadratic surrogate</p>
@@ -121,7 +242,7 @@ uses simpler quadratic surrogate</p>
 <p><strong>References</strong>: <a class="reference internal" href="#mockus1989" id="id2"><span>[Mockus1989]</span></a>, <a class="reference internal" href="#brochu2010" id="id3"><span>[Brochu2010]</span></a></p>
 </section>
 <section id="cma-es-covariance-matrix-adaptation-evolution-strategy">
-<h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading">¶</a></h3>
+<h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading"></a></h3>
 <p><strong>Approach</strong>: Evolutionary algorithm with adaptive covariance matrix</p>
 <p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code>
 has similar adaptive sampling, but deterministic</p>
@@ -133,7 +254,7 @@ has similar adaptive sampling, but deterministic</p>
 <p><strong>References</strong>: <a class="reference internal" href="#hansen2001" id="id4"><span>[Hansen2001]</span></a></p>
 </section>
 <section id="direct-dividing-rectangles">
-<h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>
+<h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading"></a></h3>
 <p><strong>Approach</strong>: Lipschitz-based partitioning, optimistic sampling</p>
 <p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>
 provides hierarchical box decomposition, but without Lipschitz assumptions</p>
@@ -145,7 +266,7 @@ provides hierarchical box decomposition, but without Lipschitz assumptions</p>
 <p><strong>References</strong>: <a class="reference internal" href="#jones1993" id="id5"><span>[Jones1993]</span></a></p>
 </section>
 <section id="simulated-annealing">
-<h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading">¶</a></h3>
+<h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading"></a></h3>
 <p><strong>Approach</strong>: Probabilistic acceptance with cooling schedule</p>
 <p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code>
 uses probabilistic selection, but without explicit temperature</p>
@@ -157,7 +278,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <p><strong>References</strong>: <a class="reference internal" href="#kirkpatrick1983" id="id6"><span>[Kirkpatrick1983]</span></a></p>
 </section>
 <section id="comparison-summary">
-<h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading">¶</a></h3>
+<h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading"></a></h3>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 20.0%" />
@@ -203,9 +324,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="theoretical-properties">
-<h2>Theoretical Properties<a class="headerlink" href="#theoretical-properties" title="Link to this heading">¶</a></h2>
+<h2>Theoretical Properties<a class="headerlink" href="#theoretical-properties" title="Link to this heading"></a></h2>
 <section id="convergence-guarantees">
-<h3>Convergence Guarantees<a class="headerlink" href="#convergence-guarantees" title="Link to this heading">¶</a></h3>
+<h3>Convergence Guarantees<a class="headerlink" href="#convergence-guarantees" title="Link to this heading"></a></h3>
 <p><strong>Theorem</strong> (Informal): Under mild assumptions, Panobbgo converges to the global optimum almost surely as the number of evaluations <span class="math notranslate nohighlight">\(N \to \infty\)</span>.</p>
 <p><strong>Assumptions</strong>:</p>
 <ol class="arabic simple">
@@ -227,7 +348,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="complexity-analysis">
-<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">¶</a></h3>
+<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading"></a></h3>
 <p><strong>Per-iteration complexity</strong>:</p>
 <ul class="simple">
 <li><p>Sorting results: <span class="math notranslate nohighlight">\(O(N \log N)\)</span></p></li>
@@ -250,9 +371,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="current-research-challenges">
-<h2>Current Research Challenges<a class="headerlink" href="#current-research-challenges" title="Link to this heading">¶</a></h2>
+<h2>Current Research Challenges<a class="headerlink" href="#current-research-challenges" title="Link to this heading"></a></h2>
 <section id="high-dimensional-optimization">
-<h3>High-Dimensional Optimization<a class="headerlink" href="#high-dimensional-optimization" title="Link to this heading">¶</a></h3>
+<h3>High-Dimensional Optimization<a class="headerlink" href="#high-dimensional-optimization" title="Link to this heading"></a></h3>
 <p><strong>Challenge</strong>: Curse of dimensionality—exponential growth of search space</p>
 <p><strong>Current approaches</strong>:</p>
 <ul class="simple">
@@ -268,7 +389,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="multi-fidelity-optimization">
-<h3>Multi-Fidelity Optimization<a class="headerlink" href="#multi-fidelity-optimization" title="Link to this heading">¶</a></h3>
+<h3>Multi-Fidelity Optimization<a class="headerlink" href="#multi-fidelity-optimization" title="Link to this heading"></a></h3>
 <p><strong>Challenge</strong>: Leverage cheap low-fidelity evaluations to guide expensive high-fidelity ones</p>
 <p><strong>Example</strong>: CFD simulation at coarse vs. fine mesh</p>
 <p><strong>Approach</strong>:</p>
@@ -285,7 +406,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="constraint-handling">
-<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h3>
+<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading"></a></h3>
 <p><strong>Challenge</strong>: Efficiently find feasible solutions</p>
 <p><strong>Current Panobbgo</strong>: Lexicographic ordering (feasibility first)</p>
 <p><strong>Alternatives</strong>:</p>
@@ -303,7 +424,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="robust-optimization">
-<h3>Robust Optimization<a class="headerlink" href="#robust-optimization" title="Link to this heading">¶</a></h3>
+<h3>Robust Optimization<a class="headerlink" href="#robust-optimization" title="Link to this heading"></a></h3>
 <p><strong>Challenge</strong>: Optimize under uncertainty in parameters or noise</p>
 <p><strong>Formulation</strong>:</p>
 <div class="math notranslate nohighlight">
@@ -317,7 +438,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="transfer-learning">
-<h3>Transfer Learning<a class="headerlink" href="#transfer-learning" title="Link to this heading">¶</a></h3>
+<h3>Transfer Learning<a class="headerlink" href="#transfer-learning" title="Link to this heading"></a></h3>
 <p><strong>Challenge</strong>: Learn from previous optimization runs on related problems</p>
 <p><strong>Approach</strong>:</p>
 <ul class="simple">
@@ -334,9 +455,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="future-directions">
-<h2>Future Directions<a class="headerlink" href="#future-directions" title="Link to this heading">¶</a></h2>
+<h2>Future Directions<a class="headerlink" href="#future-directions" title="Link to this heading"></a></h2>
 <section id="short-term-improvements-3-6-months">
-<h3>Short-Term Improvements (3-6 months)<a class="headerlink" href="#short-term-improvements-3-6-months" title="Link to this heading">¶</a></h3>
+<h3>Short-Term Improvements (3-6 months)<a class="headerlink" href="#short-term-improvements-3-6-months" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p><strong>Gaussian Process Surrogate</strong></p>
 <ul class="simple">
@@ -379,7 +500,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ol>
 </section>
 <section id="medium-term-research-6-12-months">
-<h3>Medium-Term Research (6-12 months)<a class="headerlink" href="#medium-term-research-6-12-months" title="Link to this heading">¶</a></h3>
+<h3>Medium-Term Research (6-12 months)<a class="headerlink" href="#medium-term-research-6-12-months" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p><strong>Advanced Bandit Strategies</strong></p>
 <ul class="simple">
@@ -419,7 +540,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ol>
 </section>
 <section id="long-term-vision-1-2-years">
-<h3>Long-Term Vision (1-2 years)<a class="headerlink" href="#long-term-vision-1-2-years" title="Link to this heading">¶</a></h3>
+<h3>Long-Term Vision (1-2 years)<a class="headerlink" href="#long-term-vision-1-2-years" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p><strong>Transfer Learning Framework</strong></p>
 <ul class="simple">
@@ -460,9 +581,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="contributing-to-research">
-<h2>Contributing to Research<a class="headerlink" href="#contributing-to-research" title="Link to this heading">¶</a></h2>
+<h2>Contributing to Research<a class="headerlink" href="#contributing-to-research" title="Link to this heading"></a></h2>
 <section id="academic-usage">
-<h3>Academic Usage<a class="headerlink" href="#academic-usage" title="Link to this heading">¶</a></h3>
+<h3>Academic Usage<a class="headerlink" href="#academic-usage" title="Link to this heading"></a></h3>
 <p>If you use Panobbgo in academic research, please cite:</p>
 <div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span class="nc">@software</span><span class="p">{</span><span class="nl">panobbgo</span><span class="p">,</span>
 <span class="w">  </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Schilly, Harald}</span><span class="p">,</span>
@@ -475,7 +596,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </div>
 </section>
 <section id="research-collaboration">
-<h3>Research Collaboration<a class="headerlink" href="#research-collaboration" title="Link to this heading">¶</a></h3>
+<h3>Research Collaboration<a class="headerlink" href="#research-collaboration" title="Link to this heading"></a></h3>
 <p>We welcome research collaborations! Areas of interest:</p>
 <ul class="simple">
 <li><p>Novel heuristic designs</p></li>
@@ -487,7 +608,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <p>Contact: See <a class="reference external" href="https://github.com/haraldschilly/panobbgo">https://github.com/haraldschilly/panobbgo</a></p>
 </section>
 <section id="open-problems">
-<h3>Open Problems<a class="headerlink" href="#open-problems" title="Link to this heading">¶</a></h3>
+<h3>Open Problems<a class="headerlink" href="#open-problems" title="Link to this heading"></a></h3>
 <p>Interesting open questions:</p>
 <ol class="arabic simple">
 <li><p><strong>Optimal heuristic portfolio</strong>: What’s the minimal set of heuristics for broad effectiveness?</p></li>
@@ -499,9 +620,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="experimental-validation">
-<h2>Experimental Validation<a class="headerlink" href="#experimental-validation" title="Link to this heading">¶</a></h2>
+<h2>Experimental Validation<a class="headerlink" href="#experimental-validation" title="Link to this heading"></a></h2>
 <section id="benchmark-problems">
-<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">¶</a></h3>
+<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading"></a></h3>
 <p>Standard test suites for validation:</p>
 <ul class="simple">
 <li><p><strong>CEC Benchmark Functions</strong> <a class="reference internal" href="#liang2013" id="id11"><span>[Liang2013]</span></a></p></li>
@@ -510,7 +631,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="performance-metrics">
-<h3>Performance Metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading">¶</a></h3>
+<h3>Performance Metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading"></a></h3>
 <p>Common metrics for comparison:</p>
 <ol class="arabic simple">
 <li><p><strong>Best value found</strong>: <span class="math notranslate nohighlight">\(f(x^*)\)</span></p></li>
@@ -521,7 +642,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ol>
 </section>
 <section id="experimental-design">
-<h3>Experimental Design<a class="headerlink" href="#experimental-design" title="Link to this heading">¶</a></h3>
+<h3>Experimental Design<a class="headerlink" href="#experimental-design" title="Link to this heading"></a></h3>
 <p>Rigorous benchmarking requires:</p>
 <ul class="simple">
 <li><p><strong>Multiple runs</strong>: Account for stochasticity (typically 20-50 runs)</p></li>
@@ -533,7 +654,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="references">
-<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
 <div role="list" class="citation-list">
 <div class="citation" id="auer2002" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">Auer2002</a><span class="fn-bracket">]</span></span>
@@ -619,119 +740,31 @@ Bayesian optimization in high dimensions via random embeddings.
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">Research Context and Future Directions</a><ul>
-<li><a class="reference internal" href="#inspiration-snobfit">Inspiration: SNOBFIT</a><ul>
-<li><a class="reference internal" href="#snobfit-s-key-ideas">SNOBFIT’s Key Ideas</a></li>
-<li><a class="reference internal" href="#panobbgo-s-innovations">Panobbgo’s Innovations</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#related-algorithms">Related Algorithms</a><ul>
-<li><a class="reference internal" href="#bayesian-optimization">Bayesian Optimization</a></li>
-<li><a class="reference internal" href="#cma-es-covariance-matrix-adaptation-evolution-strategy">CMA-ES (Covariance Matrix Adaptation Evolution Strategy)</a></li>
-<li><a class="reference internal" href="#direct-dividing-rectangles">DIRECT (Dividing Rectangles)</a></li>
-<li><a class="reference internal" href="#simulated-annealing">Simulated Annealing</a></li>
-<li><a class="reference internal" href="#comparison-summary">Comparison Summary</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#theoretical-properties">Theoretical Properties</a><ul>
-<li><a class="reference internal" href="#convergence-guarantees">Convergence Guarantees</a></li>
-<li><a class="reference internal" href="#complexity-analysis">Complexity Analysis</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#current-research-challenges">Current Research Challenges</a><ul>
-<li><a class="reference internal" href="#high-dimensional-optimization">High-Dimensional Optimization</a></li>
-<li><a class="reference internal" href="#multi-fidelity-optimization">Multi-Fidelity Optimization</a></li>
-<li><a class="reference internal" href="#constraint-handling">Constraint Handling</a></li>
-<li><a class="reference internal" href="#robust-optimization">Robust Optimization</a></li>
-<li><a class="reference internal" href="#transfer-learning">Transfer Learning</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#future-directions">Future Directions</a><ul>
-<li><a class="reference internal" href="#short-term-improvements-3-6-months">Short-Term Improvements (3-6 months)</a></li>
-<li><a class="reference internal" href="#medium-term-research-6-12-months">Medium-Term Research (6-12 months)</a></li>
-<li><a class="reference internal" href="#long-term-vision-1-2-years">Long-Term Vision (1-2 years)</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#contributing-to-research">Contributing to Research</a><ul>
-<li><a class="reference internal" href="#academic-usage">Academic Usage</a></li>
-<li><a class="reference internal" href="#research-collaboration">Research Collaboration</a></li>
-<li><a class="reference internal" href="#open-problems">Open Problems</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#experimental-validation">Experimental Validation</a><ul>
-<li><a class="reference internal" href="#benchmark-problems">Benchmark Problems</a></li>
-<li><a class="reference internal" href="#performance-metrics">Performance Metrics</a></li>
-<li><a class="reference internal" href="#experimental-design">Experimental Design</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#references">References</a></li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="guide_extending.html" class="btn btn-neutral float-left" title="Extending Panobbgo" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="core.html" class="btn btn-neutral float-right" title="Core" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2012, Harald Schilly. License Apache 2.0.</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="guide_extending.html"
-                          title="previous chapter">Extending Panobbgo</a></p>
-  </div>
-  <div>
-    <h4>Next topic</h4>
-    <p class="topless"><a href="core.html"
-                          title="next chapter">Core</a></p>
-  </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/guide_research.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="core.html" title="Core"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="guide_extending.html" title="Extending Panobbgo"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">Research Context and Future Directions</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>

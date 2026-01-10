@@ -1,6 +1,6 @@
-﻿panobbgo.lib.classic.Rastrigin
+﻿panobbgo.lib.classic.Quadruple
 ==============================
 
 .. currentmodule:: panobbgo.lib.classic
 
-.. autoclass:: Rastrigin
+.. autoclass:: Quadruple

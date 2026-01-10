@@ -1,6 +1,6 @@
-﻿panobbgo.lib.classic.Rosenbrock
+﻿panobbgo.lib.classic.Himmelblau
 ===============================
 
 .. currentmodule:: panobbgo.lib.classic
 
-.. autoclass:: Rosenbrock
+.. autoclass:: Himmelblau

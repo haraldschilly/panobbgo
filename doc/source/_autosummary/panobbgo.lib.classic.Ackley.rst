@@ -1,6 +1,6 @@
-﻿panobbgo.lib.classic.Branin
+﻿panobbgo.lib.classic.Ackley
 ===========================
 
 .. currentmodule:: panobbgo.lib.classic
 
-.. autoclass:: Branin
+.. autoclass:: Ackley

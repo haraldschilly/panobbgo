@@ -1,6 +1,6 @@
-﻿panobbgo.lib.classic.Rosenbrock
+﻿panobbgo.lib.classic.DixonPrice
 ===============================
 
 .. currentmodule:: panobbgo.lib.classic
 
-.. autoclass:: Rosenbrock
+.. autoclass:: DixonPrice

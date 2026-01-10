@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Library Classes &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Classic Problems" href="classic.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="classic.html" title="Classic Problems"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Library Classes</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="library-classes">
+<span id="module-panobbgo.lib.lib"></span><h1>Library Classes<a class="headerlink" href="#library-classes" title="Link to this heading">¶</a></h1>
+<p>This file contains the basic objects to build a problem and to do a single evaluation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is used by <a class="reference internal" href="index.html#module-panobbgo" title="panobbgo"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo</span></code></a> and <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo_lib</span></code>.</p>
+</div>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.BoundingBox">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.lib.</span></span><span class="sig-name descname"><span class="pre">BoundingBox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#BoundingBox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.BoundingBox" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3.5/library/functions.html#object" title="(in Python v3.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>The bounding box of the <a class="reference internal" href="#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.BoundingBox.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#BoundingBox.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.BoundingBox.copy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Point">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.lib.</span></span><span class="sig-name descname"><span class="pre">Point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">who</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Point" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3.5/library/functions.html#object" title="(in Python v3.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>This contains the x vector for a new point and a
+reference to <a class="reference internal" href="#panobbgo.lib.lib.Point.who" title="panobbgo.lib.lib.Point.who"><code class="xref py py-attr docutils literal notranslate"><span class="pre">who</span></code></a> has generated it.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Point.who">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">who</span></span><a class="headerlink" href="#panobbgo.lib.lib.Point.who" title="Link to this definition">¶</a></dt>
+<dd><p>A string, which is the <a class="reference internal" href="core.html#panobbgo.core.Module.name" title="panobbgo.core.Module.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a> of a heuristic.</p>
+<p>To get the actual heuristic, use the strategie’s
+<a class="reference internal" href="core.html#panobbgo.core.StrategyBase.heuristic" title="panobbgo.core.StrategyBase.heuristic"><code class="xref py py-meth docutils literal notranslate"><span class="pre">heuristic()</span></code></a> method.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Point.x">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#panobbgo.lib.lib.Point.x" title="Link to this definition">¶</a></dt>
+<dd><p>The vector <span class="math notranslate nohighlight">\(x\)</span>, a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.lib.</span></span><span class="sig-name descname"><span class="pre">Problem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Problem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3.5/library/functions.html#object" title="(in Python v3.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>this is used to store the objective function,
+information about the problem, etc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.box">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">box</span></span><a class="headerlink" href="#panobbgo.lib.lib.Problem.box" title="Link to this definition">¶</a></dt>
+<dd><p>The bounding box for this problem, a <span class="math notranslate nohighlight">\((\mathit{dim},2)\)</span>-<a class="reference internal" href="#panobbgo.lib.lib.BoundingBox" title="panobbgo.lib.lib.BoundingBox"><code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.center">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">center</span></span><a class="headerlink" href="#panobbgo.lib.lib.Problem.center" title="Link to this definition">¶</a></dt>
+<dd><p>center of the box</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.dim">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#panobbgo.lib.lib.Problem.dim" title="Link to this definition">¶</a></dt>
+<dd><p>The number of dimensions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Problem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Problem.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.project">
+<span class="sig-name descname"><span class="pre">project</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem.project"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Problem.project" title="Link to this definition">¶</a></dt>
+<dd><p>projects given point into the search box.
+e.g. <span class="math notranslate nohighlight">\([-1.1, 1]\)</span> with box <span class="math notranslate nohighlight">\([(-1,1),(-1,1)]\)</span>
+gives <span class="math notranslate nohighlight">\([-1,1]\)</span></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.random_point">
+<span class="sig-name descname"><span class="pre">random_point</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem.random_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Problem.random_point" title="Link to this definition">¶</a></dt>
+<dd><p>generates a random point inside the given search box (ranges).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Problem.ranges">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ranges</span></span><a class="headerlink" href="#panobbgo.lib.lib.Problem.ranges" title="Link to this definition">¶</a></dt>
+<dd><p>The ranges along each dimension, a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.lib.</span></span><span class="sig-name descname"><span class="pre">Result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Result" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3.5/library/functions.html#object" title="(in Python v3.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>This represents one result, wich is a mapping of a <a class="reference internal" href="#panobbgo.lib.lib.Point" title="panobbgo.lib.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a>
+<span class="math notranslate nohighlight">\(x \rightarrow f(x)\)</span>.</p>
+<p>Additionally, there is also</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#panobbgo.lib.lib.Result.error" title="panobbgo.lib.lib.Result.error"><code class="xref py py-attr docutils literal notranslate"><span class="pre">error</span></code></a>: estimated or calculated <span class="math notranslate nohighlight">\(\Delta f(x)\)</span>.</p></li>
+<li><p><a class="reference internal" href="#panobbgo.lib.lib.Result.cv_vec" title="panobbgo.lib.lib.Result.cv_vec"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv_vec</span></code></a>: a possibly empty vector listing the constraint violation for
+each constraint.</p></li>
+</ul>
+<p>Args:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cv</span></code>: the constraint violation vector</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cv_norm</span></code>: the norm used to calculate <a class="reference internal" href="#panobbgo.lib.lib.Result.cv" title="panobbgo.lib.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>.
+(see <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html#numpy.linalg.norm" title="(in NumPy v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.linalg.norm()</span></code></a>, default <code class="docutils literal notranslate"><span class="pre">None</span></code> means 2-norm)</p></li>
+</ul>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.cv">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.cv" title="Link to this definition">¶</a></dt>
+<dd><p>Constraint Violation.</p>
+<p>The chosen norm of <a class="reference internal" href="#panobbgo.lib.lib.Result.cv_vec" title="panobbgo.lib.lib.Result.cv_vec"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv_vec</span></code></a>; see <code class="docutils literal notranslate"><span class="pre">cv_norm</span></code> in constructor.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Only the positive entries are used to calculate the norm!</p>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.cv_vec">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv_vec</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.cv_vec" title="Link to this definition">¶</a></dt>
+<dd><p>Vector of constraint violations for each constraint, or None.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Be aware, that entries could be negative. This is useful if you want to know
+how well a point is satisfied. The <cite>.cv</cite> property just looks at the positive
+entries, though.</p>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.error">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">error</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.error" title="Link to this definition">¶</a></dt>
+<dd><p>Error margin of function evaluation, usually 0.0.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.fx">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fx</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.fx" title="Link to this definition">¶</a></dt>
+<dd><p>The function value <span class="math notranslate nohighlight">\(f(x)\)</span> after <code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluating</span></code> it.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.point">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">point</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.point" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the actual <a class="reference internal" href="#panobbgo.lib.lib.Point" title="panobbgo.lib.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a> object.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.pp">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pp</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.pp" title="Link to this definition">¶</a></dt>
+<dd><p>pareto point, i.e. array([cv, fx])</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.who">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">who</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.who" title="Link to this definition">¶</a></dt>
+<dd><p>The <a class="reference internal" href="core.html#panobbgo.core.Module.name" title="panobbgo.core.Module.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a> of the heuristic, who
+did generate this point (String).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.x">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#panobbgo.lib.lib.Result.x" title="Link to this definition">¶</a></dt>
+<dd><p>Point <span class="math notranslate nohighlight">\(x\)</span> where this result has been evaluated.</p>
+</dd></dl>
+
+</dd></dl>
+
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Library Classes</a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.lib.BoundingBox.copy"><code class="docutils literal notranslate"><span class="pre">BoundingBox.copy()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Point.who"><code class="docutils literal notranslate"><span class="pre">Point.who</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Point.x"><code class="docutils literal notranslate"><span class="pre">Point.x</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.box"><code class="docutils literal notranslate"><span class="pre">Problem.box</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.center"><code class="docutils literal notranslate"><span class="pre">Problem.center</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.dim"><code class="docutils literal notranslate"><span class="pre">Problem.dim</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.eval"><code class="docutils literal notranslate"><span class="pre">Problem.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.eval_constraints"><code class="docutils literal notranslate"><span class="pre">Problem.eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.project"><code class="docutils literal notranslate"><span class="pre">Problem.project()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.random_point"><code class="docutils literal notranslate"><span class="pre">Problem.random_point()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Problem.ranges"><code class="docutils literal notranslate"><span class="pre">Problem.ranges</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.cv"><code class="docutils literal notranslate"><span class="pre">Result.cv</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.cv_vec"><code class="docutils literal notranslate"><span class="pre">Result.cv_vec</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.error"><code class="docutils literal notranslate"><span class="pre">Result.error</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.fx"><code class="docutils literal notranslate"><span class="pre">Result.fx</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.point"><code class="docutils literal notranslate"><span class="pre">Result.point</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.pp"><code class="docutils literal notranslate"><span class="pre">Result.pp</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.who"><code class="docutils literal notranslate"><span class="pre">Result.who</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.lib.Result.x"><code class="docutils literal notranslate"><span class="pre">Result.x</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="classic.html"
+                          title="previous chapter">Classic Problems</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/lib.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="classic.html" title="Classic Problems"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Library Classes</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

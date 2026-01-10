@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Mathematical Foundation &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Architecture Overview" href="guide_architecture.html" />
+    <link rel="prev" title="Introduction to Panobbgo" href="guide_introduction.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_architecture.html" title="Architecture Overview"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="guide_introduction.html" title="Introduction to Panobbgo"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Mathematical Foundation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="mathematical-foundation">
+<h1>Mathematical Foundation<a class="headerlink" href="#mathematical-foundation" title="Link to this heading">¶</a></h1>
+<p>This section provides the mathematical foundation underlying Panobbgo’s approach to black-box global optimization.</p>
+<section id="problem-formulation">
+<h2>Problem Formulation<a class="headerlink" href="#problem-formulation" title="Link to this heading">¶</a></h2>
+<section id="objective-function">
+<h3>Objective Function<a class="headerlink" href="#objective-function" title="Link to this heading">¶</a></h3>
+<p>The basic optimization problem is:</p>
+<div class="math notranslate nohighlight">
+\[\min_{x \in B \subset \mathbb{R}^n} f(x)\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(B = \{x \in \mathbb{R}^n : l_i \leq x_i \leq u_i, \; i=1,\ldots,n\}\)</span> is the search box</p></li>
+<li><p><span class="math notranslate nohighlight">\(f: B \rightarrow \mathbb{R}\)</span> is a potentially noisy, expensive-to-evaluate function</p></li>
+</ul>
+</section>
+<section id="constraint-handling">
+<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h3>
+<p>If constraint functions <span class="math notranslate nohighlight">\(g_i(x) \leq 0\)</span> for <span class="math notranslate nohighlight">\(i = 1, \ldots, m\)</span> exist, we define the constraint violation vector:</p>
+<div class="math notranslate nohighlight">
+\[cv(x) = [g_1(x)_+, \ldots, g_m(x)_+] \quad \text{where} \quad (a)_+ = \max(0, a)\]</div>
+<p>The total constraint violation is the L2 norm:</p>
+<div class="math notranslate nohighlight">
+\[CV(x) = \|cv(x)\|_2 = \sqrt{\sum_{i=1}^m g_i(x)_+^2}\]</div>
+</section>
+<section id="improvement-calculation">
+<h3>Improvement Calculation<a class="headerlink" href="#improvement-calculation" title="Link to this heading">¶</a></h3>
+<p>When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated <code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>.</p>
+<section id="default-constraint-handler">
+<h4>Default Constraint Handler<a class="headerlink" href="#default-constraint-handler" title="Link to this heading">¶</a></h4>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">DefaultConstraintHandler</span></code> prioritizes feasibility using a lexicographic approach:</p>
+<ol class="arabic">
+<li><p><strong>Both Feasible</strong>: Standard improvement in objective function.</p>
+<div class="math notranslate nohighlight">
+\[I = \max(0, f(x_{old}) - f(x_{new}))\]</div>
+</li>
+<li><p><strong>Infeasible to Feasible</strong>: Significant improvement, rewarding the transition to feasibility.</p>
+<div class="math notranslate nohighlight">
+\[I = C + \rho \cdot CV(x_{old})\]</div>
+<p>where <span class="math notranslate nohighlight">\(C\)</span> is a base constant (e.g., 10.0) and <span class="math notranslate nohighlight">\(\rho\)</span> is a penalty factor (e.g., 100.0).</p>
+</li>
+<li><p><strong>Both Infeasible</strong>: Improvement based on reduction of constraint violation.</p>
+<div class="math notranslate nohighlight">
+\[I = \rho \cdot \max(0, CV(x_{old}) - CV(x_{new}))\]</div>
+</li>
+<li><p><strong>Feasible to Infeasible</strong>: No improvement (<span class="math notranslate nohighlight">\(I=0\)</span>).</p></li>
+</ol>
+</section>
+<section id="penalty-constraint-handlers">
+<h4>Penalty Constraint Handlers<a class="headerlink" href="#penalty-constraint-handlers" title="Link to this heading">¶</a></h4>
+<p>Alternatively, Panobbgo supports penalty-based handlers which combine the objective and constraint violation into a single scalar metric <span class="math notranslate nohighlight">\(P(x)\)</span>.</p>
+<p><strong>PenaltyConstraintHandler</strong>:
+Uses a static penalty function:</p>
+<div class="math notranslate nohighlight">
+\[P(x) = f(x) + \rho \cdot CV(x)^\gamma\]</div>
+<p>where <span class="math notranslate nohighlight">\(\gamma\)</span> is an exponent (typically 1 or 2). Improvement is defined as reduction in <span class="math notranslate nohighlight">\(P(x)\)</span>.</p>
+<p><strong>DynamicPenaltyConstraintHandler</strong>:
+Uses a penalty factor that increases over time to gradually enforce constraints:</p>
+<div class="math notranslate nohighlight">
+\[P(x, t) = f(x) + \rho(t) \cdot CV(x)^\gamma\]</div>
+<p>where <span class="math notranslate nohighlight">\(\rho(t)\)</span> grows with the number of evaluations.</p>
+</section>
+</section>
+<section id="lexicographic-ordering">
+<h3>Lexicographic Ordering<a class="headerlink" href="#lexicographic-ordering" title="Link to this heading">¶</a></h3>
+<p>For maintaining the global “best” point, point <span class="math notranslate nohighlight">\(x\)</span> is considered better than <span class="math notranslate nohighlight">\(y\)</span> if:</p>
+<ol class="arabic simple">
+<li><p><span class="math notranslate nohighlight">\(CV(x) &lt; CV(y)\)</span> (less constraint violation), <strong>OR</strong></p></li>
+<li><p><span class="math notranslate nohighlight">\(CV(x) = CV(y) = 0\)</span> <strong>AND</strong> <span class="math notranslate nohighlight">\(f(x) &lt; f(y)\)</span> (better objective value)</p></li>
+</ol>
+<p>This ensures that:</p>
+<ul class="simple">
+<li><p>Feasible points (<span class="math notranslate nohighlight">\(CV(x) = 0\)</span>) are always preferred over infeasible ones</p></li>
+<li><p>Among feasible points, we minimize the objective function</p></li>
+<li><p>Among infeasible points, we minimize constraint violations</p></li>
+</ul>
+</section>
+</section>
+<section id="the-exploration-exploitation-tradeoff">
+<h2>The Exploration-Exploitation Tradeoff<a class="headerlink" href="#the-exploration-exploitation-tradeoff" title="Link to this heading">¶</a></h2>
+<p>Black-box optimization requires balancing two competing objectives:</p>
+<ul class="simple">
+<li><p><strong>Exploration</strong>: Sample broadly to discover the global structure and avoid missing the global optimum</p></li>
+<li><p><strong>Exploitation</strong>: Sample intensively in promising regions to refine the current best solution</p></li>
+</ul>
+<section id="traditional-approaches">
+<h3>Traditional Approaches<a class="headerlink" href="#traditional-approaches" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 40.0%" />
+<col style="width: 35.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Exploration Strategy</p></th>
+<th class="head"><p>Exploitation Strategy</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pure Random Search</p></td>
+<td><p>✓ Complete coverage</p></td>
+<td><p>✗ No refinement</p></td>
+</tr>
+<tr class="row-odd"><td><p>Local Optimization</p></td>
+<td><p>✗ Gets stuck in local minima</p></td>
+<td><p>✓ Fast convergence locally</p></td>
+</tr>
+<tr class="row-even"><td><p>Simulated Annealing</p></td>
+<td><p>Initially high, decreases</p></td>
+<td><p>Increases over time</p></td>
+</tr>
+<tr class="row-odd"><td><p>Bayesian Optimization</p></td>
+<td><p>Via acquisition function</p></td>
+<td><p>Via acquisition function</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="panobbgo-s-approach">
+<h3>Panobbgo’s Approach<a class="headerlink" href="#panobbgo-s-approach" title="Link to this heading">¶</a></h3>
+<p>Panobbgo addresses the tradeoff through:</p>
+<ol class="arabic simple">
+<li><p><strong>Diverse heuristics</strong>: Each with different exploration/exploitation profiles</p></li>
+<li><p><strong>Adaptive selection</strong>: Learn which heuristics work for this problem (multi-armed bandit)</p></li>
+<li><p><strong>Hierarchical decomposition</strong>: Partition space based on results (Splitter analyzer)</p></li>
+</ol>
+</section>
+</section>
+<section id="multi-armed-bandit-strategy">
+<h2>Multi-Armed Bandit Strategy<a class="headerlink" href="#multi-armed-bandit-strategy" title="Link to this heading">¶</a></h2>
+<section id="the-core-idea">
+<h3>The Core Idea<a class="headerlink" href="#the-core-idea" title="Link to this heading">¶</a></h3>
+<p>Selecting which heuristic to use next is modeled as a <strong>multi-armed bandit problem</strong>:</p>
+<ul class="simple">
+<li><p>Each heuristic <span class="math notranslate nohighlight">\(h \in H\)</span> is an “arm” of a slot machine</p></li>
+<li><p>“Pulling arm <span class="math notranslate nohighlight">\(h\)</span>” = requesting a point from heuristic <span class="math notranslate nohighlight">\(h\)</span></p></li>
+<li><p>“Reward” <span class="math notranslate nohighlight">\(R\)</span> = improvement in objective value</p></li>
+<li><p><strong>Goal</strong>: Maximize cumulative reward (find best points quickly)</p></li>
+</ul>
+<p>The challenge is the <strong>exploration-exploitation dilemma</strong>:</p>
+<ul class="simple">
+<li><p>Should we use heuristics that have worked well (exploitation)?</p></li>
+<li><p>Or try other heuristics that might work better (exploration)?</p></li>
+</ul>
+</section>
+<section id="implementation-in-strategyrewarding">
+<h3>Implementation in StrategyRewarding<a class="headerlink" href="#implementation-in-strategyrewarding" title="Link to this heading">¶</a></h3>
+<p>Each heuristic <span class="math notranslate nohighlight">\(h\)</span> maintains a performance score <span class="math notranslate nohighlight">\(p_h(t)\)</span> updated as:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}p_h(t+1) = \begin{cases}
+p_h(t) + R(x) &amp; \text{if } h \text{ generated } x \text{ and } f(x) &lt; f_{best} \\
+p_h(t) \cdot d &amp; \text{if } h \text{ generated a point} \\
+p_h(t) &amp; \text{otherwise}
+\end{cases}\end{split}\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(R(x) = 1 - e^{-(f_{best} - f(x))}\)</span> is the reward (saturates to 1)</p></li>
+<li><p><span class="math notranslate nohighlight">\(d \in (0, 1)\)</span> is a discount factor (default: 0.95)</p></li>
+</ul>
+</section>
+<section id="selection-probability">
+<h3>Selection Probability<a class="headerlink" href="#selection-probability" title="Link to this heading">¶</a></h3>
+<p>Heuristic <span class="math notranslate nohighlight">\(h\)</span> is selected with probability:</p>
+<div class="math notranslate nohighlight">
+\[P(h) = \frac{p_h + s}{\sum_{h' \in H} p_{h'} + s \cdot |H|}\]</div>
+<p>where <span class="math notranslate nohighlight">\(s &gt; 0\)</span> is an <strong>additive smoothing</strong> parameter (default: 0.1).</p>
+<p><strong>Properties:</strong></p>
+<ul class="simple">
+<li><p>Better-performing heuristics get selected more often</p></li>
+<li><p>Discount factor <span class="math notranslate nohighlight">\(d\)</span> causes old successes to fade, preventing lock-in</p></li>
+<li><p>Smoothing <span class="math notranslate nohighlight">\(s\)</span> ensures all heuristics tried occasionally (exploration)</p></li>
+<li><p>As <span class="math notranslate nohighlight">\(s \to 0\)</span>: more exploitation; as <span class="math notranslate nohighlight">\(s \to \infty\)</span>: uniform random</p></li>
+</ul>
+</section>
+<section id="why-this-works">
+<h3>Why This Works<a class="headerlink" href="#why-this-works" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Adaptivity</strong>: Performance tracked dynamically, strategy adapts to problem</p></li>
+<li><p><strong>Diversification</strong>: Multiple heuristics with different search characteristics</p></li>
+<li><p><strong>Robustness</strong>: No single heuristic needs to solve everything</p></li>
+<li><p><strong>Learning</strong>: Better heuristics discovered automatically</p></li>
+</ol>
+</section>
+</section>
+<section id="pareto-optimality-for-constrained-problems">
+<h2>Pareto Optimality for Constrained Problems<a class="headerlink" href="#pareto-optimality-for-constrained-problems" title="Link to this heading">¶</a></h2>
+<section id="pareto-front-definition">
+<h3>Pareto Front Definition<a class="headerlink" href="#pareto-front-definition" title="Link to this heading">¶</a></h3>
+<p>For constrained problems, we track the <strong>Pareto front</strong> in <span class="math notranslate nohighlight">\((f, CV)\)</span> space.</p>
+<p>A point <span class="math notranslate nohighlight">\((f, cv)\)</span> is <strong>Pareto optimal</strong> if there exists no other point <span class="math notranslate nohighlight">\((f', cv')\)</span> such that:</p>
+<div class="math notranslate nohighlight">
+\[f' \leq f \land cv' \leq cv \land (f' &lt; f \lor cv' &lt; cv)\]</div>
+<p>In other words: no other point is better in both objectives simultaneously.</p>
+</section>
+<section id="pareto-update-algorithm">
+<h3>Pareto Update Algorithm<a class="headerlink" href="#pareto-update-algorithm" title="Link to this heading">¶</a></h3>
+<p>When a new result <span class="math notranslate nohighlight">\((f_{new}, cv_{new})\)</span> arrives:</p>
+<ol class="arabic">
+<li><p>Check if dominated by existing Pareto points:</p>
+<div class="math notranslate nohighlight">
+\[\text{If } \exists (f_p, cv_p) \in \text{Front}: f_p \leq f_{new} \land cv_p \leq cv_{new}\]</div>
+<p>Then <span class="math notranslate nohighlight">\((f_{new}, cv_{new})\)</span> is <strong>not</strong> Pareto optimal → reject</p>
+</li>
+<li><p>Otherwise, add <span class="math notranslate nohighlight">\((f_{new}, cv_{new})\)</span> to Front</p></li>
+<li><p>Remove existing points dominated by <span class="math notranslate nohighlight">\((f_{new}, cv_{new})\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\text{Remove } (f_p, cv_p) \text{ if } f_{new} \leq f_p \land cv_{new} \leq cv_p\]</div>
+</li>
+</ol>
+</section>
+<section id="practical-implications">
+<h3>Practical Implications<a class="headerlink" href="#practical-implications" title="Link to this heading">¶</a></h3>
+<p>The Pareto front reveals:</p>
+<ul class="simple">
+<li><p><strong>Trade-off curve</strong>: How much objective improvement costs in constraint violations</p></li>
+<li><p><strong>Feasibility boundary</strong>: Where constraints become satisfiable</p></li>
+<li><p><strong>Solution diversity</strong>: Multiple viable solutions with different characteristics</p></li>
+</ul>
+</section>
+</section>
+<section id="hierarchical-spatial-decomposition">
+<h2>Hierarchical Spatial Decomposition<a class="headerlink" href="#hierarchical-spatial-decomposition" title="Link to this heading">¶</a></h2>
+<section id="motivation">
+<h3>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">¶</a></h3>
+<p>As optimization progresses, we learn which regions of the search space are promising.
+The <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> maintains a hierarchical decomposition
+to focus search appropriately.</p>
+</section>
+<section id="box-tree-algorithm">
+<h3>Box Tree Algorithm<a class="headerlink" href="#box-tree-algorithm" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p><strong>Initialization</strong>: Root node = entire bounding box <span class="math notranslate nohighlight">\(B\)</span></p></li>
+<li><p><strong>Split Criterion</strong>: When a box <span class="math notranslate nohighlight">\(B_i\)</span> contains sufficient points:</p>
+<div class="math notranslate nohighlight">
+\[n(B_i) &gt; \alpha \cdot \dim(B)\]</div>
+<p>where <span class="math notranslate nohighlight">\(\alpha\)</span> is a split factor (default: 5) and <span class="math notranslate nohighlight">\(n(B_i)\)</span> is the number of evaluated points in <span class="math notranslate nohighlight">\(B_i\)</span></p>
+</li>
+<li><p><strong>Split Operation</strong>:</p>
+<ul class="simple">
+<li><p>Find dimension <span class="math notranslate nohighlight">\(d^*\)</span> with largest range: <span class="math notranslate nohighlight">\(d^* = \arg\max_d (u_d - l_d)\)</span></p></li>
+<li><p>Compute midpoint: <span class="math notranslate nohighlight">\(m = (l_{d^*} + u_{d^*}) / 2\)</span></p></li>
+<li><p>Create two child boxes splitting at <span class="math notranslate nohighlight">\(m\)</span> along dimension <span class="math notranslate nohighlight">\(d^*\)</span></p></li>
+</ul>
+</li>
+<li><p><strong>Best Leaf Identification</strong>:</p>
+<p>The “best leaf” is the leaf box containing the current best point (by lexicographic ordering)</p>
+</li>
+</ol>
+</section>
+<section id="usage-by-heuristics">
+<h3>Usage by Heuristics<a class="headerlink" href="#usage-by-heuristics" title="Link to this heading">¶</a></h3>
+<p>Heuristics can adapt their sampling based on the decomposition:</p>
+<ul class="simple">
+<li><p><strong>Random</strong>: Samples uniformly from the best leaf box</p></li>
+<li><p><strong>Latin Hypercube</strong>: Initial space-filling over entire <span class="math notranslate nohighlight">\(B\)</span></p></li>
+<li><p><strong>Nearby</strong>: Local search around best point (independent of boxes)</p></li>
+</ul>
+<p>This provides a <strong>dynamic balance</strong>:</p>
+<ul class="simple">
+<li><p>Early optimization: Few splits → broad exploration</p></li>
+<li><p>Late optimization: Many splits → focused exploitation in promising regions</p></li>
+</ul>
+</section>
+</section>
+<section id="convergence-properties">
+<h2>Convergence Properties<a class="headerlink" href="#convergence-properties" title="Link to this heading">¶</a></h2>
+<section id="theoretical-guarantees">
+<h3>Theoretical Guarantees<a class="headerlink" href="#theoretical-guarantees" title="Link to this heading">¶</a></h3>
+<p>Under mild assumptions, Panobbgo converges to the global optimum almost surely:</p>
+<p><strong>Assumptions:</strong></p>
+<ol class="arabic simple">
+<li><p><span class="math notranslate nohighlight">\(f\)</span> is locally Lipschitz continuous almost everywhere</p></li>
+<li><p>Evaluation budget <span class="math notranslate nohighlight">\(N \to \infty\)</span></p></li>
+<li><p>At least one heuristic performs uniform sampling (e.g., Random)</p></li>
+</ol>
+<p><strong>Why Convergence Holds:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Dense Coverage</strong>: Latin Hypercube + Random ensure dense initial sampling</p></li>
+<li><p><strong>Persistent Exploration</strong>: Random heuristic never stops, smoothing ensures it’s selected</p></li>
+<li><p><strong>Exploitation</strong>: Local heuristics (NelderMead, Nearby) refine promising regions</p></li>
+<li><p><strong>Adaptivity</strong>: Bandit focuses on heuristics that work for this problem</p></li>
+</ol>
+</section>
+<section id="practical-convergence-rate">
+<h3>Practical Convergence Rate<a class="headerlink" href="#practical-convergence-rate" title="Link to this heading">¶</a></h3>
+<p>In practice, convergence depends on:</p>
+<ul class="simple">
+<li><p><strong>Problem difficulty</strong>: Multimodality, noise level, dimension</p></li>
+<li><p><strong>Budget allocation</strong>: How many evaluations available</p></li>
+<li><p><strong>Heuristic portfolio</strong>: Quality and diversity of heuristics</p></li>
+<li><p><strong>Parallelism</strong>: Number of simultaneous evaluations</p></li>
+</ul>
+</section>
+<section id="complexity-analysis">
+<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">¶</a></h3>
+<p><strong>Per iteration:</strong></p>
+<ul class="simple">
+<li><p>Sorting results: <span class="math notranslate nohighlight">\(O(N \log N)\)</span> where <span class="math notranslate nohighlight">\(N\)</span> = evaluations so far</p></li>
+<li><p>Pareto updates: <span class="math notranslate nohighlight">\(O(N \cdot |\text{Front}|)\)</span> worst case, typically <span class="math notranslate nohighlight">\(O(\log N)\)</span></p></li>
+<li><p>Event dispatching: <span class="math notranslate nohighlight">\(O(|H| + |A|)\)</span> where <span class="math notranslate nohighlight">\(|H|\)</span> = heuristics, <span class="math notranslate nohighlight">\(|A|\)</span> = analyzers</p></li>
+</ul>
+<p><strong>Total:</strong></p>
+<ul class="simple">
+<li><p>Function evaluations: <span class="math notranslate nohighlight">\(O(N_{max})\)</span> (the actual bottleneck)</p></li>
+<li><p>Overhead: <span class="math notranslate nohighlight">\(O(N_{max}^2 \log N_{max})\)</span> worst case, typically <span class="math notranslate nohighlight">\(O(N_{max} \log N_{max})\)</span></p></li>
+</ul>
+<p><strong>Parallelism:</strong></p>
+<ul class="simple">
+<li><p>Up to <span class="math notranslate nohighlight">\(P\)</span> evaluations simultaneously (Dask cluster size)</p></li>
+<li><p>Wall-clock time: <span class="math notranslate nohighlight">\(O(N_{max} / P)\)</span> assuming load balance</p></li>
+</ul>
+</section>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<div role="list" class="citation-list">
+<div class="citation" id="auer2002" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Auer2002<span class="fn-bracket">]</span></span>
+<p>Auer, P., Cesa-Bianchi, N., &amp; Fischer, P. (2002).
+Finite-time analysis of the multiarmed bandit problem.
+<em>Machine Learning</em>, 47(2), 235-256.</p>
+</div>
+<div class="citation" id="huyer2008" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Huyer2008<span class="fn-bracket">]</span></span>
+<p>Huyer, W., &amp; Neumaier, A. (2008).
+SNOBFIT–stable noisy optimization by branch and fit.
+<em>ACM Trans. Math. Softw.</em>, 35(2), 1-25.</p>
+</div>
+<div class="citation" id="jones1993" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Jones1993<span class="fn-bracket">]</span></span>
+<p>Jones, D. R., Perttunen, C. D., &amp; Stuckman, B. E. (1993).
+Lipschitzian optimization without the Lipschitz constant.
+<em>J. Opt. Theory Appl.</em>, 79(1), 157-181.</p>
+</div>
+<div class="citation" id="mockus1989" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Mockus1989<span class="fn-bracket">]</span></span>
+<p>Mockus, J. (1989).
+<em>Bayesian Approach to Global Optimization</em>. Springer.</p>
+</div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Mathematical Foundation</a><ul>
+<li><a class="reference internal" href="#problem-formulation">Problem Formulation</a><ul>
+<li><a class="reference internal" href="#objective-function">Objective Function</a></li>
+<li><a class="reference internal" href="#constraint-handling">Constraint Handling</a></li>
+<li><a class="reference internal" href="#improvement-calculation">Improvement Calculation</a><ul>
+<li><a class="reference internal" href="#default-constraint-handler">Default Constraint Handler</a></li>
+<li><a class="reference internal" href="#penalty-constraint-handlers">Penalty Constraint Handlers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#lexicographic-ordering">Lexicographic Ordering</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-exploration-exploitation-tradeoff">The Exploration-Exploitation Tradeoff</a><ul>
+<li><a class="reference internal" href="#traditional-approaches">Traditional Approaches</a></li>
+<li><a class="reference internal" href="#panobbgo-s-approach">Panobbgo’s Approach</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#multi-armed-bandit-strategy">Multi-Armed Bandit Strategy</a><ul>
+<li><a class="reference internal" href="#the-core-idea">The Core Idea</a></li>
+<li><a class="reference internal" href="#implementation-in-strategyrewarding">Implementation in StrategyRewarding</a></li>
+<li><a class="reference internal" href="#selection-probability">Selection Probability</a></li>
+<li><a class="reference internal" href="#why-this-works">Why This Works</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pareto-optimality-for-constrained-problems">Pareto Optimality for Constrained Problems</a><ul>
+<li><a class="reference internal" href="#pareto-front-definition">Pareto Front Definition</a></li>
+<li><a class="reference internal" href="#pareto-update-algorithm">Pareto Update Algorithm</a></li>
+<li><a class="reference internal" href="#practical-implications">Practical Implications</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hierarchical-spatial-decomposition">Hierarchical Spatial Decomposition</a><ul>
+<li><a class="reference internal" href="#motivation">Motivation</a></li>
+<li><a class="reference internal" href="#box-tree-algorithm">Box Tree Algorithm</a></li>
+<li><a class="reference internal" href="#usage-by-heuristics">Usage by Heuristics</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#convergence-properties">Convergence Properties</a><ul>
+<li><a class="reference internal" href="#theoretical-guarantees">Theoretical Guarantees</a></li>
+<li><a class="reference internal" href="#practical-convergence-rate">Practical Convergence Rate</a></li>
+<li><a class="reference internal" href="#complexity-analysis">Complexity Analysis</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="guide_introduction.html"
+                          title="previous chapter">Introduction to Panobbgo</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="guide_architecture.html"
+                          title="next chapter">Architecture Overview</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/guide_mathematical_foundation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_architecture.html" title="Architecture Overview"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="guide_introduction.html" title="Introduction to Panobbgo"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Mathematical Foundation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

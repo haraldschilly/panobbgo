@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>panobbgo.utils &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.utils</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for panobbgo.utils</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utilities</span>
+<span class="sd">---------</span>
+
+<span class="sd">Some utility functions, will move eventually.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+
+<div class="viewcode-block" id="ColoredFormatter">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.ColoredFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColoredFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
+    <span class="n">BLACK</span><span class="p">,</span> <span class="n">RED</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">YELLOW</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">,</span> <span class="n">MAGENTA</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">WHITE</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+
+    <span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
+    <span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;</span><span class="si">%d</span><span class="s2">m&quot;</span>
+    <span class="n">COLOR_SEQ_BOLD</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m&quot;</span>
+    <span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1m&quot;</span>
+
+    <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;DEBUG&quot;</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span>
+        <span class="s2">&quot;INFO&quot;</span><span class="p">:</span> <span class="n">WHITE</span><span class="p">,</span>
+        <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span> <span class="n">YELLOW</span><span class="p">,</span>
+        <span class="s2">&quot;CRITICAL&quot;</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
+        <span class="s2">&quot;ERROR&quot;</span><span class="p">:</span> <span class="n">RED</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> $BOLD</span><span class="si">%(name)-5s</span><span class="s2">$RESET </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$RESET&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+            <span class="s2">&quot;$BOLD&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">BOLD_SEQ</span>
+        <span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ColoredFormatter.colorize">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.ColoredFormatter.colorize">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">colorize</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">bold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ_BOLD</span> <span class="k">if</span> <span class="n">bold</span> <span class="k">else</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ</span>
+        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cs</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">color</span><span class="p">),</span> <span class="n">string</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span>
+        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%-20s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">string</span>
+        <span class="k">return</span> <span class="n">string</span></div>
+
+
+<div class="viewcode-block" id="ColoredFormatter.format">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.ColoredFormatter.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+
+        <span class="n">record</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+        <span class="n">levelname</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span>
+        <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">:</span>
+            <span class="n">col</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">lineno</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">levelname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">levelname</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PanobbgoContext">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoContext">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoContext</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<div class="viewcode-block" id="PanobbgoContext.filter">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoContext.filter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+        <span class="n">record</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">where</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="create_logger">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.create_logger">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates logger with ``name`` and given ``level`` logging level.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">PanobbgoContext</span><span class="p">())</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="n">log_stream_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+    <span class="n">log_formatter</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="p">()</span>
+    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">log_formatter</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_stream_handler</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">logger</span></div>
+
+
+
+<div class="viewcode-block" id="info">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.info">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Shows a bit of info about the libraries and other environment information.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+
+    <span class="n">git</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">version</span><span class="p">(</span><span class="n">what</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">what</span><span class="p">)</span>
+        <span class="n">v</span><span class="p">[</span><span class="n">what</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">__version__</span>
+
+    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;scipy&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pandas not available&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;statsmodels&quot;</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;statsmodels not available&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matplotlib not available&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;dask&quot;</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dask not available&quot;</span><span class="p">)</span>
+    <span class="n">v</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">v</span></div>
+
+
+
+<div class="viewcode-block" id="is_left">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.is_left">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_left</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">is_right</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">ptest</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="is_right">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.is_right">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_right</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    p0-&gt;p1 existing results, ptest other point</span>
+<span class="sd">    return true, if ptest is on the right of p0-&gt;p1</span>
+
+<span class="sd">    Args::</span>
+
+<span class="sd">      - p0, p1, ptest: :class:`numpy.ndarray`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+    <span class="n">v1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span>
+    <span class="n">v2</span> <span class="o">=</span> <span class="n">ptest</span> <span class="o">-</span> <span class="n">p0</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mi">0</span></div>
+
+
+
+<div class="viewcode-block" id="memoize">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.memoize">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">memoize</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Caches the return value of a method inside the instance&#39;s function!</span>
+
+<span class="sd">    This class is meant to be used as a decorator of methods. The return value</span>
+<span class="sd">    from a given method invocation will be cached on the instance whose method</span>
+<span class="sd">    was invoked. All arguments passed to a method decorated with memoize must</span>
+<span class="sd">    be hashable.</span>
+
+<span class="sd">    Usage::</span>
+
+<span class="sd">      class Obj:</span>
+<span class="sd">        @memoize</span>
+<span class="sd">        def method(self, hashable):</span>
+<span class="sd">          result = do_calc(...)</span>
+<span class="sd">          return result</span>
+
+<span class="sd">    If a memoized method is invoked directly on its class the result will not</span>
+<span class="sd">    be cached. Instead the method will be invoked like a static method::</span>
+
+<span class="sd">      class Obj:</span>
+<span class="sd">        @memoize</span>
+<span class="sd">        def add_to(self, arg):</span>
+<span class="sd">          return self + arg</span>
+<span class="sd">      Obj.add_to(1) # not enough arguments</span>
+<span class="sd">      Obj.add_to(1, 2) # returns 3, result is not cached</span>
+
+<span class="sd">    Derived from `ActiveState 577432 &lt;http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/&gt;`_.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">tpe</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>  <span class="c1"># , update_wrapper</span>
+
+        <span class="n">p</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+        <span class="c1"># update_wrapper(p, self.func)</span>
+        <span class="k">return</span> <span class="n">p</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+
+
+<div class="viewcode-block" id="evaluate_point_subprocess">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.evaluate_point_subprocess">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate a point using a problem instance.</span>
+
+<span class="sd">    This function is used by all evaluation modes:</span>
+<span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
+<span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
+<span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        problem: The optimization problem instance</span>
+<span class="sd">        point: The point to evaluate</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The evaluation result (Result object)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Testing</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">mock</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+
+
+<div class="viewcode-block" id="expected_failure">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.expected_failure">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
+<span class="sd">        def test_result_error(self):</span>
+<span class="sd">            Result([1., 1.], 1.1)</span>
+
+<span class="sd">    @param Exception exptn: exception class</span>
+<span class="sd">    @param str msg: expected message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+                    <span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span>
+                    <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">inner</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="MockupEventBus">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.MockupEventBus">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MockupEventBus</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="MockupEventBus.register">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.MockupEventBus.register">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">who</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="c1"># class MockupStrategy:</span>
+<span class="c1">#</span>
+<span class="c1">#    def __init__(self, problem):</span>
+<span class="c1">#        self.problem = problem</span>
+<span class="c1">#        self._eventbus = MockupEventBus()</span>
+<span class="c1">#</span>
+<span class="c1">#    @property</span>
+<span class="c1">#    def eventbus(self):</span>
+<span class="c1">#        return self._eventbus</span>
+
+
+<div class="viewcode-block" id="PanobbgoTestCase">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PanobbgoTestCase.setUp">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.setUp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_strategy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="PanobbgoTestCase.random_results">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.random_results">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
+                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span></div>
+
+
+<div class="viewcode-block" id="PanobbgoTestCase.init_strategy">
+<a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy">[docs]</a>
+    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
+        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
+        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="k">return</span> <span class="n">strategy</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.utils</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

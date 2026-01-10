@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>panobbgo.config &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.config</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for panobbgo.config</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf8 -*-</span>
+<span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Configuration</span>
+<span class="sd">=============</span>
+
+<span class="sd">It&#39;s purpose is to parse a config file (create a default one if none</span>
+<span class="sd">is present) and replace values stored within it with those given</span>
+<span class="sd">via optional command-line arguments.</span>
+
+<span class="sd">.. Note::</span>
+
+<span class="sd">  This will also hold a class for configuring the Panobbgo framework</span>
+<span class="sd">  in general. I.e. modules declare other modules as dependencies, etc...</span>
+
+<span class="sd">.. inheritance-diagram:: panobbgo.configuration</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">_config</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">_EPILOG</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">Note: By default, the &#39;debug&#39; mode is enabled automatically.</span>
+<span class="s2">Disable it via the &#39;-O&#39; flag of the python interpreter, e.g. &#39;python -O run.py&#39;.</span>
+<span class="s2">Website: http://dev.harald.schil.ly/panobbgo/</span>
+<span class="s2">Sources: https://github.com/haraldschilly/panobbgo</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="Config">
+<a class="viewcode-back" href="../../config.html#panobbgo.config.Config">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Config</span><span class="p">:</span>
+    <span class="c1"># Singleton instance</span>
+    <span class="n">_instance</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Class variable to track if config info has been logged</span>
+    <span class="n">_config_logged</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Singleton pattern implementation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">Config</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize Config singleton.</span>
+
+<span class="sd">        :param boolean parse_args:</span>
+<span class="sd">        :param boolean testing_mode: if True, signals that it is run by the unittests</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Allow reinitialization for testing or if parameters changed</span>
+        <span class="n">current_parse_args</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;parse_args&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">current_testing_mode</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;testing_mode&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">current_parse_args</span> <span class="o">!=</span> <span class="n">parse_args</span>
+            <span class="ow">or</span> <span class="n">current_testing_mode</span> <span class="o">!=</span> <span class="n">testing_mode</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_initialized&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span> <span class="o">=</span> <span class="n">parse_args</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">testing_mode</span> <span class="o">=</span> <span class="n">testing_mode</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_appdata_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~/.panobbgo&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_appdata_dir</span><span class="p">,</span> <span class="s2">&quot;config.ini&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config_yaml</span> <span class="o">=</span> <span class="s2">&quot;config.yaml&quot;</span>  <span class="c1"># YAML config in current directory</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loggers</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_create</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">info</span><span class="p">,</span> <span class="n">create_logger</span>
+
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">create_logger</span><span class="p">(</span><span class="s2">&quot;CONFG&quot;</span><span class="p">)</span>
+
+        <span class="c1"># create application data dir if necessary</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_appdata_dir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_appdata_dir</span><span class="p">)</span>
+
+        <span class="c1"># 1: parsing command-line arguments</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArgumentParser</span>
+
+        <span class="n">descr</span> <span class="o">=</span> <span class="s2">&quot;Panobbgo - Parallel Noisy Black-Box Global Optimizer.&quot;</span>
+
+        <span class="n">epilog</span> <span class="o">=</span> <span class="n">_EPILOG</span>
+
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="n">descr</span><span class="p">,</span> <span class="n">epilog</span><span class="o">=</span><span class="n">epilog</span><span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;-c&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;config_file&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;configuration file [default: </span><span class="si">%(default)s</span><span class="s2">]&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--version&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">__version__</span><span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;-p&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--profile&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;ipy_profile&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;IPython profile for the ipcluster configuration&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--max&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;max_eval&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;maximum number of evaluations&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--smooth&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;smooth&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;smoothing parameter for (additive or other) smoothing&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--cap&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;capacity for each queue in each heuristic&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;-v&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;count&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;verbosity&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;verbosity level: -v, -vv, or -vvv&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--ui&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;ui&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--lf&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--log-focus&quot;</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;logger_focus&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;append&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="s2">&quot;List names of loggers, which should be shown verbosely.&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;You can specify this option multiple times!&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;e.g. --lf=CORE --lf=SPLIT&quot;</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span><span class="p">:</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;cmdln options: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">args</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">config_file</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># logger.info(&quot;Parsing command-line arguments is disabled.&quot;)</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">configparser</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigParser</span>
+
+        <span class="c1"># 2/1: does config file exist?</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span><span class="p">):</span>
+            <span class="n">cfgp</span> <span class="o">=</span> <span class="n">ConfigParser</span><span class="p">()</span>
+            <span class="c1"># create them in the reverse order</span>
+
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;db&quot;</span><span class="p">)</span>  <span class="c1"># database config</span>
+            <span class="c1"># cfgp.set(&#39;db&#39;, &#39;port&#39;, &#39;37010&#39;)</span>
+            <span class="c1"># cfgp.set(&#39;db&#39;, &#39;host&#39;, &#39;localhost&#39;)</span>
+
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;ipython&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ipython&quot;</span><span class="p">,</span> <span class="s2">&quot;profile&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">)</span>
+
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;heuristic&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;heuristic&quot;</span><span class="p">,</span> <span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;20&quot;</span><span class="p">)</span>
+
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>  <span class="c1"># core configuration</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;loglevel&quot;</span><span class="p">,</span> <span class="s2">&quot;40&quot;</span><span class="p">)</span>  <span class="c1"># default: no debug mode</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;show_interval&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;max_eval&quot;</span><span class="p">,</span> <span class="s2">&quot;1000&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;discount&quot;</span><span class="p">,</span> <span class="s2">&quot;0.95&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;smooth&quot;</span><span class="p">,</span> <span class="s2">&quot;0.5&quot;</span><span class="p">)</span>
+
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">add_section</span><span class="p">(</span><span class="s2">&quot;ui&quot;</span><span class="p">)</span>
+            <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ui&quot;</span><span class="p">,</span> <span class="s2">&quot;show&quot;</span><span class="p">,</span> <span class="s2">&quot;False&quot;</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">configfile</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">configfile</span><span class="p">)</span>
+
+        <span class="c1"># 2/2: reading the config file</span>
+        <span class="n">cfgp</span> <span class="o">=</span> <span class="n">ConfigParser</span><span class="p">()</span>
+        <span class="n">cfgp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_fn</span><span class="p">)</span>
+
+        <span class="c1"># 2/3: reading YAML config if it exists (takes precedence)</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">yaml_config</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_yaml</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config_yaml</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">yaml_config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">Config</span><span class="o">.</span><span class="n">_config_logged</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;config.yaml loaded from: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">config_yaml</span><span class="p">)</span>
+
+        <span class="c1"># 3: override specific settings</span>
+        <span class="n">_cur_verb</span> <span class="o">=</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">getint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;loglevel&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">verbosity</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;loglevel&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">_cur_verb</span> <span class="o">-</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">verbosity</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">max_eval</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;max_eval&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">max_eval</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">smooth</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;smooth&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">smooth</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">capacity</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;heuristic&quot;</span><span class="p">,</span> <span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">capacity</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">ipy_profile</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ipython&quot;</span><span class="p">,</span> <span class="s2">&quot;profile&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">ipy_profile</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">ui</span><span class="p">:</span>
+                <span class="n">cfgp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ui&quot;</span><span class="p">,</span> <span class="s2">&quot;show&quot;</span><span class="p">,</span> <span class="s2">&quot;True&quot;</span><span class="p">)</span>
+
+        <span class="c1"># some generic function</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">getself</span><span class="p">(</span><span class="n">section</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">section</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">allcfgp</span><span class="p">(</span><span class="n">sep</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">sections</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+                    <span class="n">ret</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">))]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="k">return</span> <span class="n">ret</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Config</span><span class="o">.</span><span class="n">_config_logged</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;config.ini: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">allcfgp</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="n">info</span><span class="p">()</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
+
+        <span class="c1"># Helper function to get config value (YAML takes precedence over INI)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_config</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">type_cast</span><span class="o">=</span><span class="nb">str</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Get config value from YAML first, then INI, then default&quot;&quot;&quot;</span>
+            <span class="c1"># Check YAML first</span>
+            <span class="k">if</span> <span class="n">yaml_path</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">yaml_config</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yaml_config</span>
+                <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">yaml_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="n">val</span><span class="p">[</span><span class="n">part</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="k">break</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">type_cast</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">if</span> <span class="n">type_cast</span> <span class="o">!=</span> <span class="nb">bool</span> <span class="k">else</span> <span class="nb">bool</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+            <span class="c1"># Fall back to INI</span>
+            <span class="k">if</span> <span class="n">ini_section</span> <span class="ow">and</span> <span class="n">ini_key</span> <span class="ow">and</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">has_option</span><span class="p">(</span><span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">type_cast</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">getint</span><span class="p">(</span><span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">type_cast</span> <span class="o">==</span> <span class="nb">float</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">getfloat</span><span class="p">(</span><span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">type_cast</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">getboolean</span><span class="p">(</span><span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">cfgp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ini_section</span><span class="p">,</span> <span class="n">ini_key</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">default</span>
+
+        <span class="c1"># specific data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loglevel</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;core.loglevel&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;loglevel&quot;</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_interval</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;core.show_interval&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;show_interval&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="nb">float</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;core.max_eval&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;max_eval&quot;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">discount</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;core.discount&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;discount&quot;</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smooth</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;core.smooth&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;smooth&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;heuristic.capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;heuristic&quot;</span><span class="p">,</span> <span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="nb">int</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_on_convergence</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;core.stop_on_convergence&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_on_convergence&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="nb">bool</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui_show</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;ui.show&quot;</span><span class="p">,</span> <span class="s2">&quot;ui&quot;</span><span class="p">,</span> <span class="s2">&quot;show&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui_redraw_delay</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;ui.redraw_delay&quot;</span><span class="p">,</span> <span class="s2">&quot;ui&quot;</span><span class="p">,</span> <span class="s2">&quot;redraw_delay&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="nb">float</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Evaluation method configuration (YAML only)</span>
+        <span class="c1"># Options: &#39;threaded&#39; (fast, for testing), &#39;processes&#39; (isolated), &#39;dask&#39; (distributed)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;evaluation.method&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;threaded&quot;</span><span class="p">,</span> <span class="nb">str</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Dask cluster configuration (YAML only, only used when evaluation_method is &#39;dask&#39;)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_cluster_type</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;dask.cluster_type&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span> <span class="nb">str</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_n_workers</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;dask.local.n_workers&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_threads_per_worker</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;dask.local.threads_per_worker&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">int</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_memory_limit</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;dask.local.memory_limit&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;2GB&quot;</span><span class="p">,</span> <span class="nb">str</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_dashboard_address</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;dask.local.dashboard_address&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;:8787&quot;</span><span class="p">,</span> <span class="nb">str</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dask_scheduler_address</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span>
+            <span class="s2">&quot;dask.remote.scheduler_address&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;tcp://localhost:8786&quot;</span><span class="p">,</span> <span class="nb">str</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Legacy IPython support (kept for backward compatibility)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ipy_profile</span> <span class="o">=</span> <span class="n">get_config</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;ipython&quot;</span><span class="p">,</span> <span class="s2">&quot;profile&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger_focus</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">args</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">args</span><span class="o">.</span><span class="n">logger_focus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">__version__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">git_head</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Only log configuration info once per session to avoid spam</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Config</span><span class="o">.</span><span class="n">_config_logged</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Evaluation method: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_method</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;dask&quot;</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Dask cluster type: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dask_cluster_type</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Environment: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">)</span>
+            <span class="n">Config</span><span class="o">.</span><span class="n">_config_logged</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">debug</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">__debug__</span>
+
+<div class="viewcode-block" id="Config.get_logger">
+<a class="viewcode-back" href="../../config.html#panobbgo.config.Config.get_logger">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">loglevel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;Length of logger name &gt; 5: &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="n">name</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%-5s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">name</span>
+        <span class="n">loglevel</span> <span class="o">=</span> <span class="n">loglevel</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loglevel</span>
+        <span class="c1"># logger focus</span>
+        <span class="n">lf</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%-5s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger_focus</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">lf</span><span class="p">:</span>
+            <span class="n">loglevel</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># cache</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">::</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">loglevel</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loggers</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loggers</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_logger</span>
+
+        <span class="n">l</span> <span class="o">=</span> <span class="n">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">loglevel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loggers</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">l</span>
+        <span class="k">return</span> <span class="n">l</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.config</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

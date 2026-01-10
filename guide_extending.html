@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Extending Panobbgo &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Research Context and Future Directions" href="guide_research.html" />
+    <link rel="prev" title="Usage Guide" href="guide_usage.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_research.html" title="Research Context and Future Directions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="guide_usage.html" title="Usage Guide"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Extending Panobbgo</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="extending-panobbgo">
+<h1>Extending Panobbgo<a class="headerlink" href="#extending-panobbgo" title="Link to this heading">¶</a></h1>
+<p>This guide shows how to extend Panobbgo with custom components.</p>
+<section id="adding-a-custom-heuristic">
+<h2>Adding a Custom Heuristic<a class="headerlink" href="#adding-a-custom-heuristic" title="Link to this heading">¶</a></h2>
+<section id="basic-template">
+<h3>Basic Template<a class="headerlink" href="#basic-template" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Brief description of what this heuristic does.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize with parameters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            strategy: The strategy instance</span>
+<span class="sd">            my_param: Custom parameter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">my_param</span> <span class="o">=</span> <span class="n">my_param</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called when optimization starts.</span>
+
+<span class="sd">        Generate initial points here.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called when a new best point is found.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            best: The new best Result object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Generate points near the new best</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Ensure in bounding box</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="example-gradient-sampling">
+<h3>Example: Gradient Sampling<a class="headerlink" href="#example-gradient-sampling" title="Link to this heading">¶</a></h3>
+<p>A heuristic that approximates gradients using finite differences:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GradientSampling</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Samples along estimated gradient directions.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">epsilon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span> <span class="o">=</span> <span class="n">num_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;No initial points.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate points for finite difference gradient.&quot;&quot;&quot;</span>
+        <span class="c1"># Avoid re-processing same point</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> \
+           <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Finite difference in each dimension</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">ei</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">ei</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span>
+
+            <span class="c1"># Forward and backward</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">ei</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">ei</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Approximate gradient and sample along it.&quot;&quot;&quot;</span>
+        <span class="c1"># Only process if we have gradient estimates</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Find results near last_best_x</span>
+        <span class="n">nearby</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span>
+                 <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nearby</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span> <span class="o">*</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span>  <span class="c1"># Not enough points yet</span>
+
+        <span class="c1"># Approximate gradient</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">ei</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">ei</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span>
+
+            <span class="c1"># Find forward and backward points</span>
+            <span class="n">fwd</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">nearby</span>
+                  <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">+</span> <span class="n">ei</span><span class="p">)]</span>
+            <span class="n">bwd</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">nearby</span>
+                  <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">-</span> <span class="n">ei</span><span class="p">)]</span>
+
+            <span class="k">if</span> <span class="n">fwd</span> <span class="ow">and</span> <span class="n">bwd</span><span class="p">:</span>
+                <span class="n">grad</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">fwd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fx</span> <span class="o">-</span> <span class="n">bwd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span>
+
+        <span class="c1"># Sample along negative gradient direction</span>
+        <span class="n">step_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">grad</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="example-particle-swarm-component">
+<h3>Example: Particle Swarm Component<a class="headerlink" href="#example-particle-swarm-component" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ParticleSwarmHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates points using particle swarm dynamics.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">n_particles</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">inertia</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+                <span class="n">cognitive</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">social</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span> <span class="o">=</span> <span class="n">n_particles</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inertia</span> <span class="o">=</span> <span class="n">inertia</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cognitive</span> <span class="o">=</span> <span class="n">cognitive</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">social</span> <span class="o">=</span> <span class="n">social</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">particles</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">personal_best</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">global_best</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize particle swarm.&quot;&quot;&quot;</span>
+        <span class="c1"># Random initial positions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">particles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">)</span>
+        <span class="p">])</span>
+
+        <span class="c1"># Random initial velocities</span>
+        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ranges</span><span class="p">,</span> <span class="n">ranges</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">)</span>
+        <span class="p">])</span>
+
+        <span class="c1"># Personal best = initial positions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">personal_best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Emit initial positions for evaluation</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update particles based on new results.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Update global best from all results</span>
+        <span class="n">best_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span>
+        <span class="k">if</span> <span class="n">best_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">global_best</span> <span class="o">=</span> <span class="n">best_result</span><span class="o">.</span><span class="n">x</span>
+
+        <span class="c1"># Update velocities and positions</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">):</span>
+            <span class="c1"># Random factors</span>
+            <span class="n">r_cognitive</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+            <span class="n">r_social</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+
+            <span class="c1"># Update velocity</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">inertia</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cognitive</span> <span class="o">*</span> <span class="n">r_cognitive</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">personal_best</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">social</span> <span class="o">*</span> <span class="n">r_social</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">global_best</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Update position</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="c1"># Emit new position</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="registering-your-heuristic">
+<h3>Registering Your Heuristic<a class="headerlink" href="#registering-your-heuristic" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In your optimization script</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">GradientSampling</span>
+
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GradientSampling</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>  <span class="c1"># Include other heuristics</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="adding-a-custom-analyzer">
+<h2>Adding a Custom Analyzer<a class="headerlink" href="#adding-a-custom-analyzer" title="Link to this heading">¶</a></h2>
+<section id="id1">
+<h3>Basic Template<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyAnalyzer</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Brief description of what this analyzer does.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="c1"># Initialize internal state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called when optimization starts.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process new results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            results: List of Result objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+        <span class="c1"># Analyze results...</span>
+        <span class="c1"># Optionally publish events</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s1">&#39;threshold_reached&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="example-convergence-detector">
+<h3>Example: Convergence Detector<a class="headerlink" href="#example-convergence-detector" title="Link to this heading">¶</a></h3>
+<p>Detect when optimization has stagnated. Note that a built-in <cite>Convergence</cite> analyzer
+is now available in <cite>panobbgo.analyzers.convergence</cite>, but here is how you could implement
+a simple version yourself:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ConvergenceDetector</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects convergence and publishes converged event.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check for convergence.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">converged</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Get recent objective values</span>
+        <span class="n">recent_fx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="s1">&#39;fx&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">)</span>
+
+        <span class="c1"># Check standard deviation</span>
+        <span class="n">std</span> <span class="o">=</span> <span class="n">recent_fx</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">std</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">converged</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Convergence detected! std=</span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s1">&#39;converged&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_converged</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;React to convergence (even if detected by another instance).&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Optimization has converged&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The built-in <cite>Convergence</cite> analyzer supports two modes: ‘std’ (standard deviation) and
+‘improv’ (relative improvement). It can be added to your strategy like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers.convergence</span><span class="w"> </span><span class="kn">import</span> <span class="n">Convergence</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Convergence</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;std&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="example-clustering-analyzer">
+<h3>Example: Clustering Analyzer<a class="headerlink" href="#example-clustering-analyzer" title="Link to this heading">¶</a></h3>
+<p>Identify clusters of good points:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">DBSCAN</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ClusterAnalyzer</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Identifies clusters of good solutions.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+                <span class="n">top_fraction</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_samples</span> <span class="o">=</span> <span class="n">min_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_fraction</span> <span class="o">=</span> <span class="n">top_fraction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cluster the best points.&quot;&quot;&quot;</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">50</span><span class="p">:</span>
+            <span class="k">return</span>  <span class="c1"># Need minimum data</span>
+
+        <span class="c1"># Get top fraction of results</span>
+        <span class="n">n_top</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_fraction</span><span class="p">))</span>
+        <span class="n">top_indices</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="s1">&#39;fx&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span><span class="o">.</span><span class="n">nsmallest</span><span class="p">(</span><span class="n">n_top</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+
+        <span class="c1"># Extract coordinates</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">top_indices</span><span class="p">,</span> <span class="p">[(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)]]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="c1"># Cluster</span>
+        <span class="n">clustering</span> <span class="o">=</span> <span class="n">DBSCAN</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_samples</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">clustering</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="c1"># Identify cluster centers</span>
+        <span class="n">n_clusters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">labels</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">cluster_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_clusters</span><span class="p">):</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">labels</span> <span class="o">==</span> <span class="n">cluster_id</span>
+            <span class="n">cluster_points</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="n">cluster_points</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clusters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">center</span><span class="p">)</span>
+
+        <span class="c1"># Publish event</span>
+        <span class="k">if</span> <span class="n">n_clusters</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s1">&#39;clusters_found&#39;</span><span class="p">,</span>
+                                 <span class="n">centers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">clusters</span><span class="p">,</span>
+                                 <span class="n">n_clusters</span><span class="o">=</span><span class="n">n_clusters</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="registering-your-analyzer">
+<h3>Registering Your Analyzer<a class="headerlink" href="#registering-your-analyzer" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConvergenceDetector</span><span class="p">,</span> <span class="n">ClusterAnalyzer</span>
+
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">ConvergenceDetector</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">ClusterAnalyzer</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="c1"># ... add heuristics ...</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="adding-a-custom-strategy">
+<h2>Adding a Custom Strategy<a class="headerlink" href="#adding-a-custom-strategy" title="Link to this heading">¶</a></h2>
+<section id="id2">
+<h3>Basic Template<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBase</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyStrategy</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Brief description of strategy.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Initialize strategy-specific state</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate next batch of points to evaluate.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of Point objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Your logic to select heuristics and get points</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+            <span class="n">pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">points</span>
+</pre></div>
+</div>
+</section>
+<section id="example-epsilon-greedy-strategy">
+<h3>Example: Epsilon-Greedy Strategy<a class="headerlink" href="#example-epsilon-greedy-strategy" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">StrategyEpsilonGreedy</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Epsilon-greedy heuristic selection.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">epsilon</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize performance tracking.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+            <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="n">h</span><span class="o">.</span><span class="n">n_selected</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select heuristics epsilon-greedily.&quot;&quot;&quot;</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">:</span>
+                <span class="c1"># Explore: random heuristic</span>
+                <span class="n">h</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Exploit: best performing heuristic</span>
+                <span class="n">h</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="n">h</span><span class="o">.</span><span class="n">performance</span><span class="p">)</span>
+
+            <span class="n">h</span><span class="o">.</span><span class="n">n_selected</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">target</span> <span class="o">//</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">)))</span>
+            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">points</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reward the heuristic that found the best.&quot;&quot;&quot;</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+        <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="mf">1.0</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="defining-a-custom-problem">
+<h2>Defining a Custom Problem<a class="headerlink" href="#defining-a-custom-problem" title="Link to this heading">¶</a></h2>
+<section id="problem-with-external-simulation">
+<h3>Problem with External Simulation<a class="headerlink" href="#problem-with-external-simulation" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CFDSimulation</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Aerodynamic optimization using CFD simulation.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># 5 design parameters</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>   <span class="c1"># Parameter 1</span>
+            <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>   <span class="c1"># Parameter 2</span>
+            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">],</span>  <span class="c1"># Parameter 3 (angle)</span>
+            <span class="p">[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>  <span class="c1"># Parameter 4</span>
+            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]</span>    <span class="c1"># Parameter 5</span>
+        <span class="p">]))</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run CFD simulation and return drag coefficient.&quot;&quot;&quot;</span>
+        <span class="c1"># Create temporary directory for simulation</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
+            <span class="c1"># Write input file</span>
+            <span class="n">input_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s1">&#39;input.dat&#39;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Run simulation</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s1">&#39;./cfd_solver&#39;</span><span class="p">,</span> <span class="n">input_file</span><span class="p">],</span>
+                    <span class="n">cwd</span><span class="o">=</span><span class="n">tmpdir</span><span class="p">,</span>
+                    <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span>  <span class="c1"># 10 minute timeout</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Parse output</span>
+                <span class="n">output_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">,</span> <span class="s1">&#39;output.dat&#39;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">drag</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+                <span class="k">return</span> <span class="n">drag</span>
+
+            <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">TimeoutExpired</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Simulation timeout at x=</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="mf">1e10</span>  <span class="c1"># Penalty value</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Simulation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="mf">1e10</span>
+</pre></div>
+</div>
+</section>
+<section id="problem-with-complex-constraints">
+<h3>Problem with Complex Constraints<a class="headerlink" href="#problem-with-complex-constraints" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">StructuralDesign</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Structural optimization with stress and deflection constraints.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">max_deflection</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># 8 structural members</span>
+        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">))</span>  <span class="c1"># Cross-sections</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_stress</span> <span class="o">=</span> <span class="n">max_stress</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_deflection</span> <span class="o">=</span> <span class="n">max_deflection</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Minimize weight of structure.&quot;&quot;&quot;</span>
+        <span class="n">density</span> <span class="o">=</span> <span class="mi">7850</span>  <span class="c1"># kg/m^3 (steel)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="mf">1.0</span>    <span class="c1"># m</span>
+
+        <span class="c1"># Weight = sum of (area * length * density)</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">length</span> <span class="o">*</span> <span class="n">density</span>
+        <span class="k">return</span> <span class="n">weight</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute stress and deflection violations.&quot;&quot;&quot;</span>
+        <span class="c1"># Simplified structural analysis (replace with FEA)</span>
+        <span class="n">stress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_stress</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">deflection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_deflection</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Constraint violations</span>
+        <span class="n">g1</span> <span class="o">=</span> <span class="n">stress</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_stress</span>
+        <span class="n">g2</span> <span class="o">=</span> <span class="n">deflection</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_deflection</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g1</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g2</span><span class="p">)])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum stress (simplified).&quot;&quot;&quot;</span>
+        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>  <span class="c1"># N</span>
+        <span class="n">min_area</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="n">stress</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="n">min_area</span> <span class="k">if</span> <span class="n">min_area</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
+        <span class="k">return</span> <span class="n">stress</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_deflection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum deflection (simplified).&quot;&quot;&quot;</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="mf">200e9</span>  <span class="c1"># Pa (Young&#39;s modulus)</span>
+        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="mi">12</span>  <span class="c1"># Moment of inertia</span>
+        <span class="n">deflection</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">I</span><span class="p">)</span> <span class="k">if</span> <span class="n">I</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
+        <span class="k">return</span> <span class="n">deflection</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="custom-events-and-communication">
+<h2>Custom Events and Communication<a class="headerlink" href="#custom-events-and-communication" title="Link to this heading">¶</a></h2>
+<section id="publishing-custom-events">
+<h3>Publishing Custom Events<a class="headerlink" href="#publishing-custom-events" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="c1"># Detect interesting pattern</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+            <span class="n">best_10</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s1">&#39;top_ten_found&#39;</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="n">best_10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="subscribing-to-custom-events">
+<h3>Subscribing to Custom Events<a class="headerlink" href="#subscribing-to-custom-events" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyAnalyzer</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_top_ten_found</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;React to custom event.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received top 10 results&quot;</span><span class="p">)</span>
+        <span class="c1"># Process results...</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="integration-with-external-tools">
+<h2>Integration with External Tools<a class="headerlink" href="#integration-with-external-tools" title="Link to this heading">¶</a></h2>
+<section id="exporting-results-to-csv">
+<h3>Exporting Results to CSV<a class="headerlink" href="#exporting-results-to-csv" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># After optimization</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;results.csv&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="loading-previous-results">
+<h3>Loading Previous Results<a class="headerlink" href="#loading-previous-results" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+
+<span class="c1"># Load CSV</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;previous_results.csv&#39;</span><span class="p">)</span>
+
+<span class="c1"># Convert to Result objects</span>
+<span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">row</span><span class="p">[[</span><span class="sa">f</span><span class="s1">&#39;x_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">fx</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;fx&#39;</span><span class="p">]</span>
+    <span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="o">=</span><span class="s1">&#39;loaded&#39;</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">fx</span><span class="p">,</span> <span class="n">cv_vec</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+<span class="c1"># Add to new optimization</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">add_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="visualization">
+<h3>Visualization<a class="headerlink" href="#visualization" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes3D</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_2d_results</span><span class="p">(</span><span class="n">strategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot results for 2D problem.&quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
+
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">x1</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">fx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[(</span><span class="s1">&#39;fx&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+    <span class="n">scatter</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">fx</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span>
+                        <span class="n">s</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scatter</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;f(x)&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Mark best point</span>
+    <span class="n">best</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">best</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span>
+               <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">edgecolors</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span>
+               <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Best&#39;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x0&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Optimization Results&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
+<section id="for-heuristics">
+<h3>For Heuristics<a class="headerlink" href="#for-heuristics" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Respect the queue capacity</strong>: Don’t emit too many points at once</p></li>
+<li><p><strong>Use event handlers appropriately</strong>: <code class="docutils literal notranslate"><span class="pre">on_start</span></code> for initialization, <code class="docutils literal notranslate"><span class="pre">on_new_best</span></code> for exploitation</p></li>
+<li><p><strong>Handle edge cases</strong>: Empty queues, degenerate geometries</p></li>
+<li><p><strong>Log informatively</strong>: Help users understand what the heuristic is doing</p></li>
+<li><p><strong>Make it configurable</strong>: Parameters should be adjustable</p></li>
+</ol>
+</section>
+<section id="for-analyzers">
+<h3>For Analyzers<a class="headerlink" href="#for-analyzers" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Be efficient</strong>: Analyzers run on every result update</p></li>
+<li><p><strong>Maintain consistent state</strong>: Thread-safe if needed</p></li>
+<li><p><strong>Publish meaningful events</strong>: Help heuristics make better decisions</p></li>
+<li><p><strong>Document events</strong>: Describe parameters and semantics</p></li>
+</ol>
+</section>
+<section id="for-strategies">
+<h3>For Strategies<a class="headerlink" href="#for-strategies" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Balance heuristics</strong>: Ensure all get chances to contribute</p></li>
+<li><p><strong>Respect budget</strong>: Don’t request more points than needed</p></li>
+<li><p><strong>Handle edge cases</strong>: No heuristics, empty queues</p></li>
+<li><p><strong>Track performance</strong>: Enable adaptive behavior</p></li>
+</ol>
+</section>
+</section>
+<section id="testing-your-extensions">
+<h2>Testing Your Extensions<a class="headerlink" href="#testing-your-extensions" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.round_robin</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyHeuristic</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_my_heuristic</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test custom heuristic.&quot;&quot;&quot;</span>
+    <span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRoundRobin</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+    <span class="c1"># Add heuristic</span>
+    <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">MyHeuristic</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+
+    <span class="c1"># Get heuristic instance</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">heuristics</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">h</span><span class="o">.</span><span class="n">my_param</span> <span class="o">==</span> <span class="mf">2.0</span>
+
+    <span class="c1"># Trigger start</span>
+    <span class="n">h</span><span class="o">.</span><span class="n">__start__</span><span class="p">()</span>
+
+    <span class="c1"># Check point generation</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Point</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">)</span>
+
+    <span class="c1"># Check bounds</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="contributing-back">
+<h2>Contributing Back<a class="headerlink" href="#contributing-back" title="Link to this heading">¶</a></h2>
+<p>If you develop useful extensions, consider contributing them to Panobbgo:</p>
+<ol class="arabic simple">
+<li><p>Fork the repository: <a class="reference external" href="https://github.com/haraldschilly/panobbgo">https://github.com/haraldschilly/panobbgo</a></p></li>
+<li><p>Create a feature branch</p></li>
+<li><p>Add your component with tests and documentation</p></li>
+<li><p>Submit a pull request</p></li>
+</ol>
+<p>See the project’s CONTRIBUTING guide for details.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Extending Panobbgo</a><ul>
+<li><a class="reference internal" href="#adding-a-custom-heuristic">Adding a Custom Heuristic</a><ul>
+<li><a class="reference internal" href="#basic-template">Basic Template</a></li>
+<li><a class="reference internal" href="#example-gradient-sampling">Example: Gradient Sampling</a></li>
+<li><a class="reference internal" href="#example-particle-swarm-component">Example: Particle Swarm Component</a></li>
+<li><a class="reference internal" href="#registering-your-heuristic">Registering Your Heuristic</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-a-custom-analyzer">Adding a Custom Analyzer</a><ul>
+<li><a class="reference internal" href="#id1">Basic Template</a></li>
+<li><a class="reference internal" href="#example-convergence-detector">Example: Convergence Detector</a></li>
+<li><a class="reference internal" href="#example-clustering-analyzer">Example: Clustering Analyzer</a></li>
+<li><a class="reference internal" href="#registering-your-analyzer">Registering Your Analyzer</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-a-custom-strategy">Adding a Custom Strategy</a><ul>
+<li><a class="reference internal" href="#id2">Basic Template</a></li>
+<li><a class="reference internal" href="#example-epsilon-greedy-strategy">Example: Epsilon-Greedy Strategy</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#defining-a-custom-problem">Defining a Custom Problem</a><ul>
+<li><a class="reference internal" href="#problem-with-external-simulation">Problem with External Simulation</a></li>
+<li><a class="reference internal" href="#problem-with-complex-constraints">Problem with Complex Constraints</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#custom-events-and-communication">Custom Events and Communication</a><ul>
+<li><a class="reference internal" href="#publishing-custom-events">Publishing Custom Events</a></li>
+<li><a class="reference internal" href="#subscribing-to-custom-events">Subscribing to Custom Events</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#integration-with-external-tools">Integration with External Tools</a><ul>
+<li><a class="reference internal" href="#exporting-results-to-csv">Exporting Results to CSV</a></li>
+<li><a class="reference internal" href="#loading-previous-results">Loading Previous Results</a></li>
+<li><a class="reference internal" href="#visualization">Visualization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#best-practices">Best Practices</a><ul>
+<li><a class="reference internal" href="#for-heuristics">For Heuristics</a></li>
+<li><a class="reference internal" href="#for-analyzers">For Analyzers</a></li>
+<li><a class="reference internal" href="#for-strategies">For Strategies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#testing-your-extensions">Testing Your Extensions</a></li>
+<li><a class="reference internal" href="#contributing-back">Contributing Back</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="guide_usage.html"
+                          title="previous chapter">Usage Guide</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="guide_research.html"
+                          title="next chapter">Research Context and Future Directions</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/guide_extending.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_research.html" title="Research Context and Future Directions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="guide_usage.html" title="Usage Guide"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Extending Panobbgo</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

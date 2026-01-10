@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>User Interface &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Utilities" href="utils.html" />
+    <link rel="prev" title="Configuration" href="config.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="Utilities"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="config.html" title="Configuration"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">User Interface</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="user-interface">
+<span id="module-panobbgo.ui"></span><h1>User Interface<a class="headerlink" href="#user-interface" title="Link to this heading">¶</a></h1>
+<p>This draws a window and plots graphs.</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="_images/ui1.png"><img alt="_images/ui1.png" height="359" src="_images/ui1.png" width="722" />
+</a>
+</figure>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.ui.UI">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.ui.</span></span><span class="sig-name descname"><span class="pre">UI</span></span><a class="reference internal" href="_modules/panobbgo/ui.html#UI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Mock_gtk_Window</span></code>, <a class="reference external" href="https://docs.python.org/3.5/library/threading.html#threading.Thread" title="(in Python v3.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Thread</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#str" title="(in Python v3.5)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.add_notebook_page">
+<span class="sig-name descname"><span class="pre">add_notebook_page</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label_text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.add_notebook_page"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.add_notebook_page" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.destroy">
+<span class="sig-name descname"><span class="pre">destroy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">win</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.destroy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.destroy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.finish">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.finish"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.finish" title="Link to this definition">¶</a></dt>
+<dd><p>called by base strategy in _cleanup for shutdown</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.mk_canvas">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">mk_canvas</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.mk_canvas"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.mk_canvas" title="Link to this definition">¶</a></dt>
+<dd><p>Creates a FigureCanvas, ready to be added to a gtk layout element</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.redraw_canvas">
+<span class="sig-name descname"><span class="pre">redraw_canvas</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.redraw_canvas"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.redraw_canvas" title="Link to this definition">¶</a></dt>
+<dd><p>If your canvas needs to be redrawn, pass it into this function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.run" title="Link to this definition">¶</a></dt>
+<dd><p>Method representing the thread’s activity.</p>
+<p>You may override this method in a subclass. The standard run() method
+invokes the callable object passed to the object’s constructor as the
+target argument, if any, with sequential and keyword arguments taken
+from the args and kwargs arguments, respectively.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.ui.UI.show">
+<span class="sig-name descname"><span class="pre">show</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/ui.html#UI.show"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.ui.UI.show" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.ui.gtk_Window">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.ui.</span></span><span class="sig-name descname"><span class="pre">gtk_Window</span></span><a class="headerlink" href="#panobbgo.ui.gtk_Window" title="Link to this definition">¶</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">Mock_gtk_Window</span></code></p>
+</dd></dl>
+
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">User Interface</a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.ui.UI.add_notebook_page"><code class="docutils literal notranslate"><span class="pre">UI.add_notebook_page()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.destroy"><code class="docutils literal notranslate"><span class="pre">UI.destroy()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.finish"><code class="docutils literal notranslate"><span class="pre">UI.finish()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.mk_canvas"><code class="docutils literal notranslate"><span class="pre">UI.mk_canvas()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.redraw_canvas"><code class="docutils literal notranslate"><span class="pre">UI.redraw_canvas()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.run"><code class="docutils literal notranslate"><span class="pre">UI.run()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.ui.UI.show"><code class="docutils literal notranslate"><span class="pre">UI.show()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="config.html"
+                          title="previous chapter">Configuration</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="utils.html"
+                          title="next chapter">Utilities</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/ui.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="Utilities"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="config.html" title="Configuration"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">User Interface</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

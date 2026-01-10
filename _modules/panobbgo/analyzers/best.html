@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>panobbgo.analyzers.best &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../../_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.analyzers.best</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for panobbgo.analyzers.best</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf8 -*-</span>
+<span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
+
+
+<div class="viewcode-block" id="Best">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Best</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Listens on all results, does accounting for &quot;best&quot; results,</span>
+<span class="sd">    manages a pareto front of good points and emits the following events:</span>
+
+<span class="sd">    - ``new_best``: when a new &quot;best&quot; point,</span>
+<span class="sd">    - ``new_min``: a point with smallest objective function value,</span>
+<span class="sd">    - ``new_cv``: one with a smaller</span>
+<span class="sd">      :attr:`~panobbgo.lib.lib.Result.cv`, or</span>
+<span class="sd">    - ``new_pareto``: when a best point on the pareto front of the</span>
+<span class="sd">      objective value and constraint violation</span>
+
+<span class="sd">      has been found.</span>
+
+<span class="sd">    .. Note::</span>
+
+<span class="sd">      `Pareto`: Once the constraint</span>
+<span class="sd">      violation is zero, only the objective function value is considered</span>
+<span class="sd">      and future results with a positive constraint violation are ignored.</span>
+
+<span class="sd">    The best point (pareto) is available via the :attr:`.best` attribute.</span>
+<span class="sd">    There is also :attr:`.cv`, :attr:`.min` and :attr:`.pareto`.</span>
+
+<span class="sd">    .. figure:: img/pareto-front.png</span>
+<span class="sd">       :scale: 50 %</span>
+
+<span class="sd">       This is an example of how several pareto fronts progress during the optimization.</span>
+
+<span class="sd">    It also creates UI plots.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
+        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;BEST&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pareto_front</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># this is a heapq, sorted by result.fx</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_init_plot_pareto</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_plot_fx</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_plot_eval</span><span class="p">()]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_plot_fx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.ui</span><span class="w"> </span><span class="kn">import</span> <span class="n">NavigationToolbar</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">gtk</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fx_canvas</span><span class="p">,</span> <span class="n">fig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">mk_canvas</span><span class="p">()</span>
+
+        <span class="c1"># f(x) plot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax_fx</span> <span class="o">=</span> <span class="n">ax_fx</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># from matplotlib.ticker import MultipleLocator</span>
+        <span class="c1"># ax_fx.xaxis.set_major_locator(MultipleLocator(.1))</span>
+        <span class="c1"># ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s2">&quot;major&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s2">&quot;minor&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$f(x)$ and $\|\vec{\mathrm</span><span class="si">{cv}</span><span class="s2">}\|_2$&quot;</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;evaluation&quot;</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;obj. value $f(x)$&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">])</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s2">&quot;symlog&quot;</span><span class="p">,</span> <span class="n">linthreshy</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># for tl in self.ax_fx.get_yticklabels():</span>
+        <span class="c1">#  tl.set_color(&#39;blue&#39;)</span>
+        <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_plot</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax_fx</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="p">[],</span> <span class="p">[],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="p">)</span>
+
+        <span class="c1"># cv plot</span>
+        <span class="c1"># self.ax_cv = ax_cv = self.ax_fx.twinx()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax_cv</span> <span class="o">=</span> <span class="n">ax_cv</span> <span class="o">=</span> <span class="n">ax_fx</span>
+        <span class="c1"># ax_cv.yaxis.tick_right()</span>
+        <span class="c1"># ax_cv.grid(True, which=&quot;major&quot;, ls=&quot;--&quot;, color=&quot;red&quot;)</span>
+        <span class="c1"># ax_cv.grid(True, which=&quot;minor&quot;, ls=&quot;.&quot;, color=&quot;red&quot;)</span>
+        <span class="c1"># ax_cv.set_ylabel(r&#39;constr. viol. $\|\vec{\mathrm{cv}}\|_2$&#39;,</span>
+        <span class="c1"># color=&#39;red&#39;)</span>
+        <span class="n">ax_fx</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$f(x)-min(f(x))$ and $\|\vec{\mathrm</span><span class="si">{cv}</span><span class="s2">}\|_2$&quot;</span><span class="p">)</span>
+        <span class="c1"># , color=&quot;blue&quot;)</span>
+        <span class="n">ax_cv</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">])</span>
+        <span class="c1"># ax_cv.set_yscale(&#39;symlog&#39;, linthreshy=0.001)</span>
+        <span class="n">ax_cv</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># for tl in self.ax_cv.get_yticklabels():</span>
+        <span class="c1">#  tl.set_color(&#39;red&#39;)</span>
+        <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_plot</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax_cv</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="p">[],</span> <span class="p">[],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.widgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cursor</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fx_cursor</span> <span class="o">=</span> <span class="n">Cursor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ax_cv</span><span class="p">,</span> <span class="n">useblit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="n">vbox</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">VBox</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fx_canvas</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span> <span class="o">=</span> <span class="n">NavigationToolbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fx_canvas</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="n">vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;f(x)&quot;</span><span class="p">,</span> <span class="n">vbox</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_plot_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.ui</span><span class="w"> </span><span class="kn">import</span> <span class="n">NavigationToolbar</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">colorbar</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">gtk</span>
+
+        <span class="n">mx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+        <span class="n">vbox</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">VBox</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mx</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">vbox</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="s2">&quot;not enough dimensions&quot;</span><span class="p">))</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_canvas</span><span class="p">,</span> <span class="n">fig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">mk_canvas</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_cb_ax</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">colorbar</span><span class="o">.</span><span class="n">make_axes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="p">)</span>
+
+        <span class="n">spinner_hbox</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">HBox</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">FALSE</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">mk_cb</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+            <span class="n">cb</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">combo_box_new_text</span><span class="p">()</span>
+            <span class="p">[</span><span class="n">cb</span><span class="o">.</span><span class="n">append_text</span><span class="p">(</span><span class="s2">&quot;Axis </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">mx</span><span class="p">)]</span>
+            <span class="n">cb</span><span class="o">.</span><span class="n">set_active</span><span class="p">(</span><span class="n">mk_cb</span><span class="o">.</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">mk_cb</span><span class="o">.</span><span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">spinner_hbox</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gtk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
+            <span class="n">spinner_hbox</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">cb</span>
+
+        <span class="n">mk_cb</span><span class="o">.</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">cb_0</span> <span class="o">=</span> <span class="n">mk_cb</span><span class="p">(</span><span class="s2">&quot;X Coord:&quot;</span><span class="p">)</span>
+        <span class="n">cb_1</span> <span class="o">=</span> <span class="n">mk_cb</span><span class="p">(</span><span class="s2">&quot;Y Coord:&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="p">[</span><span class="n">cb_0</span><span class="p">,</span> <span class="n">cb_1</span><span class="p">]:</span>
+            <span class="n">cb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;changed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_eval_spinner</span><span class="p">,</span> <span class="n">cb_0</span><span class="p">,</span> <span class="n">cb_1</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_btn</span> <span class="o">=</span> <span class="n">btn</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="s2">&quot;Redraw&quot;</span><span class="p">)</span>
+        <span class="n">btn</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;clicked&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_eval_spinner</span><span class="p">,</span> <span class="n">cb_0</span><span class="p">,</span> <span class="n">cb_1</span><span class="p">)</span>
+        <span class="n">spinner_hbox</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">btn</span><span class="p">)</span>
+
+        <span class="n">vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_canvas</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="n">spinner_hbox</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span> <span class="o">=</span> <span class="n">NavigationToolbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_canvas</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="n">vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Values&quot;</span><span class="p">,</span> <span class="n">vbox</span>
+
+<div class="viewcode-block" id="Best.on_finished">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_finished">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;eval_btn&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eval_btn</span><span class="o">.</span><span class="n">clicked</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Best.on_eval_spinner">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_eval_spinner">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_eval_spinner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">widget</span><span class="p">,</span> <span class="n">cb0</span><span class="p">,</span> <span class="n">cb1</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">colorbar</span>
+
+        <span class="n">cx</span> <span class="o">=</span> <span class="n">cb0</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
+        <span class="n">cy</span> <span class="o">=</span> <span class="n">cb1</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cx</span> <span class="o">==</span> <span class="n">cy</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;eval plot: cx == cy and discarded&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">px</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># self.problem.ranges[cx] / 10.</span>
+        <span class="n">py</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># self.problem.ranges[cy] / 10.</span>
+        <span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">cx</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">cy</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">=</span> <span class="n">xmin</span> <span class="o">-</span> <span class="n">px</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">+</span> <span class="n">px</span>
+        <span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">=</span> <span class="n">ymin</span> <span class="o">-</span> <span class="n">py</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">+</span> <span class="n">py</span>
+
+        <span class="n">rslts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">cx</span><span class="p">],</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">cy</span><span class="p">],</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span><span class="p">]))</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">rslts</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="n">yi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="c1"># grid the data.</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.mlab</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span>
+
+        <span class="n">zi</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">yi</span><span class="p">,</span> <span class="n">interp</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+        <span class="c1"># ci = griddata(x,y,c,xi,yi,interp=&#39;linear&#39;)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_cb_ax</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;grey&quot;</span><span class="p">)</span>
+        <span class="c1"># contour the gridded data</span>
+        <span class="c1"># constraint violation</span>
+        <span class="c1"># self.eval_ax.contourf(xi, yi, ci, 10, colors=&#39;k&#39;, zorder=5, alpha=.5, levels=[0,1])</span>
+        <span class="c1"># f(x)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">yi</span><span class="p">,</span> <span class="n">zi</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.pylab</span><span class="w"> </span><span class="kn">import</span> <span class="n">cm</span>
+
+        <span class="n">cf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">yi</span><span class="p">,</span> <span class="n">zi</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cm</span><span class="o">.</span><span class="n">jet</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">cb</span> <span class="o">=</span> <span class="n">colorbar</span><span class="o">.</span><span class="n">Colorbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_cb_ax</span><span class="p">,</span> <span class="n">cf</span><span class="p">)</span>
+        <span class="n">cf</span><span class="o">.</span><span class="n">colorbar</span> <span class="o">=</span> <span class="n">cb</span>
+
+        <span class="c1"># plot data points</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">((</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">((</span><span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_canvas</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_fx_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plt</span><span class="p">,</span> <span class="n">ax</span><span class="p">,</span> <span class="n">xval</span><span class="p">,</span> <span class="n">yval</span><span class="p">):</span>
+        <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">get_xdata</span><span class="p">(),</span> <span class="n">xval</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">xval</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">xx</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="o">-</span> <span class="n">xval</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">xx</span><span class="p">]</span>
+        <span class="n">yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">get_ydata</span><span class="p">(),</span> <span class="n">yval</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">yval</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">yy</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="o">-</span> <span class="n">yval</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">yy</span><span class="p">]</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">set_xdata</span><span class="p">(</span><span class="n">xx</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">yy</span><span class="p">)</span>
+        <span class="n">ylim</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="mi">0</span><span class="p">,</span>  <span class="c1"># min(ax.get_ylim()[0], yval),</span>
+            <span class="nb">max</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">max</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">get_ydata</span><span class="p">())),</span>
+        <span class="p">]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">ylim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fx_canvas</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_plot_pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.ui</span><span class="w"> </span><span class="kn">import</span> <span class="n">NavigationToolbar</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.widgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cursor</span><span class="p">,</span> <span class="n">Slider</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.axes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">gtk</span>
+        <span class="c1"># view = gtk.TextView()</span>
+        <span class="c1"># view.set_cursor_visible(False)</span>
+        <span class="c1"># view.set_editable(False)</span>
+        <span class="c1"># buffer = view.get_buffer()</span>
+        <span class="c1"># iter = buffer.get_iter_at_offset(0)</span>
+        <span class="c1"># for i in range(100):</span>
+        <span class="c1">#  buffer.insert(iter, &quot; &quot; * i + &quot;Line %d\n&quot; % i)</span>
+        <span class="c1"># scrolled_window = gtk.ScrolledWindow()</span>
+        <span class="c1"># scrolled_window.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)</span>
+        <span class="c1"># scrolled_window.add(view)</span>
+        <span class="c1"># return &quot;Pareto&quot;, scrolled_window</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">,</span> <span class="n">fig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">mk_canvas</span><span class="p">()</span>
+
+        <span class="c1"># self.pf_ax = pf_ax = fig.add_subplot(1,1,1)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_ax</span> <span class="o">=</span> <span class="n">pf_ax</span> <span class="o">=</span> <span class="n">Axes</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">])</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">add_axes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_ax</span><span class="p">)</span>
+
+        <span class="n">pf_ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;grey&quot;</span><span class="p">)</span>
+        <span class="n">pf_ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Pareto Front&quot;</span><span class="p">)</span>
+        <span class="n">pf_ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;constr. violation&quot;</span><span class="p">)</span>
+        <span class="n">pf_ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;obj. value&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt_pnts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_plt</span><span class="p">,)</span> <span class="o">=</span> <span class="n">pf_ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_cursor</span> <span class="o">=</span> <span class="n">Cursor</span><span class="p">(</span><span class="n">pf_ax</span><span class="p">,</span> <span class="n">useblit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="n">axcolor</span> <span class="o">=</span> <span class="s2">&quot;lightgoldenrodyellow&quot;</span>
+        <span class="n">pf_slider_ax</span> <span class="o">=</span> <span class="n">Axes</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">],</span> <span class="n">axisbg</span><span class="o">=</span><span class="n">axcolor</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">add_axes</span><span class="p">(</span><span class="n">pf_slider_ax</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">*</span> <span class="mf">1.1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_slider</span> <span class="o">=</span> <span class="n">Slider</span><span class="p">(</span><span class="n">pf_slider_ax</span><span class="p">,</span> <span class="s2">&quot;#&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">valfmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">valinit</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_slider</span><span class="o">.</span><span class="n">on_changed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">on_pf_slide</span><span class="p">)</span>
+
+        <span class="n">pf_vbox</span> <span class="o">=</span> <span class="n">gtk</span><span class="o">.</span><span class="n">VBox</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">pf_vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span> <span class="o">=</span> <span class="n">NavigationToolbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="n">pf_vbox</span><span class="o">.</span><span class="n">pack_start</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toolbar</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Pareto&quot;</span><span class="p">,</span> <span class="n">pf_vbox</span>
+
+<div class="viewcode-block" id="Best.on_pf_slide">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_pf_slide">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_pf_slide</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt</span><span class="o">.</span><span class="n">set_xdata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_plt_pnts</span><span class="p">[:</span><span class="n">val</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_plt_pnts</span><span class="p">[:</span><span class="n">val</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">best</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Currently best :class:`~panobbgo.lib.lib.Result`.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">          At the moment, this is :attr:`.pareto` but might change.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The point with currently minimal constraint violation, likely 0.0.</span>
+<span class="sd">        If there are several points with the same minimal constraint violation,</span>
+<span class="sd">        the value of the objective function is a secondary selection argument.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">min</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The point, with currently smallest objective function value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pareto_front</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is the list of points building the current pareto front.</span>
+
+<span class="sd">        .. Note::</span>
+
+<span class="sd">          This is a shallow copy.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto_front</span><span class="p">[:]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update the pareto front with this new @result.</span>
+
+<span class="sd">        Either ignore it, or add it to the front and remove</span>
+<span class="sd">        all points from the front which are obsolete.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Note: result.pp returns np.array([cv, fx])</span>
+        <span class="c1"># add the new point</span>
+        <span class="n">pf_old</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span>
+
+        <span class="c1"># old code for convex front, below the one for a monotone step function</span>
+        <span class="c1"># from utils import is_left</span>
+        <span class="c1"># pf = self.pareto_front</span>
+        <span class="c1"># pf needs to be sorted</span>
+        <span class="c1"># pf.append(result)</span>
+        <span class="c1"># pf = sorted(pf)</span>
+        <span class="c1"># ... and re-calculate the front</span>
+        <span class="c1"># new_front = pf[:1]</span>
+        <span class="c1"># for p in pf[1:]:</span>
+        <span class="c1">#  new_front.append(p)</span>
+        <span class="c1"># next point needs to be left (smaller cv) and and above (higher fx)</span>
+        <span class="c1">#  while len(new_front) &gt; 1 and new_front[-1].cv &gt;= new_front[-2].cv:</span>
+        <span class="c1">#    del new_front[-1]</span>
+        <span class="c1"># always a &quot;right turn&quot;, concerning the &quot;.pp&quot; pareto points</span>
+        <span class="c1">#  while len(new_front) &gt; 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):</span>
+        <span class="c1">#    del new_front[-2]</span>
+
+        <span class="c1"># stepwise monotone decreasing pareto front</span>
+        <span class="n">pf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span>
+        <span class="n">pf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="n">pf</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pf</span><span class="p">)</span>
+        <span class="n">pf_new</span> <span class="o">=</span> <span class="p">[</span><span class="n">pf</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="k">for</span> <span class="n">pp</span> <span class="ow">in</span> <span class="n">pf</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="k">if</span> <span class="n">pf_new</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">cv</span><span class="p">:</span>
+                <span class="n">pf_new</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pp</span><span class="p">)</span>
+
+        <span class="n">new_front</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pf_new</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pareto_front</span> <span class="o">=</span> <span class="n">new_front</span>
+        <span class="k">if</span> <span class="n">pf_old</span> <span class="o">!=</span> <span class="n">new_front</span><span class="p">:</span>
+            <span class="c1"># TODO remove this check</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_pareto_front</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;pareto: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">[(</span><span class="n">x</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto_front&quot;</span><span class="p">,</span> <span class="n">front</span><span class="o">=</span><span class="n">new_front</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_pareto_front</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        just used for testing</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span>
+        <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pf</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">pf</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="k">assert</span> <span class="n">p1</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;=</span> <span class="n">p2</span><span class="o">.</span><span class="n">fx</span><span class="p">,</span> <span class="s2">&quot;fx &gt; fx for </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">p1</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;=</span> <span class="n">p2</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="s2">&quot;cv &lt; cv for </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">)</span>
+        <span class="c1"># if len(pf) &gt;= 3:</span>
+        <span class="c1">#  from utils import is_left</span>
+        <span class="c1">#  for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):</span>
+        <span class="c1">#    if is_left(p1.pp, p2.pp, p3.pp):</span>
+        <span class="c1"># self.logger.critical(&#39;is_left %s&#39; % map(lambda _:_.pp, [p1, p2, p3]))</span>
+
+<div class="viewcode-block" id="Best.on_new_results">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_results">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">fx</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">cv</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="c1"># self.logger.info(u&quot;\u2318 %s by %s&quot; %(r, r.who))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="o">=</span> <span class="n">r</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_min&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">cv</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">cv</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="o">=</span> <span class="n">r</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_cv&quot;</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+
+            <span class="c1"># the pareto is weighted by the _min.cv and _cv.fx values</span>
+            <span class="c1"># if pareto.cv is 0.0, then just the fx value counts</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">fx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">cv</span><span class="p">])</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">fx</span> <span class="o">&gt;</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+                    <span class="ow">and</span> <span class="n">weight</span><span class="o">.</span><span class="n">dot</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">fx</span><span class="p">])</span>
+                    <span class="o">&gt;</span> <span class="n">weight</span><span class="o">.</span><span class="n">dot</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">])</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="n">r</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto&quot;</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_best&quot;</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_pareto</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_pf_plot</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Best.on_new_pareto">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pareto</span><span class="p">):</span>
+        <span class="c1"># self.logger.info(&quot;pareto: %s&quot; % pareto)</span>
+        <span class="k">pass</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_pf_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;pf_plt&quot;</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="n">plt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt</span>
+        <span class="n">pnts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt_pnts</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="n">pnts</span><span class="p">]</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">pp</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+        <span class="n">pnts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_plt_pnts</span> <span class="o">=</span> <span class="n">pnts</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">set_xdata</span><span class="p">(</span><span class="n">pnts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">pnts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Best.on_new_pareto_front">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto_front">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_pareto_front</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">front</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;pf_ax&quot;</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="c1"># self.ax1.clear()</span>
+        <span class="n">pnts</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">pp</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">front</span><span class="p">]</span>
+        <span class="c1"># insert points to make a staircase</span>
+        <span class="n">inserts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pnts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">pnts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="n">inserts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p2</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">all_pnts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inserts</span><span class="p">)):</span>
+            <span class="n">all_pnts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pnts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">all_pnts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inserts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">all_pnts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pnts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">all_pnts</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>  <span class="c1"># ms = ?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pf_ax</span><span class="o">.</span><span class="n">autoscale</span><span class="p">()</span>  <span class="c1"># TODO get rid of autoscale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ui</span><span class="o">.</span><span class="n">redraw_canvas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pf_canvas</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Best.on_new_cv">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_cv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;cv_plot&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_fx_plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_plot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax_cv</span><span class="p">,</span> <span class="n">cv</span><span class="o">.</span><span class="n">cnt</span><span class="p">,</span> <span class="n">cv</span><span class="o">.</span><span class="n">cv</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Best.on_new_min">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_min">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">min</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;min_plot&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_fx_plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_plot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax_fx</span><span class="p">,</span> <span class="nb">min</span><span class="o">.</span><span class="n">cnt</span><span class="p">,</span> <span class="nb">min</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.analyzers.best</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

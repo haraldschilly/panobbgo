@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Classic Problems &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Library Classes" href="lib.html" />
+    <link rel="prev" title="Utilities" href="utils.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lib.html" title="Library Classes"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="Utilities"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Classic Problems</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="classic-problems">
+<span id="module-panobbgo.lib.classic"></span><h1>Classic Problems<a class="headerlink" href="#classic-problems" title="Link to this heading">¶</a></h1>
+<p>This file contains the basic objects to build a problem and to do a single evaluation.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Arwhead">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Arwhead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Arwhead"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Arwhead" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>ARWHEAD test problem <a class="reference internal" href="index.html#conn" id="id1"><span>[Conn]</span></a></p>
+<div class="math notranslate nohighlight">
+\[F(x) = \sum_{i=1}^{n-1} \left(x_i^2 + x_n^2)^2 - 4 x_i + 3\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Arwhead.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Arwhead.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Arwhead.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Beale">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Beale</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Beale"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Beale" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Beale function <a class="reference internal" href="index.html#unctest" id="id2"><span>[UncTest]</span></a></p>
+<div class="math notranslate nohighlight">
+\[F(x) = \sum_{i=1}^3 \left( y_i - x_1 ( 1-x_2^i) \right) ^2\]</div>
+<p>where</p>
+<div class="math notranslate nohighlight">
+\[y_1 = 1.5, \, y_2 = 2.25, \, y_3 = 2.625\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Beale.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Beale.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Beale.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Box">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Box" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Box function <a class="reference internal" href="index.html#unctest" id="id3"><span>[UncTest]</span></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>m</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/functions.html#int" title="(in Python v3.5)"><em>int</em></a>) – positive integer (default 1)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Box.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Box.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Box.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Branin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Branin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.12918450914398066</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5915494309189535</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Branin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Branin" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>BRANIN test problem <a class="reference internal" href="index.html#branin" id="id4"><span>[branin]</span></a></p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}F(X) = a(x_2 - b x_1^2 + c x_1 - r)^2 + s(1-t) \cos(x_1) + s\\a = 1,\,b = 5.1 ⁄ (4 π^2),\, c = 5 ⁄ π,\, r = 6,\, s = 10 and t = 1 ⁄ (8π)\end{aligned}\end{align} \]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Branin.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Branin.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Branin.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.DeJong">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">DeJong</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#DeJong"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.DeJong" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>De Jong function:</p>
+<div class="math notranslate nohighlight">
+\[\operatorname{DJ}(x) = c \, \sum_{i=1}^n (x - dx)_i^2\]</div>
+<p>with defaults <span class="math notranslate nohighlight">\(c = 1\)</span> and <span class="math notranslate nohighlight">\(dx = \vec{0}\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.DeJong.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#DeJong.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.DeJong.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.GoldsteinPrice">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">GoldsteinPrice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#GoldsteinPrice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.GoldsteinPrice" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Goldstein-Price test function <a class="reference internal" href="index.html#branin" id="id5"><span>[branin]</span></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.GoldsteinPrice.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#GoldsteinPrice.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.GoldsteinPrice.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.HelicalValley">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">HelicalValley</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#HelicalValley"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.HelicalValley" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Helical valley function <a class="reference internal" href="index.html#unctest" id="id6"><span>[UncTest]</span></a></p>
+<div class="math notranslate nohighlight">
+\[F(x) = \left(10(x_3 - 10 \, \Theta (x_1, x_2) \right)^2 +
+    \left(10 \sqrt{ x_1^2 + x_2^2 } - 1\right)^2 + x_3^2\]</div>
+<p>where</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\Theta(x_1, x_2) =
+    \begin{cases}
+        \frac{1}{2 \pi} \arctan (\frac{x_2}{x_1}),      &amp; \text{if} &amp; x_1 &gt; 0 \\
+        \frac{1}{2 \pi} \arctan (\frac{x_2}{x_1}) + .5, &amp; \text{if} &amp; x_1 &lt; 0
+    \end{cases}\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.HelicalValley.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#HelicalValley.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.HelicalValley.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Himmelblau">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Himmelblau</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Himmelblau"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Himmelblau" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Himmelblau <a class="reference internal" href="index.html#hb" id="id7"><span>[HB]</span></a> testproblem.</p>
+<div class="math notranslate nohighlight">
+\[f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Himmelblau.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Himmelblau.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Himmelblau.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.NesterovQuadratic">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">NesterovQuadratic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonsmooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#NesterovQuadratic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.NesterovQuadratic" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Nesterov’s Quadratic Function <a class="reference internal" href="index.html#nquad" id="id8"><span>[NQuad]</span></a></p>
+<div class="math notranslate nohighlight">
+\[F(x) = \frac{1}{2} \lVert A x - b \rVert_2^2 + \lVert x \rVert_1\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nonsmooth</strong> (<em>boolean</em>) – add the nonsmooth <span class="math notranslate nohighlight">\(\lVert x\rVert_1\)</span> part (default: True)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.NesterovQuadratic.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#NesterovQuadratic.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.NesterovQuadratic.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Powell">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Powell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Powell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Powell" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Powell singular function <a class="reference internal" href="index.html#unctest" id="id9"><span>[UncTest]</span></a></p>
+<div class="math notranslate nohighlight">
+\[P(x) = (x_1 + 10 x_2)^2 +
+       5 (x_3 - x_4)^2 +
+       ((x_2 + 2 x_3)^2)^2 +
+       10 ((x_1 - x_4)^2)^2\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Powell.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Powell.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Powell.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Quadruple">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Quadruple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Quadruple"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Quadruple" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Quadruple Function <a class="reference internal" href="index.html#quadf" id="id10"><span>[QuadF]</span></a></p>
+<div class="math notranslate nohighlight">
+\[Q(x) = c \, \sum_{i=1}^n \left( \frac{x_i - dx}{4} \right)^4\]</div>
+<p>with defaults <span class="math notranslate nohighlight">\(c = 1\)</span> and <span class="math notranslate nohighlight">\(dx = \vec{0}\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Quadruple.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Quadruple.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Quadruple.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Rastrigin">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Rastrigin</span></span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Rastrigin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rastrigin" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<div class="math notranslate nohighlight">
+\[f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Rastrigin.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Rastrigin.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rastrigin.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Rosenbrock">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Rosenbrock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Rosenbrock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Rosenbrock function with parameter <code class="docutils literal notranslate"><span class="pre">par1</span></code>.</p>
+<div class="math notranslate nohighlight">
+\[f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Rosenbrock.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Rosenbrock.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockAbs">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockAbs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockAbs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockAbs" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Absolute Rosenbrock function.</p>
+<div class="math notranslate nohighlight">
+\[f(x) = \sum_i \mathit{par}_1 \Big\lVert x_{i+1} - \lVert x_i \rVert \Big\rVert + \lVert 1 - x_i \rVert\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockAbs.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockAbs.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockAbs.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockAbsConstraint">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockAbsConstraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockAbsConstraint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockAbsConstraint" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Absolute Rosenbrock function.</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\min f(x) &amp; = \sum_i \mathit{par}_1 \Big\lVert x_{i+1} - \lVert x_i \rVert \Big\rVert + \lVert 1 - x_i \rVert \\
+\mathit{s.t.} \;\; &amp; \lVert x_{i+1} - x_{i}\rVert \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                   &amp; x_i \geq 0 \;\;                          \forall i\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockAbsConstraint.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockAbsConstraint.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockAbsConstraint.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockConstraint">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockConstraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockConstraint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockConstraint" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Constraint Rosenbrock function with parameter <code class="docutils literal notranslate"><span class="pre">par1</span></code> and <code class="docutils literal notranslate"><span class="pre">par2</span></code>.</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\min f(x) &amp; = \sum_i \mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2 \\
+\mathit{s.t.} \;\; &amp; (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                   &amp; x_i \geq 0 \;\;                              \forall i\end{split}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockConstraint.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockConstraint.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockConstraint.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockConstraint.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockConstraint.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockStochastic">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockStochastic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jitter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockStochastic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockStochastic" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Stochastic variant of Rosenbrock function.</p>
+<div class="math notranslate nohighlight">
+\[f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathit{eps}_i\)</span> is a uniformly random (n-1)-dimensional
+vector in <span class="math notranslate nohighlight">\(\left[0, 1\right)^{n-1}\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockStochastic.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockStochastic.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockStochastic.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Shekel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Shekel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Shekel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Shekel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Shekel Function <a class="reference internal" href="index.html#sh" id="id11"><span>[SH]</span></a>.</p>
+<p>For <span class="math notranslate nohighlight">\(m\)</span> minima in <span class="math notranslate nohighlight">\(n\)</span> dimensions:</p>
+<div class="math notranslate nohighlight">
+\[f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Shekel.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Shekel.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Shekel.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Step">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Step" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Step function <a class="reference internal" href="index.html#compstudy" id="id12"><span>[CompStudy]</span></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Step.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Step.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Step.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.SumDifferentPower">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">SumDifferentPower</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#SumDifferentPower"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.SumDifferentPower" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Sum of different power function <a class="reference internal" href="index.html#compstudy" id="id13"><span>[CompStudy]</span></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.SumDifferentPower.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#SumDifferentPower.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.SumDifferentPower.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Trigonometric">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Trigonometric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Trigonometric"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Trigonometric" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Trigonometric function <a class="reference internal" href="index.html#unctest" id="id14"><span>[UncTest]</span></a></p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}f_i(x) = n - \sum_{j=1}^{n} \cos x_j  + i (1-\cos x_i)-\sin x_i\\f(x, n) = \sum_{i=1}^{m} f_i^2\end{aligned}\end{align} \]</div>
+<p>with <span class="math notranslate nohighlight">\(n = m\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Trigonometric.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Trigonometric.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Trigonometric.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Wood">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Wood</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Wood"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Wood" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Wood function <a class="reference internal" href="index.html#unctest" id="id15"><span>[UncTest]</span></a></p>
+<blockquote>
+<div><div class="math notranslate nohighlight">
+\[F(x) = 100 (x_2 - x_1^2)^2 + (1-x_1)^2 +
+    90 (x_4-x_3^2)^2 + (1-x_3)^2 +
+    10 (x_2 + x_4 - 2)^2 + 10 (x_2-x_4)^2\]</div>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3.5/library/stdtypes.html#list" title="(in Python v3.5)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Wood.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Wood.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Wood.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Classic Problems</a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead.eval"><code class="docutils literal notranslate"><span class="pre">Arwhead.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Beale.eval"><code class="docutils literal notranslate"><span class="pre">Beale.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Box.eval"><code class="docutils literal notranslate"><span class="pre">Box.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Branin.eval"><code class="docutils literal notranslate"><span class="pre">Branin.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.DeJong.eval"><code class="docutils literal notranslate"><span class="pre">DeJong.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice.eval"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley.eval"><code class="docutils literal notranslate"><span class="pre">HelicalValley.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau.eval"><code class="docutils literal notranslate"><span class="pre">Himmelblau.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic.eval"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Powell.eval"><code class="docutils literal notranslate"><span class="pre">Powell.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple.eval"><code class="docutils literal notranslate"><span class="pre">Quadruple.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin.eval"><code class="docutils literal notranslate"><span class="pre">Rastrigin.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.eval"><code class="docutils literal notranslate"><span class="pre">Rosenbrock.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint.eval_constraints()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint.eval_constraints()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Shekel.eval"><code class="docutils literal notranslate"><span class="pre">Shekel.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Step.eval"><code class="docutils literal notranslate"><span class="pre">Step.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower.eval"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric.eval"><code class="docutils literal notranslate"><span class="pre">Trigonometric.eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Wood.eval"><code class="docutils literal notranslate"><span class="pre">Wood.eval()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="utils.html"
+                          title="previous chapter">Utilities</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="lib.html"
+                          title="next chapter">Library Classes</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/classic.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lib.html" title="Library Classes"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="utils.html" title="Utilities"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Classic Problems</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

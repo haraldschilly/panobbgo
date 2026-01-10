@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Panobbgo User Guide &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Setup and Quick Start Guide" href="guide_setup.html" />
+    <link rel="prev" title="Panobbgo: parallel noisy black-box global optimization" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_setup.html" title="Setup and Quick Start Guide"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Panobbgo: parallel noisy black-box global optimization"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Panobbgo User Guide</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="panobbgo-user-guide">
+<h1>Panobbgo User Guide<a class="headerlink" href="#panobbgo-user-guide" title="Link to this heading">¶</a></h1>
+<p>Welcome to the comprehensive guide for <strong>Panobbgo</strong> (Parallel Noisy Black-Box Global Optimization).</p>
+<p>This guide provides everything you need to understand, use, and extend Panobbgo for your black-box optimization problems.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>Panobbgo is a flexible, modular Python framework for optimizing expensive black-box functions where:</p>
+<ul class="simple">
+<li><p>You can only evaluate the function, not analyze its internal structure</p></li>
+<li><p>Evaluations may be noisy or stochastic</p></li>
+<li><p>You have a limited evaluation budget</p></li>
+<li><p>You can leverage parallel computing resources</p></li>
+<li><p>You may have box constraints and constraint violations</p></li>
+</ul>
+<p>The framework uses an <strong>event-driven architecture</strong> with multiple point generation <strong>heuristics</strong>
+that are coordinated by an adaptive <strong>strategy</strong> implementing a <strong>multi-armed bandit</strong> approach.</p>
+</section>
+<section id="quick-navigation">
+<h2>Quick Navigation<a class="headerlink" href="#quick-navigation" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>Just want to get started?</strong></p></td>
+<td><p>Follow <a class="reference internal" href="guide_setup.html"><span class="doc">Setup and Quick Start Guide</span></a> for a step-by-step setup guide with executable tests</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>New to Panobbgo?</strong></p></td>
+<td><p>Start with <a class="reference internal" href="guide_introduction.html"><span class="doc">Introduction to Panobbgo</span></a> to understand what it does and when to use it</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Want mathematical details?</strong></p></td>
+<td><p>See <a class="reference internal" href="guide_mathematical_foundation.html"><span class="doc">Mathematical Foundation</span></a> for the theory behind the algorithms</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Understanding the design?</strong></p></td>
+<td><p>Read <a class="reference internal" href="guide_architecture.html"><span class="doc">Architecture Overview</span></a> for the system architecture and component interactions</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Ready to use it?</strong></p></td>
+<td><p>Follow <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a> for installation, configuration, and basic examples</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Want to customize?</strong></p></td>
+<td><p>Check <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for adding custom heuristics, analyzers, and problems</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Interested in research?</strong></p></td>
+<td><p>Explore <a class="reference internal" href="guide_research.html"><span class="doc">Research Context and Future Directions</span></a> for related work, theoretical properties, and future directions</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="guide-contents">
+<h2>Guide Contents<a class="headerlink" href="#guide-contents" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#basic-problem-definition">Basic Problem Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#basic-optimization-setup">Basic Optimization Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#using-built-in-problems">Using Built-in Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#constrained-problems">Constrained Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#complete-example">Complete Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html#what-is-panobbgo">What is Panobbgo?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html#the-black-box-optimization-problem">The Black-Box Optimization Problem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html#when-to-use-panobbgo">When to Use Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html#getting-started">Getting Started</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#problem-formulation">Problem Formulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#the-exploration-exploitation-tradeoff">The Exploration-Exploitation Tradeoff</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#multi-armed-bandit-strategy">Multi-Armed Bandit Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#pareto-optimality-for-constrained-problems">Pareto Optimality for Constrained Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#hierarchical-spatial-decomposition">Hierarchical Spatial Decomposition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#convergence-properties">Convergence Properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#high-level-design">High-Level Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#core-components">Core Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#heuristics-point-generators">Heuristics (Point Generators)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#analyzers-result-processors">Analyzers (Result Processors)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#strategies-orchestration">Strategies (Orchestration)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#execution-flow">Execution Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#threading-model">Threading Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#extension-points">Extension Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html#design-principles">Design Principles</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_usage.html">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#defining-custom-problems">Defining Custom Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#choosing-heuristics">Choosing Heuristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#choosing-a-strategy">Choosing a Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#analyzing-results">Analyzing Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#advanced-topics">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#adding-a-custom-heuristic">Adding a Custom Heuristic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#adding-a-custom-analyzer">Adding a Custom Analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#adding-a-custom-strategy">Adding a Custom Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#defining-a-custom-problem">Defining a Custom Problem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#custom-events-and-communication">Custom Events and Communication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#integration-with-external-tools">Integration with External Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#testing-your-extensions">Testing Your Extensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html#contributing-back">Contributing Back</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#inspiration-snobfit">Inspiration: SNOBFIT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#related-algorithms">Related Algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#theoretical-properties">Theoretical Properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#current-research-challenges">Current Research Challenges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#future-directions">Future Directions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#contributing-to-research">Contributing to Research</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#experimental-validation">Experimental Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html#references">References</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="key-concepts">
+<h2>Key Concepts<a class="headerlink" href="#key-concepts" title="Link to this heading">¶</a></h2>
+<p>Before diving in, here are the core concepts you’ll encounter throughout Panobbgo:</p>
+<dl class="simple">
+<dt><strong>Problem</strong></dt><dd><p>The black-box function you want to minimize, defined by its dimensionality and bounding box</p>
+</dd>
+<dt><strong>Point</strong></dt><dd><p>A candidate solution (location in search space) generated by a heuristic</p>
+</dd>
+<dt><strong>Result</strong></dt><dd><p>The outcome of evaluating a Point, including objective value and constraint violations</p>
+</dd>
+<dt><strong>Heuristic</strong></dt><dd><p>A point generation strategy (e.g., random sampling, local search, model-based)</p>
+</dd>
+<dt><strong>Analyzer</strong></dt><dd><p>A module that processes results and maintains derived information (e.g., best points, spatial decomposition)</p>
+</dd>
+<dt><strong>Strategy</strong></dt><dd><p>The orchestrator that coordinates heuristics, manages evaluation, and tracks the optimization budget</p>
+</dd>
+<dt><strong>EventBus</strong></dt><dd><p>The communication backbone enabling decoupled interaction between modules</p>
+</dd>
+<dt><strong>Multi-Armed Bandit</strong></dt><dd><p>The adaptive selection mechanism that learns which heuristics work well for your problem</p>
+</dd>
+</dl>
+</section>
+<section id="typical-workflow">
+<h2>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">¶</a></h2>
+<p>A typical Panobbgo workflow looks like this:</p>
+<ol class="arabic">
+<li><p><strong>Define your problem</strong> by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">my_expensive_function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Choose a strategy</strong> (typically <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code>)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Add heuristics</strong> to create a diverse portfolio</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Run optimization</strong> (local Dask cluster starts automatically)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Analyze results</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best found: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="design-philosophy">
+<h2>Design Philosophy<a class="headerlink" href="#design-philosophy" title="Link to this heading">¶</a></h2>
+<p>Panobbgo’s design is guided by several principles:</p>
+<dl class="simple">
+<dt><strong>Modularity</strong></dt><dd><p>Components are independent and interchangeable. Add, remove, or replace heuristics without affecting others.</p>
+</dd>
+<dt><strong>Extensibility</strong></dt><dd><p>Easy to add custom heuristics, analyzers, or strategies by subclassing base classes.</p>
+</dd>
+<dt><strong>Composability</strong></dt><dd><p>Mix and match components to create custom optimization workflows.</p>
+</dd>
+<dt><strong>Event-Driven</strong></dt><dd><p>Loose coupling through the EventBus—modules communicate without direct dependencies.</p>
+</dd>
+<dt><strong>Parallel-First</strong></dt><dd><p>Built for distributed evaluation on Dask clusters from the ground up.</p>
+</dd>
+<dt><strong>Research-Oriented</strong></dt><dd><p>Designed for experimentation and prototyping new optimization ideas.</p>
+</dd>
+</dl>
+</section>
+<section id="when-to-use-panobbgo">
+<h2>When to Use Panobbgo<a class="headerlink" href="#when-to-use-panobbgo" title="Link to this heading">¶</a></h2>
+<p>Panobbgo excels when you have:</p>
+<p>✓ Expensive function evaluations (seconds to hours per evaluation)</p>
+<p>✓ No access to gradients or derivatives</p>
+<p>✓ Noisy or stochastic evaluations</p>
+<p>✓ Box-constrained search space</p>
+<p>✓ Optional constraint violations to minimize</p>
+<p>✓ Parallel computing resources available</p>
+<p>✓ A research or experimental mindset (willing to tune and customize)</p>
+<p>Common application domains include:</p>
+<ul class="simple">
+<li><p>Hyperparameter optimization for machine learning</p></li>
+<li><p>Simulation calibration and parameter estimation</p></li>
+<li><p>Engineering design optimization (aerodynamics, structures, etc.)</p></li>
+<li><p>Scientific model fitting</p></li>
+<li><p>Industrial process optimization</p></li>
+</ul>
+<section id="when-not-to-use-panobbgo">
+<h3>When NOT to Use Panobbgo<a class="headerlink" href="#when-not-to-use-panobbgo" title="Link to this heading">¶</a></h3>
+<p>Consider alternatives if you have:</p>
+<p>✗ Access to gradients (use gradient-based methods instead)</p>
+<p>✗ Cheap function evaluations (simple methods may suffice)</p>
+<p>✗ Convex problems with known structure (use convex optimization)</p>
+<p>✗ Very high dimensions (&gt;50) without special structure</p>
+<p>✗ Need for out-of-the-box production-ready solver (Panobbgo is research-oriented)</p>
+</section>
+</section>
+<section id="system-requirements">
+<h2>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Python ≥ 3.8</p></li>
+<li><p>NumPy, SciPy, pandas, matplotlib, statsmodels, Dask</p></li>
+<li><p>Dask distributed cluster for parallel evaluation</p></li>
+<li><p>Tested on Linux and macOS (Windows should work but less tested)</p></li>
+</ul>
+</section>
+<section id="community-and-support">
+<h2>Community and Support<a class="headerlink" href="#community-and-support" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Source Code</strong>: <a class="reference external" href="https://github.com/haraldschilly/panobbgo">https://github.com/haraldschilly/panobbgo</a></p></li>
+<li><p><strong>Issue Tracker</strong>: <a class="reference external" href="https://github.com/haraldschilly/panobbgo/issues">https://github.com/haraldschilly/panobbgo/issues</a></p></li>
+<li><p><strong>API Documentation</strong>: <a class="reference external" href="http://haraldschilly.github.com/panobbgo/html/">http://haraldschilly.github.com/panobbgo/html/</a></p></li>
+<li><p><strong>Development Prompt</strong>: See <code class="docutils literal notranslate"><span class="pre">DEVELOPMENT_PROMPT.md</span></code> in repository</p></li>
+</ul>
+</section>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">¶</a></h2>
+<p>Panobbgo is open-source (Apache 2.0 license) and welcomes contributions:</p>
+<ul class="simple">
+<li><p>Bug reports and feature requests</p></li>
+<li><p>New heuristics or analyzers</p></li>
+<li><p>Documentation improvements</p></li>
+<li><p>Benchmarking studies</p></li>
+<li><p>Research collaborations</p></li>
+</ul>
+<p>See the repository for contribution guidelines.</p>
+</section>
+<section id="what-s-next">
+<h2>What’s Next?<a class="headerlink" href="#what-s-next" title="Link to this heading">¶</a></h2>
+<p><strong>If you’re new</strong>: Start with <a class="reference internal" href="guide_introduction.html"><span class="doc">Introduction to Panobbgo</span></a> to understand black-box optimization and Panobbgo’s approach.</p>
+<p><strong>If you want to use it</strong>: Jump to <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a> for installation and examples.</p>
+<p><strong>If you want to extend it</strong>: Go to <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for customization patterns.</p>
+<p><strong>If you’re researching</strong>: Explore <a class="reference internal" href="guide_research.html"><span class="doc">Research Context and Future Directions</span></a> for the academic context and future directions.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Panobbgo User Guide</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#quick-navigation">Quick Navigation</a></li>
+<li><a class="reference internal" href="#guide-contents">Guide Contents</a></li>
+<li><a class="reference internal" href="#key-concepts">Key Concepts</a></li>
+<li><a class="reference internal" href="#typical-workflow">Typical Workflow</a></li>
+<li><a class="reference internal" href="#design-philosophy">Design Philosophy</a></li>
+<li><a class="reference internal" href="#when-to-use-panobbgo">When to Use Panobbgo</a><ul>
+<li><a class="reference internal" href="#when-not-to-use-panobbgo">When NOT to Use Panobbgo</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#system-requirements">System Requirements</a></li>
+<li><a class="reference internal" href="#community-and-support">Community and Support</a></li>
+<li><a class="reference internal" href="#contributing">Contributing</a></li>
+<li><a class="reference internal" href="#what-s-next">What’s Next?</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Panobbgo: <cite>parallel noisy black-box global optimization</cite></a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="guide_setup.html"
+                          title="next chapter">Setup and Quick Start Guide</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/guide.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_setup.html" title="Setup and Quick Start Guide"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Panobbgo: parallel noisy black-box global optimization"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Panobbgo User Guide</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Architecture Overview &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage Guide" href="guide_usage.html" />
+    <link rel="prev" title="Mathematical Foundation" href="guide_mathematical_foundation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_usage.html" title="Usage Guide"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="guide_mathematical_foundation.html" title="Mathematical Foundation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" accesskey="U">Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Architecture Overview</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="architecture-overview">
+<h1>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h1>
+<p>This section describes Panobbgo’s architecture, explaining how the components fit together
+and interact during optimization.</p>
+<section id="high-level-design">
+<h2>High-Level Design<a class="headerlink" href="#high-level-design" title="Link to this heading">¶</a></h2>
+<p>Panobbgo follows an <strong>event-driven, modular architecture</strong> where independent components
+communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a>. This design enables:</p>
+<ul class="simple">
+<li><p><strong>Extensibility</strong>: Add new heuristics or analyzers without modifying existing code</p></li>
+<li><p><strong>Composability</strong>: Mix and match components to create custom optimization strategies</p></li>
+<li><p><strong>Decoupling</strong>: Components don’t depend directly on each other</p></li>
+<li><p><strong>Parallelism</strong>: Events processed asynchronously in separate threads</p></li>
+</ul>
+<section id="data-flow-diagram">
+<h3>Data Flow Diagram<a class="headerlink" href="#data-flow-diagram" title="Link to this heading">¶</a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────┐
+│                         Strategy                            │
+│  ┌─────────────┐      ┌──────────────┐     ┌─────────────┐│
+│  │  Heuristic  │─────▶│ Point Queue  │────▶│  Evaluator  ││
+│  │ (generates) │      │              │     │ (Dask       ││
+│  └─────────────┘      └──────────────┘     │  cluster)   ││
+│         ▲                                   └──────┬──────┘│
+│         │                                          │       │
+│         │                                          ▼       │
+│  ┌──────┴──────┐       ┌──────────────┐    ┌──────────┐  │
+│  │  Analyzer   │◀──────│  EventBus    │◀───│ Results  │  │
+│  │ (processes) │       │ (publishes)  │    │ Database │  │
+│  └─────────────┘       └──────────────┘    └──────────┘  │
+└─────────────────────────────────────────────────────────────┘
+</pre></div>
+</div>
+</section>
+</section>
+<section id="core-components">
+<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
+<section id="strategybase">
+<h3>StrategyBase<a class="headerlink" href="#strategybase" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> is the main orchestrator that:</p>
+<ul class="simple">
+<li><p>Manages the optimization loop</p></li>
+<li><p>Coordinates heuristics, analyzers, and evaluators</p></li>
+<li><p>Tracks budget (number of evaluations)</p></li>
+<li><p>Connects to Dask distributed cluster for parallel evaluation</p></li>
+</ul>
+<p><strong>Key methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(problem,</span> <span class="pre">**kwargs)</span></code>: Initialize with problem definition</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add(Heuristic,</span> <span class="pre">**kwargs)</span></code>: Register a heuristic</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add_analyzer(Analyzer,</span> <span class="pre">**kwargs)</span></code>: Register an analyzer</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start()</span></code>: Run the optimization loop</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">execute()</span></code>: Abstract method to get next points (implemented by subclasses)</p></li>
+</ul>
+<p><strong>Properties:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">best</span></code>: Current best result</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">results</span></code>: The results database</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">heuristics</span></code>: List of registered heuristics</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">analyzers</span></code>: List of registered analyzers</p></li>
+</ul>
+</section>
+<section id="results-database">
+<h3>Results Database<a class="headerlink" href="#results-database" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> stores all evaluated points in a pandas DataFrame.</p>
+<p><strong>Structure:</strong></p>
+<p>The DataFrame uses MultiIndex columns:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\((x_0, x_1, \ldots, x_{n-1})\)</span>: Coordinate values</p></li>
+<li><p><span class="math notranslate nohighlight">\(fx\)</span>: Objective function value</p></li>
+<li><p><span class="math notranslate nohighlight">\((cv_0, cv_1, \ldots, cv_{m-1})\)</span>: Individual constraint violations</p></li>
+<li><p><span class="math notranslate nohighlight">\(cv\)</span>: Total constraint violation (L2 norm)</p></li>
+<li><p><span class="math notranslate nohighlight">\(who\)</span>: Name of heuristic that generated this point</p></li>
+<li><p><span class="math notranslate nohighlight">\(error\)</span>: Estimated error margin</p></li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">add_results(new_results)</span></code>: Add new results and publish <code class="docutils literal notranslate"><span class="pre">new_results</span></code> event</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">__len__()</span></code>: Number of evaluations performed</p></li>
+</ul>
+</section>
+<section id="eventbus">
+<h3>EventBus<a class="headerlink" href="#eventbus" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a> implements the publisher-subscriber pattern.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>Modules define methods named <code class="docutils literal notranslate"><span class="pre">on_&lt;event_name&gt;(self,</span> <span class="pre">**kwargs)</span></code></p></li>
+<li><p>EventBus automatically discovers these methods via introspection</p></li>
+<li><p>When an event is published, all subscribers are notified in separate threads</p></li>
+<li><p>Each subscription runs in a daemon thread to avoid blocking</p></li>
+</ol>
+<p><strong>Common events:</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 40.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Event</p></th>
+<th class="head"><p>Published By</p></th>
+<th class="head"><p>Common Subscribers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">start</span></code></p></td>
+<td><p>Strategy</p></td>
+<td><p>All modules (initialization)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_results</span></code></p></td>
+<td><p>Results</p></td>
+<td><p>Analyzers (Best, Splitter)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">new_best</span></code></p></td>
+<td><p>Best analyzer</p></td>
+<td><p>Heuristics (NelderMead, Nearby)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_min</span></code></p></td>
+<td><p>Best analyzer</p></td>
+<td><p>UI, statistics collectors</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code></p></td>
+<td><p>Splitter analyzer</p></td>
+<td><p>Heuristics (Random)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finished</span></code></p></td>
+<td><p>Strategy</p></td>
+<td><p>All modules (cleanup)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-base-classes">
+<h3>Module Base Classes<a class="headerlink" href="#module-base-classes" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="core.html#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> is the abstract parent for <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a>
+and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a>.</p>
+<p><strong>Lifecycle:</strong></p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__(strategy,</span> <span class="pre">**kwargs)</span></code>: Construction with parameter storage</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">__start__()</span></code>: Called before optimization begins</p></li>
+<li><p>Event handlers: <code class="docutils literal notranslate"><span class="pre">on_&lt;event&gt;()</span></code> methods invoked during optimization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">__stop__()</span></code>: Called when optimization terminates</p></li>
+</ol>
+<p><strong>Properties:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">strategy</span></code>: Reference to the strategy</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config</span></code>: Configuration object</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eventbus</span></code>: EventBus instance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">problem</span></code>: Problem definition</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">results</span></code>: Results database</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">logger</span></code>: Logger for this module</p></li>
+</ul>
+</section>
+</section>
+<section id="heuristics-point-generators">
+<h2>Heuristics (Point Generators)<a class="headerlink" href="#heuristics-point-generators" title="Link to this heading">¶</a></h2>
+<p><a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a> extends Module to generate candidate points.</p>
+<section id="architecture">
+<h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h3>
+<p>Each heuristic maintains:</p>
+<ul class="simple">
+<li><p><strong>Output queue</strong>: FIFO queue with configurable capacity (default: 20)</p></li>
+<li><p><strong>Active state</strong>: Whether it’s still generating points</p></li>
+<li><p><strong>Performance score</strong>: Tracked by StrategyRewarding for adaptive selection</p></li>
+</ul>
+<p><strong>Key methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">emit(point)</span></code> or <code class="docutils literal notranslate"><span class="pre">emit(points)</span></code>: Add points to output queue</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_points(limit)</span></code>: Drain up to <code class="docutils literal notranslate"><span class="pre">limit</span></code> points from queue</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">active</span></code>: Property indicating if heuristic has more points</p></li>
+</ul>
+<p><strong>Typical pattern:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Generate initial points</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+        <span class="c1"># React to improvements</span>
+        <span class="n">x_new</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="implemented-heuristics">
+<h3>Implemented Heuristics<a class="headerlink" href="#implemented-heuristics" title="Link to this heading">¶</a></h3>
+<p><strong>Initialization:</strong></p>
+<ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Center</span></code>: Returns center of bounding box</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Zero</span></code>: Returns zero vector</p></li>
+</ul>
+<p><strong>Space-filling:</strong></p>
+<ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">LatinHypercube</span></code>: Stratified sampling with parameter <code class="docutils literal notranslate"><span class="pre">div</span></code></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Extremal</span></code>: Samples from box boundaries</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code>: Uniform sampling in best leaf box</p></li>
+</ul>
+<p><strong>Local refinement:</strong></p>
+<ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code>: Gaussian perturbations around best</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAverage</span></code>: Averages points in best region</p></li>
+</ul>
+<p><strong>Model-based:</strong></p>
+<ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>: Weighted least-squares quadratic surrogate</p></li>
+</ul>
+<p><strong>Classical optimizers:</strong></p>
+<ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code>: Randomized simplex method</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code>: L-BFGS-B in subprocess</p></li>
+</ul>
+</section>
+</section>
+<section id="analyzers-result-processors">
+<h2>Analyzers (Result Processors)<a class="headerlink" href="#analyzers-result-processors" title="Link to this heading">¶</a></h2>
+<p><a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a> extends Module to process results and maintain derived information.</p>
+<section id="id1">
+<h3>Architecture<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>Analyzers typically:</p>
+<ul class="simple">
+<li><p>Subscribe to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> event</p></li>
+<li><p>Maintain internal state (Pareto front, spatial decomposition, statistics)</p></li>
+<li><p>Publish derived events to trigger heuristics or other analyzers</p></li>
+</ul>
+</section>
+<section id="implemented-analyzers">
+<h3>Implemented Analyzers<a class="headerlink" href="#implemented-analyzers" title="Link to this heading">¶</a></h3>
+<p><strong>Best Tracker</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.best.Best" title="panobbgo.analyzers.best.Best"><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code></a> maintains:</p>
+<ul class="simple">
+<li><p>Best feasible point (<span class="math notranslate nohighlight">\(CV(x) = 0\)</span>, minimum <span class="math notranslate nohighlight">\(f(x)\)</span>)</p></li>
+<li><p>Best infeasible point (minimum <span class="math notranslate nohighlight">\(CV(x)\)</span>)</p></li>
+<li><p>Pareto front of <span class="math notranslate nohighlight">\((f(x), CV(x))\)</span> pairs</p></li>
+</ul>
+<p><strong>Events published:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">new_best</span></code>: New best point (considering constraints)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_min</span></code>: New minimum <span class="math notranslate nohighlight">\(f(x)\)</span> among feasible points</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_cv</span></code>: New minimum <span class="math notranslate nohighlight">\(CV(x)\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new_pareto</span></code>: Pareto front updated</p></li>
+</ul>
+<p><strong>Splitter</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> manages hierarchical box decomposition:</p>
+<ul class="simple">
+<li><p>Maintains tree of boxes splitting the search space</p></li>
+<li><p>Splits boxes when they contain sufficient points</p></li>
+<li><p>Identifies “best leaf box” containing current best point</p></li>
+</ul>
+<p><strong>Events published:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>: A box was split into children</p></li>
+</ul>
+<p><strong>Grid</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> maintains a simple spatial grid for grouping nearby points.</p>
+<p><strong>Dedensifyer</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a> maintains a hierarchical grid to avoid
+clustering, keeping only min/max representatives per region.</p>
+</section>
+</section>
+<section id="strategies-orchestration">
+<h2>Strategies (Orchestration)<a class="headerlink" href="#strategies-orchestration" title="Link to this heading">¶</a></h2>
+<p>Strategy subclasses implement the <code class="docutils literal notranslate"><span class="pre">execute()</span></code> method to determine which points to evaluate next.</p>
+<section id="strategyroundrobin">
+<h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading">¶</a></h3>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code> cycles through heuristics in fixed order:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+        <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">batch_size</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">points</span>
+</pre></div>
+</div>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Predictable, deterministic</p></li>
+<li><p>No adaptation to problem</p></li>
+<li><p>Good baseline for comparison</p></li>
+</ul>
+</section>
+<section id="strategyrewarding">
+<h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading">¶</a></h3>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code> implements multi-armed bandit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Calculate selection probabilities based on performance</span>
+    <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+</span> <span class="n">smooth</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">total_performance</span> <span class="o">+</span> <span class="n">smooth</span> <span class="o">*</span> <span class="o">|</span><span class="n">H</span><span class="o">|</span><span class="p">)</span>
+        <span class="n">nb_points</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">target</span> <span class="o">*</span> <span class="n">prob</span><span class="p">)</span>
+        <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">nb_points</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">points</span>
+</pre></div>
+</div>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Adaptive: learns which heuristics work</p></li>
+<li><p>Probabilistic: maintains exploration</p></li>
+<li><p>Reward function: <span class="math notranslate nohighlight">\(R(x) = 1 - e^{-(f_{best} - f(x))}\)</span></p></li>
+<li><p>Discount factor: causes old successes to fade</p></li>
+</ul>
+</section>
+</section>
+<section id="execution-flow">
+<h2>Execution Flow<a class="headerlink" href="#execution-flow" title="Link to this heading">¶</a></h2>
+<section id="initialization-phase">
+<h3>Initialization Phase<a class="headerlink" href="#initialization-phase" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>User creates Strategy with Problem:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>User registers heuristics and analyzers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Best</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Splitter</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>User calls <code class="docutils literal notranslate"><span class="pre">strategy.start()</span></code></p></li>
+</ol>
+</section>
+<section id="startup">
+<h3>Startup<a class="headerlink" href="#startup" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Strategy connects to Dask distributed cluster</p></li>
+<li><p>Strategy calls <code class="docutils literal notranslate"><span class="pre">__start__()</span></code> on all modules</p></li>
+<li><p>EventBus publishes <code class="docutils literal notranslate"><span class="pre">start</span></code> event</p></li>
+<li><p>Modules initialize (e.g., LatinHypercube generates initial grid)</p></li>
+</ol>
+</section>
+<section id="main-loop">
+<h3>Main Loop<a class="headerlink" href="#main-loop" title="Link to this heading">¶</a></h3>
+<p>While budget remaining:</p>
+<ol class="arabic">
+<li><p><strong>Generate points</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">points</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>  <span class="c1"># Get points from heuristics</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Evaluate in parallel</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<p># Send points to Dask cluster
+futures = [client.submit(problem, p) for p in points]
+# Wait for results
+results = client.gather(futures)</p>
+</li>
+<li><p><strong>Store results</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results_db</span><span class="o">.</span><span class="n">add_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Publish event</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_results&quot;</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Analyzers process</strong>:</p>
+<ul class="simple">
+<li><p>Best checks for improvements → publishes <code class="docutils literal notranslate"><span class="pre">new_best</span></code> if found</p></li>
+<li><p>Splitter updates box tree → publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> if box split</p></li>
+</ul>
+</li>
+<li><p><strong>Heuristics react</strong>:</p>
+<ul class="simple">
+<li><p>NelderMead starts simplex on <code class="docutils literal notranslate"><span class="pre">new_best</span></code></p></li>
+<li><p>Random updates sampling region on <code class="docutils literal notranslate"><span class="pre">new_split</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Check termination</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_db</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">max_evaluations</span><span class="p">:</span>
+    <span class="k">break</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="termination">
+<h3>Termination<a class="headerlink" href="#termination" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>EventBus publishes <code class="docutils literal notranslate"><span class="pre">finished</span></code> event</p></li>
+<li><p>Modules call <code class="docutils literal notranslate"><span class="pre">__stop__()</span></code> for cleanup</p></li>
+<li><p>Strategy returns <code class="docutils literal notranslate"><span class="pre">best</span></code> result</p></li>
+</ol>
+</section>
+</section>
+<section id="threading-model">
+<h2>Threading Model<a class="headerlink" href="#threading-model" title="Link to this heading">¶</a></h2>
+<section id="event-handling">
+<h3>Event Handling<a class="headerlink" href="#event-handling" title="Link to this heading">¶</a></h3>
+<p>Each event subscription runs in a <strong>daemon thread</strong>:</p>
+<ul class="simple">
+<li><p>Non-blocking: publishing returns immediately</p></li>
+<li><p>Concurrent: multiple handlers run simultaneously</p></li>
+<li><p>Fire-and-forget: no return values from handlers</p></li>
+</ul>
+<p><strong>Thread safety:</strong></p>
+<ul class="simple">
+<li><p>Results database uses pandas (generally thread-safe for reads)</p></li>
+<li><p>Heuristic queues use thread-safe operations</p></li>
+<li><p>Analyzers should use locks if maintaining mutable state</p></li>
+</ul>
+</section>
+<section id="dask-distributed">
+<h3>Dask Distributed<a class="headerlink" href="#dask-distributed" title="Link to this heading">¶</a></h3>
+<p>Function evaluations run on Dask cluster:</p>
+<ul class="simple">
+<li><p><strong>Load-balanced scheduling</strong>: Distributes jobs to available workers</p></li>
+<li><p><strong>Asynchronous execution</strong>: Returns Future objects immediately</p></li>
+<li><p><strong>Result collection</strong>: Wait for completion with <code class="docutils literal notranslate"><span class="pre">future.result()</span></code> or <code class="docutils literal notranslate"><span class="pre">client.gather()</span></code></p></li>
+</ul>
+<p><strong>Cluster setup:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start local cluster with 4 workers</span>
+dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
+dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
+</pre></div>
+</div>
+</section>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
+<p>Threading and parallelism parameters in <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[ipython]</span>
+<span class="na">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">default</span>
+<span class="na">max_wait_for_job</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">10</span>
+
+<span class="k">[optimization]</span>
+<span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
+<span class="na">jobs_per_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">5</span><span class="w">      </span><span class="c1"># Batch size per engine</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="extension-points">
+<h2>Extension Points<a class="headerlink" href="#extension-points" title="Link to this heading">¶</a></h2>
+<p>To extend Panobbgo:</p>
+<ol class="arabic simple">
+<li><p><strong>Add a heuristic</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p></li>
+<li><p><strong>Add an analyzer</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p></li>
+<li><p><strong>Add a strategy</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p></li>
+<li><p><strong>Define a problem</strong>: Subclass <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p></li>
+<li><p><strong>Create custom events</strong>: Publish with <code class="docutils literal notranslate"><span class="pre">eventbus.publish(event_name,</span> <span class="pre">**kwargs)</span></code></p></li>
+</ol>
+<p>See <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for detailed examples.</p>
+</section>
+<section id="design-principles">
+<h2>Design Principles<a class="headerlink" href="#design-principles" title="Link to this heading">¶</a></h2>
+<p>The architecture follows these principles:</p>
+<dl class="simple">
+<dt><strong>Modularity</strong></dt><dd><p>Components are independent and interchangeable</p>
+</dd>
+<dt><strong>Event-driven</strong></dt><dd><p>Loose coupling through EventBus</p>
+</dd>
+<dt><strong>Composability</strong></dt><dd><p>Mix and match heuristics, analyzers, strategies</p>
+</dd>
+<dt><strong>Extensibility</strong></dt><dd><p>Add new components without modifying existing code</p>
+</dd>
+<dt><strong>Parallelism</strong></dt><dd><p>Designed for distributed evaluation from the start</p>
+</dd>
+<dt><strong>Transparency</strong></dt><dd><p>All events and data flows are observable and logged</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Architecture Overview</a><ul>
+<li><a class="reference internal" href="#high-level-design">High-Level Design</a><ul>
+<li><a class="reference internal" href="#data-flow-diagram">Data Flow Diagram</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#core-components">Core Components</a><ul>
+<li><a class="reference internal" href="#strategybase">StrategyBase</a></li>
+<li><a class="reference internal" href="#results-database">Results Database</a></li>
+<li><a class="reference internal" href="#eventbus">EventBus</a></li>
+<li><a class="reference internal" href="#module-base-classes">Module Base Classes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#heuristics-point-generators">Heuristics (Point Generators)</a><ul>
+<li><a class="reference internal" href="#architecture">Architecture</a></li>
+<li><a class="reference internal" href="#implemented-heuristics">Implemented Heuristics</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#analyzers-result-processors">Analyzers (Result Processors)</a><ul>
+<li><a class="reference internal" href="#id1">Architecture</a></li>
+<li><a class="reference internal" href="#implemented-analyzers">Implemented Analyzers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#strategies-orchestration">Strategies (Orchestration)</a><ul>
+<li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
+<li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#execution-flow">Execution Flow</a><ul>
+<li><a class="reference internal" href="#initialization-phase">Initialization Phase</a></li>
+<li><a class="reference internal" href="#startup">Startup</a></li>
+<li><a class="reference internal" href="#main-loop">Main Loop</a></li>
+<li><a class="reference internal" href="#termination">Termination</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#threading-model">Threading Model</a><ul>
+<li><a class="reference internal" href="#event-handling">Event Handling</a></li>
+<li><a class="reference internal" href="#dask-distributed">Dask Distributed</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#extension-points">Extension Points</a></li>
+<li><a class="reference internal" href="#design-principles">Design Principles</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="guide_mathematical_foundation.html"
+                          title="previous chapter">Mathematical Foundation</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="guide_usage.html"
+                          title="next chapter">Usage Guide</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/guide_architecture.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="guide_usage.html" title="Usage Guide"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="guide_mathematical_foundation.html" title="Mathematical Foundation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="guide.html" >Panobbgo User Guide</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Architecture Overview</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

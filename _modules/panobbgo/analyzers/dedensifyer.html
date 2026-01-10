@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>panobbgo.analyzers.dedensifyer &#8212; Panobbgo 0.0.1pre documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css?v=40bee8ff" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    
+    <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="Search within Panobbgo 0.0.1pre documentation"
+          href="../../../_static/opensearch.xml"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.analyzers.dedensifyer</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for panobbgo.analyzers.dedensifyer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf8 -*-</span>
+<span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
+
+
+<div class="viewcode-block" id="Box">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Box">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :class:`Dedensifyer&#39;s &lt;.Dedensifyer&gt;` helper class, that registeres points for the given box.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_fx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_fx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_cv</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_cv</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Box.register">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Box.register">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_fx</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_fx</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cv</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_cv</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_fx</span><span class="o">.</span><span class="n">fx</span> <span class="o">&gt;</span> <span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">min_fx</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_cv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_cv</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">min_cv</span> <span class="o">=</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Dedensifyer">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Dedensifyer</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This analyzer stores points in a fixed hierarchical grid.</span>
+<span class="sd">    It discards previously added points in order to avoid a high number of points</span>
+<span class="sd">    in a close neighbourhood. The rules for discarding older points take</span>
+<span class="sd">    the function value and the constraint violation into account to store</span>
+<span class="sd">    the minimal and maximal representants for that region.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="n">max_depth</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">Box</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Dedensifyer.gridkey">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gridkey</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">floor</span>
+
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">box_dims</span><span class="p">[</span><span class="n">depth</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Dedensifyer.get_box">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_boxes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Dedensifyer.register">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.register">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        analyzes a new result</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Dedensifyer.on_new_results">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Panobbgo</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">panobbgo.analyzers.dedensifyer</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2012, Harald Schilly. License Apache 2.0.
+    </div>
+  </body>
+</html>

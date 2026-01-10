@@ -104,6 +104,10 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#classic-problems">Classic Problems</a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ackley"><code class="docutils literal notranslate"><span class="pre">Ackley</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ackley.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
@@ -124,8 +128,16 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.classic.DeJong.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.DixonPrice"><code class="docutils literal notranslate"><span class="pre">DixonPrice</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.DixonPrice.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Griewank"><code class="docutils literal notranslate"><span class="pre">Griewank</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Griewank.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a><ul>
@@ -152,6 +164,14 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ripple1"><code class="docutils literal notranslate"><span class="pre">Ripple1</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ripple1.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ripple25"><code class="docutils literal notranslate"><span class="pre">Ripple25</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Ripple25.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
@@ -170,8 +190,24 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockModified"><code class="docutils literal notranslate"><span class="pre">RosenbrockModified</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockModified.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RotatedEllipse"><code class="docutils literal notranslate"><span class="pre">RotatedEllipse</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RotatedEllipse.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RotatedEllipse2"><code class="docutils literal notranslate"><span class="pre">RotatedEllipse2</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RotatedEllipse2.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Schwefel"><code class="docutils literal notranslate"><span class="pre">Schwefel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Schwefel.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a><ul>
@@ -180,6 +216,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Step.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.StyblinskiTang"><code class="docutils literal notranslate"><span class="pre">StyblinskiTang</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.StyblinskiTang.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a><ul>
@@ -192,6 +232,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Wood.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Zakharov"><code class="docutils literal notranslate"><span class="pre">Zakharov</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Zakharov.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -238,6 +282,51 @@ data-aria-dark="Switch to auto color mode">
 <span id="module-panobbgo.lib.classic"></span><h2>Classic Problems<a class="headerlink" href="#classic-problems" title="Link to this heading">¶</a></h2>
 <p>This file contains the basic objects to build a problem and to do a single evaluation.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ackley">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Ackley</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ackley"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ackley" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Ackley function.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = -20 \exp\left(-0.2 \sqrt{\frac{1}{n} \sum_{i=1}^{n} x_i^2}\right) - \exp\left(\frac{1}{n} \sum_{i=1}^{n} \cos(2\pi x_i)\right) + 20 + e\]</div>
+</div>
+<p>The Ackley function is a multimodal test function for optimization algorithms.
+It has a nearly flat outer region and a large hole at the center. The function
+is continuous, convex and unimodal in a narrow valley.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0,\dots,0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="ackley" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Ackley<span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Ackley_function">https://en.wikipedia.org/wiki/Ackley_function</a></p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ackley.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ackley.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ackley.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Arwhead">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Arwhead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Arwhead"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Arwhead" title="Link to this definition">¶</a></dt>
@@ -406,6 +495,57 @@ and the given problem should subclass this <code class="docutils literal notrans
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.DixonPrice">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">DixonPrice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#DixonPrice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.DixonPrice" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Dixon &amp; Price function.</p>
+<p>The Dixon &amp; Price function is a unimodal test function for optimization algorithms.
+It has a long, narrow valley that makes it challenging for algorithms to converge
+to the global minimum along the valley floor.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = (x_1 - 1)^2 + \sum_{i=2}^{D} i (2x_i^2 - x_{i-1})^2\]</div>
+</div>
+<p>The function creates a valley that becomes increasingly narrow as the dimension increases,
+making it difficult for optimization algorithms to follow the valley to the minimum.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(2^{(\frac{2^i-2}{2^i})}, \dots, 2^{(\frac{2^D-2}{2^D})}) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="dixonprice" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>DixonPrice<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.DixonPrice.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#DixonPrice.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.DixonPrice.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.GoldsteinPrice">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">GoldsteinPrice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#GoldsteinPrice"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.GoldsteinPrice" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
@@ -423,6 +563,54 @@ n-dimensional vector (default: None)</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.GoldsteinPrice.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#GoldsteinPrice.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.GoldsteinPrice.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Griewank">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Griewank</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Griewank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Griewank" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Griewank function.</p>
+<p>The Griewank function is a multimodal test function for optimization algorithms.
+It combines a quadratic term with a product of cosine terms, creating many
+local minima that make it challenging for optimization algorithms.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = 1 + \frac{1}{4000} \sum_{i=1}^{n} x_i^2 - \prod_{i=1}^{n} \cos\left(\frac{x_i}{\sqrt{i}}\right)\]</div>
+</div>
+<p>The function has a global minimum at the origin and many local minima
+due to the cosine product term. The division by <span class="math notranslate nohighlight">\(\sqrt{i}\)</span> in the
+cosine arguments creates different scales for different dimensions.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0,\dots,0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="griewank" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Griewank<span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Griewank_function">https://en.wikipedia.org/wiki/Griewank_function</a></p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Griewank.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Griewank.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Griewank.eval" title="Link to this definition">¶</a></dt>
 <dd><p>This is called to evaluate the given black-box function.
 The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
 and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
@@ -648,6 +836,106 @@ and the given problem should subclass this <code class="docutils literal notrans
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ripple1">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Ripple1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ripple1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ripple1" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Ripple 1 function.</p>
+<p>The Ripple 1 function is a highly multimodal test function with many local minima.
+It creates a landscape with 25 holes in a 5x5 grid plus additional ripples.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = \sum_{i=1}^{2} -e^{-2\ln2(\frac{x_i-0.1}{0.8})^2} (\sin^6(5\pi x_i) + 0.1\cos^2(500\pi x_i))\]</div>
+</div>
+<p>The function has one global minimum and 252,004 local minima.
+The landscape consists of 25 holes forming a 5×5 regular grid plus high-frequency ripples.</p>
+<p>Global minimum: Located within bounds (complex)</p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="ripple1" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Ripple1<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ripple1.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ripple1.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ripple1.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ripple25">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Ripple25</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ripple25"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ripple25" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Ripple 25 function.</p>
+<p>The Ripple 25 function is a multimodal test function similar to Ripple 1
+but without the high-frequency cosine ripples.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = \sum_{i=1}^{2} -e^{-2\ln2(\frac{x_i-0.1}{0.8})^2} \sin^6(5\pi x_i)\]</div>
+</div>
+<p>The function creates 25 holes in a 5×5 grid pattern without additional ripples.
+It has fewer local minima compared to Ripple 1.</p>
+<p>Global minimum: Located within bounds (complex)</p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="ripple25" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Ripple25<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Ripple25.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Ripple25.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Ripple25.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Rosenbrock">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Rosenbrock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Rosenbrock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
@@ -812,6 +1100,56 @@ It has to return a <a class="reference external" href="https://numpy.org/doc/sta
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockModified">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockModified</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockModified"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockModified" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Rosenbrock Modified function.</p>
+<p>The Rosenbrock Modified function is a multimodal test function that adds a Gaussian bump
+to the standard Rosenbrock function, creating a local minimum that makes optimization more challenging.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = 74 + 100(x_2 - x_1^2)^2 + (1 - x_1)^2 - 400 \exp\left(-\frac{(x_1 + 1)^2 + (x_2 + 1)^2}{0.1}\right)\]</div>
+</div>
+<p>The Gaussian term creates a local minimum at (1,1) while the global minimum remains at (-1,-1).
+This makes the function difficult to optimize because the local minimum has a larger basin of attraction.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(-1,-1) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="rosenbrockmodified" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>RosenbrockModified<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockModified.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockModified.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockModified.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.RosenbrockStochastic">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RosenbrockStochastic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">jitter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RosenbrockStochastic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RosenbrockStochastic" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
@@ -848,14 +1186,185 @@ and the given problem should subclass this <code class="docutils literal notrans
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RotatedEllipse">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RotatedEllipse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RotatedEllipse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RotatedEllipse" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Rotated Ellipse function.</p>
+<p>The Rotated Ellipse function is a unimodal quadratic test function
+that represents an ellipse rotated in the coordinate system.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = 7x_1^2 - 6\sqrt{3}x_1 x_2 + 13x_2^2\]</div>
+</div>
+<p>This is a quadratic form that creates an elliptical contour when rotated.
+It is unimodal with a single global minimum.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0,0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="rotatedellipse" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>RotatedEllipse<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RotatedEllipse.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RotatedEllipse.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RotatedEllipse.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RotatedEllipse2">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">RotatedEllipse2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RotatedEllipse2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RotatedEllipse2" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Rotated Ellipse 2 function.</p>
+<p>The Rotated Ellipse 2 function is another unimodal quadratic test function
+that represents a different elliptical form.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = x_1^2 - x_1 x_2 + x_2^2\]</div>
+</div>
+<p>This quadratic form creates a rotated elliptical contour.
+It is unimodal with a single global minimum.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0,0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="rotatedellipse2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>RotatedEllipse2<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.RotatedEllipse2.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RotatedEllipse2.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RotatedEllipse2.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Schwefel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Schwefel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Schwefel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Schwefel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Schwefel function.</p>
+<p>The Schwefel function is a highly multimodal test function for optimization algorithms.
+It has many local minima arranged in a complex pattern, making it extremely challenging
+for optimization algorithms to find the global minimum.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = 418.9829 \cdot n + \sum_{i=1}^{n} \left( -x_i \sin\left(\sqrt{|x_i|}\right) \right)\]</div>
+</div>
+<p>The function has a global minimum at <span class="math notranslate nohighlight">\(x_i \approx 420.9687\)</span> for all dimensions,
+where <span class="math notranslate nohighlight">\(f(\mathbf{x}) = 0\)</span>. The many local minima and the narrow valley leading
+to the global optimum make this function particularly difficult to optimize.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(420.9687,\dots,420.9687) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="schwefel" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Schwefel<span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Schwefel_function">https://en.wikipedia.org/wiki/Schwefel_function</a></p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Schwefel.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Schwefel.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Schwefel.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Shekel">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Shekel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Shekel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Shekel" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
 <p>Shekel Function <a class="reference internal" href="index.html#sh" id="id11"><span>[SH]</span></a>.</p>
-<p>For <span class="math notranslate nohighlight">\(m\)</span> minima in <span class="math notranslate nohighlight">\(n\)</span> dimensions:</p>
+<p>The Shekel function is a multimodal test function for optimization algorithms.
+It creates <span class="math notranslate nohighlight">\(m\)</span> local minima in <span class="math notranslate nohighlight">\(n\)</span> dimensions by summing inverse
+quadratic terms centered at different points.</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
-\[f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }\]</div>
+\[f(\vec{x}) = \sum_{i = 1}^{m} \frac{1}{c_{i} + \sum_{j = 1}^{n} (x_{j} - a_{ji})^2}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(a_{ji}\)</span> are the coordinates of the <span class="math notranslate nohighlight">\(i\)</span>-th minimum in dimension <span class="math notranslate nohighlight">\(j\)</span>,
+and <span class="math notranslate nohighlight">\(c_i\)</span> controls the depth/width of each minimum.</p>
+<p>The function is highly multimodal with many local optima, making it challenging
+for optimization algorithms to find the global minimum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>m</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of local minima (default: 10)</p></li>
+<li><p><strong>a</strong> (<em>array_like</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>m</em><em>)</em>) – Positions of the m minima in n dimensions. If None, generated automatically.</p></li>
+<li><p><strong>c</strong> (<em>array_like</em><em>, </em><em>shape</em><em> (</em><em>m</em><em>,</em><em>)</em>) – Scaling factors for each minimum. If None, generated automatically.</p></li>
+<li><p><strong>minimum</strong> (<em>Global</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="sh" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">SH</a><span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Shekel_function">https://en.wikipedia.org/wiki/Shekel_function</a></p>
+</div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -900,6 +1409,53 @@ n-dimensional vector (default: None)</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Step.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Step.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Step.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.StyblinskiTang">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">StyblinskiTang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#StyblinskiTang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.StyblinskiTang" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Styblinski-Tang function.</p>
+<p>The Styblinski-Tang function is a multimodal test function for optimization algorithms.
+It is defined as the sum of quartic polynomials for each dimension, creating
+multiple local minima that challenge optimization algorithms.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = \frac{1}{2} \sum_{i=1}^{n} (x_i^4 - 16 x_i^2 + 5 x_i)\]</div>
+</div>
+<p>Each dimension contributes a quartic term with multiple local optima.
+The function has a global minimum at <span class="math notranslate nohighlight">\(x_i \approx -2.903534\)</span> for all dimensions.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(-2.903534,\dots,-2.903534) \approx -39.16617 \cdot n\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="styblinskitang" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>StyblinskiTang<span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/Styblinski%E2%80%93Tang_function">https://en.wikipedia.org/wiki/Styblinski%E2%80%93Tang_function</a></p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.StyblinskiTang.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#StyblinskiTang.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.StyblinskiTang.eval" title="Link to this definition">¶</a></dt>
 <dd><p>This is called to evaluate the given black-box function.
 The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
 and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
@@ -1003,6 +1559,57 @@ n-dimensional vector (default: None)</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Wood.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Wood.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Wood.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Zakharov">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Zakharov</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Zakharov"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Zakharov" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Zakharov function.</p>
+<p>The Zakharov function is a multimodal test function for optimization algorithms.
+It combines a quadratic term with polynomial terms involving weighted sums,
+creating multiple local optima that challenge optimization algorithms.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = \sum_{i=1}^{n} x_i^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^4\]</div>
+</div>
+<p>The function has a global minimum at the origin and multiple local minima
+due to the higher-order polynomial terms.</p>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0,\dots,0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="zakharov" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Zakharov<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Zakharov.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Zakharov.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Zakharov.eval" title="Link to this definition">¶</a></dt>
 <dd><p>This is called to evaluate the given black-box function.
 The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
 and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>

@@ -11,6 +11,12 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest

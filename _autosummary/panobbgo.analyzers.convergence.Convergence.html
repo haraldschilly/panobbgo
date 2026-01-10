@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.analyzers.convergence.Convergence - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.convergence.Convergence"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lib.html">Library Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../ui.html">User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.analyzers.convergence.Convergence</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="panobbgo-analyzers-convergence-convergence">
+<h1>panobbgo.analyzers.convergence.Convergence<a class="headerlink" href="#panobbgo-analyzers-convergence-convergence" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.convergence.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence" title="Link to this definition">¶</a></dt>
+<dd><p>Analyzes the progress of the optimization to detect convergence or stagnation.</p>
+<p>It listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events and tracks the history of the best objective function values.
+If the improvement over a specified window of evaluations is below a threshold,
+or if the standard deviation of the best values in the window is small enough,
+it publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event.</p>
+<p>Configuration parameters (via <code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> or kwargs):
+- <code class="docutils literal notranslate"><span class="pre">convergence.window_size</span></code> (int): Number of recent best values to consider (default: 50).
+- <code class="docutils literal notranslate"><span class="pre">convergence.threshold</span></code> (float): Threshold for relative improvement or std dev (default: 1e-6).
+- <code class="docutils literal notranslate"><span class="pre">convergence.mode</span></code> (str): ‘std’ (standard deviation) or ‘improv’ (relative improvement) (default: ‘std’).</p>
+<p>Events published:
+- <code class="docutils literal notranslate"><span class="pre">converged</span></code>: When convergence criteria are met.</p>
+<blockquote>
+<div><p>The event carries <code class="docutils literal notranslate"><span class="pre">reason</span></code> (str) and <code class="docutils literal notranslate"><span class="pre">stats</span></code> (dict) with details.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/convergence.html#Convergence.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.__init__" title="panobbgo.analyzers.convergence.Convergence.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(strategy[, window_size, threshold, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code>(analyzers, heuristics)</p></td>
+<td><p>This method is called by the core initialization to assess, if the dependencies for the given module are met.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.convergence.Convergence.on_new_results" title="panobbgo.analyzers.convergence.Convergence.on_new_results"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_results</span></code></a>(results)</p></td>
+<td><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Attributes</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">eventbus</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The module's name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">problem</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">results</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">strategy</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ui</span></code></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

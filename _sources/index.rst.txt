@@ -3,15 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-|name|: `parallel noisy black-box global optimization`
-========================================================
+Panobbgo: Parallel Noisy Black-Box Global Optimization
+===========================================================
 
 ..
   .. image:: img/panobbgo-graphic.png
      :align: center
 
-Introduction
-------------
+Overview
+--------
 
 ..
   Date: |today|
@@ -19,7 +19,7 @@ Introduction
 
 
 
-|name| is an open-source framework for parallel noisy black-box global optimization.
+Panobbgo is an open-source framework for parallel noisy black-box global optimization.
 The primary aim is to experiment with new ideas and algorithms.
 A couple of functional building blocks build the solver and
 exchange information via an :class:`~panobbgo.core.EventBus` among each other.
@@ -36,12 +36,12 @@ achieved as SMP or on a cluster via Dask distributed.
 
 In the background, there are additional utility features for the configuration and dependency management available.
 
-This software package is licensed under the 
+This software package is licensed under the
 `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0.html>`_.
 
-.. image:: https://secure.travis-ci.org/haraldschilly/panobbgo.png?branch=master
-   :alt: Build Status
-   :target: https://travis-ci.org/haraldschilly/panobbgo
+.. image:: https://github.com/haraldschilly/panobbgo/actions/workflows/tests.yml/badge.svg
+   :alt: CI Status
+   :target: https://github.com/haraldschilly/panobbgo/actions
 
 User Guide
 ----------
@@ -53,39 +53,59 @@ Comprehensive guide covering concepts, usage, and extension.
 
    guide
 
-Main
-----
+API Reference
+-------------
 
-This component is the main part of the program.
+Complete API documentation organized by component.
 
-.. automodule:: panobbgo
+Core Components
+~~~~~~~~~~~~~~~
+
+The fundamental building blocks of Panobbgo.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    core
+   config
+   utils
+
+Optimization Components
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Strategies, heuristics, and analyzers for optimization.
+
+.. toctree::
+   :maxdepth: 1
+
    strategies
    heuristics
    analyzers
-   config
-   ui
-   utils
 
-Library
--------
+Problem Library
+~~~~~~~~~~~~~~~
 
-The library component contains the code for constructing the problem instances
-and running them on the computational nodes.
+Built-in test problems and problem definition utilities.
 
-.. automodule:: panobbgo.lib
+.lib
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    classic
    lib
 
-.. include:: examples.rst
+User Interface
+~~~~~~~~~~~~~~
+
+Graphical and command-line interfaces.
+
+.. toctree::
+   :maxdepth: 1
+
+   ui
+
+
 
 History
 ========

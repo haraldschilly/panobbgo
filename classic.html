@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="blue" data-content_root="./">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Classic Problems - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Library Classes" href="lib.html" /><link rel="prev" title="Utilities" href="utils.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Classic Problems Module - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Library Module" href="lib.html" /><link rel="prev" title="Analyzers Module" href="analyzers.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
@@ -18,7 +18,7 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Classic Problems"/>
+    <meta property="og:type" content="website"/><meta property="og:title" content="Classic Problems Module"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -74,66 +74,23 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
-<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
+</ul>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
-</ul>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Classic Problems</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
 </ul>
 
         </div>
@@ -146,95 +103,95 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#">Classic Problems</a></li>
+<li><a class="reference internal" href="#classic-problems">Classic Problems</a></li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Arwhead.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Beale.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Beale.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Box.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Box.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Branin.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Branin.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.DeJong.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.DeJong.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.GoldsteinPrice.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.HelicalValley.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Powell.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Powell.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rastrigin.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbs.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints"><code class="docutils literal notranslate">.eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints"><code class="docutils literal notranslate">.eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.RosenbrockStochastic.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Shekel.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Shekel.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Step.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Step.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.SumDifferentPower.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Trigonometric.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.classic.Wood.eval"><code class="docutils literal notranslate">.eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Wood.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -254,7 +211,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Classic Problems</strong>
+        <strong itemprop="name">Classic Problems Module</strong>
         <meta itemprop="position" content="2" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -267,8 +224,18 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <section id="classic-problems">
-<span id="module-panobbgo.lib.classic"></span><h1>Classic Problems<a class="headerlink" href="#classic-problems" title="Link to this heading">¶</a></h1>
+          <section id="classic-problems-module">
+<h1>Classic Problems Module<a class="headerlink" href="#classic-problems-module" title="Link to this heading">¶</a></h1>
+<p>Built-in test problems for optimization:</p>
+<ul class="simple">
+<li><p><strong>Rosenbrock</strong>: Banana-shaped valley function</p></li>
+<li><p><strong>Sphere</strong>: Simple quadratic function</p></li>
+<li><p><strong>Rastrigin</strong>: Multimodal function with many local minima</p></li>
+<li><p><strong>Ackley</strong>: Function with wide valley</p></li>
+<li><p><strong>Branin</strong>: Two-dimensional function with multiple minima</p></li>
+</ul>
+<section id="classic-problems">
+<span id="module-panobbgo.lib.classic"></span><h2>Classic Problems<a class="headerlink" href="#classic-problems" title="Link to this heading">¶</a></h2>
 <p>This file contains the basic objects to build a problem and to do a single evaluation.</p>
 </section>
 <dl class="py class">
@@ -1048,6 +1015,7 @@ and the given problem should subclass this <code class="docutils literal notrans
 
 </dd></dl>
 
+</section>
 
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -1055,16 +1023,16 @@ and the given problem should subclass this <code class="docutils literal notrans
   </svg>
   <span>Back to top</span>
 </button><div class="navigation flex print:hidden"><div class="navigation-prev">
-    <a href="utils.html">
+    <a href="analyzers.html">
       <i class="i-lucide chevron-left"></i>
       <div class="page-info">
-        <span>Previous</span><div class="title">Utilities</div></div>
+        <span>Previous</span><div class="title">Analyzers Module</div></div>
     </a>
   </div><div class="navigation-next">
     <a href="lib.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">Library Classes</div>
+        <div class="title">Library Module</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>
@@ -1075,7 +1043,7 @@ and the given problem should subclass this <code class="docutils literal notrans
 <footer class="sy-foot">
   <div class="sy-foot-inner sy-container mx-auto">
     <div class="sy-foot-reserved md:flex justify-between items-center">
-      <div class="sy-foot-copyright"><p>2012, Harald Schilly. License Apache 2.0</p>
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
   
   <p>
     Made with

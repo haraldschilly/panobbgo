@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.strategies.ucb - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.ucb"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.strategies.ucb</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.strategies.ucb</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">division</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
+</span><span data-line="3"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBase</span>
+</span><span data-line="6"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="7">
+</span><span data-line="8">
+<div class="viewcode-block" id="StrategyUCB">
+<a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB">[docs]</a>
+</span><span data-line="9"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyUCB</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
+</span><span data-line="10"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="11"><span class="sd">    This strategy uses the Upper Confidence Bound (UCB1) algorithm to select</span>
+</span><span data-line="12"><span class="sd">    heuristics. It balances exploration (trying less used heuristics) and</span>
+</span><span data-line="13"><span class="sd">    exploitation (using heuristics that have performed well).</span>
+</span><span data-line="14"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="15">
+<div class="viewcode-block" id="StrategyUCB.__init__">
+<a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB.__init__">[docs]</a>
+</span><span data-line="16">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="17">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="18">        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="19">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="20">
+</span><span data-line="21">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+</span><span data-line="22">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+</span><span data-line="23">        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="24">        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="25">
+</span><span data-line="26">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="27"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="28"><span class="sd">        Calculate reward for a heuristic based on the improvement.</span>
+</span><span data-line="29">
+</span><span data-line="30"><span class="sd">        Args:</span>
+</span><span data-line="31"><span class="sd">        - ``best``: new (best) result</span>
+</span><span data-line="32"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="33">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="34">            <span class="c1"># First point, can&#39;t really calculate improvement yet, or treat as infinite improvement</span>
+</span><span data-line="35">            <span class="k">return</span> <span class="mf">1.0</span>
+</span><span data-line="36">
+</span><span data-line="37">        <span class="c1"># Reward calculation similar to StrategyRewarding</span>
+</span><span data-line="38">        <span class="c1"># R(x) = 1 - e^{-(f_{best} - f(x))}</span>
+</span><span data-line="39">        <span class="c1"># However, &#39;best&#39; here is the NEW best. self.last_best is the OLD best.</span>
+</span><span data-line="40">        <span class="c1"># Improvement is (self.last_best.fx - best.fx).</span>
+</span><span data-line="41">
+</span><span data-line="42">        <span class="n">improvement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">calculate_improvement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span>
+</span><span data-line="43">        <span class="n">reward</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">improvement</span><span class="p">)</span>
+</span><span data-line="44">
+</span><span data-line="45">        <span class="c1"># Update the heuristic that produced this point</span>
+</span><span data-line="46">        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="47">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="48">            <span class="c1"># Update running mean of rewards</span>
+</span><span data-line="49">            <span class="c1"># Q_{n+1} = Q_n + (R - Q_n) / (n + 1)</span>
+</span><span data-line="50">            <span class="c1"># But here ucb_count tracks selections, not necessarily successes.</span>
+</span><span data-line="51">            <span class="c1"># Usually UCB updates on selection. If we only update on success, we might have issues.</span>
+</span><span data-line="52">            <span class="c1"># In standard bandit, you select an arm, observe reward.</span>
+</span><span data-line="53">            <span class="c1"># Here, we select a heuristic to generate points. We might get points later.</span>
+</span><span data-line="54">            <span class="c1"># The reward comes when a result is processed.</span>
+</span><span data-line="55">
+</span><span data-line="56">            <span class="c1"># Let&#39;s accumulate reward to the heuristic.</span>
+</span><span data-line="57">            <span class="c1"># Note: This implementation simplifies things by updating value on success.</span>
+</span><span data-line="58">            <span class="c1"># But we should also account for selections that didn&#39;t yield a new best.</span>
+</span><span data-line="59">            <span class="c1"># StrategyRewarding discounts on emission.</span>
+</span><span data-line="60">
+</span><span data-line="61">            <span class="c1"># Let&#39;s try to stick to standard UCB as much as possible.</span>
+</span><span data-line="62">            <span class="c1"># Q_t(a) = average reward obtained from arm a</span>
+</span><span data-line="63">            <span class="k">pass</span>
+</span><span data-line="64">
+</span><span data-line="65">        <span class="k">return</span> <span class="n">reward</span>
+</span><span data-line="66">
+</span><span data-line="67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="68">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span>
+</span><span data-line="70">
+</span><span data-line="71">        <span class="c1"># Update the heuristic&#39;s statistics</span>
+</span><span data-line="72">        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="73">
+</span><span data-line="74">        <span class="c1"># We need to be careful: if we only update on new_best, heuristics that never find new bests</span>
+</span><span data-line="75">        <span class="c1"># will have 0 reward. This is fine.</span>
+</span><span data-line="76">        <span class="c1"># But we need to count selections properly.</span>
+</span><span data-line="77">
+</span><span data-line="78">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_total_reward&quot;</span><span class="p">):</span>
+</span><span data-line="79">            <span class="c1"># Update average reward.</span>
+</span><span data-line="80">            <span class="c1"># We treat every point generated as a &#39;trial&#39;.</span>
+</span><span data-line="81">            <span class="c1"># If a heuristic generates N points and one of them is a new best with reward R,</span>
+</span><span data-line="82">            <span class="c1"># effectively we have N trials, 1 success (reward R), N-1 failures (reward 0).</span>
+</span><span data-line="83">            <span class="c1"># But we don&#39;t know exactly when the failures happened vs success.</span>
+</span><span data-line="84">            <span class="c1"># A simple approximation: Add R to the total reward sum.</span>
+</span><span data-line="85">            <span class="c1"># Q_t(a) = Total Reward / Number of Selections</span>
+</span><span data-line="86">
+</span><span data-line="87">            <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
+</span><span data-line="88">            <span class="c1"># h.ucb_count is updated in execute() when we ask for points.</span>
+</span><span data-line="89">
+</span><span data-line="90">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (UCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
+</span><span data-line="91">
+</span><span data-line="92">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="93">        <span class="c1"># We might want to penalize or at least count evaluations that are not best?</span>
+</span><span data-line="94">        <span class="c1"># In standard UCB, every pull gives a reward. Here reward is sparse (only when improving).</span>
+</span><span data-line="95">        <span class="c1"># We can define reward = 0 for non-improving points.</span>
+</span><span data-line="96">        <span class="k">pass</span>
+</span><span data-line="97">
+</span><span data-line="98">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="99">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="100">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+</span><span data-line="101">
+</span><span data-line="102">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
+</span><span data-line="103">            <span class="c1"># UCB Parameter c (exploration weight)</span>
+</span><span data-line="104">            <span class="c1"># A common value is sqrt(2), but can be tuned.</span>
+</span><span data-line="105">            <span class="n">c_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;ucb_c&quot;</span><span class="p">,</span> <span class="mf">1.414</span><span class="p">)</span>
+</span><span data-line="106">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="107">                <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">c_val</span><span class="p">)</span> <span class="c1"># type: ignore</span>
+</span><span data-line="108">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span><span data-line="109">                <span class="n">c</span> <span class="o">=</span> <span class="mf">1.414</span>
+</span><span data-line="110">
+</span><span data-line="111">            <span class="c1"># Ensure every heuristic is tried at least once</span>
+</span><span data-line="112">            <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="113">
+</span><span data-line="114">            <span class="c1"># First pass: try any heuristic that hasn&#39;t been tried enough</span>
+</span><span data-line="115">            <span class="c1"># Or just give them a boost.</span>
+</span><span data-line="116">
+</span><span data-line="117">            <span class="c1"># In this framework, execute() is called repeatedly.</span>
+</span><span data-line="118">            <span class="c1"># We need to decide which heuristic to ask for points.</span>
+</span><span data-line="119">            <span class="c1"># We can ask for 1 point from the winner of UCB.</span>
+</span><span data-line="120">
+</span><span data-line="121">            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
+</span><span data-line="122">                <span class="n">best_ucb</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="123">                <span class="n">selected_h</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="124">
+</span><span data-line="125">                <span class="c1"># Calculate UCB for each heuristic</span>
+</span><span data-line="126">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="127">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="128">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="129">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="130">
+</span><span data-line="131">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="132">                        <span class="c1"># Infinite UCB for untried arms</span>
+</span><span data-line="133">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
+</span><span data-line="134">                        <span class="k">break</span>
+</span><span data-line="135">
+</span><span data-line="136">                    <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="137">                    <span class="n">exploration_term</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+</span><span data-line="138">                        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">)</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="139">                    <span class="p">)</span>
+</span><span data-line="140">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">average_reward</span> <span class="o">+</span> <span class="n">exploration_term</span>
+</span><span data-line="141">
+</span><span data-line="142">                    <span class="k">if</span> <span class="n">ucb_score</span> <span class="o">&gt;</span> <span class="n">best_ucb</span><span class="p">:</span>
+</span><span data-line="143">                        <span class="n">best_ucb</span> <span class="o">=</span> <span class="n">ucb_score</span>
+</span><span data-line="144">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
+</span><span data-line="145">
+</span><span data-line="146">                <span class="k">if</span> <span class="n">selected_h</span><span class="p">:</span>
+</span><span data-line="147">                    <span class="c1"># Request 1 point (or a small batch)</span>
+</span><span data-line="148">                    <span class="n">n_points</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span data-line="149">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">selected_h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">n_points</span><span class="p">)</span>
+</span><span data-line="150">                    <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+</span><span data-line="151">
+</span><span data-line="152">                    <span class="c1"># Update counts</span>
+</span><span data-line="153">                    <span class="n">selected_h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">+=</span> <span class="n">n_points</span>
+</span><span data-line="154">                    <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">n_points</span>
+</span><span data-line="155">
+</span><span data-line="156">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="157">                    <span class="c1"># Should not happen if heuristics list is not empty</span>
+</span><span data-line="158">                    <span class="k">break</span>
+</span><span data-line="159">
+</span><span data-line="160">                <span class="c1"># Break if we have enough points</span>
+</span><span data-line="161">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>  <span class="c1"># simplified logic, target is rough</span>
+</span><span data-line="162">                    <span class="k">break</span>
+</span><span data-line="163">
+</span><span data-line="164">        <span class="k">return</span> <span class="n">points</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

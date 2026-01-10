@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="blue" data-content_root="./">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Utilities - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Classic Problems" href="classic.html" /><link rel="prev" title="User Interface" href="ui.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Utilities Module - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Strategies Module" href="strategies.html" /><link rel="prev" title="Configuration Module" href="config.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
@@ -18,7 +18,7 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Utilities"/>
+    <meta property="og:type" content="website"/><meta property="og:title" content="Utilities Module"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -74,66 +74,23 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
-<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
+</ul>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
-</ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
 </ul>
 
         </div>
@@ -146,46 +103,16 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#">Utilities</a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.BLACK"><code class="docutils literal notranslate">.BLACK</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.BLUE"><code class="docutils literal notranslate">.BLUE</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.BOLD_SEQ"><code class="docutils literal notranslate">.BOLD_SEQ</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.COLORS"><code class="docutils literal notranslate">.COLORS</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.COLOR_SEQ"><code class="docutils literal notranslate">.COLOR_SEQ</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.COLOR_SEQ_BOLD"><code class="docutils literal notranslate">.COLOR_SEQ_BOLD</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.CYAN"><code class="docutils literal notranslate">.CYAN</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.GREEN"><code class="docutils literal notranslate">.GREEN</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.MAGENTA"><code class="docutils literal notranslate">.MAGENTA</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.RED"><code class="docutils literal notranslate">.RED</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.RESET_SEQ"><code class="docutils literal notranslate">.RESET_SEQ</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.WHITE"><code class="docutils literal notranslate">.WHITE</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.YELLOW"><code class="docutils literal notranslate">.YELLOW</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.colorize"><code class="docutils literal notranslate">.colorize()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.ColoredFormatter.format"><code class="docutils literal notranslate">.format()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.MockupEventBus.register"><code class="docutils literal notranslate">.register()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.init_strategy"><code class="docutils literal notranslate">init_strategy()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.random_results"><code class="docutils literal notranslate">random_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.setUp"><code class="docutils literal notranslate">setUp()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext.filter"><code class="docutils literal notranslate">.filter()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext.filter"><code class="docutils literal notranslate">filter()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.init_strategy"><code class="docutils literal notranslate">.init_strategy()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.random_results"><code class="docutils literal notranslate">.random_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.setUp"><code class="docutils literal notranslate">.setUp()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.info"><code class="docutils literal notranslate"><span class="pre">info()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.is_left"><code class="docutils literal notranslate"><span class="pre">is_left()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.is_right"><code class="docutils literal notranslate"><span class="pre">is_right()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.memoize"><code class="docutils literal notranslate"><span class="pre">memoize</span></code></a></li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -203,7 +130,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Utilities</strong>
+        <strong itemprop="name">Utilities Module</strong>
         <meta itemprop="position" content="2" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -216,140 +143,9 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <section id="utilities">
-<span id="module-panobbgo.utils"></span><h1>Utilities<a class="headerlink" href="#utilities" title="Link to this heading">¶</a></h1>
-<p>Some utility functions, will move eventually.</p>
-</section>
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">ColoredFormatter</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#ColoredFormatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.ColoredFormatter" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Formatter" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Formatter</span></code></a></p>
-<p>Initialize the formatter with specified format strings.</p>
-<p>Initialize the formatter either with the specified format string, or a
-default as described above. Allow for specialized date formatting with
-the optional datefmt argument. If datefmt is omitted, you get an
-ISO8601-like (or RFC 3339-like) format.</p>
-<p>Use a style parameter of ‘%’, ‘{’ or ‘$’ to specify that you want to
-use one of %-formatting, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str.format" title="(in Python v3.14)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">str.format()</span></code></a> (<code class="docutils literal notranslate"><span class="pre">{}</span></code>) formatting or
-<a class="reference external" href="https://docs.python.org/3/library/string.html#string.Template" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">string.Template</span></code></a> formatting in your format string.</p>
-<div class="versionchanged">
-<p><span class="versionmodified changed">Changed in version 3.2: </span>Added the <code class="docutils literal notranslate"><span class="pre">style</span></code> parameter.</p>
-</div>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.BLACK">
-<span class="sig-name descname"><span class="pre">BLACK</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.BLACK" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.BLUE">
-<span class="sig-name descname"><span class="pre">BLUE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.BLUE" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.BOLD_SEQ">
-<span class="sig-name descname"><span class="pre">BOLD_SEQ</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\x1b[1m'</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.BOLD_SEQ" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.COLORS">
-<span class="sig-name descname"><span class="pre">COLORS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'CRITICAL':</span> <span class="pre">5,</span> <span class="pre">'DEBUG':</span> <span class="pre">4,</span> <span class="pre">'ERROR':</span> <span class="pre">1,</span> <span class="pre">'INFO':</span> <span class="pre">7,</span> <span class="pre">'WARNING':</span> <span class="pre">3}</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.COLORS" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.COLOR_SEQ">
-<span class="sig-name descname"><span class="pre">COLOR_SEQ</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\x1b[0;%dm'</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.COLOR_SEQ" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.COLOR_SEQ_BOLD">
-<span class="sig-name descname"><span class="pre">COLOR_SEQ_BOLD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\x1b[1;%dm'</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.COLOR_SEQ_BOLD" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.CYAN">
-<span class="sig-name descname"><span class="pre">CYAN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">6</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.CYAN" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.GREEN">
-<span class="sig-name descname"><span class="pre">GREEN</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.GREEN" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.MAGENTA">
-<span class="sig-name descname"><span class="pre">MAGENTA</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.MAGENTA" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.RED">
-<span class="sig-name descname"><span class="pre">RED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.RED" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.RESET_SEQ">
-<span class="sig-name descname"><span class="pre">RESET_SEQ</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'\x1b[0m'</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.RESET_SEQ" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.WHITE">
-<span class="sig-name descname"><span class="pre">WHITE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.WHITE" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.YELLOW">
-<span class="sig-name descname"><span class="pre">YELLOW</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.YELLOW" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.colorize">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">colorize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#ColoredFormatter.colorize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.colorize" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.utils.ColoredFormatter.format">
-<span class="sig-name descname"><span class="pre">format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#ColoredFormatter.format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.ColoredFormatter.format" title="Link to this definition">¶</a></dt>
-<dd><p>Format the specified record as text.</p>
-<p>The record’s attribute dictionary is used as the operand to a
-string formatting operation which yields the returned string.
-Before formatting the dictionary, a couple of preparatory steps
-are carried out. The message attribute of the record is computed
-using LogRecord.getMessage(). If the formatting string uses the
-time (as determined by a call to usesTime(), formatTime() is
-called to format the event time. If there is exception information,
-it is formatted using formatException() and appended to the message.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.utils.MockupEventBus">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">MockupEventBus</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#MockupEventBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.MockupEventBus" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.utils.MockupEventBus.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">who</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#MockupEventBus.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.MockupEventBus.register" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoContext</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Filter" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code></a></p>
-<p>Initialize a filter.</p>
-<p>Initialize with the name of the logger which, together with its
-children, will have its events allowed through the filter. If no
-name is specified, allow every event.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext.filter">
-<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext.filter" title="Link to this definition">¶</a></dt>
-<dd><p>Determine if the specified record is to be logged.</p>
-<p>Returns True if the record should be logged, or False otherwise.
-If deemed appropriate, the record may be modified in-place.</p>
-</dd></dl>
-
-</dd></dl>
-
+          <section id="utilities-module">
+<h1>Utilities Module<a class="headerlink" href="#utilities-module" title="Link to this heading">¶</a></h1>
+<p>Utility functions and helper classes.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoTestCase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase" title="Link to this definition">¶</a></dt>
@@ -375,99 +171,25 @@ not have a method with the specified name.</p>
 
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.create_logger">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">create_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#create_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.create_logger" title="Link to this definition">¶</a></dt>
-<dd><p>Creates logger with <code class="docutils literal notranslate"><span class="pre">name</span></code> and given <code class="docutils literal notranslate"><span class="pre">level</span></code> logging level.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.evaluate_point_subprocess">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">evaluate_point_subprocess</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#evaluate_point_subprocess"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.evaluate_point_subprocess" title="Link to this definition">¶</a></dt>
-<dd><p>Evaluate a point using a problem instance.</p>
-<p>This function is used by all evaluation modes:
-- ‘threaded’: Called directly in thread pool
-- ‘processes’: Called in subprocess after deserializing problem/point
-- ‘dask’: Called on worker nodes</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>problem</strong> – The optimization problem instance</p></li>
-<li><p><strong>point</strong> – The point to evaluate</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The evaluation result (Result object)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.expected_failure">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">expected_failure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exptn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#expected_failure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.expected_failure" title="Link to this definition">¶</a></dt>
-<dd><p>Wrapper for a test function, which expects a certain Exception.</p>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nd">@expected_failure</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="s2">&quot;point must be an instance of lib.Point&quot;</span><span class="p">)</span>
-</span><span data-line="2"><span class="k">def</span><span class="w"> </span><span class="nf">test_result_error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="3">    <span class="n">Result</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span> <span class="mf">1.1</span><span class="p">)</span>
-</span></pre></div>
-</div>
-<p>&#64;param Exception exptn: exception class
-&#64;param str msg: expected message</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.info">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.info" title="Link to this definition">¶</a></dt>
-<dd><p>Shows a bit of info about the libraries and other environment information.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.is_left">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">is_left</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptest</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#is_left"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.is_left" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="panobbgo.utils.is_right">
-<span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">is_right</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ptest</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#is_right"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.is_right" title="Link to this definition">¶</a></dt>
-<dd><p>p0-&gt;p1 existing results, ptest other point
-return true, if ptest is on the right of p0-&gt;p1</p>
-<p>Args:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">- p0, p1, ptest: :class:`numpy.ndarray`.
-</span></pre></div>
-</div>
-</dd></dl>
-
 <dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.utils.memoize">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">memoize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#memoize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.memoize" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Caches the return value of a method inside the instance’s function!</p>
-<p>This class is meant to be used as a decorator of methods. The return value
-from a given method invocation will be cached on the instance whose method
-was invoked. All arguments passed to a method decorated with memoize must
-be hashable.</p>
-<p>Usage:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">Obj</span><span class="p">:</span>
-</span><span data-line="2">  <span class="nd">@memoize</span>
-</span><span data-line="3">  <span class="k">def</span><span class="w"> </span><span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hashable</span><span class="p">):</span>
-</span><span data-line="4">    <span class="n">result</span> <span class="o">=</span> <span class="n">do_calc</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-</span><span data-line="5">    <span class="k">return</span> <span class="n">result</span>
-</span></pre></div>
-</div>
-<p>If a memoized method is invoked directly on its class the result will not
-be cached. Instead the method will be invoked like a static method:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">Obj</span><span class="p">:</span>
-</span><span data-line="2">  <span class="nd">@memoize</span>
-</span><span data-line="3">  <span class="k">def</span><span class="w"> </span><span class="nf">add_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
-</span><span data-line="4">    <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="n">arg</span>
-</span><span data-line="5"><span class="n">Obj</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># not enough arguments</span>
-</span><span data-line="6"><span class="n">Obj</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="c1"># returns 3, result is not cached</span>
-</span></pre></div>
-</div>
-<p>Derived from <a class="reference external" href="http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/">ActiveState 577432</a>.</p>
+<dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoContext</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Filter" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code></a></p>
+<p>Initialize a filter.</p>
+<p>Initialize with the name of the logger which, together with its
+children, will have its events allowed through the filter. If no
+name is specified, allow every event.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext.filter">
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext.filter" title="Link to this definition">¶</a></dt>
+<dd><p>Determine if the specified record is to be logged.</p>
+<p>Returns True if the record should be logged, or False otherwise.
+If deemed appropriate, the record may be modified in-place.</p>
 </dd></dl>
 
+</dd></dl>
+
+</section>
 
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -475,16 +197,16 @@ be cached. Instead the method will be invoked like a static method:</p>
   </svg>
   <span>Back to top</span>
 </button><div class="navigation flex print:hidden"><div class="navigation-prev">
-    <a href="ui.html">
+    <a href="config.html">
       <i class="i-lucide chevron-left"></i>
       <div class="page-info">
-        <span>Previous</span><div class="title">User Interface</div></div>
+        <span>Previous</span><div class="title">Configuration Module</div></div>
     </a>
   </div><div class="navigation-next">
-    <a href="classic.html">
+    <a href="strategies.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">Classic Problems</div>
+        <div class="title">Strategies Module</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>
@@ -495,7 +217,7 @@ be cached. Instead the method will be invoked like a static method:</p>
 <footer class="sy-foot">
   <div class="sy-foot-inner sy-container mx-auto">
     <div class="sy-foot-reserved md:flex justify-between items-center">
-      <div class="sy-foot-copyright"><p>2012, Harald Schilly. License Apache 2.0</p>
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
   
   <p>
     Made with

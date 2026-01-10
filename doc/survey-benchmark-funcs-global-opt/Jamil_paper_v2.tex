@@ -1,0 +1,96 @@
+%\documentclass[A4,10pt,conference]{IEEEtran}
+
+\documentclass[A4,11pt]{article}
+\textwidth=6in
+\textheight=9in
+\topmargin=0in
+\oddsidemargin=0in
+
+%\usepackage[dvips]{graphicx}
+
+\usepackage[dvips]{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{array}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage{capt-of}            %% use this to put caption outside float
+\usepackage{placeins}           %% supress !!TOO MANY UNCOMPRESSED ERRORS!!
+\usepackage{supertabular}       %% Insert Long Table
+\usepackage{rotating}           %% To turn the tables or figures sideways
+\usepackage{booktabs}
+\usepackage{enumerate}
+\usepackage{subfig}             %% to be used, if \subfloat has to be used to out two fugures side-by-side.
+\usepackage{lscape}             %% to change the orientation of the page (potrait---->landscape)
+\usepackage{lipsum}
+\usepackage{mathtools}
+\usepackage{vector}
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+
+\newcommand{\clearemptydoublepage}{\newpage{\cleardoublepage}}
+
+%\renewcommand{\baselinestretch}{1.85}
+
+\newtheorem{theorem}{Theorem}[section]
+
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{procedure}{Procedure}[section]
+\newtheorem{assumption}{Assumption}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{algorithm}{Algorithm}[section]
+\newtheorem{remark}{Remark}[section]
+\newtheorem{property}{Property}
+
+
+% set the paper title here
+\title{A Literature Survey of Benchmark Functions For Global Optimization Problems}
+
+
+% Paper title.
+
+\author
+{Momin Jamil$^{*\dag}$, Xin-She Yang$^{\ddag}$ 
+    %Author 1, Author 2, Author 3\\
+    $^{*}$Blekinge Institute of Technology\\
+    SE-37179, Karlskrona, Sweden\\
+    %E-mail: hans-jurgen.zepernick@bth.se\\
+    %
+    $^{\dag}$Harman International, Cooperate Division\\
+    Becker-Goering Str. 16, D-76307 Karlsbad, Germany\\
+    E-mail: momin.jamil@harman.com\\
+    %
+    $^{\ddag}$Middlesex University\\
+    School of Science and Technology\\
+    Hendon Campus, London NW4 4BT, UK\\
+    E-mail: xin-she.yang@middlesex.ac.uk %% ASK FOR NEW EMAIL ADDRESS
+}
+
+\date{{\bf Citation details:} \\ 
+Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150--194 (2013). \\ 
+DOI: 10.1504/IJMMNO.2013.055204 
+}
+
+\begin{document}
+
+\maketitle
+Test functions are important to validate and compare the performance of  optimization algorithms.
+There have been many test or benchmark functions reported in the literature; however,
+there is no standard list or set of benchmark functions. Ideally, test functions should have
+diverse properties so that can be truly useful to test new algorithms in an unbiased way.
+For this purpose, we have reviewed and compiled a rich set of 175 benchmark functions
+for unconstrained optimization problems with diverse properties in terms of modality,
+separability, and valley landscape. This is by far the most complete set of functions
+so far in the literature, and tt can be expected this complete set of functions can
+be used for validation of new optimization in the future.
+
+\input{part1_v2}             %   Introduction
+\input{part2_v2}             %   Benchmark Functions
+\input{part3_ref_v2}           %   References
+
+\end{document}

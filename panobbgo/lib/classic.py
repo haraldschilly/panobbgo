@@ -203,16 +203,444 @@ class Rastrigin(Problem):
             np.sum(x ** 2 - self.par1 * np.cos(2 * np.pi * x))
 
 
+class Ackley(Problem):
+
+    r"""
+    Ackley function.
+
+    .. math::
+
+      f(\mathbf{x}) = -20 \exp\left(-0.2 \sqrt{\frac{1}{n} \sum_{i=1}^{n} x_i^2}\right) - \exp\left(\frac{1}{n} \sum_{i=1}^{n} \cos(2\pi x_i)\right) + 20 + e
+
+    The Ackley function is a multimodal test function for optimization algorithms.
+    It has a nearly flat outer region and a large hole at the center. The function
+    is continuous, convex and unimodal in a narrow valley.
+
+    Global minimum: :math:`f(0,\dots,0) = 0`
+
+    References
+    ----------
+    .. [Ackley] https://en.wikipedia.org/wiki/Ackley_function
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-5, 5)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        n = self.dim
+        term1 = -20 * np.exp(-0.2 * np.sqrt(np.sum(x**2) / n))
+        term2 = -np.exp(np.sum(np.cos(2 * np.pi * x)) / n)
+        return term1 + term2 + 20 + np.e
+
+
+class Griewank(Problem):
+
+    r"""
+    Griewank function.
+
+    The Griewank function is a multimodal test function for optimization algorithms.
+    It combines a quadratic term with a product of cosine terms, creating many
+    local minima that make it challenging for optimization algorithms.
+
+    .. math::
+
+      f(\mathbf{x}) = 1 + \frac{1}{4000} \sum_{i=1}^{n} x_i^2 - \prod_{i=1}^{n} \cos\left(\frac{x_i}{\sqrt{i}}\right)
+
+    The function has a global minimum at the origin and many local minima
+    due to the cosine product term. The division by :math:`\sqrt{i}` in the
+    cosine arguments creates different scales for different dimensions.
+
+    Global minimum: :math:`f(0,\dots,0) = 0`
+
+    References
+    ----------
+    .. [Griewank] https://en.wikipedia.org/wiki/Griewank_function
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-600, 600)] * dims  # Common bounds for Griewank
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        n = self.dim
+        sum_term = np.sum(x**2) / 4000
+        prod_term = np.prod(np.cos(x / np.sqrt(np.arange(1, n+1))))
+        return 1 + sum_term - prod_term
+
+
+class StyblinskiTang(Problem):
+
+    r"""
+    Styblinski-Tang function.
+
+    The Styblinski-Tang function is a multimodal test function for optimization algorithms.
+    It is defined as the sum of quartic polynomials for each dimension, creating
+    multiple local minima that challenge optimization algorithms.
+
+    .. math::
+
+      f(\mathbf{x}) = \frac{1}{2} \sum_{i=1}^{n} (x_i^4 - 16 x_i^2 + 5 x_i)
+
+    Each dimension contributes a quartic term with multiple local optima.
+    The function has a global minimum at :math:`x_i \approx -2.903534` for all dimensions.
+
+    Global minimum: :math:`f(-2.903534,\dots,-2.903534) \approx -39.16617 \cdot n`
+
+    References
+    ----------
+    .. [StyblinskiTang] https://en.wikipedia.org/wiki/Styblinski%E2%80%93Tang_function
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-5, 5)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        return 0.5 * np.sum(x**4 - 16 * x**2 + 5 * x)
+
+
+class Schwefel(Problem):
+
+    r"""
+    Schwefel function.
+
+    The Schwefel function is a highly multimodal test function for optimization algorithms.
+    It has many local minima arranged in a complex pattern, making it extremely challenging
+    for optimization algorithms to find the global minimum.
+
+    .. math::
+
+      f(\mathbf{x}) = 418.9829 \cdot n + \sum_{i=1}^{n} \left( -x_i \sin\left(\sqrt{|x_i|}\right) \right)
+
+    The function has a global minimum at :math:`x_i \approx 420.9687` for all dimensions,
+    where :math:`f(\mathbf{x}) = 0`. The many local minima and the narrow valley leading
+    to the global optimum make this function particularly difficult to optimize.
+
+    Global minimum: :math:`f(420.9687,\dots,420.9687) = 0`
+
+    References
+    ----------
+    .. [Schwefel] https://en.wikipedia.org/wiki/Schwefel_function
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-500, 500)] * dims  # Common bounds for Schwefel
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        n = self.dim
+        return 418.9829 * n + np.sum(-x * np.sin(np.sqrt(np.abs(x))))
+
+
+class DixonPrice(Problem):
+
+    r"""
+    Dixon & Price function.
+
+    The Dixon & Price function is a unimodal test function for optimization algorithms.
+    It has a long, narrow valley that makes it challenging for algorithms to converge
+    to the global minimum along the valley floor.
+
+    .. math::
+
+      f(\mathbf{x}) = (x_1 - 1)^2 + \sum_{i=2}^{D} i (2x_i^2 - x_{i-1})^2
+
+    The function creates a valley that becomes increasingly narrow as the dimension increases,
+    making it difficult for optimization algorithms to follow the valley to the minimum.
+
+    Global minimum: :math:`f(2^{(\frac{2^i-2}{2^i})}, \dots, 2^{(\frac{2^D-2}{2^D})}) = 0`
+
+    References
+    ----------
+    .. [DixonPrice] Momin Jamil and Xin-She Yang,
+                    A literature survey of benchmark functions for global optimization problems,
+                    {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                    Vol.~4, No.~2, pp. 150--194 (2013).
+                    DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-10, 10)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        if self.dim < 2:
+            raise ValueError("Dixon-Price function requires at least 2 dimensions")
+
+        result = (x[0] - 1.0) ** 2
+        for i in range(1, self.dim):
+            result += (i + 1) * (2 * x[i]**2 - x[i-1]) ** 2
+        return result
+
+
+class Zakharov(Problem):
+
+    r"""
+    Zakharov function.
+
+    The Zakharov function is a multimodal test function for optimization algorithms.
+    It combines a quadratic term with polynomial terms involving weighted sums,
+    creating multiple local optima that challenge optimization algorithms.
+
+    .. math::
+
+      f(\mathbf{x}) = \sum_{i=1}^{n} x_i^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^4
+
+    The function has a global minimum at the origin and multiple local minima
+    due to the higher-order polynomial terms.
+
+    Global minimum: :math:`f(0,\dots,0) = 0`
+
+    References
+    ----------
+    .. [Zakharov] Momin Jamil and Xin-She Yang,
+                   A literature survey of benchmark functions for global optimization problems,
+                   {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                   Vol.~4, No.~2, pp. 150--194 (2013).
+                   DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-5, 10)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        n = self.dim
+        # Calculate the weighted sum: sum_{i=1}^n i * x_i
+        weighted_sum = np.sum((np.arange(1, n+1)) * x)
+
+        # Quadratic term
+        quad_term = np.sum(x**2)
+
+        # Polynomial terms
+        poly_term = 0.5 * weighted_sum
+        poly_squared = poly_term**2
+        poly_fourth = poly_term**4
+
+        return quad_term + poly_squared + poly_fourth
+
+
+class RosenbrockModified(Problem):
+
+    r"""
+    Rosenbrock Modified function.
+
+    The Rosenbrock Modified function is a multimodal test function that adds a Gaussian bump
+    to the standard Rosenbrock function, creating a local minimum that makes optimization more challenging.
+
+    .. math::
+
+      f(\mathbf{x}) = 74 + 100(x_2 - x_1^2)^2 + (1 - x_1)^2 - 400 \exp\left(-\frac{(x_1 + 1)^2 + (x_2 + 1)^2}{0.1}\right)
+
+    The Gaussian term creates a local minimum at (1,1) while the global minimum remains at (-1,-1).
+    This makes the function difficult to optimize because the local minimum has a larger basin of attraction.
+
+    Global minimum: :math:`f(-1,-1) = 0`
+
+    References
+    ----------
+    .. [RosenbrockModified] Momin Jamil and Xin-She Yang,
+                            A literature survey of benchmark functions for global optimization problems,
+                            {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                            Vol.~4, No.~2, pp. 150--194 (2013).
+                            DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-2, 2), (-2, 2)]
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x[0], x[1]
+        return (74 + 100 * (x2 - x1**2)**2 + (1 - x1)**2
+                - 400 * np.exp(-((x1 + 1)**2 + (x2 + 1)**2) / 0.1))
+
+
+class RotatedEllipse(Problem):
+
+    r"""
+    Rotated Ellipse function.
+
+    The Rotated Ellipse function is a unimodal quadratic test function
+    that represents an ellipse rotated in the coordinate system.
+
+    .. math::
+
+      f(\mathbf{x}) = 7x_1^2 - 6\sqrt{3}x_1 x_2 + 13x_2^2
+
+    This is a quadratic form that creates an elliptical contour when rotated.
+    It is unimodal with a single global minimum.
+
+    Global minimum: :math:`f(0,0) = 0`
+
+    References
+    ----------
+    .. [RotatedEllipse] Momin Jamil and Xin-She Yang,
+                        A literature survey of benchmark functions for global optimization problems,
+                        {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                        Vol.~4, No.~2, pp. 150--194 (2013).
+                        DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-500, 500), (-500, 500)]
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x[0], x[1]
+        return 7*x1**2 - 6*np.sqrt(3)*x1*x2 + 13*x2**2
+
+
+class RotatedEllipse2(Problem):
+
+    r"""
+    Rotated Ellipse 2 function.
+
+    The Rotated Ellipse 2 function is another unimodal quadratic test function
+    that represents a different elliptical form.
+
+    .. math::
+
+      f(\mathbf{x}) = x_1^2 - x_1 x_2 + x_2^2
+
+    This quadratic form creates a rotated elliptical contour.
+    It is unimodal with a single global minimum.
+
+    Global minimum: :math:`f(0,0) = 0`
+
+    References
+    ----------
+    .. [RotatedEllipse2] Momin Jamil and Xin-She Yang,
+                         A literature survey of benchmark functions for global optimization problems,
+                         {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                         Vol.~4, No.~2, pp. 150--194 (2013).
+                         DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(-500, 500), (-500, 500)]
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        x1, x2 = x[0], x[1]
+        return x1**2 - x1*x2 + x2**2
+
+
+class Ripple1(Problem):
+
+    r"""
+    Ripple 1 function.
+
+    The Ripple 1 function is a highly multimodal test function with many local minima.
+    It creates a landscape with 25 holes in a 5x5 grid plus additional ripples.
+
+    .. math::
+
+      f(\mathbf{x}) = \sum_{i=1}^{2} -e^{-2\ln2(\frac{x_i-0.1}{0.8})^2} (\sin^6(5\pi x_i) + 0.1\cos^2(500\pi x_i))
+
+    The function has one global minimum and 252,004 local minima.
+    The landscape consists of 25 holes forming a 5×5 regular grid plus high-frequency ripples.
+
+    Global minimum: Located within bounds (complex)
+
+    References
+    ----------
+    .. [Ripple1] Momin Jamil and Xin-She Yang,
+                 A literature survey of benchmark functions for global optimization problems,
+                 {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                 Vol.~4, No.~2, pp. 150--194 (2013).
+                 DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(0, 1), (0, 1)]
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        result = 0.0
+        for i in range(2):
+            xi = x[i]
+            exp_term = np.exp(-2*np.log(2) * ((xi - 0.1)/0.8)**2)
+            sin_term = np.sin(5*np.pi*xi)**6
+            cos_term = 0.1 * np.cos(500*np.pi*xi)**2
+            result += -exp_term * (sin_term + cos_term)
+        return result
+
+
+class Ripple25(Problem):
+
+    r"""
+    Ripple 25 function.
+
+    The Ripple 25 function is a multimodal test function similar to Ripple 1
+    but without the high-frequency cosine ripples.
+
+    .. math::
+
+      f(\mathbf{x}) = \sum_{i=1}^{2} -e^{-2\ln2(\frac{x_i-0.1}{0.8})^2} \sin^6(5\pi x_i)
+
+    The function creates 25 holes in a 5×5 grid pattern without additional ripples.
+    It has fewer local minima compared to Ripple 1.
+
+    Global minimum: Located within bounds (complex)
+
+    References
+    ----------
+    .. [Ripple25] Momin Jamil and Xin-She Yang,
+                  A literature survey of benchmark functions for global optimization problems,
+                  {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                  Vol.~4, No.~2, pp. 150--194 (2013).
+                  DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, box=None, **kwargs):
+        box = box or [(0, 1), (0, 1)]
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        result = 0.0
+        for i in range(2):
+            xi = x[i]
+            exp_term = np.exp(-2*np.log(2) * ((xi - 0.1)/0.8)**2)
+            sin_term = np.sin(5*np.pi*xi)**6
+            result += -exp_term * sin_term
+        return result
+
+
 class Shekel(Problem):
 
     r"""
     Shekel Function [SH]_.
 
-    For :math:`m` minima in :math:`n` dimensions:
+    The Shekel function is a multimodal test function for optimization algorithms.
+    It creates :math:`m` local minima in :math:`n` dimensions by summing inverse
+    quadratic terms centered at different points.
 
     .. math::
 
-      f(\vec{x}) = \sum_{i = 1}^{m} \tfrac{1}{c_{i} + \sum\limits_{j = 1}^{n} (x_{j} - a_{ji})^2 }
+      f(\vec{x}) = \sum_{i = 1}^{m} \frac{1}{c_{i} + \sum_{j = 1}^{n} (x_{j} - a_{ji})^2}
+
+    where :math:`a_{ji}` are the coordinates of the :math:`i`-th minimum in dimension :math:`j`,
+    and :math:`c_i` controls the depth/width of each minimum.
+
+    The function is highly multimodal with many local optima, making it challenging
+    for optimization algorithms to find the global minimum.
+
+    Parameters
+    ----------
+    m : int
+        Number of local minima (default: 10)
+    a : array_like, shape (n, m)
+        Positions of the m minima in n dimensions. If None, generated automatically.
+    c : array_like, shape (m,)
+        Scaling factors for each minimum. If None, generated automatically.
+
+    Global minimum: Depends on parameters, typically :math:`f(\vec{x}^*) \approx -m`
+
+    References
+    ----------
+    .. [SH] https://en.wikipedia.org/wiki/Shekel_function
     """
 
     def __init__(self, dims, m=10, a=None, c=None, box=None, **kwargs):

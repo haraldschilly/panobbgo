@@ -27,6 +27,9 @@ class BenchmarkStrategy:
         """Create a strategy instance with this configuration."""
         strategy = self.strategy_class(problem, parse_args=False)
 
+        # Force threaded evaluation for benchmarks to ensure reliability
+        strategy.config.evaluation_method = "threaded"
+
         # Apply configuration overrides
         for key, value in self.config_overrides.items():
             if hasattr(strategy.config, key):

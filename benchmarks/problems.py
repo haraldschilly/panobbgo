@@ -182,9 +182,11 @@ SUCCESS_CRITERIA = [
 
 def benchmark_result_to_dict(case: BenchmarkCase, criteria: SuccessCriteria,
                            quality: Dict[str, float], evaluations: int,
-                           time_taken: float) -> Dict[str, Any]:
+                           time_taken: float,
+                           heuristic_stats: Optional[Dict[str, Any]] = None,
+                           convergence_trace: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Convert benchmark result to dictionary for storage/analysis."""
-    return {
+    result = {
         'problem': case.problem_name,
         'dimension': case.dimension,
         'shift': case.shift_vector.tolist(),
@@ -199,6 +201,14 @@ def benchmark_result_to_dict(case: BenchmarkCase, criteria: SuccessCriteria,
         'success': criteria.is_successful(quality['func_distance'], evaluations),
         **quality
     }
+
+    if heuristic_stats:
+        result['heuristic_stats'] = heuristic_stats
+
+    if convergence_trace:
+        result['convergence_trace'] = convergence_trace
+
+    return result
 
 
 # Success criteria for different benchmark scenarios

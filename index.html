@@ -1,53 +1,77 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
+<html lang="en" data-accent-color="blue" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panobbgo: parallel noisy black-box global optimization &mdash; Panobbgo 0.0.1pre documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-
-  
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=1859ee8a"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="_static/js/theme.js"></script>
-    <link rel="search" type="application/opensearchdescription+xml"
-          title="Search within Panobbgo 0.0.1pre documentation"
-          href="_static/opensearch.xml"/>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Panobbgo User Guide" href="guide.html" /> 
-</head>
-
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
-
-          
-          
-          <a href="#" class="icon icon-home">
-            Panobbgo
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Panobbgo User Guide" href="guide.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="Panobbgo: parallel noisy black-box global optimization"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="#">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
-<li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a></li>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
@@ -114,32 +138,59 @@
 
         </div>
       </div>
-    </nav>
-
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">Panobbgo</a>
-      </nav>
-
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Panobbgo: <cite>parallel noisy black-box global optimization</cite></li>
-      <li class="wy-breadcrumbs-aside">
-              <a href="https://github.com/haraldschilly/panobbgo/blob/master/doc/source/index.rst" class="fa fa-github"> Edit on GitHub</a>
-      </li>
-  </ul>
-  <hr/>
-</div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="name-parallel-noisy-black-box-global-optimization">
-<h1>Panobbgo: <cite>parallel noisy black-box global optimization</cite><a class="headerlink" href="#name-parallel-noisy-black-box-global-optimization" title="Link to this heading"></a></h1>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#">Panobbgo: <cite>parallel noisy black-box global optimization</cite></a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#user-guide">User Guide</a></li>
+<li><a class="reference internal" href="#main">Main</a></li>
+<li><a class="reference internal" href="#library">Library</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+<li><a class="reference internal" href="#history">History</a></li>
+<li><a class="reference internal" href="#links">Links</a></li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="#"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Panobbgo: <cite>parallel noisy black-box global optimization</cite></strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="name-parallel-noisy-black-box-global-optimization">
+<h1>Panobbgo: <cite>parallel noisy black-box global optimization</cite><a class="headerlink" href="#name-parallel-noisy-black-box-global-optimization" title="Link to this heading">¶</a></h1>
 <section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
 <p>Panobbgo is an open-source framework for parallel noisy black-box global optimization.
 The primary aim is to experiment with new ideas and algorithms.
 A couple of functional building blocks build the solver and
@@ -161,29 +212,25 @@ achieved as SMP or on a cluster via Dask distributed.</p>
 </a>
 </section>
 <section id="user-guide">
-<h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h2>
+<h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">¶</a></h2>
 <p>Comprehensive guide covering concepts, usage, and extension.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#quick-navigation">Quick Navigation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#guide-contents">Guide Contents</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#key-concepts">Key Concepts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#typical-workflow">Typical Workflow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#design-philosophy">Design Philosophy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#when-to-use-panobbgo">When to Use Panobbgo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#system-requirements">System Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#community-and-support">Community and Support</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#contributing">Contributing</a></li>
-<li class="toctree-l2"><a class="reference internal" href="guide.html#what-s-next">What’s Next?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </section>
 <section id="main">
-<h2>Main<a class="headerlink" href="#main" title="Link to this heading"></a></h2>
+<h2>Main<a class="headerlink" href="#main" title="Link to this heading">¶</a></h2>
 <p>This component is the main part of the program.</p>
 <p id="module-panobbgo">This is the main part of Panobbgo.</p>
 <div class="toctree-wrapper compound">
@@ -191,129 +238,26 @@ achieved as SMP or on a cluster via Dask distributed.</p>
 <li class="toctree-l1"><a class="reference internal" href="core.html">Core</a></li>
 <li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.keys"><code class="docutils literal notranslate"><span class="pre">EventBus.keys</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.publish"><code class="docutils literal notranslate"><span class="pre">EventBus.publish()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.re"><code class="docutils literal notranslate"><span class="pre">EventBus.re</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.register"><code class="docutils literal notranslate"><span class="pre">EventBus.register()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.subscribe"><code class="docutils literal notranslate"><span class="pre">EventBus.subscribe()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.EventBus.unsubscribe"><code class="docutils literal notranslate"><span class="pre">EventBus.unsubscribe()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Heuristic.active"><code class="docutils literal notranslate"><span class="pre">Heuristic.active</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Heuristic.clear_output"><code class="docutils literal notranslate"><span class="pre">Heuristic.clear_output()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Heuristic.emit"><code class="docutils literal notranslate"><span class="pre">Heuristic.emit()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Heuristic.get_points"><code class="docutils literal notranslate"><span class="pre">Heuristic.get_points()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess.subprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess.subprocess()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.check_dependencies"><code class="docutils literal notranslate"><span class="pre">Module.check_dependencies()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.eventbus"><code class="docutils literal notranslate"><span class="pre">Module.eventbus</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.name"><code class="docutils literal notranslate"><span class="pre">Module.name</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.problem"><code class="docutils literal notranslate"><span class="pre">Module.problem</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.results"><code class="docutils literal notranslate"><span class="pre">Module.results</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.strategy"><code class="docutils literal notranslate"><span class="pre">Module.strategy</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Module.ui"><code class="docutils literal notranslate"><span class="pre">Module.ui</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Results.add_results"><code class="docutils literal notranslate"><span class="pre">Results.add_results()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.Results.info"><code class="docutils literal notranslate"><span class="pre">Results.info()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StopHeuristic"><code class="docutils literal notranslate"><span class="pre">StopHeuristic</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.PROBLEM_KEY"><code class="docutils literal notranslate"><span class="pre">StrategyBase.PROBLEM_KEY</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.add"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.add_analyzer"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add_analyzer()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add_heuristic()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.analyzer"><code class="docutils literal notranslate"><span class="pre">StrategyBase.analyzer()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.analyzers"><code class="docutils literal notranslate"><span class="pre">StrategyBase.analyzers</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.avg_time_per_task"><code class="docutils literal notranslate"><span class="pre">StrategyBase.avg_time_per_task</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.best"><code class="docutils literal notranslate"><span class="pre">StrategyBase.best</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.check_dependencies"><code class="docutils literal notranslate"><span class="pre">StrategyBase.check_dependencies()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.evaluators"><code class="docutils literal notranslate"><span class="pre">StrategyBase.evaluators</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.execute"><code class="docutils literal notranslate"><span class="pre">StrategyBase.execute()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyBase.heuristic()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.heuristics"><code class="docutils literal notranslate"><span class="pre">StrategyBase.heuristics</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.info"><code class="docutils literal notranslate"><span class="pre">StrategyBase.info()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.init_module"><code class="docutils literal notranslate"><span class="pre">StrategyBase.init_module()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.start"><code class="docutils literal notranslate"><span class="pre">StrategyBase.start()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.time_cpu"><code class="docutils literal notranslate"><span class="pre">StrategyBase.time_cpu</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.time_start_str"><code class="docutils literal notranslate"><span class="pre">StrategyBase.time_start_str</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.time_wall"><code class="docutils literal notranslate"><span class="pre">StrategyBase.time_wall</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase.validate_setup"><code class="docutils literal notranslate"><span class="pre">StrategyBase.validate_setup()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="core.html#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies</a></li>
 <li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.best.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="config.html#panobbgo.config.Config.debug"><code class="docutils literal notranslate"><span class="pre">Config.debug</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="config.html#panobbgo.config.Config.get_logger"><code class="docutils literal notranslate"><span class="pre">Config.get_logger()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html#panobbgo.config.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.add_notebook_page"><code class="docutils literal notranslate"><span class="pre">UI.add_notebook_page()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.destroy"><code class="docutils literal notranslate"><span class="pre">UI.destroy()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.finish"><code class="docutils literal notranslate"><span class="pre">UI.finish()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.mk_canvas"><code class="docutils literal notranslate"><span class="pre">UI.mk_canvas()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.redraw_canvas"><code class="docutils literal notranslate"><span class="pre">UI.redraw_canvas()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.run"><code class="docutils literal notranslate"><span class="pre">UI.run()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="ui.html#panobbgo.ui.UI.show"><code class="docutils literal notranslate"><span class="pre">UI.show()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.BLACK"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.BLACK</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.BLUE"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.BLUE</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.BOLD_SEQ"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.BOLD_SEQ</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.COLORS"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.COLORS</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.COLOR_SEQ"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.COLOR_SEQ</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.COLOR_SEQ_BOLD"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.COLOR_SEQ_BOLD</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.CYAN"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.CYAN</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.GREEN"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.GREEN</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.MAGENTA"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.MAGENTA</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.RED"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.RED</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.RESET_SEQ"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.RESET_SEQ</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.WHITE"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.WHITE</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.YELLOW"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.YELLOW</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.colorize"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.colorize()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter.format"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter.format()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus.register"><code class="docutils literal notranslate"><span class="pre">MockupEventBus.register()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext.filter"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext.filter()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.init_strategy()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase.random_results"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.random_results()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase.setUp"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.setUp()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.ColoredFormatter"><code class="docutils literal notranslate"><span class="pre">ColoredFormatter</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.MockupEventBus"><code class="docutils literal notranslate"><span class="pre">MockupEventBus</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.create_logger"><code class="docutils literal notranslate"><span class="pre">create_logger()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.evaluate_point_subprocess"><code class="docutils literal notranslate"><span class="pre">evaluate_point_subprocess()</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils.html#panobbgo.utils.expected_failure"><code class="docutils literal notranslate"><span class="pre">expected_failure()</span></code></a></li>
@@ -325,151 +269,56 @@ achieved as SMP or on a cluster via Dask distributed.</p>
 </div>
 </section>
 <section id="library">
-<h2>Library<a class="headerlink" href="#library" title="Link to this heading"></a></h2>
+<h2>Library<a class="headerlink" href="#library" title="Link to this heading">¶</a></h2>
 <p>The library component contains the code for constructing the problem instances
 and running them on the computational nodes.</p>
 <div class="toctree-wrapper compound" id="module-panobbgo.lib">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems</a></li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead.eval"><code class="docutils literal notranslate"><span class="pre">Arwhead.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale.eval"><code class="docutils literal notranslate"><span class="pre">Beale.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box.eval"><code class="docutils literal notranslate"><span class="pre">Box.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin.eval"><code class="docutils literal notranslate"><span class="pre">Branin.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong.eval"><code class="docutils literal notranslate"><span class="pre">DeJong.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice.eval"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley.eval"><code class="docutils literal notranslate"><span class="pre">HelicalValley.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau.eval"><code class="docutils literal notranslate"><span class="pre">Himmelblau.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic.eval"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell.eval"><code class="docutils literal notranslate"><span class="pre">Powell.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple.eval"><code class="docutils literal notranslate"><span class="pre">Quadruple.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin.eval"><code class="docutils literal notranslate"><span class="pre">Rastrigin.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock.eval"><code class="docutils literal notranslate"><span class="pre">Rosenbrock.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint.eval()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint.eval_constraints"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint.eval_constraints()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint.eval()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint.eval_constraints"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint.eval_constraints()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic.eval"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel.eval"><code class="docutils literal notranslate"><span class="pre">Shekel.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step.eval"><code class="docutils literal notranslate"><span class="pre">Step.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower.eval"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric.eval"><code class="docutils literal notranslate"><span class="pre">Trigonometric.eval()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood.eval"><code class="docutils literal notranslate"><span class="pre">Wood.eval()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Arwhead"><code class="docutils literal notranslate"><span class="pre">Arwhead</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Beale"><code class="docutils literal notranslate"><span class="pre">Beale</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Branin"><code class="docutils literal notranslate"><span class="pre">Branin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.DeJong"><code class="docutils literal notranslate"><span class="pre">DeJong</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.GoldsteinPrice"><code class="docutils literal notranslate"><span class="pre">GoldsteinPrice</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.HelicalValley"><code class="docutils literal notranslate"><span class="pre">HelicalValley</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Himmelblau"><code class="docutils literal notranslate"><span class="pre">Himmelblau</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rastrigin"><code class="docutils literal notranslate"><span class="pre">Rastrigin</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Rosenbrock"><code class="docutils literal notranslate"><span class="pre">Rosenbrock</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbs"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockAbsConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockAbsConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockConstraint"><code class="docutils literal notranslate"><span class="pre">RosenbrockConstraint</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.RosenbrockStochastic"><code class="docutils literal notranslate"><span class="pre">RosenbrockStochastic</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.SumDifferentPower"><code class="docutils literal notranslate"><span class="pre">SumDifferentPower</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Trigonometric"><code class="docutils literal notranslate"><span class="pre">Trigonometric</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="classic.html#panobbgo.lib.classic.Wood"><code class="docutils literal notranslate"><span class="pre">Wood</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Classes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox.copy"><code class="docutils literal notranslate"><span class="pre">BoundingBox.copy()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point.who"><code class="docutils literal notranslate"><span class="pre">Point.who</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point.x"><code class="docutils literal notranslate"><span class="pre">Point.x</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.box"><code class="docutils literal notranslate"><span class="pre">Problem.box</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.center"><code class="docutils literal notranslate"><span class="pre">Problem.center</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.dim"><code class="docutils literal notranslate"><span class="pre">Problem.dim</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.eval"><code class="docutils literal notranslate"><span class="pre">Problem.eval()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.eval_constraints"><code class="docutils literal notranslate"><span class="pre">Problem.eval_constraints()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.project"><code class="docutils literal notranslate"><span class="pre">Problem.project()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.random_point"><code class="docutils literal notranslate"><span class="pre">Problem.random_point()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem.ranges"><code class="docutils literal notranslate"><span class="pre">Problem.ranges</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.cv"><code class="docutils literal notranslate"><span class="pre">Result.cv</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.cv_vec"><code class="docutils literal notranslate"><span class="pre">Result.cv_vec</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.error"><code class="docutils literal notranslate"><span class="pre">Result.error</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.fx"><code class="docutils literal notranslate"><span class="pre">Result.fx</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.point"><code class="docutils literal notranslate"><span class="pre">Result.point</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.pp"><code class="docutils literal notranslate"><span class="pre">Result.pp</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.who"><code class="docutils literal notranslate"><span class="pre">Result.who</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result.x"><code class="docutils literal notranslate"><span class="pre">Result.x</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.BoundingBox"><code class="docutils literal notranslate"><span class="pre">BoundingBox</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem"><code class="docutils literal notranslate"><span class="pre">Problem</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a></li>
 </ul>
 </div>
 </section>
 </section>
 <section id="examples">
-<h1>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h1>
+<h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p>ex1</p></li>
 <li><p>ex2</p></li>
 </ul>
 </section>
 <section id="history">
-<h1>History<a class="headerlink" href="#history" title="Link to this heading"></a></h1>
+<h1>History<a class="headerlink" href="#history" title="Link to this heading">¶</a></h1>
 <p>This project was revived in 2026 with the help of coding agents like Jules and Claude Code.</p>
 </section>
 <section id="links">
-<h1>Links<a class="headerlink" href="#links" title="Link to this heading"></a></h1>
+<h1>Links<a class="headerlink" href="#links" title="Link to this heading">¶</a></h1>
 <ul class="simple">
 <li><p><a class="reference external" href="http://github.com/haraldschilly/panobbgo">source repository</a></p></li>
 <li><p>short <a class="reference external" href="https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&amp;start=false&amp;loop=false&amp;delayms=3000">introduction talk</a></p></li>
@@ -483,7 +332,7 @@ and running them on the computational nodes.</p>
 </ul>
 </section>
 <section id="references">
-<h1>References<a class="headerlink" href="#references" title="Link to this heading"></a></h1>
+<h1>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h1>
 <div role="list" class="citation-list">
 <div class="citation" id="dask" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Dask<span class="fn-bracket">]</span></span>
@@ -535,31 +384,44 @@ Amsterdam: North-Holland, 1978.</p>
 </div>
 </section>
 
-
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="guide.html" class="btn btn-neutral float-right" title="Panobbgo User Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>&#169; Copyright 2012, Harald Schilly. License Apache 2.0.</p>
-  </div>
-
-   
-
-</footer>
-        </div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-next">
+    <a href="guide.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Panobbgo User Guide</div>
       </div>
-    </section>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
   </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
-
-</body>
+</footer>
+      <script src="_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script></body>
 </html>

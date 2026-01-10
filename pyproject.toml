@@ -32,7 +32,7 @@ dependencies = [
     "future",
     "rich>=14.2.0",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [project.urls]
 "Homepage" = "http://github.com/haraldschilly/panobbgo"

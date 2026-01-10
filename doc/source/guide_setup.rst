@@ -7,7 +7,7 @@ Each step includes executable doctests that verify the setup works correctly.
 Prerequisites
 -------------
 
-Before starting, ensure you have Python ≥ 3.8 installed:
+Before starting, ensure you have Python ≥ 3.11 installed:
 
 .. doctest::
 

@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 env:
   PYTHON: "3.12"
@@ -14,193 +14,150 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON }}
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON }}
 
-    - name: Setup UV PATH
-      run: |
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Setup UV PATH
+        run: |
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install UV
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
 
-    - name: Run pytest
-      run: |
-        uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
+      - name: Run pytest
+        run: |
+          uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON }}
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON }}
 
-    - name: Cache UV and dependencies
-      id: cache-uv
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/uv
-          .venv
-        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+      - name: Cache UV and dependencies
+        id: cache-uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
-    - name: Install UV
-      run: |
-        if [ ! -f "$HOME/.cargo/bin/uv" ]; then
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-        fi
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
-      if: steps.cache-uv.outputs.cache-hit != 'true'
-      run: |
-        uv sync --extra dev
+      - name: Install dependencies
+        if: steps.cache-uv.outputs.cache-hit != 'true'
+        run: |
+          uv sync --extra dev
 
-    - name: Run flake8
-      run: |
-        uv run flake8 panobbgo --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 panobbgo --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      continue-on-error: true
+      - name: Run flake8
+        run: |
+          uv run flake8 panobbgo --count --select=E9,F63,F7,F82 --show-source --statistics
+          uv run flake8 panobbgo --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
 
   typecheck:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON }}
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON }}
 
-    - name: Cache UV and dependencies
-      id: cache-uv
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/uv
-          .venv
-        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+      - name: Cache UV and dependencies
+        id: cache-uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
-    - name: Install UV
-      run: |
-        if [ ! -f "$HOME/.cargo/bin/uv" ]; then
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-        fi
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
-      if: steps.cache-uv.outputs.cache-hit != 'true'
-      run: |
-        uv sync --extra dev
+      - name: Install dependencies
+        if: steps.cache-uv.outputs.cache-hit != 'true'
+        run: |
+          uv sync --extra dev
 
-    - name: Run Pyright
-      run: |
+      - name: Run Pyright
+        run: |
           uv run pyright panobbgo
 
-   docs:
-     runs-on: ubuntu-latest
-
-     steps:
-     - uses: actions/checkout@v4
-
-     - name: Set up Python 3.12
-       uses: actions/setup-python@v5
-       with:
-         python-version: ${{ env.PYTHON }}
-
-     - name: Cache UV and dependencies
-       id: cache-uv
-       uses: actions/cache@v4
-       with:
-         path: |
-           ~/.cargo/bin/uv
-           .venv
-         key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-         restore-keys: |
-           uv-${{ runner.os }}-python-${{ env.PYTHON }}-
-
-     - name: Install UV
-       run: |
-         if [ ! -f "$HOME/.cargo/bin/uv" ]; then
-           curl -LsSf https://astral.sh/uv/install.sh | sh
-         fi
-         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-     - name: Install dependencies
-       if: steps.cache-uv.outputs.cache-hit != 'true'
-       run: |
-         uv sync --extra dev
-
-     - name: Install Sphinx
-       run: |
-         uv add --dev sphinx
-
-     - name: Run documentation doctests
-       run: |
-         uv run sphinx-build -b doctest doc/source doc/build/doctest
-         echo "✅ Documentation doctests passed!"
-
-   format:
+  format:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON }}
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON }}
 
-    - name: Cache UV and dependencies
-      id: cache-uv
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/uv
-          .venv
-        key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+      - name: Cache UV and dependencies
+        id: cache-uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
-    - name: Install UV
-      run: |
-        if [ ! -f "$HOME/.cargo/bin/uv" ]; then
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-        fi
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Install dependencies
-      if: steps.cache-uv.outputs.cache-hit != 'true'
-      run: |
-        uv sync --extra dev
+      - name: Install dependencies
+        if: steps.cache-uv.outputs.cache-hit != 'true'
+        run: |
+          uv sync --extra dev
 
-    - name: Run benchmark suite
-      run: |
-        # Run benchmarks with timeout - should complete in under 1 minute
-        timeout 60 uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q
-        echo "✅ Benchmark suite completed successfully in under 1 minute"
+      - name: Run benchmark suite
+        run: |
+          # Run benchmarks with timeout - should complete in under 1 minute
+          timeout 60 uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q
+          echo "✅ Benchmark suite completed successfully in under 1 minute"

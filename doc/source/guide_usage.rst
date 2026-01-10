@@ -253,6 +253,11 @@ Override ``eval_constraints()`` to return violation vector:
    # Panobbgo will minimize objective while trying to satisfy constraints
    problem = ConstrainedProblem()
    strategy = StrategyRewarding(problem, max_evaluations=300)
+
+   # You can configure the constraint handling method in ~/.panobbgo/config.ini
+   # [optimization]
+   # constraint_handler = AugmentedLagrangianConstraintHandler
+
    strategy.add(Center)
    strategy.add(Random)
    strategy.add(NelderMead)
@@ -260,6 +265,26 @@ Override ``eval_constraints()`` to return violation vector:
 
    print(f"Best feasible: {strategy.best}")
    print(f"Constraint violation: {strategy.best.cv}")
+
+Constraint Handling Methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Panobbgo supports different constraint handling strategies, configurable in ``config.ini``:
+
+1. **DefaultConstraintHandler** (default):
+   Lexicographic ordering. Prioritizes feasibility (cv=0) over objective function value.
+   Good for general use where feasibility is strict.
+
+2. **PenaltyConstraintHandler**:
+   Uses a static penalty: $P(x) = f(x) + \rho \cdot cv(x)^{exponent}$.
+   Useful if slight violations are acceptable or gradients lead out of feasible region.
+
+3. **DynamicPenaltyConstraintHandler**:
+   Penalty coefficient increases over time. Starts low to allow exploration of infeasible regions, then tightens.
+
+4. **AugmentedLagrangianConstraintHandler**:
+   Implements the Augmented Lagrangian Method. Adaptively updates multipliers $\lambda$ and penalty $\mu$ based on progress.
+   Can be more robust for equality constraints or hard inequality constraints.
 
 Expensive External Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

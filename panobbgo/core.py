@@ -42,6 +42,7 @@ from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
+    AugmentedLagrangianConstraintHandler,
 )
 from .logging import PanobbgoLogger
 import time as time_module
@@ -723,6 +724,7 @@ class StrategyBase:
         self._heuristics = collections.OrderedDict()
         self._analyzers = collections.OrderedDict()
         self.problem = problem
+        self._stop_requested = False
 
         # Configure Constraint Handler
         rho = float(config.rho) if hasattr(config, "rho") else 100.0
@@ -738,12 +740,17 @@ class StrategyBase:
             self.constraint_handler = DynamicPenaltyConstraintHandler(
                 strategy=self, rho_start=rho, rate=rate, exponent=exponent
             )
+        elif handler_name == "AugmentedLagrangianConstraintHandler":
+            self.constraint_handler = AugmentedLagrangianConstraintHandler(
+                strategy=self, rho=rho, rate=rate
+            )
         else:
             self.constraint_handler = DefaultConstraintHandler(
                 strategy=self, rho=rho
             )
 
         self.eventbus = EventBus(config)
+        self.eventbus.register(self.constraint_handler)
         self.results = Results(self)
 
         # Initialize new logging system
@@ -767,9 +774,9 @@ class StrategyBase:
             self.add_heuristic(h)
 
         # analyzers
-        from .analyzers import Best, Grid, Splitter
+        from .analyzers import Best, Grid, Splitter, Convergence
 
-        new_analyzers = [Best(self), Grid(self), Splitter(self)]
+        new_analyzers = [Best(self), Grid(self), Splitter(self), Convergence(self)]
         for a in new_analyzers:
             self.add_analyzer(a)
 
@@ -1226,6 +1233,10 @@ class StrategyBase:
             if len(self.results) >= self.config.max_eval:
                 break
 
+            if self._stop_requested:
+                self.logger.info("Stop requested via flag (e.g. convergence).")
+                break
+
             # limit loop speed - sleep briefly
             time_module.sleep(1e-3)
 
@@ -1549,6 +1560,15 @@ with open('{result_file.name}', 'wb') as f:
 
         if self.config.ui_show:
             self.ui.finish()  # blocks figure window
+
+    def on_converged(self, reason, stats):
+        """
+        Called when the Convergence analyzer detects convergence.
+        """
+        stop_on_conv = getattr(self.config, 'stop_on_convergence', True)
+        if stop_on_conv:
+            self.logger.info(f"Convergence detected: {reason}. Stopping strategy.")
+            self._stop_requested = True
 
     def _add_tasks(self, new_futures):
         """

@@ -1,9 +1,16 @@
-.. autosummary::
-   :toctree: _autosummary
+Heuristics Module
+=================
 
-   panobbgo.heuristics.Heuristic
-   panobbgo.heuristics.center.Center
-   panobbgo.heuristics.random.Random
-   panobbgo.heuristics.nearby.Nearby
-   panobbgo.heuristics.nelder_mead.NelderMead
+Point generation algorithms (heuristics):
+
+- **Heuristic**: Base class for all point generators
+- **Center**: Generates center point of search space
+- **Random**: Uniform random sampling
+- **Nearby**: Local search around best points
+- **NelderMead**: Simplex optimization method
+
+.. automodule:: panobbgo.heuristics
+   :members:
+   :undoc-members:
+   :show-inheritance:
 

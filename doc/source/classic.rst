@@ -1,8 +1,15 @@
-.. autosummary::
-   :toctree: _autosummary
+Classic Problems Module
+=======================
 
-   panobbgo.lib.classic.Rosenbrock
-   panobbgo.lib.classic.Sphere
-   panobbgo.lib.classic.Rastrigin
-   panobbgo.lib.classic.Ackley
-   panobbgo.lib.classic.Branin
+Built-in test problems for optimization:
+
+- **Rosenbrock**: Banana-shaped valley function
+- **Sphere**: Simple quadratic function
+- **Rastrigin**: Multimodal function with many local minima
+- **Ackley**: Function with wide valley
+- **Branin**: Two-dimensional function with multiple minima
+
+.. automodule:: panobbgo.lib.classic
+   :members:
+   :undoc-members:
+   :show-inheritance:

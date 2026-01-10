@@ -1,8 +1,15 @@
-.. autosummary::
-   :toctree: _autosummary
+Strategies Module
+=================
 
-   panobbgo.strategies.StrategyBase
-   panobbgo.strategies.round_robin.StrategyRoundRobin
-   panobbgo.strategies.rewarding.StrategyRewarding
-   panobbgo.strategies.ucb.StrategyUCB
+Available optimization strategies:
+
+- **StrategyBase**: Abstract base class for all strategies
+- **StrategyRoundRobin**: Simple round-robin point evaluation
+- **StrategyRewarding**: Adaptive heuristic selection based on performance
+- **StrategyUCB**: Upper Confidence Bound algorithm for exploration
+
+.. automodule:: panobbgo.strategies
+   :members:
+   :undoc-members:
+   :show-inheritance:
 

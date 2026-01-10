@@ -288,6 +288,9 @@ class Config:
         self.capacity = get_config(
             "heuristic.capacity", "heuristic", "capacity", 20, int
         )
+        self.stop_on_convergence = get_config(
+            "core.stop_on_convergence", "core", "stop_on_convergence", True, bool
+        )
         self.ui_show = get_config("ui.show", "ui", "show", False, bool)
         self.ui_redraw_delay = get_config(
             "ui.redraw_delay", "ui", "redraw_delay", 0.5, float

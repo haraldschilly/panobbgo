@@ -56,7 +56,7 @@ class Convergence(Analyzer):
         Listen to all results to detect stagnation (no improvement for many evaluations).
         """
         current_best = self.strategy.best
-        if current_best is None:
+        if current_best is None or current_best.fx is None:
             return
 
         # We append the current best value for each new result.
@@ -84,6 +84,9 @@ class Convergence(Analyzer):
         # But we don't know the batch size here.
 
         if self.mode == 'std':
+            # Check for None values in the history
+            if any(v is None for v in values):
+                return  # Skip convergence check if we have invalid data
             std = np.std(values)
             if std < self.threshold:
                 self._trigger_convergence(f"Standard deviation {std:.2e} < {self.threshold:.2e}")
@@ -92,6 +95,11 @@ class Convergence(Analyzer):
             # Check relative improvement between start and end of window
             start = values[0]
             end = values[-1]
+
+            # Handle None values
+            if start is None or end is None:
+                return  # Skip convergence check if we have invalid data
+
             if abs(start) > 1e-9:
                 rel_improv = (start - end) / abs(start)
             else:

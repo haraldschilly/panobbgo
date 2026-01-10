@@ -54,9 +54,53 @@ class StrategiesTests(PanobbgoTestCase):
         "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
     )
     def test_rewarding(self, my_setup_cluster):
-        # rwd = StrategyRewarding(self.problem)
-        # assert rwd is not None
-        pass
+        from panobbgo.strategies.rewarding import StrategyRewarding
+
+        rwd = StrategyRewarding(self.problem)
+        assert rwd is not None
+        assert rwd.last_best is None
+
+        # Test __start__ method
+        rwd.add(Random)
+        rwd.add(LatinHypercube, div=3)
+
+        # Manually register heuristics like in UCB test
+        for h in rwd._hs:
+            rwd.add_heuristic(h)
+
+        rwd.__start__()
+
+        # Check that heuristics have performance initialized
+        for h in rwd.heuristics:
+            assert hasattr(h, 'performance')
+            assert h.performance == 1.0
+
+        # Test discount method
+        h = rwd.heuristics[0]
+        original_perf = h.performance
+        rwd.discount(h, discount=0.9)
+        assert h.performance == original_perf * 0.9
+
+        # Test discount with default config value
+        original_perf = h.performance
+        rwd.discount(h)
+        expected_discount = float(rwd.config.discount)  # Should be 0.95
+        assert h.performance == original_perf * expected_discount
+
+        # Test reward method - use actual heuristic name
+        heuristic_name = rwd.heuristics[0].name
+        result1 = Result(Point(np.array([0.1, 0.2, 0.3]), heuristic_name), 10.0)
+        rwd.last_best = result1
+
+        result2 = Result(Point(np.array([0.4, 0.5, 0.6]), heuristic_name), 5.0)  # Better
+        reward_val = rwd.reward(result2)
+        assert reward_val is not None
+        # reward method doesn't update last_best
+        assert rwd.last_best == result1
+
+        # Test on_new_best - this updates last_best
+        rwd.on_new_best(result2)  # Should call reward internally and update last_best
+        assert rwd.last_best == result2
 
     @mock.patch(
         "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
@@ -152,6 +196,12 @@ class StrategiesTests(PanobbgoTestCase):
         expected_reward = 1.0 - np.exp(-5.0)
 
         assert abs(h_random.ucb_total_reward - (1.0 + expected_reward)) < 1e-6
+
+
+
+
+
+
 
 
 class TestEvaluationModes(PanobbgoTestCase):

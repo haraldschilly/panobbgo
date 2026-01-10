@@ -92,7 +92,7 @@ Your framework is substantially complete with the following components:
 #### Infrastructure
 - ✅ IPython parallel integration for distributed evaluation
 - ✅ Configuration system (`~/.panobbgo/config.ini`)
-- ✅ Pytest test suite (27 tests)
+- ✅ Pytest test suite (91 tests)
 - ✅ Type hints (partial, ongoing migration)
 - ✅ CI/CD with GitHub Actions
 - ✅ Sphinx documentation framework
@@ -400,7 +400,7 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
 - Test-driven development across diverse problem scenarios
 - Shape overall framework to be robust and usable in the real world
 - Validate framework stability before advanced features
-- **🎯 Improve test coverage via full integration tests** (current: 45% overall coverage)
+- **🎯 Improve test coverage via full integration tests** (current: 58% overall coverage)
 
 **🎯 Advanced Bandit Strategies**  
 - Implement UCB, Thompson Sampling, contextual bandits
@@ -505,6 +505,7 @@ When you're called to work on panobbgo:
 
 **When you need orientation:**
 - Re-read "Current State" to remember what's done
+- Check `TODO.md` for current development priorities and roadmap
 - Re-read "Key Concepts" to recall architecture
 - Re-read relevant section of the User Guide (`doc/source/guide*.rst`)
 
@@ -600,6 +601,7 @@ def on_event_name(self, arg1, arg2=None):
 - Configuration: `panobbgo/config.py`
 - Testing utilities: `panobbgo/utils.py`
 - Tests: `tests/*.py`
+- Current Tasks: `TODO.md` - Active development roadmap and priorities
 
 ### External References
 - SNOBFIT paper (Huyer & Neumaier, 2008)

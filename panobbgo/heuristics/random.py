@@ -35,14 +35,27 @@ class Random(Heuristic):
     def on_start(self):
         import numpy as np
 
-        self.first_split.wait()
+        # Wait for splitter to initialize, but with timeout to avoid hanging
+        split_available = self.first_split.wait(timeout=5.0)  # 5 second timeout
+
+        if not split_available:
+            # No splits available yet, generate from full problem space
+            self.logger.warning("No search leaf available, generating from full problem space")
+            while True:
+                r = self.problem.random_point()
+                self.emit(r)
+            return
+
         splitter = self.strategy.analyzer("splitter")
         if self.leaf is None:
-            raise RuntimeError(
-                "Random heuristic failed to initialize: no search leaf available. "
-                "This usually means the Splitter analyzer hasn't created any leaf nodes yet. "
-                "Make sure the Splitter analyzer is properly configured and has processed some results."
-            )
+            # Fallback: generate from full problem space
+            self.logger.warning("No search leaf available, generating from full problem space")
+            while True:
+                r = self.problem.random_point()
+                self.emit(r)
+            return
+
+        # Generate from the current best leaf
         while True:
             r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
             self.emit(r)

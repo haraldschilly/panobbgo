@@ -299,6 +299,8 @@ class ProgressReporter:
 
     def _format_value(self, value: float) -> str:
         """Format numerical value appropriately."""
+        if value is None:
+            return "None"
         if abs(value) < 1e-4 or abs(value) > 1e6:
             return f"{value:.2e}"
         else:

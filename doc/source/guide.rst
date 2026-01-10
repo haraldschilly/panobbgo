@@ -26,6 +26,8 @@ Quick Navigation
    :widths: 30 70
    :header-rows: 0
 
+   * - **Just want to get started?**
+     - Follow :doc:`guide_setup` for a step-by-step setup guide with executable tests
    * - **New to Panobbgo?**
      - Start with :doc:`guide_introduction` to understand what it does and when to use it
    * - **Want mathematical details?**
@@ -45,6 +47,7 @@ Guide Contents
 .. toctree::
    :maxdepth: 2
 
+   guide_setup
    guide_introduction
    guide_mathematical_foundation
    guide_architecture

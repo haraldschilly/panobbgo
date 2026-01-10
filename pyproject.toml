@@ -73,3 +73,8 @@ reportAttributeAccessIssue = "warning"  # Warn instead of error for attribute ac
 reportCallIssue = "warning"  # Warn for missing arguments
 reportArgumentType = "warning"  # Warn for argument type mismatches
 reportPrivateImportUsage = "warning"  # Warn for imports from private modules like IPython internals
+
+[dependency-groups]
+dev = [
+    "sphinx>=8.1.3",
+]

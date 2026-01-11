@@ -54,3 +54,30 @@
 ### 🎯 TARGET: 75% Coverage on Validated Components
 **Prerequisites**: All Priority 1 items completed with TDD validation
 **Quality Metrics**: Correctness + Coverage (not just coverage)
+**Blocker**: Strategy.start() hang bug must be fixed before proper validation testing
+
+## Known Issues & Technical Debt
+
+### Strategy.start() Hang Bug (PR #36 - Pre-existing Critical Bug)
+**CRITICAL**: `strategy.start()` doesn't return after reaching `max_eval` evaluations
+- **Affects**: All validation tests in `tests/test_validation.py`
+- **Root Cause**: `_run()` method in `panobbgo/core.py` has termination logic bugs
+  - Loop should break when `len(self.results) >= self.config.max_eval` (line ~1233)
+  - Something prevents this termination condition from being reached
+  - Even simple tests with Center heuristic hang (not just Random heuristic issue)
+  - Happens with `evaluation_method="threaded"` (not just Dask)
+- **Status**: Pre-existing on master (tested commit 677f54b), not introduced by PR #36
+- **Current Workaround**: Skip all validation tests with `@pytest.mark.skip`
+- **Impact**: Cannot run end-to-end validation tests, limits framework testing capability
+- **Needs Investigation**:
+  - [ ] Why doesn't the main loop exit after max_eval?
+  - [ ] Are results being counted correctly?
+  - [ ] Is there a race condition with threaded evaluation?
+  - [ ] Do heuristic threads prevent loop termination?
+
+### PR #36 Bug Fixes (Merged)
+**Fixed Issues** - All good fixes:
+- [x] **Splitter.Box.__ranges** - Fixed `.ptp()` call to work with BoundingBox objects (`panobbgo/analyzers/splitter.py:215-220`)
+- [x] **memoize decorator** - Added handling for unhashable NumPy arrays by converting to bytes (`panobbgo/utils.py:205-230`)
+- [x] **Analyzer name consistency** - Changed "splitter"/"best" to "Splitter"/"Best" (Random, WeightedAverage heuristics)
+- [x] **Random heuristic initialization** - Added logic to get root leaf from Splitter on start (`panobbgo/heuristics/random.py:38-48`)

@@ -51,6 +51,43 @@
 - [ ] Add performance benchmarks comparing different strategies
 - [ ] Review and optimize threading/event handling
 
+## Known Issues & Technical Debt
+
+### Strategy Lifecycle Management (Systemic Issue)
+**Problem**: Real strategy instances (StrategyRoundRobin, StrategyRewarding) start background processes (via Dask) that don't clean up properly when tests complete. This causes:
+- Test hangs when multiple tests use real strategies (PR #35, PR #32)
+- Resource leaks in test suites
+- Unreliable benchmark tests
+
+**Root Cause**: No proper lifecycle management (start/stop/cleanup methods) for strategies
+- `strategy.start()` initializes background threads/processes
+- No corresponding `strategy.stop()` or `strategy.cleanup()` method
+- Tests have no way to properly tear down strategies
+
+**Current Workarounds**:
+- Unit tests: Use `@mock.patch("panobbgo.core.StrategyBase")` to avoid real strategies
+- Integration tests: Skip tests that hang (e.g., `test_heuristic_tracking` in benchmarks)
+- Set `evaluation_method="threaded"` helps but doesn't fully solve cleanup issues
+
+**Proper Solution Needed**:
+- [ ] Add `strategy.stop()` method to cleanly terminate background processes
+- [ ] Add `strategy.cleanup()` method to release resources
+- [ ] Implement `__enter__`/`__exit__` for context manager support
+- [ ] Add pytest fixtures that properly setup/teardown strategies
+- [ ] Review all Dask distributed usage for proper cleanup patterns
+
+**Affected Files**:
+- `panobbgo/core.py` - StrategyBase class needs lifecycle methods
+- `tests/test_heuristic_feasible.py` - Fixed by using mocked strategies (PR #35)
+- `benchmarks/test_benchmarks.py` - Skipped hanging test (PR #32)
+
+### Benchmark Heuristic Tracking Issues (PR #32)
+**Bug in convergence_trace logic** (`benchmarks/test_benchmarks.py:88-93`) - **FIXED**:
+- ~~When `best_fx == float('inf')` (first evaluation), `old_best_fx` is set to `result.fx`~~
+- ~~This causes `improvement = result.fx - result.fx = 0`, which is incorrect~~
+- **Fixed**: First improvement now correctly recorded as `result.fx` (function value from baseline)
+- **Fixed**: Subsequent improvements correctly calculated as `best_fx - result.fx`
+
 ### 🎯 TARGET: 75% Coverage on Validated Components
 **Prerequisites**: All Priority 1 items completed with TDD validation
 **Quality Metrics**: Correctness + Coverage (not just coverage)

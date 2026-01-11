@@ -85,8 +85,12 @@ class BenchmarkRunner:
                 heuristic_stats[who]['count'] += 1
 
                 if result.fx < best_fx:
-                    old_best_fx = best_fx if best_fx != float('inf') else result.fx
-                    improvement = old_best_fx - result.fx
+                    # Calculate improvement from previous best
+                    # For first solution, improvement is relative to infinity (recorded as result.fx)
+                    if best_fx == float('inf'):
+                        improvement = result.fx  # First solution found
+                    else:
+                        improvement = best_fx - result.fx  # Actual improvement
 
                     best_fx = result.fx
                     best_x = point.x.copy()

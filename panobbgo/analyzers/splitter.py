@@ -215,7 +215,9 @@ class Splitter(Analyzer):
 
         @memoize
         def __ranges(self):
-            return self.box.ptp(axis=1)  # self.box[:,1] - self.box[:,0]
+            # If self.box is a BoundingBox (custom object), get the underlying array
+            box_array = self.box.box if hasattr(self.box, 'box') else self.box
+            return np.ptp(box_array, axis=1)  # self.box[:,1] - self.box[:,0]
 
         @property
         def ranges(self):

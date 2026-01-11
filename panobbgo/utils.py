@@ -202,7 +202,33 @@ class memoize:
             cache = obj.__cache
         except AttributeError:
             cache = obj.__cache = {}
-        key = (self.func, args[1:], frozenset(list(kw.items())))
+
+        # Handle arguments correctly:
+        # If the method is called as instance.method(), args[0] is self (obj)
+        # We want to cache based on the OTHER arguments.
+        # But wait, __get__ does partial application, so args[0] passed here is likely 'obj'
+
+        # NOTE: self.func is the UNBOUND function.
+        # args[0] is the instance 'obj'.
+        # The actual arguments to the function are args[1:].
+
+        # However, numpy arrays are not hashable, so they cannot be part of the key directly.
+        # If any argument is a numpy array, we should probably not cache or use a different key strategy.
+        # For Splitter.Box.ranges (which uses this), there are NO arguments besides self.
+
+        # Let's handle unhashable arguments gracefully by skipping caching or converting
+        key_args = []
+        import numpy as np
+
+        for arg in args[1:]:
+             if isinstance(arg, np.ndarray):
+                 # Convert to bytes for hashing (efficient)
+                 key_args.append(arg.tobytes())
+             else:
+                 key_args.append(arg)
+
+        key = (self.func, tuple(key_args), frozenset(list(kw.items())))
+
         try:
             res = cache[key]
         except KeyError:

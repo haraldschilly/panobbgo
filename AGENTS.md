@@ -11,6 +11,12 @@ This file provides instructions for agents working on the Panobbgo repository.
 *   **Priority**: Extend tests with artificial but "realistic" examples for framework robustness validation.
 *   **Integration Test**: `tests/test_integration.py` provides end-to-end optimization testing on Rosenbrock function.
 *   **Coverage Goal**: Improve test coverage from current 45% via comprehensive integration tests.
+*   **TODO.md Maintenance**: ALWAYS update `TODO.md` when:
+    *   Fixing bugs (mark as completed, document the fix)
+    *   Identifying new issues (add to appropriate priority section)
+    *   Completing tasks (update status, move to completed section)
+    *   Discovering technical debt (document in "Known Issues & Technical Debt")
+    *   Making architectural decisions (document rationale and alternatives)
 
 ## Build & Install
 

@@ -346,138 +346,164 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="202">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span>
 </span><span data-line="203">        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
 </span><span data-line="204">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="205">        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
-</span><span data-line="206">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="207">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span data-line="208">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="209">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
-</span><span data-line="210">        <span class="k">return</span> <span class="n">res</span>
-</span><span data-line="211">
-</span><span data-line="212">
-</span><span data-line="213"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="214"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="215"><span class="sd">    Evaluate a point using a problem instance.</span>
-</span><span data-line="216">
-</span><span data-line="217"><span class="sd">    This function is used by all evaluation modes:</span>
-</span><span data-line="218"><span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
-</span><span data-line="219"><span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
-</span><span data-line="220"><span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
-</span><span data-line="221">
-</span><span data-line="222"><span class="sd">    Args:</span>
-</span><span data-line="223"><span class="sd">        problem: The optimization problem instance</span>
-</span><span data-line="224"><span class="sd">        point: The point to evaluate</span>
-</span><span data-line="225">
-</span><span data-line="226"><span class="sd">    Returns:</span>
-</span><span data-line="227"><span class="sd">        The evaluation result (Result object)</span>
-</span><span data-line="228"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="229">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="230">
+</span><span data-line="205">
+</span><span data-line="206">        <span class="c1"># Handle arguments correctly:</span>
+</span><span data-line="207">        <span class="c1"># If the method is called as instance.method(), args[0] is self (obj)</span>
+</span><span data-line="208">        <span class="c1"># We want to cache based on the OTHER arguments.</span>
+</span><span data-line="209">        <span class="c1"># But wait, __get__ does partial application, so args[0] passed here is likely &#39;obj&#39;</span>
+</span><span data-line="210">
+</span><span data-line="211">        <span class="c1"># NOTE: self.func is the UNBOUND function.</span>
+</span><span data-line="212">        <span class="c1"># args[0] is the instance &#39;obj&#39;.</span>
+</span><span data-line="213">        <span class="c1"># The actual arguments to the function are args[1:].</span>
+</span><span data-line="214">
+</span><span data-line="215">        <span class="c1"># However, numpy arrays are not hashable, so they cannot be part of the key directly.</span>
+</span><span data-line="216">        <span class="c1"># If any argument is a numpy array, we should probably not cache or use a different key strategy.</span>
+</span><span data-line="217">        <span class="c1"># For Splitter.Box.ranges (which uses this), there are NO arguments besides self.</span>
+</span><span data-line="218">
+</span><span data-line="219">        <span class="c1"># Let&#39;s handle unhashable arguments gracefully by skipping caching or converting</span>
+</span><span data-line="220">        <span class="n">key_args</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="221">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="222">
+</span><span data-line="223">        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+</span><span data-line="224">             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+</span><span data-line="225">                 <span class="c1"># Convert to bytes for hashing (efficient)</span>
+</span><span data-line="226">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+</span><span data-line="227">             <span class="k">else</span><span class="p">:</span>
+</span><span data-line="228">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+</span><span data-line="229">
+</span><span data-line="230">        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">key_args</span><span class="p">),</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
 </span><span data-line="231">
-</span><span data-line="232"><span class="c1"># Testing</span>
-</span><span data-line="233">
-</span><span data-line="234"><span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
-</span><span data-line="235"><span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">mock</span>
-</span><span data-line="236"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+</span><span data-line="232">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="233">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+</span><span data-line="234">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+</span><span data-line="235">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+</span><span data-line="236">        <span class="k">return</span> <span class="n">res</span>
 </span><span data-line="237">
 </span><span data-line="238">
-</span><span data-line="239"><span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="239"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
 </span><span data-line="240"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="241"><span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
+</span><span data-line="241"><span class="sd">    Evaluate a point using a problem instance.</span>
 </span><span data-line="242">
-</span><span data-line="243"><span class="sd">    Example::</span>
-</span><span data-line="244">
-</span><span data-line="245"><span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
-</span><span data-line="246"><span class="sd">        def test_result_error(self):</span>
-</span><span data-line="247"><span class="sd">            Result([1., 1.], 1.1)</span>
-</span><span data-line="248">
-</span><span data-line="249"><span class="sd">    @param Exception exptn: exception class</span>
-</span><span data-line="250"><span class="sd">    @param str msg: expected message</span>
-</span><span data-line="251"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="252">
-</span><span data-line="253">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
-</span><span data-line="254">        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
-</span><span data-line="255">        <span class="k">def</span><span class="w"> </span><span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span data-line="256">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="257">                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="258">            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-</span><span data-line="259">                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="260">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
-</span><span data-line="261">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="262">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
-</span><span data-line="263">                    <span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span>
-</span><span data-line="264">                    <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span data-line="265">                <span class="p">)</span>
-</span><span data-line="266">
-</span><span data-line="267">        <span class="k">return</span> <span class="n">inner</span>
+</span><span data-line="243"><span class="sd">    This function is used by all evaluation modes:</span>
+</span><span data-line="244"><span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
+</span><span data-line="245"><span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
+</span><span data-line="246"><span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
+</span><span data-line="247">
+</span><span data-line="248"><span class="sd">    Args:</span>
+</span><span data-line="249"><span class="sd">        problem: The optimization problem instance</span>
+</span><span data-line="250"><span class="sd">        point: The point to evaluate</span>
+</span><span data-line="251">
+</span><span data-line="252"><span class="sd">    Returns:</span>
+</span><span data-line="253"><span class="sd">        The evaluation result (Result object)</span>
+</span><span data-line="254"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="255">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="256">
+</span><span data-line="257">
+</span><span data-line="258"><span class="c1"># Testing</span>
+</span><span data-line="259">
+</span><span data-line="260"><span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+</span><span data-line="261"><span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">mock</span>
+</span><span data-line="262"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+</span><span data-line="263">
+</span><span data-line="264">
+</span><span data-line="265"><span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="266"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="267"><span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
 </span><span data-line="268">
-</span><span data-line="269">    <span class="k">return</span> <span class="n">wrapper</span>
+</span><span data-line="269"><span class="sd">    Example::</span>
 </span><span data-line="270">
-</span><span data-line="271">
-</span><span data-line="272"><span class="k">class</span><span class="w"> </span><span class="nc">MockupEventBus</span><span class="p">:</span>
-</span><span data-line="273">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="274">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="275">
-</span><span data-line="276">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
-</span><span data-line="277">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="271"><span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
+</span><span data-line="272"><span class="sd">        def test_result_error(self):</span>
+</span><span data-line="273"><span class="sd">            Result([1., 1.], 1.1)</span>
+</span><span data-line="274">
+</span><span data-line="275"><span class="sd">    @param Exception exptn: exception class</span>
+</span><span data-line="276"><span class="sd">    @param str msg: expected message</span>
+</span><span data-line="277"><span class="sd">    &quot;&quot;&quot;</span>
 </span><span data-line="278">
-</span><span data-line="279">
-</span><span data-line="280"><span class="c1"># class MockupStrategy:</span>
-</span><span data-line="281"><span class="c1">#</span>
-</span><span data-line="282"><span class="c1">#    def __init__(self, problem):</span>
-</span><span data-line="283"><span class="c1">#        self.problem = problem</span>
-</span><span data-line="284"><span class="c1">#        self._eventbus = MockupEventBus()</span>
-</span><span data-line="285"><span class="c1">#</span>
-</span><span data-line="286"><span class="c1">#    @property</span>
-</span><span data-line="287"><span class="c1">#    def eventbus(self):</span>
-</span><span data-line="288"><span class="c1">#        return self._eventbus</span>
-</span><span data-line="289">
-</span><span data-line="290">
+</span><span data-line="279">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
+</span><span data-line="280">        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
+</span><span data-line="281">        <span class="k">def</span><span class="w"> </span><span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="282">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="283">                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="284">            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+</span><span data-line="285">                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="286">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+</span><span data-line="287">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="288">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+</span><span data-line="289">                    <span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span>
+</span><span data-line="290">                    <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="291">                <span class="p">)</span>
+</span><span data-line="292">
+</span><span data-line="293">        <span class="k">return</span> <span class="n">inner</span>
+</span><span data-line="294">
+</span><span data-line="295">    <span class="k">return</span> <span class="n">wrapper</span>
+</span><span data-line="296">
+</span><span data-line="297">
+</span><span data-line="298"><span class="k">class</span><span class="w"> </span><span class="nc">MockupEventBus</span><span class="p">:</span>
+</span><span data-line="299">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="300">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="301">
+</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+</span><span data-line="303">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="304">
+</span><span data-line="305">
+</span><span data-line="306"><span class="c1"># class MockupStrategy:</span>
+</span><span data-line="307"><span class="c1">#</span>
+</span><span data-line="308"><span class="c1">#    def __init__(self, problem):</span>
+</span><span data-line="309"><span class="c1">#        self.problem = problem</span>
+</span><span data-line="310"><span class="c1">#        self._eventbus = MockupEventBus()</span>
+</span><span data-line="311"><span class="c1">#</span>
+</span><span data-line="312"><span class="c1">#    @property</span>
+</span><span data-line="313"><span class="c1">#    def eventbus(self):</span>
+</span><span data-line="314"><span class="c1">#        return self._eventbus</span>
+</span><span data-line="315">
+</span><span data-line="316">
 <div class="viewcode-block" id="PanobbgoTestCase">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase">[docs]</a>
-</span><span data-line="291"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-</span><span data-line="292">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-</span><span data-line="293">        <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-</span><span data-line="294">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
-</span><span data-line="295">
-</span><span data-line="296">        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="297">
+</span><span data-line="317"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+</span><span data-line="318">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+</span><span data-line="319">        <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</span><span data-line="320">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+</span><span data-line="321">
+</span><span data-line="322">        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="323">
 <div class="viewcode-block" id="PanobbgoTestCase.setUp">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.setUp">[docs]</a>
-</span><span data-line="298">    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="299">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
-</span><span data-line="300">
-</span><span data-line="301">        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-</span><span data-line="302">        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_strategy</span><span class="p">()</span></div>
+</span><span data-line="324">    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="325">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="326">
+</span><span data-line="327">        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="328">        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_strategy</span><span class="p">()</span></div>
 
-</span><span data-line="303">
+</span><span data-line="329">
 <div class="viewcode-block" id="PanobbgoTestCase.random_results">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.random_results">[docs]</a>
-</span><span data-line="304">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-</span><span data-line="305">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="306">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
-</span><span data-line="307">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
-</span><span data-line="308">
-</span><span data-line="309">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="310">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-</span><span data-line="311">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
-</span><span data-line="312">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="313">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="314">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
-</span><span data-line="315">                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
-</span><span data-line="316">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
-</span><span data-line="317">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
-</span><span data-line="318">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="319">        <span class="k">return</span> <span class="n">results</span></div>
+</span><span data-line="330">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+</span><span data-line="331">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="332">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
+</span><span data-line="333">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+</span><span data-line="334">
+</span><span data-line="335">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="336">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+</span><span data-line="337">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="338">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="339">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="340">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+</span><span data-line="341">                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
+</span><span data-line="342">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
+</span><span data-line="343">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
+</span><span data-line="344">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="345">        <span class="k">return</span> <span class="n">results</span></div>
 
-</span><span data-line="320">
+</span><span data-line="346">
 <div class="viewcode-block" id="PanobbgoTestCase.init_strategy">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy">[docs]</a>
-</span><span data-line="321">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
-</span><span data-line="322">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
-</span><span data-line="323">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
-</span><span data-line="324">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
-</span><span data-line="325">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-</span><span data-line="326">        <span class="k">return</span> <span class="n">strategy</span></div>
+</span><span data-line="347">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
+</span><span data-line="348">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
+</span><span data-line="349">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
+</span><span data-line="350">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
+</span><span data-line="351">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+</span><span data-line="352">        <span class="k">return</span> <span class="n">strategy</span></div>
 </div>
 
 </span></pre></div>

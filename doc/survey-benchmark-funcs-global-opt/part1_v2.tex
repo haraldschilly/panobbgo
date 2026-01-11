@@ -1,0 +1,63 @@
+\section{Introduction}
+
+The test of reliability, efficiency and validation of optimization algorithms is frequently carried out by using a chosen set of 
+common standard benchmarks or test functions from the literature. The number of test functions in
+most papers varied from a few to about two dozens. Ideally, the test functions used should be diverse
+and unbiased, however, there is no agreed set of test functions in the literature. Therefore, the major 
+aim of this paper is to review and compile the most complete set of test functions that we can find from all the available literature
+so that they can be used for future validation and comparison of optimization algorithms.
+
+For any new optimization, it is essential to validate its performance and compare with
+other existing algorithms over a good set of test functions. 
+A common practice followed by many researches is to compare different algorithms
+on a large test set, especially when the test involves function optimization (Gordon 1993, Whitley 1996).  However, it must be noted that
+effectiveness of one algorithm against others simply cannot be measured by the problems that it solves if the the set of problems
+are too specialized and without diverse properties.  Therefore, in order to evaluate
+an algorithm, one must identify the kind of problems where it performs better compared to others.  This helps in characterizing the type
+of problems for which an algorithm is suitable. This is only possible if the test suite is large enough to include a wide variety of problems,
+such as unimodal, multimodal, regular, irregular, separable, non-separable and multi-dimensional problems.
+
+%\subsection{Literature Survey on Benchmark Functions}
+
+Many test functions may be scattered in different textbooks, in individual research articles or at different web sites.
+Therefore, searching for a single source of test function with a wide variety of characteristics is a cumbersome 
+and tedious task. The most notable attempts to assemble global optimization test
+problems can be found in \cite{ALI2005, AVERICK1991, AVERICK1992, BRANIN1972, CHUNG1998, DIXON1978, DIXON1989, FLETCHER1963, FLOUDAS1999, MORE1981, POWELL1962, POWELL1964, PRICE2005, SALOMON1996, SCHWEFEL1981, SCHWEFEL1995, SUGANTHAN2005, TANG2008, TANG2010, WHITLEY1996}.
+Online collections of test problems also exist, such as the GLOBAL library at the cross-entropy toolbox \cite{CET2004}, GAMS World
+\cite{GAMS2000} CUTE \cite{GOULD2001}, global optimization test problems collection by Hedar \cite{HEDAR}, collection of test functions
+\cite{ANDREI2008, GEATbx, KAJ, MISHRA2006_1, MISHRA2006_2, MISHRA2006_3, MISHRA2006_4, MISHRA2006_5, MISHRA2006_6, MISHRA2006_7},
+a collection of continuous global optimization test problems
+COCONUT \cite{NEUMAIER2003_1} and a subset of commonly used test functions \cite{YANG2010a}.
+This motivates us to carry out a thorough analysis and compile a comprehensive collection of unconstrained optimization test problems.
+
+In general, unconstrained problems can be classified into two categories: test functions and real-world problems.
+Test functions are artificial problems, and can be used to evaluate the behavior of an algorithm in sometimes diverse and difficult situations.
+Artificial problems may include single global minimum, single or multiple global minima in the presence of many local minima, long narrow valleys,
+null-space effects and flat surfaces.  These problems can be easily manipulated and modified to test the algorithms in diverse scenarios.  On the other hand,
+real-world problems originate from different fields such as physics, chemistry, engineering, mathematics etc.  These problems are hard to manipulate and may
+contain complicated algebraic or differential expressions and may require a significant amount of data to compile.  A collection of real-world unstrained
+optimization problems can be found in \cite{AVERICK1991, AVERICK1992}.
+
+In this present work, we will focus on the test function benchmarks and their diverse properties such as modality and separability. 
+A function with more than one local optimum is called multimodal. These functions are used to test the ability of an algorithm to 
+escape from any local minimum.
+If the exploration process of an algorithm is poorly designed, then it cannot search the function landscape effectively.  This, in turn, leads to an algorithm
+getting stuck at a local minimum.  Multi-modal functions with many local minima are among the most difficult class of problems for many algorithms.  Functions with flat
+surfaces pose a difficulty for the algorithms, since the flatness of the function does not give the algorithm any information to direct the search process
+towards the minima (Stepint, Matyas, PowerSum).  Another group of test problems is formulated by separable and non-separable functions.
+According to \cite{BOYER2005}, the dimensionality of the search space is an important issue with the problem.  In some functions, the area that contains that global minima are very small, when compared to the whole search space, such as Easom, Michalewicz ($m$=10) and Powell. 
+For problems such as Perm, Kowalik and Schaffer,
+the global minimum is located very close to the local minima.  If the algorithm cannot keep up the direction changes in the functions with a narrow curved
+valley, in case of functions like Beale, Colville, or cannot explore the search space effectively, in case of function like Pen Holder,
+Testtube-Holder having multiple global minima, the algoritm will fail for these kinds of problems.  Another problem that algorithms may suffer 
+is the scaling problem with many orders of magnitude differences 
+between the domain and the function hyper-surface \cite{JUNIOR2004}, such as Goldstein-Price and Trid.
+
+
+%A function is called unimodal, if it contains single global minimum with no or single local minimum.
+%In the presence of a single local minimum, the task of finding global minimum becomes cumbersome task for many optimization
+%algorithms.  If algorithm is not designed properly, algorithms can get stuck in the local minimum.
+%Some of the unimodal functions inherent certain kind of deceptiveness and are hard to optimize.  The deceptiveness could be
+%that global minimum is either located on flat surface or located very close to global minimum or sometime lie in
+%narrow curving valleys or show fractal properties around global minimum or local minimum basin is larger than the global minimum basin.
+

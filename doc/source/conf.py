@@ -27,15 +27,18 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.doctest',
-              'sphinx.ext.coverage',
-              'sphinx.ext.mathjax',
-              'sphinx.ext.ifconfig',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.intersphinx',
-              'sphinx.ext.inheritance_diagram'
-              ]
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
+    'sphinx.ext.coverage',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.ifconfig',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.inheritance_diagram',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.napoleon',  # Google/NumPy style docstrings
+]
 
 autoclass_content = 'both'
 
@@ -54,7 +57,7 @@ master_doc = 'index'
 # General information about the project.
 project = u'Panobbgo'
 author = u'Harald Schilly'
-copyright = u'2012, %s. License Apache 2.0' % author
+copyright = u'2012-2026, %s. License Apache 2.0' % author
 
 rst_prolog = """\
 .. |name|   replace:: %(project)s
@@ -104,7 +107,16 @@ exclude_patterns = ["examples.rst"]
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'default'
+
+# Modern HTML settings
+html_context = {
+    'display_github': True,
+    'github_user': 'haraldschilly',
+    'github_repo': 'panobbgo',
+    'github_version': 'master',
+    'conf_py_path': '/doc/source/',
+}
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -114,20 +126,22 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'shibuya'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'externalrefs': True,
-    'bgcolor': "#fff",
-    'headbgcolor': '#eeb',
-    'codebgcolor': '#ddd',
-    'sidebarbgcolor': '#442',
-    'footerbgcolor': '#222',
-    'bodyfont': 'sans-serif',
-    'headfont': 'sans-serif'
+    'accent_color': 'blue',
+    'color_mode': 'auto',
+    'github_url': 'https://github.com/haraldschilly/panobbgo',
+    'nav_links': [
+        {
+            'title': 'GitHub',
+            'url': 'https://github.com/haraldschilly/panobbgo',
+            'icon': 'fa-brands fa-github',
+        },
+    ],
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -198,11 +212,17 @@ html_use_opensearch = 'http://dev.harald.schil.ly/panobbgo/html'
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'panobbgodoc'
 
+# Modern autosummary settings
+autosummary_generate = True
+autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance']
+
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.5', None),
-    #'python': ('http://docs.python.org/2.7', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'Dask': ('https://docs.dask.org/en/stable/', None)
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
+    'matplotlib': ('https://matplotlib.org/stable/', None),
+    'dask': ('https://docs.dask.org/en/stable/', None)
 }
 
 # -- Options for LaTeX output --------------------------------------------

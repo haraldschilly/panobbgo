@@ -9,9 +9,8 @@ Panobbgo is a **framework for black-box optimization** that includes **out-of-th
 
 ## Documentation
 
-* [HTML](http://haraldschilly.github.com/panobbgo/html/)
-* [PDF](http://haraldschilly.github.com/panobbgo/pdf/panobbgo.pdf)
-* [Guide](doc/source/guide.rst) - Comprehensive user guide (reStructuredText)
+* [📚 Documentation](https://haraldschilly.github.io/panobbgo/) - Complete user guide with setup instructions
+* [Guide](doc/source/guide.rst) - Source documentation files (reStructuredText)
 
 ## Installation
 

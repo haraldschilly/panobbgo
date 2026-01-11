@@ -36,7 +36,7 @@ class WeightedAverage(Heuristic):
 
     def on_new_best(self, best):
         assert best is not None and best.x is not None
-        box = self.strategy.analyzer("splitter").get_leaf(best)
+        box = self.strategy.analyzer("Splitter").get_leaf(best)
         if len(box.results) < 3:
             return
 

@@ -1166,6 +1166,8 @@ class StrategyBase:
 
     def _run(self):
         self.eventbus.publish("start", terminate=True)
+        # Give heuristics a moment to process the start event and emit initial points
+        time_module.sleep(0.1)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' started" % self._name)

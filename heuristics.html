@@ -104,6 +104,70 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#heuristics">Heuristics</a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Center"><code class="docutils literal notranslate"><span class="pre">Center</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Center.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Extremal"><code class="docutils literal notranslate"><span class="pre">Extremal</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.FeasibleSearch"><code class="docutils literal notranslate"><span class="pre">FeasibleSearch</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.FeasibleSearch.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic"><code class="docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.acquisition_func"><code class="docutils literal notranslate">acquisition_func</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.kappa"><code class="docutils literal notranslate">kappa</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.xi"><code class="docutils literal notranslate">xi</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.n_restarts"><code class="docutils literal notranslate">n_restarts</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_model"><code class="docutils literal notranslate">gp_model</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.X_train"><code class="docutils literal notranslate">X_train</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_train"><code class="docutils literal notranslate">y_train</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LBFGSB"><code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LBFGSB.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LBFGSB.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LBFGSB.worker"><code class="docutils literal notranslate">worker()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube"><code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Nearby"><code class="docutils literal notranslate"><span class="pre">Nearby</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Nearby.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead"><code class="docutils literal notranslate"><span class="pre">NelderMead</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.gram_schmidt"><code class="docutils literal notranslate">gram_schmidt()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead"><code class="docutils literal notranslate">nelder_mead()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.subprocess"><code class="docutils literal notranslate">subprocess()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random"><code class="docutils literal notranslate"><span class="pre">Random</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage"><code class="docutils literal notranslate"><span class="pre">WeightedAverage</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage.check_dependencies"><code class="docutils literal notranslate">check_dependencies()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Zero"><code class="docutils literal notranslate"><span class="pre">Zero</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Zero.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -146,13 +210,459 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 <section id="heuristics">
 <span id="module-panobbgo.heuristics"></span><h2>Heuristics<a class="headerlink" href="#heuristics" title="Link to this heading">¶</a></h2>
-<p>The main idea behind all heuristics is, …</p>
-<p>Each heuristic needs to listen to at least one stream of
-<a class="reference internal" href="core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Events</span></code></a> from the <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a>.
-Most likely, it is the <cite>one-shot</cite> event <code class="docutils literal notranslate"><span class="pre">start</span></code>, which is
-<a class="reference internal" href="core.html#panobbgo.core.EventBus.publish" title="panobbgo.core.EventBus.publish"><code class="xref py py-meth docutils literal notranslate"><span class="pre">published</span></code></a> by the
-<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a>.</p>
+<p>The following heuristics for generating new points are implemented.
+They are all derived from <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a>.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Center">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/center.html#Center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Center" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This heuristic checks the point in the center of the box.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Center.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/center.html#Center.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Center.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Extremal">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Extremal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This heuristic is specifically seeking for points at the
+border of the box and around 0.
+The &#64;where parameter takes a list or tuple, which has values
+from 0 to 1, which indicate the probability for sampling from the
+minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Extremal.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.FeasibleSearch">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">FeasibleSearch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/feasible_search.html#FeasibleSearch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.FeasibleSearch" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Constraint-specific heuristic that targets feasible regions.</p>
+<p>Behavior:
+- Listens for new best results.
+- If the current best result is infeasible (cv &gt; 0), it generates candidate points</p>
+<blockquote>
+<div><p>in an attempt to reduce constraint violation.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>It uses a simple randomized local search around the current infeasible best,
+with adaptive step sizes (radius).</p></li>
+<li><p>If the current best is feasible, this heuristic reduces its activity (emits fewer points
+or stops), as its primary goal is finding feasible regions.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – Reference to the strategy.</p></li>
+<li><p><strong>radius</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Initial search radius (relative to box size).</p></li>
+<li><p><strong>decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Decay factor for radius when improvement is found.</p></li>
+<li><p><strong>samples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of points to generate per event.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.FeasibleSearch.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/feasible_search.html#FeasibleSearch.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.FeasibleSearch.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>React to a new best point found by the strategy.
+If it’s infeasible, we try to improve it (reduce CV).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">GaussianProcessHeuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acquisition_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">AcquisitionFunction.EI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.96</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Bayesian optimization heuristic using Gaussian Process surrogate models.</p>
+<p>This heuristic builds a GP model from evaluated points and uses acquisition
+functions to select promising new points for evaluation. It responds to
+new results by updating the model and suggesting new points.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.acquisition_func">
+<span class="sig-name descname"><span class="pre">acquisition_func</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.acquisition_func" title="Link to this definition">¶</a></dt>
+<dd><p>The acquisition function to use (EI, UCB, or PI)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.kappa">
+<span class="sig-name descname"><span class="pre">kappa</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.kappa" title="Link to this definition">¶</a></dt>
+<dd><p>Exploration parameter for UCB acquisition function</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.xi">
+<span class="sig-name descname"><span class="pre">xi</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.xi" title="Link to this definition">¶</a></dt>
+<dd><p>Exploration parameter for EI and PI acquisition functions</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.n_restarts">
+<span class="sig-name descname"><span class="pre">n_restarts</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.n_restarts" title="Link to this definition">¶</a></dt>
+<dd><p>Number of random restarts for acquisition optimization</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.gp_model">
+<span class="sig-name descname"><span class="pre">gp_model</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_model" title="Link to this definition">¶</a></dt>
+<dd><p>The fitted GaussianProcessRegressor model</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.X_train">
+<span class="sig-name descname"><span class="pre">X_train</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.X_train" title="Link to this definition">¶</a></dt>
+<dd><p>Training points (n_samples, n_features)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.y_train">
+<span class="sig-name descname"><span class="pre">y_train</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_train" title="Link to this definition">¶</a></dt>
+<dd><p>Training function values (n_samples,)</p>
+</dd></dl>
+
+<p>Initialize the Gaussian Process heuristic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – The optimization strategy instance</p></li>
+<li><p><strong>acquisition_func</strong> – Acquisition function to use</p></li>
+<li><p><strong>kappa</strong> – Exploration parameter for UCB (default: 1.96 for ~95% confidence)</p></li>
+<li><p><strong>xi</strong> – Exploration parameter for EI/PI (default: 0.01)</p></li>
+<li><p><strong>n_restarts</strong> – Number of random restarts for optimization (default: 10)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Update the GP model when new results are available and suggest new points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>results</strong> – List of Result objects from recent evaluations</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the heuristic at the start of optimization.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LBFGSB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This uses <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html#scipy.optimize.fmin_l_bfgs_b" title="(in SciPy v1.16.2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">scipy.optimize.fmin_l_bfgs_b()</span></code></a> in a subprocess.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.on_new_results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.worker">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">worker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.worker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.worker" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LatinHypercube">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LatinHypercube</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">div</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/latin_hypercube.html#LatinHypercube"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LatinHypercube" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Partitions the search box into n x n x … x n cubes.
+Selects randomly in such a way, that there is only one cube in each dimension.
+Then, it randomly selects one point from inside such a cube.</p>
+<p>e.g. with div=4 and dim=2:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="o">+---+---+---+---+</span>
+</span><span data-line="2"><span class="o">|</span> <span class="n">X</span> <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+</span><span data-line="3"><span class="o">+---+---+---+---+</span>
+</span><span data-line="4"><span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span> <span class="n">X</span> <span class="o">|</span>
+</span><span data-line="5"><span class="o">+---+---+---+---+</span>
+</span><span data-line="6"><span class="o">|</span>   <span class="o">|</span> <span class="n">X</span> <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+</span><span data-line="7"><span class="o">+---+---+---+---+</span>
+</span><span data-line="8"><span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span> <span class="n">X</span> <span class="o">|</span>   <span class="o">|</span>
+</span><span data-line="9"><span class="o">+---+---+---+---+</span>
+</span></pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>div</strong> (<em>-</em>) – number of divisions, positive integer.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LatinHypercube.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/latin_hypercube.html#LatinHypercube.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LatinHypercube.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Nearby">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Nearby</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'one'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nearby.html#Nearby"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Nearby" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This provider generates new points based
+on a cheap (i.e. fast) algorithm. For each new best point,
+it and generates <code class="docutils literal notranslate"><span class="pre">new</span></code> many nearby point(s).
+The &#64;radius is scaled along each dimension’s range in the search box.</p>
+<p>Arguments:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">- ``axes``:
+</span></pre></div>
+</div>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">one</span></code>: only desturb one axis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">all</span></code>: desturb all axes</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">new</span></code>: number of new points to generate (default: 1)</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Nearby.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nearby.html#Nearby.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Nearby.on_new_best" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">NelderMead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This heuristic is inspired by the
+<a class="reference external" href="http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method">Nelder Mead Method</a></p>
+<p>Algorithm:</p>
+<ul class="simple">
+<li><p>If there are enough result points available, it tries to find a
+subset of points, which are linear independent (hence, suiteable for NM)
+and have the best (so far) function values, and are
+close (in the same <code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code>).</p></li>
+<li><p>Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
+several promising points into the same direction as
+the implied search direction. See <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">here</span></code></a>.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.gram_schmidt">
+<span class="sig-name descname"><span class="pre">gram_schmidt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.gram_schmidt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.gram_schmidt" title="Link to this definition">¶</a></dt>
+<dd><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite>
+with given list of <a class="reference internal" href="lib.html#panobbgo.lib.lib.Result" title="panobbgo.lib.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.
+Retuns <cite>None</cite>, if not enough points or impossible.
+The actual basis is not important, only the points for it are.
+They are used in <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">nelder_mead()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.nelder_mead">
+<span class="sig-name descname"><span class="pre">nelder_mead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.nelder_mead"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="Link to this definition">¶</a></dt>
+<dd><p>Retuns a new <em>randomized</em> search point for the given set of results (<code class="docutils literal notranslate"><span class="pre">base</span></code>),
+which are linearly independent enough to form a orthonormal base,
+using the Nelder-Mead Method.</p>
+<p>Optional Arguments:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scale</span></code>: Used when sampling the new points via the <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generated/numpy.random.rayleigh.html#numpy.random.rayleigh" title="(in NumPy v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">rayleigh()</span></code></a> method.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">offset</span></code>: This is subtracted from the sample factor; i.e. negative
+values account for the “contraction”.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_new_best_box">
+<span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_new_best_box" title="Link to this definition">¶</a></dt>
+<dd><p>When a new best box has been found by the <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>, the
+<code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Algorithm Outline:</p>
+<ol class="arabic simple">
+<li><p>Wait until a first or new best box has been found.</p></li>
+<li><p>Clear the <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> flag, later on we use this to be notified
+about new best boxes via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_best_box" title="panobbgo.heuristics.NelderMead.on_new_best_box"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_best_box()</span></code></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bb</span></code> is the currently used best box, it might be <code class="docutils literal notranslate"><span class="pre">None</span></code> if
+we have to look up the parents when searching for more result points.</p></li>
+<li><p>Inside the outer while, we try to find a suiteable base via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.gram_schmidt" title="panobbgo.heuristics.NelderMead.gram_schmidt"><code class="xref py py-meth docutils literal notranslate"><span class="pre">gram_schmidt()</span></code></a>.</p></li>
+<li><p>If we got such a base, we generate new search points via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">nelder_mead()</span></code></a>
+until the queue is full (which blocks) or there is a new best box (breaks inner loop).</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">break</span></code> exits the outer while and we start fresh with the new best box.</p></li>
+</ol>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">QuadraticWlsModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess" title="panobbgo.core.HeuristicSubprocess"><code class="xref py py-class docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></p>
+<p>This heuristic uses an quadratic OLS model to find an approximate new best point
+for each new best box (the latter is subject to change).</p>
+<p>The actual calculation is performed out of process.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.on_new_best_box">
+<span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.subprocess">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">subprocess</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipe</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel.subprocess"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.subprocess" title="Link to this definition">¶</a></dt>
+<dd><p>overwrite this pipe.recv() &amp; pipe.send() loop and
+compute something in between.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Random</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>always generates random points inside the box of the
+“best leaf” (see “Splitter”) until the capped queue is full.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_new_split">
+<span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_new_split" title="Link to this definition">¶</a></dt>
+<dd><p>we are only interested in the (possibly new)
+leaf around the best point</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.WeightedAverage">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">WeightedAverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/weighted_average.html#WeightedAverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.WeightedAverage" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This strategy calculates the weighted average of all points
+in the box around the best point of the <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.WeightedAverage.check_dependencies">
+<span class="sig-name descname"><span class="pre">check_dependencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">analyzers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heuristics</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/weighted_average.html#WeightedAverage.check_dependencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.WeightedAverage.check_dependencies" title="Link to this definition">¶</a></dt>
+<dd><p>This method is called by the core initialization to assess,
+if the dependencies for the given module are met.</p>
+<p>By default, it returns true. Return false if there is
+a problem.</p>
+<p>The arguments are the list of pre-initialized analyzers
+and heuristics.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.WeightedAverage.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/weighted_average.html#WeightedAverage.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.WeightedAverage.on_new_best" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Zero">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Zero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/zero.html#Zero"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Zero" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>This heuristic only returns the 0 vector once.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Zero.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/zero.html#Zero.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Zero.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 
         </article><button class="back-to-top" type="button">

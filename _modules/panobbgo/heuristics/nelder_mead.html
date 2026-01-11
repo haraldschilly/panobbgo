@@ -159,7 +159,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="21">
 </span><span data-line="22">
 <div class="viewcode-block" id="NelderMead">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead">[docs]</a>
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead">[docs]</a>
 </span><span data-line="23"><span class="k">class</span><span class="w"> </span><span class="nc">NelderMead</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
 </span><span data-line="24"><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="25"><span class="sd">    This heuristic is inspired by the</span>
@@ -187,6 +187,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span> <span class="o">=</span> <span class="n">Event</span><span class="p">()</span></div>
 
 </span><span data-line="46">
+<div class="viewcode-block" id="NelderMead.gram_schmidt">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.gram_schmidt">[docs]</a>
 </span><span data-line="47">    <span class="k">def</span><span class="w"> </span><span class="nf">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
 </span><span data-line="48"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="49"><span class="sd">        Tries to calculate an orthogonal base of dimension `dim`</span>
@@ -222,8 +224,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="79">                <span class="c1"># self.logger.info(&quot;below tol: %s (base: %s)&quot; % (np.abs(w),</span>
 </span><span data-line="80">                <span class="c1"># base))</span>
 </span><span data-line="81">                <span class="k">pass</span>
-</span><span data-line="82">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="82">        <span class="k">return</span> <span class="kc">None</span></div>
+
 </span><span data-line="83">
+<div class="viewcode-block" id="NelderMead.nelder_mead">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead">[docs]</a>
 </span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
 </span><span data-line="85"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="86"><span class="sd">        Retuns a new *randomized* search point for the given set of results (``base``),</span>
@@ -248,8 +253,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="105">        <span class="c1"># weights = 1 + .1 * np.random.randn(len(base))</span>
 </span><span data-line="106">        <span class="n">centroid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">base</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># , weights = weights)</span>
 </span><span data-line="107">        <span class="n">factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rayleigh</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span>
-</span><span data-line="108">        <span class="k">return</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">centroid</span> <span class="o">-</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="108">        <span class="k">return</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">centroid</span> <span class="o">-</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span><span class="p">)</span></div>
+
 </span><span data-line="109">
+<div class="viewcode-block" id="NelderMead.on_start">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_start">[docs]</a>
 </span><span data-line="110">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="111"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="112"><span class="sd">        Algorithm Outline:</span>
@@ -289,8 +297,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="146">                <span class="k">else</span><span class="p">:</span>  <span class="c1"># not able to find base, try with parent of current best box</span>
 </span><span data-line="147">                    <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
 </span><span data-line="148">                    <span class="k">if</span> <span class="n">bb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="149">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span>
+</span><span data-line="149">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
+
 </span><span data-line="150">
+<div class="viewcode-block" id="NelderMead.on_new_best_box">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
 </span><span data-line="151">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
 </span><span data-line="152"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="153"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
@@ -299,6 +310,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="156">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
 </span><span data-line="157">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 </span><span data-line="158">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

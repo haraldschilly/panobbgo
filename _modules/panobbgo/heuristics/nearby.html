@@ -157,7 +157,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="19">
 </span><span data-line="20">
 <div class="viewcode-block" id="Nearby">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby">[docs]</a>
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby">[docs]</a>
 </span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">Nearby</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
 </span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="23"><span class="sd">    This provider generates new points based</span>
@@ -186,6 +186,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="44">        <span class="bp">self</span><span class="o">.</span><span class="n">_depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="n">Best</span><span class="p">]</span></div>
 
 </span><span data-line="45">
+<div class="viewcode-block" id="Nearby.on_new_best">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby.on_new_best">[docs]</a>
 </span><span data-line="46">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="47">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="48">
@@ -212,6 +214,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="69">                <span class="p">)</span>
 </span><span data-line="70">            <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
 </span><span data-line="71">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

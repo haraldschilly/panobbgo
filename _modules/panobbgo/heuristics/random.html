@@ -156,7 +156,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="18">
 </span><span data-line="19">
 <div class="viewcode-block" id="Random">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.random.Random.html#panobbgo.heuristics.random.Random">[docs]</a>
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">Random</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
 </span><span data-line="21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="22"><span class="sd">    always generates random points inside the box of the</span>
@@ -175,6 +175,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="33">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
 
 </span><span data-line="34">
+<div class="viewcode-block" id="Random.on_start">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_start">[docs]</a>
 </span><span data-line="35">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="36">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="37">
@@ -201,8 +203,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="58">        <span class="c1"># Generate from the current best leaf</span>
 </span><span data-line="59">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 </span><span data-line="60">            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="o">.</span><span class="n">ranges</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">splitter</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="61">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="61">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
+
 </span><span data-line="62">
+<div class="viewcode-block" id="Random.on_new_split">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_new_split">[docs]</a>
 </span><span data-line="63">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
 </span><span data-line="64"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="65"><span class="sd">        we are only interested in the (possibly new)</span>
@@ -212,6 +217,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="70">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
 </span><span data-line="71">        <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

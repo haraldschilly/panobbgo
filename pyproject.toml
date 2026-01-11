@@ -78,6 +78,7 @@ reportPrivateImportUsage = "warning"  # Warn for imports from private modules li
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.407",
     "shibuya>=2026.1.9",
     "sphinx>=8.1.3",
 ]

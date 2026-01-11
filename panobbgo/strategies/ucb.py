@@ -108,20 +108,14 @@ class StrategyUCB(StrategyBase):
             except (ValueError, TypeError):
                 c = 1.414
 
-            # Ensure every heuristic is tried at least once
-            heurs = self.heuristics
+            def until(points, target):
+                return len(self.evaluators.outstanding) + len(points) >= target
 
-            # First pass: try any heuristic that hasn't been tried enough
-            # Or just give them a boost.
+            def selector():
+                heurs = self.heuristics
+                if not heurs:
+                    return None
 
-            # In this framework, execute() is called repeatedly.
-            # We need to decide which heuristic to ask for points.
-            # We can ask for 1 point from the winner of UCB.
-
-            attempts = 0
-            max_attempts = 10  # Prevent infinite loop when no points available
-            while len(self.evaluators.outstanding) + len(points) < target:
-                attempts += 1
                 best_ucb = -float("inf")
                 selected_h = None
 
@@ -149,24 +143,17 @@ class StrategyUCB(StrategyBase):
                 if selected_h:
                     # Request 1 point (or a small batch)
                     n_points = 1
-                    initial_count = len(points)
                     new_points = selected_h.get_points(n_points)
-                    points.extend(new_points)
+                    
+                    if new_points:
+                        # Update counts
+                        selected_h.ucb_count += n_points
+                        self.total_selections += n_points
+                    
+                    return new_points
+                
+                return []
 
-                    # Update counts
-                    selected_h.ucb_count += n_points
-                    self.total_selections += n_points
-
-                    # If no new points after multiple attempts, give up
-                    if len(points) == initial_count and attempts >= max_attempts:
-                        break
-
-                else:
-                    # Should not happen if heuristics list is not empty
-                    break
-
-                # Break if we have enough points
-                if len(points) >= target:  # simplified logic, target is rough
-                    break
+            points = self._collect_points_safely(target, selector, until=until)
 
         return points

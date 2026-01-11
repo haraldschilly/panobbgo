@@ -99,28 +99,25 @@ class StrategyRewarding(StrategyBase):
                 s = float(self.config.smooth)
             except (ValueError, TypeError):
                 s = 0.5
-            attempts = 0
-            max_attempts = 10  # Prevent infinite loop when no points available
-            while True:
-                attempts += 1
+            
+            def selector():
                 heurs = self.heuristics
                 if not heurs:
-                    # No active heuristics
-                    break
+                    return None
+                
+                batch = []
                 perf_sum = sum(h.performance for h in heurs)
-                initial_count = len(points)
                 for h in heurs:
                     # calc probability based on performance with additive
                     # smoothing
                     prob = (h.performance + s) / (perf_sum + s * len(heurs))
                     nb_h = max(1, round(target * prob))
                     h_pts = h.get_points(nb_h)
-                    points.extend(h_pts)
+                    batch.extend(h_pts)
                     # print "  %16s -> %s" % (h, nb_h)
-                # stopping criteria
-                if len(points) >= target:
-                    break
-                # If no new points were generated in this iteration and we've tried multiple times, give up
-                if len(points) == initial_count and attempts >= max_attempts:
-                    break
+                return batch
+
+            points = self._collect_points_safely(target, selector)
+        
+        return points
         return points

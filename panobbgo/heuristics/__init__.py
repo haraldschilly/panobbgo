@@ -13,33 +13,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r"""
+"""
 Heuristics
 ==========
-The main idea behind all heuristics is, ...
 
-Each heuristic needs to listen to at least one stream of
-:class:`Events <panobbgo.core.Event>` from the :class:`~panobbgo.core.EventBus`.
-Most likely, it is the `one-shot` event ``start``, which is
-:meth:`published <panobbgo.core.EventBus.publish>` by the
-:class:`~panobbgo.core.StrategyBase`.
+The following heuristics for generating new points are implemented.
+They are all derived from :class:`~panobbgo.core.Heuristic`.
 
 .. inheritance-diagram:: panobbgo.heuristics
 
-.. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 from .center import Center
-from .extremal import Extremal
-from .gaussian_process import GaussianProcessHeuristic
-from .latin_hypercube import LatinHypercube
-from .lbfgsb import LBFGSB
-from .nearby import Nearby
-from .nelder_mead import NelderMead
-from .quadratic_wls import QuadraticWlsModel
-from .random import Random
-from .weighted_average import WeightedAverage
 from .zero import Zero
+from .random import Random
+from .extremal import Extremal
+from .latin_hypercube import LatinHypercube
+from .nearby import Nearby
+from .weighted_average import WeightedAverage
+from .nelder_mead import NelderMead
+from .lbfgsb import LBFGSB
+from .quadratic_wls import QuadraticWlsModel
+from .gaussian_process import GaussianProcessHeuristic
+from .feasible_search import FeasibleSearch
+
+__all__ = [
+    "Center",
+    "Zero",
+    "Random",
+    "Extremal",
+    "LatinHypercube",
+    "Nearby",
+    "WeightedAverage",
+    "NelderMead",
+    "LBFGSB",
+    "QuadraticWlsModel",
+    "GaussianProcessHeuristic",
+    "FeasibleSearch",
+]

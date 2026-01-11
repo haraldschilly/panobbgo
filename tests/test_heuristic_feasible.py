@@ -1,9 +1,10 @@
 # -*- coding: utf8 -*-
 import pytest
 import numpy as np
+from unittest import mock
 from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.lib.lib import Point, Result, BoundingBox, Problem
-from panobbgo.strategies.round_robin import StrategyRoundRobin
+from panobbgo.config import Config
 
 class MockProblem(Problem):
     def __init__(self, dim=2):
@@ -19,16 +20,24 @@ class MockProblem(Problem):
         cv = max(0.0, 1.0 - x[0])
         return Result(Point(x, "eval"), fx, cv_vec=np.array([cv]))
 
-def test_feasible_search_initialization():
+@mock.patch("panobbgo.core.StrategyBase")
+def test_feasible_search_initialization(StrategyBaseMock):
     problem = MockProblem()
-    strategy = StrategyRoundRobin(problem)
+    config = Config(parse_args=False, testing_mode=True)
+    strategy = StrategyBaseMock()
+    strategy.problem = problem
+    strategy.config = config
     h = FeasibleSearch(strategy)
     assert h.name == "FeasibleSearch"
     assert h.radius == 0.1
 
-def test_feasible_search_generates_points_when_infeasible():
+@mock.patch("panobbgo.core.StrategyBase")
+def test_feasible_search_generates_points_when_infeasible(StrategyBaseMock):
     problem = MockProblem()
-    strategy = StrategyRoundRobin(problem)
+    config = Config(parse_args=False, testing_mode=True)
+    strategy = StrategyBaseMock()
+    strategy.problem = problem
+    strategy.config = config
     h = FeasibleSearch(strategy, samples=5)
     h.__start__()
 
@@ -50,9 +59,13 @@ def test_feasible_search_generates_points_when_infeasible():
         assert Point(p.x, "test") in problem.box
         assert not np.allclose(p.x, infeasible_point.x)
 
-def test_feasible_search_idle_when_feasible():
+@mock.patch("panobbgo.core.StrategyBase")
+def test_feasible_search_idle_when_feasible(StrategyBaseMock):
     problem = MockProblem()
-    strategy = StrategyRoundRobin(problem)
+    config = Config(parse_args=False, testing_mode=True)
+    strategy = StrategyBaseMock()
+    strategy.problem = problem
+    strategy.config = config
     h = FeasibleSearch(strategy, samples=5)
     h.__start__()
 

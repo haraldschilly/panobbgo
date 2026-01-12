@@ -77,9 +77,11 @@ def main():
 
     # Configure for quick run if requested
     max_evals = args.max_evaluations
+    timeout = 60.0  # Default timeout
     if args.quick:
         max_evals = max_evals or 100  # More evaluations for meaningful results
         args.repetitions = 1  # Single repetition for quick runs
+        timeout = 30.0  # Shorter timeout for quick runs
         print("⚡ Running quick benchmark (reduced evaluations)")
 
     print("\n🔬 Benchmark Configuration:")
@@ -93,7 +95,7 @@ def main():
     # Run benchmarks
     print("\n🏃 Running benchmarks...")
     try:
-        runs = suite.run_all(repetitions=args.repetitions, max_evaluations=max_evals)
+        runs = suite.run_all(repetitions=args.repetitions, max_evaluations=max_evals, timeout=timeout)
     except KeyboardInterrupt:
         print("\n⚠️  Benchmark interrupted by user")
         runs = suite.runs

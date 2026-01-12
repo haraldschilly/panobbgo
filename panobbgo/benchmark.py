@@ -25,11 +25,10 @@ on well-known test problems with validation against known optima.
 import time
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Any, Callable, Union
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
-from abc import ABC, abstractmethod
 
-from panobbgo.lib import Problem, Point, Result
+from panobbgo.lib import Problem, Result
 from panobbgo.core import StrategyBase
 
 
@@ -61,6 +60,16 @@ class ProblemSpec:
         Returns:
             Dict with validation results including success status and distance metrics.
         """
+        if result.x is None or result.fx is None:
+            return {
+                'success': False,
+                'distance': float('inf'),
+                'closest_optimum': None,
+                'param_distance': float('inf'),
+                'func_distance': float('inf'),
+                'tolerance': self.tolerance
+            }
+
         best_distance = float('inf')
         best_optimum = None
 
@@ -74,15 +83,18 @@ class ProblemSpec:
             # Calculate distance in function space
             func_distance = abs(result.fx - opt_fx)
 
-            # Use function distance as primary metric (optimization cares about objective value)
-            # Parameter distance is secondary - use a weighted combination
-            total_distance = 0.8 * func_distance + 0.2 * param_distance
+            # Use combined distance metric
+            total_distance = param_distance + func_distance
 
             if total_distance < best_distance:
                 best_distance = total_distance
                 best_optimum = optimum
 
         success = best_distance <= self.tolerance
+
+        # We already checked result.x and result.fx are not None
+        assert result.x is not None and result.fx is not None
+        assert best_optimum is not None
 
         return {
             'success': success,
@@ -243,17 +255,20 @@ class BenchmarkSuite:
                     runs.append(run)
 
                     if run.success:
-                        print(f"  ✓ Success: f(x) = {run.best_result.fx:.6f} (validation: {run.validation})")
+                        if run.best_result and run.best_result.fx is not None:
+                            print(f"  ✓ Success: f(x) = {run.best_result.fx:.6f} (validation: {run.validation})")
+                        else:
+                            print(f"  ✓ Success: (validation: {run.validation})")
                     elif run.error:
                         print(f"  ✗ Error: {run.error}")
                     else:
-                        if run.best_result:
+                        if run.best_result and run.best_result.fx is not None and run.best_result.x is not None:
                             print(f"  ⚠ Validation failed: f(x) = {run.best_result.fx:.6f} at x = {run.best_result.x}")
                             # Try validation manually to debug
                             validation = run.problem_spec.validate_result(run.best_result)
                             print(f"    Validation details: {validation}")
                         else:
-                            print(f"  ⚠ No result found")
+                            print(f"  ⚠ No valid result found")
 
         self.runs.extend(runs)
         return runs
@@ -334,7 +349,7 @@ def create_standard_problems() -> List[ProblemSpec]:
     """
     from panobbgo.lib.classic import (
         Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang,
-        Schwefel, DixonPrice, Zakharov, Himmelblau
+        Schwefel, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25, Himmelblau
     )
 
     problems = []
@@ -437,7 +452,7 @@ def create_standard_strategies() -> List[StrategySpec]:
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin, StrategyUCB
     from panobbgo.heuristics import (
         Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead,
-        Center, WeightedAverage, QuadraticWlsModel
+        Center
     )
 
     strategies = []

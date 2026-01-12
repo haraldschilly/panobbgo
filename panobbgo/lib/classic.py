@@ -965,7 +965,7 @@ class Arwhead(Problem):
     ARWHEAD test problem [Conn]_
 
     .. math::
-        F(x) = \sum_{i=1}^{n-1} \left(x_i^2 + x_n^2)^2 - 4 x_i + 3
+        F(x) = \sum_{i=1}^{n-1} \left( (x_i^2 + x_n^2)^2 - 4 x_i + 3 \right)
     """
 
     def __init__(self, dim=None, box=None, **kwargs):

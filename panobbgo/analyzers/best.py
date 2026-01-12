@@ -217,4 +217,16 @@ class Best(Analyzer):
         # self.logger.info("pareto: %s" % pareto)
         pass
 
+    def on_new_pareto_front(self, front):
+        # UI plotting removed - this method preserved for event handling
+        pass
+
+    def on_new_cv(self, cv):
+        # UI plotting removed - this method preserved for event handling
+        pass
+
+    def on_new_min(self, min):
+        # UI plotting removed - this method preserved for event handling
+        pass
+
 

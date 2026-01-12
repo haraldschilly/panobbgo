@@ -336,12 +336,18 @@ class BenchmarkSuite:
         print(f"{'='*60}")
 
         # Group by problem and strategy
-        grouped = df.groupby(['problem', 'strategy']).agg({
+        agg_dict = {
             'success': ['count', 'mean'],
-            'duration': ['mean', 'std'],
-            'best_fx': ['mean', 'std'],
-            'distance': ['mean', 'std']
-        }).round(4)
+            'duration': ['mean', 'std']
+        }
+
+        # Only include columns that exist
+        if 'best_fx' in df.columns:
+            agg_dict['best_fx'] = ['mean', 'std']
+        if 'distance' in df.columns:
+            agg_dict['distance'] = ['mean', 'std']
+
+        grouped = df.groupby(['problem', 'strategy']).agg(agg_dict).round(4)
 
         print("\nResults by Problem and Strategy:")
         print(grouped.to_string())

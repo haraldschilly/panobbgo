@@ -34,6 +34,7 @@ class Random(Heuristic):
 
     def on_start(self):
         import numpy as np
+        import time
 
         # Initialize by trying to get the root leaf from splitter
         # This handles the initial case where no splits have happened yet
@@ -50,27 +51,59 @@ class Random(Heuristic):
         # Wait for splitter to initialize, but with timeout to avoid hanging
         split_available = self.first_split.wait(timeout=5.0)  # 5 second timeout
 
+        # Generate points in batches to avoid blocking on full queues
+        batch_size = 10
+        sleep_time = 0.01  # Small sleep to avoid busy waiting
+
         if not split_available:
             # No splits available yet, generate from full problem space
             self.logger.warning("No search leaf available, generating from full problem space")
-            while True:
-                r = self.problem.random_point()
-                self.emit(r)
+            while not self._stopped:
+                points = []
+                for _ in range(batch_size):
+                    r = self.problem.random_point()
+                    points.append(r)
+                try:
+                    self.emit(points)
+                except Exception as e:
+                    # If emit fails (e.g., queue full), sleep and try again
+                    self.logger.debug(f"Random heuristic emit failed: {e}")
+                    time.sleep(sleep_time)
+                    continue
+                time.sleep(sleep_time)  # Small delay between batches
             return
 
         splitter = self.strategy.analyzer("Splitter")
         if self.leaf is None:
             # Fallback: generate from full problem space
             self.logger.warning("No search leaf available, generating from full problem space")
-            while True:
-                r = self.problem.random_point()
-                self.emit(r)
+            while not self._stopped:
+                points = []
+                for _ in range(batch_size):
+                    r = self.problem.random_point()
+                    points.append(r)
+                try:
+                    self.emit(points)
+                except Exception as e:
+                    self.logger.debug(f"Random heuristic emit failed: {e}")
+                    time.sleep(sleep_time)
+                    continue
+                time.sleep(sleep_time)
             return
 
         # Generate from the current best leaf
-        while True:
-            r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
-            self.emit(r)
+        while not self._stopped:
+            points = []
+            for _ in range(batch_size):
+                r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
+                points.append(r)
+            try:
+                self.emit(points)
+            except Exception as e:
+                self.logger.debug(f"Random heuristic emit failed: {e}")
+                time.sleep(sleep_time)
+                continue
+            time.sleep(sleep_time)
 
     def on_new_split(self, box, children, dim):
         """

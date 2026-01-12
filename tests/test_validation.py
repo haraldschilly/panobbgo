@@ -37,7 +37,6 @@ def setup_strategy(strategy_class, problem, max_evaluations=50):
     return strategy
 
 
-@pytest.mark.skip(reason="Hangs due to pre-existing bug: strategy.start() doesn't return after max_eval evaluations")
 def test_convergence_rosenbrock_rewarding():
     """
     Validate that StrategyRewarding converges on the Rosenbrock function.
@@ -54,7 +53,6 @@ def test_convergence_rosenbrock_rewarding():
     assert strategy.best.fx < 100.0, f"StrategyRewarding failed to converge on Rosenbrock. Best fx: {strategy.best.fx}"
 
 
-@pytest.mark.skip(reason="Hangs due to pre-existing bug: strategy.start() doesn't return after max_eval evaluations")
 def test_convergence_rastrigin_rewarding():
     """
     Validate that StrategyRewarding converges on the Rastrigin function.
@@ -68,7 +66,6 @@ def test_convergence_rastrigin_rewarding():
     assert strategy.best.fx < 50.0, f"StrategyRewarding failed to converge on Rastrigin. Best fx: {strategy.best.fx}"
 
 
-@pytest.mark.skip(reason="Hangs due to pre-existing bug: strategy.start() doesn't return after max_eval evaluations")
 def test_convergence_ackley_ucb():
     """
     Validate that StrategyUCB converges on the Ackley function.
@@ -82,7 +79,6 @@ def test_convergence_ackley_ucb():
     assert strategy.best.fx < 20.0, f"StrategyUCB failed to converge on Ackley. Best fx: {strategy.best.fx}"
 
 
-@pytest.mark.skip(reason="Hangs due to pre-existing bug: strategy.start() doesn't return after max_eval evaluations")
 def test_optimization_vs_random_baseline():
     """
     Compare optimization strategy performance against a pure Random baseline.

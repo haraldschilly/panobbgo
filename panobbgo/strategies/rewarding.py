@@ -91,20 +91,20 @@ class StrategyRewarding(StrategyBase):
     def execute(self):
         points = []
         target = self.jobs_per_client * len(self.evaluators)
-        self.logger.debug(
-            "per_client = %s | target = %s" % (self.jobs_per_client, target)
-        )
+        # self.logger.debug(
+        #     "per_client = %s | target = %s" % (self.jobs_per_client, target)
+        # )
         if len(self.evaluators.outstanding) < target:
             try:
                 s = float(self.config.smooth)
             except (ValueError, TypeError):
                 s = 0.5
-            
+
             def selector():
                 heurs = self.heuristics
                 if not heurs:
                     return None
-                
+
                 batch = []
                 perf_sum = sum(h.performance for h in heurs)
                 for h in heurs:
@@ -118,6 +118,6 @@ class StrategyRewarding(StrategyBase):
                 return batch
 
             points = self._collect_points_safely(target, selector)
-        
+
         return points
         return points

@@ -116,42 +116,33 @@ class StrategyUCB(StrategyBase):
                 if not heurs:
                     return None
 
-                best_ucb = -float("inf")
-                selected_h = None
-
-                # Calculate UCB for each heuristic
+                # Calculate UCB scores for all heuristics
+                scores = []
                 for h in heurs:
                     if not hasattr(h, "ucb_count"):
                         h.ucb_count = 0
                         h.ucb_total_reward = 0.0
 
                     if h.ucb_count == 0:
-                        # Infinite UCB for untried arms
-                        selected_h = h
-                        break
+                        score = float("inf")
+                    else:
+                        average_reward = h.ucb_total_reward / h.ucb_count
+                        exploration_term = c * np.sqrt(
+                            np.log(max(1, self.total_selections)) / h.ucb_count
+                        )
+                        score = average_reward + exploration_term
+                    scores.append((score, h))
 
-                    average_reward = h.ucb_total_reward / h.ucb_count
-                    exploration_term = c * np.sqrt(
-                        np.log(self.total_selections) / h.ucb_count
-                    )
-                    ucb_score = average_reward + exploration_term
+                # Try heuristics in order of score
+                scores.sort(key=lambda x: x[0], reverse=True)
 
-                    if ucb_score > best_ucb:
-                        best_ucb = ucb_score
-                        selected_h = h
-
-                if selected_h:
-                    # Request 1 point (or a small batch)
-                    n_points = 1
-                    new_points = selected_h.get_points(n_points)
-                    
+                for score, h in scores:
+                    new_points = h.get_points(1)
                     if new_points:
-                        # Update counts
-                        selected_h.ucb_count += n_points
-                        self.total_selections += n_points
-                    
-                    return new_points
-                
+                        h.ucb_count += len(new_points)
+                        self.total_selections += len(new_points)
+                        return new_points
+
                 return []
 
             points = self._collect_points_safely(target, selector, until=until)

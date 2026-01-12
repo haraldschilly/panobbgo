@@ -39,9 +39,6 @@ jobs:
     - name: Run tests
       run: uv run pytest tests/ -x --tb=short
 
-    - name: Run benchmark integration test
-      run: uv run pytest tests/test_benchmark.py::TestBenchmarkIntegration::test_simple_benchmark_run -x --tb=short
-
   benchmark:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')

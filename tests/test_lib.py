@@ -16,7 +16,7 @@ import unittest
 import numpy as np
 
 from panobbgo.lib.classic import *
-from panobbgo.lib.lib import *
+from panobbgo.lib import *
 from panobbgo.utils import expected_failure
 
 

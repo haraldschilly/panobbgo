@@ -249,8 +249,9 @@ class Config:
         self.environment = info()
         from panobbgo import __version__
 
+        from typing import Callable, Any
         # Helper function to get config value (YAML takes precedence over INI)
-        def get_config(yaml_path, ini_section, ini_key, default=None, type_cast=str):
+        def get_config(yaml_path: str | None, ini_section: str | None, ini_key: str | None, default: Any = None, type_cast: Callable[[Any], Any] = str):
             """Get config value from YAML first, then INI, then default"""
             # Check YAML first
             if yaml_path and self.yaml_config:
@@ -327,6 +328,12 @@ class Config:
         self.version = __version__
         self.git_head = self.environment["git HEAD"]
 
+        # Additional configuration for constraint handling
+        self.rho = get_config("constraints.rho", None, None, 1.0, float)
+        self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
+        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        self.logging = get_config("logging", None, None, {}, dict)
+
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:
             logger.info("Evaluation method: %s" % self.evaluation_method)
@@ -353,6 +360,8 @@ class Config:
             return self._loggers[key]
         from .utils import create_logger
 
-        l = create_logger(name, loglevel)
+        if loglevel is None:
+            loglevel = self.loglevel
+        l = create_logger(name, int(loglevel))
         self._loggers[key] = l
         return l

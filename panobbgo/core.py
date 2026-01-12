@@ -37,7 +37,7 @@ and base-classes for the modules:
 """
 
 from .config import Config
-from panobbgo.lib.lib import Result, Point
+from panobbgo.lib import Result, Point
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
@@ -47,6 +47,12 @@ from panobbgo.lib.constraints import (
 from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from .ui import UI
+    from .lib import Problem, Result
+    from .core import EventBus
 
 
 class Results:
@@ -203,6 +209,11 @@ class Module:
         self._threads = []
         # implicit dependency check (only class references)
         self._depends_on = []
+        self._stopped = False
+        self.eventbus_events: dict[str, Any] = {}
+        # Ensure logger name is at most 5 characters to satisfy config.get_logger assertion
+        log_name = self._name[:5].upper()
+        self.logger = self.config.get_logger(log_name)
 
     @property
     def name(self):
@@ -217,23 +228,23 @@ class Module:
         return self._name
 
     @property
-    def strategy(self):
+    def strategy(self) -> 'StrategyBase':
         return self._strategy
 
     @property
-    def ui(self):
+    def ui(self) -> 'UI | None':
         return self._strategy.ui
 
     @property
-    def eventbus(self):
+    def eventbus(self) -> 'EventBus':
         return self._strategy.eventbus
 
     @property
-    def problem(self):
+    def problem(self) -> 'Problem':
         return self._strategy.problem
 
     @property
-    def results(self):
+    def results(self) -> Any:
         return self._strategy.results
 
     def check_dependencies(self, analyzers, heuristics):
@@ -253,7 +264,7 @@ class Module:
         """
         This method should be overwritten by the respective subclass.
         It is called in the 2nd initialization phase, inside :meth:`._init_module`.
-        Now, the strategy and all its components (e.g. :class:`panobbgo.lib.lib.Problem`, ...)
+        Now, the strategy and all its components (e.g. :class:`panobbgo.lib.Problem`, ...)
         are available.
         """
         pass
@@ -267,14 +278,14 @@ class Module:
         # First, ensure all event queues have at least one termination event
         # to unblock any threads waiting on get(block=True)
         if hasattr(self, 'eventbus_events'):
-            for key, q in self.eventbus_events.items():
+            for _, q in self.eventbus_events.items():
                 try:
                     # Create a dummy termination event if not already stopped
                     from .core import Event
                     event = Event()
                     event.terminate = True
                     q.put(event, block=False)
-                except:
+                except Exception:
                     pass
 
         for t in self._threads:
@@ -470,6 +481,7 @@ class Event:
 
     def __init__(self, **kwargs):
         self._when = time_module.time()
+        self.terminate = False
         self._kwargs = kwargs
         for k, v in list(kwargs.items()):
             setattr(self, k, v)
@@ -550,7 +562,7 @@ class EventBus:
                     except StopHeuristic as e:
                         self.logger.debug(
                             "'%s/on_%s' %s -> unsubscribing."
-                            % (target.name, key, e.message)
+                            % (target.name, key, str(e))
                         )
                         self.unsubscribe(key, target)
                         return
@@ -588,8 +600,11 @@ class EventBus:
                             # sys.exc_info() -> re-create original exception
                             # (otherwise we don't know the actual cause!)
                             import sys
-
-                            raise e
+                            exc_info = sys.exc_info()
+                            if exc_info:
+                                e = exc_info[1]
+                                if e is not None:
+                                    raise e
                         else:  # just issue a critical warning
                             self.logger.critical(
                                 "Exception: %s in %s: %s" % (key, target, e)
@@ -713,7 +728,7 @@ class StrategyBase:
         """
 
 
-        @type problem: panobbgo.lib.lib.Problem
+        @type problem: panobbgo.lib.Problem
         @param problem:
         @param parse_args:
         """
@@ -781,14 +796,13 @@ class StrategyBase:
         self.results = Results(self)
 
         # Initialize new logging system
-        self.panobbgo_logger = PanobbgoLogger(config.logging if hasattr(config, 'logging') else {})
+        self.panobbgo_logger = PanobbgoLogger(cast(dict[str, Any], config.logging) if hasattr(config, 'logging') else {})
 
         # UI
         if config.ui_show:
             from .ui import UI
 
-            self.ui = UI()
-            self.ui._init_module(self)
+            self.ui = UI(self)
             self.ui.show()
 
     def __enter__(self):
@@ -805,7 +819,6 @@ class StrategyBase:
         Context manager exit. Ensures resource cleanup even if exceptions occur.
         """
         self._cleanup()
-        self.__stop__()
 
     def add(self, Heur, **kwargs):
         self.logger.debug("init: %s %s" % (Heur.__name__, kwargs))
@@ -1060,10 +1073,10 @@ class StrategyBase:
                 % self.config.dask_n_workers
             )
             cluster = LocalCluster(
-                n_workers=self.config.dask_n_workers,
-                threads_per_worker=self.config.dask_threads_per_worker,
-                memory_limit=self.config.dask_memory_limit,
-                dashboard_address=self.config.dask_dashboard_address,
+                n_workers=int(self.config.dask_n_workers),
+                threads_per_worker=int(self.config.dask_threads_per_worker),
+                memory_limit=str(self.config.dask_memory_limit),
+                dashboard_address=str(self.config.dask_dashboard_address),
                 silence_logs=False,
             )
             self._client = Client(cluster)
@@ -1150,7 +1163,7 @@ class StrategyBase:
         )
 
         # Create thread pool
-        self._thread_pool = ThreadPoolExecutor(max_workers=self._n_processes)
+        self._thread_pool = ThreadPoolExecutor(max_workers=int(self._n_processes))
         self._futures = {}  # Track pending futures
 
         self.logger.info(
@@ -1433,7 +1446,7 @@ with open('{result_file.name}', 'wb') as f:
         for temp_file in temp_files:
             try:
                 os.unlink(temp_file)
-            except:
+            except Exception:
                 pass
 
         self.results += new_results
@@ -1445,7 +1458,6 @@ with open('{result_file.name}', 'wb') as f:
         This is much faster than subprocess evaluation for pure Python functions
         since it avoids process creation overhead and pickle serialization.
         """
-        from concurrent.futures import as_completed
         import time as time_mod
 
         # Prepare for result collection
@@ -1542,14 +1554,14 @@ with open('{result_file.name}', 'wb') as f:
         # Get strategy-specific information (for bandit strategies)
         extra_fields = {}
         if hasattr(self, '_get_status_info'):
-            extra_fields = self._get_status_info()
+            extra_fields = getattr(self, '_get_status_info')()
 
         # Update status
         progress_reporter.update_status(
             budget_pct=budget_pct,
             eta_seconds=eta_seconds,
             convergence=convergence,
-            best_value=best_value,
+            best_value=float(best_value) if best_value is not None else 0.0,
             current_evals=current_evals,
             max_evals=max_evals,
             extra_fields=extra_fields
@@ -1558,13 +1570,8 @@ with open('{result_file.name}', 'wb') as f:
     def _collect_points_safely(self, target, selector, until=None):
         """
         Safely collect points from heuristics with timeout protection.
-
-        Args:
-            target (int): Target number of points (or reference value).
-            selector (callable): Function that returns a list of new points (or None to stop).
-            until (callable): Termination condition function(points, target).
-                              If None, defaults to len(points) >= target.
         """
+
         points = []
         attempts = 0
         max_attempts = 20  # Approx 2 seconds
@@ -1619,7 +1626,7 @@ with open('{result_file.name}', 'wb') as f:
 
         if self.config.evaluation_method == "dask":
             # Cancel any outstanding Dask futures
-            for future_id, future in list(self.pending.items()):
+            for future in list(self.pending.values()):
                 try:
                     future.cancel()
                 except:

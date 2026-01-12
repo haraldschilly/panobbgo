@@ -60,5 +60,6 @@ class LatinHypercube(Heuristic):
             pts += np.random.rand(div, dim)  # add [0,1) jitter
             pts *= self.lengths  # scale with length, already divided by div
             pts += self.problem.box[:, 0]  # shift with min
-            [np.random.shuffle(pts[:, i]) for i in range(dim)]
+            for _ in range(dim):
+                np.random.shuffle(pts[:, _])
             self.emit([p for p in pts])  # needs to be a list of np.ndarrays

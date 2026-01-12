@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo.lib.lib import Point, Result
+from panobbgo.lib import Point, Result
 
 
 class TestDedensifyer(PanobbgoTestCase):

@@ -180,12 +180,12 @@ Defining Custom Problems
 Basic Problem
 ~~~~~~~~~~~~~
 
-Subclass :class:`~panobbgo.lib.lib.Problem`:
+Subclass :class:`~panobbgo.lib.Problem`:
 
 .. code-block:: python
 
    import numpy as np
-   from panobbgo.lib.lib import Problem, BoundingBox
+   from panobbgo.lib import Problem, BoundingBox
 
    class Sphere(Problem):
        """Simple sphere function: f(x) = sum(x^2)"""

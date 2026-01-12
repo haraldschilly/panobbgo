@@ -220,7 +220,7 @@ class MyHeuristic(Heuristic):
 2. Subclass `Heuristic`:
    ```python
    from panobbgo.core import Heuristic
-   from panobbgo.lib.lib import Point
+    from panobbgo.lib import Point
    import numpy as np
 
    class MyHeuristic(Heuristic):

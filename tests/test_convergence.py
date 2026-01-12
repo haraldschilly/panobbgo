@@ -1,6 +1,6 @@
 from panobbgo.analyzers.convergence import Convergence
 from panobbgo.core import Event
-from panobbgo.lib.lib import Result, Point
+from panobbgo.lib import Result, Point
 import numpy as np
 
 class MockStrategy:

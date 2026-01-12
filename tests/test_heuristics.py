@@ -17,7 +17,7 @@ from __future__ import unicode_literals
 import numpy as np
 
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo.lib.lib import Point, Result
+from panobbgo.lib import Point, Result
 
 
 class HeuristicTests(PanobbgoTestCase):
@@ -78,7 +78,7 @@ class HeuristicTests(PanobbgoTestCase):
 
         assert isinstance(extr._output, Queue)
         p = extr._output.get()
-        from panobbgo.lib.lib import Point
+        from panobbgo.lib import Point
 
         assert isinstance(p, Point)
         assert p in self.problem.box
@@ -132,7 +132,7 @@ class HeuristicTests(PanobbgoTestCase):
         Test Nearby heuristic direct functionality without event system.
         """
         from panobbgo.heuristics.nearby import Nearby
-        from panobbgo.lib.lib import Point
+        from panobbgo.lib import Point
 
         # Create heuristic
         nearby_h = Nearby(self.strategy, new=2, radius=0.1, axes="one")
@@ -187,7 +187,7 @@ class HeuristicTests(PanobbgoTestCase):
     def test_gaussian_process_heuristic(self):
         """Test GaussianProcessHeuristic initialization and basic functionality."""
         from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic, AcquisitionFunction
-        from panobbgo.lib.lib import Point, Result
+        from panobbgo.lib import Point, Result
         import unittest.mock as mock
 
         # Test initialization with different acquisition functions
@@ -225,7 +225,7 @@ class HeuristicTests(PanobbgoTestCase):
         """Test WeightedAverage heuristic."""
         from panobbgo.heuristics.weighted_average import WeightedAverage
         from panobbgo.analyzers.splitter import Splitter
-        from panobbgo.lib.lib import Point, Result
+        from panobbgo.lib import Point, Result
 
         # Create weighted average heuristic
         wa = WeightedAverage(self.strategy, k=0.1)

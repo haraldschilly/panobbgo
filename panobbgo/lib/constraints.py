@@ -22,7 +22,7 @@ specifically for calculating "improvement" or "fitness" when comparing results
 that may differ in feasibility.
 """
 
-from panobbgo.lib.lib import Result
+from panobbgo.lib import Result
 import numpy as np
 
 
@@ -89,21 +89,21 @@ class DefaultConstraintHandler(ConstraintHandler):
         # Case 1: Both Feasible
         if old_feasible and new_feasible:
             # Standard improvement in objective function
-            return max(0.0, old_best.fx - new_best.fx)
+            return float(max(0.0, old_best.fx - new_best.fx))
 
         # Case 2: Old Infeasible, New Feasible
         if not old_feasible and new_feasible:
             # Significant improvement: crossing from infeasible to feasible.
             # We add a base reward plus a term proportional to how bad the old point was.
             # This ensures this transition is valued higher than small fx improvements.
-            return 10.0 + self.rho * old_best.cv
+            return float(10.0 + self.rho * old_best.cv)
 
         # Case 3: Both Infeasible
         if not old_feasible and not new_feasible:
             # Primary goal is to reduce constraint violation
             cv_improv = old_best.cv - new_best.cv
             if cv_improv > 0:
-                return cv_improv * self.rho
+                return float(cv_improv * self.rho)
 
             # If CV is same (unlikely with floats, but possible), check fx?
             # Usually we stick to CV reduction.
@@ -148,7 +148,7 @@ class PenaltyConstraintHandler(ConstraintHandler):
         p_old = old_best.fx + self.rho * (cv_old ** self.exponent)
         p_new = new_best.fx + self.rho * (cv_new ** self.exponent)
 
-        return max(0.0, p_old - p_new)
+        return float(max(0.0, p_old - p_new))
 
 
 class DynamicPenaltyConstraintHandler(ConstraintHandler):
@@ -186,7 +186,7 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         p_old = old_best.fx + rho * (cv_old ** self.exponent)
         p_new = new_best.fx + rho * (cv_new ** self.exponent)
 
-        return max(0.0, p_old - p_new)
+        return float(max(0.0, p_old - p_new))
 
 
 class AugmentedLagrangianConstraintHandler(ConstraintHandler):
@@ -283,7 +283,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # Calculate Lagrangian value for both
         L_old = self._calculate_lagrangian(old_best)
         L_new = self._calculate_lagrangian(new_best)
-        return max(0.0, L_old - L_new)
+        return float(max(0.0, L_old - L_new))
 
     def _calculate_lagrangian(self, result: Result):
         if result is None: return float('inf')

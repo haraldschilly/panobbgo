@@ -28,52 +28,52 @@ from .core import Module
 
 
 try:
-    import pygtk
+    import pygtk  # type: ignore
 
     pygtk.require("2.0")
-except:
+except ImportError:
     print("WARNING: no module pygtk installed")
 
 try:
-    import gtk
-    from gtk import gdk
+    import gtk  # type: ignore
+    from gtk import gdk  # type: ignore
 
     gtk_Window = gtk.Window
-except:
+except ImportError:
     print("WARNING: no module gtk installed")
     # create a mock metaclass
     gtk_Window = type("Mock_gtk_Window", tuple(), {})
 
 import matplotlib
 import os
-
+NavigationToolbar = None
 if os.environ.get("TRAVIS") == "true":
     matplotlib.use("Agg")  # 'GTKAgg' or 'GTK', or 'Agg' ?
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 else:
     try:
         matplotlib.use("GTKAgg")  # 'GTKAgg' or 'GTK', or 'Agg' ?
-        from matplotlib.backends.backend_gtkagg import (
+        from matplotlib.backends.backend_gtkagg import (  # type: ignore
             FigureCanvasGTKAgg as FigureCanvas,
-        )
-        from matplotlib.backends.backend_gtkagg import (
-            NavigationToolbar2GTKAgg as NavigationToolbar,
         )
     except Exception as ex:
         print("ERROR: not able to initialize GTKAgg: %s" % ex)
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
 del os
 # from matplotlib.widgets import Slider, Cursor # SpanSelector
 # from matplotlib.axes import Axes
 
 
-class UI(Module, gtk_Window, Thread):
+class UI(Module, gtk_Window, Thread):  # type: ignore
     r"""
     UI
     """
 
-    def __init__(self):
-        Module.__init__(self)
-        gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+    def __init__(self, strategy):
+        Module.__init__(self, strategy)
+        if "gtk" in globals():
+            gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
         # fill current window
         screen = self.get_screen()
         monitor = screen.get_monitor_at_window(self.get_root_window())

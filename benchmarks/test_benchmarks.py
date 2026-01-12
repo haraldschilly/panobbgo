@@ -152,7 +152,7 @@ runner = BenchmarkRunner(max_evaluations=1000)
 
 def test_basic_benchmark(benchmark):
     """Basic benchmark test to ensure the framework works."""
-    from panobbgo.lib.lib import Point
+    from panobbgo.lib import Point
     from benchmarks.problems import generate_benchmark_battery
 
     # Use a simple 2D DeJong problem
@@ -330,7 +330,7 @@ def test_simple_benchmark_structure():
         evaluations = 0
 
         # Simple random search
-        from panobbgo.lib.lib import Point
+        from panobbgo.lib import Point
         for i in range(50):  # Just 50 evaluations
             x_array = problem.random_point()
             point = Point(x_array, f"eval_{i}")

@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.table import Table
 
-from panobbgo.lib.lib import Result
+from panobbgo.lib import Result
 
 
 @dataclass

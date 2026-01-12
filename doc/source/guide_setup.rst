@@ -66,12 +66,12 @@ Basic Problem Definition
 Step 3: Define Your First Problem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Create a simple optimization problem by subclassing :class:`~panobbgo.lib.lib.Problem`:
+Create a simple optimization problem by subclassing :class:`~panobbgo.lib.Problem`:
 
 .. doctest::
 
    >>> import numpy as np
-   >>> from panobbgo.lib.lib import Problem
+   >>> from panobbgo.lib import Problem
 
    >>> class SphereProblem(Problem):
    ...     """Simple sphere function: f(x) = sum(x^2)"""
@@ -90,7 +90,7 @@ Create a simple optimization problem by subclassing :class:`~panobbgo.lib.lib.Pr
    Problem dimension: 2
 
    >>> # Test evaluation at the origin (global optimum)
-   >>> from panobbgo.lib.lib import Point
+   >>> from panobbgo.lib import Point
    >>> point = Point([0.0, 0.0], "test")
    >>> result = problem(point)
    >>> print(f"f([0,0]) = {result.fx}")

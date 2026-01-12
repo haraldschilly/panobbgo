@@ -9,7 +9,7 @@ Tests core framework components working together.
 import time
 import numpy as np
 from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang, Schwefel, DixonPrice, Zakharov, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25
-from panobbgo.lib.lib import Point, Result
+from panobbgo.lib import Point, Result
 
 
 def test_framework_basic_functionality():
@@ -592,7 +592,7 @@ def test_manual_optimization_execution():
     - Multiple point evaluation workflow
     """
     from panobbgo.lib.classic import Rosenbrock
-    from panobbgo.lib.lib import Point
+    from panobbgo.lib import Point
     from panobbgo.utils import evaluate_point_subprocess
 
     problem = Rosenbrock(dims=2)
@@ -714,7 +714,7 @@ def test_pandas_compatibility():
     """
     from panobbgo.strategies import StrategyRoundRobin
     from panobbgo.lib.classic import Rosenbrock
-    from panobbgo.lib.lib import Result, Point
+    from panobbgo.lib import Result, Point
     import numpy as np
 
     # Create a minimal strategy for testing Results
@@ -773,7 +773,7 @@ def test_full_optimization_execution():
     - Full integration without complex strategy framework
     """
     from panobbgo.lib.classic import Rosenbrock
-    from panobbgo.lib.lib import Point
+    from panobbgo.lib import Point
 
     problem = Rosenbrock(dims=2)
     print("Testing full optimization execution with 10 evaluations...")

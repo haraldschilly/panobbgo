@@ -27,7 +27,7 @@ class Best(Analyzer):
     - ``new_best``: when a new "best" point,
     - ``new_min``: a point with smallest objective function value,
     - ``new_cv``: one with a smaller
-      :attr:`~panobbgo.lib.lib.Result.cv`, or
+      :attr:`~panobbgo.lib.Result.cv`, or
     - ``new_pareto``: when a best point on the pareto front of the
       objective value and constraint violation
 
@@ -62,8 +62,9 @@ class Best(Analyzer):
         return [self._init_plot_pareto(), self._init_plot_fx(), self._init_plot_eval()]
 
     def _init_plot_fx(self):
-        from panobbgo.ui import NavigationToolbar
-        import gtk
+        from panobbgo.ui import NavigationToolbar  # type: ignore
+        import gtk  # type: ignore
+        assert self.ui is not None
 
         self.fx_canvas, fig = self.ui.mk_canvas()
 
@@ -77,7 +78,7 @@ class Best(Analyzer):
         ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
         ax_fx.set_xlabel("evaluation")
         ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
-        ax_fx.set_xlim([0, self.config.max_eval])
+        ax_fx.set_xlim(0, self.config.max_eval)
         ax_fx.set_yscale("symlog", linthreshy=0.001)
         ax_fx.set_ylim((0, 1))
         # for tl in self.ax_fx.get_yticklabels():
@@ -96,7 +97,7 @@ class Best(Analyzer):
         # color='red')
         ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$")
         # , color="blue")
-        ax_cv.set_xlim([0, self.config.max_eval])
+        ax_cv.set_xlim(0, self.config.max_eval)
         # ax_cv.set_yscale('symlog', linthreshy=0.001)
         ax_cv.set_ylim((0, 1))
         # for tl in self.ax_cv.get_yticklabels():
@@ -111,20 +112,21 @@ class Best(Analyzer):
 
         vbox = gtk.VBox(False, 0)
         vbox.pack_start(self.fx_canvas, True, True)
-        self.toolbar = NavigationToolbar(self.fx_canvas, self)
+        self.toolbar = NavigationToolbar(self.fx_canvas, self)  # type: ignore
         vbox.pack_start(self.toolbar, False, False)
         return "f(x)", vbox
 
     def _init_plot_eval(self):
-        from panobbgo.ui import NavigationToolbar
+        from panobbgo.ui import NavigationToolbar  # type: ignore
         from matplotlib import colorbar
-        import gtk
+        import gtk  # type: ignore
 
         mx = self.problem.dim
         vbox = gtk.VBox(False, 0)
         if mx <= 1:
             vbox.add(gtk.Label("not enough dimensions"))
             return
+        assert self.ui is not None
         self.eval_canvas, fig = self.ui.mk_canvas()
         self.eval_ax = fig.add_subplot(111)
         self.eval_cb_ax, _ = colorbar.make_axes(self.eval_ax)
@@ -154,7 +156,7 @@ class Best(Analyzer):
 
         vbox.pack_start(self.eval_canvas, True, True)
         vbox.pack_start(spinner_hbox, False, False)
-        self.toolbar = NavigationToolbar(self.eval_canvas, self)
+        self.toolbar = NavigationToolbar(self.eval_canvas, self)  # type: ignore
         vbox.pack_start(self.toolbar, False, False)
         return "Values", vbox
 
@@ -185,22 +187,22 @@ class Best(Analyzer):
         xi = np.linspace(xmin, xmax, 30)
         yi = np.linspace(ymin, ymax, 30)
         # grid the data.
-        from matplotlib.mlab import griddata
+        from scipy.interpolate import griddata  # type: ignore
 
-        zi = griddata(x, y, z, xi, yi, interp="linear")
+        zi = griddata((x, y), z, (xi[None, :], yi[:, None]), method="linear")
         # ci = griddata(x,y,c,xi,yi,interp='linear')
 
         self.eval_ax.clear()
         self.eval_cb_ax.clear()
         self.eval_ax.grid(True, which="both", ls="-", color="grey")
         # contour the gridded data
-        # constraint violation
-        # self.eval_ax.contourf(xi, yi, ci, 10, colors='k', zorder=5, alpha=.5, levels=[0,1])
+        import matplotlib.cm as cm
+        self.eval_ax.contourf(
+            xi, yi, zi, 15, zorder=3, alpha=0.5, cmap=cm.get_cmap("jet")
+        )
         # f(x)
         self.eval_ax.contour(xi, yi, zi, 10, linewidths=0.5, colors="k", zorder=3)
-        from matplotlib.pylab import cm
-
-        cf = self.eval_ax.contourf(xi, yi, zi, 10, cmap=cm.jet, zorder=2)
+        cf = self.eval_ax.contourf(xi, yi, zi, 10, cmap=cm.get_cmap("jet"), zorder=2)
         cb = colorbar.Colorbar(self.eval_cb_ax, cf)
         cf.colorbar = cb
 
@@ -208,7 +210,8 @@ class Best(Analyzer):
         self.eval_ax.scatter(x, y, marker="o", c="b", s=5, zorder=10)
         self.eval_ax.set_xlim((xmin, xmax))
         self.eval_ax.set_ylim((ymin, ymax))
-        self.ui.redraw_canvas(self.eval_canvas)
+        if self.ui:
+            self.ui.redraw_canvas(self.eval_canvas)
 
     def _update_fx_plot(self, plt, ax, xval, yval):
         xx = np.append(plt.get_xdata(), xval)
@@ -224,13 +227,14 @@ class Best(Analyzer):
             max(ax.get_ylim()[1], max(plt.get_ydata())),
         ]
         ax.set_ylim(ylim)
-        self.ui.redraw_canvas(self.fx_canvas)
+        if self.ui:
+            self.ui.redraw_canvas(self.fx_canvas)
 
     def _init_plot_pareto(self):
-        from panobbgo.ui import NavigationToolbar
+        from panobbgo.ui import NavigationToolbar  # type: ignore
         from matplotlib.widgets import Cursor, Slider
         from matplotlib.axes import Axes
-        import gtk
+        import gtk  # type: ignore
         # view = gtk.TextView()
         # view.set_cursor_visible(False)
         # view.set_editable(False)
@@ -243,10 +247,11 @@ class Best(Analyzer):
         # scrolled_window.add(view)
         # return "Pareto", scrolled_window
 
+        assert self.ui is not None
         self.pf_canvas, fig = self.ui.mk_canvas()
 
         # self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
-        self.pf_ax = pf_ax = Axes(fig, [0.1, 0.2, 0.8, 0.7])
+        self.pf_ax = pf_ax = Axes(fig, (0.1, 0.2, 0.8, 0.7))
         fig.add_axes(self.pf_ax)
 
         pf_ax.grid(True, which="both", ls="-", color="grey")
@@ -260,7 +265,7 @@ class Best(Analyzer):
         self.pf_cursor = Cursor(pf_ax, useblit=True, color="black", alpha=0.5)
 
         axcolor = "lightgoldenrodyellow"
-        pf_slider_ax = Axes(fig, [0.1, 0.04, 0.8, 0.04], axisbg=axcolor)
+        pf_slider_ax = Axes(fig, (0.1, 0.04, 0.8, 0.04), facecolor=axcolor)
         fig.add_axes(pf_slider_ax)
         v = int(self.config.max_eval * 1.1)
         self.pf_slider = Slider(pf_slider_ax, "#", 0, v, valfmt="%d", valinit=v)
@@ -268,7 +273,7 @@ class Best(Analyzer):
 
         pf_vbox = gtk.VBox(False, 0)
         pf_vbox.pack_start(self.pf_canvas, True, True)
-        self.toolbar = NavigationToolbar(self.pf_canvas, self)
+        self.toolbar = NavigationToolbar(self.pf_canvas, self)  # type: ignore
         pf_vbox.pack_start(self.toolbar, False, False)
         return "Pareto", pf_vbox
 
@@ -276,12 +281,13 @@ class Best(Analyzer):
         val = int(val)
         self.pf_plt.set_xdata(self.pf_plt_pnts[:val, 0])
         self.pf_plt.set_ydata(self.pf_plt_pnts[:val, 1])
-        self.ui.redraw_canvas(self.pf_canvas)
+        if self.ui:
+            self.ui.redraw_canvas(self.pf_canvas)
 
     @property
     def best(self):
         """
-        Currently best :class:`~panobbgo.lib.lib.Result`.
+        Currently best :class:`~panobbgo.lib.Result`.
 
         .. Note::
 
@@ -437,7 +443,8 @@ class Best(Analyzer):
         self.pf_plt_pnts = pnts
         plt.set_xdata(pnts[:, 0])
         plt.set_ydata(pnts[:, 1])
-        self.ui.redraw_canvas(self.pf_canvas)
+        if self.ui:
+            self.ui.redraw_canvas(self.pf_canvas)
 
     def on_new_pareto_front(self, front):
         if not hasattr(self, "pf_ax"):
@@ -456,7 +463,8 @@ class Best(Analyzer):
         data = list(zip(*all_pnts))
         self.pf_ax.plot(data[0], data[1], "-", alpha=0.7, color="black")  # ms = ?
         self.pf_ax.autoscale()  # TODO get rid of autoscale
-        self.ui.redraw_canvas(self.pf_canvas)
+        if self.ui:
+            self.ui.redraw_canvas(self.pf_canvas)
 
     def on_new_cv(self, cv):
         if hasattr(self, "cv_plot"):

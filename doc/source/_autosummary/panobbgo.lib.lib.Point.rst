@@ -1,7 +1,7 @@
-﻿panobbgo.lib.lib.Point
+﻿panobbgo.lib.Point
 ======================
 
-.. currentmodule:: panobbgo.lib.lib
+.. currentmodule:: panobbgo.lib
 
 .. autoclass:: Point
 

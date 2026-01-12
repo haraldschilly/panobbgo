@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from unittest import mock
 from panobbgo.heuristics.feasible_search import FeasibleSearch
-from panobbgo.lib.lib import Point, Result, BoundingBox, Problem
+from panobbgo.lib import Point, Result, BoundingBox, Problem
 from panobbgo.config import Config
 
 class MockProblem(Problem):

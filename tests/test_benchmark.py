@@ -189,5 +189,121 @@ class TestStandardStrategies:
         assert "UCB_Basic" in strategy_names
 
 
+class TestBenchmarkIntegration:
+    """Integration tests for the complete benchmark system."""
+
+    def test_simple_benchmark_run(self):
+        """Test that a simple benchmark runs successfully."""
+        from panobbgo.benchmark import BenchmarkSuite, ProblemSpec, StrategySpec
+        from panobbgo.lib.classic import Rosenbrock
+        from panobbgo.strategies import StrategyRoundRobin
+        from panobbgo.heuristics import Random, Nearby
+
+        # Create a minimal benchmark suite
+        suite = BenchmarkSuite("integration_test")
+
+        # Add a simple problem
+        problem_spec = ProblemSpec(
+            name="Rosenbrock_2D_Integration",
+            problem_class=Rosenbrock,
+            dims=2,
+            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
+            tolerance=1e-1,  # Relaxed tolerance for integration test
+            max_evaluations=20  # Very few evaluations for fast test
+        )
+        suite.add_problem(problem_spec)
+
+        # Add a simple strategy
+        strategy_spec = StrategySpec(
+            name="RoundRobin_Simple",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[
+                (Random, {}),
+                (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 2}),
+            ]
+        )
+        suite.add_strategy(strategy_spec)
+
+        # Run the benchmark
+        runs = suite.run_all(repetitions=1, max_evaluations=20)
+
+        # Verify we got results
+        assert len(runs) == 1
+        run = runs[0]
+
+        # Check basic structure
+        assert run.problem_spec.name == "Rosenbrock_2D_Integration"
+        assert run.strategy_spec.name == "RoundRobin_Simple"
+        assert run.end_time > run.start_time  # Took some time
+
+        # Check we got some evaluations (even if validation fails)
+        assert len(run.all_results) > 0
+
+        # The run should have either succeeded or failed gracefully
+        assert run.best_result is not None or run.error is not None
+
+        print(f"Integration test completed: {len(run.all_results)} evaluations, "
+              f"best fx = {run.best_result.fx if run.best_result else 'N/A'}")
+
+    def test_benchmark_result_summary(self):
+        """Test that benchmark results can be summarized."""
+        from panobbgo.benchmark import BenchmarkSuite, ProblemSpec, BenchmarkRun
+        from panobbgo.lib.classic import Rosenbrock
+        from panobbgo.lib import Result, Point
+
+        suite = BenchmarkSuite("summary_test")
+
+        # Create a mock successful run
+        problem_spec = ProblemSpec(
+            name="test_problem",
+            problem_class=Rosenbrock,
+            dims=2,
+            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
+            tolerance=1e-3
+        )
+
+        # Mock strategy spec
+        class MockStrategySpec:
+            def __init__(self):
+                self.name = "mock_strategy"
+
+        strategy_spec = MockStrategySpec()
+
+        # Create successful run with validation
+        successful_run = BenchmarkRun(
+            problem_spec=problem_spec,
+            strategy_spec=strategy_spec,
+            run_id=0,
+            start_time=0.0,
+            end_time=1.0,
+            best_result=Result(
+                point=Point([1.0, 1.0], "test"),
+                fx=0.0,
+                cv_vec=None,
+                error=0.0
+            ),
+            all_results=[],
+            validation={
+                'success': True,
+                'distance': 0.0,
+                'closest_optimum': {'x': [1.0, 1.0], 'fx': 0.0},
+                'param_distance': 0.0,
+                'func_distance': 0.0,
+                'tolerance': 1e-3
+            }
+        )
+
+        suite.runs = [successful_run]
+
+        # Test summary generation
+        df = suite.get_summary_dataframe()
+        assert len(df) == 1
+        assert df.iloc[0]['success'] == True
+        assert df.iloc[0]['best_fx'] == 0.0
+
+        # Test summary printing (should not crash)
+        suite.print_summary()
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

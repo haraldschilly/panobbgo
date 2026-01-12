@@ -242,21 +242,28 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="99">                <span class="n">s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">smooth</span><span class="p">)</span>
 </span><span data-line="100">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
 </span><span data-line="101">                <span class="n">s</span> <span class="o">=</span> <span class="mf">0.5</span>
-</span><span data-line="102">            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="103">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
-</span><span data-line="104">                <span class="n">perf_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">)</span>
-</span><span data-line="105">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="106">                    <span class="c1"># calc probability based on performance with additive</span>
-</span><span data-line="107">                    <span class="c1"># smoothing</span>
-</span><span data-line="108">                    <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">perf_sum</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">))</span>
-</span><span data-line="109">                    <span class="n">nb_h</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">target</span> <span class="o">*</span> <span class="n">prob</span><span class="p">))</span>
-</span><span data-line="110">                    <span class="n">h_pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">nb_h</span><span class="p">)</span>
-</span><span data-line="111">                    <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h_pts</span><span class="p">)</span>
-</span><span data-line="112">                    <span class="c1"># print &quot;  %16s -&gt; %s&quot; % (h, nb_h)</span>
-</span><span data-line="113">                <span class="c1"># stopping criteria</span>
-</span><span data-line="114">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="115">                    <span class="k">break</span>
-</span><span data-line="116">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="102">            
+</span><span data-line="103">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
+</span><span data-line="104">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="105">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="106">                    <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="107">                
+</span><span data-line="108">                <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="109">                <span class="n">perf_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">)</span>
+</span><span data-line="110">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="111">                    <span class="c1"># calc probability based on performance with additive</span>
+</span><span data-line="112">                    <span class="c1"># smoothing</span>
+</span><span data-line="113">                    <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">perf_sum</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">))</span>
+</span><span data-line="114">                    <span class="n">nb_h</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">target</span> <span class="o">*</span> <span class="n">prob</span><span class="p">))</span>
+</span><span data-line="115">                    <span class="n">h_pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">nb_h</span><span class="p">)</span>
+</span><span data-line="116">                    <span class="n">batch</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h_pts</span><span class="p">)</span>
+</span><span data-line="117">                    <span class="c1"># print &quot;  %16s -&gt; %s&quot; % (h, nb_h)</span>
+</span><span data-line="118">                <span class="k">return</span> <span class="n">batch</span>
+</span><span data-line="119">
+</span><span data-line="120">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
+</span><span data-line="121">        
+</span><span data-line="122">        <span class="k">return</span> <span class="n">points</span>
+</span><span data-line="123">        <span class="k">return</span> <span class="n">points</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

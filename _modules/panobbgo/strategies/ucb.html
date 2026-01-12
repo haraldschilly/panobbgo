@@ -251,60 +251,55 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="108">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
 </span><span data-line="109">                <span class="n">c</span> <span class="o">=</span> <span class="mf">1.414</span>
 </span><span data-line="110">
-</span><span data-line="111">            <span class="c1"># Ensure every heuristic is tried at least once</span>
-</span><span data-line="112">            <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="111">            <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+</span><span data-line="112">                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
 </span><span data-line="113">
-</span><span data-line="114">            <span class="c1"># First pass: try any heuristic that hasn&#39;t been tried enough</span>
-</span><span data-line="115">            <span class="c1"># Or just give them a boost.</span>
-</span><span data-line="116">
-</span><span data-line="117">            <span class="c1"># In this framework, execute() is called repeatedly.</span>
-</span><span data-line="118">            <span class="c1"># We need to decide which heuristic to ask for points.</span>
-</span><span data-line="119">            <span class="c1"># We can ask for 1 point from the winner of UCB.</span>
-</span><span data-line="120">
-</span><span data-line="121">            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="122">                <span class="n">best_ucb</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
-</span><span data-line="123">                <span class="n">selected_h</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="124">
-</span><span data-line="125">                <span class="c1"># Calculate UCB for each heuristic</span>
-</span><span data-line="126">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="127">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
-</span><span data-line="128">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="129">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="130">
-</span><span data-line="131">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="132">                        <span class="c1"># Infinite UCB for untried arms</span>
-</span><span data-line="133">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
-</span><span data-line="134">                        <span class="k">break</span>
-</span><span data-line="135">
-</span><span data-line="136">                    <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
-</span><span data-line="137">                    <span class="n">exploration_term</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-</span><span data-line="138">                        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">)</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
-</span><span data-line="139">                    <span class="p">)</span>
-</span><span data-line="140">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">average_reward</span> <span class="o">+</span> <span class="n">exploration_term</span>
-</span><span data-line="141">
-</span><span data-line="142">                    <span class="k">if</span> <span class="n">ucb_score</span> <span class="o">&gt;</span> <span class="n">best_ucb</span><span class="p">:</span>
-</span><span data-line="143">                        <span class="n">best_ucb</span> <span class="o">=</span> <span class="n">ucb_score</span>
-</span><span data-line="144">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
-</span><span data-line="145">
-</span><span data-line="146">                <span class="k">if</span> <span class="n">selected_h</span><span class="p">:</span>
-</span><span data-line="147">                    <span class="c1"># Request 1 point (or a small batch)</span>
-</span><span data-line="148">                    <span class="n">n_points</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span data-line="149">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">selected_h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">n_points</span><span class="p">)</span>
-</span><span data-line="150">                    <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
-</span><span data-line="151">
-</span><span data-line="152">                    <span class="c1"># Update counts</span>
-</span><span data-line="153">                    <span class="n">selected_h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">+=</span> <span class="n">n_points</span>
-</span><span data-line="154">                    <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">n_points</span>
-</span><span data-line="155">
-</span><span data-line="156">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="157">                    <span class="c1"># Should not happen if heuristics list is not empty</span>
-</span><span data-line="158">                    <span class="k">break</span>
-</span><span data-line="159">
-</span><span data-line="160">                <span class="c1"># Break if we have enough points</span>
-</span><span data-line="161">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>  <span class="c1"># simplified logic, target is rough</span>
-</span><span data-line="162">                    <span class="k">break</span>
-</span><span data-line="163">
-</span><span data-line="164">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="114">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
+</span><span data-line="115">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="116">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="117">                    <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="118">
+</span><span data-line="119">                <span class="n">best_ucb</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="120">                <span class="n">selected_h</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="121">
+</span><span data-line="122">                <span class="c1"># Calculate UCB for each heuristic</span>
+</span><span data-line="123">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="124">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="125">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="126">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="127">
+</span><span data-line="128">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="129">                        <span class="c1"># Infinite UCB for untried arms</span>
+</span><span data-line="130">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
+</span><span data-line="131">                        <span class="k">break</span>
+</span><span data-line="132">
+</span><span data-line="133">                    <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="134">                    <span class="n">exploration_term</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+</span><span data-line="135">                        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">)</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="136">                    <span class="p">)</span>
+</span><span data-line="137">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">average_reward</span> <span class="o">+</span> <span class="n">exploration_term</span>
+</span><span data-line="138">
+</span><span data-line="139">                    <span class="k">if</span> <span class="n">ucb_score</span> <span class="o">&gt;</span> <span class="n">best_ucb</span><span class="p">:</span>
+</span><span data-line="140">                        <span class="n">best_ucb</span> <span class="o">=</span> <span class="n">ucb_score</span>
+</span><span data-line="141">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
+</span><span data-line="142">
+</span><span data-line="143">                <span class="k">if</span> <span class="n">selected_h</span><span class="p">:</span>
+</span><span data-line="144">                    <span class="c1"># Request 1 point (or a small batch)</span>
+</span><span data-line="145">                    <span class="n">n_points</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span data-line="146">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">selected_h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">n_points</span><span class="p">)</span>
+</span><span data-line="147">                    
+</span><span data-line="148">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="149">                        <span class="c1"># Update counts</span>
+</span><span data-line="150">                        <span class="n">selected_h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">+=</span> <span class="n">n_points</span>
+</span><span data-line="151">                        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">n_points</span>
+</span><span data-line="152">                    
+</span><span data-line="153">                    <span class="k">return</span> <span class="n">new_points</span>
+</span><span data-line="154">                
+</span><span data-line="155">                <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="156">
+</span><span data-line="157">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
+</span><span data-line="158">
+</span><span data-line="159">        <span class="k">return</span> <span class="n">points</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

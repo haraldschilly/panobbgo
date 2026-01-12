@@ -59,10 +59,10 @@
 - Resource leaks in test suites
 - Unreliable benchmark tests
 
-**Root Cause**: No proper lifecycle management (start/stop/cleanup methods) for strategies
 - `strategy.start()` initializes background threads/processes
-- No corresponding `strategy.stop()` or `strategy.cleanup()` method
-- Tests have no way to properly tear down strategies
+- [x] **FIXED**: Strategy lifecycle methods (`__stop__`, `_cleanup`) implemented.
+- [x] **FIXED**: Context manager support (`__enter__`, `__exit__`) implemented.
+- Tests can now properly tear down strategies using `strategy.stop()` or `with` blocks.
 
 **Current Workarounds**:
 - Unit tests: Use `@mock.patch("panobbgo.core.StrategyBase")` to avoid real strategies
@@ -70,11 +70,11 @@
 - Set `evaluation_method="threaded"` helps but doesn't fully solve cleanup issues
 
 **Proper Solution Needed**:
-- [ ] Add `strategy.stop()` method to cleanly terminate background processes
-- [ ] Add `strategy.cleanup()` method to release resources
-- [ ] Implement `__enter__`/`__exit__` for context manager support
-- [ ] Add pytest fixtures that properly setup/teardown strategies
-- [ ] Review all Dask distributed usage for proper cleanup patterns
+- [x] **FIXED**: Cleanly terminate background processes.
+- [x] **FIXED**: Implementation of `strategy.cleanup()` methods.
+- [x] **FIXED**: Context manager support (`__enter__`/`__exit__`).
+- [ ] Implement pytest fixtures for automatic strategy setup/teardown in tests.
+- [ ] Review all Dask distributed usage for best practice cleanup patterns.
 
 **Affected Files**:
 - `panobbgo/core.py` - StrategyBase class needs lifecycle methods
@@ -91,18 +91,13 @@
 ### 🎯 TARGET: 75% Coverage on Validated Components
 **Prerequisites**: All Priority 1 items completed with TDD validation
 **Quality Metrics**: Correctness + Coverage (not just coverage)
-**Blocker**: Strategy.start() hang bug must be fixed before proper validation testing
+**Status**: Core issues resolved, coverage stands at ~71%.
 
 ## Known Issues & Technical Debt
 
 ### Strategy.start() Hang Bug (FIXED)
 **CRITICAL**: `strategy.start()` doesn't return after reaching `max_eval` evaluations
-- **Status**: FIXED by addressing result collection deadlocks and improving cleanup.
-- **Needs Investigation**:
-  - [ ] Why doesn't the main loop exit after max_eval?
-  - [ ] Are results being counted correctly?
-  - [ ] Is there a race condition with threaded evaluation?
-  - [ ] Do heuristic threads prevent loop termination?
+- **Status**: FIXED by addressing result collection deadlocks and improving cleanup in [PR #38](https://github.com/haraldschilly/panobbgo/pull/38).
 
 ### PR #36 Bug Fixes (Merged)
 **Fixed Issues** - All good fixes:

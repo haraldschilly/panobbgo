@@ -63,7 +63,7 @@ class ColoredFormatter(logging.Formatter):
         if levelname in ColoredFormatter.COLORS:
             col = ColoredFormatter.COLORS[levelname]
             record.name = self.colorize(record.name, col, True)
-            record.lineno = self.colorize(record.lineno, col, True)
+            # record.lineno = self.colorize(record.lineno, col, True)  # Pyright warning: str not assignable to int
             record.levelname = self.colorize(levelname, col, True)
             record.msg = self.colorize(record.msg, col)
         return logging.Formatter.format(self, record)
@@ -116,19 +116,19 @@ def info():
     version("scipy")
     try:
         version("pandas")
-    except:
+    except ImportError:
         print("pandas not available")
     try:
         version("statsmodels")
-    except:
+    except ImportError:
         print("statsmodels not available")
     try:
         version("matplotlib")
-    except:
+    except ImportError:
         print("matplotlib not available")
     try:
         version("dask")
-    except:
+    except ImportError:
         print("dask not available")
     v["git HEAD"] = git.communicate()[0].splitlines()[0]
     return v
@@ -330,10 +330,10 @@ class PanobbgoTestCase(unittest.TestCase):
     def random_results(self, dim, N, pcv=0.0):
         import numpy as np
         import numpy.random as rnd
-        from panobbgo.lib.lib import Result, Point
+        from panobbgo.lib import Result, Point
 
         results = []
-        for i in range(N):
+        for _ in range(N):
             p = Point(rnd.rand(dim), "test")
             cv_vec = np.zeros(dim)
             if pcv > 0.0:

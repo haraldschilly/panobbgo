@@ -22,7 +22,7 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.lib.classic import Rosenbrock
-from panobbgo.lib.lib import Result, Point
+from panobbgo.lib import Result, Point
 
 
 def get_my_setup_cluster():
@@ -231,7 +231,7 @@ class TestEvaluationModes(PanobbgoTestCase):
     def test_threaded_evaluation_run(self):
         """Test that threaded evaluation actually evaluates points."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
-        from panobbgo.lib.lib import Point
+        from panobbgo.lib import Point
         import time
 
         strategy = StrategyRoundRobin(self.problem, parse_args=False)

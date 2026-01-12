@@ -17,7 +17,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from panobbgo.logging import PanobbgoLogger
-from panobbgo.lib.lib import Result, Point
+from panobbgo.lib import Result, Point
 from panobbgo.logging.progress import ProgressContext
 import time
 

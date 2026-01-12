@@ -18,6 +18,10 @@ This file provides instructions for agents working on the Panobbgo repository.
     *   Discovering technical debt (document in "Known Issues & Technical Debt")
     *   Making architectural decisions (document rationale and alternatives)
 
+## Development
+
+*  Always update the copyright banner year. Starting at 2012-[current year of edit]
+
 ## Build & Install
 
 *   **UV-based setup (recommended)**: Use `uv sync --extra dev` for development installation with all dependencies.

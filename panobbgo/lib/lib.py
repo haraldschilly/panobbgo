@@ -19,7 +19,7 @@ Library Classes
 
 This file contains the basic objects to build a problem and to do a single evaluation.
 
-.. inheritance-diagram:: panobbgo_lib.lib
+.. inheritance-diagram:: panobbgo.lib
 
 .. Note:: This is used by :mod:`panobbgo` and :mod:`panobbgo_lib`.
 
@@ -51,7 +51,7 @@ class Point:
     def __repr__(self):
         """
         >>> Point
-        <class panobbgo_lib.lib.Point at ...>
+        <class panobbgo.lib.Point at ...>
 
         >>> x = np.array([1,2])
         >>> repr(Point(x, 'doctest'))
@@ -136,7 +136,7 @@ class Result:
     @property
     def fx(self):
         """
-        The function value :math:`f(x)` after :meth:`evaluating <panobbgo_lib.lib.Problem.eval>` it.
+        The function value :math:`f(x)` after :meth:`evaluating <panobbgo.lib.Problem.eval>` it.
         """
         return self._fx
 
@@ -257,9 +257,9 @@ class BoundingBox:
         """
         :param Point point: the box of the problem
         """
-        l = np.all(point.x >= self.box[:, 0])
-        u = np.all(point.x <= self.box[:, 1])
-        return l and u
+        lower_check = np.all(point.x >= self.box[:, 0])
+        upper_check = np.all(point.x <= self.box[:, 1])
+        return lower_check and upper_check
 
 
     def __getitem__(self, item):
@@ -376,5 +376,5 @@ class Problem:
         p = [_ for _ in iter(list(self.__dict__.items())) if not _[0].startswith("_")]
         descr += "params: %s, " % dict(p)
         descr += "box: [%s]" % ', '.join(
-            '[%.2f %.2f]' % (l, u) for l, u in self._box)
+            '[%.2f %.2f]' % (lower_bound, upper_bound) for lower_bound, upper_bound in self._box)
         return descr

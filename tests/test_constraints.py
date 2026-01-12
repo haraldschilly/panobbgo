@@ -18,7 +18,7 @@ from panobbgo.lib.constraints import (
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
 )
-from panobbgo.lib.lib import Result
+from panobbgo.lib import Result
 import numpy as np
 
 

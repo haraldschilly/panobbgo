@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from panobbgo.lib.lib import Point, Result, BoundingBox, Problem
+from panobbgo.lib import Point, Result, BoundingBox, Problem
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
 from panobbgo.core import StrategyBase
 

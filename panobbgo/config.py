@@ -141,13 +141,7 @@ class Config:
             help="verbosity level: -v, -vv, or -vvv",
         )
 
-        parser.add_argument(
-            "--ui",
-            dest="ui",
-            action="store_true",
-            default=False,
-            help="If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.",
-        )
+
 
         parser.add_argument(
             "--lf",
@@ -197,8 +191,7 @@ class Config:
             cfgp.set("core", "discount", "0.95")
             cfgp.set("core", "smooth", "0.5")
 
-            cfgp.add_section("ui")
-            cfgp.set("ui", "show", "False")
+
 
             with open(self.config_fn, "w") as configfile:
                 cfgp.write(configfile)
@@ -230,8 +223,7 @@ class Config:
                 cfgp.set("heuristic", "capacity", str(args.capacity))
             if args.ipy_profile:
                 cfgp.set("ipython", "profile", args.ipy_profile)
-            if args.ui:
-                cfgp.set("ui", "show", "True")
+
 
         # some generic function
         def getself(section, key):
@@ -249,8 +241,9 @@ class Config:
         self.environment = info()
         from panobbgo import __version__
 
+        from typing import Callable, Any
         # Helper function to get config value (YAML takes precedence over INI)
-        def get_config(yaml_path, ini_section, ini_key, default=None, type_cast=str):
+        def get_config(yaml_path: str | None, ini_section: str | None, ini_key: str | None, default: Any = None, type_cast: Callable[[Any], Any] = str):
             """Get config value from YAML first, then INI, then default"""
             # Check YAML first
             if yaml_path and self.yaml_config:
@@ -291,10 +284,7 @@ class Config:
         self.stop_on_convergence = get_config(
             "core.stop_on_convergence", "core", "stop_on_convergence", True, bool
         )
-        self.ui_show = get_config("ui.show", "ui", "show", False, bool)
-        self.ui_redraw_delay = get_config(
-            "ui.redraw_delay", "ui", "redraw_delay", 0.5, float
-        )
+
 
         # Evaluation method configuration (YAML only)
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)
@@ -327,6 +317,12 @@ class Config:
         self.version = __version__
         self.git_head = self.environment["git HEAD"]
 
+        # Additional configuration for constraint handling
+        self.rho = get_config("constraints.rho", None, None, 1.0, float)
+        self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
+        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        self.logging = get_config("logging", None, None, {}, dict)
+
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:
             logger.info("Evaluation method: %s" % self.evaluation_method)
@@ -353,6 +349,8 @@ class Config:
             return self._loggers[key]
         from .utils import create_logger
 
-        l = create_logger(name, loglevel)
+        if loglevel is None:
+            loglevel = self.loglevel
+        l = create_logger(name, int(loglevel))
         self._loggers[key] = l
         return l

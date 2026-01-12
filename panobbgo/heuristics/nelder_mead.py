@@ -47,7 +47,7 @@ class NelderMead(Heuristic):
     def gram_schmidt(self, dim, results, tol=1e-4):
         """
         Tries to calculate an orthogonal base of dimension `dim`
-        with given list of :class:`Results <panobbgo.lib.lib.Result>` points.
+        with given list of :class:`Results <panobbgo.lib.Result>` points.
         Retuns `None`, if not enough points or impossible.
         The actual basis is not important, only the points for it are.
         They are used in :meth:`~.nelder_mead`.

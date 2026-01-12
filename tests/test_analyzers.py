@@ -20,7 +20,7 @@ import numpy as np
 import numpy.random as rnd
 
 from panobbgo.utils import PanobbgoTestCase
-from panobbgo.lib.lib import Point, Result
+from panobbgo.lib import Point, Result
 
 
 class AnalyzersUtils(PanobbgoTestCase):

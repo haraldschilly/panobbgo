@@ -124,7 +124,7 @@ class Splitter(Analyzer):
         """
         return all boxes, where point is contained in
         """
-        from panobbgo.lib.lib import Result
+        from panobbgo.lib import Result
 
         assert isinstance(result, Result)
         return self.result2boxes[result]
@@ -133,7 +133,7 @@ class Splitter(Analyzer):
         """
         returns the leaf box, where given result is currently sitting in
         """
-        from panobbgo.lib.lib import Result
+        from panobbgo.lib import Result
 
         assert isinstance(result, Result)
         # it might happen, that the result isn't in the result2leaf map
@@ -225,7 +225,8 @@ class Splitter(Analyzer):
             Gives back a vector with all the ranges of this box,
             i.e. upper - lower bound.
             """
-            return self.__ranges()
+            from typing import Any, cast
+            return cast(Any, self).__ranges()
 
         @memoize
         def __log_volume(self):
@@ -236,7 +237,8 @@ class Splitter(Analyzer):
             """
             Returns the `logarithmic` volume of this box.
             """
-            return self.__log_volume()
+            from typing import Any, cast
+            return cast(Any, self).__log_volume()
 
         @memoize
         def __volume(self):
@@ -251,14 +253,15 @@ class Splitter(Analyzer):
 
               Currently, the exponential of :attr:`.log_volume`
             """
-            return self.__volume()
+            from typing import Any, cast
+            return cast(Any, self).__volume()
 
         def _register_result(self, result):
             """
             This updates the splitter and box specific datatypes,
             i.e. the maps from a result to the corresponding boxes or leafs.
             """
-            from panobbgo.lib.lib import Result
+            from panobbgo.lib import Result
 
             assert isinstance(result, Result)
             self.results.append(result)
@@ -276,7 +279,7 @@ class Splitter(Analyzer):
 
         def add_result(self, result):
             """
-            Registers and adds a new :class:`~panobbgo.lib.lib.Result`.
+            Registers and adds a new :class:`~panobbgo.lib.Result`.
             In particular, it adds the given ``result`` to the
             current box and it's children (also all descendents).
 

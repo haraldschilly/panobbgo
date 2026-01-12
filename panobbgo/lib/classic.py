@@ -759,7 +759,7 @@ class Trigonometric(Problem):
 
     def eval(self, x):
         ret = 0
-        n = m = self.dim
+        n = self.dim
         for i in range(n):
             tmp = i * (1 - np.cos(x[i])) - np.sin(x[i])
             fi = n - np.sum(np.cos(x) - tmp)

@@ -11,7 +11,7 @@ from io import StringIO
 
 from panobbgo.logging import PanobbgoLogger, ComponentLogger
 from panobbgo.logging.progress import ProgressReporter, ProgressContext
-from panobbgo.lib.lib import Result, Point
+from panobbgo.lib import Result, Point
 import numpy as np
 
 

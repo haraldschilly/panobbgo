@@ -99,18 +99,24 @@ class GaussianProcessHeuristic(Heuristic):
         Args:
             results: List of Result objects from recent evaluations
         """
-        if len(results) < 3:  # Need at least a few points for meaningful GP
+        if not results:
             return
 
-        # Extract training data from all available results
-        all_results = self.strategy.results.get_results()
-        if len(all_results) < 3:
-            return
+        # Update training data with new results
+        new_X = np.array([r.x for r in results])
+        new_y = np.array([r.fx for r in results])
 
-        # Update training data
-        self.X_train = np.array([r.x for r in all_results])
-        self.y_train = np.array([r.fx for r in all_results])
+        if self.X_train is None:
+            self.X_train = new_X
+            self.y_train = new_y
+        else:
+            self.X_train = np.vstack([self.X_train, new_X])
+            self.y_train = np.append(self.y_train, new_y)  # type: ignore
+
         self.best_y = np.min(self.y_train)
+
+        if len(self.y_train) < 3:  # Need at least a few points for meaningful GP
+            return
 
         # Fit GP model
         self._fit_gp_model()
@@ -135,8 +141,9 @@ class GaussianProcessHeuristic(Heuristic):
                 n_restarts_optimizer=10,
             )
 
-            self.gp_model.fit(self.X_train, self.y_train)
-            self.logger.debug(f"GP model fitted with {len(self.X_train)} points")
+            if self.X_train is not None:
+                self.gp_model.fit(self.X_train, self.y_train)
+                self.logger.debug(f"GP model fitted with {len(self.X_train)} points")
 
         except ImportError:
             self.logger.error(
@@ -186,8 +193,8 @@ class GaussianProcessHeuristic(Heuristic):
             starts.append(start)
 
         # Also try current best point as start
-        if self.X_train is not None:
-            best_idx = np.argmin(self.y_train)
+        if self.X_train is not None and self.y_train is not None:
+            best_idx = int(np.argmin(self.y_train))
             starts.append(self.X_train[best_idx].copy())
 
         best_candidate = None
@@ -226,20 +233,7 @@ class GaussianProcessHeuristic(Heuristic):
             Acquisition function values at each point
         """
         if self.gp_model is None:
-            # We can't check len(X) directly if X is unknown type or numpy array
-            # But typically X is a numpy array here.
-            # Using shape[0] is safer for numpy arrays, but len() works too.
-            # Pyright was complaining about len() on Unknown|None elsewhere,
-            # but here X comes from minimize, so it should be fine.
-            # The previous error was: Argument of type "Unknown | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
-            # It was likely referring to a different line.
-            # Line 139 was: return np.zeros(len(X))
-            try:
-                length = len(X) # type: ignore
-            except TypeError:
-                # Fallback if len() fails (e.g. 0-d array or None)
-                return np.array([0.0])
-
+            length = len(X) if hasattr(X, "__len__") else 1
             return np.zeros(length)
 
         # Get GP predictions and uncertainties

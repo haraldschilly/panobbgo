@@ -50,7 +50,6 @@ import numpy as np
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from .ui import UI
     from .lib import Problem, Result
     from .core import EventBus
 
@@ -231,9 +230,7 @@ class Module:
     def strategy(self) -> 'StrategyBase':
         return self._strategy
 
-    @property
-    def ui(self) -> 'UI | None':
-        return self._strategy.ui
+
 
     @property
     def eventbus(self) -> 'EventBus':
@@ -798,12 +795,7 @@ class StrategyBase:
         # Initialize new logging system
         self.panobbgo_logger = PanobbgoLogger(cast(dict[str, Any], config.logging) if hasattr(config, 'logging') else {})
 
-        # UI
-        if config.ui_show:
-            from .ui import UI
 
-            self.ui = UI(self)
-            self.ui.show()
 
     def __enter__(self):
         """
@@ -1031,11 +1023,6 @@ class StrategyBase:
         :param Module module:
         """
         module.__start__()
-        if self.config.ui_show:
-            plt = module._init_plot()
-            if not isinstance(plt, list):
-                plt = [plt]
-            [self.ui.add_notebook_page(*p) for p in plt]
         # only after _init_ it is ready to receive events
         module.eventbus.register(module)
 
@@ -1666,8 +1653,7 @@ with open('{result_file.name}', 'wb') as f:
         if hasattr(self, "_client"):
             self._client.close()
 
-        if self.config.ui_show:
-            self.ui.finish()  # blocks figure window
+
 
     def on_converged(self, reason, stats):
         """

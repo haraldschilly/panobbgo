@@ -141,13 +141,7 @@ class Config:
             help="verbosity level: -v, -vv, or -vvv",
         )
 
-        parser.add_argument(
-            "--ui",
-            dest="ui",
-            action="store_true",
-            default=False,
-            help="If specified, the GTK+/matplotlib based UI is opened. It helps understanding the progress.",
-        )
+
 
         parser.add_argument(
             "--lf",
@@ -197,8 +191,7 @@ class Config:
             cfgp.set("core", "discount", "0.95")
             cfgp.set("core", "smooth", "0.5")
 
-            cfgp.add_section("ui")
-            cfgp.set("ui", "show", "False")
+
 
             with open(self.config_fn, "w") as configfile:
                 cfgp.write(configfile)
@@ -230,8 +223,7 @@ class Config:
                 cfgp.set("heuristic", "capacity", str(args.capacity))
             if args.ipy_profile:
                 cfgp.set("ipython", "profile", args.ipy_profile)
-            if args.ui:
-                cfgp.set("ui", "show", "True")
+
 
         # some generic function
         def getself(section, key):
@@ -292,10 +284,7 @@ class Config:
         self.stop_on_convergence = get_config(
             "core.stop_on_convergence", "core", "stop_on_convergence", True, bool
         )
-        self.ui_show = get_config("ui.show", "ui", "show", False, bool)
-        self.ui_redraw_delay = get_config(
-            "ui.redraw_delay", "ui", "redraw_delay", 0.5, float
-        )
+
 
         # Evaluation method configuration (YAML only)
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)

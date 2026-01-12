@@ -47,7 +47,7 @@ class Best(Analyzer):
 
        This is an example of how several pareto fronts progress during the optimization.
 
-    It also creates UI plots.
+
     """
 
     def __init__(self, strategy):
@@ -58,231 +58,17 @@ class Best(Analyzer):
         self._pareto = None
         self._pareto_front = []  # this is a heapq, sorted by result.fx
 
-    def _init_plot(self):
-        return [self._init_plot_pareto(), self._init_plot_fx(), self._init_plot_eval()]
 
-    def _init_plot_fx(self):
-        from panobbgo.ui import NavigationToolbar  # type: ignore
-        import gtk  # type: ignore
-        assert self.ui is not None
 
-        self.fx_canvas, fig = self.ui.mk_canvas()
 
-        # f(x) plot
-        self.ax_fx = ax_fx = fig.add_subplot(1, 1, 1)
-        # from matplotlib.ticker import MultipleLocator
-        # ax_fx.xaxis.set_major_locator(MultipleLocator(.1))
-        # ax_fx.xaxis.set_minor_locator(MultipleLocator(.01))
-        ax_fx.grid(True, which="major", ls="--", color="blue")
-        ax_fx.grid(True, which="minor", ls=".", color="blue")
-        ax_fx.set_title(r"$f(x)$ and $\|\vec{\mathrm{cv}}\|_2$")
-        ax_fx.set_xlabel("evaluation")
-        ax_fx.set_ylabel(r"obj. value $f(x)$", color="blue")
-        ax_fx.set_xlim(0, self.config.max_eval)
-        ax_fx.set_yscale("symlog", linthreshy=0.001)
-        ax_fx.set_ylim((0, 1))
-        # for tl in self.ax_fx.get_yticklabels():
-        #  tl.set_color('blue')
-        (self.min_plot,) = ax_fx.plot(
-            [], [], linestyle="-", marker="o", color="blue", zorder=-1
-        )
 
-        # cv plot
-        # self.ax_cv = ax_cv = self.ax_fx.twinx()
-        self.ax_cv = ax_cv = ax_fx
-        # ax_cv.yaxis.tick_right()
-        # ax_cv.grid(True, which="major", ls="--", color="red")
-        # ax_cv.grid(True, which="minor", ls=".", color="red")
-        # ax_cv.set_ylabel(r'constr. viol. $\|\vec{\mathrm{cv}}\|_2$',
-        # color='red')
-        ax_fx.set_ylabel(r"$f(x)-min(f(x))$ and $\|\vec{\mathrm{cv}}\|_2$")
-        # , color="blue")
-        ax_cv.set_xlim(0, self.config.max_eval)
-        # ax_cv.set_yscale('symlog', linthreshy=0.001)
-        ax_cv.set_ylim((0, 1))
-        # for tl in self.ax_cv.get_yticklabels():
-        #  tl.set_color('red')
-        (self.cv_plot,) = ax_cv.plot(
-            [], [], linestyle="-", marker="o", color="red", zorder=-1
-        )
 
-        from matplotlib.widgets import Cursor
 
-        self.fx_cursor = Cursor(self.ax_cv, useblit=True, color="black", alpha=0.5)
 
-        vbox = gtk.VBox(False, 0)
-        vbox.pack_start(self.fx_canvas, True, True)
-        self.toolbar = NavigationToolbar(self.fx_canvas, self)  # type: ignore
-        vbox.pack_start(self.toolbar, False, False)
-        return "f(x)", vbox
 
-    def _init_plot_eval(self):
-        from panobbgo.ui import NavigationToolbar  # type: ignore
-        from matplotlib import colorbar
-        import gtk  # type: ignore
 
-        mx = self.problem.dim
-        vbox = gtk.VBox(False, 0)
-        if mx <= 1:
-            vbox.add(gtk.Label("not enough dimensions"))
-            return
-        assert self.ui is not None
-        self.eval_canvas, fig = self.ui.mk_canvas()
-        self.eval_ax = fig.add_subplot(111)
-        self.eval_cb_ax, _ = colorbar.make_axes(self.eval_ax)
 
-        spinner_hbox = gtk.HBox(gtk.FALSE, 5)
 
-        def mk_cb(l):
-            cb = gtk.combo_box_new_text()
-            [cb.append_text("Axis %d" % i) for i in range(0, mx)]
-            cb.set_active(mk_cb.i)
-            mk_cb.i += 1
-            spinner_hbox.add(gtk.Label(l))
-            spinner_hbox.add(cb)
-            return cb
-
-        mk_cb.i = 0
-
-        cb_0 = mk_cb("X Coord:")
-        cb_1 = mk_cb("Y Coord:")
-
-        for cb in [cb_0, cb_1]:
-            cb.connect("changed", self.on_eval_spinner, cb_0, cb_1)
-
-        self.eval_btn = btn = gtk.Button("Redraw")
-        btn.connect("clicked", self.on_eval_spinner, cb_0, cb_1)
-        spinner_hbox.add(btn)
-
-        vbox.pack_start(self.eval_canvas, True, True)
-        vbox.pack_start(spinner_hbox, False, False)
-        self.toolbar = NavigationToolbar(self.eval_canvas, self)  # type: ignore
-        vbox.pack_start(self.toolbar, False, False)
-        return "Values", vbox
-
-    def on_finished(self):
-        if hasattr(self, "eval_btn"):
-            self.eval_btn.clicked()
-
-    def on_eval_spinner(self, widget, cb0, cb1):
-        from matplotlib import colorbar
-
-        cx = cb0.get_active()
-        cy = cb1.get_active()
-        if cx == cy:
-            self.logger.debug("eval plot: cx == cy and discarded")
-            return
-        if len(self.results.results) == 0:
-            return
-
-        px = 0  # self.problem.ranges[cx] / 10.
-        py = 0  # self.problem.ranges[cy] / 10.
-        xmin, xmax = self.problem.box[cx, :]
-        ymin, ymax = self.problem.box[cy, :]
-        xmin, xmax = xmin - px, xmax + px
-        ymin, ymax = ymin - py, ymax + py
-
-        rslts = list(zip(*[(r.x[cx], r.x[cy], r.fx) for r in self.results.results]))
-        x, y, z = rslts
-        xi = np.linspace(xmin, xmax, 30)
-        yi = np.linspace(ymin, ymax, 30)
-        # grid the data.
-        from scipy.interpolate import griddata  # type: ignore
-
-        zi = griddata((x, y), z, (xi[None, :], yi[:, None]), method="linear")
-        # ci = griddata(x,y,c,xi,yi,interp='linear')
-
-        self.eval_ax.clear()
-        self.eval_cb_ax.clear()
-        self.eval_ax.grid(True, which="both", ls="-", color="grey")
-        # contour the gridded data
-        import matplotlib.cm as cm
-        self.eval_ax.contourf(
-            xi, yi, zi, 15, zorder=3, alpha=0.5, cmap=cm.get_cmap("jet")
-        )
-        # f(x)
-        self.eval_ax.contour(xi, yi, zi, 10, linewidths=0.5, colors="k", zorder=3)
-        cf = self.eval_ax.contourf(xi, yi, zi, 10, cmap=cm.get_cmap("jet"), zorder=2)
-        cb = colorbar.Colorbar(self.eval_cb_ax, cf)
-        cf.colorbar = cb
-
-        # plot data points
-        self.eval_ax.scatter(x, y, marker="o", c="b", s=5, zorder=10)
-        self.eval_ax.set_xlim((xmin, xmax))
-        self.eval_ax.set_ylim((ymin, ymax))
-        if self.ui:
-            self.ui.redraw_canvas(self.eval_canvas)
-
-    def _update_fx_plot(self, plt, ax, xval, yval):
-        xx = np.append(plt.get_xdata(), xval)
-        if xval < 0:
-            xx = [_ - xval for _ in xx]
-        yy = np.append(plt.get_ydata(), yval)
-        if yval < 0:
-            yy = [_ - yval for _ in yy]
-        plt.set_xdata(xx)
-        plt.set_ydata(yy)
-        ylim = [
-            0,  # min(ax.get_ylim()[0], yval),
-            max(ax.get_ylim()[1], max(plt.get_ydata())),
-        ]
-        ax.set_ylim(ylim)
-        if self.ui:
-            self.ui.redraw_canvas(self.fx_canvas)
-
-    def _init_plot_pareto(self):
-        from panobbgo.ui import NavigationToolbar  # type: ignore
-        from matplotlib.widgets import Cursor, Slider
-        from matplotlib.axes import Axes
-        import gtk  # type: ignore
-        # view = gtk.TextView()
-        # view.set_cursor_visible(False)
-        # view.set_editable(False)
-        # buffer = view.get_buffer()
-        # iter = buffer.get_iter_at_offset(0)
-        # for i in range(100):
-        #  buffer.insert(iter, " " * i + "Line %d\n" % i)
-        # scrolled_window = gtk.ScrolledWindow()
-        # scrolled_window.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        # scrolled_window.add(view)
-        # return "Pareto", scrolled_window
-
-        assert self.ui is not None
-        self.pf_canvas, fig = self.ui.mk_canvas()
-
-        # self.pf_ax = pf_ax = fig.add_subplot(1,1,1)
-        self.pf_ax = pf_ax = Axes(fig, (0.1, 0.2, 0.8, 0.7))
-        fig.add_axes(self.pf_ax)
-
-        pf_ax.grid(True, which="both", ls="-", color="grey")
-        pf_ax.set_title("Pareto Front")
-        pf_ax.set_xlabel("constr. violation")
-        pf_ax.set_ylabel("obj. value")
-
-        self.pf_plt_pnts = np.empty(shape=(0, 2))
-        (self.pf_plt,) = pf_ax.plot([], [], marker="o", ls="", alpha=0.3, color="black")
-
-        self.pf_cursor = Cursor(pf_ax, useblit=True, color="black", alpha=0.5)
-
-        axcolor = "lightgoldenrodyellow"
-        pf_slider_ax = Axes(fig, (0.1, 0.04, 0.8, 0.04), facecolor=axcolor)
-        fig.add_axes(pf_slider_ax)
-        v = int(self.config.max_eval * 1.1)
-        self.pf_slider = Slider(pf_slider_ax, "#", 0, v, valfmt="%d", valinit=v)
-        self.pf_slider.on_changed(self.on_pf_slide)
-
-        pf_vbox = gtk.VBox(False, 0)
-        pf_vbox.pack_start(self.pf_canvas, True, True)
-        self.toolbar = NavigationToolbar(self.pf_canvas, self)  # type: ignore
-        pf_vbox.pack_start(self.toolbar, False, False)
-        return "Pareto", pf_vbox
-
-    def on_pf_slide(self, val):
-        val = int(val)
-        self.pf_plt.set_xdata(self.pf_plt_pnts[:val, 0])
-        self.pf_plt.set_ydata(self.pf_plt_pnts[:val, 1])
-        if self.ui:
-            self.ui.redraw_canvas(self.pf_canvas)
 
     @property
     def best(self):
@@ -432,44 +218,4 @@ class Best(Analyzer):
         # self.logger.info("pareto: %s" % pareto)
         pass
 
-    def _update_pf_plot(self, results):
-        if not hasattr(self, "pf_plt"):
-            return
-        plt = self.pf_plt
-        pnts = self.pf_plt_pnts
-        a = [pnts]
-        a.extend([r.pp for r in results])
-        pnts = np.vstack(a)
-        self.pf_plt_pnts = pnts
-        plt.set_xdata(pnts[:, 0])
-        plt.set_ydata(pnts[:, 1])
-        if self.ui:
-            self.ui.redraw_canvas(self.pf_canvas)
 
-    def on_new_pareto_front(self, front):
-        if not hasattr(self, "pf_ax"):
-            return
-        # self.ax1.clear()
-        pnts = [x.pp for x in front]
-        # insert points to make a staircase
-        inserts = []
-        for p1, p2 in zip(pnts[:-1], pnts[1:]):
-            inserts.append((p1[0], p2[1]))
-        all_pnts = []
-        for i in range(len(inserts)):
-            all_pnts.append(pnts[i])
-            all_pnts.append(inserts[i])
-        all_pnts.append(pnts[-1])
-        data = list(zip(*all_pnts))
-        self.pf_ax.plot(data[0], data[1], "-", alpha=0.7, color="black")  # ms = ?
-        self.pf_ax.autoscale()  # TODO get rid of autoscale
-        if self.ui:
-            self.ui.redraw_canvas(self.pf_canvas)
-
-    def on_new_cv(self, cv):
-        if hasattr(self, "cv_plot"):
-            self._update_fx_plot(self.cv_plot, self.ax_cv, cv.cnt, cv.cv)
-
-    def on_new_min(self, min):
-        if hasattr(self, "min_plot"):
-            self._update_fx_plot(self.min_plot, self.ax_fx, min.cnt, min.fx)

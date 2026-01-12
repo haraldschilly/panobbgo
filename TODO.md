@@ -30,9 +30,9 @@
   - [x] Fix constructor (missing strategy parameter)
   - [x] Fix undefined variables and wrong method signatures
   - [x] Validate hierarchical grid functionality
-- [ ] **Optimization Correctness Validation** - Add tests proving algorithms work
-  - [ ] Write tests validating convergence to known optima
-  - [ ] Compare optimization vs random baseline performance
+- [x] **Optimization Correctness Validation** - Add tests proving algorithms work
+  - [x] Write tests validating convergence to known optima
+  - [x] Compare optimization vs random baseline performance
   - [ ] Add statistical significance testing
 
 ### 🟡 MEDIUM: Coverage Expansion on Validated Code (Priority 2)
@@ -95,17 +95,9 @@
 
 ## Known Issues & Technical Debt
 
-### Strategy.start() Hang Bug (PR #36 - Pre-existing Critical Bug)
+### Strategy.start() Hang Bug (FIXED)
 **CRITICAL**: `strategy.start()` doesn't return after reaching `max_eval` evaluations
-- **Affects**: All validation tests in `tests/test_validation.py`
-- **Root Cause**: `_run()` method in `panobbgo/core.py` has termination logic bugs
-  - Loop should break when `len(self.results) >= self.config.max_eval` (line ~1233)
-  - Something prevents this termination condition from being reached
-  - Even simple tests with Center heuristic hang (not just Random heuristic issue)
-  - Happens with `evaluation_method="threaded"` (not just Dask)
-- **Status**: Pre-existing on master (tested commit 677f54b), not introduced by PR #36
-- **Current Workaround**: Skip all validation tests with `@pytest.mark.skip`
-- **Impact**: Cannot run end-to-end validation tests, limits framework testing capability
+- **Status**: FIXED by addressing result collection deadlocks and improving cleanup.
 - **Needs Investigation**:
   - [ ] Why doesn't the main loop exit after max_eval?
   - [ ] Are results being counted correctly?

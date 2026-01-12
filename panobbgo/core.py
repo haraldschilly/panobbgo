@@ -262,13 +262,27 @@ class Module:
         """
         Called right at the end after the strategy has finished.
         """
-        for t in self._threads:
-            if t.is_alive():
+        self._stopped = True
+
+        # First, ensure all event queues have at least one termination event
+        # to unblock any threads waiting on get(block=True)
+        if hasattr(self, 'eventbus_events'):
+            for key, q in self.eventbus_events.items():
                 try:
-                    t._Thread__stop()
+                    # Create a dummy termination event if not already stopped
+                    from .core import Event
+                    event = Event()
+                    event.terminate = True
+                    q.put(event, block=False)
                 except:
                     pass
-            t.join()
+
+        for t in self._threads:
+            if t.is_alive():
+                # Don't use t._Thread__stop(), it's unsafe and deprecated
+                t.join(timeout=0.5)  # Wait with timeout to avoid permanent hang
+                if t.is_alive():
+                    self.logger.debug(f"Thread {t.name} did not terminate gracefully.")
 
     def _init_plot(self):
         """
@@ -520,10 +534,17 @@ class EventBus:
                         isfirst = True
 
                     try:
-                        new_points = getattr(target, "on_%s" % key)(events)
+                        new_points = None
+                        try:
+                            new_points = getattr(target, "on_%s" % key)(events)
+                        except TypeError:
+                            if not terminate:
+                                raise
+
                         # heuristics might call self.emit and/or return a list
                         if new_points is not None:
                             target.emit(new_points)
+
                         if terminate:
                             raise StopHeuristic("%s terminated" % target.name)
                     except StopHeuristic as e:
@@ -540,11 +561,18 @@ class EventBus:
                         event = target.eventbus_events[key].get(block=True)
                         assert isinstance(event, Event)
                         try:
-                            new_points = getattr(target, "on_%s" % key)(**event._kwargs)
+                            new_points = None
+                            try:
+                                new_points = getattr(target, "on_%s" % key)(**event._kwargs)
+                            except TypeError:
+                                if not event.terminate:
+                                    raise
+
                             # heuristics might call self.emit and/or return a
                             # list
                             if new_points is not None:
                                 target.emit(new_points)
+
                             if event.terminate:
                                 raise StopHeuristic("%s terminated" % target.name)
                         except StopHeuristic as e:
@@ -562,7 +590,7 @@ class EventBus:
                             import sys
 
                             ex = sys.exc_info()
-                            raise (ex[1], None, ex[2])
+                            raise ex[1].with_traceback(ex[2])
                         else:  # just issue a critical warning
                             self.logger.critical(
                                 "Exception: %s in %s: %s" % (key, target, e)
@@ -763,6 +791,22 @@ class StrategyBase:
             self.ui = UI()
             self.ui._init_module(self)
             self.ui.show()
+
+    def __enter__(self):
+        """
+        Context manager entry. Allows using the strategy in a 'with' block.
+        Example:
+            with StrategyRewarding(problem) as strategy:
+                strategy.start()
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit. Ensures resource cleanup even if exceptions occur.
+        """
+        self._cleanup()
+        self.__stop__()
 
     def add(self, Heur, **kwargs):
         self.logger.debug("init: %s %s" % (Heur.__name__, kwargs))
@@ -1174,9 +1218,9 @@ class StrategyBase:
         self.loops = 0
         self._last_results_count = 0
         self._loops_without_progress = 0
-        self._max_loops_without_progress = 3  # Allow only 3 loops without progress for testing
+        self._max_loops_without_progress = 10000  # More generous
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
-        self._max_total_loops = max(10, max_eval_int)  # Very aggressive timeout for testing
+        self._max_total_loops = max_eval_int * 10000  # Much more headroom
 
         while True:
             self.loops += 1
@@ -1194,14 +1238,16 @@ class StrategyBase:
 
             # Check for progress (points generated)
             if len(points) == 0:
-                self._loops_without_progress += 1
-                if self._loops_without_progress > self._max_loops_without_progress:
-                    self.logger.warning(
-                        f"No points generated for {self._loops_without_progress} consecutive loops. "
-                        f"This may indicate a configuration issue or exhausted search space. "
-                        f"Results so far: {len(self.results)}. Stopping optimization."
-                    )
-                    break
+                # Only increment if we also don't have pending tasks
+                if len(self.pending) == 0:
+                    self._loops_without_progress += 1
+                    if self._loops_without_progress > self._max_loops_without_progress:
+                        self.logger.warning(
+                            f"No points generated and no pending tasks for {self._loops_without_progress} consecutive loops. "
+                            f"This may indicate a configuration issue or exhausted search space. "
+                            f"Results so far: {len(self.results)}/{self.config.max_eval}. Stopping optimization."
+                        )
+                        break
             else:
                 self._loops_without_progress = 0
 
@@ -1226,7 +1272,9 @@ class StrategyBase:
             # Check for additional progress (results added)
             current_results_count = len(self.results)
             if current_results_count == self._last_results_count:
-                self._loops_without_progress += 1
+                # Only increment if we are not generating points either
+                if len(points) == 0 and len(self.pending) == 0:
+                    self._loops_without_progress += 1
             else:
                 self._loops_without_progress = 0
                 self._last_results_count = current_results_count
@@ -1401,17 +1449,21 @@ with open('{result_file.name}', 'wb') as f:
         from concurrent.futures import as_completed
         import time as time_mod
 
-        if not points:
-            return
+        # Prepare for result collection
+        self.new_finished = []
+        new_results = []
 
-        # Submit all points to thread pool
-        task_start_times = {}
-        for i, point in enumerate(points):
-            task_id = f"thread_task_{self.loops}_{i}"
-            future = self._thread_pool.submit(self._problem, point)
-            self._futures[task_id] = future
-            self.pending[task_id] = future
-            task_start_times[task_id] = time_mod.time()
+        # Submit all points to thread pool if any
+        if points:
+            for i, point in enumerate(points):
+                task_id = f"thread_task_{self.loops}_{i}"
+                future = self._thread_pool.submit(self._problem, point)
+                self._futures[task_id] = future
+                self.pending[task_id] = future
+                # Store start time for walltime calculation
+                if not hasattr(self, '_task_start_times'):
+                    self._task_start_times = {}
+                self._task_start_times[task_id] = time_mod.time()
 
         # Wait for completion with short timeout for responsiveness
         self.new_finished = []
@@ -1426,8 +1478,9 @@ with open('{result_file.name}', 'wb') as f:
                 self.finished.append(task_id)
 
                 # Record wall time
-                if task_id in task_start_times:
-                    self.tasks_walltimes[task_id] = time_mod.time() - task_start_times[task_id]
+                if hasattr(self, '_task_start_times') and task_id in self._task_start_times:
+                    self.tasks_walltimes[task_id] = time_mod.time() - self._task_start_times[task_id]
+                    self._task_start_times.pop(task_id)
 
                 try:
                     result = future.result()
@@ -1528,11 +1581,11 @@ with open('{result_file.name}', 'wb') as f:
             # Try to get points
             initial_count = len(points)
             new_points = selector()
-            
+
             if new_points is None:
                 # Selector signalled to stop (e.g. no active heuristics)
                 break
-                
+
             if new_points:
                 points.extend(new_points)
 
@@ -1542,7 +1595,7 @@ with open('{result_file.name}', 'wb') as f:
                 if attempts >= max_attempts:
                     self.logger.warning(f"{self.name}: Timed out waiting for points.")
                     break
-                time_module.sleep(0.1)
+                time_module.sleep(0.01)
             else:
                 attempts = 0
 
@@ -1560,7 +1613,9 @@ with open('{result_file.name}', 'wb') as f:
         """
         cleanup + shutdown
         """
-        self.eventbus.publish("finished")
+        self.logger.info("Cleaning up strategy...")
+        # Signal termination to all event bus subscribers
+        self.eventbus.publish("finished", terminate=True)
         self._end = time_module.time()
 
         if self.config.evaluation_method == "dask":

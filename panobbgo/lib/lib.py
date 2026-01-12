@@ -242,9 +242,9 @@ class BoundingBox:
         self.ranges = np.ptp(self.box, axis=1)  # self._box[:,1] - self._box[:,0]
         self.center = self.box[:, 0] + self.ranges / 2.
 
-        for arr in [self.box, dx, self.ranges, self.center]:
-            if arr is not None:
-                arr.setflags(write=False)
+        # for arr in [self.box, dx, self.ranges, self.center]:
+        #     if arr is not None:
+        #         arr.setflags(write=False)
 
 
     def copy(self):

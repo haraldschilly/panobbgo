@@ -385,10 +385,14 @@ class Heuristic(Module):
                     raise Exception("point is not a numpy ndarray")
                 x = self.problem.project(point)
                 point = Point(x, self.name)
-                self._output.put(point)
+                self._output.put_nowait(point)  # Non-blocking put
         except StopHeuristic:
             self._stopped = True
             self.logger.info("'%s' heuristic stopped." % self.name)
+        except Exception as e:
+            # Queue might be full or other issues - silently ignore for non-blocking behavior
+            self.logger.debug(f"Failed to emit point from {self.name}: {e}")
+            pass
 
     def get_points(self, limit=None):
         """

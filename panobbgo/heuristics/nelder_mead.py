@@ -69,7 +69,16 @@ class NelderMead(Heuristic):
         base.append(first.x)
         ret.append(first)
         for p in results:
-            w = p.x - np.sum([((v.dot(p.x) / v.dot(v)) * v) for v in base], axis=0)
+            # Avoid division by zero or near-zero in Gram-Schmidt orthogonalization
+            projections = []
+            for v in base:
+                v_norm_sq = v.dot(v)
+                if abs(v_norm_sq) > 1e-12:  # Check for near-zero norms
+                    projections.append((v.dot(p.x) / v_norm_sq) * v)
+                else:
+                    # Skip degenerate vectors
+                    continue
+            w = p.x - np.sum(projections, axis=0)
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 ret.append(p)

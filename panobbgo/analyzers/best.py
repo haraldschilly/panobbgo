@@ -212,7 +212,6 @@ class Best(Analyzer):
                 self.eventbus.publish("new_best", best=r)
 
             self._update_pareto(r)
-        self._update_pf_plot(results)
 
     def on_new_pareto(self, pareto):
         # self.logger.info("pareto: %s" % pareto)

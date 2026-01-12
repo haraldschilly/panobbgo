@@ -218,15 +218,32 @@ class Best(Analyzer):
         pass
 
     def on_new_pareto_front(self, front):
-        # UI plotting removed - this method preserved for event handling
-        pass
+        """Report progress when a new pareto front is found."""
+        self._report_progress_event("New Pareto front", "pareto_front")
 
     def on_new_cv(self, cv):
-        # UI plotting removed - this method preserved for event handling
-        pass
+        """Report progress when a new constraint violation minimum is found."""
+        self._report_progress_event(f"CV improved to {cv.cv:.4f}", "cv_improvement")
 
     def on_new_min(self, min):
-        # UI plotting removed - this method preserved for event handling
-        pass
+        """Report progress when a new global minimum is found."""
+        self._report_progress_event(f"New best: {min.fx:.6f}", "new_best")
+
+    def _report_progress_event(self, message: str, event_type: str):
+        """Report a significant optimization event via progress system."""
+        # Log the event
+        self.logger.info(message)
+
+        # Get progress reporter from strategy and trigger status update
+        if hasattr(self.strategy, 'panobbgo_logger') and self.strategy.panobbgo_logger:
+            progress_reporter = self.strategy.panobbgo_logger.progress_reporter
+            if progress_reporter and progress_reporter.enabled:
+                # Trigger a status update on the strategy (this will refresh the progress display)
+                if hasattr(self.strategy, '_update_progress_status'):
+                    try:
+                        self.strategy._update_progress_status()
+                    except Exception:
+                        # If status update fails, just continue
+                        pass
 
 

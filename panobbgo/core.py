@@ -1166,6 +1166,8 @@ class StrategyBase:
 
     def _run(self):
         self.eventbus.publish("start", terminate=True)
+        # Give heuristics a moment to process the start event and emit initial points
+        time_module.sleep(0.1)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' started" % self._name)
@@ -1500,6 +1502,51 @@ with open('{result_file.name}', 'wb') as f:
             max_evals=max_evals,
             extra_fields=extra_fields
         )
+
+    def _collect_points_safely(self, target, selector, until=None):
+        """
+        Safely collect points from heuristics with timeout protection.
+
+        Args:
+            target (int): Target number of points (or reference value).
+            selector (callable): Function that returns a list of new points (or None to stop).
+            until (callable): Termination condition function(points, target).
+                              If None, defaults to len(points) >= target.
+        """
+        points = []
+        attempts = 0
+        max_attempts = 20  # Approx 2 seconds
+
+        while True:
+            # Check termination
+            if until:
+                if until(points, target):
+                    break
+            elif len(points) >= target:
+                break
+
+            # Try to get points
+            initial_count = len(points)
+            new_points = selector()
+            
+            if new_points is None:
+                # Selector signalled to stop (e.g. no active heuristics)
+                break
+                
+            if new_points:
+                points.extend(new_points)
+
+            # Check progress
+            if len(points) == initial_count:
+                attempts += 1
+                if attempts >= max_attempts:
+                    self.logger.warning(f"{self.name}: Timed out waiting for points.")
+                    break
+                time_module.sleep(0.1)
+            else:
+                attempts = 0
+
+        return points
 
     def execute(self):
         """

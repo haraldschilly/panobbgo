@@ -99,8 +99,13 @@ class StrategyRewarding(StrategyBase):
                 s = float(self.config.smooth)
             except (ValueError, TypeError):
                 s = 0.5
-            while True:
+            
+            def selector():
                 heurs = self.heuristics
+                if not heurs:
+                    return None
+                
+                batch = []
                 perf_sum = sum(h.performance for h in heurs)
                 for h in heurs:
                     # calc probability based on performance with additive
@@ -108,9 +113,11 @@ class StrategyRewarding(StrategyBase):
                     prob = (h.performance + s) / (perf_sum + s * len(heurs))
                     nb_h = max(1, round(target * prob))
                     h_pts = h.get_points(nb_h)
-                    points.extend(h_pts)
+                    batch.extend(h_pts)
                     # print "  %16s -> %s" % (h, nb_h)
-                # stopping criteria
-                if len(points) >= target:
-                    break
+                return batch
+
+            points = self._collect_points_safely(target, selector)
+        
+        return points
         return points

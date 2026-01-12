@@ -1,7 +1,7 @@
 # Panobbgo Development Prompt
 
-**Version:** 2.0 (Refined)
-**Date:** 2026-01-07
+**Version:** 2.1 (Modernized)
+**Date:** 2026-01-12
 **Purpose:** Guide iterative development and improvement of the panobbgo library
 
 ---
@@ -37,7 +37,7 @@ Your thesis proposes a **flexible, modular framework** that:
 2. **Learns which strategies work** through a multi-armed bandit approach
 3. **Maintains a result database** to avoid re-evaluations and enable data-driven heuristics
 4. **Adapts to the problem** by rewarding successful heuristics
-5. **Supports parallelism** for efficient use of computational resources
+5. **Supports robust parallelism** via Dask for efficient resource use
 
 ---
 
@@ -90,12 +90,14 @@ Your framework is substantially complete with the following components:
 - ✅ Abstract Problem base class for custom problems
 
 #### Infrastructure
-- ✅ IPython parallel integration for distributed evaluation
-- ✅ Configuration system (`~/.panobbgo/config.ini`)
-- ✅ Pytest test suite (91 tests)
-- ✅ Type hints (partial, ongoing migration)
-- ✅ CI/CD with GitHub Actions
-- ✅ Sphinx documentation framework
+- ✅ **Dask distributed integration** for evaluation (replaced IPython Parallel)
+- ✅ **Robust Strategy Lifecycle**: Context manager support and safe cleanup
+- ✅ **Optimization Stability**: Multi-threaded deadlock and stalling issues resolved
+- ✅ **Configuration system** (`~/.panobbgo/config.ini`)
+- ✅ **Pytest test suite** (134+ tests, 71% coverage)
+- ✅ **Type hints** (Ongoing migration)
+- ✅ **CI/CD with GitHub Actions** (Verified passing)
+- ✅ **Sphinx documentation framework**
 
 ---
 
@@ -402,7 +404,7 @@ assert strategy.best.fx < 1.0  # Should find near-optimum
 - Validate framework stability before advanced features
 - **🎯 Improve test coverage via full integration tests** (current: 58% overall coverage)
 
-**🎯 Advanced Bandit Strategies**  
+**🎯 Advanced Bandit Strategies**
 - Implement UCB, Thompson Sampling, contextual bandits
 - Create comprehensive benchmarks to test bandit performance
 - Compare different bandit strategies empirically
@@ -605,7 +607,7 @@ def on_event_name(self, arg1, arg2=None):
 
 ### External References
 - SNOBFIT paper (Huyer & Neumaier, 2008)
-- IPython Parallel docs: https://ipyparallel.readthedocs.io/
+- Dask distributed docs: https://distributed.dask.org/
 - Multi-armed bandits: Auer et al. (2002)
 
 ---

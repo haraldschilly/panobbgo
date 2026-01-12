@@ -259,47 +259,38 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="116">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
 </span><span data-line="117">                    <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="118">
-</span><span data-line="119">                <span class="n">best_ucb</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
-</span><span data-line="120">                <span class="n">selected_h</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="121">
-</span><span data-line="122">                <span class="c1"># Calculate UCB for each heuristic</span>
-</span><span data-line="123">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="124">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
-</span><span data-line="125">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="126">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="127">
-</span><span data-line="128">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="129">                        <span class="c1"># Infinite UCB for untried arms</span>
-</span><span data-line="130">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
-</span><span data-line="131">                        <span class="k">break</span>
-</span><span data-line="132">
-</span><span data-line="133">                    <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
-</span><span data-line="134">                    <span class="n">exploration_term</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-</span><span data-line="135">                        <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">)</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
-</span><span data-line="136">                    <span class="p">)</span>
-</span><span data-line="137">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">average_reward</span> <span class="o">+</span> <span class="n">exploration_term</span>
+</span><span data-line="119">                <span class="c1"># Calculate UCB scores for all heuristics</span>
+</span><span data-line="120">                <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="121">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="122">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="123">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="124">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="125">
+</span><span data-line="126">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="127">                        <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="128">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="129">                        <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="130">                        <span class="n">exploration_term</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+</span><span data-line="131">                            <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">))</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
+</span><span data-line="132">                        <span class="p">)</span>
+</span><span data-line="133">                        <span class="n">score</span> <span class="o">=</span> <span class="n">average_reward</span> <span class="o">+</span> <span class="n">exploration_term</span>
+</span><span data-line="134">                    <span class="n">scores</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">score</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+</span><span data-line="135">
+</span><span data-line="136">                <span class="c1"># Try heuristics in order of score</span>
+</span><span data-line="137">                <span class="n">scores</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="138">
-</span><span data-line="139">                    <span class="k">if</span> <span class="n">ucb_score</span> <span class="o">&gt;</span> <span class="n">best_ucb</span><span class="p">:</span>
-</span><span data-line="140">                        <span class="n">best_ucb</span> <span class="o">=</span> <span class="n">ucb_score</span>
-</span><span data-line="141">                        <span class="n">selected_h</span> <span class="o">=</span> <span class="n">h</span>
-</span><span data-line="142">
-</span><span data-line="143">                <span class="k">if</span> <span class="n">selected_h</span><span class="p">:</span>
-</span><span data-line="144">                    <span class="c1"># Request 1 point (or a small batch)</span>
-</span><span data-line="145">                    <span class="n">n_points</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span data-line="146">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">selected_h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">n_points</span><span class="p">)</span>
-</span><span data-line="147">                    
-</span><span data-line="148">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
-</span><span data-line="149">                        <span class="c1"># Update counts</span>
-</span><span data-line="150">                        <span class="n">selected_h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">+=</span> <span class="n">n_points</span>
-</span><span data-line="151">                        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">n_points</span>
-</span><span data-line="152">                    
-</span><span data-line="153">                    <span class="k">return</span> <span class="n">new_points</span>
-</span><span data-line="154">                
-</span><span data-line="155">                <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="156">
-</span><span data-line="157">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
-</span><span data-line="158">
-</span><span data-line="159">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="139">                <span class="k">for</span> <span class="n">score</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">:</span>
+</span><span data-line="140">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="141">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="142">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+</span><span data-line="143">                        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+</span><span data-line="144">                        <span class="k">return</span> <span class="n">new_points</span>
+</span><span data-line="145">
+</span><span data-line="146">                <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="147">
+</span><span data-line="148">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
+</span><span data-line="149">
+</span><span data-line="150">        <span class="k">return</span> <span class="n">points</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

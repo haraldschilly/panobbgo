@@ -1,7 +1,7 @@
-﻿panobbgo.lib.lib.Result
+﻿panobbgo.lib.Result
 =======================
 
-.. currentmodule:: panobbgo.lib.lib
+.. currentmodule:: panobbgo.lib
 
 .. autoclass:: Result
 

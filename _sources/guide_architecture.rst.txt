@@ -456,7 +456,7 @@ To extend Panobbgo:
 1. **Add a heuristic**: Subclass :class:`~panobbgo.core.Heuristic`
 2. **Add an analyzer**: Subclass :class:`~panobbgo.core.Analyzer`
 3. **Add a strategy**: Subclass :class:`~panobbgo.core.StrategyBase`
-4. **Define a problem**: Subclass :class:`~panobbgo.lib.lib.Problem`
+4. **Define a problem**: Subclass :class:`~panobbgo.lib.Problem`
 5. **Create custom events**: Publish with ``eventbus.publish(event_name, **kwargs)``
 
 See :doc:`guide_extending` for detailed examples.

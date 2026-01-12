@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="blue" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.lib.lib.Result - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.lib.Result - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=43bd62f4" />
@@ -18,7 +18,7 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.lib.lib.Result"/>
+    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.lib.Result"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -103,8 +98,8 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#panobbgo.lib.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.lib.lib.Result.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.Result.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -124,7 +119,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">panobbgo.lib.lib.Result</strong>
+        <strong itemprop="name">panobbgo.lib.Result</strong>
         <meta itemprop="position" content="2" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -137,32 +132,32 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <section id="panobbgo-lib-lib-result">
-<h1>panobbgo.lib.lib.Result<a class="headerlink" href="#panobbgo-lib-lib-result" title="Link to this heading">¶</a></h1>
+          <section id="panobbgo-lib-result">
+<h1>panobbgo.lib.Result<a class="headerlink" href="#panobbgo-lib-result" title="Link to this heading">¶</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.lib.lib.Result">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.lib.</span></span><span class="sig-name descname"><span class="pre">Result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/lib.html#Result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Result" title="Link to this definition">¶</a></dt>
-<dd><p>This represents one result, wich is a mapping of a <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Point" title="panobbgo.lib.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a>
+<dt class="sig sig-object py" id="panobbgo.lib.Result">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">Result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/lib.html#Result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.Result" title="Link to this definition">¶</a></dt>
+<dd><p>This represents one result, wich is a mapping of a <a class="reference internal" href="../lib.html#panobbgo.lib.Point" title="panobbgo.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a>
 <span class="math notranslate nohighlight">\(x \rightarrow f(x)\)</span>.</p>
 <p>Additionally, there is also</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.error" title="panobbgo.lib.lib.Result.error"><code class="xref py py-attr docutils literal notranslate"><span class="pre">error</span></code></a>: estimated or calculated <span class="math notranslate nohighlight">\(\Delta f(x)\)</span>.</p></li>
-<li><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv_vec" title="panobbgo.lib.lib.Result.cv_vec"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv_vec</span></code></a>: a possibly empty vector listing the constraint violation for
+<li><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.error" title="panobbgo.lib.Result.error"><code class="xref py py-attr docutils literal notranslate"><span class="pre">error</span></code></a>: estimated or calculated <span class="math notranslate nohighlight">\(\Delta f(x)\)</span>.</p></li>
+<li><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv_vec" title="panobbgo.lib.Result.cv_vec"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv_vec</span></code></a>: a possibly empty vector listing the constraint violation for
 each constraint.</p></li>
 </ul>
 <p>Args:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">cv</span></code>: the constraint violation vector</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cv_norm</span></code>: the norm used to calculate <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv" title="panobbgo.lib.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>.
+<li><p><code class="docutils literal notranslate"><span class="pre">cv_norm</span></code>: the norm used to calculate <a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv" title="panobbgo.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>.
 (see <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html#numpy.linalg.norm" title="(in NumPy v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.linalg.norm()</span></code></a>, default <code class="docutils literal notranslate"><span class="pre">None</span></code> means 2-norm)</p></li>
 </ul>
 <dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.lib.lib.Result.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/lib.html#Result.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.lib.Result.__init__" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="panobbgo.lib.Result.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/lib.html#Result.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.Result.__init__" title="Link to this definition">¶</a></dt>
 <dd><p>Args:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">cv</span></code>: the constraint violation vector</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cv_norm</span></code>: the norm used to calculate <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv" title="panobbgo.lib.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>.
+<li><p><code class="docutils literal notranslate"><span class="pre">cv_norm</span></code>: the norm used to calculate <a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv" title="panobbgo.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>.
 (see <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html#numpy.linalg.norm" title="(in NumPy v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.linalg.norm()</span></code></a>, default <code class="docutils literal notranslate"><span class="pre">None</span></code> means 2-norm)</p></li>
 </ul>
 </dd></dl>
@@ -171,7 +166,7 @@ each constraint.</p></li>
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.lib.lib.Result.__init__" title="panobbgo.lib.lib.Result.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(point, fx[, cv_vec, cv_norm, error])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.lib.Result.__init__" title="panobbgo.lib.Result.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(point, fx[, cv_vec, cv_norm, error])</p></td>
 <td><p>Args:</p></td>
 </tr>
 </tbody>
@@ -181,28 +176,28 @@ each constraint.</p></li>
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv" title="panobbgo.lib.lib.Result.cv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cv</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv" title="panobbgo.lib.Result.cv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cv</span></code></a></p></td>
 <td><p>Constraint Violation.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv_vec" title="panobbgo.lib.lib.Result.cv_vec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cv_vec</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv_vec" title="panobbgo.lib.Result.cv_vec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cv_vec</span></code></a></p></td>
 <td><p>Vector of constraint violations for each constraint, or None.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.error" title="panobbgo.lib.lib.Result.error"><code class="xref py py-obj docutils literal notranslate"><span class="pre">error</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.error" title="panobbgo.lib.Result.error"><code class="xref py py-obj docutils literal notranslate"><span class="pre">error</span></code></a></p></td>
 <td><p>Error margin of function evaluation, usually 0.0.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.fx" title="panobbgo.lib.lib.Result.fx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fx</span></code></a></p></td>
-<td><p>The function value <span class="math notranslate nohighlight">\(f(x)\)</span> after <code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluating</span></code> it.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.fx" title="panobbgo.lib.Result.fx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fx</span></code></a></p></td>
+<td><p>The function value <span class="math notranslate nohighlight">\(f(x)\)</span> after <a class="reference internal" href="../lib.html#panobbgo.lib.Problem.eval" title="panobbgo.lib.Problem.eval"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluating</span></code></a> it.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.point" title="panobbgo.lib.lib.Result.point"><code class="xref py py-obj docutils literal notranslate"><span class="pre">point</span></code></a></p></td>
-<td><p>Returns the actual <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Point" title="panobbgo.lib.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a> object.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.point" title="panobbgo.lib.Result.point"><code class="xref py py-obj docutils literal notranslate"><span class="pre">point</span></code></a></p></td>
+<td><p>Returns the actual <a class="reference internal" href="../lib.html#panobbgo.lib.Point" title="panobbgo.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a> object.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.pp" title="panobbgo.lib.lib.Result.pp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.pp" title="panobbgo.lib.Result.pp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp</span></code></a></p></td>
 <td><p>pareto point, i.e. array([cv, fx]).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.who" title="panobbgo.lib.lib.Result.who"><code class="xref py py-obj docutils literal notranslate"><span class="pre">who</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.who" title="panobbgo.lib.Result.who"><code class="xref py py-obj docutils literal notranslate"><span class="pre">who</span></code></a></p></td>
 <td><p>The <a class="reference internal" href="../core.html#panobbgo.core.Module.name" title="panobbgo.core.Module.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a> of the heuristic, who did generate this point (String).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.x" title="panobbgo.lib.lib.Result.x"><code class="xref py py-obj docutils literal notranslate"><span class="pre">x</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../lib.html#panobbgo.lib.Result.x" title="panobbgo.lib.Result.x"><code class="xref py py-obj docutils literal notranslate"><span class="pre">x</span></code></a></p></td>
 <td><p>Point <span class="math notranslate nohighlight">\(x\)</span> where this result has been evaluated.</p></td>
 </tr>
 </tbody>

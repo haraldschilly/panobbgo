@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -188,7 +183,7 @@ data-aria-dark="Switch to auto color mode">
 <section id="basic-template">
 <h3>Basic Template<a class="headerlink" href="#basic-template" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
@@ -607,7 +602,7 @@ a simple version yourself:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">class</span><span class="w"> </span><span class="nc">CFDSimulation</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="7"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Aerodynamic optimization using CFD simulation.&quot;&quot;&quot;</span>
@@ -749,7 +744,7 @@ a simple version yourself:</p>
 <section id="loading-previous-results">
 <h3>Loading Previous Results<a class="headerlink" href="#loading-previous-results" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Load CSV</span>
 </span><span data-line="5"><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;previous_results.csv&#39;</span><span class="p">)</span>

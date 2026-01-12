@@ -12,7 +12,7 @@ Basic Template
 .. code-block:: python
 
    from panobbgo.core import Heuristic
-   from panobbgo.lib.lib import Point
+   from panobbgo.lib import Point
    import numpy as np
 
    class MyHeuristic(Heuristic):
@@ -446,7 +446,7 @@ Problem with External Simulation
    import subprocess
    import tempfile
    import os
-   from panobbgo.lib.lib import Problem, BoundingBox
+   from panobbgo.lib import Problem, BoundingBox
 
    class CFDSimulation(Problem):
        """Aerodynamic optimization using CFD simulation."""
@@ -593,7 +593,7 @@ Loading Previous Results
 .. code-block:: python
 
    import pandas as pd
-   from panobbgo.lib.lib import Result, Point
+   from panobbgo.lib import Result, Point
 
    # Load CSV
    df = pd.read_csv('previous_results.csv')

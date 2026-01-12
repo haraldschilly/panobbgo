@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -148,7 +143,7 @@ manages a pareto front of good points and emits the following events:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_best</span></code>: when a new “best” point,</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_min</span></code>: a point with smallest objective function value,</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_cv</span></code>: one with a smaller
-<a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result.cv" title="panobbgo.lib.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>, or</p></li>
+<a class="reference internal" href="../lib.html#panobbgo.lib.Result.cv" title="panobbgo.lib.Result.cv"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv</span></code></a>, or</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_pareto</span></code>: when a best point on the pareto front of the
 objective value and constraint violation</p>
 <p>has been found.</p>
@@ -175,7 +170,6 @@ There is also <a class="reference internal" href="../analyzers.html#panobbgo.ana
 <p><span class="caption-text">This is an example of how several pareto fronts progress during the optimization.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
 </figcaption>
 </figure>
-<p>It also creates UI plots.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -209,28 +203,19 @@ There is also <a class="reference internal" href="../analyzers.html#panobbgo.ana
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code>(analyzers, heuristics)</p></td>
 <td><p>This method is called by the core initialization to assess, if the dependencies for the given module are met.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_eval_spinner" title="panobbgo.analyzers.best.Best.on_eval_spinner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_eval_spinner</span></code></a>(widget, cb0, cb1)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_finished" title="panobbgo.analyzers.best.Best.on_finished"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_finished</span></code></a>()</p></td>
-<td><p></p></td>
-</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_new_cv" title="panobbgo.analyzers.best.Best.on_new_cv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_cv</span></code></a>(cv)</p></td>
-<td><p></p></td>
+<td><p>Report progress when a new constraint violation minimum is found.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_new_min" title="panobbgo.analyzers.best.Best.on_new_min"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_min</span></code></a>(min)</p></td>
-<td><p></p></td>
+<td><p>Report progress when a new global minimum is found.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto" title="panobbgo.analyzers.best.Best.on_new_pareto"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_pareto</span></code></a>(pareto)</p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto_front" title="panobbgo.analyzers.best.Best.on_new_pareto_front"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_pareto_front</span></code></a>(front)</p></td>
-<td><p></p></td>
+<td><p>Report progress when a new pareto front is found.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_new_results" title="panobbgo.analyzers.best.Best.on_new_results"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_results</span></code></a>(results)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.on_pf_slide" title="panobbgo.analyzers.best.Best.on_pf_slide"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_pf_slide</span></code></a>(val)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -241,7 +226,7 @@ There is also <a class="reference internal" href="../analyzers.html#panobbgo.ana
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.best" title="panobbgo.analyzers.best.Best.best"><code class="xref py py-obj docutils literal notranslate"><span class="pre">best</span></code></a></p></td>
-<td><p>Currently best <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result" title="panobbgo.lib.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.</p></td>
+<td><p>Currently best <a class="reference internal" href="../lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.best.Best.cv" title="panobbgo.analyzers.best.Best.cv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cv</span></code></a></p></td>
 <td><p>The point with currently minimal constraint violation, likely 0.0.</p></td>
@@ -268,9 +253,6 @@ There is also <a class="reference internal" href="../analyzers.html#panobbgo.ana
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">strategy</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ui</span></code></p></td>
 <td><p></p></td>
 </tr>
 </tbody>

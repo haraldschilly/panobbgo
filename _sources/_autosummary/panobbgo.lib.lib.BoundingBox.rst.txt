@@ -1,7 +1,7 @@
-﻿panobbgo.lib.lib.BoundingBox
+﻿panobbgo.lib.BoundingBox
 ============================
 
-.. currentmodule:: panobbgo.lib.lib
+.. currentmodule:: panobbgo.lib
 
 .. autoclass:: BoundingBox
 

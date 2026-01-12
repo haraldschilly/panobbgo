@@ -8,7 +8,7 @@ Core problem definition classes:
 - **Result**: Contains evaluation results
 - **BoundingBox**: Defines parameter bounds
 
-.. automodule:: panobbgo.lib.lib
+.. automodule:: panobbgo.lib
    :members:
    :undoc-members:
    :show-inheritance:

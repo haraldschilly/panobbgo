@@ -89,7 +89,7 @@ Typical Workflow
 
 A typical Panobbgo workflow looks like this:
 
-1. **Define your problem** by subclassing :class:`~panobbgo.lib.lib.Problem`
+1. **Define your problem** by subclassing :class:`~panobbgo.lib.Problem`
 
    .. code-block:: python
 

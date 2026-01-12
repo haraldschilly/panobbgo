@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -201,7 +196,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="63">        <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">:</span>
 </span><span data-line="64">            <span class="n">col</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]</span>
 </span><span data-line="65">            <span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="66">            <span class="n">record</span><span class="o">.</span><span class="n">lineno</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="66">            <span class="c1"># record.lineno = self.colorize(record.lineno, col, True)  # Pyright warning: str not assignable to int</span>
 </span><span data-line="67">            <span class="n">record</span><span class="o">.</span><span class="n">levelname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">levelname</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 </span><span data-line="68">            <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
 </span><span data-line="69">        <span class="k">return</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
@@ -260,19 +255,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="116">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;scipy&quot;</span><span class="p">)</span>
 </span><span data-line="117">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="118">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>
-</span><span data-line="119">    <span class="k">except</span><span class="p">:</span>
+</span><span data-line="119">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
 </span><span data-line="120">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pandas not available&quot;</span><span class="p">)</span>
 </span><span data-line="121">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="122">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;statsmodels&quot;</span><span class="p">)</span>
-</span><span data-line="123">    <span class="k">except</span><span class="p">:</span>
+</span><span data-line="123">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
 </span><span data-line="124">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;statsmodels not available&quot;</span><span class="p">)</span>
 </span><span data-line="125">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="126">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">)</span>
-</span><span data-line="127">    <span class="k">except</span><span class="p">:</span>
+</span><span data-line="127">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
 </span><span data-line="128">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matplotlib not available&quot;</span><span class="p">)</span>
 </span><span data-line="129">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="130">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;dask&quot;</span><span class="p">)</span>
-</span><span data-line="131">    <span class="k">except</span><span class="p">:</span>
+</span><span data-line="131">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
 </span><span data-line="132">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dask not available&quot;</span><span class="p">)</span>
 </span><span data-line="133">    <span class="n">v</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 </span><span data-line="134">    <span class="k">return</span> <span class="n">v</span>
@@ -481,10 +476,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="330">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 </span><span data-line="331">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="332">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
-</span><span data-line="333">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+</span><span data-line="333">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
 </span><span data-line="334">
 </span><span data-line="335">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="336">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+</span><span data-line="336">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
 </span><span data-line="337">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
 </span><span data-line="338">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="339">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>

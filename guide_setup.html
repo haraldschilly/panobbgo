@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -230,9 +225,9 @@ Each step includes executable doctests that verify the setup works correctly.</p
 <h2>Basic Problem Definition<a class="headerlink" href="#basic-problem-definition" title="Link to this heading">¶</a></h2>
 <section id="step-3-define-your-first-problem">
 <h3>Step 3: Define Your First Problem<a class="headerlink" href="#step-3-define-your-first-problem" title="Link to this heading">¶</a></h3>
-<p>Create a simple optimization problem by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
+<p>Create a simple optimization problem by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">SphereProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="5"><span class="gp">... </span><span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple sphere function: f(x) = sum(x^2)&quot;&quot;&quot;</span>
@@ -251,7 +246,7 @@ Each step includes executable doctests that verify the setup works correctly.</p
 </span><span data-line="18"><span class="go">Problem dimension: 2</span>
 </span><span data-line="19">
 </span><span data-line="20"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Test evaluation at the origin (global optimum)</span>
-</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 </span><span data-line="22"><span class="gp">&gt;&gt;&gt; </span><span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
 </span><span data-line="23"><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 </span><span data-line="24"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;f([0,0]) = </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>

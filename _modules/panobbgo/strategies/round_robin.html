@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -156,7 +151,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="18">
 </span><span data-line="19">
 <div class="viewcode-block" id="StrategyRoundRobin">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.round_robin.StrategyRoundRobin.html#panobbgo.strategies.round_robin.StrategyRoundRobin">[docs]</a>
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.round_robin.StrategyRoundRobin">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyRoundRobin</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
 </span><span data-line="21"><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="22"><span class="sd">    This is a very primitive strategy for testing purposes only.</span>
@@ -173,6 +168,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="31">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 </span><span data-line="32">
+<div class="viewcode-block" id="StrategyRoundRobin.execute">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.round_robin.StrategyRoundRobin.execute">[docs]</a>
 </span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="34">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="35">
@@ -188,6 +185,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="45">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="46">                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">)</span>  <span class="c1"># Only sleep if no points generated</span>
 </span><span data-line="47">        <span class="k">return</span> <span class="n">points</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

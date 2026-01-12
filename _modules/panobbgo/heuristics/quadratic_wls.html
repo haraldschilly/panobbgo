@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -225,17 +220,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="83">            <span class="n">distances</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">points</span> <span class="o">-</span> <span class="n">best_point</span><span class="p">)</span> <span class="c1"># type: ignore</span>
 </span><span data-line="84">            <span class="n">weights</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">distances</span><span class="p">))</span>
 </span><span data-line="85">
-</span><span data-line="86">            <span class="n">model</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">WLS</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+</span><span data-line="86">            <span class="n">model</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">WLS</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 </span><span data-line="87">            <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
 </span><span data-line="88">
 </span><span data-line="89">            <span class="c1"># optimize predict with x \in bounds</span>
 </span><span data-line="90">            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">fmin_l_bfgs_b</span>
 </span><span data-line="91">
-</span><span data-line="92">            <span class="n">sol</span><span class="p">,</span> <span class="n">_fval</span><span class="p">,</span> <span class="n">_info</span> <span class="o">=</span> <span class="n">fmin_l_bfgs_b</span><span class="p">(</span>
+</span><span data-line="92">            <span class="n">sol</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fmin_l_bfgs_b</span><span class="p">(</span>
 </span><span data-line="93">                <span class="n">predict</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">approx_grad</span><span class="o">=</span><span class="kc">True</span>
 </span><span data-line="94">            <span class="p">)</span>
 </span><span data-line="95">
-</span><span data-line="96">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">sol</span><span class="p">,</span> <span class="n">_fval</span><span class="p">,</span> <span class="n">_info</span><span class="p">))</span></div>
+</span><span data-line="96">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span></div>
 
 </span><span data-line="97">            <span class="c1"># end while loop</span>
 </span><span data-line="98">
@@ -248,11 +243,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="103">        <span class="c1"># self.logger.debug(&quot;pointarray: \n%s&quot; % pointarray)</span>
 </span><span data-line="104">        <span class="n">fx_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">_</span><span class="o">.</span><span class="n">fx</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">best_box</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
 </span><span data-line="105">        <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">pointarray</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="n">best_box</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">fx_vals</span><span class="p">))</span>
-</span><span data-line="106">        <span class="n">sol</span><span class="p">,</span> <span class="n">fval</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="106">        <span class="n">sol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
 </span><span data-line="107">        <span class="c1"># print &#39;solution:&#39;, sol</span>
-</span><span data-line="108">        <span class="c1"># print &#39;fval:&#39;, fval</span>
-</span><span data-line="109">        <span class="c1"># print &#39;info:&#39;, info</span>
-</span><span data-line="110">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span></div>
+</span><span data-line="108">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

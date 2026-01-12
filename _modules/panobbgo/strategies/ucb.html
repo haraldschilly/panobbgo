@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -145,7 +140,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="7">
 </span><span data-line="8">
 <div class="viewcode-block" id="StrategyUCB">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB">[docs]</a>
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB">[docs]</a>
 </span><span data-line="9"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyUCB</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
 </span><span data-line="10"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="11"><span class="sd">    This strategy uses the Upper Confidence Bound (UCB1) algorithm to select</span>
@@ -161,11 +156,16 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="19">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 </span><span data-line="20">
+<div class="viewcode-block" id="StrategyUCB.add_heuristic">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.add_heuristic">[docs]</a>
 </span><span data-line="21">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
 </span><span data-line="22">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
 </span><span data-line="23">        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="24">        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="24">        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span></div>
+
 </span><span data-line="25">
+<div class="viewcode-block" id="StrategyUCB.reward">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.reward">[docs]</a>
 </span><span data-line="26">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="27"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="28"><span class="sd">        Calculate reward for a heuristic based on the improvement.</span>
@@ -205,8 +205,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="62">            <span class="c1"># Q_t(a) = average reward obtained from arm a</span>
 </span><span data-line="63">            <span class="k">pass</span>
 </span><span data-line="64">
-</span><span data-line="65">        <span class="k">return</span> <span class="n">reward</span>
+</span><span data-line="65">        <span class="k">return</span> <span class="n">reward</span></div>
+
 </span><span data-line="66">
+<div class="viewcode-block" id="StrategyUCB.on_new_best">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.on_new_best">[docs]</a>
 </span><span data-line="67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="68">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span>
@@ -230,14 +233,20 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="87">            <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="88">            <span class="c1"># h.ucb_count is updated in execute() when we ask for points.</span>
 </span><span data-line="89">
-</span><span data-line="90">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (UCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
+</span><span data-line="90">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (UCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
+
 </span><span data-line="91">
+<div class="viewcode-block" id="StrategyUCB.on_new_result">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.on_new_result">[docs]</a>
 </span><span data-line="92">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
 </span><span data-line="93">        <span class="c1"># We might want to penalize or at least count evaluations that are not best?</span>
 </span><span data-line="94">        <span class="c1"># In standard UCB, every pull gives a reward. Here reward is sparse (only when improving).</span>
 </span><span data-line="95">        <span class="c1"># We can define reward = 0 for non-improving points.</span>
-</span><span data-line="96">        <span class="k">pass</span>
+</span><span data-line="96">        <span class="k">pass</span></div>
+
 </span><span data-line="97">
+<div class="viewcode-block" id="StrategyUCB.execute">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.execute">[docs]</a>
 </span><span data-line="98">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="99">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="100">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
@@ -291,6 +300,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="148">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
 </span><span data-line="149">
 </span><span data-line="150">        <span class="k">return</span> <span class="n">points</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

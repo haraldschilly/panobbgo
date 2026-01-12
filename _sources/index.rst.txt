@@ -98,12 +98,7 @@ Built-in test problems and problem definition utilities.
 User Interface
 ~~~~~~~~~~~~~~
 
-Graphical and command-line interfaces.
-
-.. toctree::
-   :maxdepth: 1
-
-   ui
+Command-line interfaces.
 
 
 

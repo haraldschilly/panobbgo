@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -133,7 +128,6 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Module.problem"><code class="docutils literal notranslate">problem</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.results"><code class="docutils literal notranslate">results</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.strategy"><code class="docutils literal notranslate">strategy</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.core.Module.ui"><code class="docutils literal notranslate">ui</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a><ul>
@@ -461,7 +455,7 @@ and heuristics.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.eventbus">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eventbus</span></span><a class="headerlink" href="#panobbgo.core.Module.eventbus" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eventbus</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><span class="pre">EventBus</span></a></em><a class="headerlink" href="#panobbgo.core.Module.eventbus" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
@@ -477,22 +471,17 @@ parameterized heuristics or analyzers!</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.problem">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">problem</span></span><a class="headerlink" href="#panobbgo.core.Module.problem" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">problem</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><span class="pre">Problem</span></a></em><a class="headerlink" href="#panobbgo.core.Module.problem" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.results">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#panobbgo.core.Module.results" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">results</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></em><a class="headerlink" href="#panobbgo.core.Module.results" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.strategy">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">strategy</span></span><a class="headerlink" href="#panobbgo.core.Module.strategy" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="panobbgo.core.Module.ui">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ui</span></span><a class="headerlink" href="#panobbgo.core.Module.ui" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></em><a class="headerlink" href="#panobbgo.core.Module.strategy" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -552,7 +541,7 @@ also emit <a class="reference internal" href="#panobbgo.core.Event" title="panob
 </ol>
 <p>This <code class="docutils literal notranslate"><span class="pre">execute</span></code> method will be called repeatedly as long as there are less than the
 given maximum number of search points evaluated.</p>
-<p>&#64;type problem: panobbgo.lib.lib.Problem
+<p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
 &#64;param parse_args:</p>
 <dl class="py attribute">

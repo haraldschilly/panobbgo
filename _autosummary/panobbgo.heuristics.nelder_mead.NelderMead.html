@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -149,7 +144,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p>If there are enough result points available, it tries to find a
 subset of points, which are linear independent (hence, suiteable for NM)
 and have the best (so far) function values, and are
-close (in the same <code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code>).</p></li>
+close (in the same <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a>).</p></li>
 <li><p>Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
 several promising points into the same direction as
 the implied search direction. See <a class="reference internal" href="../heuristics.html#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">here</span></code></a>.</p></li>
@@ -197,13 +192,13 @@ the implied search direction. See <a class="reference internal" href="../heurist
 <td><p>this drains the output Queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> elements are removed or the Queue is empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">gram_schmidt</span></code>(dim, results[, tol])</p></td>
-<td><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite> with given list of <a class="reference internal" href="../lib.html#panobbgo.lib.lib.Result" title="panobbgo.lib.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.</p></td>
+<td><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite> with given list of <a class="reference internal" href="../lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">nelder_mead</span></code>(base[, scale, offset])</p></td>
 <td><p>Retuns a new <em>randomized</em> search point for the given set of results (<code class="docutils literal notranslate"><span class="pre">base</span></code>), which are linearly independent enough to form a orthonormal base, using the Nelder-Mead Method.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_best_box</span></code>(best_box)</p></td>
-<td><p>When a new best box has been found by the <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>, the <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p></td>
+<td><p>When a new best box has been found by the <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, the <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_start</span></code>()</p></td>
 <td><p>Algorithm Outline:</p></td>
@@ -231,9 +226,6 @@ the implied search direction. See <a class="reference internal" href="../heurist
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">strategy</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ui</span></code></p></td>
 <td><p></p></td>
 </tr>
 </tbody>

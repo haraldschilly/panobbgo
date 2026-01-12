@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -486,7 +481,7 @@ The &#64;radius is scaled along each dimension’s range in the search box.</p>
 <li><p>If there are enough result points available, it tries to find a
 subset of points, which are linear independent (hence, suiteable for NM)
 and have the best (so far) function values, and are
-close (in the same <code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code>).</p></li>
+close (in the same <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a>).</p></li>
 <li><p>Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
 several promising points into the same direction as
 the implied search direction. See <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">here</span></code></a>.</p></li>
@@ -504,7 +499,7 @@ the implied search direction. See <a class="reference internal" href="#panobbgo.
 <dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.gram_schmidt">
 <span class="sig-name descname"><span class="pre">gram_schmidt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.gram_schmidt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.gram_schmidt" title="Link to this definition">¶</a></dt>
 <dd><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite>
-with given list of <a class="reference internal" href="lib.html#panobbgo.lib.lib.Result" title="panobbgo.lib.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.
+with given list of <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.
 Retuns <cite>None</cite>, if not enough points or impossible.
 The actual basis is not important, only the points for it are.
 They are used in <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">nelder_mead()</span></code></a>.</p>
@@ -527,7 +522,7 @@ values account for the “contraction”.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_new_best_box">
 <span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_new_best_box" title="Link to this definition">¶</a></dt>
-<dd><p>When a new best box has been found by the <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>, the
+<dd><p>When a new best box has been found by the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, the
 <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p>
 </dd></dl>
 
@@ -614,7 +609,7 @@ leaf around the best point</p>
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">WeightedAverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/weighted_average.html#WeightedAverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.WeightedAverage" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
 <p>This strategy calculates the weighted average of all points
-in the box around the best point of the <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>.</p>
+in the box around the best point of the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

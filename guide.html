@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -238,7 +233,7 @@ that are coordinated by an adaptive <strong>strategy</strong> implementing a <st
 <h2>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">¶</a></h2>
 <p>A typical Panobbgo workflow looks like this:</p>
 <ol class="arabic">
-<li><p><strong>Define your problem</strong> by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<li><p><strong>Define your problem</strong> by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">MyProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 </span><span data-line="3">        <span class="k">return</span> <span class="n">my_expensive_function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>

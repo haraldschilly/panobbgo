@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -157,7 +152,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="19">
 </span><span data-line="20">
 <div class="viewcode-block" id="StrategyRewarding">
-<a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding">[docs]</a>
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding">[docs]</a>
 </span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyRewarding</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
 </span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="23"><span class="sd">    This strategy rewards given :mod:`.heuristics` by selecting</span>
@@ -175,6 +170,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="32">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
 </span><span data-line="33">            <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="mf">1.0</span>
 </span><span data-line="34">
+<div class="viewcode-block" id="StrategyRewarding.discount">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.discount">[docs]</a>
 </span><span data-line="35">    <span class="k">def</span><span class="w"> </span><span class="nf">discount</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">heur</span><span class="p">,</span> <span class="n">discount</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 </span><span data-line="36"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="37"><span class="sd">        Discount the given heuristic after emitting a point.</span>
@@ -197,8 +194,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="54">                <span class="n">d</span> <span class="o">=</span> <span class="mf">0.95</span>
 </span><span data-line="55">
 </span><span data-line="56">        <span class="n">d</span> <span class="o">=</span> <span class="n">d</span><span class="o">**</span><span class="n">times</span>
-</span><span data-line="57">        <span class="n">heur</span><span class="o">.</span><span class="n">performance</span> <span class="o">*=</span> <span class="n">d</span>
+</span><span data-line="57">        <span class="n">heur</span><span class="o">.</span><span class="n">performance</span> <span class="o">*=</span> <span class="n">d</span></div>
+
 </span><span data-line="58">
+<div class="viewcode-block" id="StrategyRewarding.reward">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.reward">[docs]</a>
 </span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="60"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="61"><span class="sd">        Give this heuristic a reward (e.g. when it finds a new point)</span>
@@ -224,13 +224,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="81">        <span class="n">reward</span> <span class="o">=</span> <span class="n">fx_delta</span>  <span class="c1"># / self.fx_delta_last</span>
 </span><span data-line="82">        <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="83">        <span class="c1"># self.fx_delta_last = fx_delta</span>
-</span><span data-line="84">        <span class="k">return</span> <span class="n">reward</span>
+</span><span data-line="84">        <span class="k">return</span> <span class="n">reward</span></div>
+
 </span><span data-line="85">
+<div class="viewcode-block" id="StrategyRewarding.on_new_best">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.on_new_best">[docs]</a>
 </span><span data-line="86">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="87">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="88">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
-</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span>
+</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span></div>
+
 </span><span data-line="90">
+<div class="viewcode-block" id="StrategyRewarding.execute">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.execute">[docs]</a>
 </span><span data-line="91">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="92">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="93">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
@@ -264,6 +270,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="121">
 </span><span data-line="122">        <span class="k">return</span> <span class="n">points</span>
 </span><span data-line="123">        <span class="k">return</span> <span class="n">points</span></div>
+</div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

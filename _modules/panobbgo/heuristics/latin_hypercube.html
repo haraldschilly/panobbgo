@@ -87,11 +87,6 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
 </ul>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html">User Interface</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.UI"><code class="docutils literal notranslate"><span class="pre">UI</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ui.html#panobbgo.ui.gtk_Window"><code class="docutils literal notranslate"><span class="pre">gtk_Window</span></code></a></li>
-</ul>
 
         </div>
       </div>
@@ -202,8 +197,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="60">            <span class="n">pts</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">div</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>  <span class="c1"># add [0,1) jitter</span>
 </span><span data-line="61">            <span class="n">pts</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lengths</span>  <span class="c1"># scale with length, already divided by div</span>
 </span><span data-line="62">            <span class="n">pts</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># shift with min</span>
-</span><span data-line="63">            <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
-</span><span data-line="64">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span>  <span class="c1"># needs to be a list of np.ndarrays</span></div>
+</span><span data-line="63">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+</span><span data-line="64">                <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">_</span><span class="p">])</span>
+</span><span data-line="65">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span>  <span class="c1"># needs to be a list of np.ndarrays</span></div>
 </div>
 
 </span></pre></div>

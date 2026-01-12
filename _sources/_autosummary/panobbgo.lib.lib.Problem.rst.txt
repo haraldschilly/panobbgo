@@ -1,7 +1,7 @@
-﻿panobbgo.lib.lib.Problem
+﻿panobbgo.lib.Problem
 ========================
 
-.. currentmodule:: panobbgo.lib.lib
+.. currentmodule:: panobbgo.lib
 
 .. autoclass:: Problem
 

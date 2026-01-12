@@ -589,8 +589,7 @@ class EventBus:
                             # (otherwise we don't know the actual cause!)
                             import sys
 
-                            ex = sys.exc_info()
-                            raise ex[1].with_traceback(ex[2])
+                            raise e
                         else:  # just issue a critical warning
                             self.logger.critical(
                                 "Exception: %s in %s: %s" % (key, target, e)

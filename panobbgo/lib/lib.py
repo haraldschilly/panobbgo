@@ -232,7 +232,7 @@ class BoundingBox:
     """
     # this follows http://docs.scipy.org/doc/numpy/user/basics.subclassing.html
     # #slightly-more-realistic-example-attribute-added-to-existing-array
-    def __init__(self, box, dx=None):
+    def __init__(self, box, dx=None, immutable=True):
         self.box = np.asarray(box, dtype=np.float64)
         assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
 
@@ -242,13 +242,16 @@ class BoundingBox:
         self.ranges = np.ptp(self.box, axis=1)  # self._box[:,1] - self._box[:,0]
         self.center = self.box[:, 0] + self.ranges / 2.
 
-        # for arr in [self.box, dx, self.ranges, self.center]:
-        #     if arr is not None:
-        #         arr.setflags(write=False)
+        if immutable:
+            for arr in [self.box, dx, self.ranges, self.center]:
+                if arr is not None:
+                    try:
+                        arr.setflags(write=False)
+                    except AttributeError:
+                        pass
 
-
-    def copy(self):
-        return type(self)(self.box.copy())
+    def copy(self, immutable=False):
+        return type(self)(self.box.copy(), immutable=immutable)
 
     def __contains__(self, point):
         """

@@ -733,16 +733,17 @@ class StrategyBase:
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
-    def __init__(self, problem, parse_args=False):
+    def __init__(self, problem, parse_args=False, testing_mode=False):
         """
 
 
         @type problem: panobbgo.lib.Problem
         @param problem:
         @param parse_args:
+        @param testing_mode:
         """
         self._name = name = self.__class__.__name__
-        self.config = config = Config(parse_args)
+        self.config = config = Config(parse_args, testing_mode=testing_mode)
         self.logger = logger = config.get_logger("STRAT")
         self.slogger = config.get_logger("STATS")
         logger.info("Init of '%s'" % (name))

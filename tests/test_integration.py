@@ -356,7 +356,7 @@ def test_dask_evaluation_integration():
 
     # Set up problem and minimal strategy
     problem = Rosenbrock(2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True)
 
     # Force dask evaluation method by modifying the strategy's config
     strategy.config.evaluation_method = "dask"
@@ -567,7 +567,7 @@ def setup_strategy_with_heuristics(strategy_class, problem, heuristics_config, m
         Configured strategy instance
     """
     # Create strategy with parse_args=False (uses default config)
-    strategy = strategy_class(problem, parse_args=False)
+    strategy = strategy_class(problem, parse_args=False, testing_mode=True)
 
     # Modify config settings for testing
     strategy.config.max_eval = max_evaluations
@@ -655,7 +655,7 @@ def test_minimal_optimization_works():
     from panobbgo.lib.classic import Rosenbrock
 
     problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True)
     strategy.config.ui_show = False
 
     # Add a simple heuristic
@@ -721,7 +721,7 @@ def test_pandas_compatibility():
 
     # Create a minimal strategy for testing Results
     problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False)
+    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True)
     strategy.config.max_eval = 100
     strategy.config.evaluation_method = "threaded"
     strategy.config.ui_show = False

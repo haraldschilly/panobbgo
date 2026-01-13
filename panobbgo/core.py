@@ -1072,14 +1072,14 @@ class StrategyBase:
                 "Setting up local Dask cluster with %d workers"
                 % self.config.dask_n_workers
             )
-            cluster = LocalCluster(
+            self._cluster = LocalCluster(
                 n_workers=int(self.config.dask_n_workers),
                 threads_per_worker=int(self.config.dask_threads_per_worker),
                 memory_limit=str(self.config.dask_memory_limit),
                 dashboard_address=str(self.config.dask_dashboard_address),
                 silence_logs=False,
             )
-            self._client = Client(cluster)
+            self._client = Client(self._cluster)
         else:
             # Connect to remote cluster
             self.logger.info(
@@ -1632,9 +1632,11 @@ with open('{result_file.name}', 'wb') as f:
                 except:
                     pass
 
-            # Close Dask client
+            # Close Dask client and cluster
             if hasattr(self, "_client"):
                 self._client.close()
+            if hasattr(self, "_cluster"):
+                self._cluster.close()
         elif self.config.evaluation_method == "processes":
             # Clean up problem file for process evaluation
             if hasattr(self, "_problem_file"):
@@ -1662,9 +1664,11 @@ with open('{result_file.name}', 'wb') as f:
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
 
-        # Close Dask client
+        # Close Dask client and cluster
         if hasattr(self, "_client"):
             self._client.close()
+        if hasattr(self, "_cluster"):
+            self._cluster.close()
 
 
 

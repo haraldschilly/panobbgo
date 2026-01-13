@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2024 Panobbgo Contributors
+# Copyright 2012-2025 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ class FeasibleSearch(Heuristic):
         self.decay = decay
         self.samples = samples
         self.current_best = None
+        self.best_feasible = None
 
     def on_new_best(self, best):
         """
@@ -51,6 +52,9 @@ class FeasibleSearch(Heuristic):
         If it's infeasible, we try to improve it (reduce CV).
         """
         self.current_best = best
+
+        if best.cv == 0:
+            self.best_feasible = best
 
         # If we are already feasible, we might not need to do much.
         # But let's check if we want to support finding *better* feasible points too?
@@ -64,6 +68,15 @@ class FeasibleSearch(Heuristic):
             # For now, let's just stay idle or generate very few.
             pass
 
+    def on_new_results(self, results):
+        """
+        Listen to all results to find any feasible point, not just the best.
+        """
+        for r in results:
+            if r.cv == 0:
+                if self.best_feasible is None or r.fx < self.best_feasible.fx:
+                    self.best_feasible = r
+
     def _generate_repair_points(self, center_result):
         """
         Generates points around the center_result to reduce CV.
@@ -73,22 +86,43 @@ class FeasibleSearch(Heuristic):
             return
 
         points = []
-        for _ in range(self.samples):
-            # Generate random direction
-            direction = np.random.randn(self.problem.dim)
-            norm = np.linalg.norm(direction)
-            if norm > 1e-9:
-                direction /= norm
 
-            # Scale by radius and problem range
-            step = direction * self.radius * self.problem.ranges
+        # If we have a feasible point and an infeasible point,
+        # search on the line between them to find the feasibility boundary!
+        if self.best_feasible is not None:
+             xf = self.best_feasible.x
+             diff = xf - x
 
-            # Create candidate
-            candidate_x = x + step
+             # Generate points on the segment between infeasible (x) and feasible (xf)
+             # x_new = x + alpha * (xf - x), where alpha in (0, 1]
+             # Using Beta distribution biases sampling toward the feasible side
+             # Beta(2, 1) gives higher probability near alpha=1 (feasible side)
+             # This helps find the boundary more efficiently than uniform sampling
 
-            # Project to box (constraints might be outside box? No, box constraints are hard)
-            candidate_x = self.problem.project(candidate_x)
+             for _ in range(self.samples):
+                 # Beta(2, 1) distribution: more samples near the feasible point
+                 alpha = np.random.beta(2, 1)
+                 candidate_x = x + alpha * diff
+                 points.append(candidate_x)
 
-            points.append(candidate_x)
+        else:
+            # Fallback to random search if no feasible point known
+            for _ in range(self.samples):
+                # Generate random direction
+                direction = np.random.randn(self.problem.dim)
+                norm = np.linalg.norm(direction)
+                if norm > 1e-9:
+                    direction /= norm
+
+                # Scale by radius and problem range
+                step = direction * self.radius * self.problem.ranges
+
+                # Create candidate
+                candidate_x = x + step
+
+                # Project to box (constraints might be outside box? No, box constraints are hard)
+                candidate_x = self.problem.project(candidate_x)
+
+                points.append(candidate_x)
 
         self.emit(points)

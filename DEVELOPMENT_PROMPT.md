@@ -53,7 +53,7 @@ Your framework is substantially complete with the following components:
 - ✅ **Results**: Pandas-based result database with event publishing
 - ✅ **Module/Heuristic/Analyzer**: Base classes for extensibility
 
-#### Point Generators (10 Heuristics)
+#### Point Generators (11 Heuristics)
 1. ✅ **Center**: Single-point initialization at box center
 2. ✅ **Zero**: Single-point initialization at origin
 3. ✅ **Random**: Uniform sampling (adapts to best box from Splitter)
@@ -64,8 +64,12 @@ Your framework is substantially complete with the following components:
 8. ✅ **NelderMead**: Randomized simplex optimization
 9. ✅ **LBFGSB**: L-BFGS-B local optimization in subprocess
 10. ✅ **QuadraticWlsModel**: Weighted least-squares quadratic surrogate
+11. ✅ **FeasibleSearch**: Constraint-specific line search to find feasibility boundary ⭐ NEW
+    - Uses Beta(2,1) biased sampling for efficient boundary finding
+    - Tracks best feasible point and searches between feasible/infeasible regions
+    - Complements constraint handling methods (Augmented Lagrangian, penalty functions)
 
-**Coverage**: ✅ Random, ✅ Model-based, ✅ Heuristic-based (exceeds original 3 target)
+**Coverage**: ✅ Random, ✅ Model-based, ✅ Heuristic-based, ✅ Constraint-focused (exceeds original 3 target)
 
 #### Analyzers (4 Components)
 1. ✅ **Best**: Tracks best points, maintains Pareto front, publishes new_best/new_min/new_cv events
@@ -91,10 +95,13 @@ Your framework is substantially complete with the following components:
 
 #### Infrastructure
 - ✅ **Dask distributed integration** for evaluation (replaced IPython Parallel)
+  - ⚠️ **Testing Note**: For now, focus on `evaluation_method="threaded"` for development and testing
+  - Dask tests are skipped to avoid port conflicts and simplify test suite
+  - Threaded evaluation is faster and more suitable for unit testing
 - ✅ **Robust Strategy Lifecycle**: Context manager support and safe cleanup
 - ✅ **Optimization Stability**: Multi-threaded deadlock and stalling issues resolved
-- ✅ **Configuration system** (`~/.panobbgo/config.ini`)
-- ✅ **Pytest test suite** (134+ tests, 71% coverage)
+- ✅ **Configuration system** (`~/.panobbgo/config.ini` and `config.yaml`)
+- ✅ **Pytest test suite** (143 tests, 1 skipped, 0 warnings)
 - ✅ **Type hints** (Ongoing migration)
 - ✅ **CI/CD with GitHub Actions** (Verified passing)
 - ✅ **Sphinx documentation framework**

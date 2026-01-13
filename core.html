@@ -527,7 +527,7 @@ Then, publish a <code class="docutils literal notranslate"><span class="pre">new
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">StrategyBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">StrategyBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>This abstract BaseStrategy is the parent class of all Strategies.</p>
 <p>Use it this way:</p>
@@ -543,7 +543,8 @@ also emit <a class="reference internal" href="#panobbgo.core.Event" title="panob
 given maximum number of search points evaluated.</p>
 <p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
-&#64;param parse_args:</p>
+&#64;param parse_args:
+&#64;param testing_mode:</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.PROBLEM_KEY">
 <span class="sig-name descname"><span class="pre">PROBLEM_KEY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'problem'</span></em><a class="headerlink" href="#panobbgo.core.StrategyBase.PROBLEM_KEY" title="Link to this definition">¶</a></dt>

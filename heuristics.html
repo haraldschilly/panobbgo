@@ -109,6 +109,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.FeasibleSearch"><code class="docutils literal notranslate"><span class="pre">FeasibleSearch</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.FeasibleSearch.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.FeasibleSearch.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic"><code class="docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a><ul>
@@ -286,6 +287,12 @@ or stops), as its primary goal is finding feasible regions.</p></li>
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/feasible_search.html#FeasibleSearch.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.FeasibleSearch.on_new_best" title="Link to this definition">¶</a></dt>
 <dd><p>React to a new best point found by the strategy.
 If it’s infeasible, we try to improve it (reduce CV).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.FeasibleSearch.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/feasible_search.html#FeasibleSearch.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.FeasibleSearch.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Listen to all results to find any feasible point, not just the best.</p>
 </dd></dl>
 
 </dd></dl>

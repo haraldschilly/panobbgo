@@ -116,6 +116,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#noisy-problem">Noisy Problem</a></li>
 <li><a class="reference internal" href="#constrained-problem">Constrained Problem</a></li>
 <li><a class="reference internal" href="#constraint-handling-methods">Constraint Handling Methods</a></li>
+<li><a class="reference internal" href="#feasiblesearch-heuristic">FeasibleSearch Heuristic</a></li>
 <li><a class="reference internal" href="#expensive-external-function">Expensive External Function</a></li>
 </ul>
 </li>
@@ -423,11 +424,14 @@ No manual setup required - just run your optimization script!</p>
 </span><span data-line="28">
 </span><span data-line="29"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
 </span><span data-line="30"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
-</span><span data-line="31"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
-</span><span data-line="32"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span data-line="33">
-</span><span data-line="34"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best feasible: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="35"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Constraint violation: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">cv</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="31"><span class="c1"># Add FeasibleSearch to actively target feasible regions</span>
+</span><span data-line="32"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeasibleSearch</span>
+</span><span data-line="33"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FeasibleSearch</span><span class="p">)</span>
+</span><span data-line="34"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
+</span><span data-line="35"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="36">
+</span><span data-line="37"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best feasible: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="38"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Constraint violation: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">cv</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -447,6 +451,20 @@ Penalty coefficient increases over time. Starts low to allow exploration of infe
 Implements the Augmented Lagrangian Method. Adaptively updates multipliers $lambda$ and penalty $mu$ based on progress.
 Can be more robust for equality constraints or hard inequality constraints.</p></li>
 </ol>
+</section>
+<section id="feasiblesearch-heuristic">
+<h3>FeasibleSearch Heuristic<a class="headerlink" href="#feasiblesearch-heuristic" title="Link to this heading">¶</a></h3>
+<p>When dealing with constraints, it is highly recommended to add the <strong>FeasibleSearch</strong> heuristic.
+This heuristic is specifically designed to:</p>
+<ul class="simple">
+<li><p>Repair infeasible solutions by searching towards known feasible regions (Line Search).</p></li>
+<li><p>Explore the boundary of the feasible region.</p></li>
+<li><p>Adaptively sample around the best point to reduce constraint violations.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeasibleSearch</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FeasibleSearch</span><span class="p">)</span>
+</span></pre></div>
+</div>
 </section>
 <section id="expensive-external-function">
 <h3>Expensive External Function<a class="headerlink" href="#expensive-external-function" title="Link to this heading">¶</a></h3>

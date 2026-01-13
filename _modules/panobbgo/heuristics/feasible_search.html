@@ -132,7 +132,7 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <h1>Source code for panobbgo.heuristics.feasible_search</h1><div class="highlight"><pre>
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
-</span><span data-line="2"><span class="c1"># Copyright 2024 Panobbgo Contributors</span>
+</span><span data-line="2"><span class="c1"># Copyright 2012-2025 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
 </span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -179,57 +179,94 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="44">        <span class="bp">self</span><span class="o">.</span><span class="n">decay</span> <span class="o">=</span> <span class="n">decay</span>
 </span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">=</span> <span class="n">samples</span>
 </span><span data-line="46">        <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="47">
+</span><span data-line="47">        <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="48">
 <div class="viewcode-block" id="FeasibleSearch.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.FeasibleSearch.on_new_best">[docs]</a>
-</span><span data-line="48">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="49"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="50"><span class="sd">        React to a new best point found by the strategy.</span>
-</span><span data-line="51"><span class="sd">        If it&#39;s infeasible, we try to improve it (reduce CV).</span>
-</span><span data-line="52"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span> <span class="o">=</span> <span class="n">best</span>
-</span><span data-line="54">
-</span><span data-line="55">        <span class="c1"># If we are already feasible, we might not need to do much.</span>
-</span><span data-line="56">        <span class="c1"># But let&#39;s check if we want to support finding *better* feasible points too?</span>
-</span><span data-line="57">        <span class="c1"># The docstring says &quot;targets feasible regions&quot;.</span>
-</span><span data-line="58">        <span class="c1"># So primarily for when cv &gt; 0.</span>
-</span><span data-line="59">
-</span><span data-line="60">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="61">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_repair_points</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
-</span><span data-line="62">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="63">            <span class="c1"># Maybe generate a few points near the boundary?</span>
-</span><span data-line="64">            <span class="c1"># For now, let&#39;s just stay idle or generate very few.</span>
-</span><span data-line="65">            <span class="k">pass</span></div>
+</span><span data-line="49">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="50"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="51"><span class="sd">        React to a new best point found by the strategy.</span>
+</span><span data-line="52"><span class="sd">        If it&#39;s infeasible, we try to improve it (reduce CV).</span>
+</span><span data-line="53"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span> <span class="o">=</span> <span class="n">best</span>
+</span><span data-line="55">
+</span><span data-line="56">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="57">            <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="o">=</span> <span class="n">best</span>
+</span><span data-line="58">
+</span><span data-line="59">        <span class="c1"># If we are already feasible, we might not need to do much.</span>
+</span><span data-line="60">        <span class="c1"># But let&#39;s check if we want to support finding *better* feasible points too?</span>
+</span><span data-line="61">        <span class="c1"># The docstring says &quot;targets feasible regions&quot;.</span>
+</span><span data-line="62">        <span class="c1"># So primarily for when cv &gt; 0.</span>
+</span><span data-line="63">
+</span><span data-line="64">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="65">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_repair_points</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="66">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="67">            <span class="c1"># Maybe generate a few points near the boundary?</span>
+</span><span data-line="68">            <span class="c1"># For now, let&#39;s just stay idle or generate very few.</span>
+</span><span data-line="69">            <span class="k">pass</span></div>
 
-</span><span data-line="66">
-</span><span data-line="67">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_repair_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center_result</span><span class="p">):</span>
-</span><span data-line="68"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="69"><span class="sd">        Generates points around the center_result to reduce CV.</span>
-</span><span data-line="70"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="71">        <span class="n">x</span> <span class="o">=</span> <span class="n">center_result</span><span class="o">.</span><span class="n">x</span>
-</span><span data-line="72">        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="73">            <span class="k">return</span>
-</span><span data-line="74">
-</span><span data-line="75">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="76">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">):</span>
-</span><span data-line="77">            <span class="c1"># Generate random direction</span>
-</span><span data-line="78">            <span class="n">direction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="79">            <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
-</span><span data-line="80">            <span class="k">if</span> <span class="n">norm</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
-</span><span data-line="81">                <span class="n">direction</span> <span class="o">/=</span> <span class="n">norm</span>
-</span><span data-line="82">
-</span><span data-line="83">            <span class="c1"># Scale by radius and problem range</span>
-</span><span data-line="84">            <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="85">
-</span><span data-line="86">            <span class="c1"># Create candidate</span>
-</span><span data-line="87">            <span class="n">candidate_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
-</span><span data-line="88">
-</span><span data-line="89">            <span class="c1"># Project to box (constraints might be outside box? No, box constraints are hard)</span>
-</span><span data-line="90">            <span class="n">candidate_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
-</span><span data-line="91">
-</span><span data-line="92">            <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
-</span><span data-line="93">
-</span><span data-line="94">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">points</span><span class="p">)</span></div>
+</span><span data-line="70">
+<div class="viewcode-block" id="FeasibleSearch.on_new_results">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.FeasibleSearch.on_new_results">[docs]</a>
+</span><span data-line="71">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="72"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="73"><span class="sd">        Listen to all results to find any feasible point, not just the best.</span>
+</span><span data-line="74"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="75">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="76">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="77">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
+</span><span data-line="78">                    <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="o">=</span> <span class="n">r</span></div>
+
+</span><span data-line="79">
+</span><span data-line="80">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_repair_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center_result</span><span class="p">):</span>
+</span><span data-line="81"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="82"><span class="sd">        Generates points around the center_result to reduce CV.</span>
+</span><span data-line="83"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="84">        <span class="n">x</span> <span class="o">=</span> <span class="n">center_result</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="85">        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="86">            <span class="k">return</span>
+</span><span data-line="87">
+</span><span data-line="88">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="89">
+</span><span data-line="90">        <span class="c1"># If we have a feasible point and an infeasible point,</span>
+</span><span data-line="91">        <span class="c1"># search on the line between them to find the feasibility boundary!</span>
+</span><span data-line="92">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="93">             <span class="n">xf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="94">             <span class="n">diff</span> <span class="o">=</span> <span class="n">xf</span> <span class="o">-</span> <span class="n">x</span>
+</span><span data-line="95">
+</span><span data-line="96">             <span class="c1"># Generate points on the segment between infeasible (x) and feasible (xf)</span>
+</span><span data-line="97">             <span class="c1"># x_new = x + alpha * (xf - x), where alpha in (0, 1]</span>
+</span><span data-line="98">             <span class="c1"># Using Beta distribution biases sampling toward the feasible side</span>
+</span><span data-line="99">             <span class="c1"># Beta(2, 1) gives higher probability near alpha=1 (feasible side)</span>
+</span><span data-line="100">             <span class="c1"># This helps find the boundary more efficiently than uniform sampling</span>
+</span><span data-line="101">
+</span><span data-line="102">             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">):</span>
+</span><span data-line="103">                 <span class="c1"># Beta(2, 1) distribution: more samples near the feasible point</span>
+</span><span data-line="104">                 <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="105">                 <span class="n">candidate_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">diff</span>
+</span><span data-line="106">                 <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
+</span><span data-line="107">
+</span><span data-line="108">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="109">            <span class="c1"># Fallback to random search if no feasible point known</span>
+</span><span data-line="110">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">):</span>
+</span><span data-line="111">                <span class="c1"># Generate random direction</span>
+</span><span data-line="112">                <span class="n">direction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="113">                <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
+</span><span data-line="114">                <span class="k">if</span> <span class="n">norm</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+</span><span data-line="115">                    <span class="n">direction</span> <span class="o">/=</span> <span class="n">norm</span>
+</span><span data-line="116">
+</span><span data-line="117">                <span class="c1"># Scale by radius and problem range</span>
+</span><span data-line="118">                <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="119">
+</span><span data-line="120">                <span class="c1"># Create candidate</span>
+</span><span data-line="121">                <span class="n">candidate_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
+</span><span data-line="122">
+</span><span data-line="123">                <span class="c1"># Project to box (constraints might be outside box? No, box constraints are hard)</span>
+</span><span data-line="124">                <span class="n">candidate_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
+</span><span data-line="125">
+</span><span data-line="126">                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
+</span><span data-line="127">
+</span><span data-line="128">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">points</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

@@ -260,6 +260,9 @@ Override ``eval_constraints()`` to return violation vector:
 
    strategy.add(Center)
    strategy.add(Random)
+   # Add FeasibleSearch to actively target feasible regions
+   from panobbgo.heuristics import FeasibleSearch
+   strategy.add(FeasibleSearch)
    strategy.add(NelderMead)
    strategy.start()
 
@@ -285,6 +288,21 @@ Panobbgo supports different constraint handling strategies, configurable in ``co
 4. **AugmentedLagrangianConstraintHandler**:
    Implements the Augmented Lagrangian Method. Adaptively updates multipliers $\lambda$ and penalty $\mu$ based on progress.
    Can be more robust for equality constraints or hard inequality constraints.
+
+FeasibleSearch Heuristic
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When dealing with constraints, it is highly recommended to add the **FeasibleSearch** heuristic.
+This heuristic is specifically designed to:
+
+- Repair infeasible solutions by searching towards known feasible regions (Line Search).
+- Explore the boundary of the feasible region.
+- Adaptively sample around the best point to reduce constraint violations.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import FeasibleSearch
+   strategy.add(FeasibleSearch)
 
 Expensive External Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2024 Panobbgo Contributors
+# Copyright 2012-2025 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,17 +88,20 @@ class FeasibleSearch(Heuristic):
         points = []
 
         # If we have a feasible point and an infeasible point,
-        # search on the line between them!
+        # search on the line between them to find the feasibility boundary!
         if self.best_feasible is not None:
              xf = self.best_feasible.x
              diff = xf - x
 
-             # Generate points on the segment (biased towards feasible side?)
-             # x_new = x + alpha * (xf - x)
-             # alpha in (0, 1]
+             # Generate points on the segment between infeasible (x) and feasible (xf)
+             # x_new = x + alpha * (xf - x), where alpha in (0, 1]
+             # Using Beta distribution biases sampling toward the feasible side
+             # Beta(2, 1) gives higher probability near alpha=1 (feasible side)
+             # This helps find the boundary more efficiently than uniform sampling
 
              for _ in range(self.samples):
-                 alpha = np.random.random()
+                 # Beta(2, 1) distribution: more samples near the feasible point
+                 alpha = np.random.beta(2, 1)
                  candidate_x = x + alpha * diff
                  points.append(candidate_x)
 

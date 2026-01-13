@@ -16,6 +16,7 @@
 from __future__ import unicode_literals
 
 import numpy as np
+import warnings
 from panobbgo.core import Analyzer
 from collections import deque
 
@@ -87,7 +88,14 @@ class Convergence(Analyzer):
             # Check for None values in the history
             if any(v is None for v in values):
                 return  # Skip convergence check if we have invalid data
-            std = np.std(values)
+            # Suppress warnings for edge cases (identical values, small samples)
+            # These warnings come from np.var/np.std when dealing with minimal data
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=RuntimeWarning,
+                                      message='.*Degrees of freedom.*')
+                warnings.filterwarnings('ignore', category=RuntimeWarning,
+                                      message='.*invalid value encountered.*')
+                std = np.std(values)
             if std < self.threshold:
                 self._trigger_convergence(f"Standard deviation {std:.2e} < {self.threshold:.2e}")
 

@@ -230,7 +230,8 @@ class Splitter(Analyzer):
 
         @memoize
         def __log_volume(self):
-            return np.sum(np.log(self.ranges))
+            with np.errstate(divide='ignore'):
+                return np.sum(np.log(self.ranges))
 
         @property
         def log_volume(self):

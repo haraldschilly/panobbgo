@@ -155,13 +155,16 @@ class Results:
             try:
                 # Check if this is a new global best
                 if self.results is not None and len(self.results) > 0:
-                    current_best_fx = float(self.results['fx', 0].min())
+                    # Use xs to get a cross-section to avoid PerformanceWarning
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                    current_best_fx = float(fx_series.min())
                     if result.fx < current_best_fx:
                         context.is_global_best = True
 
                 # Check for significant improvement (top 10% of results)
                 if self.results is not None and len(self.results) > 10:
-                    sorted_fx = sorted([float(x) for x in self.results['fx', 0].dropna()])
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                    sorted_fx = sorted([float(x) for x in fx_series.dropna()])
                     threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
                     if threshold_idx > 0:
                         threshold = sorted_fx[threshold_idx]
@@ -170,7 +173,8 @@ class Results:
 
                 # Check for general improvement over previous results
                 if self.results is not None and len(self.results) > 1:
-                    prev_best = float(self.results['fx', 0].iloc[:-1].min())  # exclude current result
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                    prev_best = float(fx_series.iloc[:-1].min())  # exclude current result
                     if result.fx < prev_best:
                         context.is_improvement = True
             except (ValueError, TypeError, KeyError):
@@ -435,11 +439,15 @@ class HeuristicSubprocess(Heuristic):
     def __init__(self, strategy, name=None, cap=None):
         Heuristic.__init__(self, strategy, name=name, cap=cap)
 
-        from multiprocessing import Process, Pipe
+        import multiprocessing
+        
+        # Use 'spawn' context to avoid DeprecationWarning: use of fork() may lead to deadlocks
+        # in multi-threaded process. 'spawn' is safer and cross-platform.
+        ctx = multiprocessing.get_context("spawn")
 
         # a pipe has two ends, parent and child.
-        self.pipe, self.pipe_child = Pipe()
-        self.__subprocess = Process(
+        self.pipe, self.pipe_child = ctx.Pipe()
+        self.__subprocess = ctx.Process(
             target=self.subprocess,
             args=(self.pipe_child,),
             name="%s-subprocess" % (self.name),

@@ -7,7 +7,25 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr create:*)",
+      "Bash(uv add:*)",
+      "Bash(gh pr view:*)",
+      "Bash(timeout 10 uv run pytest:*)",
+      "Bash(timeout 30 uv run pytest:*)",
+      "Bash(timeout 60 uv run pytest:*)",
+      "Bash(timeout 120 uv run pytest:*)",
+      "Bash(gh pr checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(timeout 10 uv run python:*)",
+      "Bash(timeout 5 uv run python:*)",
+      "Bash(grep:*)",
+      "Bash(git stash:*)",
+      "Bash(uv pip install:*)",
+      "Bash(timeout 15 uv run python:*)"
     ]
   }
 }

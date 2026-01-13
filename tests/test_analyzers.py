@@ -281,9 +281,7 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         # Mock strategy.best to return consistent values
         with mock.patch.object(self.strategy, 'best') as mock_best:
-            mock_result = mock.Mock()
-            mock_result.fx = 1.0
-            mock_best.__get__ = mock.Mock(return_value=mock_result)
+            mock_best.fx = 1.0
 
             # Add results to fill window with same value (no variation)
             for i in range(5):

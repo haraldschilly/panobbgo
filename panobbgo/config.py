@@ -303,8 +303,10 @@ class Config:
         self.dask_memory_limit = get_config(
             "dask.local.memory_limit", None, None, "2GB", str
         )
+        
+        default_dashboard = ":0" if self.testing_mode else ":8787"
         self.dask_dashboard_address = get_config(
-            "dask.local.dashboard_address", None, None, ":8787", str
+            "dask.local.dashboard_address", None, None, default_dashboard, str
         )
         self.dask_scheduler_address = get_config(
             "dask.remote.scheduler_address", None, None, "tcp://localhost:8786", str

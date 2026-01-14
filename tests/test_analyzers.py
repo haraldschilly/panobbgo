@@ -21,6 +21,7 @@ import numpy.random as rnd
 
 from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result
+from panobbgo.lib.constraints import DefaultConstraintHandler
 
 
 class AnalyzersUtils(PanobbgoTestCase):
@@ -29,6 +30,8 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         self.problem = RosenbrockConstraint(2)
         self.strategy = self.init_strategy()
+        # Ensure strategy has a constraint handler for Best analyzer tests
+        self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
 
     def test_best(self):
         from panobbgo.analyzers.best import Best

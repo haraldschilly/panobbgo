@@ -136,11 +136,43 @@ data-aria-dark="Switch to auto color mode">
 <h1>panobbgo.lib.classic.Rosenbrock<a class="headerlink" href="#panobbgo-lib-classic-rosenbrock" title="Link to this heading">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Rosenbrock">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Rosenbrock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/classic.html#Rosenbrock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock" title="Link to this definition">¶</a></dt>
-<dd><p>Rosenbrock function with parameter <code class="docutils literal notranslate"><span class="pre">par1</span></code>.</p>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Rosenbrock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/classic.html#Rosenbrock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock" title="Link to this definition">¶</a></dt>
+<dd><p>Rosenbrock function with parameter <code class="docutils literal notranslate"><span class="pre">par1</span></code> and configurable optimum location.</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
-\[f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)\]</div>
+\[f(x) = \sum_i (\mathit{par}_1 (y_{i+1} - y_i^2)^2 + (1-y_i)^2)\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(y = x - \mathit{optimum} + \mathbf{1}\)</span> shifts the optimum
+from the standard location <span class="math notranslate nohighlight">\(\mathbf{1} = (1, 1, \ldots, 1)\)</span> to
+the specified <code class="docutils literal notranslate"><span class="pre">optimum</span></code> location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dims</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Number of dimensions. Can be omitted if <code class="docutils literal notranslate"><span class="pre">optimum</span></code> is a vector.</p></li>
+<li><p><strong>par1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Coefficient for the quadratic term (default: 100). Higher values
+create a steeper, narrower valley.</p></li>
+<li><p><strong>optimum</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> or </em><em>array-like</em><em>, </em><em>optional</em>) – Location of the optimum. Can be:
+- A scalar: applied to all dimensions (default: 1.0)
+- A vector: specifies each coordinate of the optimum
+If a vector is provided and <code class="docutils literal notranslate"><span class="pre">dims</span></code> is omitted, <code class="docutils literal notranslate"><span class="pre">dims</span></code> is inferred.</p></li>
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><em>tuples</em><em>, </em><em>optional</em>) – Custom bounding box. If not provided, defaults to <code class="docutils literal notranslate"><span class="pre">[(-2,</span> <span class="pre">2)]</span> <span class="pre">*</span> <span class="pre">dims</span></code>
+with the first dimension adjusted to <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">2)</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Standard 2D Rosenbrock with optimum at [1, 1]:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>2D Rosenbrock with optimum at [5, 3]:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">optimum</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">box</span><span class="o">=</span><span class="p">[(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)])</span>
+</span></pre></div>
+</div>
+<p>Infer dims from optimum vector:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">optimum</span><span class="o">=</span><span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="o">-</span><span class="mi">12</span><span class="p">],</span> <span class="n">box</span><span class="o">=</span><span class="p">[(</span><span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">)])</span>
+</span></pre></div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -154,7 +186,7 @@ n-dimensional vector (default: None)</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.Rosenbrock.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/classic.html#Rosenbrock.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock.__init__" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/lib/classic.html#Rosenbrock.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Rosenbrock.__init__" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -171,7 +203,7 @@ n-dimensional vector (default: None)</p></li>
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.__init__" title="panobbgo.lib.classic.Rosenbrock.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(dims[, par1])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.lib.classic.Rosenbrock.__init__" title="panobbgo.lib.classic.Rosenbrock.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>([dims, par1, optimum, box])</p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../classic.html#panobbgo.lib.classic.Rosenbrock.eval" title="panobbgo.lib.classic.Rosenbrock.eval"><code class="xref py py-obj docutils literal notranslate"><span class="pre">eval</span></code></a>(x)</p></td>
@@ -240,8 +272,8 @@ n-dimensional vector (default: None)</p></li>
   </div>
 </footer>
       <script src="../_static/documentation_options.js?v=1859ee8a"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/shibuya.js?v=cac61aee"></script>
-      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script></body>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

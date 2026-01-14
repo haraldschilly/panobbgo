@@ -29,6 +29,8 @@ This file contains the basic objects to build a problem and to do a single evalu
 #       the serialization and reconstruction won't work!
 import numpy as np
 import time
+from numpy.linalg import norm
+from numbers import Number
 
 
 class Point:
@@ -166,7 +168,6 @@ class Result:
         """
         if self._cv_vec is None:
             return 0.0
-        from numpy.linalg import norm
         return norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm)
 
     @property
@@ -285,7 +286,6 @@ class Problem:
         """
         assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"
 
-        from numbers import Number
         for entry in box:
             assert len(entry) == 2, "box entries must be of length 2"
             for e in entry:

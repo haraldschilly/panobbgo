@@ -58,6 +58,19 @@ class ConstraintHandler:
         """
         raise NotImplementedError
 
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        """
+        Determines if new_result is better than old_best.
+
+        Args:
+            old_best (Result): The current best result (can be None).
+            new_result (Result): The new result to check.
+
+        Returns:
+            bool: True if new_result is better, False otherwise.
+        """
+        raise NotImplementedError
+
 
 class DefaultConstraintHandler(ConstraintHandler):
     """
@@ -113,6 +126,22 @@ class DefaultConstraintHandler(ConstraintHandler):
         # This implies a regression in quality, so 0 improvement.
         return 0.0
 
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        if old_best is None:
+            return True
+
+        cv_old = old_best.cv if old_best.cv is not None else 0.0
+        cv_new = new_result.cv if new_result.cv is not None else 0.0
+
+        # Prioritize feasibility (CV)
+        if cv_new < cv_old:
+            return True
+        if cv_new > cv_old:
+            return False
+
+        # If CV is equal (e.g. both 0), check FX
+        return new_result.fx < old_best.fx
+
 
 class PenaltyConstraintHandler(ConstraintHandler):
     """
@@ -149,6 +178,18 @@ class PenaltyConstraintHandler(ConstraintHandler):
         p_new = new_best.fx + self.rho * (cv_new ** self.exponent)
 
         return float(max(0.0, p_old - p_new))
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        if old_best is None:
+            return True
+
+        cv_old = old_best.cv if old_best.cv is not None else 0.0
+        cv_new = new_result.cv if new_result.cv is not None else 0.0
+
+        p_old = old_best.fx + self.rho * (cv_old ** self.exponent)
+        p_new = new_result.fx + self.rho * (cv_new ** self.exponent)
+
+        return p_new < p_old
 
 
 class DynamicPenaltyConstraintHandler(ConstraintHandler):
@@ -187,6 +228,20 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         p_new = new_best.fx + rho * (cv_new ** self.exponent)
 
         return float(max(0.0, p_old - p_new))
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        if old_best is None:
+            return True
+
+        rho = self._get_current_rho()
+
+        cv_old = old_best.cv if old_best.cv is not None else 0.0
+        cv_new = new_result.cv if new_result.cv is not None else 0.0
+
+        p_old = old_best.fx + rho * (cv_old ** self.exponent)
+        p_new = new_result.fx + rho * (cv_new ** self.exponent)
+
+        return p_new < p_old
 
 
 class AugmentedLagrangianConstraintHandler(ConstraintHandler):
@@ -284,6 +339,15 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         L_old = self._calculate_lagrangian(old_best)
         L_new = self._calculate_lagrangian(new_best)
         return float(max(0.0, L_old - L_new))
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        if old_best is None:
+            return True
+
+        L_old = self._calculate_lagrangian(old_best)
+        L_new = self._calculate_lagrangian(new_result)
+
+        return L_new < L_old
 
     def _calculate_lagrangian(self, result: Result):
         if result is None: return float('inf')

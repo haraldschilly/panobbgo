@@ -32,51 +32,161 @@ from .lib import Problem
 class Rosenbrock(Problem):
 
     r"""
-    Rosenbrock function with parameter ``par1``.
+    Rosenbrock function with parameter ``par1`` and configurable optimum location.
 
     .. math::
 
-      f(x) = \sum_i (\mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
+      f(x) = \sum_i (\mathit{par}_1 (y_{i+1} - y_i^2)^2 + (1-y_i)^2)
 
+    where :math:`y = x - \mathit{optimum} + \mathbf{1}` shifts the optimum
+    from the standard location :math:`\mathbf{1} = (1, 1, \ldots, 1)` to
+    the specified ``optimum`` location.
+
+    Parameters
+    ----------
+    dims : int, optional
+        Number of dimensions. Can be omitted if ``optimum`` is a vector.
+    par1 : float, optional
+        Coefficient for the quadratic term (default: 100). Higher values
+        create a steeper, narrower valley.
+    optimum : float or array-like, optional
+        Location of the optimum. Can be:
+        - A scalar: applied to all dimensions (default: 1.0)
+        - A vector: specifies each coordinate of the optimum
+        If a vector is provided and ``dims`` is omitted, ``dims`` is inferred.
+    box : list of tuples, optional
+        Custom bounding box. If not provided, defaults to ``[(-2, 2)] * dims``
+        with the first dimension adjusted to ``(0, 2)``.
+
+    Examples
+    --------
+    Standard 2D Rosenbrock with optimum at [1, 1]:
+
+    >>> from panobbgo.lib.classic import Rosenbrock
+    >>> problem = Rosenbrock(dims=2)
+
+    2D Rosenbrock with optimum at [5, 3]:
+
+    >>> problem = Rosenbrock(dims=2, optimum=[5, 3], box=[(-10, 10), (-10, 10)])
+
+    Infer dims from optimum vector:
+
+    >>> problem = Rosenbrock(optimum=[24, -12], box=[(-100, 100), (-100, 100)])
     """
 
-    def __init__(self, dims, par1=100, **kwargs):
-        box = [(-2, 2)] * dims
-        box[0] = (0, 2)  # for cornercases + testing
+    def __init__(self, dims=None, par1=100, optimum=None, box=None, **kwargs):
+        # Handle optimum parameter
+        if optimum is None:
+            optimum = 1.0  # Standard Rosenbrock optimum
+
+        optimum = np.atleast_1d(np.asarray(optimum, dtype=np.float64))
+
+        # Infer or validate dims
+        if dims is None:
+            if optimum.size == 1:
+                raise ValueError("dims must be specified when optimum is a scalar")
+            dims = len(optimum)
+        else:
+            if optimum.size == 1:
+                # Scalar optimum: broadcast to all dimensions
+                optimum = np.full(dims, optimum[0], dtype=np.float64)
+            elif len(optimum) != dims:
+                raise ValueError(f"optimum length ({len(optimum)}) must match dims ({dims})")
+
+        # Store optimum and compute shift from standard optimum [1, 1, ..., 1]
+        self.optimum = optimum
+        self._shift = optimum - 1.0  # Shift to apply: optimum - [1, 1, ..., 1]
+
+        # Set up box
+        if box is None:
+            box = [(-2, 2)] * dims
+            box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return np.sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+        # Shift x so that the optimum maps to the standard [1, 1, ..., 1]
+        y = x - self._shift
+        return np.sum(self.par1 * (y[1:] - y[:-1] ** 2) ** 2 + (1 - y[:-1]) ** 2)
 
 
 class RosenbrockConstraint(Problem):
 
     r"""
-    Constraint Rosenbrock function with parameter ``par1`` and ``par2``.
+    Constrained Rosenbrock function with configurable optimum location.
 
     .. math::
 
-      \min f(x) & = \sum_i \mathit{par}_1 (x_{i+1} - x_i^2)^2 + (1-x_i)^2 \\
-      \mathit{s.t.} \;\; & (x_{i+1} - x_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
-                         & x_i \geq 0 \;\;                              \forall i
+      \min f(x) & = \sum_i \mathit{par}_1 (y_{i+1} - y_i^2)^2 + (1-y_i)^2 \\
+      \mathit{s.t.} \;\; & (y_{i+1} - y_{i})^2 \geq \mathit{par}_2 \;\; \forall i \in \{0,\dots,\mathit{dim}-1\} \\
+                         & y_i \geq 0 \;\;                              \forall i
 
+    where :math:`y = x - \mathit{optimum} + \mathbf{1}` shifts the optimum.
+
+    Parameters
+    ----------
+    dims : int, optional
+        Number of dimensions. Can be omitted if ``optimum`` is a vector.
+    par1 : float, optional
+        Coefficient for the quadratic term (default: 100).
+    par2 : float, optional
+        Constraint parameter for minimum distance between consecutive
+        coordinates (default: 0.25).
+    optimum : float or array-like, optional
+        Location of the optimum. Can be:
+        - A scalar: applied to all dimensions (default: 1.0)
+        - A vector: specifies each coordinate of the optimum
+        If a vector is provided and ``dims`` is omitted, ``dims`` is inferred.
+    box : list of tuples, optional
+        Custom bounding box. If not provided, defaults to ``[(-2, 2)] * dims``
+        with the first dimension adjusted to ``(0, 2)``.
+
+    Note
+    ----
+    The constraints are evaluated in the shifted coordinate system, so
+    they apply relative to the optimum location.
     """
 
-    def __init__(self, dims, par1=100, par2=0.25, **kwargs):
-        box = [(-2, 2)] * dims
-        box[0] = (0, 2)  # for cornercases + testing
+    def __init__(self, dims=None, par1=100, par2=0.25, optimum=None, box=None, **kwargs):
+        # Handle optimum parameter
+        if optimum is None:
+            optimum = 1.0  # Standard Rosenbrock optimum
+
+        optimum = np.atleast_1d(np.asarray(optimum, dtype=np.float64))
+
+        # Infer or validate dims
+        if dims is None:
+            if optimum.size == 1:
+                raise ValueError("dims must be specified when optimum is a scalar")
+            dims = len(optimum)
+        else:
+            if optimum.size == 1:
+                # Scalar optimum: broadcast to all dimensions
+                optimum = np.full(dims, optimum[0], dtype=np.float64)
+            elif len(optimum) != dims:
+                raise ValueError(f"optimum length ({len(optimum)}) must match dims ({dims})")
+
+        # Store optimum and compute shift from standard optimum [1, 1, ..., 1]
+        self.optimum = optimum
+        self._shift = optimum - 1.0
+
+        # Set up box
+        if box is None:
+            box = [(-2, 2)] * dims
+            box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         self.par2 = par2
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return sum(self.par1 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2) - 50
+        y = x - self._shift
+        return sum(self.par1 * (y[1:] - y[:-1] ** 2) ** 2 + (1 - y[:-1]) ** 2) - 50
 
     def eval_constraints(self, x):
-        cv = - (x[1:] - x[:-1]) ** 2.0 + self.par2
+        y = x - self._shift
+        cv = - (y[1:] - y[:-1]) ** 2.0 + self.par2
         cv[cv < 0] = 0.0
-        pos = -x.copy()  # note the -
+        pos = -y.copy()  # note the -
         pos[pos < 0] = 0.0
         return np.concatenate([cv, pos])
 

@@ -395,7 +395,7 @@ class Heuristic(Module):
             self.logger.info("'%s' heuristic stopped." % self.name)
         except Exception as e:
             # Queue might be full or other issues - silently ignore for non-blocking behavior
-            self.logger.debug(f"Failed to emit point from {self.name}: {e}")
+            self.logger.debug(f"Failed to emit point from {self.name}: {repr(e)}")
             pass
 
     def get_points(self, limit=None):

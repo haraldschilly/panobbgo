@@ -131,145 +131,211 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <h1>Source code for panobbgo.strategies.rewarding</h1><div class="highlight"><pre>
-<span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">division</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
-</span><span data-line="3"><span class="c1"># -*- coding: utf8 -*-</span>
-</span><span data-line="4"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
-</span><span data-line="5"><span class="c1">#</span>
-</span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-</span><span data-line="7"><span class="c1"># you may not use this file except in compliance with the License.</span>
-</span><span data-line="8"><span class="c1"># You may obtain a copy of the License at</span>
-</span><span data-line="9"><span class="c1">#</span>
-</span><span data-line="10"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
-</span><span data-line="11"><span class="c1">#</span>
-</span><span data-line="12"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="13"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
-</span><span data-line="14"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
-</span><span data-line="15"><span class="c1"># See the License for the specific language governing permissions and</span>
-</span><span data-line="16"><span class="c1"># limitations under the License.</span>
-</span><span data-line="17">
-</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBase</span>
-</span><span data-line="19">
-</span><span data-line="20">
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">division</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="6"><span class="c1">#</span>
+</span><span data-line="7"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="8"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="9"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="10"><span class="c1">#</span>
+</span><span data-line="11"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="12"><span class="c1">#</span>
+</span><span data-line="13"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="14"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="15"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="16"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="17"><span class="c1"># limitations under the License.</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBase</span>
+</span><span data-line="20"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="21">
+</span><span data-line="22">
 <div class="viewcode-block" id="StrategyRewarding">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding">[docs]</a>
-</span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyRewarding</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
-</span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="23"><span class="sd">    This strategy rewards given :mod:`.heuristics` by selecting</span>
-</span><span data-line="24"><span class="sd">    those more often, which produce better search points.</span>
-</span><span data-line="25"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="26">
+</span><span data-line="23"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyRewarding</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
+</span><span data-line="24"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="25"><span class="sd">    This strategy rewards given :mod:`.heuristics` by selecting</span>
+</span><span data-line="26"><span class="sd">    those more often, which produce better search points.</span>
+</span><span data-line="27"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="28">
 <div class="viewcode-block" id="StrategyRewarding.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding.__init__">[docs]</a>
-</span><span data-line="27">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span data-line="28">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="29">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</span><span data-line="29">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="30">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="31">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-</span><span data-line="30">
-</span><span data-line="31">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="32">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
-</span><span data-line="33">            <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="34">
+</span><span data-line="32">
+</span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="34">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+</span><span data-line="35">            <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="36">
 <div class="viewcode-block" id="StrategyRewarding.discount">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.discount">[docs]</a>
-</span><span data-line="35">    <span class="k">def</span><span class="w"> </span><span class="nf">discount</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">heur</span><span class="p">,</span> <span class="n">discount</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-</span><span data-line="36"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="37"><span class="sd">        Discount the given heuristic after emitting a point.</span>
-</span><span data-line="38">
-</span><span data-line="39"><span class="sd">        Args:</span>
+</span><span data-line="37">    <span class="k">def</span><span class="w"> </span><span class="nf">discount</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">heur</span><span class="p">,</span> <span class="n">discount</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+</span><span data-line="38"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="39"><span class="sd">        Discount the given heuristic after emitting a point.</span>
 </span><span data-line="40">
-</span><span data-line="41"><span class="sd">        - ``discount``: positive float, default ``config.default``</span>
-</span><span data-line="42"><span class="sd">        - ``times``: how often</span>
-</span><span data-line="43"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="44">        <span class="c1"># Ensure discount is a float. If None, fetch from config which might return a string/float.</span>
-</span><span data-line="45">        <span class="n">val</span> <span class="o">=</span> <span class="n">discount</span> <span class="k">if</span> <span class="n">discount</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">discount</span>
-</span><span data-line="46">        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="47">            <span class="c1"># Fallback if config returns None, though typically it has a default</span>
-</span><span data-line="48">            <span class="n">d</span> <span class="o">=</span> <span class="mf">0.95</span>
-</span><span data-line="49">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="50">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="51">                <span class="n">d</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-</span><span data-line="52">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-</span><span data-line="53">                <span class="c1"># Handle cases where val cannot be converted to float</span>
-</span><span data-line="54">                <span class="n">d</span> <span class="o">=</span> <span class="mf">0.95</span>
-</span><span data-line="55">
-</span><span data-line="56">        <span class="n">d</span> <span class="o">=</span> <span class="n">d</span><span class="o">**</span><span class="n">times</span>
-</span><span data-line="57">        <span class="n">heur</span><span class="o">.</span><span class="n">performance</span> <span class="o">*=</span> <span class="n">d</span></div>
+</span><span data-line="41"><span class="sd">        Args:</span>
+</span><span data-line="42">
+</span><span data-line="43"><span class="sd">        - ``discount``: positive float, default ``config.default``</span>
+</span><span data-line="44"><span class="sd">        - ``times``: how often</span>
+</span><span data-line="45"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="46">        <span class="c1"># Ensure discount is a float. If None, fetch from config</span>
+</span><span data-line="47">        <span class="c1"># which might return a string/float.</span>
+</span><span data-line="48">        <span class="n">val</span> <span class="o">=</span> <span class="n">discount</span> <span class="k">if</span> <span class="n">discount</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">discount</span>
+</span><span data-line="49">        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="50">            <span class="c1"># Fallback if config returns None, though typically it has</span>
+</span><span data-line="51">            <span class="c1"># a default</span>
+</span><span data-line="52">            <span class="n">d</span> <span class="o">=</span> <span class="mf">0.95</span>
+</span><span data-line="53">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="54">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="55">                <span class="n">d</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+</span><span data-line="56">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span><span data-line="57">                <span class="c1"># Handle cases where val cannot be converted to float</span>
+</span><span data-line="58">                <span class="n">d</span> <span class="o">=</span> <span class="mf">0.95</span>
+</span><span data-line="59">
+</span><span data-line="60">        <span class="n">d</span> <span class="o">=</span> <span class="n">d</span><span class="o">**</span><span class="n">times</span>
+</span><span data-line="61">        <span class="n">heur</span><span class="o">.</span><span class="n">performance</span> <span class="o">*=</span> <span class="n">d</span></div>
 
-</span><span data-line="58">
+</span><span data-line="62">
 <div class="viewcode-block" id="StrategyRewarding.reward">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.reward">[docs]</a>
-</span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="60"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="61"><span class="sd">        Give this heuristic a reward (e.g. when it finds a new point)</span>
-</span><span data-line="62">
-</span><span data-line="63"><span class="sd">        Args:</span>
-</span><span data-line="64">
-</span><span data-line="65"><span class="sd">        - ``best``: new (best) result</span>
-</span><span data-line="66"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="67">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="68">            <span class="k">return</span> <span class="mf">1.0</span>
-</span><span data-line="69">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="70">
-</span><span data-line="71">        <span class="c1"># currently, only reward if better point found.</span>
-</span><span data-line="72">        <span class="c1"># TODO in the future also reward if near the best value (but</span>
-</span><span data-line="73">        <span class="c1"># e.g. not in the proximity of the best x)</span>
-</span><span data-line="74">        <span class="n">fx_delta</span><span class="p">,</span> <span class="n">reward</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
-</span><span data-line="75">        <span class="c1"># fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?</span>
-</span><span data-line="76">
-</span><span data-line="77">        <span class="n">improvement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">calculate_improvement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span>
-</span><span data-line="78">        <span class="n">fx_delta</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">improvement</span><span class="p">)</span>  <span class="c1"># saturates to 1</span>
-</span><span data-line="79">        <span class="n">fx_delta</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">fx_delta</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">fx_delta</span>
-</span><span data-line="80">        <span class="c1"># if self.fx_delta_last == None: self.fx_delta_last = fx_delta</span>
-</span><span data-line="81">        <span class="n">reward</span> <span class="o">=</span> <span class="n">fx_delta</span>  <span class="c1"># / self.fx_delta_last</span>
-</span><span data-line="82">        <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="n">reward</span>
-</span><span data-line="83">        <span class="c1"># self.fx_delta_last = fx_delta</span>
-</span><span data-line="84">        <span class="k">return</span> <span class="n">reward</span></div>
+</span><span data-line="63">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="64"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="65"><span class="sd">        Give this heuristic a reward (e.g. when it finds a new point)</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="sd">        Args:</span>
+</span><span data-line="68">
+</span><span data-line="69"><span class="sd">        - ``best``: new (best) result</span>
+</span><span data-line="70"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="71">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="72">            <span class="k">return</span> <span class="mf">1.0</span>
+</span><span data-line="73">
+</span><span data-line="74">        <span class="c1"># currently, only reward if better point found.</span>
+</span><span data-line="75">        <span class="c1"># (near best values are rewarded in on_new_results)</span>
+</span><span data-line="76">        <span class="n">fx_delta</span><span class="p">,</span> <span class="n">reward</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+</span><span data-line="77">        <span class="c1"># fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?</span>
+</span><span data-line="78">
+</span><span data-line="79">        <span class="n">improvement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">calculate_improvement</span><span class="p">(</span>
+</span><span data-line="80">            <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="p">,</span> <span class="n">best</span>
+</span><span data-line="81">        <span class="p">)</span>
+</span><span data-line="82">        <span class="n">fx_delta</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">improvement</span><span class="p">)</span>  <span class="c1"># saturates to 1</span>
+</span><span data-line="83">        <span class="n">fx_delta</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">fx_delta</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">fx_delta</span>
+</span><span data-line="84">        <span class="c1"># if self.fx_delta_last == None: self.fx_delta_last = fx_delta</span>
+</span><span data-line="85">        <span class="n">reward</span> <span class="o">=</span> <span class="n">fx_delta</span>  <span class="c1"># / self.fx_delta_last</span>
+</span><span data-line="86">        <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="n">reward</span>
+</span><span data-line="87">        <span class="c1"># self.fx_delta_last = fx_delta</span>
+</span><span data-line="88">        <span class="k">return</span> <span class="n">reward</span></div>
 
-</span><span data-line="85">
+</span><span data-line="89">
 <div class="viewcode-block" id="StrategyRewarding.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.on_new_best">[docs]</a>
-</span><span data-line="86">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="87">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
-</span><span data-line="88">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
-</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span></div>
+</span><span data-line="90">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="91">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="92">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+</span><span data-line="93">            <span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="94">        <span class="p">)</span>
+</span><span data-line="95">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span></div>
 
-</span><span data-line="90">
+</span><span data-line="96">
+<div class="viewcode-block" id="StrategyRewarding.on_new_results">
+<a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.on_new_results">[docs]</a>
+</span><span data-line="97">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="98">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="99">            <span class="k">return</span>
+</span><span data-line="100">
+</span><span data-line="101">        <span class="c1"># Use problem ranges for normalization</span>
+</span><span data-line="102">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="103">        <span class="c1"># Avoid division by zero</span>
+</span><span data-line="104">        <span class="n">safe_ranges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ranges</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">ranges</span><span class="p">)</span>
+</span><span data-line="105">
+</span><span data-line="106">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="107">            <span class="c1"># Skip if r is better than last_best (handled by on_new_best)</span>
+</span><span data-line="108">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="109">                <span class="k">continue</span>
+</span><span data-line="110">
+</span><span data-line="111">            <span class="c1"># Check feasibility and reward near best</span>
+</span><span data-line="112">            <span class="c1"># We only reward if both are feasible for now to be safe</span>
+</span><span data-line="113">            <span class="c1"># and consistent with &quot;value&quot;</span>
+</span><span data-line="114">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="115">                <span class="bp">self</span><span class="o">.</span><span class="n">_reward_near_best</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span><span class="p">,</span> <span class="n">safe_ranges</span><span class="p">)</span></div>
+
+</span><span data-line="116">
+</span><span data-line="117">    <span class="k">def</span><span class="w"> </span><span class="nf">_reward_near_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">last_best</span><span class="p">,</span> <span class="n">ranges</span><span class="p">):</span>
+</span><span data-line="118">        <span class="c1"># Value closeness</span>
+</span><span data-line="119">        <span class="c1"># We want to reward if r.fx is close to last_best.fx</span>
+</span><span data-line="120">        <span class="c1"># Note: last_best is better, so r.fx &gt;= last_best.fx</span>
+</span><span data-line="121">        <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">-</span> <span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
+</span><span data-line="122">        <span class="n">denom</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="123">            <span class="nb">abs</span><span class="p">(</span><span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span> <span class="k">else</span> <span class="mf">1.0</span>
+</span><span data-line="124">        <span class="p">)</span>
+</span><span data-line="125">        <span class="n">rel_diff</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">/</span> <span class="n">denom</span>
+</span><span data-line="126">
+</span><span data-line="127">        <span class="c1"># If relative difference is too big (&gt;10%), no reward.</span>
+</span><span data-line="128">        <span class="k">if</span> <span class="n">rel_diff</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">:</span>
+</span><span data-line="129">            <span class="k">return</span>
+</span><span data-line="130">
+</span><span data-line="131">        <span class="c1"># Score decreases as difference increases</span>
+</span><span data-line="132">        <span class="c1"># 1.0 / (1.0 + 10 * rel_diff) maps 0 -&gt; 1, 0.1 -&gt; 0.5</span>
+</span><span data-line="133">        <span class="n">value_score</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="n">rel_diff</span><span class="p">)</span>
+</span><span data-line="134">
+</span><span data-line="135">        <span class="c1"># Spatial distance</span>
+</span><span data-line="136">        <span class="c1"># We want to reward points that are &quot;far&quot; from the best,</span>
+</span><span data-line="137">        <span class="c1"># encouraging exploration of other optima with similar values.</span>
+</span><span data-line="138">        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">last_best</span><span class="o">.</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">ranges</span><span class="p">)</span>
+</span><span data-line="139">
+</span><span data-line="140">        <span class="c1"># Penalty for being close. Maps 0 -&gt; 0. As dist increases,</span>
+</span><span data-line="141">        <span class="c1"># approaches 1.</span>
+</span><span data-line="142">        <span class="c1"># Scale: if dist is 10% of range (0.1), we want reasonable penalty?</span>
+</span><span data-line="143">        <span class="c1"># If dist=0.1, exp(-10*0.1) = exp(-1) = 0.36. Factor = 0.64.</span>
+</span><span data-line="144">        <span class="c1"># If dist=0.01, exp(-0.1) = 0.9. Factor = 0.1.</span>
+</span><span data-line="145">        <span class="n">spatial_factor</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span> <span class="o">*</span> <span class="n">dist</span><span class="p">)</span>
+</span><span data-line="146">
+</span><span data-line="147">        <span class="c1"># Combine and scale</span>
+</span><span data-line="148">        <span class="c1"># We use a smaller scale than the main reward (which is ~1.0)</span>
+</span><span data-line="149">        <span class="c1"># e.g. 0.1 max reward for near best.</span>
+</span><span data-line="150">        <span class="n">reward</span> <span class="o">=</span> <span class="n">value_score</span> <span class="o">*</span> <span class="n">spatial_factor</span> <span class="o">*</span> <span class="mf">0.1</span>
+</span><span data-line="151">
+</span><span data-line="152">        <span class="k">if</span> <span class="n">reward</span> <span class="o">&gt;</span> <span class="mf">0.001</span><span class="p">:</span>
+</span><span data-line="153">            <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="p">)</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="n">reward</span>
+</span><span data-line="154">
 <div class="viewcode-block" id="StrategyRewarding.execute">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.rewarding.StrategyRewarding.execute">[docs]</a>
-</span><span data-line="91">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="92">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="93">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
-</span><span data-line="94">        <span class="c1"># self.logger.debug(</span>
-</span><span data-line="95">        <span class="c1">#     &quot;per_client = %s | target = %s&quot; % (self.jobs_per_client, target)</span>
-</span><span data-line="96">        <span class="c1"># )</span>
-</span><span data-line="97">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="98">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="99">                <span class="n">s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">smooth</span><span class="p">)</span>
-</span><span data-line="100">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-</span><span data-line="101">                <span class="n">s</span> <span class="o">=</span> <span class="mf">0.5</span>
-</span><span data-line="102">
-</span><span data-line="103">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
-</span><span data-line="104">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
-</span><span data-line="105">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="106">                    <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="107">
-</span><span data-line="108">                <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="109">                <span class="n">perf_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">)</span>
-</span><span data-line="110">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="111">                    <span class="c1"># calc probability based on performance with additive</span>
-</span><span data-line="112">                    <span class="c1"># smoothing</span>
-</span><span data-line="113">                    <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">perf_sum</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">))</span>
-</span><span data-line="114">                    <span class="n">nb_h</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">target</span> <span class="o">*</span> <span class="n">prob</span><span class="p">))</span>
-</span><span data-line="115">                    <span class="n">h_pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">nb_h</span><span class="p">)</span>
-</span><span data-line="116">                    <span class="n">batch</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h_pts</span><span class="p">)</span>
-</span><span data-line="117">                    <span class="c1"># print &quot;  %16s -&gt; %s&quot; % (h, nb_h)</span>
-</span><span data-line="118">                <span class="k">return</span> <span class="n">batch</span>
-</span><span data-line="119">
-</span><span data-line="120">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
-</span><span data-line="121">
-</span><span data-line="122">        <span class="k">return</span> <span class="n">points</span>
-</span><span data-line="123">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="155">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="156">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="157">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+</span><span data-line="158">        <span class="c1"># self.logger.debug(</span>
+</span><span data-line="159">        <span class="c1">#     &quot;per_client = %s | target = %s&quot; % (self.jobs_per_client, target)</span>
+</span><span data-line="160">        <span class="c1"># )</span>
+</span><span data-line="161">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
+</span><span data-line="162">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="163">                <span class="n">s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">smooth</span><span class="p">)</span>
+</span><span data-line="164">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span><span data-line="165">                <span class="n">s</span> <span class="o">=</span> <span class="mf">0.5</span>
+</span><span data-line="166">
+</span><span data-line="167">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
+</span><span data-line="168">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="169">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="170">                    <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="171">
+</span><span data-line="172">                <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="173">                <span class="n">perf_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">)</span>
+</span><span data-line="174">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="175">                    <span class="c1"># calc probability based on performance with additive</span>
+</span><span data-line="176">                    <span class="c1"># smoothing</span>
+</span><span data-line="177">                    <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">perf_sum</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">))</span>
+</span><span data-line="178">                    <span class="n">nb_h</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">target</span> <span class="o">*</span> <span class="n">prob</span><span class="p">))</span>
+</span><span data-line="179">                    <span class="n">h_pts</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">nb_h</span><span class="p">)</span>
+</span><span data-line="180">                    <span class="n">batch</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h_pts</span><span class="p">)</span>
+</span><span data-line="181">                    <span class="c1"># print &quot;  %16s -&gt; %s&quot; % (h, nb_h)</span>
+</span><span data-line="182">                <span class="k">return</span> <span class="n">batch</span>
+</span><span data-line="183">
+</span><span data-line="184">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
+</span><span data-line="185">
+</span><span data-line="186">        <span class="k">return</span> <span class="n">points</span></div>
 </div>
 
 </span></pre></div>

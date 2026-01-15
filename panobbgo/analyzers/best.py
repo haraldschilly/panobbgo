@@ -153,28 +153,11 @@ class Best(Analyzer):
 
         self._pareto_front = new_front
         if pf_old != new_front:
-            # TODO remove this check
-            self._check_pareto_front()
-
             if len(self.pareto_front) > 2:
                 self.logger.debug(
                     "pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front]
                 )
             self.eventbus.publish("new_pareto_front", front=new_front)
-
-    def _check_pareto_front(self):
-        """
-        just used for testing
-        """
-        pf = self.pareto_front
-        for p1, p2 in zip(pf[:-1], pf[1:]):
-            assert p1.fx <= p2.fx, "fx > fx for %s, %s" % (p1, p2)
-            assert p1.cv >= p2.cv, "cv < cv for %s, %s" % (p1, p2)
-        # if len(pf) >= 3:
-        #  from utils import is_left
-        #  for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):
-        #    if is_left(p1.pp, p2.pp, p3.pp):
-        # self.logger.critical('is_left %s' % map(lambda _:_.pp, [p1, p2, p3]))
 
     def on_new_results(self, results):
         for r in results:

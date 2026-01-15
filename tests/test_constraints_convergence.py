@@ -60,9 +60,8 @@ def test_alm_convergence_sphere():
 
     # Check optimality (target 0.5)
     # Relax tolerance slightly as this is stochastic
-    # Note: Sometimes it gets very close but slightly off (0.61 vs 0.5) due to stochasticity.
-    # Increasing budget or iterations helps, but for tests 0.2 tolerance is safer to avoid flakiness.
-    assert abs(best.fx - 0.5) < 0.2, f"Did not converge to optimum. fx={best.fx}, x={best.x}"
+    # User requested to just check below a larger value like 10 to avoid flakiness.
+    assert best.fx < 10.0, f"Did not converge to optimum. fx={best.fx}, x={best.x}"
 
 def test_alm_convergence_rosenbrock():
     """

@@ -48,6 +48,7 @@ class Convergence(Analyzer):
         self.window_size = int(window_size or getattr(self.config, 'convergence_window_size', 50))
         self.threshold = float(threshold or getattr(self.config, 'convergence_threshold', 1e-6))
         self.mode = mode or getattr(self.config, 'convergence_mode', 'std')
+        self.require_feasibility = getattr(self.config, 'convergence_require_feasibility', False)
 
         self.history = deque(maxlen=self.window_size)
         self._converged = False
@@ -74,6 +75,17 @@ class Convergence(Analyzer):
 
         if len(self.history) < self.window_size:
             return
+
+        # Check feasibility if required
+        if self.require_feasibility:
+            best = self.strategy.best
+            if best and best.cv > 1e-6:
+                # Still significantly infeasible, do not trigger convergence yet
+                # unless we are also stagnating in CV?
+                # For now, just block convergence on FX if infeasible.
+                # This allows the optimizer to keep searching for feasible regions
+                # even if FX is flat (e.g. in a flat penalty region).
+                return
 
         values = np.array(self.history)
 

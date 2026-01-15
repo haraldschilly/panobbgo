@@ -190,7 +190,7 @@ def test_augmented_lagrangian_handler_updates():
     # So mu should increase.
     assert handler.mu == 4.0
 
-    # Lambda should update again
+    # Lambda should update again using the NEW mu (4.0)
     # lambda_2 = max(0, 2.0 + 4.0 * 1.0) = 6.0
     np.testing.assert_array_equal(handler.lambdas, np.array([6.0]))
 

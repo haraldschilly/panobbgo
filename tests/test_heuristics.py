@@ -254,3 +254,64 @@ class HeuristicTests(PanobbgoTestCase):
 
         # Should work without errors
         assert wa is not None
+
+    def test_nelder_mead_weighted(self):
+        """Test weighted centroid calculation in Nelder-Mead."""
+        from panobbgo.heuristics.nelder_mead import NelderMead
+
+        nm = NelderMead(self.strategy)
+
+        # Create a base of points
+        base = []
+        base.append(Result(Point(np.array([0.0, 0.0]), "test"), fx=0.0))
+        base.append(Result(Point(np.array([1.0, 0.0]), "test"), fx=99.0))
+        base.append(Result(Point(np.array([0.0, 1.0]), "test"), fx=100.0))
+
+        # Manually calculate weighted centroid
+        w_A = np.log1p(100.0)
+        w_B = np.log1p(1.0)
+
+        expected_x_coord = (w_A * 0.0 + w_B * 1.0) / (w_A + w_B)
+
+        # Mock rayleigh to check centroid
+        original_rayleigh = np.random.rayleigh
+        try:
+            # Let factor = 1.0, offset = 0.0 -> new_point = centroid
+            np.random.rayleigh = lambda scale=None: 1.0
+
+            new_point = nm.nelder_mead(base[:], offset=0)
+
+            assert np.isclose(new_point[0], expected_x_coord), \
+                f"Expected x-coord {expected_x_coord}, got {new_point[0]}"
+            assert np.isclose(new_point[1], 0.0), \
+                f"Expected y-coord 0.0, got {new_point[1]}"
+
+            # Check against uniform average (0.5)
+            assert not np.isclose(new_point[0], 0.5)
+
+        finally:
+            np.random.rayleigh = original_rayleigh
+
+    def test_nelder_mead_uniform_fallback(self):
+        """Test fallback to uniform weights when all weights are zero in Nelder-Mead."""
+        from panobbgo.heuristics.nelder_mead import NelderMead
+
+        nm = NelderMead(self.strategy)
+
+        # Create points with EQUAL fx
+        base = []
+        base.append(Result(Point(np.array([0.0, 0.0]), "test"), fx=10.0))
+        base.append(Result(Point(np.array([1.0, 0.0]), "test"), fx=10.0))
+        base.append(Result(Point(np.array([0.0, 1.0]), "test"), fx=10.0))
+
+        original_rayleigh = np.random.rayleigh
+        try:
+            np.random.rayleigh = lambda scale=None: 1.0
+
+            new_point = nm.nelder_mead(base[:], offset=0)
+
+            # If fallback works, we get a valid point (not NaN)
+            assert not np.any(np.isnan(new_point))
+
+        finally:
+            np.random.rayleigh = original_rayleigh

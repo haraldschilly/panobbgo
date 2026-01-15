@@ -309,25 +309,23 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             self.lambdas = np.zeros_like(best.cv_vec)
 
         cv = best.cv_vec
-        # Update lambdas
-        # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
-        # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec?
-        # Wait, if cv_vec > 0 is violation, then g(x) <= 0 constraint is violated if g(x) > 0.
-        # So cv_vec IS g(x).
-        new_lambdas = np.maximum(0, self.lambdas + self.mu * cv)
-
-        # Update mu (penalty)
+        # Update mu (penalty) first based on constraint violation improvement
         # If constraint violation has not decreased significantly, increase penalty
-        current_cv_norm = best.cv # This is norm of positive parts
+        current_cv_norm = best.cv  # This is norm of positive parts
 
         # We only increase penalty if we are still infeasible
         if current_cv_norm > 0:
             if current_cv_norm > 0.9 * self.last_cv_norm:
-                 self.mu *= self.rate
-                 if hasattr(self, 'logger'):
-                     self.logger.info(f"Increasing penalty mu to {self.mu:.2f} (cv: {current_cv_norm:.4f})")
+                self.mu *= self.rate
+                if hasattr(self, 'logger'):
+                    self.logger.info(f"Increasing penalty mu to {self.mu:.2f} (cv: {current_cv_norm:.4f})")
 
             self.last_cv_norm = current_cv_norm
+
+        # Update lambdas using the (potentially updated) mu
+        # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
+        # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec
+        new_lambdas = np.maximum(0, self.lambdas + self.mu * cv)
 
         self.lambdas = new_lambdas
 

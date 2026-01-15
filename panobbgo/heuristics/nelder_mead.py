@@ -90,6 +90,30 @@ class NelderMead(Heuristic):
                 pass
         return None
 
+    def nelder_mead_init(self, base):
+        """
+        Calculates the worst point and the centroid of the remaining points
+        from the given base.
+        """
+        # get worst point and it's index (to remove it)
+        worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
+
+        # TODO f(x) values are available and could be used for weighting (or their rank number)
+        # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
+        # weights = 1 + .1 * np.random.randn(len(base))
+
+        # Calculate centroid of other points
+        others_x = [p.x for i, p in enumerate(base) if i != worst_idx]
+        centroid = np.average(others_x, axis=0)  # , weights = weights)
+        return worst, centroid
+
+    def nelder_mead_sample(self, worst, centroid, scale=3, offset=0):
+        """
+        Generates a new randomized search point based on worst point and centroid.
+        """
+        factor = np.random.rayleigh(scale=scale) - offset
+        return worst.x + factor * (centroid - worst.x)
+
     def nelder_mead(self, base, scale=3, offset=0):
         """
         Retuns a new *randomized* search point for the given set of results (``base``),
@@ -102,19 +126,8 @@ class NelderMead(Heuristic):
         - ``offset``: This is subtracted from the sample factor; i.e. negative
           values account for the "contraction".
         """
-        # base = sorted(base, key = lambda r : r.fx)
-        # worst = base.pop() # worst point, base is the remainder
-
-        # get worst point and it's index (to remove it)
-        worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
-        del base[worst_idx]
-
-        # TODO f(x) values are available and could be used for weighting (or their rank number)
-        # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
-        # weights = 1 + .1 * np.random.randn(len(base))
-        centroid = np.average([p.x for p in base], axis=0)  # , weights = weights)
-        factor = np.random.rayleigh(scale=scale) - offset
-        return worst.x + factor * (centroid - worst.x)
+        worst, centroid = self.nelder_mead_init(base)
+        return self.nelder_mead_sample(worst, centroid, scale, offset)
 
     def on_start(self):
         """
@@ -145,10 +158,11 @@ class NelderMead(Heuristic):
                 if base:  # was able to find a base
                     if len(base) == 0:
                         break
-                    # TODO split nelder_mead into a init phase, and a sampling
-                    # routine
+
+                    worst, centroid = self.nelder_mead_init(base)
+
                     while not self.got_bb.is_set():
-                        new_point = self.nelder_mead(base[:])
+                        new_point = self.nelder_mead_sample(worst, centroid)
                         # self.logger.info("new point: %s" % new_point)
                         self.emit(new_point)
                     break

@@ -254,3 +254,41 @@ class HeuristicTests(PanobbgoTestCase):
 
         # Should work without errors
         assert wa is not None
+
+    def test_nelder_mead_split(self):
+        """Test the split of Nelder-Mead into init and sampling phases."""
+        from panobbgo.heuristics.nelder_mead import NelderMead
+
+        nm = NelderMead(self.strategy)
+        assert nm is not None
+        dim = 5
+        pts = self.random_results(dim, 10)
+        # make it ill conditioned
+        pts.insert(0, pts[0])
+        base = nm.gram_schmidt(dim, pts)
+
+        # Test init phase
+        worst, centroid = nm.nelder_mead_init(base)
+        assert worst is not None
+        assert centroid is not None
+        assert centroid.shape == (dim,)
+
+        # Verify worst point is actually the one with highest fx
+        worst_idx, expected_worst = max(enumerate(base), key=lambda _: _[1].fx)
+        assert np.allclose(worst.x, expected_worst.x)
+        assert worst.fx == expected_worst.fx
+
+        # Verify centroid calculation
+        others_x = [p.x for i, p in enumerate(base) if i != worst_idx]
+        expected_centroid = np.average(others_x, axis=0)
+        assert np.allclose(centroid, expected_centroid)
+
+        # Test sampling phase
+        new_point_x = nm.nelder_mead_sample(worst, centroid)
+        assert new_point_x is not None
+        assert new_point_x.shape == (dim,)
+
+        # Test legacy wrapper
+        new_point_x_legacy = nm.nelder_mead(base)
+        assert new_point_x_legacy is not None
+        assert new_point_x_legacy.shape == (dim,)

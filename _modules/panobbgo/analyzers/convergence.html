@@ -185,84 +185,96 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="48">        <span class="bp">self</span><span class="o">.</span><span class="n">window_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">window_size</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;convergence_window_size&#39;</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>
 </span><span data-line="49">        <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;convergence_threshold&#39;</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">))</span>
 </span><span data-line="50">        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;convergence_mode&#39;</span><span class="p">,</span> <span class="s1">&#39;std&#39;</span><span class="p">)</span>
-</span><span data-line="51">
-</span><span data-line="52">        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">)</span>
-</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span> <span class="o">=</span> <span class="kc">False</span></div>
+</span><span data-line="51">        <span class="bp">self</span><span class="o">.</span><span class="n">require_feasibility</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;convergence_require_feasibility&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+</span><span data-line="52">
+</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">)</span>
+</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span> <span class="o">=</span> <span class="kc">False</span></div>
 
-</span><span data-line="54">
+</span><span data-line="55">
 <div class="viewcode-block" id="Convergence.on_new_results">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.convergence.Convergence.on_new_results">[docs]</a>
-</span><span data-line="55">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="56"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="57"><span class="sd">        Listen to all results to detect stagnation (no improvement for many evaluations).</span>
-</span><span data-line="58"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="59">        <span class="n">current_best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span>
-</span><span data-line="60">        <span class="k">if</span> <span class="n">current_best</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">current_best</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="61">            <span class="k">return</span>
-</span><span data-line="62">
-</span><span data-line="63">        <span class="c1"># We append the current best value for each new result.</span>
-</span><span data-line="64">        <span class="c1"># Note: If a large batch arrives and no improvement happens, we might fill the window</span>
-</span><span data-line="65">        <span class="c1"># with identical values. This is intentional: it represents stagnation over N evaluations.</span>
-</span><span data-line="66">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="67">            <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
-</span><span data-line="68">
-</span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">_check_convergence</span><span class="p">()</span></div>
+</span><span data-line="56">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="57"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="58"><span class="sd">        Listen to all results to detect stagnation (no improvement for many evaluations).</span>
+</span><span data-line="59"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="60">        <span class="n">current_best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span>
+</span><span data-line="61">        <span class="k">if</span> <span class="n">current_best</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">current_best</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="62">            <span class="k">return</span>
+</span><span data-line="63">
+</span><span data-line="64">        <span class="c1"># We append the current best value for each new result.</span>
+</span><span data-line="65">        <span class="c1"># Note: If a large batch arrives and no improvement happens, we might fill the window</span>
+</span><span data-line="66">        <span class="c1"># with identical values. This is intentional: it represents stagnation over N evaluations.</span>
+</span><span data-line="67">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="68">            <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
+</span><span data-line="69">
+</span><span data-line="70">        <span class="bp">self</span><span class="o">.</span><span class="n">_check_convergence</span><span class="p">()</span></div>
 
-</span><span data-line="70">
-</span><span data-line="71">    <span class="k">def</span><span class="w"> </span><span class="nf">_check_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="72">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span><span class="p">:</span>
-</span><span data-line="73">            <span class="k">return</span>
-</span><span data-line="74">
-</span><span data-line="75">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">:</span>
-</span><span data-line="76">            <span class="k">return</span>
-</span><span data-line="77">
-</span><span data-line="78">        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
-</span><span data-line="79">
-</span><span data-line="80">        <span class="c1"># To avoid premature convergence detection (e.g., initial batch with no improvement),</span>
-</span><span data-line="81">        <span class="c1"># we can require at least some variation in the history if we are in &#39;std&#39; mode?</span>
-</span><span data-line="82">        <span class="c1"># Or simply rely on the fact that if 50 points failed, we ARE stagnant.</span>
-</span><span data-line="83">        <span class="c1"># However, to be safe, let&#39;s ensure we are not just looking at the very first batch</span>
-</span><span data-line="84">        <span class="c1"># if the window size equals the batch size.</span>
-</span><span data-line="85">        <span class="c1"># But we don&#39;t know the batch size here.</span>
-</span><span data-line="86">
-</span><span data-line="87">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;std&#39;</span><span class="p">:</span>
-</span><span data-line="88">            <span class="c1"># Check for None values in the history</span>
-</span><span data-line="89">            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">):</span>
-</span><span data-line="90">                <span class="k">return</span>  <span class="c1"># Skip convergence check if we have invalid data</span>
-</span><span data-line="91">            <span class="c1"># Suppress warnings for edge cases (identical values, small samples)</span>
-</span><span data-line="92">            <span class="c1"># These warnings come from np.var/np.std when dealing with minimal data</span>
-</span><span data-line="93">            <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
-</span><span data-line="94">                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
-</span><span data-line="95">                                      <span class="n">message</span><span class="o">=</span><span class="s1">&#39;.*Degrees of freedom.*&#39;</span><span class="p">)</span>
-</span><span data-line="96">                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
-</span><span data-line="97">                                      <span class="n">message</span><span class="o">=</span><span class="s1">&#39;.*invalid value encountered.*&#39;</span><span class="p">)</span>
-</span><span data-line="98">                <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-</span><span data-line="99">            <span class="k">if</span> <span class="n">std</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">:</span>
-</span><span data-line="100">                <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_convergence</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Standard deviation </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="101">
-</span><span data-line="102">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;improv&#39;</span><span class="p">:</span>
-</span><span data-line="103">            <span class="c1"># Check relative improvement between start and end of window</span>
-</span><span data-line="104">            <span class="n">start</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="105">            <span class="n">end</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="106">
-</span><span data-line="107">            <span class="c1"># Handle None values</span>
-</span><span data-line="108">            <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="109">                <span class="k">return</span>  <span class="c1"># Skip convergence check if we have invalid data</span>
-</span><span data-line="110">
-</span><span data-line="111">            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
-</span><span data-line="112">                <span class="n">rel_improv</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">end</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
-</span><span data-line="113">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="114">                <span class="n">rel_improv</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">end</span>
-</span><span data-line="115">
-</span><span data-line="116">            <span class="k">if</span> <span class="n">rel_improv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">:</span>
-</span><span data-line="117">                <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_convergence</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Relative improvement </span><span class="si">{</span><span class="n">rel_improv</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="71">
+</span><span data-line="72">    <span class="k">def</span><span class="w"> </span><span class="nf">_check_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="73">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span><span class="p">:</span>
+</span><span data-line="74">            <span class="k">return</span>
+</span><span data-line="75">
+</span><span data-line="76">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">window_size</span><span class="p">:</span>
+</span><span data-line="77">            <span class="k">return</span>
+</span><span data-line="78">
+</span><span data-line="79">        <span class="c1"># Check feasibility if required</span>
+</span><span data-line="80">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">require_feasibility</span><span class="p">:</span>
+</span><span data-line="81">            <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span>
+</span><span data-line="82">            <span class="k">if</span> <span class="n">best</span> <span class="ow">and</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+</span><span data-line="83">                <span class="c1"># Still significantly infeasible, do not trigger convergence yet</span>
+</span><span data-line="84">                <span class="c1"># unless we are also stagnating in CV?</span>
+</span><span data-line="85">                <span class="c1"># For now, just block convergence on FX if infeasible.</span>
+</span><span data-line="86">                <span class="c1"># This allows the optimizer to keep searching for feasible regions</span>
+</span><span data-line="87">                <span class="c1"># even if FX is flat (e.g. in a flat penalty region).</span>
+</span><span data-line="88">                <span class="k">return</span>
+</span><span data-line="89">
+</span><span data-line="90">        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
+</span><span data-line="91">
+</span><span data-line="92">        <span class="c1"># To avoid premature convergence detection (e.g., initial batch with no improvement),</span>
+</span><span data-line="93">        <span class="c1"># we can require at least some variation in the history if we are in &#39;std&#39; mode?</span>
+</span><span data-line="94">        <span class="c1"># Or simply rely on the fact that if 50 points failed, we ARE stagnant.</span>
+</span><span data-line="95">        <span class="c1"># However, to be safe, let&#39;s ensure we are not just looking at the very first batch</span>
+</span><span data-line="96">        <span class="c1"># if the window size equals the batch size.</span>
+</span><span data-line="97">        <span class="c1"># But we don&#39;t know the batch size here.</span>
+</span><span data-line="98">
+</span><span data-line="99">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;std&#39;</span><span class="p">:</span>
+</span><span data-line="100">            <span class="c1"># Check for None values in the history</span>
+</span><span data-line="101">            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">):</span>
+</span><span data-line="102">                <span class="k">return</span>  <span class="c1"># Skip convergence check if we have invalid data</span>
+</span><span data-line="103">            <span class="c1"># Suppress warnings for edge cases (identical values, small samples)</span>
+</span><span data-line="104">            <span class="c1"># These warnings come from np.var/np.std when dealing with minimal data</span>
+</span><span data-line="105">            <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+</span><span data-line="106">                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
+</span><span data-line="107">                                      <span class="n">message</span><span class="o">=</span><span class="s1">&#39;.*Degrees of freedom.*&#39;</span><span class="p">)</span>
+</span><span data-line="108">                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">RuntimeWarning</span><span class="p">,</span>
+</span><span data-line="109">                                      <span class="n">message</span><span class="o">=</span><span class="s1">&#39;.*invalid value encountered.*&#39;</span><span class="p">)</span>
+</span><span data-line="110">                <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="111">            <span class="k">if</span> <span class="n">std</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">:</span>
+</span><span data-line="112">                <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_convergence</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Standard deviation </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="113">
+</span><span data-line="114">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;improv&#39;</span><span class="p">:</span>
+</span><span data-line="115">            <span class="c1"># Check relative improvement between start and end of window</span>
+</span><span data-line="116">            <span class="n">start</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="117">            <span class="n">end</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="118">
-</span><span data-line="119">    <span class="k">def</span><span class="w"> </span><span class="nf">_trigger_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="120">        <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="121">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Converged! </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="119">            <span class="c1"># Handle None values</span>
+</span><span data-line="120">            <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="121">                <span class="k">return</span>  <span class="c1"># Skip convergence check if we have invalid data</span>
 </span><span data-line="122">
-</span><span data-line="123">        <span class="c1"># We publish the event. Strategies or other listeners can decide to stop.</span>
-</span><span data-line="124">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span> <span class="n">stats</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;best_fx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]})</span></div>
+</span><span data-line="123">            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">start</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+</span><span data-line="124">                <span class="n">rel_improv</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">end</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+</span><span data-line="125">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="126">                <span class="n">rel_improv</span> <span class="o">=</span> <span class="n">start</span> <span class="o">-</span> <span class="n">end</span>
+</span><span data-line="127">
+</span><span data-line="128">            <span class="k">if</span> <span class="n">rel_improv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">:</span>
+</span><span data-line="129">                <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_convergence</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Relative improvement </span><span class="si">{</span><span class="n">rel_improv</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="130">
+</span><span data-line="131">    <span class="k">def</span><span class="w"> </span><span class="nf">_trigger_convergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="132">        <span class="bp">self</span><span class="o">.</span><span class="n">_converged</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="133">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Converged! </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="134">
+</span><span data-line="135">        <span class="c1"># We publish the event. Strategies or other listeners can decide to stop.</span>
+</span><span data-line="136">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">,</span> <span class="n">stats</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;best_fx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]})</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

@@ -112,15 +112,15 @@ class StrategyRewarding(StrategyBase):
             # We only reward if both are feasible for now to be safe
             # and consistent with "value"
             if self.last_best.cv == 0 and r.cv == 0:
-                self._reward_near_best(r, safe_ranges)
+                self._reward_near_best(r, self.last_best, safe_ranges)
 
-    def _reward_near_best(self, r, ranges):
+    def _reward_near_best(self, r, last_best, ranges):
         # Value closeness
         # We want to reward if r.fx is close to last_best.fx
         # Note: last_best is better, so r.fx >= last_best.fx
-        diff = abs(r.fx - self.last_best.fx)
+        diff = abs(r.fx - last_best.fx)
         denom = (
-            abs(self.last_best.fx) if abs(self.last_best.fx) > 1e-9 else 1.0
+            abs(last_best.fx) if abs(last_best.fx) > 1e-9 else 1.0
         )
         rel_diff = diff / denom
 
@@ -135,7 +135,7 @@ class StrategyRewarding(StrategyBase):
         # Spatial distance
         # We want to reward points that are "far" from the best,
         # encouraging exploration of other optima with similar values.
-        dist = np.linalg.norm((r.x - self.last_best.x) / ranges)
+        dist = np.linalg.norm((r.x - last_best.x) / ranges)
 
         # Penalty for being close. Maps 0 -> 0. As dist increases,
         # approaches 1.

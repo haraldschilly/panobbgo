@@ -109,10 +109,12 @@ class NelderMead(Heuristic):
         worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
         del base[worst_idx]
 
-        # TODO f(x) values are available and could be used for weighting (or their rank number)
-        # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
-        # weights = 1 + .1 * np.random.randn(len(base))
-        centroid = np.average([p.x for p in base], axis=0)  # , weights = weights)
+        # f(x) values are available and used for weighting
+        weights = [np.log1p(worst.fx - r.fx) for r in base]
+        if np.sum(weights) <= 1e-9:
+            weights = None
+
+        centroid = np.average([p.x for p in base], axis=0, weights=weights)
         factor = np.random.rayleigh(scale=scale) - offset
         return worst.x + factor * (centroid - worst.x)
 

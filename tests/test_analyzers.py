@@ -33,6 +33,19 @@ class AnalyzersUtils(PanobbgoTestCase):
         # Ensure strategy has a constraint handler for Best analyzer tests
         self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
 
+    def _check_pareto_front(self, pf):
+        """
+        just used for testing
+        """
+        for p1, p2 in zip(pf[:-1], pf[1:]):
+            assert p1.fx <= p2.fx, "fx > fx for %s, %s" % (p1, p2)
+            assert p1.cv >= p2.cv, "cv < cv for %s, %s" % (p1, p2)
+        # if len(pf) >= 3:
+        #  from utils import is_left
+        #  for p1, p2, p3 in zip(pf[:-2], pf[1:-1], pf[2:]):
+        #    if is_left(p1.pp, p2.pp, p3.pp):
+        # self.logger.critical('is_left %s' % map(lambda _:_.pp, [p1, p2, p3]))
+
     def test_best(self):
         from panobbgo.analyzers.best import Best
 
@@ -49,7 +62,7 @@ class AnalyzersUtils(PanobbgoTestCase):
         # import random
         # random.shuffle(results)
         best.on_new_results(results)
-        best._check_pareto_front()
+        self._check_pareto_front(best.pareto_front)
         print("Pareto Front:")
         for r in best.pareto_front:
             print(r)
@@ -150,7 +163,7 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         # Check pareto front
         assert len(best_analyzer.pareto_front) >= 1
-        best_analyzer._check_pareto_front()  # Should not raise assertion
+        self._check_pareto_front(best_analyzer.pareto_front)  # Should not raise assertion
 
     def test_best_edge_cases(self):
         """Test Best analyzer edge cases and error conditions."""

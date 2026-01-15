@@ -105,6 +105,64 @@ class StrategiesTests(PanobbgoTestCase):
     @mock.patch(
         "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
     )
+    def test_rewarding_near_best(self, my_setup_cluster):
+        from panobbgo.strategies.rewarding import StrategyRewarding
+
+        # Using Rosenbrock(3) from setUp
+        rwd = StrategyRewarding(self.problem)
+        rwd.add(Random)
+
+        # Manually init heuristics
+        for h in rwd._hs:
+            rwd.add_heuristic(h)
+        rwd.__start__()
+
+        h_random = rwd.heuristics[0]
+        initial_perf = h_random.performance
+
+        # Set a "best" result
+        # Rosenbrock optimum is at (1,1,1), fx=0
+        # Let's say current best is slightly off
+        best_point = Point(np.array([1.0, 1.0, 1.0]), h_random.name)
+        best_result = Result(best_point, 0.0)
+
+        rwd.last_best = best_result
+
+        # Create a "near best" result
+        # Value close to best (0.01 vs 0.0)
+        # Location far from best (e.g. at [0,0,0])
+        # Rosenbrock at [0,0,0] is sum(100*(0-0)^2 + (1-0)^2) = 2 (for 2 terms in 3D?)
+        # 3D: sum i=0 to 1: 100(x[i+1]-x[i]^2)^2 + (1-x[i])^2
+        # x=[0,0,0]: term0: 100(0)^2 + 1 = 1. term1: 100(0)^2 + 1 = 1. Total = 2.
+        # 2.0 is somewhat close to 0.0 relative to initial values maybe?
+        # But my logic checks rel_diff = abs(fx - best.fx) / abs(best.fx)
+        # abs(2 - 0) / 1e-9 (denom) -> huge rel_diff.
+
+        # So we need a point with fx closer to 0.0.
+        # Say fx = 0.0001.
+        # We manually create Result with fx=0.0001, even if x doesn't match perfectly.
+        # StrategyRewarding checks fx directly from result.
+
+        # We want x to be far.
+        ranges = self.problem.ranges # Rosenbrock [-5, 10] usually?
+        # Let's check ranges. Rosenbrock default box is usually large.
+
+        near_point = Point(np.array([-1.0, -1.0, -1.0]), h_random.name)
+        # Fake fx for testing logic
+        near_result = Result(near_point, 0.00001)
+
+        # Verify it is NOT better (0.00001 > 0.0)
+        assert not rwd.constraint_handler.is_better(best_result, near_result)
+
+        # Trigger
+        rwd.on_new_results([near_result])
+
+        # Check reward
+        assert h_random.performance > initial_perf
+
+    @mock.patch(
+        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
+    )
     def test_ucb_initialization(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         assert ucb is not None

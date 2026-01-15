@@ -269,6 +269,9 @@ class BoundingBox:
     def __setitem__(self, key, value):
         return self.box.__setitem__(key, value)
 
+    def __len__(self):
+        return len(self.box)
+
 
 class Problem:
 

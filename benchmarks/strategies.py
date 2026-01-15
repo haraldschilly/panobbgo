@@ -30,6 +30,10 @@ class BenchmarkStrategy:
         # Force threaded evaluation for benchmarks to ensure reliability
         strategy.config.evaluation_method = "threaded"
 
+        # Disable automatic stopping on convergence for benchmarks
+        # We want to run for the full evaluation budget or until success
+        strategy.config.stop_on_convergence = False
+
         # Apply configuration overrides
         for key, value in self.config_overrides.items():
             if hasattr(strategy.config, key):

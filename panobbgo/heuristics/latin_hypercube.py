@@ -35,7 +35,7 @@ class LatinHypercube(Heuristic):
       +---+---+---+---+
     """
 
-    def __init__(self, strategy, div):
+    def __init__(self, strategy, div=10):
         """
         Args:
            - `div`: number of divisions, positive integer.

@@ -103,6 +103,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.Center.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient"><code class="docutils literal notranslate"><span class="pre">ConstraintGradient</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal"><code class="docutils literal notranslate"><span class="pre">Extremal</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -229,6 +233,40 @@ They are all derived from <a class="reference internal" href="core.html#panobbgo
 <dt class="sig sig-object py" id="panobbgo.heuristics.Center.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/center.html#Center.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Center.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintGradient">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">ConstraintGradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">descent_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Constraint-specific heuristic that uses gradient estimation of constraint violation
+to guide the search towards feasibility.</p>
+<p>Behavior:
+- If the current best point is infeasible (cv &gt; 0), this heuristic estimates the</p>
+<blockquote>
+<div><p>gradient of the constraint violation function (sum of violations) using finite differences.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>It then generates a new point by taking a step in the direction of the negative gradient
+(descent direction for violation).</p></li>
+<li><p>If the current best is feasible, this heuristic is inactive.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – Reference to the strategy.</p></li>
+<li><p><strong>step_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Step size for finite difference gradient approximation (h).</p></li>
+<li><p><strong>descent_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Step size for moving in the descent direction (relative to box).</p></li>
+<li><p><strong>samples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of points to generate (currently only supports 1 descent step).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintGradient.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>React to a new best point. If infeasible, try to repair it using gradient descent on CV.</p>
+</dd></dl>
 
 </dd></dl>
 

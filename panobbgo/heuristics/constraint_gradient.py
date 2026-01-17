@@ -83,47 +83,76 @@ class ConstraintGradient(Heuristic):
 
         # Let's find neighbors.
         # We need access to strategy results.
-        if not self.strategy.results:
+        results_container = self.strategy.results
+        if results_container is None or len(results_container) == 0:
             return
 
-        # Get k nearest neighbors
-        k = dim + 1
-        results = self.strategy.results
+        candidates = []
+
+        # Handle different result container types
+        if isinstance(results_container, list):
+            # Test/Legacy case: results_container is a list of Result objects
+            # Use last 100 results
+            subset = results_container[-100:]
+            for r in subset:
+                candidates.append((r.x, r.cv))
+        elif hasattr(results_container, 'results'):
+             # Production case: Results object wrapping a DataFrame
+            df = results_container.results
+            if df is None or df.empty:
+                return
+
+            try:
+                # Safest way: iterate over last N rows
+                n_rows = len(df)
+                start_idx = max(0, n_rows - 100)
+
+                # Get 'x' part
+                # df['x'] returns a DataFrame with columns 0, 1, ...
+                X_subset = df['x'].iloc[start_idx:].values # numpy array of shape (N, dim)
+
+                # Get 'cv' part (scalar)
+                # core.py: `[r.cv, r.who, r.error]` are added at the end.
+                # So `cv` scalar is 3rd from end.
+                cv_values = df.iloc[start_idx:, -3].values
+
+                for i in range(len(X_subset)):
+                    xi = X_subset[i]
+                    # Ensure xi is float array
+                    xi = np.array(xi, dtype=float)
+                    cvi = float(cv_values[i])
+                    candidates.append((xi, cvi))
+            except Exception:
+                # Fallback or fail gracefully
+                return
+        else:
+            return
 
         # Filter for points close to x
         # Compute distances
-        # Optimization: Don't compute all if many results.
-        # Just take last N results or random subset if N is large?
-        # Or use the Splitter structure?
-
-        # Let's use a simple subset for now
-        candidates = results[-100:] if len(results) > 100 else results
-
         dists = []
-        for r in candidates:
-            d = np.linalg.norm(r.x - x)
+        for xi, cvi in candidates:
+            d = np.linalg.norm(xi - x)
             if d > 1e-9: # Exclude the point itself
-                dists.append((d, r))
+                dists.append((d, xi, cvi))
 
+        k = dim + 1
         dists.sort(key=lambda x: x[0])
-        neighbors = [p[1] for p in dists[:k]]
+        neighbors = dists[:k]
 
-        if len(neighbors) < dim:
-            # Not enough points for gradient estimation
-            # Fallback to random direction?
+        if len(neighbors) < k:
             return
 
         # Prepare for Linear Regression: X * w = y
         # X is (k, dim), y is (k,)
         # Shift x to origin for stability
-        X = np.array([n.x - x for n in neighbors])
-        y = np.array([n.cv - best.cv for n in neighbors])
+        X_mat = np.array([n[1] - x for n in neighbors])
+        y_vec = np.array([n[2] - best.cv for n in neighbors])
 
         # Solve least squares
         # w = (X^T X)^-1 X^T y
-        # Use lstsq for robustness
         try:
-            grad, residuals, rank, s = np.linalg.lstsq(X, y, rcond=None)
+            grad, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
         except np.linalg.LinAlgError:
             return
 

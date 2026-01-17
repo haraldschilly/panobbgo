@@ -315,12 +315,16 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
         # We only increase penalty if we are still infeasible
         if current_cv_norm > 0:
-            if current_cv_norm > 0.9 * self.last_cv_norm:
+            # Initialize last_cv_norm if it's the first time
+            if self.last_cv_norm == float('inf'):
+                self.last_cv_norm = current_cv_norm
+            elif current_cv_norm > 0.9 * self.last_cv_norm:
                 self.mu *= self.rate
                 if hasattr(self, 'logger'):
                     self.logger.info(f"Increasing penalty mu to {self.mu:.2f} (cv: {current_cv_norm:.4f})")
-
-            self.last_cv_norm = current_cv_norm
+                self.last_cv_norm = current_cv_norm
+            else:
+                self.last_cv_norm = current_cv_norm
 
         # Update lambdas using the (potentially updated) mu
         # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))

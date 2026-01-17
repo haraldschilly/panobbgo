@@ -36,6 +36,7 @@ from .lbfgsb import LBFGSB
 from .quadratic_wls import QuadraticWlsModel
 from .gaussian_process import GaussianProcessHeuristic
 from .feasible_search import FeasibleSearch
+from .constraint_gradient import ConstraintGradient
 
 __all__ = [
     "Center",
@@ -50,4 +51,5 @@ __all__ = [
     "QuadraticWlsModel",
     "GaussianProcessHeuristic",
     "FeasibleSearch",
+    "ConstraintGradient",
 ]

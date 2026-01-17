@@ -292,3 +292,97 @@ class HeuristicTests(PanobbgoTestCase):
         new_point_x_legacy = nm.nelder_mead(base)
         assert new_point_x_legacy is not None
         assert new_point_x_legacy.shape == (dim,)
+    def test_feasible_search(self):
+        """Test FeasibleSearch heuristic functionality."""
+        from panobbgo.heuristics.feasible_search import FeasibleSearch
+        from panobbgo.lib import Point, Result
+
+        # Initialize heuristic
+        fs = FeasibleSearch(self.strategy)
+        fs.__start__()
+
+        # Case 1: No feasible point known, best is infeasible
+        # Current best is infeasible
+        best_infeasible = Result(Point(np.array([0.0, 0.0]), "test"), 0.0, cv_vec=np.array([1.0]))
+        fs.on_new_best(best_infeasible)
+
+        # Should generate random points around the best infeasible point
+        points = fs.get_points(10)
+        assert len(points) > 0
+        for p in points:
+             # Just check they are generated, simple random perturbation
+             assert p in self.problem.box
+
+        # Case 2: Feasible point found via on_new_results
+        feasible_point = Result(Point(np.array([1.0, 1.0]), "test"), 0.0, cv_vec=np.array([0.0]))
+        fs.on_new_results([feasible_point])
+        assert fs.best_feasible is feasible_point
+
+        # Case 3: Best is still infeasible, but we know a feasible point
+        # Should generate points on the line between them
+        fs.on_new_best(best_infeasible)
+        points_line = fs.get_points(10)
+        assert len(points_line) > 0
+        # Points should be on line segment [0,0] to [1,1]
+        # x = alpha * [1,1], alpha in [0,1]
+        for p in points_line:
+            # Check collinearity: x[0] should equal x[1] approx
+            assert np.isclose(p.x[0], p.x[1])
+            # Check bounds
+            assert 0.0 <= p.x[0] <= 1.0
+
+        # Case 4: Best becomes feasible
+        fs.on_new_best(feasible_point)
+        # Should NOT generate points (or few)
+        # implementation says pass if best.cv == 0
+        points_empty = fs.get_points(10)
+        assert len(points_empty) == 0
+    def test_constraint_gradient(self):
+        """Test ConstraintGradient heuristic."""
+        from panobbgo.heuristics.constraint_gradient import ConstraintGradient
+        from panobbgo.lib import Point, Result
+
+        cg = ConstraintGradient(self.strategy)
+        cg.__start__()
+
+        # Mock results for gradient estimation
+        # We need dim+1 points. Let's do 2D.
+        # Function: cv = x + y (gradient [1, 1])
+        # x0 = [0, 0], cv=0
+        # x1 = [1, 0], cv=1
+        # x2 = [0, 1], cv=1
+
+        # Best is x3 = [2, 2], cv=4 (infeasible)
+        # We want to move towards [0,0] (descent)
+
+        # Override problem with a 2D one
+        from panobbgo.lib.classic import Rosenbrock
+        self.strategy.problem = Rosenbrock(dims=2)
+        # Re-initialize heuristic to pick up new problem from strategy
+        cg = ConstraintGradient(self.strategy)
+        cg.__start__()
+
+        r1 = Result(Point(np.array([0.0, 0.0]), "t1"), 0.0, cv_vec=np.array([0.0])) # cv=0
+        r2 = Result(Point(np.array([1.0, 0.0]), "t2"), 0.0, cv_vec=np.array([1.0])) # cv=1
+        r3 = Result(Point(np.array([0.0, 1.0]), "t3"), 0.0, cv_vec=np.array([1.0])) # cv=1
+
+        self.strategy.results = [r1, r2, r3]
+
+        best = Result(Point(np.array([0.5, 0.5]), "best"), 0.0, cv_vec=np.array([1.0])) # cv=1.0 (Wait, 0.5+0.5=1)
+
+        # Trigger
+        cg.on_new_best(best)
+
+        points = cg.get_points(10)
+        assert len(points) == 1
+
+        p = points[0]
+        # Gradient of x+y is [1, 1]. Normalized: [0.7, 0.7]
+        # Descent direction: [-0.7, -0.7]
+        # New point should be best.x - step
+        # best.x = [0.5, 0.5]
+        # new_x < 0.5
+
+        assert p.x[0] < 0.5
+        assert p.x[1] < 0.5
+        assert p in self.problem.box

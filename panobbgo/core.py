@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 -- 2013 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -398,22 +398,69 @@ class Heuristic(Module):
             self.logger.debug(f"Failed to emit point from {self.name}: {repr(e)}")
             pass
 
+    def get_next_point(self):
+        """
+        Generate the next point dynamically based on current state.
+
+        This method enables **dynamic point recalculation**: heuristics can
+        compute the next suggested point on-demand, incorporating the latest
+        results that have arrived since the last point was requested.
+
+        Override this method to implement lazy point generation that responds
+        to new information. The default implementation drains from the output
+        queue (for backwards compatibility with heuristics using emit()).
+
+        Returns:
+            Point or None: A single Point object, or None if no point available.
+
+        Example:
+            A Gaussian Process heuristic can override this to recompute the
+            acquisition function with the latest GP model each time this is
+            called, rather than pre-generating points that may become stale.
+        """
+        from queue import Empty
+        try:
+            return self._output.get(block=False)
+        except Empty:
+            return None
+
     def get_points(self, limit=None):
         """
-        this drains the output Queue until ``limit``
-        elements are removed or the Queue is empty.
-        For each actually emitted point,
-        the performance value is discounted (i.e. "punishment" or "energy
-        consumption")
+        Collects points for evaluation, up to the specified limit.
+
+        This method now uses a hybrid approach:
+        1. First, drains any pre-generated points from the output queue
+        2. Then, if more points are needed and limit not reached, calls
+           get_next_point() to request dynamically generated points
+
+        This enables dynamic point recalculation while maintaining backwards
+        compatibility with heuristics that pre-generate points via emit().
+
+        Args:
+            limit: Maximum number of points to return (None = unlimited)
+
+        Returns:
+            List of Point objects
         """
         from queue import Empty
 
         new_points = []
+
+        # Phase 1: Drain pre-generated points from queue
         try:
             while limit is None or len(new_points) < limit:
                 new_points.append(self._output.get(block=False))
         except Empty:
             pass
+
+        # Phase 2: Request dynamically generated points if needed
+        # This allows heuristics to provide fresh points based on latest state
+        while limit is None or len(new_points) < limit:
+            point = self.get_next_point()
+            if point is None:
+                break
+            new_points.append(point)
+
         return new_points
 
     @property

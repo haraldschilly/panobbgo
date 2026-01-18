@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,7 +94,12 @@ class GaussianProcessHeuristic(Heuristic):
 
     def on_new_results(self, results):
         """
-        Update the GP model when new results are available and suggest new points.
+        Update the GP model when new results are available.
+
+        This implementation showcases dynamic recalculation: instead of
+        pre-generating candidate points here, we only update the GP model.
+        Candidate points are generated on-demand in get_next_point() using
+        the latest model, ensuring they reflect all recently arrived results.
 
         Args:
             results: List of Result objects from recent evaluations
@@ -118,13 +123,40 @@ class GaussianProcessHeuristic(Heuristic):
         if len(self.y_train) < 3:  # Need at least a few points for meaningful GP
             return
 
-        # Fit GP model
+        # Fit GP model (but don't generate points yet - that happens in get_next_point())
         self._fit_gp_model()
 
-        # Generate new candidate points using acquisition function
-        candidates = self._acquire_candidates(n_candidates=5)
-        for candidate in candidates:
-            self.emit(candidate)
+    def get_next_point(self):
+        """
+        Generate the next candidate point dynamically using the latest GP model.
+
+        This method is called on-demand by the strategy when it needs a point,
+        enabling dynamic recalculation: each point incorporates all results
+        received since the last call, rather than being pre-generated.
+
+        Returns:
+            Point object with the next suggested evaluation point, or None if
+            the GP model is not ready yet.
+        """
+        # First check if we have pre-generated points in the queue
+        # (for backwards compatibility or mixed usage)
+        queued_point = super().get_next_point()
+        if queued_point is not None:
+            return queued_point
+
+        # If no queued points, generate a fresh one using the latest GP model
+        if self.gp_model is None or self.X_train is None or len(self.y_train) < 3:
+            return None
+
+        # Generate a single candidate using current GP model and acquisition function
+        candidate = self._optimize_acquisition()
+        if candidate is None:
+            return None
+
+        # Project to feasible region and create Point object
+        from panobbgo.core import Point
+        x = self.problem.project(candidate)
+        return Point(x, self.name)
 
     def _fit_gp_model(self):
         """Fit the Gaussian Process model to current training data."""

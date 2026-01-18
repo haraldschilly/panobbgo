@@ -13,6 +13,31 @@
 
 ## Recent Improvements
 
+### Dynamic Point Recalculation Architecture (2026-01-18)
+- [x] **Added Lazy Point Generation Capability**
+  - Implemented `get_next_point()` method in `Heuristic` base class (core.py:401-425)
+  - Heuristics can now generate points on-demand when requested by strategy
+  - Points incorporate all results received since last request (dynamic recalculation)
+- [x] **Enhanced `get_points()` Method** (core.py:427-464)
+  - Hybrid approach: drains pre-generated queue first, then requests fresh points
+  - Fully backwards compatible with existing heuristics using `emit()`
+  - Enables mixed usage: pre-generation + dynamic generation in same heuristic
+- [x] **Example Implementation in GaussianProcessHeuristic**
+  - Overrode `get_next_point()` to generate candidates using latest GP model
+  - `on_new_results()` now only updates model, not pre-generating points
+  - Each point request uses the absolute latest training data and acquisition function
+- [x] **Architecture Benefits**
+  - Model-based heuristics can respond to new results immediately
+  - No stale points in queue based on outdated information
+  - Efficient: points generated only when actually needed
+  - Backwards compatible: existing heuristics continue working unchanged
+- [x] **Testing & Validation**
+  - All 172 tests pass with new architecture
+  - Updated copyright years to 2012-2026 in modified files
+  - No performance degradation or breaking changes
+
+**Rationale**: Previously, heuristics pre-generated points when events fired (e.g., `on_new_results`). If new results arrived while points waited in the queue, those points couldn't be recalculated. Dynamic recalculation allows model-based heuristics (GP, quadratic models) to incorporate the latest information in each suggested point.
+
 ### PR #43 - Dask Memory Leak Fix & Test Suite Cleanup (2025-01-13)
 - [x] **Fixed Critical Memory Leak in Dask Cleanup**
   - Added proper `LocalCluster` cleanup in `_setup_dask_cluster()` and shutdown code

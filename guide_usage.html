@@ -117,6 +117,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#constrained-problem">Constrained Problem</a></li>
 <li><a class="reference internal" href="#constraint-handling-methods">Constraint Handling Methods</a></li>
 <li><a class="reference internal" href="#feasiblesearch-heuristic">FeasibleSearch Heuristic</a></li>
+<li><a class="reference internal" href="#localpenaltysearch-heuristic">LocalPenaltySearch Heuristic</a></li>
 <li><a class="reference internal" href="#expensive-external-function">Expensive External Function</a></li>
 </ul>
 </li>
@@ -466,6 +467,16 @@ This heuristic is specifically designed to:</p>
 </span></pre></div>
 </div>
 </section>
+<section id="localpenaltysearch-heuristic">
+<h3>LocalPenaltySearch Heuristic<a class="headerlink" href="#localpenaltysearch-heuristic" title="Link to this heading">¶</a></h3>
+<p>For problems with constraints handled via penalties (e.g. Penalty or Augmented Lagrangian), the <strong>LocalPenaltySearch</strong> heuristic can be very effective. It uses Scipy’s local optimizers (like L-BFGS-B or Nelder-Mead) to minimize the scalarized penalty function directly.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalPenaltySearch</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># Use L-BFGS-B on the penalized objective</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LocalPenaltySearch</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
 <section id="expensive-external-function">
 <h3>Expensive External Function<a class="headerlink" href="#expensive-external-function" title="Link to this heading">¶</a></h3>
 <p>Wrap subprocess or external program:</p>
@@ -544,7 +555,7 @@ This heuristic is specifically designed to:</p>
 <td><p>Low-dimensional (dim &lt; 20)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Gradient-free</p></td>
-<td><p>LBFGSB</p></td>
+<td><p>LBFGSB, LocalPenaltySearch</p></td>
 <td><p>When local structure suspected</p></td>
 </tr>
 </tbody>

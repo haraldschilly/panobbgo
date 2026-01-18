@@ -138,6 +138,12 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Nearby"><code class="docutils literal notranslate"><span class="pre">Nearby</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Nearby.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
 </ul>
@@ -476,6 +482,39 @@ Then, it randomly selects one point from inside such a cube.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LatinHypercube.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/latin_hypercube.html#LatinHypercube.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LatinHypercube.on_start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LocalPenaltySearch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'L-BFGS-B'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Heuristic that runs a local search using Scipy’s optimizers (e.g. L-BFGS-B, Nelder-Mead)
+on the penalized objective function provided by the strategy’s constraint handler.</p>
+<p>It runs in a separate process and communicates via Pipe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

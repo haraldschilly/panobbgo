@@ -71,6 +71,26 @@ class ConstraintHandler:
         """
         raise NotImplementedError
 
+    def get_penalty_value(self, result: Result) -> float:
+        """
+        Calculates a scalar penalty value for the result, combining objective and constraints.
+        This is useful for heuristics that need a single scalar to minimize (e.g. Scipy optimizers).
+
+        Args:
+            result (Result): The result to evaluate.
+
+        Returns:
+            float: Scalar penalty value (lower is better).
+        """
+        if result is None or result.fx is None:
+            return float('inf')
+
+        cv = result.cv if result.cv is not None else 0.0
+        # Default behavior: f(x) + large_penalty * cv
+        # Using 1000.0 as default rho if not specified
+        rho = getattr(self, 'rho', 1000.0)
+        return float(result.fx + rho * cv)
+
 
 class DefaultConstraintHandler(ConstraintHandler):
     """
@@ -191,6 +211,13 @@ class PenaltyConstraintHandler(ConstraintHandler):
 
         return p_new < p_old
 
+    def get_penalty_value(self, result: Result) -> float:
+        if result is None or result.fx is None:
+            return float('inf')
+
+        cv = result.cv if result.cv is not None else 0.0
+        return float(result.fx + self.rho * (cv ** self.exponent))
+
 
 class DynamicPenaltyConstraintHandler(ConstraintHandler):
     """
@@ -242,6 +269,14 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         p_new = new_result.fx + rho * (cv_new ** self.exponent)
 
         return p_new < p_old
+
+    def get_penalty_value(self, result: Result) -> float:
+        if result is None or result.fx is None:
+            return float('inf')
+
+        rho = self._get_current_rho()
+        cv = result.cv if result.cv is not None else 0.0
+        return float(result.fx + rho * (cv ** self.exponent))
 
 
 class AugmentedLagrangianConstraintHandler(ConstraintHandler):
@@ -350,6 +385,11 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         L_new = self._calculate_lagrangian(new_result)
 
         return L_new < L_old
+
+    def get_penalty_value(self, result: Result) -> float:
+        if result is None or result.fx is None:
+            return float('inf')
+        return float(self._calculate_lagrangian(result))
 
     def _calculate_lagrangian(self, result: Result):
         if result is None: return float('inf')

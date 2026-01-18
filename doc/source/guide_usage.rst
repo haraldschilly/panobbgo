@@ -304,6 +304,18 @@ This heuristic is specifically designed to:
    from panobbgo.heuristics import FeasibleSearch
    strategy.add(FeasibleSearch)
 
+LocalPenaltySearch Heuristic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For problems with constraints handled via penalties (e.g. Penalty or Augmented Lagrangian), the **LocalPenaltySearch** heuristic can be very effective. It uses Scipy's local optimizers (like L-BFGS-B or Nelder-Mead) to minimize the scalarized penalty function directly.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import LocalPenaltySearch
+
+   # Use L-BFGS-B on the penalized objective
+   strategy.add(LocalPenaltySearch, method="L-BFGS-B")
+
 Expensive External Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -374,7 +386,7 @@ A good portfolio balances exploration and exploitation:
      - QuadraticWLS
      - Low-dimensional (dim < 20)
    * - Gradient-free
-     - LBFGSB
+     - LBFGSB, LocalPenaltySearch
      - When local structure suspected
 
 Recommended Configurations

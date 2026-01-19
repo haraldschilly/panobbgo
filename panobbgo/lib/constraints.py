@@ -348,6 +348,9 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # If constraint violation has not decreased significantly, increase penalty
         current_cv_norm = best.cv  # This is norm of positive parts
 
+        # Store current mu for lambda update
+        current_mu = self.mu
+
         # We only increase penalty if we are still infeasible
         if current_cv_norm > 0:
             # Initialize last_cv_norm if it's the first time
@@ -364,7 +367,8 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # Update lambdas using the (potentially updated) mu
         # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
         # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec
-        new_lambdas = np.maximum(0, self.lambdas + self.mu * cv)
+        # WE use the mu that was active during the optimization (current_mu), not the new one.
+        new_lambdas = np.maximum(0, self.lambdas + current_mu * cv)
 
         self.lambdas = new_lambdas
 

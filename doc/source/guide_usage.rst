@@ -261,8 +261,9 @@ Override ``eval_constraints()`` to return violation vector:
    strategy.add(Center)
    strategy.add(Random)
    # Add FeasibleSearch to actively target feasible regions
-   from panobbgo.heuristics import FeasibleSearch
+   from panobbgo.heuristics import FeasibleSearch, ConstraintGradient
    strategy.add(FeasibleSearch)
+   strategy.add(ConstraintGradient)
    strategy.add(NelderMead)
    strategy.start()
 
@@ -303,6 +304,16 @@ This heuristic is specifically designed to:
 
    from panobbgo.heuristics import FeasibleSearch
    strategy.add(FeasibleSearch)
+
+ConstraintGradient Heuristic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The **ConstraintGradient** heuristic estimates the gradient of the constraint violation function using finite differences from recent evaluations (or neighbors). It uses this estimated gradient to perform a descent step towards the feasible region. This is particularly useful when constraint violations are smooth.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import ConstraintGradient
+   strategy.add(ConstraintGradient)
 
 LocalPenaltySearch Heuristic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -388,6 +399,9 @@ A good portfolio balances exploration and exploitation:
    * - Gradient-free
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected
+   * - Constraint Handling
+     - FeasibleSearch, ConstraintGradient
+     - When constraints are present
 
 Recommended Configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

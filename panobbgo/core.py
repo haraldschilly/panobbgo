@@ -959,7 +959,7 @@ class StrategyBase:
             errors.append(
                 "No active heuristics found. You must add at least one heuristic before starting optimization.\n"
                 "Example: strategy.add(Random)\n"
-                "Available heuristics: Center, Zero, Random, Extremal, LatinHypercube, Nearby, WeightedAverage, NelderMead, LBFGSB, QuadraticWlsModel"
+                "Available heuristics: Center, Zero, Random, Extremal, LatinHypercube, Nearby, WeightedAverage, NelderMead, LBFGSB, QuadraticWlsModel, FeasibleSearch, ConstraintGradient, LocalPenaltySearch, GaussianProcessHeuristic"
             )
 
         # Check for required analyzers

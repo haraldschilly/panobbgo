@@ -21,14 +21,14 @@ classifiers = [
 ]
 keywords = ["optimization", "blackbox", "stochastic", "noisy", "parallel", "distributed", "cluster"]
 dependencies = [
-    "numpy>=2.0",
-    "scipy>=1.15",
-    "matplotlib>=3.8",
-    "pandas>=2.2",
-    "scikit-learn>=1.5",
-    "statsmodels>=0.14",
-    "dask[distributed]>=2024.12",
-    "pyyaml>=6.0",
+    "numpy>=2.4.1",
+    "scipy>=1.17",
+    "matplotlib>=3.10",
+    "pandas>=2.3",
+    "scikit-learn>=1.8",
+    "statsmodels>=0.14.6",
+    "dask[distributed]>=2026.1.1",
+    "pyyaml>=6.0.3",
     "future",
     "rich>=14.2.0",
 ]
@@ -39,14 +39,14 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.0",
     "pytest-cov>=5.0",
     "pytest-benchmark>=4.0",
-    "flake8>=7.0",
-    "black>=24.0",
-    "ruff>=0.14",
-    "mypy>=1.10",
-    "pyright>=1.1",
+    "flake8>=7.3",
+    "black>=26.0",
+    "ruff>=0.14.13",
+    "mypy>=1.19",
+    "pyright>=1.1.408",
     "types-setuptools",
     "pandas-stubs",
     "sphinx>=7.0",

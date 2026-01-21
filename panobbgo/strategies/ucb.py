@@ -11,6 +11,13 @@ class StrategyUCB(StrategyBase):
     This strategy uses the Upper Confidence Bound (UCB1) algorithm to select
     heuristics. It balances exploration (trying less used heuristics) and
     exploitation (using heuristics that have performed well).
+
+    The Multi-Armed Bandit formulation here is:
+    - Arms: Heuristics
+    - Pull: Generating points from a heuristic
+    - Reward: 0 if point doesn't improve best; >0 if it improves best.
+      Reward calculation: R(x) = 1 - e^{-(improvement)}.
+    - Value Q_t(a): Average reward per point generated.
     """
 
     def __init__(self, problem, **kwargs):
@@ -20,8 +27,9 @@ class StrategyUCB(StrategyBase):
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        h.ucb_count = 0
-        h.ucb_total_reward = 0.0
+        # Initialize UCB statistics
+        h.ucb_count = 0        # Number of points generated (Selections)
+        h.ucb_total_reward = 0.0 # Accumulated reward
 
     def reward(self, best):
         """
@@ -29,71 +37,46 @@ class StrategyUCB(StrategyBase):
 
         Args:
         - ``best``: new (best) result
+
+        Returns:
+            float: Reward value in [0, 1]
         """
         if self.last_best is None:
-            # First point, can't really calculate improvement yet, or treat as infinite improvement
+            # First point found is treated as a baseline success (max reward)
             return 1.0
 
-        # Reward calculation similar to StrategyRewarding
-        # R(x) = 1 - e^{-(f_{best} - f(x))}
-        # However, 'best' here is the NEW best. self.last_best is the OLD best.
-        # Improvement is (self.last_best.fx - best.fx).
-
+        # Calculate improvement using constraint handler logic
         improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
+
+        # Bounded reward in [0, 1] based on improvement magnitude
         reward = 1.0 - np.exp(-1.0 * improvement)
-
-        # Update the heuristic that produced this point
-        h = self.heuristic(best.who)
-        if hasattr(h, "ucb_count"):
-            # Update running mean of rewards
-            # Q_{n+1} = Q_n + (R - Q_n) / (n + 1)
-            # But here ucb_count tracks selections, not necessarily successes.
-            # Usually UCB updates on selection. If we only update on success, we might have issues.
-            # In standard bandit, you select an arm, observe reward.
-            # Here, we select a heuristic to generate points. We might get points later.
-            # The reward comes when a result is processed.
-
-            # Let's accumulate reward to the heuristic.
-            # Note: This implementation simplifies things by updating value on success.
-            # But we should also account for selections that didn't yield a new best.
-            # StrategyRewarding discounts on emission.
-
-            # Let's try to stick to standard UCB as much as possible.
-            # Q_t(a) = average reward obtained from arm a
-            pass
 
         return reward
 
     def on_new_best(self, best):
+        """
+        Called when a new best solution is found.
+        Updates the reward statistics for the heuristic that generated the solution.
+        """
         reward = self.reward(best)
         self.last_best = best
 
         # Update the heuristic's statistics
-        h = self.heuristic(best.who)
-
-        # We need to be careful: if we only update on new_best, heuristics that never find new bests
-        # will have 0 reward. This is fine.
-        # But we need to count selections properly.
-
-        if hasattr(h, "ucb_total_reward"):
-            # Update average reward.
-            # We treat every point generated as a 'trial'.
-            # If a heuristic generates N points and one of them is a new best with reward R,
-            # effectively we have N trials, 1 success (reward R), N-1 failures (reward 0).
-            # But we don't know exactly when the failures happened vs success.
-            # A simple approximation: Add R to the total reward sum.
-            # Q_t(a) = Total Reward / Number of Selections
-
-            h.ucb_total_reward += reward
-            # h.ucb_count is updated in execute() when we ask for points.
+        try:
+            h = self.heuristic(best.who)
+            if hasattr(h, "ucb_total_reward"):
+                # Accumulate reward.
+                # Note: ucb_count is incremented in execute() when points are generated.
+                # Points that don't become 'best' contribute 0 to total_reward
+                # but increment ucb_count, thus lowering the average reward (Q value).
+                h.ucb_total_reward += reward
+                self.logger.info(f"Updated {h.name} reward: +{reward:.4f} -> {h.ucb_total_reward:.4f}")
+            else:
+                self.logger.warning(f"Heuristic {h.name} missing ucb_total_reward")
+        except KeyError:
+            self.logger.warning(f"Heuristic '{best.who}' not found in strategy.")
 
         self.logger.info("\u2318 %s | \u0394 %.7f %s (UCB)" % (best, reward, best.who))
-
-    def on_new_result(self, result):
-        # We might want to penalize or at least count evaluations that are not best?
-        # In standard UCB, every pull gives a reward. Here reward is sparse (only when improving).
-        # We can define reward = 0 for non-improving points.
-        pass
 
     def execute(self):
         points = []
@@ -101,7 +84,7 @@ class StrategyUCB(StrategyBase):
 
         if len(self.evaluators.outstanding) < target:
             # UCB Parameter c (exploration weight)
-            # A common value is sqrt(2), but can be tuned.
+            # Default to sqrt(2) approx 1.414
             c_val = getattr(self.config, "ucb_c", 1.414)
             try:
                 c = float(c_val) # type: ignore
@@ -119,28 +102,35 @@ class StrategyUCB(StrategyBase):
                 # Calculate UCB scores for all heuristics
                 scores = []
                 for h in heurs:
+                    # Ensure initialization if added dynamically or somehow missed
                     if not hasattr(h, "ucb_count"):
                         h.ucb_count = 0
                         h.ucb_total_reward = 0.0
 
                     if h.ucb_count == 0:
+                        # Infinite score for unselected arms to force exploration
                         score = float("inf")
                     else:
+                        # Q_t(a) = Average Reward
                         average_reward = h.ucb_total_reward / h.ucb_count
+                        # UCB1 exploration term
                         exploration_term = c * np.sqrt(
                             np.log(max(1, self.total_selections)) / h.ucb_count
                         )
                         score = average_reward + exploration_term
                     scores.append((score, h))
 
-                # Try heuristics in order of score
+                # Try heuristics in order of score (highest first)
                 scores.sort(key=lambda x: x[0], reverse=True)
 
                 for score, h in scores:
+                    # Request points from the selected heuristic
                     new_points = h.get_points(1)
                     if new_points:
-                        h.ucb_count += len(new_points)
-                        self.total_selections += len(new_points)
+                        # Update selection counts immediately
+                        count = len(new_points)
+                        h.ucb_count += count
+                        self.total_selections += count
                         return new_points
 
                 return []

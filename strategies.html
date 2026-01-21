@@ -115,7 +115,6 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.on_new_result"><code class="docutils literal notranslate">on_new_result()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.reward"><code class="docutils literal notranslate">reward()</span></code></a></li>
 </ul>
 </li>
@@ -244,6 +243,16 @@ scheme.</p>
 <p>This strategy uses the Upper Confidence Bound (UCB1) algorithm to select
 heuristics. It balances exploration (trying less used heuristics) and
 exploitation (using heuristics that have performed well).</p>
+<p>The Multi-Armed Bandit formulation here is:
+- Arms: Heuristics
+- Pull: Generating points from a heuristic
+- Reward: 0 if point doesn’t improve best; &gt;0 if it improves best.</p>
+<blockquote>
+<div><p>Reward calculation: R(x) = 1 - e^{-(improvement)}.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Value Q_t(a): Average reward per point generated.</p></li>
+</ul>
 <p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
 &#64;param parse_args:
@@ -268,12 +277,9 @@ exploitation (using heuristics that have performed well).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyUCB.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/ucb.html#StrategyUCB.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyUCB.on_new_best" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.strategies.StrategyUCB.on_new_result">
-<span class="sig-name descname"><span class="pre">on_new_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/ucb.html#StrategyUCB.on_new_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyUCB.on_new_result" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Called when a new best solution is found.
+Updates the reward statistics for the heuristic that generated the solution.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyUCB.reward">
@@ -281,6 +287,14 @@ exploitation (using heuristics that have performed well).</p>
 <dd><p>Calculate reward for a heuristic based on the improvement.</p>
 <p>Args:
 - <code class="docutils literal notranslate"><span class="pre">best</span></code>: new (best) result</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Reward value in [0, 1]</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>

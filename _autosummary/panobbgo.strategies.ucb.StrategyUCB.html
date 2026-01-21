@@ -140,6 +140,16 @@ data-aria-dark="Switch to auto color mode">
 <dd><p>This strategy uses the Upper Confidence Bound (UCB1) algorithm to select
 heuristics. It balances exploration (trying less used heuristics) and
 exploitation (using heuristics that have performed well).</p>
+<p>The Multi-Armed Bandit formulation here is:
+- Arms: Heuristics
+- Pull: Generating points from a heuristic
+- Reward: 0 if point doesn’t improve best; &gt;0 if it improves best.</p>
+<blockquote>
+<div><p>Reward calculation: R(x) = 1 - e^{-(improvement)}.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Value Q_t(a): Average reward per point generated.</p></li>
+</ul>
 <p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
 &#64;param parse_args:
@@ -191,18 +201,15 @@ exploitation (using heuristics that have performed well).</p>
 <td><p>Called when the Convergence analyzer detects convergence.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_best</span></code>(best)</p></td>
-<td><p></p></td>
+<td><p>Called when a new best solution is found.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_result</span></code>(result)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reward</span></code>(best)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reward</span></code>(best)</p></td>
 <td><p>Calculate reward for a heuristic based on the improvement.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">start</span></code>()</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">start</span></code>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_setup</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_setup</span></code>()</p></td>
 <td><p>Validate that the framework is properly set up before starting optimization.</p></td>
 </tr>
 </tbody>

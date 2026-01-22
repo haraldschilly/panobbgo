@@ -98,13 +98,16 @@ class NelderMead(Heuristic):
         # get worst point and it's index (to remove it)
         worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
 
-        # TODO f(x) values are available and could be used for weighting (or their rank number)
-        # weights = [ np.log1p(worst.fx - r.fx) for r in base ]
-        # weights = 1 + .1 * np.random.randn(len(base))
+        others = [p for i, p in enumerate(base) if i != worst_idx]
+        others_x = [p.x for p in others]
+
+        # f(x) values are available and could be used for weighting
+        weights = [np.log1p(worst.fx - r.fx) for r in others]
+        if sum(weights) < 1e-4:
+            weights = None  # fall back to normal average
 
         # Calculate centroid of other points
-        others_x = [p.x for i, p in enumerate(base) if i != worst_idx]
-        centroid = np.average(others_x, axis=0)  # , weights = weights)
+        centroid = np.average(others_x, axis=0, weights=weights)
         return worst, centroid
 
     def nelder_mead_sample(self, worst, centroid, scale=3, offset=0):

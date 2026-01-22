@@ -386,3 +386,19 @@ class HeuristicTests(PanobbgoTestCase):
         assert p.x[0] < 0.5
         assert p.x[1] < 0.5
         assert p in self.problem.box
+
+    def test_gaussian_process_norm_cdf(self):
+        """Test the _norm_cdf static method in GaussianProcessHeuristic."""
+        from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
+        import numpy as np
+
+        # Test scalar values
+        assert np.isclose(GaussianProcessHeuristic._norm_cdf(0), 0.5)
+        assert np.isclose(GaussianProcessHeuristic._norm_cdf(1.96), 0.9750021048517795)
+        assert np.isclose(GaussianProcessHeuristic._norm_cdf(-1.96), 0.024997895148220428)
+
+        # Test with a numpy array
+        x_values = np.array([-1.96, 0, 1.96])
+        cdf_values = GaussianProcessHeuristic._norm_cdf(x_values)
+        expected_values = np.array([0.024997895148220428, 0.5, 0.9750021048517795])
+        assert np.allclose(cdf_values, expected_values)

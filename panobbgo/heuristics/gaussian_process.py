@@ -27,6 +27,7 @@ to balance exploration and exploitation when selecting new evaluation points.
 from panobbgo.core import Heuristic
 import numpy as np
 from enum import Enum
+from scipy.stats import norm
 
 
 class AcquisitionFunction(Enum):
@@ -285,20 +286,4 @@ class GaussianProcessHeuristic(Heuristic):
     @staticmethod
     def _norm_cdf(x):
         """Standard normal cumulative distribution function."""
-        try:
-            from scipy.stats import norm
-
-            return norm.cdf(x)
-        except ImportError:
-            # Simple approximation for erf
-            a = 0.886226899
-            b = -1.645349621
-            c = 0.914624893
-            d = -0.140543331
-
-            x_abs = np.abs(x)
-            t = 1.0 / (1.0 + 0.5 * x_abs)
-            erf_approx = 1 - t * np.exp(
-                -(x_abs**2) + a * t + b * t**2 + c * t**3 + d * t**4
-            )
-            return 0.5 * (1 + np.sign(x) * erf_approx)
+        return norm.cdf(x)

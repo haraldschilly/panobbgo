@@ -22,6 +22,10 @@ from panobbgo.lib import Point, Result
 
 class HeuristicTests(PanobbgoTestCase):
 
+    def setUp(self):
+        super().setUp()
+        from panobbgo.lib.constraints import DefaultConstraintHandler
+        self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
 
     def test_random(self):
         from panobbgo.heuristics.random import Random
@@ -280,7 +284,14 @@ class HeuristicTests(PanobbgoTestCase):
 
         # Verify centroid calculation
         others_x = [p.x for i, p in enumerate(base) if i != worst_idx]
-        expected_centroid = np.average(others_x, axis=0)
+        # Recalculate weights as per implementation (using penalty values)
+        others = [p for i, p in enumerate(base) if i != worst_idx]
+        get_val = self.strategy.constraint_handler.get_penalty_value
+        worst_val = get_val(worst)
+        weights = [np.log1p(worst_val - get_val(r)) for r in others]
+        if sum(weights) < 1e-4:
+            weights = None
+        expected_centroid = np.average(others_x, axis=0, weights=weights)
         assert np.allclose(centroid, expected_centroid)
 
         # Test sampling phase

@@ -60,8 +60,9 @@ class NelderMead(Heuristic):
         ret = []  # list of results, which will be returned
         if len(results) < dim:
             return None
-        # sort the results by asc. f(x)
-        results = sorted(results, key=lambda p: p.fx)
+        # sort the results by asc. f(x) or penalty
+        get_val = self.strategy.constraint_handler.get_penalty_value
+        results = sorted(results, key=lambda p: get_val(p))
         # better? randomize results to diversify
         # from random import shuffle
         # shuffle(results)
@@ -95,14 +96,16 @@ class NelderMead(Heuristic):
         Calculates the worst point and the centroid of the remaining points
         from the given base.
         """
+        get_val = self.strategy.constraint_handler.get_penalty_value
         # get worst point and it's index (to remove it)
-        worst_idx, worst = max(enumerate(base), key=lambda _: _[1].fx)
+        worst_idx, worst = max(enumerate(base), key=lambda _: get_val(_[1]))
 
         others = [p for i, p in enumerate(base) if i != worst_idx]
         others_x = [p.x for p in others]
 
         # f(x) values are available and could be used for weighting
-        weights = [np.log1p(worst.fx - r.fx) for r in others]
+        worst_val = get_val(worst)
+        weights = [np.log1p(worst_val - get_val(r)) for r in others]
         if sum(weights) < 1e-4:
             weights = None  # fall back to normal average
 

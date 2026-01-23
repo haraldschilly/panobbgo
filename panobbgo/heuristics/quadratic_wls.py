@@ -101,7 +101,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
         # self.logger.debug("best_box.best: %s" % best_box.best)
         pointarray = np.r_[[r.x for r in best_box.results]]
         # self.logger.debug("pointarray: \n%s" % pointarray)
-        fx_vals = np.array([_.fx for _ in best_box.results])
+        get_val = self.strategy.constraint_handler.get_penalty_value
+        fx_vals = np.array([get_val(r) for r in best_box.results])
         self.pipe.send((pointarray, self.problem.box, best_box.best.x, fx_vals))
         sol = self.pipe.recv()
         # print 'solution:', sol

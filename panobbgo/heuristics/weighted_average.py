@@ -43,20 +43,22 @@ class WeightedAverage(Heuristic):
         # actual calculation
         import numpy as np
 
+        get_val = self.strategy.constraint_handler.get_penalty_value
         xx = np.array([r.x for r in box.results])
-        yy = np.array([r.fx for r in box.results])
-        weights = np.log1p(yy - best.fx)
+        yy = np.array([get_val(r) for r in box.results])
+        best_val = get_val(best)
+        weights = np.log1p(yy - best_val)
         weights = -weights + (1 + self.k) * weights.max()
         # weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
         # self.logger.info("weights: %s" % zip(weights, yy))
         self.clear_output()
-        ret = np.average(xx, axis=0, weights=weights)
+        avg_ret = np.average(xx, axis=0, weights=weights)
         std = xx.std(axis=0)
         # std must be > 0
         std[std < self.minstd] = self.minstd
         # self.logger.info("std: %s" % std)
         for i in range(self.cap):
-            ret = ret.copy()
+            ret = avg_ret.copy()
             ret += (float(i) / self.cap) * np.random.normal(0, std)
             if np.linalg.norm(best.x - ret) > 0.01:
                 # self.logger.info("out: %s" % ret)

@@ -59,12 +59,12 @@ class QuadraticWlsModel(HeuristicSubprocess):
             # import statsmodels.formula.api as sm_formula
             data = {}
             for i in range(dim):
-                data["x%s" % i] = [x[i] for x in points]
+                data["x%s" % i] = points[:, i]
             for i in range(dim):
                 for j in range(i + 1, dim):
-                    data["x%s:x%s" % (i, j)] = [x[i] * x[j] for x in points]
+                    data["x%s:x%s" % (i, j)] = points[:, i] * points[:, j]
             for i in range(dim):
-                data["x%s^2" % i] = [x[i] ** 2 for x in points]
+                data["x%s^2" % i] = points[:, i] ** 2
             data.update({"Intercept": np.ones(len(points))})
             X = DataFrame(data)
             # X.columns =

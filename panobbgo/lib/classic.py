@@ -868,13 +868,13 @@ class Trigonometric(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        ret = 0
         n = self.dim
-        for i in range(n):
-            tmp = i * (1 - np.cos(x[i])) - np.sin(x[i])
-            fi = n - np.sum(np.cos(x) - tmp)
-            ret += fi ** 2
-        return ret
+        cos_x = np.cos(x)
+        sum_cos_x = np.sum(cos_x)
+        indices = np.arange(n)
+        tmp = indices * (1 - cos_x) - np.sin(x)
+        fi = n - sum_cos_x + n * tmp
+        return np.sum(fi ** 2)
 
 
 class SumDifferentPower(Problem):

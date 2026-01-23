@@ -200,143 +200,146 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="60">        <span class="n">ret</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># list of results, which will be returned</span>
 </span><span data-line="61">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">dim</span><span class="p">:</span>
 </span><span data-line="62">            <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="63">        <span class="c1"># sort the results by asc. f(x)</span>
-</span><span data-line="64">        <span class="n">results</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
-</span><span data-line="65">        <span class="c1"># better? randomize results to diversify</span>
-</span><span data-line="66">        <span class="c1"># from random import shuffle</span>
-</span><span data-line="67">        <span class="c1"># shuffle(results)</span>
-</span><span data-line="68">        <span class="n">first</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="69">        <span class="n">base</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="70">        <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
-</span><span data-line="71">        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="72">            <span class="c1"># Avoid division by zero or near-zero in Gram-Schmidt orthogonalization</span>
-</span><span data-line="73">            <span class="n">projections</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="74">            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">base</span><span class="p">:</span>
-</span><span data-line="75">                <span class="n">v_norm_sq</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-</span><span data-line="76">                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v_norm_sq</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">:</span>  <span class="c1"># Check for near-zero norms</span>
-</span><span data-line="77">                    <span class="n">projections</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_norm_sq</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
-</span><span data-line="78">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="79">                    <span class="c1"># Skip degenerate vectors</span>
-</span><span data-line="80">                    <span class="k">continue</span>
-</span><span data-line="81">            <span class="n">w</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">projections</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="82">            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">):</span>
-</span><span data-line="83">                <span class="n">base</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
-</span><span data-line="84">                <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-</span><span data-line="85">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">dim</span><span class="p">:</span>
-</span><span data-line="86">                    <span class="k">return</span> <span class="n">ret</span>
-</span><span data-line="87">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="88">                <span class="c1"># self.logger.info(&quot;below tol: %s (base: %s)&quot; % (np.abs(w),</span>
-</span><span data-line="89">                <span class="c1"># base))</span>
-</span><span data-line="90">                <span class="k">pass</span>
-</span><span data-line="91">        <span class="k">return</span> <span class="kc">None</span></div>
+</span><span data-line="63">        <span class="c1"># sort the results by asc. f(x) or penalty</span>
+</span><span data-line="64">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
+</span><span data-line="65">        <span class="n">results</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">get_val</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+</span><span data-line="66">        <span class="c1"># better? randomize results to diversify</span>
+</span><span data-line="67">        <span class="c1"># from random import shuffle</span>
+</span><span data-line="68">        <span class="c1"># shuffle(results)</span>
+</span><span data-line="69">        <span class="n">first</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="70">        <span class="n">base</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="71">        <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+</span><span data-line="72">        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="73">            <span class="c1"># Avoid division by zero or near-zero in Gram-Schmidt orthogonalization</span>
+</span><span data-line="74">            <span class="n">projections</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="75">            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">base</span><span class="p">:</span>
+</span><span data-line="76">                <span class="n">v_norm_sq</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span data-line="77">                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v_norm_sq</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">:</span>  <span class="c1"># Check for near-zero norms</span>
+</span><span data-line="78">                    <span class="n">projections</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">v_norm_sq</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span>
+</span><span data-line="79">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="80">                    <span class="c1"># Skip degenerate vectors</span>
+</span><span data-line="81">                    <span class="k">continue</span>
+</span><span data-line="82">            <span class="n">w</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">projections</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="83">            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">):</span>
+</span><span data-line="84">                <span class="n">base</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+</span><span data-line="85">                <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+</span><span data-line="86">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">dim</span><span class="p">:</span>
+</span><span data-line="87">                    <span class="k">return</span> <span class="n">ret</span>
+</span><span data-line="88">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="89">                <span class="c1"># self.logger.info(&quot;below tol: %s (base: %s)&quot; % (np.abs(w),</span>
+</span><span data-line="90">                <span class="c1"># base))</span>
+</span><span data-line="91">                <span class="k">pass</span>
+</span><span data-line="92">        <span class="k">return</span> <span class="kc">None</span></div>
 
-</span><span data-line="92">
+</span><span data-line="93">
 <div class="viewcode-block" id="NelderMead.nelder_mead_init">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead_init">[docs]</a>
-</span><span data-line="93">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">):</span>
-</span><span data-line="94"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="95"><span class="sd">        Calculates the worst point and the centroid of the remaining points</span>
-</span><span data-line="96"><span class="sd">        from the given base.</span>
-</span><span data-line="97"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="98">        <span class="c1"># get worst point and it&#39;s index (to remove it)</span>
-</span><span data-line="99">        <span class="n">worst_idx</span><span class="p">,</span> <span class="n">worst</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">base</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
-</span><span data-line="100">
-</span><span data-line="101">        <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">worst_idx</span><span class="p">]</span>
-</span><span data-line="102">        <span class="n">others_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
-</span><span data-line="103">
-</span><span data-line="104">        <span class="c1"># f(x) values are available and could be used for weighting</span>
-</span><span data-line="105">        <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">worst</span><span class="o">.</span><span class="n">fx</span> <span class="o">-</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
-</span><span data-line="106">        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">:</span>
-</span><span data-line="107">            <span class="n">weights</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># fall back to normal average</span>
-</span><span data-line="108">
-</span><span data-line="109">        <span class="c1"># Calculate centroid of other points</span>
-</span><span data-line="110">        <span class="n">centroid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">others_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
-</span><span data-line="111">        <span class="k">return</span> <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span></div>
+</span><span data-line="94">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">):</span>
+</span><span data-line="95"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="96"><span class="sd">        Calculates the worst point and the centroid of the remaining points</span>
+</span><span data-line="97"><span class="sd">        from the given base.</span>
+</span><span data-line="98"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="99">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
+</span><span data-line="100">        <span class="c1"># get worst point and it&#39;s index (to remove it)</span>
+</span><span data-line="101">        <span class="n">worst_idx</span><span class="p">,</span> <span class="n">worst</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">base</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">get_val</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</span><span data-line="102">
+</span><span data-line="103">        <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">worst_idx</span><span class="p">]</span>
+</span><span data-line="104">        <span class="n">others_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
+</span><span data-line="105">
+</span><span data-line="106">        <span class="c1"># f(x) values are available and could be used for weighting</span>
+</span><span data-line="107">        <span class="n">worst_val</span> <span class="o">=</span> <span class="n">get_val</span><span class="p">(</span><span class="n">worst</span><span class="p">)</span>
+</span><span data-line="108">        <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">worst_val</span> <span class="o">-</span> <span class="n">get_val</span><span class="p">(</span><span class="n">r</span><span class="p">))</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">others</span><span class="p">]</span>
+</span><span data-line="109">        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+</span><span data-line="110">            <span class="n">weights</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># fall back to normal average</span>
+</span><span data-line="111">
+</span><span data-line="112">        <span class="c1"># Calculate centroid of other points</span>
+</span><span data-line="113">        <span class="n">centroid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">others_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+</span><span data-line="114">        <span class="k">return</span> <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span></div>
 
-</span><span data-line="112">
+</span><span data-line="115">
 <div class="viewcode-block" id="NelderMead.nelder_mead_sample">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead_sample">[docs]</a>
-</span><span data-line="113">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="114"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="115"><span class="sd">        Generates a new randomized search point based on worst point and centroid.</span>
-</span><span data-line="116"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="117">        <span class="n">factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rayleigh</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span>
-</span><span data-line="118">        <span class="k">return</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">centroid</span> <span class="o">-</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span><span class="p">)</span></div>
+</span><span data-line="116">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span><span data-line="117"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="118"><span class="sd">        Generates a new randomized search point based on worst point and centroid.</span>
+</span><span data-line="119"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="120">        <span class="n">factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rayleigh</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span>
+</span><span data-line="121">        <span class="k">return</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">centroid</span> <span class="o">-</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span><span class="p">)</span></div>
 
-</span><span data-line="119">
+</span><span data-line="122">
 <div class="viewcode-block" id="NelderMead.nelder_mead">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead">[docs]</a>
-</span><span data-line="120">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="121"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="122"><span class="sd">        Retuns a new *randomized* search point for the given set of results (``base``),</span>
-</span><span data-line="123"><span class="sd">        which are linearly independent enough to form a orthonormal base,</span>
-</span><span data-line="124"><span class="sd">        using the Nelder-Mead Method.</span>
-</span><span data-line="125">
-</span><span data-line="126"><span class="sd">        Optional Arguments:</span>
-</span><span data-line="127">
-</span><span data-line="128"><span class="sd">        - ``scale``: Used when sampling the new points via the :func:`~numpy.random.rayleigh` method.</span>
-</span><span data-line="129"><span class="sd">        - ``offset``: This is subtracted from the sample factor; i.e. negative</span>
-</span><span data-line="130"><span class="sd">          values account for the &quot;contraction&quot;.</span>
-</span><span data-line="131"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="132">        <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-</span><span data-line="133">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+</span><span data-line="123">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span><span data-line="124"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="125"><span class="sd">        Retuns a new *randomized* search point for the given set of results (``base``),</span>
+</span><span data-line="126"><span class="sd">        which are linearly independent enough to form a orthonormal base,</span>
+</span><span data-line="127"><span class="sd">        using the Nelder-Mead Method.</span>
+</span><span data-line="128">
+</span><span data-line="129"><span class="sd">        Optional Arguments:</span>
+</span><span data-line="130">
+</span><span data-line="131"><span class="sd">        - ``scale``: Used when sampling the new points via the :func:`~numpy.random.rayleigh` method.</span>
+</span><span data-line="132"><span class="sd">        - ``offset``: This is subtracted from the sample factor; i.e. negative</span>
+</span><span data-line="133"><span class="sd">          values account for the &quot;contraction&quot;.</span>
+</span><span data-line="134"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="135">        <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+</span><span data-line="136">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
 
-</span><span data-line="134">
+</span><span data-line="137">
 <div class="viewcode-block" id="NelderMead.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_start">[docs]</a>
-</span><span data-line="135">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="136"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="137"><span class="sd">        Algorithm Outline:</span>
-</span><span data-line="138">
-</span><span data-line="139"><span class="sd">        #. Wait until a first or new best box has been found.</span>
-</span><span data-line="140">
-</span><span data-line="141"><span class="sd">        #. Clear the ``got_bb`` flag, later on we use this to be notified</span>
-</span><span data-line="142"><span class="sd">           about new best boxes via :meth:`.on_new_best_box`.</span>
+</span><span data-line="138">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="139"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="140"><span class="sd">        Algorithm Outline:</span>
+</span><span data-line="141">
+</span><span data-line="142"><span class="sd">        #. Wait until a first or new best box has been found.</span>
 </span><span data-line="143">
-</span><span data-line="144"><span class="sd">        #. ``bb`` is the currently used best box, it might be ``None`` if</span>
-</span><span data-line="145"><span class="sd">           we have to look up the parents when searching for more result points.</span>
+</span><span data-line="144"><span class="sd">        #. Clear the ``got_bb`` flag, later on we use this to be notified</span>
+</span><span data-line="145"><span class="sd">           about new best boxes via :meth:`.on_new_best_box`.</span>
 </span><span data-line="146">
-</span><span data-line="147"><span class="sd">        #. Inside the outer while, we try to find a suiteable base via :meth:`.gram_schmidt`.</span>
-</span><span data-line="148">
-</span><span data-line="149"><span class="sd">        #. If we got such a base, we generate new search points via :meth:`.nelder_mead`</span>
-</span><span data-line="150"><span class="sd">           until the queue is full (which blocks) or there is a new best box (breaks inner loop).</span>
+</span><span data-line="147"><span class="sd">        #. ``bb`` is the currently used best box, it might be ``None`` if</span>
+</span><span data-line="148"><span class="sd">           we have to look up the parents when searching for more result points.</span>
+</span><span data-line="149">
+</span><span data-line="150"><span class="sd">        #. Inside the outer while, we try to find a suiteable base via :meth:`.gram_schmidt`.</span>
 </span><span data-line="151">
-</span><span data-line="152"><span class="sd">        #. The ``break`` exits the outer while and we start fresh with the new best box.</span>
-</span><span data-line="153"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="154">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="155">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="156">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
-</span><span data-line="157">            <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
-</span><span data-line="158">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="159">            <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="160">                <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="161">                <span class="k">if</span> <span class="n">base</span><span class="p">:</span>  <span class="c1"># was able to find a base</span>
-</span><span data-line="162">                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="163">                        <span class="k">break</span>
-</span><span data-line="164">
-</span><span data-line="165">                    <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-</span><span data-line="166">
-</span><span data-line="167">                    <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
-</span><span data-line="168">                        <span class="n">new_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">)</span>
-</span><span data-line="169">                        <span class="c1"># self.logger.info(&quot;new point: %s&quot; % new_point)</span>
-</span><span data-line="170">                        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_point</span><span class="p">)</span>
-</span><span data-line="171">                    <span class="k">break</span>
-</span><span data-line="172">                <span class="k">else</span><span class="p">:</span>  <span class="c1"># not able to find base, try with parent of current best box</span>
-</span><span data-line="173">                    <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="174">                    <span class="k">if</span> <span class="n">bb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="175">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
+</span><span data-line="152"><span class="sd">        #. If we got such a base, we generate new search points via :meth:`.nelder_mead`</span>
+</span><span data-line="153"><span class="sd">           until the queue is full (which blocks) or there is a new best box (breaks inner loop).</span>
+</span><span data-line="154">
+</span><span data-line="155"><span class="sd">        #. The ``break`` exits the outer while and we start fresh with the new best box.</span>
+</span><span data-line="156"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="157">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="158">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="159">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+</span><span data-line="160">            <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
+</span><span data-line="161">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="162">            <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="163">                <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="164">                <span class="k">if</span> <span class="n">base</span><span class="p">:</span>  <span class="c1"># was able to find a base</span>
+</span><span data-line="165">                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="166">                        <span class="k">break</span>
+</span><span data-line="167">
+</span><span data-line="168">                    <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+</span><span data-line="169">
+</span><span data-line="170">                    <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+</span><span data-line="171">                        <span class="n">new_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">)</span>
+</span><span data-line="172">                        <span class="c1"># self.logger.info(&quot;new point: %s&quot; % new_point)</span>
+</span><span data-line="173">                        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_point</span><span class="p">)</span>
+</span><span data-line="174">                    <span class="k">break</span>
+</span><span data-line="175">                <span class="k">else</span><span class="p">:</span>  <span class="c1"># not able to find base, try with parent of current best box</span>
+</span><span data-line="176">                    <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="177">                    <span class="k">if</span> <span class="n">bb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="178">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
 
-</span><span data-line="176">
+</span><span data-line="179">
 <div class="viewcode-block" id="NelderMead.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
-</span><span data-line="177">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="178"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="179"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
-</span><span data-line="180"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
-</span><span data-line="181"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="182">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
-</span><span data-line="183">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
-</span><span data-line="184">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
+</span><span data-line="180">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
+</span><span data-line="181"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="182"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
+</span><span data-line="183"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
+</span><span data-line="184"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="185">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
+</span><span data-line="186">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
 </div>
 
 </span></pre></div>

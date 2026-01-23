@@ -45,18 +45,16 @@ pip install -e ".[dev]"
 
 ## Dependencies
 
-* Python &ge; 3.8
-* NumPy &ge; 2.0
-* SciPy &ge; 1.16
-* matplotlib &ge; 3.0
-* pandas &ge; 2.0
-* statsmodels &ge; 0.14
-* Dask &ge; 2023.0
+Panobbgo requires Python 3.11 or later. Core dependencies include:
 
-Development dependencies:
-* pytest &ge; 9.0
-* pytest-cov &ge; 7.0
-* black, flake8, mypy
+* NumPy, SciPy, Pandas (Data processing)
+* Matplotlib (Visualization)
+* Statsmodels, Scikit-learn (Statistical models)
+* Dask (Parallel computing)
+
+For a complete and up-to-date list of dependencies with version requirements, please refer to [pyproject.toml](pyproject.toml).
+
+Development dependencies include pytest, flake8, black, mypy, and others. See the `[project.optional-dependencies]` section in `pyproject.toml`.
 
 ## Running Tests
 

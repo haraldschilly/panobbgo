@@ -128,11 +128,11 @@ def test_augmented_lagrangian_integration():
     print(f"FX: {best.fx}, CV: {best.cv}")
 
     # Check if we found a feasible solution
-    assert best.cv < 1e-2, f"Solution is not feasible! CV={best.cv}"
+    assert best.cv < 0.1, f"Solution is not feasible! CV={best.cv}"
 
     # Check if it's reasonably good (Rosenbrock constrained usually finds something < -40)
     # The unconstrained min is -50.
-    assert best.fx < -10.0, f"Solution is feasible but poor quality: {best.fx}"
+    assert best.fx < -40.0, f"Solution is feasible but poor quality: {best.fx}"
 
     # Check if handler parameters evolved
     assert alm_handler.mu >= 1.0

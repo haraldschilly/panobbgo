@@ -33,11 +33,6 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
     @staticmethod
     def subprocess(pipe):
-        import numpy as np
-        from pandas import DataFrame
-        import statsmodels.api as sm
-        from scipy.optimize import fmin_l_bfgs_b
-
         def predict(xx):
             """
             helper for the while loop:
@@ -57,15 +52,19 @@ class QuadraticWlsModel(HeuristicSubprocess):
             points, bounds, best_point, fx_vals = pipe.recv()
             dim = points.shape[1]
 
+            import numpy as np
+            from pandas import DataFrame
+            import statsmodels.api as sm
+
             # import statsmodels.formula.api as sm_formula
             data = {}
             for i in range(dim):
-                data["x%s" % i] = points[:, i]
+                data["x%s" % i] = [x[i] for x in points]
             for i in range(dim):
                 for j in range(i + 1, dim):
-                    data["x%s:x%s" % (i, j)] = points[:, i] * points[:, j]
+                    data["x%s:x%s" % (i, j)] = [x[i] * x[j] for x in points]
             for i in range(dim):
-                data["x%s^2" % i] = points[:, i] ** 2
+                data["x%s^2" % i] = [x[i] ** 2 for x in points]
             data.update({"Intercept": np.ones(len(points))})
             X = DataFrame(data)
             # X.columns =
@@ -88,6 +87,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
             result = model.fit()
 
             # optimize predict with x \in bounds
+            from scipy.optimize import fmin_l_bfgs_b
 
             sol, _, _ = fmin_l_bfgs_b(
                 predict, np.zeros(dim), bounds=bounds, approx_grad=True

@@ -399,19 +399,19 @@ new results by updating the model and suggesting new points.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>strategy</strong> – The optimization strategy instance</p></li>
 <li><p><strong>acquisition_func</strong> – Acquisition function to use</p></li>
-<li><p><strong>kappa</strong> – Exploration parameter for UCB (default: 1.96 for ~95% confidence)</p></li>
+<li><p><strong>kappa</strong> – Exploration param for UCB (default: 1.96, ~95% confidence)</p></li>
 <li><p><strong>xi</strong> – Exploration parameter for EI/PI (default: 0.01)</p></li>
-<li><p><strong>n_restarts</strong> – Number of random restarts for optimization (default: 10)</p></li>
+<li><p><strong>n_restarts</strong> – Number of random restarts for opt (default: 10)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_new_results" title="Link to this definition">¶</a></dt>
-<dd><p>Update the GP model when new results are available and suggest new points.</p>
+<dd><p>Update GP model when new results are available.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>results</strong> – List of Result objects from recent evaluations</p>
+<dd class="field-odd"><p><strong>results</strong> – List of Result objects</p>
 </dd>
 </dl>
 </dd></dl>

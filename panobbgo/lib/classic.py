@@ -866,13 +866,13 @@ class Trigonometric(Problem):
     def __init__(self, dims, box=None, **kwargs):
         box = box or [(-1, 1)] * dims
         Problem.__init__(self, box, **kwargs)
+        self.indices = np.arange(dims, dtype=np.float64)
 
     def eval(self, x):
         n = self.dim
         cos_x = np.cos(x)
         sum_cos_x = np.sum(cos_x)
-        indices = np.arange(n)
-        tmp = indices * (1 - cos_x) - np.sin(x)
+        tmp = self.indices * (1 - cos_x) - np.sin(x)
         fi = n - sum_cos_x + n * tmp
         return np.sum(fi ** 2)
 

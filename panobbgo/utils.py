@@ -21,6 +21,7 @@ Some utility functions, will move eventually.
 """
 
 import logging
+import numpy as np
 
 
 class ColoredFormatter(logging.Formatter):
@@ -147,8 +148,6 @@ def is_right(p0, p1, ptest):
 
       - p0, p1, ptest: :class:`numpy.ndarray`.
     """
-    import numpy as np
-
     v1 = p1 - p0
     v2 = ptest - p0
     return np.linalg.det(np.vstack([v1, v2])) < 0
@@ -218,7 +217,6 @@ class memoize:
 
         # Let's handle unhashable arguments gracefully by skipping caching or converting
         key_args = []
-        import numpy as np
 
         for arg in args[1:]:
              if isinstance(arg, np.ndarray):
@@ -328,7 +326,6 @@ class PanobbgoTestCase(unittest.TestCase):
         self.strategy = self.init_strategy()
 
     def random_results(self, dim, N, pcv=0.0):
-        import numpy as np
         import numpy.random as rnd
         from panobbgo.lib import Result, Point
 

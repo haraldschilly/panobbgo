@@ -27,7 +27,8 @@ to balance exploration and exploitation when selecting new evaluation points.
 from panobbgo.core import Heuristic
 import numpy as np
 from enum import Enum
-from scipy.stats import norm
+from scipy.special import ndtr
+from scipy.optimize import minimize
 
 
 class AcquisitionFunction(Enum):
@@ -199,7 +200,6 @@ class GaussianProcessHeuristic(Heuristic):
         Returns:
             Best candidate point found, or None if optimization fails
         """
-        from scipy.optimize import minimize
 
         def acquisition(x):
             """Evaluate acquisition function at point x."""
@@ -314,4 +314,4 @@ class GaussianProcessHeuristic(Heuristic):
     @staticmethod
     def _norm_cdf(x):
         """Standard normal cumulative distribution function."""
-        return norm.cdf(x)
+        return ndtr(x)

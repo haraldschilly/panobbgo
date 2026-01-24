@@ -70,9 +70,9 @@ class GaussianProcessHeuristic(Heuristic):
         Args:
             strategy: The optimization strategy instance
             acquisition_func: Acquisition function to use
-            kappa: Exploration parameter for UCB (default: 1.96 for ~95% confidence)
+            kappa: Exploration param for UCB (default: 1.96, ~95% confidence)
             xi: Exploration parameter for EI/PI (default: 0.01)
-            n_restarts: Number of random restarts for optimization (default: 10)
+            n_restarts: Number of random restarts for opt (default: 10)
         """
         super().__init__(strategy)
         self.logger = self.config.get_logger("H:GP")
@@ -95,17 +95,33 @@ class GaussianProcessHeuristic(Heuristic):
 
     def on_new_results(self, results):
         """
-        Update the GP model when new results are available and suggest new points.
+        Update GP model when new results are available.
 
         Args:
-            results: List of Result objects from recent evaluations
+            results: List of Result objects
         """
         if not results:
             return
 
-        # Update training data with new results
-        new_X = np.array([r.x for r in results])
-        new_y = np.array([r.fx for r in results])
+        # Use constraint handler to get penalty values (fx + penalty)
+        # This handles constrained optimization by scalarizing the problem
+        get_val = self.strategy.constraint_handler.get_penalty_value
+
+        new_X_list = []
+        new_y_list = []
+
+        for r in results:
+            val = get_val(r)
+            # Filter out invalid values (inf, NaN) which can break GP
+            if np.isfinite(val):
+                new_X_list.append(r.x)
+                new_y_list.append(val)
+
+        if not new_X_list:
+            return
+
+        new_X = np.array(new_X_list)
+        new_y = np.array(new_y_list)
 
         if self.X_train is None:
             self.X_train = new_X
@@ -116,7 +132,8 @@ class GaussianProcessHeuristic(Heuristic):
 
         self.best_y = np.min(self.y_train)
 
-        if len(self.y_train) < 3:  # Need at least a few points for meaningful GP
+        if len(self.y_train) < 3:
+            # Need at least a few points for meaningful GP
             return
 
         # Fit GP model
@@ -144,11 +161,14 @@ class GaussianProcessHeuristic(Heuristic):
 
             if self.X_train is not None:
                 self.gp_model.fit(self.X_train, self.y_train)
-                self.logger.debug(f"GP model fitted with {len(self.X_train)} points")
+                n_points = len(self.X_train)
+                self.logger.debug(
+                    "GP model fitted with %d points" % n_points
+                )
 
         except ImportError:
             self.logger.error(
-                "scikit-learn not available. Install with: pip install scikit-learn"
+                "scikit-learn not available. Install with: pip install scikit-learn"  # noqa: E501
             )
             raise
 
@@ -184,13 +204,18 @@ class GaussianProcessHeuristic(Heuristic):
         def acquisition(x):
             """Evaluate acquisition function at point x."""
             x = np.atleast_2d(x)
-            return -self._evaluate_acquisition(x)[0]  # Negative for minimization
+            # Negative for minimization
+            return -self._evaluate_acquisition(x)[0]
 
         # Generate random starting points
         bounds = [(low, high) for low, high in self.problem.box.box]
         starts = []
         for _ in range(self.n_restarts):
-            start = np.array([np.random.uniform(low, high) for low, high in bounds])
+            s = [
+                np.random.uniform(low_val, high_val)
+                for low_val, high_val in bounds
+            ]
+            start = np.array(s)
             starts.append(start)
 
         # Also try current best point as start
@@ -247,7 +272,9 @@ class GaussianProcessHeuristic(Heuristic):
         elif self.acquisition_func == AcquisitionFunction.PI:
             return self._probability_of_improvement(y_pred, y_std)
         else:
-            raise ValueError(f"Unknown acquisition function: {self.acquisition_func}")
+            raise ValueError(
+                f"Unknown acquisition function: {self.acquisition_func}"
+            )
 
     def _expected_improvement(self, y_pred, y_std):
         """
@@ -258,7 +285,8 @@ class GaussianProcessHeuristic(Heuristic):
         """
         with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
-            ei = (self.best_y - y_pred) * self._norm_cdf(z) + y_std * self._norm_pdf(z)
+            ei = (self.best_y - y_pred) * self._norm_cdf(z) + \
+                y_std * self._norm_pdf(z)
             ei[y_std == 0] = 0.0  # Handle zero variance
             return ei
 

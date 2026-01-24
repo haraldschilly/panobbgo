@@ -38,12 +38,7 @@ jobs:
       - name: Run pytest
         run: |
           uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
   lint:
     runs-on: ubuntu-latest

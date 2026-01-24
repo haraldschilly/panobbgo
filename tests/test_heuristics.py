@@ -222,7 +222,7 @@ class HeuristicTests(PanobbgoTestCase):
         gp.on_new_results([])
 
         # Test with mock results but insufficient for GP
-        mock_results = [Result(Point([0.1, 0.1], "test"), 1.0, 0.0)]
+        mock_results = [Result(Point([0.1, 0.1], "test"), 1.0, cv_vec=None)]
         gp.on_new_results(mock_results)
 
     def test_weighted_average(self):

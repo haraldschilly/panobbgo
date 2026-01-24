@@ -33,6 +33,11 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
     @staticmethod
     def subprocess(pipe):
+        import numpy as np
+        from pandas import DataFrame
+        import statsmodels.api as sm
+        from scipy.optimize import fmin_l_bfgs_b
+
         def predict(xx):
             """
             helper for the while loop:
@@ -51,10 +56,6 @@ class QuadraticWlsModel(HeuristicSubprocess):
         while True:
             points, bounds, best_point, fx_vals = pipe.recv()
             dim = points.shape[1]
-
-            import numpy as np
-            from pandas import DataFrame
-            import statsmodels.api as sm
 
             # import statsmodels.formula.api as sm_formula
             data = {}
@@ -87,7 +88,6 @@ class QuadraticWlsModel(HeuristicSubprocess):
             result = model.fit()
 
             # optimize predict with x \in bounds
-            from scipy.optimize import fmin_l_bfgs_b
 
             sol, _, _ = fmin_l_bfgs_b(
                 predict, np.zeros(dim), bounds=bounds, approx_grad=True

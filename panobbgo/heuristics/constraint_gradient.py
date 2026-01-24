@@ -87,15 +87,21 @@ class ConstraintGradient(Heuristic):
         if results_container is None or len(results_container) == 0:
             return
 
-        candidates = []
+        # Refactored for vectorized processing
+        X_candidates = None
+        cv_candidates = None
 
         # Handle different result container types
         if isinstance(results_container, list):
             # Test/Legacy case: results_container is a list of Result objects
-            # Use last 100 results
             subset = results_container[-100:]
-            for r in subset:
-                candidates.append((r.x, r.cv))
+            if not subset:
+                return
+            try:
+                X_candidates = np.array([r.x for r in subset], dtype=float)
+                cv_candidates = np.array([r.cv for r in subset], dtype=float)
+            except Exception:
+                return
         elif hasattr(results_container, 'results'):
              # Production case: Results object wrapping a DataFrame
             df = results_container.results
@@ -116,38 +122,48 @@ class ConstraintGradient(Heuristic):
                 # So `cv` scalar is 3rd from end.
                 cv_values = df.iloc[start_idx:, -3].values
 
-                for i in range(len(X_subset)):
-                    xi = X_subset[i]
-                    # Ensure xi is float array
-                    xi = np.array(xi, dtype=float)
-                    cvi = float(cv_values[i])
-                    candidates.append((xi, cvi))
+                X_candidates = np.array(X_subset, dtype=float)
+                cv_candidates = np.array(cv_values, dtype=float)
             except Exception:
                 # Fallback or fail gracefully
                 return
         else:
             return
 
+        if X_candidates is None or len(X_candidates) == 0:
+            return
+
         # Filter for points close to x
-        # Compute distances
-        dists = []
-        for xi, cvi in candidates:
-            d = np.linalg.norm(xi - x)
-            if d > 1e-9: # Exclude the point itself
-                dists.append((d, xi, cvi))
+        # Vectorized distance calculation
+        diffs = X_candidates - x
+        dists = np.linalg.norm(diffs, axis=1)
+
+        # Exclude the point itself (dist <= 1e-9)
+        mask = dists > 1e-9
+
+        valid_dists = dists[mask]
+        valid_X = X_candidates[mask]
+        valid_cv = cv_candidates[mask]
 
         k = dim + 1
-        dists.sort(key=lambda x: x[0])
-        neighbors = dists[:k]
-
-        if len(neighbors) < k:
+        if len(valid_dists) < k:
             return
+
+        # Find k nearest neighbors
+        # partial sort (argpartition) is faster than full sort
+        # We want indices of k smallest distances
+        # Note: argpartition puts the kth element in sorted position,
+        # and all smaller elements before it.
+        idx = np.argpartition(valid_dists, k-1)[:k]
+
+        neighbors_X = valid_X[idx]
+        neighbors_cv = valid_cv[idx]
 
         # Prepare for Linear Regression: X * w = y
         # X is (k, dim), y is (k,)
         # Shift x to origin for stability
-        X_mat = np.array([n[1] - x for n in neighbors])
-        y_vec = np.array([n[2] - best.cv for n in neighbors])
+        X_mat = neighbors_X - x
+        y_vec = neighbors_cv - best.cv
 
         # Solve least squares
         # w = (X^T X)^-1 X^T y

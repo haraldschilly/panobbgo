@@ -154,351 +154,348 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="21"><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="22">
 </span><span data-line="23"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span data-line="24">
+</span><span data-line="24"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="25">
-</span><span data-line="26"><span class="k">class</span><span class="w"> </span><span class="nc">ColoredFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
-</span><span data-line="27">    <span class="n">BLACK</span><span class="p">,</span> <span class="n">RED</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">YELLOW</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">,</span> <span class="n">MAGENTA</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">WHITE</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
-</span><span data-line="28">
-</span><span data-line="29">    <span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
-</span><span data-line="30">    <span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;</span><span class="si">%d</span><span class="s2">m&quot;</span>
-</span><span data-line="31">    <span class="n">COLOR_SEQ_BOLD</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m&quot;</span>
-</span><span data-line="32">    <span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1m&quot;</span>
-</span><span data-line="33">
-</span><span data-line="34">    <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="35">        <span class="s2">&quot;DEBUG&quot;</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span>
-</span><span data-line="36">        <span class="s2">&quot;INFO&quot;</span><span class="p">:</span> <span class="n">WHITE</span><span class="p">,</span>
-</span><span data-line="37">        <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span> <span class="n">YELLOW</span><span class="p">,</span>
-</span><span data-line="38">        <span class="s2">&quot;CRITICAL&quot;</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
-</span><span data-line="39">        <span class="s2">&quot;ERROR&quot;</span><span class="p">:</span> <span class="n">RED</span><span class="p">,</span>
-</span><span data-line="40">    <span class="p">}</span>
-</span><span data-line="41">
-</span><span data-line="42">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="43">        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="44">            <span class="s2">&quot;</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> $BOLD</span><span class="si">%(name)-5s</span><span class="s2">$RESET </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
-</span><span data-line="45">        <span class="p">)</span>
-</span><span data-line="46">        <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$RESET&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
-</span><span data-line="47">            <span class="s2">&quot;$BOLD&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">BOLD_SEQ</span>
-</span><span data-line="48">        <span class="p">)</span>
-</span><span data-line="49">        <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
-</span><span data-line="50">
-</span><span data-line="51">    <span class="nd">@staticmethod</span>
-</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">colorize</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">bold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span><span data-line="53">        <span class="n">cs</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ_BOLD</span> <span class="k">if</span> <span class="n">bold</span> <span class="k">else</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ</span>
-</span><span data-line="54">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cs</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">color</span><span class="p">),</span> <span class="n">string</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span>
-</span><span data-line="55">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%-20s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">string</span>
-</span><span data-line="56">        <span class="k">return</span> <span class="n">string</span>
-</span><span data-line="57">
-</span><span data-line="58">    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
-</span><span data-line="59">        <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
-</span><span data-line="60">
-</span><span data-line="61">        <span class="n">record</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
-</span><span data-line="62">        <span class="n">levelname</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span>
-</span><span data-line="63">        <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">:</span>
-</span><span data-line="64">            <span class="n">col</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]</span>
-</span><span data-line="65">            <span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="66">            <span class="c1"># record.lineno = self.colorize(record.lineno, col, True)  # Pyright warning: str not assignable to int</span>
-</span><span data-line="67">            <span class="n">record</span><span class="o">.</span><span class="n">levelname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">levelname</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="68">            <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
-</span><span data-line="69">        <span class="k">return</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
-</span><span data-line="70">
+</span><span data-line="26">
+</span><span data-line="27"><span class="k">class</span><span class="w"> </span><span class="nc">ColoredFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
+</span><span data-line="28">    <span class="n">BLACK</span><span class="p">,</span> <span class="n">RED</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">YELLOW</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">,</span> <span class="n">MAGENTA</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">WHITE</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+</span><span data-line="29">
+</span><span data-line="30">    <span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
+</span><span data-line="31">    <span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;</span><span class="si">%d</span><span class="s2">m&quot;</span>
+</span><span data-line="32">    <span class="n">COLOR_SEQ_BOLD</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m&quot;</span>
+</span><span data-line="33">    <span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1m&quot;</span>
+</span><span data-line="34">
+</span><span data-line="35">    <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="36">        <span class="s2">&quot;DEBUG&quot;</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span>
+</span><span data-line="37">        <span class="s2">&quot;INFO&quot;</span><span class="p">:</span> <span class="n">WHITE</span><span class="p">,</span>
+</span><span data-line="38">        <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span> <span class="n">YELLOW</span><span class="p">,</span>
+</span><span data-line="39">        <span class="s2">&quot;CRITICAL&quot;</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
+</span><span data-line="40">        <span class="s2">&quot;ERROR&quot;</span><span class="p">:</span> <span class="n">RED</span><span class="p">,</span>
+</span><span data-line="41">    <span class="p">}</span>
+</span><span data-line="42">
+</span><span data-line="43">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="44">        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="45">            <span class="s2">&quot;</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> $BOLD</span><span class="si">%(name)-5s</span><span class="s2">$RESET </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+</span><span data-line="46">        <span class="p">)</span>
+</span><span data-line="47">        <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$RESET&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+</span><span data-line="48">            <span class="s2">&quot;$BOLD&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">BOLD_SEQ</span>
+</span><span data-line="49">        <span class="p">)</span>
+</span><span data-line="50">        <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
+</span><span data-line="51">
+</span><span data-line="52">    <span class="nd">@staticmethod</span>
+</span><span data-line="53">    <span class="k">def</span><span class="w"> </span><span class="nf">colorize</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">bold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span><span data-line="54">        <span class="n">cs</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ_BOLD</span> <span class="k">if</span> <span class="n">bold</span> <span class="k">else</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ</span>
+</span><span data-line="55">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cs</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">color</span><span class="p">),</span> <span class="n">string</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span>
+</span><span data-line="56">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%-20s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">string</span>
+</span><span data-line="57">        <span class="k">return</span> <span class="n">string</span>
+</span><span data-line="58">
+</span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+</span><span data-line="60">        <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+</span><span data-line="61">
+</span><span data-line="62">        <span class="n">record</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+</span><span data-line="63">        <span class="n">levelname</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span>
+</span><span data-line="64">        <span class="k">if</span> <span class="n">levelname</span> <span class="ow">in</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">:</span>
+</span><span data-line="65">            <span class="n">col</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLORS</span><span class="p">[</span><span class="n">levelname</span><span class="p">]</span>
+</span><span data-line="66">            <span class="n">record</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="67">            <span class="c1"># record.lineno = self.colorize(record.lineno, col, True)  # Pyright warning: str not assignable to int</span>
+</span><span data-line="68">            <span class="n">record</span><span class="o">.</span><span class="n">levelname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">levelname</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="69">            <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorize</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+</span><span data-line="70">        <span class="k">return</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
 </span><span data-line="71">
+</span><span data-line="72">
 <div class="viewcode-block" id="PanobbgoContext">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoContext">[docs]</a>
-</span><span data-line="72"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoContext</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="p">):</span>
-</span><span data-line="73">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="74">        <span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span data-line="75">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="76">
-</span><span data-line="77">        <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="78">
+</span><span data-line="73"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoContext</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="p">):</span>
+</span><span data-line="74">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="75">        <span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="76">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="77">
+</span><span data-line="78">        <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="79">
 <div class="viewcode-block" id="PanobbgoContext.filter">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoContext.filter">[docs]</a>
-</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
-</span><span data-line="80">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="81">
-</span><span data-line="82">        <span class="n">record</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
-</span><span data-line="83">        <span class="n">record</span><span class="o">.</span><span class="n">where</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
-</span><span data-line="84">        <span class="k">return</span> <span class="kc">True</span></div>
+</span><span data-line="80">    <span class="k">def</span><span class="w"> </span><span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+</span><span data-line="81">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="82">
+</span><span data-line="83">        <span class="n">record</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
+</span><span data-line="84">        <span class="n">record</span><span class="o">.</span><span class="n">where</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
+</span><span data-line="85">        <span class="k">return</span> <span class="kc">True</span></div>
 </div>
 
-</span><span data-line="85">
 </span><span data-line="86">
-</span><span data-line="87"><span class="k">def</span><span class="w"> </span><span class="nf">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
-</span><span data-line="88"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="89"><span class="sd">    Creates logger with ``name`` and given ``level`` logging level.</span>
-</span><span data-line="90"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="91">    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="92">    <span class="n">logger</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">PanobbgoContext</span><span class="p">())</span>
-</span><span data-line="93">    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
-</span><span data-line="94">    <span class="n">log_stream_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
-</span><span data-line="95">    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
-</span><span data-line="96">    <span class="n">log_formatter</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="p">()</span>
-</span><span data-line="97">    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">log_formatter</span><span class="p">)</span>
-</span><span data-line="98">    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_stream_handler</span><span class="p">)</span>
-</span><span data-line="99">    <span class="k">return</span> <span class="n">logger</span>
-</span><span data-line="100">
+</span><span data-line="87">
+</span><span data-line="88"><span class="k">def</span><span class="w"> </span><span class="nf">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
+</span><span data-line="89"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="90"><span class="sd">    Creates logger with ``name`` and given ``level`` logging level.</span>
+</span><span data-line="91"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="92">    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="93">    <span class="n">logger</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">PanobbgoContext</span><span class="p">())</span>
+</span><span data-line="94">    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+</span><span data-line="95">    <span class="n">log_stream_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+</span><span data-line="96">    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+</span><span data-line="97">    <span class="n">log_formatter</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="p">()</span>
+</span><span data-line="98">    <span class="n">log_stream_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">log_formatter</span><span class="p">)</span>
+</span><span data-line="99">    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_stream_handler</span><span class="p">)</span>
+</span><span data-line="100">    <span class="k">return</span> <span class="n">logger</span>
 </span><span data-line="101">
-</span><span data-line="102"><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">():</span>
-</span><span data-line="103"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="104"><span class="sd">    Shows a bit of info about the libraries and other environment information.</span>
-</span><span data-line="105"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="106">    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-</span><span data-line="107">
-</span><span data-line="108">    <span class="n">git</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
-</span><span data-line="109">    <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="110">
-</span><span data-line="111">    <span class="k">def</span><span class="w"> </span><span class="nf">version</span><span class="p">(</span><span class="n">what</span><span class="p">):</span>
-</span><span data-line="112">        <span class="n">m</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">what</span><span class="p">)</span>
-</span><span data-line="113">        <span class="n">v</span><span class="p">[</span><span class="n">what</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">__version__</span>
-</span><span data-line="114">
-</span><span data-line="115">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
-</span><span data-line="116">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;scipy&quot;</span><span class="p">)</span>
-</span><span data-line="117">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="118">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>
-</span><span data-line="119">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="120">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pandas not available&quot;</span><span class="p">)</span>
-</span><span data-line="121">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="122">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;statsmodels&quot;</span><span class="p">)</span>
-</span><span data-line="123">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="124">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;statsmodels not available&quot;</span><span class="p">)</span>
-</span><span data-line="125">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="126">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">)</span>
-</span><span data-line="127">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="128">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matplotlib not available&quot;</span><span class="p">)</span>
-</span><span data-line="129">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="130">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;dask&quot;</span><span class="p">)</span>
-</span><span data-line="131">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="132">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dask not available&quot;</span><span class="p">)</span>
-</span><span data-line="133">    <span class="n">v</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="134">    <span class="k">return</span> <span class="n">v</span>
-</span><span data-line="135">
+</span><span data-line="102">
+</span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">():</span>
+</span><span data-line="104"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="105"><span class="sd">    Shows a bit of info about the libraries and other environment information.</span>
+</span><span data-line="106"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="107">    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+</span><span data-line="108">
+</span><span data-line="109">    <span class="n">git</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+</span><span data-line="110">    <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="111">
+</span><span data-line="112">    <span class="k">def</span><span class="w"> </span><span class="nf">version</span><span class="p">(</span><span class="n">what</span><span class="p">):</span>
+</span><span data-line="113">        <span class="n">m</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">what</span><span class="p">)</span>
+</span><span data-line="114">        <span class="n">v</span><span class="p">[</span><span class="n">what</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">__version__</span>
+</span><span data-line="115">
+</span><span data-line="116">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+</span><span data-line="117">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;scipy&quot;</span><span class="p">)</span>
+</span><span data-line="118">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="119">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>
+</span><span data-line="120">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="121">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pandas not available&quot;</span><span class="p">)</span>
+</span><span data-line="122">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="123">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;statsmodels&quot;</span><span class="p">)</span>
+</span><span data-line="124">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="125">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;statsmodels not available&quot;</span><span class="p">)</span>
+</span><span data-line="126">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="127">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">)</span>
+</span><span data-line="128">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="129">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matplotlib not available&quot;</span><span class="p">)</span>
+</span><span data-line="130">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="131">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;dask&quot;</span><span class="p">)</span>
+</span><span data-line="132">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="133">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dask not available&quot;</span><span class="p">)</span>
+</span><span data-line="134">    <span class="n">v</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="135">    <span class="k">return</span> <span class="n">v</span>
 </span><span data-line="136">
-</span><span data-line="137"><span class="k">def</span><span class="w"> </span><span class="nf">is_left</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
-</span><span data-line="138">    <span class="k">return</span> <span class="n">is_right</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">ptest</span><span class="p">)</span>
-</span><span data-line="139">
+</span><span data-line="137">
+</span><span data-line="138"><span class="k">def</span><span class="w"> </span><span class="nf">is_left</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
+</span><span data-line="139">    <span class="k">return</span> <span class="n">is_right</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">ptest</span><span class="p">)</span>
 </span><span data-line="140">
-</span><span data-line="141"><span class="k">def</span><span class="w"> </span><span class="nf">is_right</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
-</span><span data-line="142"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="143"><span class="sd">    p0-&gt;p1 existing results, ptest other point</span>
-</span><span data-line="144"><span class="sd">    return true, if ptest is on the right of p0-&gt;p1</span>
-</span><span data-line="145">
-</span><span data-line="146"><span class="sd">    Args::</span>
-</span><span data-line="147">
-</span><span data-line="148"><span class="sd">      - p0, p1, ptest: :class:`numpy.ndarray`.</span>
-</span><span data-line="149"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="150">    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="151">
-</span><span data-line="152">    <span class="n">v1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span>
-</span><span data-line="153">    <span class="n">v2</span> <span class="o">=</span> <span class="n">ptest</span> <span class="o">-</span> <span class="n">p0</span>
-</span><span data-line="154">    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mi">0</span>
+</span><span data-line="141">
+</span><span data-line="142"><span class="k">def</span><span class="w"> </span><span class="nf">is_right</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
+</span><span data-line="143"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="144"><span class="sd">    p0-&gt;p1 existing results, ptest other point</span>
+</span><span data-line="145"><span class="sd">    return true, if ptest is on the right of p0-&gt;p1</span>
+</span><span data-line="146">
+</span><span data-line="147"><span class="sd">    Args::</span>
+</span><span data-line="148">
+</span><span data-line="149"><span class="sd">      - p0, p1, ptest: :class:`numpy.ndarray`.</span>
+</span><span data-line="150"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="151">    <span class="n">v1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span>
+</span><span data-line="152">    <span class="n">v2</span> <span class="o">=</span> <span class="n">ptest</span> <span class="o">-</span> <span class="n">p0</span>
+</span><span data-line="153">    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mi">0</span>
+</span><span data-line="154">
 </span><span data-line="155">
-</span><span data-line="156">
-</span><span data-line="157"><span class="k">class</span><span class="w"> </span><span class="nc">memoize</span><span class="p">:</span>
-</span><span data-line="158"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="159"><span class="sd">    Caches the return value of a method inside the instance&#39;s function!</span>
-</span><span data-line="160">
-</span><span data-line="161"><span class="sd">    This class is meant to be used as a decorator of methods. The return value</span>
-</span><span data-line="162"><span class="sd">    from a given method invocation will be cached on the instance whose method</span>
-</span><span data-line="163"><span class="sd">    was invoked. All arguments passed to a method decorated with memoize must</span>
-</span><span data-line="164"><span class="sd">    be hashable.</span>
-</span><span data-line="165">
-</span><span data-line="166"><span class="sd">    Usage::</span>
-</span><span data-line="167">
-</span><span data-line="168"><span class="sd">      class Obj:</span>
-</span><span data-line="169"><span class="sd">        @memoize</span>
-</span><span data-line="170"><span class="sd">        def method(self, hashable):</span>
-</span><span data-line="171"><span class="sd">          result = do_calc(...)</span>
-</span><span data-line="172"><span class="sd">          return result</span>
-</span><span data-line="173">
-</span><span data-line="174"><span class="sd">    If a memoized method is invoked directly on its class the result will not</span>
-</span><span data-line="175"><span class="sd">    be cached. Instead the method will be invoked like a static method::</span>
-</span><span data-line="176">
-</span><span data-line="177"><span class="sd">      class Obj:</span>
-</span><span data-line="178"><span class="sd">        @memoize</span>
-</span><span data-line="179"><span class="sd">        def add_to(self, arg):</span>
-</span><span data-line="180"><span class="sd">          return self + arg</span>
-</span><span data-line="181"><span class="sd">      Obj.add_to(1) # not enough arguments</span>
-</span><span data-line="182"><span class="sd">      Obj.add_to(1, 2) # returns 3, result is not cached</span>
-</span><span data-line="183">
-</span><span data-line="184"><span class="sd">    Derived from `ActiveState 577432 &lt;http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/&gt;`_.</span>
-</span><span data-line="185"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="186">
-</span><span data-line="187">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
-</span><span data-line="188">        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
-</span><span data-line="189">
-</span><span data-line="190">    <span class="k">def</span><span class="w"> </span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">tpe</span><span class="p">):</span>
-</span><span data-line="191">        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="192">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span>
-</span><span data-line="193">        <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>  <span class="c1"># , update_wrapper</span>
-</span><span data-line="194">
-</span><span data-line="195">        <span class="n">p</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
-</span><span data-line="196">        <span class="c1"># update_wrapper(p, self.func)</span>
-</span><span data-line="197">        <span class="k">return</span> <span class="n">p</span>
-</span><span data-line="198">
-</span><span data-line="199">    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
-</span><span data-line="200">        <span class="n">obj</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="201">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="202">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span>
-</span><span data-line="203">        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-</span><span data-line="204">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="205">
-</span><span data-line="206">        <span class="c1"># Handle arguments correctly:</span>
-</span><span data-line="207">        <span class="c1"># If the method is called as instance.method(), args[0] is self (obj)</span>
-</span><span data-line="208">        <span class="c1"># We want to cache based on the OTHER arguments.</span>
-</span><span data-line="209">        <span class="c1"># But wait, __get__ does partial application, so args[0] passed here is likely &#39;obj&#39;</span>
-</span><span data-line="210">
-</span><span data-line="211">        <span class="c1"># NOTE: self.func is the UNBOUND function.</span>
-</span><span data-line="212">        <span class="c1"># args[0] is the instance &#39;obj&#39;.</span>
-</span><span data-line="213">        <span class="c1"># The actual arguments to the function are args[1:].</span>
-</span><span data-line="214">
-</span><span data-line="215">        <span class="c1"># However, numpy arrays are not hashable, so they cannot be part of the key directly.</span>
-</span><span data-line="216">        <span class="c1"># If any argument is a numpy array, we should probably not cache or use a different key strategy.</span>
-</span><span data-line="217">        <span class="c1"># For Splitter.Box.ranges (which uses this), there are NO arguments besides self.</span>
-</span><span data-line="218">
-</span><span data-line="219">        <span class="c1"># Let&#39;s handle unhashable arguments gracefully by skipping caching or converting</span>
-</span><span data-line="220">        <span class="n">key_args</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="221">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="222">
-</span><span data-line="223">        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-</span><span data-line="224">             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-</span><span data-line="225">                 <span class="c1"># Convert to bytes for hashing (efficient)</span>
-</span><span data-line="226">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
-</span><span data-line="227">             <span class="k">else</span><span class="p">:</span>
-</span><span data-line="228">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+</span><span data-line="156"><span class="k">class</span><span class="w"> </span><span class="nc">memoize</span><span class="p">:</span>
+</span><span data-line="157"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="158"><span class="sd">    Caches the return value of a method inside the instance&#39;s function!</span>
+</span><span data-line="159">
+</span><span data-line="160"><span class="sd">    This class is meant to be used as a decorator of methods. The return value</span>
+</span><span data-line="161"><span class="sd">    from a given method invocation will be cached on the instance whose method</span>
+</span><span data-line="162"><span class="sd">    was invoked. All arguments passed to a method decorated with memoize must</span>
+</span><span data-line="163"><span class="sd">    be hashable.</span>
+</span><span data-line="164">
+</span><span data-line="165"><span class="sd">    Usage::</span>
+</span><span data-line="166">
+</span><span data-line="167"><span class="sd">      class Obj:</span>
+</span><span data-line="168"><span class="sd">        @memoize</span>
+</span><span data-line="169"><span class="sd">        def method(self, hashable):</span>
+</span><span data-line="170"><span class="sd">          result = do_calc(...)</span>
+</span><span data-line="171"><span class="sd">          return result</span>
+</span><span data-line="172">
+</span><span data-line="173"><span class="sd">    If a memoized method is invoked directly on its class the result will not</span>
+</span><span data-line="174"><span class="sd">    be cached. Instead the method will be invoked like a static method::</span>
+</span><span data-line="175">
+</span><span data-line="176"><span class="sd">      class Obj:</span>
+</span><span data-line="177"><span class="sd">        @memoize</span>
+</span><span data-line="178"><span class="sd">        def add_to(self, arg):</span>
+</span><span data-line="179"><span class="sd">          return self + arg</span>
+</span><span data-line="180"><span class="sd">      Obj.add_to(1) # not enough arguments</span>
+</span><span data-line="181"><span class="sd">      Obj.add_to(1, 2) # returns 3, result is not cached</span>
+</span><span data-line="182">
+</span><span data-line="183"><span class="sd">    Derived from `ActiveState 577432 &lt;http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/&gt;`_.</span>
+</span><span data-line="184"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="185">
+</span><span data-line="186">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
+</span><span data-line="188">
+</span><span data-line="189">    <span class="k">def</span><span class="w"> </span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">tpe</span><span class="p">):</span>
+</span><span data-line="190">        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="191">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span>
+</span><span data-line="192">        <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>  <span class="c1"># , update_wrapper</span>
+</span><span data-line="193">
+</span><span data-line="194">        <span class="n">p</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+</span><span data-line="195">        <span class="c1"># update_wrapper(p, self.func)</span>
+</span><span data-line="196">        <span class="k">return</span> <span class="n">p</span>
+</span><span data-line="197">
+</span><span data-line="198">    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+</span><span data-line="199">        <span class="n">obj</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="200">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="201">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span>
+</span><span data-line="202">        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+</span><span data-line="203">            <span class="n">cache</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">__cache</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="204">
+</span><span data-line="205">        <span class="c1"># Handle arguments correctly:</span>
+</span><span data-line="206">        <span class="c1"># If the method is called as instance.method(), args[0] is self (obj)</span>
+</span><span data-line="207">        <span class="c1"># We want to cache based on the OTHER arguments.</span>
+</span><span data-line="208">        <span class="c1"># But wait, __get__ does partial application, so args[0] passed here is likely &#39;obj&#39;</span>
+</span><span data-line="209">
+</span><span data-line="210">        <span class="c1"># NOTE: self.func is the UNBOUND function.</span>
+</span><span data-line="211">        <span class="c1"># args[0] is the instance &#39;obj&#39;.</span>
+</span><span data-line="212">        <span class="c1"># The actual arguments to the function are args[1:].</span>
+</span><span data-line="213">
+</span><span data-line="214">        <span class="c1"># However, numpy arrays are not hashable, so they cannot be part of the key directly.</span>
+</span><span data-line="215">        <span class="c1"># If any argument is a numpy array, we should probably not cache or use a different key strategy.</span>
+</span><span data-line="216">        <span class="c1"># For Splitter.Box.ranges (which uses this), there are NO arguments besides self.</span>
+</span><span data-line="217">
+</span><span data-line="218">        <span class="c1"># Let&#39;s handle unhashable arguments gracefully by skipping caching or converting</span>
+</span><span data-line="219">        <span class="n">key_args</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="220">
+</span><span data-line="221">        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+</span><span data-line="222">             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+</span><span data-line="223">                 <span class="c1"># Convert to bytes for hashing (efficient)</span>
+</span><span data-line="224">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+</span><span data-line="225">             <span class="k">else</span><span class="p">:</span>
+</span><span data-line="226">                 <span class="n">key_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+</span><span data-line="227">
+</span><span data-line="228">        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">key_args</span><span class="p">),</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
 </span><span data-line="229">
-</span><span data-line="230">        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">key_args</span><span class="p">),</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
-</span><span data-line="231">
-</span><span data-line="232">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="233">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-</span><span data-line="234">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="235">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
-</span><span data-line="236">        <span class="k">return</span> <span class="n">res</span>
-</span><span data-line="237">
-</span><span data-line="238">
-</span><span data-line="239"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="240"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="241"><span class="sd">    Evaluate a point using a problem instance.</span>
-</span><span data-line="242">
-</span><span data-line="243"><span class="sd">    This function is used by all evaluation modes:</span>
-</span><span data-line="244"><span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
-</span><span data-line="245"><span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
-</span><span data-line="246"><span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
-</span><span data-line="247">
-</span><span data-line="248"><span class="sd">    Args:</span>
-</span><span data-line="249"><span class="sd">        problem: The optimization problem instance</span>
-</span><span data-line="250"><span class="sd">        point: The point to evaluate</span>
-</span><span data-line="251">
-</span><span data-line="252"><span class="sd">    Returns:</span>
-</span><span data-line="253"><span class="sd">        The evaluation result (Result object)</span>
-</span><span data-line="254"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="255">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="256">
+</span><span data-line="230">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="231">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+</span><span data-line="232">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+</span><span data-line="233">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+</span><span data-line="234">        <span class="k">return</span> <span class="n">res</span>
+</span><span data-line="235">
+</span><span data-line="236">
+</span><span data-line="237"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="238"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="239"><span class="sd">    Evaluate a point using a problem instance.</span>
+</span><span data-line="240">
+</span><span data-line="241"><span class="sd">    This function is used by all evaluation modes:</span>
+</span><span data-line="242"><span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
+</span><span data-line="243"><span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
+</span><span data-line="244"><span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
+</span><span data-line="245">
+</span><span data-line="246"><span class="sd">    Args:</span>
+</span><span data-line="247"><span class="sd">        problem: The optimization problem instance</span>
+</span><span data-line="248"><span class="sd">        point: The point to evaluate</span>
+</span><span data-line="249">
+</span><span data-line="250"><span class="sd">    Returns:</span>
+</span><span data-line="251"><span class="sd">        The evaluation result (Result object)</span>
+</span><span data-line="252"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="253">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="254">
+</span><span data-line="255">
+</span><span data-line="256"><span class="c1"># Testing</span>
 </span><span data-line="257">
-</span><span data-line="258"><span class="c1"># Testing</span>
-</span><span data-line="259">
-</span><span data-line="260"><span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
-</span><span data-line="261"><span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">mock</span>
-</span><span data-line="262"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
-</span><span data-line="263">
-</span><span data-line="264">
-</span><span data-line="265"><span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="266"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="267"><span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
+</span><span data-line="258"><span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+</span><span data-line="259"><span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">mock</span>
+</span><span data-line="260"><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+</span><span data-line="261">
+</span><span data-line="262">
+</span><span data-line="263"><span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="264"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="265"><span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
+</span><span data-line="266">
+</span><span data-line="267"><span class="sd">    Example::</span>
 </span><span data-line="268">
-</span><span data-line="269"><span class="sd">    Example::</span>
-</span><span data-line="270">
-</span><span data-line="271"><span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
-</span><span data-line="272"><span class="sd">        def test_result_error(self):</span>
-</span><span data-line="273"><span class="sd">            Result([1., 1.], 1.1)</span>
-</span><span data-line="274">
-</span><span data-line="275"><span class="sd">    @param Exception exptn: exception class</span>
-</span><span data-line="276"><span class="sd">    @param str msg: expected message</span>
-</span><span data-line="277"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="278">
-</span><span data-line="279">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
-</span><span data-line="280">        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
-</span><span data-line="281">        <span class="k">def</span><span class="w"> </span><span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span data-line="282">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="283">                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="284">            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-</span><span data-line="285">                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="286">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
-</span><span data-line="287">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="288">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
-</span><span data-line="289">                    <span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span>
-</span><span data-line="290">                    <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
-</span><span data-line="291">                <span class="p">)</span>
+</span><span data-line="269"><span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
+</span><span data-line="270"><span class="sd">        def test_result_error(self):</span>
+</span><span data-line="271"><span class="sd">            Result([1., 1.], 1.1)</span>
+</span><span data-line="272">
+</span><span data-line="273"><span class="sd">    @param Exception exptn: exception class</span>
+</span><span data-line="274"><span class="sd">    @param str msg: expected message</span>
+</span><span data-line="275"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="276">
+</span><span data-line="277">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
+</span><span data-line="278">        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
+</span><span data-line="279">        <span class="k">def</span><span class="w"> </span><span class="nf">inner</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="280">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="281">                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="282">            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+</span><span data-line="283">                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="284">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+</span><span data-line="285">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="286">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+</span><span data-line="287">                    <span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span>
+</span><span data-line="288">                    <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="289">                <span class="p">)</span>
+</span><span data-line="290">
+</span><span data-line="291">        <span class="k">return</span> <span class="n">inner</span>
 </span><span data-line="292">
-</span><span data-line="293">        <span class="k">return</span> <span class="n">inner</span>
+</span><span data-line="293">    <span class="k">return</span> <span class="n">wrapper</span>
 </span><span data-line="294">
-</span><span data-line="295">    <span class="k">return</span> <span class="n">wrapper</span>
-</span><span data-line="296">
-</span><span data-line="297">
-</span><span data-line="298"><span class="k">class</span><span class="w"> </span><span class="nc">MockupEventBus</span><span class="p">:</span>
-</span><span data-line="299">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="300">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="301">
-</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
-</span><span data-line="303">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">who</span><span class="p">)</span>
-</span><span data-line="304">
-</span><span data-line="305">
-</span><span data-line="306"><span class="c1"># class MockupStrategy:</span>
-</span><span data-line="307"><span class="c1">#</span>
-</span><span data-line="308"><span class="c1">#    def __init__(self, problem):</span>
-</span><span data-line="309"><span class="c1">#        self.problem = problem</span>
-</span><span data-line="310"><span class="c1">#        self._eventbus = MockupEventBus()</span>
-</span><span data-line="311"><span class="c1">#</span>
-</span><span data-line="312"><span class="c1">#    @property</span>
-</span><span data-line="313"><span class="c1">#    def eventbus(self):</span>
-</span><span data-line="314"><span class="c1">#        return self._eventbus</span>
-</span><span data-line="315">
-</span><span data-line="316">
+</span><span data-line="295">
+</span><span data-line="296"><span class="k">class</span><span class="w"> </span><span class="nc">MockupEventBus</span><span class="p">:</span>
+</span><span data-line="297">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="298">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="299">
+</span><span data-line="300">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">who</span><span class="p">):</span>
+</span><span data-line="301">        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="302">
+</span><span data-line="303">
+</span><span data-line="304"><span class="c1"># class MockupStrategy:</span>
+</span><span data-line="305"><span class="c1">#</span>
+</span><span data-line="306"><span class="c1">#    def __init__(self, problem):</span>
+</span><span data-line="307"><span class="c1">#        self.problem = problem</span>
+</span><span data-line="308"><span class="c1">#        self._eventbus = MockupEventBus()</span>
+</span><span data-line="309"><span class="c1">#</span>
+</span><span data-line="310"><span class="c1">#    @property</span>
+</span><span data-line="311"><span class="c1">#    def eventbus(self):</span>
+</span><span data-line="312"><span class="c1">#        return self._eventbus</span>
+</span><span data-line="313">
+</span><span data-line="314">
 <div class="viewcode-block" id="PanobbgoTestCase">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase">[docs]</a>
-</span><span data-line="317"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-</span><span data-line="318">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-</span><span data-line="319">        <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-</span><span data-line="320">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+</span><span data-line="315"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+</span><span data-line="316">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+</span><span data-line="317">        <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</span><span data-line="318">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+</span><span data-line="319">
+</span><span data-line="320">        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="321">
-</span><span data-line="322">        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="323">
 <div class="viewcode-block" id="PanobbgoTestCase.setUp">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.setUp">[docs]</a>
-</span><span data-line="324">    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="325">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
-</span><span data-line="326">
-</span><span data-line="327">        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-</span><span data-line="328">        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_strategy</span><span class="p">()</span></div>
+</span><span data-line="322">    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="323">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="324">
+</span><span data-line="325">        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="326">        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_strategy</span><span class="p">()</span></div>
 
-</span><span data-line="329">
+</span><span data-line="327">
 <div class="viewcode-block" id="PanobbgoTestCase.random_results">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.random_results">[docs]</a>
-</span><span data-line="330">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-</span><span data-line="331">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="332">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
-</span><span data-line="333">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
-</span><span data-line="334">
-</span><span data-line="335">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="336">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-</span><span data-line="337">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
-</span><span data-line="338">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="339">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="340">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
-</span><span data-line="341">                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
-</span><span data-line="342">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
-</span><span data-line="343">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
-</span><span data-line="344">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="345">        <span class="k">return</span> <span class="n">results</span></div>
+</span><span data-line="328">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+</span><span data-line="329">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
+</span><span data-line="330">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+</span><span data-line="331">
+</span><span data-line="332">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="333">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+</span><span data-line="334">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="335">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="336">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="337">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+</span><span data-line="338">                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
+</span><span data-line="339">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
+</span><span data-line="340">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
+</span><span data-line="341">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="342">        <span class="k">return</span> <span class="n">results</span></div>
 
-</span><span data-line="346">
+</span><span data-line="343">
 <div class="viewcode-block" id="PanobbgoTestCase.init_strategy">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy">[docs]</a>
-</span><span data-line="347">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
-</span><span data-line="348">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
-</span><span data-line="349">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
-</span><span data-line="350">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
-</span><span data-line="351">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-</span><span data-line="352">        <span class="k">return</span> <span class="n">strategy</span></div>
+</span><span data-line="344">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
+</span><span data-line="345">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
+</span><span data-line="346">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
+</span><span data-line="347">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
+</span><span data-line="348">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+</span><span data-line="349">        <span class="k">return</span> <span class="n">strategy</span></div>
 </div>
 
 </span></pre></div>

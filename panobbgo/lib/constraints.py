@@ -391,6 +391,9 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         via 'refresh_best' event to update the Best analyzer.
         """
         # Safety check for mocks or incomplete strategies
+        if self.strategy is None:
+            return
+
         if not hasattr(self.strategy, "results"):
             return
 
@@ -403,7 +406,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         if not hasattr(self.strategy.results, "results"):
             return
 
-        df = self.strategy.results.results
+        df = self.strategy.results.results  # pyright: ignore
         if df is None or df.empty:
             return
 
@@ -418,7 +421,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
             # Use values for speed
             data = df.values
-            n_rows = len(data)
+            # n_rows = len(data)
 
             fx = data[:, dim].astype(float)
 
@@ -437,6 +440,9 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             # Calculate AL values vectorized
             # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
 
+            if self.lambdas is None:
+                return
+
             # term = max(0, lambda + mu * cv_vec)
             # lambdas shape: (k,)
             # cv_vec shape: (N, k)
@@ -450,7 +456,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
             # Find minimum
             min_idx = np.argmin(L_values)
-            min_L = L_values[min_idx]
+            # min_L = L_values[min_idx]
 
             # Check against current strategy.best
             # We calculate current best's L value.

@@ -108,6 +108,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto"><code class="docutils literal notranslate">on_new_pareto()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto_front"><code class="docutils literal notranslate">on_new_pareto_front()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto"><code class="docutils literal notranslate">pareto</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto_front"><code class="docutils literal notranslate">pareto_front</span></code></a></li>
 </ul>
@@ -165,6 +166,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto"><code class="docutils literal notranslate">on_new_pareto()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto_front"><code class="docutils literal notranslate">on_new_pareto_front()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto"><code class="docutils literal notranslate">pareto</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto_front"><code class="docutils literal notranslate">pareto_front</span></code></a></li>
 </ul>
@@ -346,6 +348,13 @@ the value of the objective function is a secondary selection argument.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_results" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_refresh_best">
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_refresh_best" title="Link to this definition">¶</a></dt>
+<dd><p>Handle a refresh_best event, which suggests candidate points that might be
+better than current best due to changed criteria (e.g. updated constraint weights).</p>
+</dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.pareto">
@@ -714,6 +723,13 @@ the value of the objective function is a secondary selection argument.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_results" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_refresh_best">
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_refresh_best" title="Link to this definition">¶</a></dt>
+<dd><p>Handle a refresh_best event, which suggests candidate points that might be
+better than current best due to changed criteria (e.g. updated constraint weights).</p>
+</dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.pareto">

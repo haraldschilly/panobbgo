@@ -360,32 +360,68 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="211">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV improved to </span><span class="si">{</span><span class="n">cv</span><span class="o">.</span><span class="n">cv</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;cv_improvement&quot;</span><span class="p">)</span></div>
 
 </span><span data-line="212">
+<div class="viewcode-block" id="Best.on_refresh_best">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_refresh_best">[docs]</a>
+</span><span data-line="213">    <span class="k">def</span><span class="w"> </span><span class="nf">on_refresh_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">):</span>
+</span><span data-line="214"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="215"><span class="sd">        Handle a refresh_best event, which suggests candidate points that might be</span>
+</span><span data-line="216"><span class="sd">        better than current best due to changed criteria (e.g. updated constraint weights).</span>
+</span><span data-line="217"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="218">        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
+</span><span data-line="219">            <span class="k">return</span>
+</span><span data-line="220">
+</span><span data-line="221">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+</span><span data-line="222">            <span class="c1"># Check if this candidate is better than current best</span>
+</span><span data-line="223">            <span class="n">is_better</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="224">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="225">                <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="226">            <span class="k">elif</span> <span class="p">(</span>
+</span><span data-line="227">                <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">)</span>
+</span><span data-line="228">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
+</span><span data-line="229">            <span class="p">):</span>
+</span><span data-line="230">                <span class="n">is_better</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+</span><span data-line="231">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="232">                <span class="c1"># Fallback to default lexicographic behavior</span>
+</span><span data-line="233">                <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">cv</span><span class="p">:</span>
+</span><span data-line="234">                    <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="235">                <span class="k">elif</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">cv</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
+</span><span data-line="236">                    <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="237">
+</span><span data-line="238">            <span class="k">if</span> <span class="n">is_better</span><span class="p">:</span>
+</span><span data-line="239">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+</span><span data-line="240">                    <span class="sa">f</span><span class="s2">&quot;Updated best point due to criteria change: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2"> (cv=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="241">                <span class="p">)</span>
+</span><span data-line="242">                <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="243">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto&quot;</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="244">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_best&quot;</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span></div>
+
+</span><span data-line="245">
 <div class="viewcode-block" id="Best.on_new_min">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_min">[docs]</a>
-</span><span data-line="213">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">min</span><span class="p">):</span>
-</span><span data-line="214"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report progress when a new global minimum is found.&quot;&quot;&quot;</span>
-</span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New best: </span><span class="si">{</span><span class="nb">min</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;new_best&quot;</span><span class="p">)</span></div>
+</span><span data-line="246">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">min</span><span class="p">):</span>
+</span><span data-line="247"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report progress when a new global minimum is found.&quot;&quot;&quot;</span>
+</span><span data-line="248">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New best: </span><span class="si">{</span><span class="nb">min</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;new_best&quot;</span><span class="p">)</span></div>
 
-</span><span data-line="216">
-</span><span data-line="217">    <span class="k">def</span><span class="w"> </span><span class="nf">_report_progress_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">event_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="218"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report a significant optimization event via progress system.&quot;&quot;&quot;</span>
-</span><span data-line="219">        <span class="c1"># Log the event</span>
-</span><span data-line="220">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-</span><span data-line="221">
-</span><span data-line="222">        <span class="c1"># Get progress reporter from strategy and trigger status update</span>
-</span><span data-line="223">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;panobbgo_logger&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="p">:</span>
-</span><span data-line="224">            <span class="n">progress_reporter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span>
-</span><span data-line="225">            <span class="k">if</span> <span class="n">progress_reporter</span> <span class="ow">and</span> <span class="n">progress_reporter</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
-</span><span data-line="226">                <span class="c1"># Trigger a status update on the strategy (this will refresh the progress display)</span>
-</span><span data-line="227">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;_update_progress_status&#39;</span><span class="p">):</span>
-</span><span data-line="228">                    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="229">                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">_update_progress_status</span><span class="p">()</span>
-</span><span data-line="230">                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="231">                        <span class="c1"># If status update fails, just continue</span>
-</span><span data-line="232">                        <span class="k">pass</span></div>
+</span><span data-line="249">
+</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">_report_progress_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">event_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="251"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report a significant optimization event via progress system.&quot;&quot;&quot;</span>
+</span><span data-line="252">        <span class="c1"># Log the event</span>
+</span><span data-line="253">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</span><span data-line="254">
+</span><span data-line="255">        <span class="c1"># Get progress reporter from strategy and trigger status update</span>
+</span><span data-line="256">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;panobbgo_logger&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="p">:</span>
+</span><span data-line="257">            <span class="n">progress_reporter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span>
+</span><span data-line="258">            <span class="k">if</span> <span class="n">progress_reporter</span> <span class="ow">and</span> <span class="n">progress_reporter</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+</span><span data-line="259">                <span class="c1"># Trigger a status update on the strategy (this will refresh the progress display)</span>
+</span><span data-line="260">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;_update_progress_status&#39;</span><span class="p">):</span>
+</span><span data-line="261">                    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="262">                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">_update_progress_status</span><span class="p">()</span>
+</span><span data-line="263">                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="264">                        <span class="c1"># If status update fails, just continue</span>
+</span><span data-line="265">                        <span class="k">pass</span></div>
 
-</span><span data-line="233">
-</span><span data-line="234">
+</span><span data-line="266">
+</span><span data-line="267">
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

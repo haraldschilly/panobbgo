@@ -376,7 +376,12 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             self.logger.debug(f"Updated AL params: mu={self.mu:.2f}, lambdas={self.lambdas}")
 
         # Scan history to see if the best point has changed under the new parameters
-        if self.strategy and self.strategy.results and len(self.strategy.results) > 0:
+        if (
+            self.strategy
+            and hasattr(self.strategy, "results")
+            and self.strategy.results
+            and len(self.strategy.results) > 0
+        ):
             self._scan_history_for_new_best()
 
     def _scan_history_for_new_best(self):
@@ -385,6 +390,19 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         If a new best is found (that is better than strategy.best), we publish it
         via 'refresh_best' event to update the Best analyzer.
         """
+        # Safety check for mocks or incomplete strategies
+        if not hasattr(self.strategy, "results"):
+            return
+
+        # Handle list-based results (mocks or legacy)
+        if isinstance(self.strategy.results, list):
+            # We skip scanning for simple lists as this feature relies on DataFrame performance
+            return
+
+        # Handle proper Results object
+        if not hasattr(self.strategy.results, "results"):
+            return
+
         df = self.strategy.results.results
         if df is None or df.empty:
             return

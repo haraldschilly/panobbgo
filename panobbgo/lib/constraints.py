@@ -22,7 +22,7 @@ specifically for calculating "improvement" or "fitness" when comparing results
 that may differ in feasibility.
 """
 
-from panobbgo.lib import Result
+from panobbgo.lib import Result, Point
 import numpy as np
 
 
@@ -374,6 +374,119 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
         if hasattr(self, 'logger'):
             self.logger.debug(f"Updated AL params: mu={self.mu:.2f}, lambdas={self.lambdas}")
+
+        # Scan history to see if the best point has changed under the new parameters
+        if (
+            self.strategy
+            and hasattr(self.strategy, "results")
+            and self.strategy.results
+            and len(self.strategy.results) > 0
+        ):
+            self._scan_history_for_new_best()
+
+    def _scan_history_for_new_best(self):
+        """
+        Scans all past results to find the result that minimizes the CURRENT Augmented Lagrangian.
+        If a new best is found (that is better than strategy.best), we publish it
+        via 'refresh_best' event to update the Best analyzer.
+        """
+        # Safety check for mocks or incomplete strategies
+        if self.strategy is None:
+            return
+
+        if not hasattr(self.strategy, "results"):
+            return
+
+        # Handle list-based results (mocks or legacy)
+        if isinstance(self.strategy.results, list):
+            # We skip scanning for simple lists as this feature relies on DataFrame performance
+            return
+
+        # Handle proper Results object
+        if not hasattr(self.strategy.results, "results"):
+            return
+
+        df = self.strategy.results.results  # pyright: ignore
+        if df is None or df.empty:
+            return
+
+        try:
+            # We assume df structure:
+            # MultiIndex columns: x (dim), fx (1), cv_vec (k?), cv (1), who (1), error (1)
+            # We need to extract fx and cv_vec.
+
+            # Using simple heuristics on structure.
+            # fx is at index `dim`.
+            dim = self.strategy.problem.dim
+
+            # Use values for speed
+            data = df.values
+            # n_rows = len(data)
+
+            fx = data[:, dim].astype(float)
+
+            # cv_vec
+            width = data.shape[1]
+            # Suffix columns: fx (1), ..., cv(1), who(1), error(1)
+            # ... represents cv_vec.
+            # So k = width - dim - 1 (fx) - 3 (cv, who, error)
+            k = width - dim - 4
+
+            if k <= 0:
+                return  # Should not happen if cv_vec is present
+
+            cv_vec = data[:, dim + 1 : dim + 1 + k].astype(float)
+
+            # Calculate AL values vectorized
+            # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
+
+            if self.lambdas is None:
+                return
+
+            # term = max(0, lambda + mu * cv_vec)
+            # lambdas shape: (k,)
+            # cv_vec shape: (N, k)
+            term = np.maximum(0, self.lambdas + self.mu * cv_vec)
+
+            sum_term_sq = np.sum(term**2, axis=1)
+            sum_lambdas_sq = np.sum(self.lambdas**2)
+
+            penalty_term = (1.0 / (2.0 * self.mu)) * (sum_term_sq - sum_lambdas_sq)
+            L_values = fx + penalty_term
+
+            # Find minimum
+            min_idx = np.argmin(L_values)
+            # min_L = L_values[min_idx]
+
+            # Check against current strategy.best
+            # We calculate current best's L value.
+            # But strategy.best might be None or stale.
+            # Let's just create the candidate and let Best analyzer decide.
+
+            # Reconstruct Result from min_idx row
+            row = data[min_idx]
+
+            # x: columns 0 to dim-1
+            x = row[:dim].astype(float)
+            r_fx = float(row[dim])
+            r_cv_vec = row[dim + 1 : dim + 1 + k].astype(float)
+            # who is at -2
+            r_who = str(row[-2])
+            # error is at -1
+            r_error = float(row[-1])
+
+            p = Point(x, r_who)
+            # Result constructor computes cv from cv_vec.
+            # We assume Result's computation matches what was stored.
+            candidate = Result(p, r_fx, cv_vec=r_cv_vec, error=r_error)
+
+            # Publish
+            # Best analyzer should have `on_refresh_best` now.
+            self.strategy.eventbus.publish("refresh_best", candidates=[candidate])
+
+        except Exception as e:
+            if hasattr(self, "logger"):
+                self.logger.warning(f"Failed to scan history for new best in ALM: {e}")
 
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
         # Calculate Lagrangian value for both

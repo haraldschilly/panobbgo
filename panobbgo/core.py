@@ -733,7 +733,7 @@ class StrategyBase:
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
-    def __init__(self, problem, parse_args=False, testing_mode=False):
+    def __init__(self, problem, parse_args=False, testing_mode=False, **kwargs):
         """
 
 
@@ -741,9 +741,22 @@ class StrategyBase:
         @param problem:
         @param parse_args:
         @param testing_mode:
+        @param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)
         """
         self._name = name = self.__class__.__name__
         self.config = config = Config(parse_args, testing_mode=testing_mode)
+
+        # Handle configuration overrides from kwargs
+        if 'max_evaluations' in kwargs:
+            self.config.max_eval = kwargs.pop('max_evaluations')
+        if 'max_eval' in kwargs:
+             self.config.max_eval = kwargs.pop('max_eval')
+
+        # Apply remaining kwargs to config if they match existing config attributes
+        for k, v in kwargs.items():
+            if hasattr(self.config, k):
+                setattr(self.config, k, v)
+
         self.logger = logger = config.get_logger("STRAT")
         self.slogger = config.get_logger("STATS")
         logger.info("Init of '%s'" % (name))
@@ -1655,9 +1668,11 @@ with open('{result_file.name}', 'wb') as f:
         if hasattr(self, 'panobbgo_logger'):
             self.panobbgo_logger.progress_reporter.finalize()
 
+        duration = self._end - self._start if hasattr(self, '_start') else 0.0
+        loops = self.loops if hasattr(self, 'loops') else 0
         self.logger.info(
             "Strategy '%s' finished after %.3f [s] and %d loops."
-            % (self._name, self._end - self._start, self.loops)
+            % (self._name, duration, loops)
         )
 
         self.info()

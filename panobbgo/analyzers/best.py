@@ -210,6 +210,39 @@ class Best(Analyzer):
         """Report progress when a new constraint violation minimum is found."""
         self._report_progress_event(f"CV improved to {cv.cv:.4f}", "cv_improvement")
 
+    def on_refresh_best(self, candidates):
+        """
+        Handle a refresh_best event, which suggests candidate points that might be
+        better than current best due to changed criteria (e.g. updated constraint weights).
+        """
+        if not candidates:
+            return
+
+        for r in candidates:
+            # Check if this candidate is better than current best
+            is_better = False
+            if self._pareto is None:
+                is_better = True
+            elif (
+                hasattr(self.strategy, "constraint_handler")
+                and self.strategy.constraint_handler
+            ):
+                is_better = self.strategy.constraint_handler.is_better(self._pareto, r)
+            else:
+                # Fallback to default lexicographic behavior
+                if r.cv < self._pareto.cv:
+                    is_better = True
+                elif r.cv == self._pareto.cv and r.fx < self._pareto.fx:
+                    is_better = True
+
+            if is_better:
+                self.logger.info(
+                    f"Updated best point due to criteria change: {r.fx} (cv={r.cv})"
+                )
+                self._pareto = r
+                self.eventbus.publish("new_pareto", pareto=r)
+                self.eventbus.publish("new_best", best=r)
+
     def on_new_min(self, min):
         """Report progress when a new global minimum is found."""
         self._report_progress_event(f"New best: {min.fx:.6f}", "new_best")

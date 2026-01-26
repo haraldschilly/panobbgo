@@ -323,6 +323,7 @@ class Config:
         self.rho = get_config("constraints.rho", None, None, 1.0, float)
         self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
         self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        self.constraint_handler = get_config("constraints.handler", None, None, "DefaultConstraintHandler", str)
         self.logging = get_config("logging", None, None, {}, dict)
 
         # Only log configuration info once per session to avoid spam

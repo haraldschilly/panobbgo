@@ -217,7 +217,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="74">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
 </span><span data-line="75">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="76">            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
-</span><span data-line="77">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span></div>
+</span><span data-line="77">                <span class="c1"># Use constraint handler to get penalty value (fx if feasible, else penalized)</span>
+</span><span data-line="78">                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="79">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

@@ -74,4 +74,6 @@ class LBFGSB(Heuristic):
     def on_new_results(self, results):
         for result in results:
             if result.who == self.name:
-                self.p1.send(result.fx)
+                # Use constraint handler to get penalty value (fx if feasible, else penalized)
+                val = self.strategy.constraint_handler.get_penalty_value(result)
+                self.p1.send(val)

@@ -33,9 +33,10 @@ class BiasedHeuristic(Heuristic):
         return points
 
 class MockBiasedProblem(Problem):
-    def __init__(self, heuristic_quality_map):
+    def __init__(self, heuristic_quality_map, heuristic_cv_map=None):
         super().__init__([[-10, 10]])
         self.heuristic_quality_map = heuristic_quality_map
+        self.heuristic_cv_map = heuristic_cv_map or {}
 
     def __call__(self, point):
         who = point.who
@@ -44,9 +45,19 @@ class MockBiasedProblem(Problem):
             fx = np.random.normal(mean, 0.1)
         else:
             fx = 100.0
+
+        cv_vec = None
+        # Always return cv_vec if we are simulating constraints (indicated by heuristic_cv_map being non-empty)
+        if self.heuristic_cv_map:
+             if who in self.heuristic_cv_map:
+                 cv_mean = self.heuristic_cv_map[who]
+                 cv_vec = np.array([cv_mean])
+             else:
+                 cv_vec = np.array([0.0])
+
         # Add slight delay to simulate work and allow threads to sync
         time.sleep(0.001)
-        return Result(point, fx)
+        return Result(point, fx, cv_vec=cv_vec)
 
     def eval(self, x):
         return 0.0
@@ -118,3 +129,47 @@ class TestStrategyUCB(PanobbgoTestCase):
         # Verify all were selected at least once
         for h in heurs:
             assert h.ucb_count > 0, f"Heuristic {h.name} was never selected"
+
+    def test_ucb_constrained_preference(self):
+        """
+        Test that UCB prefers feasible solutions over infeasible ones,
+        even if infeasible ones have better 'fx' (unpenalized).
+        """
+        # H_feasible: fx = 10.0, cv = 0.0
+        # H_infeasible: fx = 0.0, cv = 1.0. Penalty ~ 100.0 (default rho=100)
+
+        quality_map = {
+            "H_Feasible": 10.0,
+            "H_Infeasible": 0.0
+        }
+        cv_map = {
+            "H_Feasible": 0.0,
+            "H_Infeasible": 1.0
+        }
+
+        problem = MockBiasedProblem(quality_map, cv_map)
+
+        strategy = StrategyUCB(problem, parse_args=False)
+        strategy.config.evaluation_method = "threaded"
+        strategy.config.max_eval = 200
+        strategy.config.ucb_c = 0.2
+
+        h_feas = BiasedHeuristic(strategy, "H_Feasible", 10.0)
+        h_infeas = BiasedHeuristic(strategy, "H_Infeasible", 0.0)
+
+        strategy.add_heuristic(h_feas)
+        strategy.add_heuristic(h_infeas)
+
+        strategy.start()
+
+        count_feas = h_feas.ucb_count
+        count_infeas = h_infeas.ucb_count
+
+        print(f"Feasible: {count_feas}, Infeasible: {count_infeas}")
+
+        total = count_feas + count_infeas
+        assert total > 0
+
+        # Feasible should be preferred
+        assert count_feas > count_infeas, f"UCB failed to prefer Feasible heuristic: Feas={count_feas}, Infeas={count_infeas}"
+        assert count_feas / total > 0.55

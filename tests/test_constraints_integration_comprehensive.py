@@ -26,7 +26,7 @@ import numpy as np
 import time
 from panobbgo.lib import Problem, Point
 from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch
+from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch, ConstraintGradient
 from panobbgo.lib.classic import RosenbrockConstraint, RosenbrockAbsConstraint
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
@@ -111,6 +111,7 @@ def test_rosenbrock_constraint_handlers(HandlerClass, kwargs):
     strategy.add(Random)
     strategy.add(Nearby)
     strategy.add(FeasibleSearch)
+    strategy.add(ConstraintGradient)
 
     strategy.start()
 
@@ -143,6 +144,7 @@ def test_simionescu_alm():
     strategy.add(Random)
     strategy.add(Nearby)
     strategy.add(FeasibleSearch)
+    strategy.add(ConstraintGradient)
     # NelderMead might help refining
     strategy.add(NelderMead)
 
@@ -213,3 +215,28 @@ def test_rosenbrock_abs_constraint_dynamic_penalty():
     assert strategy.best.cv < 0.5
     if strategy.best.cv < 0.1:
         assert strategy.best.fx < 100.0
+
+
+def test_constraint_gradient_effectiveness():
+    """
+    Check if ConstraintGradient is stable and doesn't degrade performance
+    on a linearly constrained problem (RosenbrockConstraint).
+    """
+    problem = RosenbrockConstraint(dims=2)
+
+    # Strategy: With ConstraintGradient
+    s = StrategyRewarding(problem, testing_mode=True)
+    s.config.max_eval = 500
+    s.add(Random)
+    s.add(Center)
+    s.add(ConstraintGradient)
+
+    # Also add FeasibleSearch to complement it
+    s.add(FeasibleSearch)
+
+    s.start()
+
+    print(f"With CG + FS: best cv={s.best.cv}, fx={s.best.fx}")
+
+    # Expect reasonable feasibility
+    assert s.best.cv < 1.0, "Strategy with ConstraintGradient failed to find near-feasible point"

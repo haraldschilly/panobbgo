@@ -89,7 +89,7 @@ class Results:
             r = new_results[0]
             midx_x = [("x", _) for _ in range(len(r.x))]
             len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
-            midx_cv = [("cv", _) for _ in range(len_cv_vec)]
+            midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
             midx = MultiIndex.from_tuples(
                 midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
             )

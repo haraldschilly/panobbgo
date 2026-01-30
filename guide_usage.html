@@ -146,6 +146,12 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#logging">Logging</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#persistent-storage-resuming">Persistent Storage &amp; Resuming</a><ul>
+<li><a class="reference internal" href="#enabling-storage">Enabling Storage</a></li>
+<li><a class="reference internal" href="#resuming-optimization">Resuming Optimization</a></li>
+<li><a class="reference internal" href="#accessing-stored-data">Accessing Stored Data</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#dask-cluster-not-found">Dask Cluster Not Found</a></li>
 <li><a class="reference internal" href="#function-evaluation-fails">Function Evaluation Fails</a></li>
@@ -771,6 +777,67 @@ This heuristic is specifically designed to:</p>
 </span><span data-line="6"><span class="c1"># Or programmatically</span>
 </span><span data-line="7"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 </span><span data-line="8"><span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;panobbgo&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+</section>
+<section id="persistent-storage-resuming">
+<h2>Persistent Storage &amp; Resuming<a class="headerlink" href="#persistent-storage-resuming" title="Link to this heading">¶</a></h2>
+<p>Panobbgo supports saving optimization results to an SQLite database. This allows you to:</p>
+<ol class="arabic simple">
+<li><p><strong>Pause and resume</strong> long-running optimizations.</p></li>
+<li><p><strong>Recover</strong> from crashes without losing data.</p></li>
+<li><p><strong>Analyze results</strong> post-hoc using standard SQL tools or other libraries.</p></li>
+</ol>
+<section id="enabling-storage">
+<h3>Enabling Storage<a class="headerlink" href="#enabling-storage" title="Link to this heading">¶</a></h3>
+<p>Add the storage configuration to your <cite>~/.panobbgo/config.ini</cite> or pass it via <cite>config.yaml</cite>:</p>
+<p><strong>config.ini</strong>:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[storage]</span>
+</span><span data-line="2"><span class="na">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">sqlite</span>
+</span><span data-line="3"><span class="na">uri</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">my_results.db</span>
+</span></pre></div>
+</div>
+<p><strong>config.yaml</strong>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">storage</span><span class="p">:</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sqlite</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">uri</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_results.db</span>
+</span></pre></div>
+</div>
+</section>
+<section id="resuming-optimization">
+<h3>Resuming Optimization<a class="headerlink" href="#resuming-optimization" title="Link to this heading">¶</a></h3>
+<p>When you start a strategy with storage enabled, Panobbgo automatically checks the database file.
+If it finds existing results, it loads them into memory and resumes the optimization process,
+continuing from where it left off.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Run 1: Start optimization</span>
+</span><span data-line="2"><span class="c1"># (Assume config enables sqlite storage)</span>
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="5"><span class="c1"># Strategy runs for 100 evals and saves them to &#39;my_results.db&#39;</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Run 2: Resume and extend</span>
+</span><span data-line="8"><span class="c1"># Panobbgo loads the 100 previous results</span>
+</span><span data-line="9"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span data-line="10"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="11"><span class="c1"># Strategy runs for another 100 evals (total 200)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="accessing-stored-data">
+<h3>Accessing Stored Data<a class="headerlink" href="#accessing-stored-data" title="Link to this heading">¶</a></h3>
+<p>The SQLite database contains a <code class="docutils literal notranslate"><span class="pre">results</span></code> table with the following schema:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code>: Integer Primary Key</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x</span></code>: JSON array of coordinates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fx</span></code>: Objective function value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cv_vec</span></code>: JSON array of constraint violations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">who</span></code>: Name of the heuristic that generated the point</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: Error estimate</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code>: Unix timestamp of generation</p></li>
+</ul>
+<p>You can query this using the <code class="docutils literal notranslate"><span class="pre">sqlite3</span></code> command-line tool or any SQLite client:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">sqlite3<span class="w"> </span>my_results.db<span class="w"> </span><span class="s2">&quot;SELECT id, fx, who FROM results ORDER BY fx ASC LIMIT 5;&quot;</span>
 </span></pre></div>
 </div>
 </section>

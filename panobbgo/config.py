@@ -326,6 +326,10 @@ class Config:
         self.constraint_handler = get_config("constraints.handler", None, None, "DefaultConstraintHandler", str)
         self.logging = get_config("logging", None, None, {}, dict)
 
+        # Storage configuration
+        self.storage_backend = get_config("storage.backend", "storage", "backend", None, str)
+        self.storage_uri = get_config("storage.uri", "storage", "uri", "panobbgo.db", str)
+
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:
             logger.info("Evaluation method: %s" % self.evaluation_method)

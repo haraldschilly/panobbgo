@@ -620,6 +620,76 @@ Logging
    import logging
    logging.getLogger('panobbgo').setLevel(logging.DEBUG)
 
+Persistent Storage & Resuming
+-----------------------------
+
+Panobbgo supports saving optimization results to an SQLite database. This allows you to:
+
+1. **Pause and resume** long-running optimizations.
+2. **Recover** from crashes without losing data.
+3. **Analyze results** post-hoc using standard SQL tools or other libraries.
+
+Enabling Storage
+~~~~~~~~~~~~~~~~
+
+Add the storage configuration to your `~/.panobbgo/config.ini` or pass it via `config.yaml`:
+
+**config.ini**:
+
+.. code-block:: ini
+
+   [storage]
+   backend = sqlite
+   uri = my_results.db
+
+**config.yaml**:
+
+.. code-block:: yaml
+
+   storage:
+     backend: sqlite
+     uri: my_results.db
+
+Resuming Optimization
+~~~~~~~~~~~~~~~~~~~~~
+
+When you start a strategy with storage enabled, Panobbgo automatically checks the database file.
+If it finds existing results, it loads them into memory and resumes the optimization process,
+continuing from where it left off.
+
+.. code-block:: python
+
+   # Run 1: Start optimization
+   # (Assume config enables sqlite storage)
+   strategy = StrategyRewarding(problem, max_evaluations=100)
+   strategy.start()
+   # Strategy runs for 100 evals and saves them to 'my_results.db'
+
+   # Run 2: Resume and extend
+   # Panobbgo loads the 100 previous results
+   strategy = StrategyRewarding(problem, max_evaluations=200)
+   strategy.start()
+   # Strategy runs for another 100 evals (total 200)
+
+Accessing Stored Data
+~~~~~~~~~~~~~~~~~~~~~
+
+The SQLite database contains a ``results`` table with the following schema:
+
+- ``id``: Integer Primary Key
+- ``x``: JSON array of coordinates
+- ``fx``: Objective function value
+- ``cv_vec``: JSON array of constraint violations
+- ``who``: Name of the heuristic that generated the point
+- ``error``: Error estimate
+- ``timestamp``: Unix timestamp of generation
+
+You can query this using the ``sqlite3`` command-line tool or any SQLite client:
+
+.. code-block:: bash
+
+   sqlite3 my_results.db "SELECT id, fx, who FROM results ORDER BY fx ASC LIMIT 5;"
+
 Troubleshooting
 ---------------
 

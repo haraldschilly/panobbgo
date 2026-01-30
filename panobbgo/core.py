@@ -76,11 +76,40 @@ class Results:
         self.results = None
         self._last_nb = 0  # for logging
 
-    def add_results(self, new_results):
+        # Initialize storage backend if configured
+        self.backend = None
+        if (
+            hasattr(strategy.config, "storage_backend")
+            and strategy.config.storage_backend == "sqlite"
+        ):
+            from .storage import SQLiteStorage
+
+            self.backend = SQLiteStorage(strategy.config.storage_uri)
+            self.logger.info(
+                f"Using SQLite storage backend: {strategy.config.storage_uri}"
+            )
+
+    def load_from_storage(self):
+        """
+        Load results from storage backend and populate the database.
+        """
+        if self.backend:
+            loaded_results = self.backend.load()
+            if loaded_results:
+                self.logger.info(f"Loaded {len(loaded_results)} results from storage.")
+                self.add_results(loaded_results, save_to_storage=False)
+                return len(loaded_results)
+        return 0
+
+    def add_results(self, new_results, save_to_storage=True):
         """
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         """
+        # Persist to storage backend if enabled
+        if self.backend and save_to_storage:
+            self.backend.save(new_results)
+
         from pandas import DataFrame, MultiIndex, concat
 
         if self.results is None:
@@ -858,6 +887,10 @@ class StrategyBase:
 
         # Validate framework setup before starting optimization
         self.validate_setup()
+
+        # Load previous results if storage is enabled
+        if hasattr(self.results, "load_from_storage"):
+            self.results.load_from_storage()
 
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
 

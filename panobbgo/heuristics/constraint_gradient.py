@@ -91,8 +91,15 @@ class ConstraintGradient(Heuristic):
         X_candidates = None
         cv_candidates = None
 
-        # Handle different result container types
-        if isinstance(results_container, list):
+        # Use get_history if available
+        if hasattr(results_container, "get_history"):
+            try:
+                h = results_container.get_history(n=100)
+                X_candidates = h["x"]
+                cv_candidates = h["cv"]
+            except Exception:
+                return
+        elif isinstance(results_container, list):
             # Test/Legacy case: results_container is a list of Result objects
             subset = results_container[-100:]
             if not subset:
@@ -101,31 +108,6 @@ class ConstraintGradient(Heuristic):
                 X_candidates = np.array([r.x for r in subset], dtype=float)
                 cv_candidates = np.array([r.cv for r in subset], dtype=float)
             except Exception:
-                return
-        elif hasattr(results_container, 'results'):
-             # Production case: Results object wrapping a DataFrame
-            df = results_container.results
-            if df is None or df.empty:
-                return
-
-            try:
-                # Safest way: iterate over last N rows
-                n_rows = len(df)
-                start_idx = max(0, n_rows - 100)
-
-                # Get 'x' part
-                # df['x'] returns a DataFrame with columns 0, 1, ...
-                X_subset = df['x'].iloc[start_idx:].values # numpy array of shape (N, dim)
-
-                # Get 'cv' part (scalar)
-                # core.py: `[r.cv, r.who, r.error]` are added at the end.
-                # So `cv` scalar is 3rd from end.
-                cv_values = df.iloc[start_idx:, -3].values
-
-                X_candidates = np.array(X_subset, dtype=float)
-                cv_candidates = np.array(cv_values, dtype=float)
-            except Exception:
-                # Fallback or fail gracefully
                 return
         else:
             return

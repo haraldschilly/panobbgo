@@ -75,5 +75,53 @@ class TestResultsDataFrame(PanobbgoTestCase):
         scalar_val = float(df[('cv', 0)].iloc[0])
         self.assertEqual(scalar_val, 0.0)
 
+    def test_get_history(self):
+        """
+        Verify that get_history returns correct numpy arrays.
+        """
+        # Create results
+        r1 = Result(Point(np.array([1.0]), "t1"), 10.0, cv_vec=np.array([0.1]))
+        r2 = Result(Point(np.array([2.0]), "t2"), 20.0, cv_vec=np.array([0.2]))
+
+        self.strategy.results.add_results([r1, r2])
+
+        # 1. Test full history
+        h = self.strategy.results.get_history()
+
+        self.assertEqual(len(h['x']), 2)
+        self.assertTrue(np.allclose(h['x'], np.array([[1.0], [2.0]])))
+        self.assertTrue(np.allclose(h['fx'], np.array([10.0, 20.0])))
+        self.assertTrue(np.allclose(h['cv'], np.array([0.1, 0.2])))
+        self.assertTrue(np.allclose(h['cv_vec'], np.array([[0.1], [0.2]])))
+        self.assertTrue(np.array_equal(h['who'], np.array(['t1', 't2'])))
+
+        # 2. Test limited history (n=1)
+        h_last = self.strategy.results.get_history(n=1)
+        self.assertEqual(len(h_last['x']), 1)
+        self.assertTrue(np.allclose(h_last['x'], np.array([[2.0]])))
+        self.assertTrue(np.allclose(h_last['fx'], np.array([20.0])))
+
+    def test_get_history_empty(self):
+        """
+        Verify get_history on empty results.
+        """
+        h = self.strategy.results.get_history()
+        self.assertEqual(len(h['x']), 0)
+        self.assertEqual(len(h['fx']), 0)
+        self.assertEqual(len(h['cv']), 0)
+        self.assertEqual(len(h['cv_vec']), 0)
+
+    def test_get_history_no_constraints(self):
+        """
+        Verify get_history handles unconstrained results correctly.
+        """
+        r = Result(Point(np.array([1.0]), "t1"), 10.0, cv_vec=None)
+        self.strategy.results.add_results([r])
+
+        h = self.strategy.results.get_history()
+        self.assertEqual(len(h['cv_vec']), 1)
+        self.assertEqual(h['cv_vec'].shape[1], 0) # Should be (1, 0)
+        self.assertEqual(h['cv'][0], 0.0)
+
 if __name__ == '__main__':
     unittest.main()

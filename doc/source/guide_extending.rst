@@ -266,15 +266,16 @@ a simple version yourself:
            if self.converged:
                return
 
-           df = self.results.results
-           if len(df) < self.window_size:
+           # Use get_history for safe access to results
+           # Returns dict with numpy arrays: 'x', 'fx', 'cv', etc.
+           if len(self.results) < self.window_size:
                return
 
-           # Get recent objective values
-           recent_fx = df[('fx', 0)].tail(self.window_size)
+           history = self.results.get_history(n=self.window_size)
+           recent_fx = history['fx']
 
            # Check standard deviation
-           std = recent_fx.std()
+           std = np.std(recent_fx)
            if std < self.tolerance:
                self.converged = True
                self.logger.info(f"Convergence detected! std={std:.2e}")
@@ -314,6 +315,8 @@ Identify clusters of good points:
 
        def on_new_results(self, results):
            """Cluster the best points."""
+           # Access raw DataFrame if complex operations like sorting/indexing needed
+           # Or use get_history() for bulk array access
            df = self.results.results
 
            if len(df) < 50:

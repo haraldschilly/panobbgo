@@ -161,6 +161,64 @@ class Results:
     def __len__(self):
         return len(self.results) if self.results is not None else 0
 
+    def get_history(self, n=None):
+        """
+        Retrieve the last n results as numpy arrays.
+
+        Args:
+            n (int, optional): Number of recent results to retrieve. If None, returns all.
+
+        Returns:
+            dict: Dictionary with keys 'x', 'fx', 'cv', 'cv_vec', 'who', 'error'.
+                  Values are numpy arrays (or list/array of objects for 'who').
+        """
+        if self.results is None or self.results.empty:
+            return {
+                "x": np.array([]),
+                "fx": np.array([]),
+                "cv": np.array([]),
+                "cv_vec": np.array([]),
+                "who": np.array([]),
+                "error": np.array([]),
+            }
+
+        df = self.results
+        if n is not None:
+            df = df.iloc[-n:]
+
+        # Extract data using column names
+        # 'x' is a top-level column with sub-columns 0, 1, ...
+        # df['x'] returns a DataFrame. .values converts to numpy array (N, dim)
+        x = df["x"].values.astype(float)
+
+        # 'fx' is ('fx', 0)
+        fx = df[("fx", 0)].values.astype(float)
+
+        # 'cv' is ('cv', 0)
+        cv = df[("cv", 0)].values.astype(float)
+
+        # 'cv_vec' might not exist or might have multiple columns
+        if "cv_vec" in df.columns.levels[0]:
+            cv_vec = df["cv_vec"].values.astype(float)
+        else:
+            # If no constraint vector, return empty array with shape (N, 0)
+            cv_vec = np.zeros((len(df), 0))
+
+        # 'who' is ('who', 0)
+        who = df[("who", 0)].values.astype(str)
+
+        # 'error' is ('error', 0)
+        error = df[("error", 0)].values.astype(float)
+
+        return {
+            "x": x,
+            "fx": fx,
+            "cv": cv,
+            "cv_vec": cv_vec,
+            "who": who,
+            "error": error,
+        }
+
     def _report_evaluation_progress(self, result: Result):
         """
         Report progress for a single evaluation result.

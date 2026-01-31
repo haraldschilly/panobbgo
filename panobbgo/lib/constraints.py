@@ -397,88 +397,63 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         if not hasattr(self.strategy, "results"):
             return
 
-        # Handle list-based results (mocks or legacy)
-        if isinstance(self.strategy.results, list):
-            # We skip scanning for simple lists as this feature relies on DataFrame performance
-            return
-
-        # Handle proper Results object
-        if not hasattr(self.strategy.results, "results"):
-            return
-
-        df = self.strategy.results.results  # pyright: ignore
-        if df is None or df.empty:
-            return
-
+        # Use get_history for robust access to data
         try:
-            # We assume df structure:
-            # MultiIndex columns: x (dim), fx (1), cv_vec (k?), cv (1), who (1), error (1)
-            # We need to extract fx and cv_vec.
+            # We assume strategy.results has get_history
+            if hasattr(self.strategy.results, "get_history"):
+                history = self.strategy.results.get_history()
+            elif isinstance(self.strategy.results, list):
+                # Fallback for list-based results (mocks)
+                # Not worth optimizing or implementing fully if not critical for tests
+                return
+            else:
+                return
 
-            # Using simple heuristics on structure.
-            # fx is at index `dim`.
-            dim = self.strategy.problem.dim
+            x_all = history["x"]
+            fx_all = history["fx"]
+            cv_vec_all = history["cv_vec"]
+            who_all = history["who"]
+            error_all = history.get("error", np.zeros(len(fx_all)))
 
-            # Use values for speed
-            data = df.values
-            # n_rows = len(data)
-
-            fx = data[:, dim].astype(float)
-
-            # cv_vec
-            width = data.shape[1]
-            # Suffix columns: fx (1), ..., cv(1), who(1), error(1)
-            # ... represents cv_vec.
-            # So k = width - dim - 1 (fx) - 3 (cv, who, error)
-            k = width - dim - 4
-
-            if k <= 0:
-                return  # Should not happen if cv_vec is present
-
-            cv_vec = data[:, dim + 1 : dim + 1 + k].astype(float)
+            if len(fx_all) == 0:
+                return
 
             # Calculate AL values vectorized
-            # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
-
             if self.lambdas is None:
                 return
 
-            # term = max(0, lambda + mu * cv_vec)
             # lambdas shape: (k,)
-            # cv_vec shape: (N, k)
-            term = np.maximum(0, self.lambdas + self.mu * cv_vec)
+            # cv_vec_all shape: (N, k)
 
-            sum_term_sq = np.sum(term**2, axis=1)
-            sum_lambdas_sq = np.sum(self.lambdas**2)
+            # If cv_vec is missing or empty, treat as no constraints
+            if cv_vec_all.size == 0 or cv_vec_all.shape[1] == 0:
+                # No constraints, just minimize fx
+                L_values = fx_all
+            else:
+                # term = max(0, lambda + mu * cv_vec)
+                term = np.maximum(0, self.lambdas + self.mu * cv_vec_all)
+                sum_term_sq = np.sum(term**2, axis=1)
+                sum_lambdas_sq = np.sum(self.lambdas**2)
 
-            penalty_term = (1.0 / (2.0 * self.mu)) * (sum_term_sq - sum_lambdas_sq)
-            L_values = fx + penalty_term
+                penalty_term = (1.0 / (2.0 * self.mu)) * (sum_term_sq - sum_lambdas_sq)
+                L_values = fx_all + penalty_term
 
             # Find minimum
             min_idx = np.argmin(L_values)
-            # min_L = L_values[min_idx]
 
-            # Check against current strategy.best
-            # We calculate current best's L value.
-            # But strategy.best might be None or stale.
-            # Let's just create the candidate and let Best analyzer decide.
+            # Construct Result
+            best_x = x_all[min_idx]
+            best_fx = fx_all[min_idx]
+            best_cv_vec = (
+                cv_vec_all[min_idx]
+                if cv_vec_all.size > 0 and cv_vec_all.shape[1] > 0
+                else None
+            )
+            best_who = str(who_all[min_idx])
+            best_error = float(error_all[min_idx])
 
-            # Reconstruct Result from min_idx row
-            row = data[min_idx]
-
-            # x: columns 0 to dim-1
-            x = row[:dim].astype(float)
-            r_fx = float(row[dim])
-            r_cv_vec = row[dim + 1 : dim + 1 + k].astype(float)
-            # who is at -2
-            r_who = str(row[-2])
-            # error is at -1
-            r_error = float(row[-1])
-
-            p = Point(x, r_who)
-            # Result constructor computes cv from cv_vec.
-            # We assume Result's computation matches what was stored.
-            candidate = Result(p, r_fx, cv_vec=r_cv_vec, error=r_error)
+            p = Point(best_x, best_who)
+            candidate = Result(p, best_fx, cv_vec=best_cv_vec, error=best_error)
 
             # Publish
             # Best analyzer should have `on_refresh_best` now.

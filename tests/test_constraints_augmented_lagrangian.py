@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
-from panobbgo.lib import Result
+from panobbgo.lib import Result, Point
 import numpy as np
 import pytest
 
@@ -22,6 +22,9 @@ class MockStrategy:
     def __init__(self, best=None):
         self.best = best
         self.config = MockConfig()
+        self.results = None
+        self.eventbus = None
+        self.problem = None
 
 class MockConfig:
     def get_logger(self, name):
@@ -30,6 +33,21 @@ class MockConfig:
 class MockLogger:
     def info(self, msg): pass
     def debug(self, msg): pass
+    def warning(self, msg): pass
+
+class MockEventBus:
+    def __init__(self):
+        self.published = []
+
+    def publish(self, key, **kwargs):
+        self.published.append((key, kwargs))
+
+class MockResults:
+    def __init__(self):
+        self.history = {}
+
+    def get_history(self, n=None):
+        return self.history
 
 def test_augmented_lagrangian_initialization():
     handler = AugmentedLagrangianConstraintHandler(rho=10.0, rate=2.0, update_interval=5)
@@ -145,3 +163,62 @@ def test_is_better():
     # r2 is better than r1
     assert handler.is_better(r1, r2)
     assert not handler.is_better(r2, r1)
+
+def test_scan_history_for_new_best():
+    strategy = MockStrategy()
+    strategy.eventbus = MockEventBus()
+    strategy.problem = type('obj', (object,), {'dim': 1})
+
+    # Mock Results with get_history
+    results_mock = MockResults()
+
+    # Data: 2 points.
+    # P1: fx=10, cv=1.0 (infeasible)
+    # P2: fx=100, cv=0.0 (feasible)
+
+    # Initial state: mu=10, lambda=0
+    # L(P1) = 10 + 1/20 * ( (0 + 10*1)^2 - 0 ) = 10 + 100/20 = 15
+    # L(P2) = 100 + 0 = 100
+    # P1 is better (15 < 100).
+
+    # Suppose we update parameters so P2 becomes better?
+    # If mu becomes huge?
+    # Say mu=1000.
+    # L(P1) = 10 + 1/2000 * ( (1000)^2 ) = 10 + 1000000/2000 = 10 + 500 = 510.
+    # L(P2) = 100.
+    # P2 is better (100 < 510).
+
+    x = np.array([[1.0], [2.0]])
+    fx = np.array([10.0, 100.0])
+    cv_vec = np.array([[1.0], [0.0]])
+    who = np.array(["p1", "p2"])
+
+    results_mock.history = {
+        'x': x,
+        'fx': fx,
+        'cv_vec': cv_vec,
+        'who': who,
+        'error': np.zeros(2)
+    }
+
+    strategy.results = results_mock
+
+    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=10.0)
+    handler.lambdas = np.array([0.0])
+
+    # Force update with large mu
+    handler.mu = 1000.0
+
+    handler._scan_history_for_new_best()
+
+    # Expect event published
+    assert len(strategy.eventbus.published) == 1
+    key, kwargs = strategy.eventbus.published[0]
+    assert key == 'refresh_best'
+    candidates = kwargs['candidates']
+    assert len(candidates) == 1
+    best = candidates[0]
+
+    # Expect P2 (fx=100) to be the new best
+    assert best.fx == 100.0
+    assert best.cv == 0.0

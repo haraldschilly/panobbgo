@@ -1237,4 +1237,10 @@ class PressureVessel(Problem):
         g3 = -np.pi * x3**2 * x4 - (4/3) * np.pi * x3**3 + 1296000
         g4 = x4 - 240
 
-        return np.array([max(0.0, g1), max(0.0, g2), max(0.0, g3), max(0.0, g4)])
+        # Normalize constraints to O(1) for better optimizer performance
+        return np.array([
+            max(0.0, g1),
+            max(0.0, g2),
+            max(0.0, g3 / 1296000.0),
+            max(0.0, g4 / 240.0)
+        ])

@@ -44,8 +44,7 @@ def test_pressure_vessel_design_alm():
     strategy.config.convergence_window_size = 500
 
     # Use Augmented Lagrangian
-    # Initial rho needs to be higher because objective is large (~6000)
-    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=1000.0, rate=2.0)
+    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=10.0, rate=2.0)
     strategy.constraint_handler = handler
     strategy.eventbus.register(handler)
 

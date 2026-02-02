@@ -1143,3 +1143,104 @@ class GoldsteinPrice(Problem):
         return a*b
 
 
+
+
+class Simionescu(Problem):
+    """
+    Simionescu function with constraints.
+    f(x,y) = 0.1 * xy
+    subject to: x^2 + y^2 <= (1 + 0.2 cos(8 atan(x/y)))^2
+    """
+    def __init__(self, **kwargs):
+        # Box is typically [-1.25, 1.25]
+        super().__init__([(-1.25, 1.25), (-1.25, 1.25)], **kwargs)
+
+    def eval(self, x):
+        return 0.1 * x[0] * x[1]
+
+    def eval_constraints(self, x):
+        # Constraint: x^2 + y^2 <= (r_T)^2
+        # g(x) = x^2 + y^2 - (1 + 0.2 cos(8 theta))^2 <= 0
+        r_sq = x[0]**2 + x[1]**2
+
+        # Handle atan2 for theta
+        theta = np.arctan2(x[1], x[0])
+
+        # r_T = 1 + 0.2 * cos(8 * theta)
+        r_T = 1.0 + 0.2 * np.cos(8.0 * theta)
+
+        val = r_sq - r_T**2
+        return np.array([max(0.0, val)])
+
+
+class MishraBird(Problem):
+    """
+    Mishra's Bird function - constrained.
+    f(x,y) = sin(y)e^((1-cos(x))^2) + cos(x)e^((1-sin(y))^2) + (x-y)^2
+    s.t. (x+5)^2 + (y+5)^2 < 25
+    """
+    def __init__(self, **kwargs):
+        super().__init__([(-10, 0), (-6.5, 0)], **kwargs)
+        # Optimum approx -106.7645 at (-3.1302468, -1.5821422)
+
+    def eval(self, x):
+        X, Y = x[0], x[1]
+        term1 = np.sin(Y) * np.exp((1 - np.cos(X))**2)
+        term2 = np.cos(X) * np.exp((1 - np.sin(Y))**2)
+        term3 = (X - Y)**2
+        return term1 + term2 + term3
+
+    def eval_constraints(self, x):
+        # (x+5)^2 + (y+5)^2 - 25 <= 0
+        val = (x[0] + 5)**2 + (x[1] + 5)**2 - 25
+        return np.array([max(0.0, val)])
+
+
+class PressureVessel(Problem):
+    """
+    Pressure Vessel Design problem.
+
+    Minimize cost f(x) = 0.6224 x1 x3 x4 + 1.7781 x2 x3^2 + 3.1661 x1^2 x4 + 19.84 x1^2 x3
+    Subject to:
+    g1(x) = -x1 + 0.0193 x3 <= 0
+    g2(x) = -x2 + 0.00954 x3 <= 0
+    g3(x) = -pi x3^2 x4 - 4/3 pi x3^3 + 1296000 <= 0
+    g4(x) = x4 - 240 <= 0
+
+    Variables:
+    x1: Ts (shell thickness) [0, 99]
+    x2: Th (head thickness) [0, 99]
+    x3: R (inner radius) [10, 200]
+    x4: L (length) [10, 200]
+
+    Best known solution: f(x) approx 6059.7143
+    """
+    def __init__(self, **kwargs):
+        # Continuous version bounds
+        box = [
+            (0, 99),    # x1
+            (0, 99),    # x2
+            (10, 200),  # x3
+            (10, 200)   # x4
+        ]
+        super().__init__(box, **kwargs)
+
+    def eval(self, x):
+        x1, x2, x3, x4 = x[0], x[1], x[2], x[3]
+        return 0.6224 * x1 * x3 * x4 + 1.7781 * x2 * x3**2 + 3.1661 * x1**2 * x4 + 19.84 * x1**2 * x3
+
+    def eval_constraints(self, x):
+        x1, x2, x3, x4 = x[0], x[1], x[2], x[3]
+
+        g1 = -x1 + 0.0193 * x3
+        g2 = -x2 + 0.00954 * x3
+        g3 = -np.pi * x3**2 * x4 - (4/3) * np.pi * x3**3 + 1296000
+        g4 = x4 - 240
+
+        # Normalize constraints to O(1) for better optimizer performance
+        return np.array([
+            max(0.0, g1),
+            max(0.0, g2),
+            max(0.0, g3 / 1296000.0),
+            max(0.0, g4 / 240.0)
+        ])

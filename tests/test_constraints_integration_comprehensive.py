@@ -27,7 +27,12 @@ import time
 from panobbgo.lib import Problem, Point
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch, ConstraintGradient
-from panobbgo.lib.classic import RosenbrockConstraint, RosenbrockAbsConstraint
+from panobbgo.lib.classic import (
+    RosenbrockConstraint,
+    RosenbrockAbsConstraint,
+    Simionescu,
+    MishraBird
+)
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
@@ -35,56 +40,6 @@ from panobbgo.lib.constraints import (
     DynamicPenaltyConstraintHandler
 )
 
-# --- Test Problems ---
-
-class Simionescu(Problem):
-    """
-    Simionescu function with constraints.
-    f(x,y) = 0.1 * xy
-    subject to: x^2 + y^2 <= (1 + 0.2 cos(8 atan(x/y)))^2
-    """
-    def __init__(self):
-        # Box is typically [-1.25, 1.25]
-        super().__init__([(-1.25, 1.25), (-1.25, 1.25)])
-
-    def eval(self, x):
-        return 0.1 * x[0] * x[1]
-
-    def eval_constraints(self, x):
-        # Constraint: x^2 + y^2 <= (r_T)^2
-        # g(x) = x^2 + y^2 - (1 + 0.2 cos(8 theta))^2 <= 0
-        r_sq = x[0]**2 + x[1]**2
-
-        # Handle atan2 for theta
-        theta = np.arctan2(x[1], x[0])
-
-        # r_T = 1 + 0.2 * cos(8 * theta)
-        r_T = 1.0 + 0.2 * np.cos(8.0 * theta)
-
-        val = r_sq - r_T**2
-        return np.array([max(0.0, val)])
-
-class MishraBird(Problem):
-    """
-    Mishra's Bird function - constrained.
-    f(x,y) = sin(y)e^((1-cos(x))^2) + cos(x)e^((1-sin(y))^2) + (x-y)^2
-    s.t. (x+5)^2 + (y+5)^2 < 25
-    """
-    def __init__(self):
-        super().__init__([(-10, 0), (-6.5, 0)])
-        # Optimum approx -106.7645 at (-3.1302468, -1.5821422)
-
-    def eval(self, x):
-        X, Y = x[0], x[1]
-        term1 = np.sin(Y) * np.exp((1 - np.cos(X))**2)
-        term2 = np.cos(X) * np.exp((1 - np.sin(Y))**2)
-        term3 = (X - Y)**2
-        return term1 + term2 + term3
-
-    def eval_constraints(self, x):
-        # (x+5)^2 + (y+5)^2 - 25 <= 0
-        val = (x[0] + 5)**2 + (x[1] + 5)**2 - 25
-        return np.array([max(0.0, val)])
 
 @pytest.mark.parametrize("HandlerClass, kwargs", [
     (DefaultConstraintHandler, {"rho": 100.0}),

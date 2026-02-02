@@ -143,12 +143,22 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.classic.Himmelblau.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.MishraBird"><code class="docutils literal notranslate"><span class="pre">MishraBird</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.MishraBird.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.MishraBird.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic"><code class="docutils literal notranslate"><span class="pre">NesterovQuadratic</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.NesterovQuadratic.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Powell"><code class="docutils literal notranslate"><span class="pre">Powell</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Powell.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.PressureVessel"><code class="docutils literal notranslate"><span class="pre">PressureVessel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.PressureVessel.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.PressureVessel.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Quadruple"><code class="docutils literal notranslate"><span class="pre">Quadruple</span></code></a><ul>
@@ -207,6 +217,11 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Shekel"><code class="docutils literal notranslate"><span class="pre">Shekel</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Shekel.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Simionescu"><code class="docutils literal notranslate"><span class="pre">Simionescu</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Simionescu.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Simionescu.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Step"><code class="docutils literal notranslate"><span class="pre">Step</span></code></a><ul>
@@ -697,6 +712,50 @@ and the given problem should subclass this <code class="docutils literal notrans
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.MishraBird">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">MishraBird</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#MishraBird"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.MishraBird" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Mishra’s Bird function - constrained.
+f(x,y) = sin(y)e^((1-cos(x))^2) + cos(x)e^((1-sin(y))^2) + (x-y)^2
+s.t. (x+5)^2 + (y+5)^2 &lt; 25</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.MishraBird.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#MishraBird.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.MishraBird.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.MishraBird.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#MishraBird.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.MishraBird.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.NesterovQuadratic">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">NesterovQuadratic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nonsmooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#NesterovQuadratic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.NesterovQuadratic" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
@@ -756,6 +815,60 @@ and the given problem should subclass this <code class="docutils literal notrans
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.PressureVessel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">PressureVessel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#PressureVessel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.PressureVessel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Pressure Vessel Design problem.</p>
+<p>Minimize cost f(x) = 0.6224 x1 x3 x4 + 1.7781 x2 x3^2 + 3.1661 x1^2 x4 + 19.84 x1^2 x3
+Subject to:
+g1(x) = -x1 + 0.0193 x3 &lt;= 0
+g2(x) = -x2 + 0.00954 x3 &lt;= 0
+g3(x) = -pi x3^2 x4 - 4/3 pi x3^3 + 1296000 &lt;= 0
+g4(x) = x4 - 240 &lt;= 0</p>
+<p>Variables:
+x1: Ts (shell thickness) [0, 99]
+x2: Th (head thickness) [0, 99]
+x3: R (inner radius) [10, 200]
+x4: L (length) [10, 200]</p>
+<p>Best known solution: f(x) approx 6059.7143</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.PressureVessel.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#PressureVessel.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.PressureVessel.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.PressureVessel.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#PressureVessel.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.PressureVessel.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1434,6 +1547,50 @@ and the given problem should subclass this <code class="docutils literal notrans
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Simionescu">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Simionescu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Simionescu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Simionescu" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Simionescu function with constraints.
+f(x,y) = 0.1 * xy
+subject to: x^2 + y^2 &lt;= (1 + 0.2 cos(8 atan(x/y)))^2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Simionescu.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Simionescu.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Simionescu.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Simionescu.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Simionescu.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Simionescu.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
 </dd>
 </dl>
 </dd></dl>

@@ -37,5 +37,6 @@ from __future__ import unicode_literals
 from .rewarding import StrategyRewarding
 from .round_robin import StrategyRoundRobin
 from .ucb import StrategyUCB
+from .thompson import StrategyThompsonSampling
 
-__all__ = ["StrategyRewarding", "StrategyRoundRobin", "StrategyUCB"]
+__all__ = ["StrategyRewarding", "StrategyRoundRobin", "StrategyUCB", "StrategyThompsonSampling"]

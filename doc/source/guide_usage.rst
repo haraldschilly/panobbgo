@@ -482,6 +482,23 @@ Use when (recommended for most cases):
        discount=0.95    # Performance decay
    )
 
+StrategyThompsonSampling
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use when:
+
+- You want a principled probabilistic approach (Beta-Bernoulli bandit)
+- You want to balance exploration and exploitation automatically without manual tuning
+- Suitable for both stationary and non-stationary (if adapted) environments
+
+.. code-block:: python
+
+   from panobbgo.strategies.thompson import StrategyThompsonSampling
+   strategy = StrategyThompsonSampling(
+       problem,
+       max_evaluations=1000
+   )
+
 Analyzing Results
 -----------------
 

@@ -97,7 +97,7 @@ A typical Panobbgo workflow looks like this:
           def eval(self, x):
               return my_expensive_function(x)
 
-2. **Choose a strategy** (typically :class:`~panobbgo.strategies.rewarding.StrategyRewarding` or :class:`~panobbgo.strategies.ucb.StrategyUCB`)
+2. **Choose a strategy** (typically :class:`~panobbgo.strategies.rewarding.StrategyRewarding`, :class:`~panobbgo.strategies.ucb.StrategyUCB`, or :class:`~panobbgo.strategies.thompson.StrategyThompsonSampling`)
 
    .. code-block:: python
 

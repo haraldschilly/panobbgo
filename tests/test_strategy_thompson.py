@@ -68,18 +68,19 @@ class TestStrategyThompson(PanobbgoTestCase):
         h1 = Center(self.strategy)
         h2 = Random(self.strategy)
 
-        # Mock h1 to be very good (high alpha), h2 to be bad (high beta)
-        h1.ts_alpha = 100.0
-        h1.ts_beta = 1.0
-        h2.ts_alpha = 1.0
-        h2.ts_beta = 100.0
-
         # Mock get_points
         h1.get_points = MagicMock(return_value=[Point(np.zeros(2), h1.name)])
         h2.get_points = MagicMock(return_value=[Point(np.zeros(2), h2.name)])
 
         self.strategy.add_heuristic(h1)
         self.strategy.add_heuristic(h2)
+
+        # Mock h1 to be very good (high alpha), h2 to be bad (high beta)
+        # Must be set AFTER adding, as add_heuristic resets them
+        h1.ts_alpha = 100.0
+        h1.ts_beta = 1.0
+        h2.ts_alpha = 1.0
+        h2.ts_beta = 100.0
 
         # Execute should prefer h1 (higher sampled theta)
         points = self.strategy.execute()

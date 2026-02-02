@@ -130,6 +130,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#choosing-a-strategy">Choosing a Strategy</a><ul>
 <li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
 <li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
+<li><a class="reference internal" href="#strategythompsonsampling">StrategyThompsonSampling</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#analyzing-results">Analyzing Results</a><ul>
@@ -648,6 +649,22 @@ This heuristic is specifically designed to:</p>
 </span><span data-line="5">    <span class="n">smooth</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>      <span class="c1"># Exploration parameter</span>
 </span><span data-line="6">    <span class="n">discount</span><span class="o">=</span><span class="mf">0.95</span>    <span class="c1"># Performance decay</span>
 </span><span data-line="7"><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="strategythompsonsampling">
+<h3>StrategyThompsonSampling<a class="headerlink" href="#strategythompsonsampling" title="Link to this heading">¶</a></h3>
+<p>Use when:</p>
+<ul class="simple">
+<li><p>You want a principled probabilistic approach (Beta-Bernoulli bandit)</p></li>
+<li><p>You want to balance exploration and exploitation automatically without manual tuning</p></li>
+<li><p>Suitable for both stationary and non-stationary (if adapted) environments</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.thompson</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyThompsonSampling</span>
+</span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyThompsonSampling</span><span class="p">(</span>
+</span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span>
+</span><span data-line="5"><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>

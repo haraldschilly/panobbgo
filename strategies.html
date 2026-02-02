@@ -111,6 +111,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRoundRobin.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyThompsonSampling"><code class="docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyThompsonSampling.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyThompsonSampling.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyThompsonSampling.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyThompsonSampling.reward"><code class="docutils literal notranslate">reward()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB"><code class="docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
@@ -234,6 +241,67 @@ scheme.</p>
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyRoundRobin.execute">
 <span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/round_robin.html#StrategyRoundRobin.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyRoundRobin.execute" title="Link to this definition">¶</a></dt>
 <dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyThompsonSampling">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyThompsonSampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/thompson.html#StrategyThompsonSampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyThompsonSampling" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
+<p>This strategy uses Thompson Sampling (Beta-Bernoulli bandit) to select heuristics.</p>
+<p>It maintains a Beta distribution Beta(alpha, beta) for each heuristic, representing
+the probability of success (finding a better point).</p>
+<p>Update rule:
+- Reward r in [0, 1] derived from improvement magnitude.
+- alpha &lt;- alpha + r
+- beta &lt;- beta + (1 - r)</p>
+<p>Selection:
+- Sample theta ~ Beta(alpha, beta) for each heuristic.
+- Select heuristic with highest theta.</p>
+<p>&#64;type problem: panobbgo.lib.Problem
+&#64;param problem:
+&#64;param parse_args:
+&#64;param testing_mode:
+&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyThompsonSampling.add_heuristic">
+<span class="sig-name descname"><span class="pre">add_heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/thompson.html#StrategyThompsonSampling.add_heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyThompsonSampling.add_heuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Add a heuristic to the strategy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyThompsonSampling.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/thompson.html#StrategyThompsonSampling.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyThompsonSampling.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyThompsonSampling.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/thompson.html#StrategyThompsonSampling.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyThompsonSampling.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>Called when a new best solution is found.
+Updates the Beta parameters for the heuristic that generated the solution.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyThompsonSampling.reward">
+<span class="sig-name descname"><span class="pre">reward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/thompson.html#StrategyThompsonSampling.reward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyThompsonSampling.reward" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate reward for a heuristic based on the improvement.</p>
+<p>Args:
+- <code class="docutils literal notranslate"><span class="pre">best</span></code>: new (best) result</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Reward value in [0, 1]</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>

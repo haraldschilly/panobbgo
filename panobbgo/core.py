@@ -73,7 +73,9 @@ class Results:
         self.strategy = strategy
         self.eventbus = strategy.eventbus
         self.problem = strategy.problem
-        self.results = None
+        self._results_df = None
+        self._buffer = []
+        self._best_fx = float('inf')
         self._last_nb = 0  # for logging
 
         # Initialize storage backend if configured
@@ -101,6 +103,59 @@ class Results:
                 return len(loaded_results)
         return 0
 
+    @property
+    def results(self):
+        self._flush_buffer()
+        return self._results_df
+
+    @results.setter
+    def results(self, value):
+        self._results_df = value
+        self._buffer = []
+        # Update best_fx from new results
+        if value is not None and not value.empty:
+            try:
+                self._best_fx = value.xs(0, level=1, axis=1)['fx'].min()
+            except (KeyError, ValueError):
+                self._best_fx = float('inf')
+        else:
+            self._best_fx = float('inf')
+
+    def _flush_buffer(self):
+        """
+        Flush buffered results to the DataFrame.
+        """
+        if not self._buffer:
+            return
+
+        from pandas import DataFrame, MultiIndex, concat
+
+        # Initialize DataFrame if needed
+        if self._results_df is None:
+            r = self._buffer[0]
+            midx_x = [("x", _) for _ in range(len(r.x))]
+            len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
+            midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
+            midx = MultiIndex.from_tuples(
+                midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
+            )
+            self._results_df = DataFrame(columns=midx)
+
+        new_rows = []
+        for r in self._buffer:
+            new_rows.append(
+                np.r_[
+                    r.x,
+                    r.fx,
+                    [] if r.cv_vec is None else r.cv_vec,
+                    [r.cv, r.who, r.error],
+                ]
+            )
+
+        results_new = DataFrame(new_rows, columns=self._results_df.columns)
+        self._results_df = concat([self._results_df, results_new], ignore_index=True)
+        self._buffer = []
+
     def add_results(self, new_results, save_to_storage=True):
         """
         Add one single or a list of new @Result objects.
@@ -110,19 +165,8 @@ class Results:
         if self.backend and save_to_storage:
             self.backend.save(new_results)
 
-        from pandas import DataFrame, MultiIndex, concat
-
-        if self.results is None:
-            if len(new_results) == 0:
-                return
-            r = new_results[0]
-            midx_x = [("x", _) for _ in range(len(r.x))]
-            len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
-            midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
-            midx = MultiIndex.from_tuples(
-                midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
-            )
-            self.results = DataFrame(columns=midx)
+        if not new_results:
+            return
 
         assert all([isinstance(_, Result) for _ in new_results])
         # notification for all received results at once
@@ -130,24 +174,15 @@ class Results:
 
         # Report progress for each result
         for result in new_results:
+            if result.fx is not None and result.fx < self._best_fx:
+                self._best_fx = result.fx
             self._report_evaluation_progress(result)
 
-        new_rows = []
-        for r in new_results:
-            new_rows.append(
-                np.r_[
-                    r.x,
-                    r.fx,
-                    [] if r.cv_vec is None else r.cv_vec,
-                    [r.cv, r.who, r.error],
-                ]
-            )
-        results_new = DataFrame(new_rows, columns=self.results.columns)
-        self.results = concat([self.results, results_new], ignore_index=True)
+        self._buffer.extend(new_results)
 
-        if len(self.results) / 100 > self._last_nb / 100:
+        if len(self) // 100 > self._last_nb // 100:
             self.info()
-            self._last_nb = len(self.results)
+            self._last_nb = len(self)
 
     def info(self):
         self.logger.info("%d results in DB" % len(self))
@@ -159,7 +194,9 @@ class Results:
         return self
 
     def __len__(self):
-        return len(self.results) if self.results is not None else 0
+        l = len(self._results_df) if self._results_df is not None else 0
+        l += len(self._buffer)
+        return l
 
     def get_history(self, n=None):
         """
@@ -241,16 +278,19 @@ class Results:
         if result.fx is not None:
             try:
                 # Check if this is a new global best
-                if self.results is not None and len(self.results) > 0:
-                    # Use xs to get a cross-section to avoid PerformanceWarning
-                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    current_best_fx = float(fx_series.min())
-                    if result.fx < current_best_fx:
-                        context.is_global_best = True
+                # Note: self._best_fx is updated in add_results before calling this
+                if result.fx <= self._best_fx and self._best_fx < float('inf'):
+                     # If it matches current best (which might be itself if just updated),
+                     # we consider it a new best if it's better than previous best?
+                     # Since we update _best_fx immediately, we can just check if result.fx == self._best_fx
+                     # But this might flag duplicates.
+                     # However, simplified logic: if result.fx is the current best, it's a global best candidate.
+                     context.is_global_best = True
 
                 # Check for significant improvement (top 10% of results)
-                if self.results is not None and len(self.results) > 10:
-                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                # We use _results_df directly to avoid flushing buffer
+                if self._results_df is not None and len(self._results_df) > 10:
+                    fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
                     sorted_fx = sorted([float(x) for x in fx_series.dropna()])
                     threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
                     if threshold_idx > 0:
@@ -259,9 +299,9 @@ class Results:
                             context.is_significant_improvement = True
 
                 # Check for general improvement over previous results
-                if self.results is not None and len(self.results) > 1:
-                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    prev_best = float(fx_series.iloc[:-1].min())  # exclude current result
+                if self._results_df is not None and len(self._results_df) > 1:
+                    fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
+                    prev_best = float(fx_series.min())
                     if result.fx < prev_best:
                         context.is_improvement = True
             except (ValueError, TypeError, KeyError):

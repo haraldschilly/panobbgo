@@ -111,6 +111,8 @@ class Random(Heuristic):
         leaf around the best point
         """
         best = self.strategy.analyzer("Best").best
+        if best is None:
+            return
         self.leaf = self.strategy.analyzer("Splitter").get_leaf(best)
         self.clear_output()
         self.first_split.set()

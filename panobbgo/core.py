@@ -75,6 +75,7 @@ class Results:
         self.problem = strategy.problem
         self.results = None
         self._last_nb = 0  # for logging
+        self._cached_min_fx = np.inf
 
         # Initialize storage backend if configured
         self.backend = None
@@ -128,9 +129,35 @@ class Results:
         # notification for all received results at once
         self.eventbus.publish("new_results", results=new_results)
 
+        # Prepare stats for progress reporting
+        progress_stats = {}
+        if self.results is not None and len(self.results) > 0:
+            try:
+                # Use cached min fx if available, or calculate it
+                if self._cached_min_fx is None or np.isinf(self._cached_min_fx):
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                    self._cached_min_fx = float(fx_series.astype(float).min())
+
+                progress_stats['current_best_fx'] = self._cached_min_fx
+
+                # Only access dataframe if necessary for other stats
+                if len(self.results) > 1:
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx'].astype(float)
+
+                    if len(self.results) > 10:
+                        sorted_fx = sorted(fx_series.dropna())
+                        threshold_idx = int(len(sorted_fx) * 0.1)
+                        if threshold_idx > 0:
+                            progress_stats['threshold'] = sorted_fx[threshold_idx]
+
+                    # min of history excluding last element (general improvement baseline)
+                    progress_stats['prev_best'] = float(fx_series.iloc[:-1].min())
+            except Exception:
+                pass
+
         # Report progress for each result
         for result in new_results:
-            self._report_evaluation_progress(result)
+            self._report_evaluation_progress(result, stats=progress_stats)
 
         new_rows = []
         for r in new_results:
@@ -144,6 +171,16 @@ class Results:
             )
         results_new = DataFrame(new_rows, columns=self.results.columns)
         self.results = concat([self.results, results_new], ignore_index=True)
+
+        # Update cached min fx with new results
+        try:
+             # Calculate min of new results efficiently
+             new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
+             if new_min is not None:
+                 if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or new_min < self._cached_min_fx:
+                     self._cached_min_fx = float(new_min)
+        except Exception:
+             pass
 
         if len(self.results) / 100 > self._last_nb / 100:
             self.info()
@@ -219,12 +256,13 @@ class Results:
             "error": error,
         }
 
-    def _report_evaluation_progress(self, result: Result):
+    def _report_evaluation_progress(self, result: Result, stats=None):
         """
         Report progress for a single evaluation result.
 
         Args:
             result: The evaluation result to report
+            stats: Optional dictionary of pre-calculated statistics
         """
         from .logging.progress import ProgressContext
 
@@ -241,17 +279,23 @@ class Results:
         if result.fx is not None:
             try:
                 # Check if this is a new global best
-                if self.results is not None and len(self.results) > 0:
+                if stats and 'current_best_fx' in stats:
+                     if result.fx < stats['current_best_fx']:
+                         context.is_global_best = True
+                elif self.results is not None and len(self.results) > 0:
                     # Use xs to get a cross-section to avoid PerformanceWarning
                     fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    current_best_fx = float(fx_series.min())
+                    current_best_fx = float(fx_series.astype(float).min())
                     if result.fx < current_best_fx:
                         context.is_global_best = True
 
                 # Check for significant improvement (top 10% of results)
-                if self.results is not None and len(self.results) > 10:
+                if stats and 'threshold' in stats:
+                    if result.fx < stats['threshold']:
+                        context.is_significant_improvement = True
+                elif self.results is not None and len(self.results) > 10:
                     fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    sorted_fx = sorted([float(x) for x in fx_series.dropna()])
+                    sorted_fx = sorted([float(x) for x in fx_series.astype(float).dropna()])
                     threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
                     if threshold_idx > 0:
                         threshold = sorted_fx[threshold_idx]
@@ -259,9 +303,12 @@ class Results:
                             context.is_significant_improvement = True
 
                 # Check for general improvement over previous results
-                if self.results is not None and len(self.results) > 1:
+                if stats and 'prev_best' in stats:
+                     if result.fx < stats['prev_best']:
+                         context.is_improvement = True
+                elif self.results is not None and len(self.results) > 1:
                     fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    prev_best = float(fx_series.iloc[:-1].min())  # exclude current result
+                    prev_best = float(fx_series.iloc[:-1].astype(float).min())  # exclude current result
                     if result.fx < prev_best:
                         context.is_improvement = True
             except (ValueError, TypeError, KeyError):

@@ -13,6 +13,13 @@
 
 ## Recent Improvements
 
+### Thompson Sampling Strategy (2025-01-13)
+- [x] **Implemented StrategyThompsonSampling**
+  - Added new strategy using Beta-Bernoulli bandit logic
+  - Implemented `reward` based on improvement magnitude
+  - Implemented `execute` with randomized selection based on Beta samples
+  - Added unit tests in `tests/test_strategy_thompson.py`
+
 ### PR #43 - Dask Memory Leak Fix & Test Suite Cleanup (2025-01-13)
 - [x] **Fixed Critical Memory Leak in Dask Cleanup**
   - Added proper `LocalCluster` cleanup in `_setup_dask_cluster()` and shutdown code

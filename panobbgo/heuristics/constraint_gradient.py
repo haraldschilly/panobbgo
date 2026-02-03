@@ -92,16 +92,20 @@ class ConstraintGradient(Heuristic):
         cv_candidates = None
 
         # Use get_history if available
+        # We search the full history (n=None) because the "new best" point might have been
+        # found much earlier in the optimization process (e.g. when AugmentedLagrangian
+        # updates parameters and re-evaluates historical points).
         if hasattr(results_container, "get_history"):
             try:
-                h = results_container.get_history(n=100)
+                h = results_container.get_history(n=None)
                 X_candidates = h["x"]
                 cv_candidates = h["cv"]
             except Exception:
                 return
         elif isinstance(results_container, list):
             # Test/Legacy case: results_container is a list of Result objects
-            subset = results_container[-100:]
+            # Use all results
+            subset = results_container
             if not subset:
                 return
             try:

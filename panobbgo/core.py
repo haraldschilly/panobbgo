@@ -297,7 +297,7 @@ class Results:
         cv = df[("cv", 0)].values.astype(float)
 
         # 'cv_vec' might not exist or might have multiple columns
-        if "cv_vec" in df.columns.levels[0]:
+        if "cv_vec" in df.columns.get_level_values(0):
             cv_vec = df["cv_vec"].values.astype(float)
         else:
             # If no constraint vector, return empty array with shape (N, 0)

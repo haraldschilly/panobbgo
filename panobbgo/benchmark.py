@@ -142,7 +142,7 @@ class BenchmarkRun:
     start_time: float
     end_time: float
     best_result: Optional[Result] = None
-    all_results: List[Result] = field(default_factory=list)
+    all_results: List[Any] = field(default_factory=list)  # pandas NamedTuples from itertuples()
     validation: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
@@ -194,8 +194,7 @@ class BenchmarkSuite:
             elif problem_spec.max_evaluations:
                 strategy.config.max_eval = problem_spec.max_evaluations
 
-            # Configure for benchmarking (disable UI, use threaded evaluation)
-            strategy.config.ui_show = False
+            # Configure for benchmarking (use threaded evaluation)
             strategy.config.evaluation_method = "threaded"
 
             # Run optimization with timeout
@@ -368,7 +367,7 @@ def create_standard_problems() -> List[ProblemSpec]:
     """
     from panobbgo.lib.classic import (
         Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang,
-        Schwefel, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25, Himmelblau
+        Schwefel, Himmelblau
     )
 
     problems = []

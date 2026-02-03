@@ -254,9 +254,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="111"><span class="sd">        leaf around the best point</span>
 </span><span data-line="112"><span class="sd">        &quot;&quot;&quot;</span>
 </span><span data-line="113">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Best&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">best</span>
-</span><span data-line="114">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
-</span><span data-line="115">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="116">        <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+</span><span data-line="114">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="115">            <span class="k">return</span>
+</span><span data-line="116">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="117">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
 </div>
 
 </span></pre></div>

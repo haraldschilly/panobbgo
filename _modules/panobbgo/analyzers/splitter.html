@@ -353,190 +353,205 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="192">            <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="193">            <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># best point</span>
 </span><span data-line="194">            <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="195">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="196">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="197">            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">_id</span>
-</span><span data-line="198">            <span class="n">splitter</span><span class="o">.</span><span class="n">_id</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="199">
-</span><span data-line="200">        <span class="nd">@property</span>
-</span><span data-line="201">        <span class="k">def</span><span class="w"> </span><span class="nf">leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="202"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="203"><span class="sd">            returns ``true``, if this box is a leaf. i.e. no children</span>
-</span><span data-line="204"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="205">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
-</span><span data-line="206">
-</span><span data-line="207">        <span class="nd">@property</span>
-</span><span data-line="208">        <span class="k">def</span><span class="w"> </span><span class="nf">fx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="209"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="210"><span class="sd">            Function value of best point in this particular box.</span>
-</span><span data-line="211"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="212">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="213">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
-</span><span data-line="214">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span>
-</span><span data-line="215">
-</span><span data-line="216">        <span class="nd">@memoize</span>
-</span><span data-line="217">        <span class="k">def</span><span class="w"> </span><span class="nf">__ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="218">            <span class="c1"># If self.box is a BoundingBox (custom object), get the underlying array</span>
-</span><span data-line="219">            <span class="n">box_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="s1">&#39;box&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span>
-</span><span data-line="220">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">box_array</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># self.box[:,1] - self.box[:,0]</span>
-</span><span data-line="221">
-</span><span data-line="222">        <span class="nd">@property</span>
-</span><span data-line="223">        <span class="k">def</span><span class="w"> </span><span class="nf">ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="224"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="225"><span class="sd">            Gives back a vector with all the ranges of this box,</span>
-</span><span data-line="226"><span class="sd">            i.e. upper - lower bound.</span>
-</span><span data-line="227"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="228">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
-</span><span data-line="229">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__ranges</span><span class="p">()</span>
-</span><span data-line="230">
-</span><span data-line="231">        <span class="nd">@memoize</span>
-</span><span data-line="232">        <span class="k">def</span><span class="w"> </span><span class="nf">__log_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="233">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">):</span>
-</span><span data-line="234">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">))</span>
+</span><span data-line="195">            <span class="c1"># Performance optimization: pre-allocate array for points</span>
+</span><span data-line="196">            <span class="c1"># to avoid list comprehension overhead during split.</span>
+</span><span data-line="197">            <span class="c1"># Only needed for leaf nodes (until they split).</span>
+</span><span data-line="198">            <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">)</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+</span><span data-line="199">            <span class="bp">self</span><span class="o">.</span><span class="n">X_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="200">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="201">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="202">            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">_id</span>
+</span><span data-line="203">            <span class="n">splitter</span><span class="o">.</span><span class="n">_id</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="204">
+</span><span data-line="205">        <span class="nd">@property</span>
+</span><span data-line="206">        <span class="k">def</span><span class="w"> </span><span class="nf">leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="207"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="208"><span class="sd">            returns ``true``, if this box is a leaf. i.e. no children</span>
+</span><span data-line="209"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="210">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span data-line="211">
+</span><span data-line="212">        <span class="nd">@property</span>
+</span><span data-line="213">        <span class="k">def</span><span class="w"> </span><span class="nf">fx</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="214"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="215"><span class="sd">            Function value of best point in this particular box.</span>
+</span><span data-line="216"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="217">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="218">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="219">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span>
+</span><span data-line="220">
+</span><span data-line="221">        <span class="nd">@memoize</span>
+</span><span data-line="222">        <span class="k">def</span><span class="w"> </span><span class="nf">__ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="223">            <span class="c1"># If self.box is a BoundingBox (custom object), get the underlying array</span>
+</span><span data-line="224">            <span class="n">box_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="s1">&#39;box&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span>
+</span><span data-line="225">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">box_array</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># self.box[:,1] - self.box[:,0]</span>
+</span><span data-line="226">
+</span><span data-line="227">        <span class="nd">@property</span>
+</span><span data-line="228">        <span class="k">def</span><span class="w"> </span><span class="nf">ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="229"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="230"><span class="sd">            Gives back a vector with all the ranges of this box,</span>
+</span><span data-line="231"><span class="sd">            i.e. upper - lower bound.</span>
+</span><span data-line="232"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="233">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
+</span><span data-line="234">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__ranges</span><span class="p">()</span>
 </span><span data-line="235">
-</span><span data-line="236">        <span class="nd">@property</span>
-</span><span data-line="237">        <span class="k">def</span><span class="w"> </span><span class="nf">log_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="238"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="239"><span class="sd">            Returns the `logarithmic` volume of this box.</span>
-</span><span data-line="240"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="241">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
-</span><span data-line="242">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__log_volume</span><span class="p">()</span>
-</span><span data-line="243">
-</span><span data-line="244">        <span class="nd">@memoize</span>
-</span><span data-line="245">        <span class="k">def</span><span class="w"> </span><span class="nf">__volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="246">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_volume</span><span class="p">)</span>
-</span><span data-line="247">
-</span><span data-line="248">        <span class="nd">@property</span>
-</span><span data-line="249">        <span class="k">def</span><span class="w"> </span><span class="nf">volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="250"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="251"><span class="sd">            Returns the volume of the box.</span>
+</span><span data-line="236">        <span class="nd">@memoize</span>
+</span><span data-line="237">        <span class="k">def</span><span class="w"> </span><span class="nf">__log_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="238">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">):</span>
+</span><span data-line="239">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">))</span>
+</span><span data-line="240">
+</span><span data-line="241">        <span class="nd">@property</span>
+</span><span data-line="242">        <span class="k">def</span><span class="w"> </span><span class="nf">log_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="243"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="244"><span class="sd">            Returns the `logarithmic` volume of this box.</span>
+</span><span data-line="245"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="246">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
+</span><span data-line="247">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__log_volume</span><span class="p">()</span>
+</span><span data-line="248">
+</span><span data-line="249">        <span class="nd">@memoize</span>
+</span><span data-line="250">        <span class="k">def</span><span class="w"> </span><span class="nf">__volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="251">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_volume</span><span class="p">)</span>
 </span><span data-line="252">
-</span><span data-line="253"><span class="sd">            .. Note::</span>
-</span><span data-line="254">
-</span><span data-line="255"><span class="sd">              Currently, the exponential of :attr:`.log_volume`</span>
-</span><span data-line="256"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="257">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
-</span><span data-line="258">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__volume</span><span class="p">()</span>
+</span><span data-line="253">        <span class="nd">@property</span>
+</span><span data-line="254">        <span class="k">def</span><span class="w"> </span><span class="nf">volume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="255"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="256"><span class="sd">            Returns the volume of the box.</span>
+</span><span data-line="257">
+</span><span data-line="258"><span class="sd">            .. Note::</span>
 </span><span data-line="259">
-</span><span data-line="260">        <span class="k">def</span><span class="w"> </span><span class="nf">_register_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="261"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="262"><span class="sd">            This updates the splitter and box specific datatypes,</span>
-</span><span data-line="263"><span class="sd">            i.e. the maps from a result to the corresponding boxes or leafs.</span>
-</span><span data-line="264"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="265">            <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span>
-</span><span data-line="266">
-</span><span data-line="267">            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Result</span><span class="p">)</span>
-</span><span data-line="268">            <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="269">
-</span><span data-line="270">            <span class="c1"># new best result in box? (for best fx value, too)</span>
-</span><span data-line="271">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="272">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span> <span class="o">&gt;</span> <span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
-</span><span data-line="273">                    <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="o">=</span> <span class="n">result</span>
-</span><span data-line="274">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="275">                <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="o">=</span> <span class="n">result</span>
-</span><span data-line="276">
-</span><span data-line="277">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">result2boxes</span><span class="p">[</span><span class="n">result</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span data-line="278">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">:</span>
-</span><span data-line="279">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">result2leaf</span><span class="p">[</span><span class="n">result</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span>
-</span><span data-line="280">
+</span><span data-line="260"><span class="sd">              Currently, the exponential of :attr:`.log_volume`</span>
+</span><span data-line="261"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="262">            <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
+</span><span data-line="263">            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__volume</span><span class="p">()</span>
+</span><span data-line="264">
+</span><span data-line="265">        <span class="k">def</span><span class="w"> </span><span class="nf">_register_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="266"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="267"><span class="sd">            This updates the splitter and box specific datatypes,</span>
+</span><span data-line="268"><span class="sd">            i.e. the maps from a result to the corresponding boxes or leafs.</span>
+</span><span data-line="269"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="270">            <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span>
+</span><span data-line="271">
+</span><span data-line="272">            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Result</span><span class="p">)</span>
+</span><span data-line="273">            <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="274">
+</span><span data-line="275">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_count</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">):</span>
+</span><span data-line="276">                <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">X_count</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="277">                <span class="bp">self</span><span class="o">.</span><span class="n">X_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="278">
+</span><span data-line="279">            <span class="c1"># new best result in box? (for best fx value, too)</span>
+</span><span data-line="280">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="281">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span> <span class="o">&gt;</span> <span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
+</span><span data-line="282">                    <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="o">=</span> <span class="n">result</span>
+</span><span data-line="283">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="284">                <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="o">=</span> <span class="n">result</span>
+</span><span data-line="285">
+</span><span data-line="286">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">result2boxes</span><span class="p">[</span><span class="n">result</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="287">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">:</span>
+</span><span data-line="288">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">result2leaf</span><span class="p">[</span><span class="n">result</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span>
+</span><span data-line="289">
 <div class="viewcode-block" id="Splitter.Box.add_result">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.add_result">[docs]</a>
-</span><span data-line="281">        <span class="k">def</span><span class="w"> </span><span class="nf">add_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="282"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="283"><span class="sd">            Registers and adds a new :class:`~panobbgo.lib.Result`.</span>
-</span><span data-line="284"><span class="sd">            In particular, it adds the given ``result`` to the</span>
-</span><span data-line="285"><span class="sd">            current box and it&#39;s children (also all descendents).</span>
-</span><span data-line="286">
-</span><span data-line="287"><span class="sd">            If the current box is a leaf and too big, the :meth:`.split`</span>
-</span><span data-line="288"><span class="sd">            routine is called.</span>
-</span><span data-line="289">
-</span><span data-line="290"><span class="sd">            .. Note::</span>
-</span><span data-line="291">
-</span><span data-line="292"><span class="sd">              ``box += result`` is fine, too.</span>
-</span><span data-line="293"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="294">            <span class="bp">self</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="295">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">:</span>
-</span><span data-line="296">                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_child_boxes</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="297">                    <span class="n">child</span> <span class="o">+=</span> <span class="n">result</span>  <span class="c1"># recursive</span>
-</span><span data-line="298">            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">:</span>
-</span><span data-line="299">                <span class="bp">self</span><span class="o">.</span><span class="n">split</span><span class="p">()</span></div>
-
+</span><span data-line="290">        <span class="k">def</span><span class="w"> </span><span class="nf">add_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="291"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="292"><span class="sd">            Registers and adds a new :class:`~panobbgo.lib.Result`.</span>
+</span><span data-line="293"><span class="sd">            In particular, it adds the given ``result`` to the</span>
+</span><span data-line="294"><span class="sd">            current box and it&#39;s children (also all descendents).</span>
+</span><span data-line="295">
+</span><span data-line="296"><span class="sd">            If the current box is a leaf and too big, the :meth:`.split`</span>
+</span><span data-line="297"><span class="sd">            routine is called.</span>
+</span><span data-line="298">
+</span><span data-line="299"><span class="sd">            .. Note::</span>
 </span><span data-line="300">
-</span><span data-line="301">        <span class="k">def</span><span class="w"> </span><span class="fm">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="302"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="303"><span class="sd">            Convenience wrapper for :meth:`.add_result`.</span>
-</span><span data-line="304"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="305">            <span class="bp">self</span><span class="o">.</span><span class="n">add_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="306">            <span class="k">return</span> <span class="bp">self</span>
-</span><span data-line="307">
-</span><span data-line="308">        <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="309">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="310">
+</span><span data-line="301"><span class="sd">              ``box += result`` is fine, too.</span>
+</span><span data-line="302"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="303">            <span class="bp">self</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="304">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">:</span>
+</span><span data-line="305">                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_child_boxes</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="306">                    <span class="n">child</span> <span class="o">+=</span> <span class="n">result</span>  <span class="c1"># recursive</span>
+</span><span data-line="307">            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">:</span>
+</span><span data-line="308">                <span class="bp">self</span><span class="o">.</span><span class="n">split</span><span class="p">()</span></div>
+
+</span><span data-line="309">
+</span><span data-line="310">        <span class="k">def</span><span class="w"> </span><span class="fm">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="311"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="312"><span class="sd">            Convenience wrapper for :meth:`.add_result`.</span>
+</span><span data-line="313"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="314">            <span class="bp">self</span><span class="o">.</span><span class="n">add_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="315">            <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="316">
+</span><span data-line="317">        <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="318">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="319">
 <div class="viewcode-block" id="Splitter.Box.split">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.split">[docs]</a>
-</span><span data-line="311">        <span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="312"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="313"><span class="sd">            Arguments::</span>
-</span><span data-line="314">
-</span><span data-line="315"><span class="sd">            - ``dim``: Dimension, along which to split. (default: `None`, and calculated)</span>
-</span><span data-line="316"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="317">            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s2">&quot;only leaf boxes are allowed to be split&quot;</span>
-</span><span data-line="318">            <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="319">                <span class="c1"># scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges</span>
-</span><span data-line="320">                <span class="c1"># dim = np.argmax(np.std(scaled_coords, axis=0))</span>
-</span><span data-line="321">                <span class="n">dim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">)</span>
-</span><span data-line="322">            <span class="c1"># self.logger.debug(&quot;dim: %d&quot; % dim)</span>
-</span><span data-line="323">            <span class="k">assert</span> <span class="n">dim</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="p">(</span>
-</span><span data-line="324">                <span class="s2">&quot;dimension along where to split is </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">dim</span>
-</span><span data-line="325">            <span class="p">)</span>
-</span><span data-line="326">            <span class="n">b1</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-</span><span data-line="327">            <span class="n">b2</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-</span><span data-line="328">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="n">dim</span>
-</span><span data-line="329">            <span class="c1"># split_point = np.median(map(lambda r:r.x[dim], self.results))</span>
-</span><span data-line="330">            <span class="n">split_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
-</span><span data-line="331">            <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
-</span><span data-line="332">            <span class="n">b2</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
-</span><span data-line="333">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">])</span>
-</span><span data-line="334">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span data-line="335">            <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="o">.</span><span class="n">append</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">))</span>
-</span><span data-line="336">            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
-</span><span data-line="337">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_new_box</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-</span><span data-line="338">                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
-</span><span data-line="339">                    <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="340">                        <span class="n">c</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="341">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span>
-</span><span data-line="342">                <span class="s2">&quot;new_split&quot;</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span>
-</span><span data-line="343">            <span class="p">)</span></div>
+</span><span data-line="320">        <span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="321"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="322"><span class="sd">            Arguments::</span>
+</span><span data-line="323">
+</span><span data-line="324"><span class="sd">            - ``dim``: Dimension, along which to split. (default: `None`, and calculated)</span>
+</span><span data-line="325"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="326">            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s2">&quot;only leaf boxes are allowed to be split&quot;</span>
+</span><span data-line="327">            <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="328">                <span class="c1"># scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges</span>
+</span><span data-line="329">                <span class="c1"># dim = np.argmax(np.std(scaled_coords, axis=0))</span>
+</span><span data-line="330">                <span class="n">dim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">)</span>
+</span><span data-line="331">            <span class="c1"># self.logger.debug(&quot;dim: %d&quot; % dim)</span>
+</span><span data-line="332">            <span class="k">assert</span> <span class="n">dim</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="p">(</span>
+</span><span data-line="333">                <span class="s2">&quot;dimension along where to split is </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">dim</span>
+</span><span data-line="334">            <span class="p">)</span>
+</span><span data-line="335">            <span class="n">b1</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+</span><span data-line="336">            <span class="n">b2</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+</span><span data-line="337">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="n">dim</span>
+</span><span data-line="338">            <span class="c1"># split_point = np.median(map(lambda r:r.x[dim], self.results))</span>
+</span><span data-line="339">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="340">                <span class="n">split_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_count</span><span class="p">,</span> <span class="n">dim</span><span class="p">])</span>
+</span><span data-line="341">                <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Free memory for non-leaf node</span>
+</span><span data-line="342">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="343">                <span class="c1"># Fallback if self.X was somehow not used or cleared</span>
+</span><span data-line="344">                <span class="n">split_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
+</span><span data-line="345">
+</span><span data-line="346">            <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
+</span><span data-line="347">            <span class="n">b2</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
+</span><span data-line="348">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">])</span>
+</span><span data-line="349">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="350">            <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="o">.</span><span class="n">append</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">))</span>
+</span><span data-line="351">            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+</span><span data-line="352">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_new_box</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</span><span data-line="353">                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
+</span><span data-line="354">                    <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="355">                        <span class="n">c</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="356">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span>
+</span><span data-line="357">                <span class="s2">&quot;new_split&quot;</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span>
+</span><span data-line="358">            <span class="p">)</span></div>
 
-</span><span data-line="344">
+</span><span data-line="359">
 <div class="viewcode-block" id="Splitter.Box.contains">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.contains">[docs]</a>
-</span><span data-line="345">        <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="346"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="347"><span class="sd">            true, if given point is inside this box (including boundaries).</span>
-</span><span data-line="348"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="349">            <span class="n">l</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
-</span><span data-line="350">            <span class="k">return</span> <span class="p">(</span><span class="n">l</span> <span class="o">&lt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span><span class="n">u</span> <span class="o">&gt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+</span><span data-line="360">        <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="361"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="362"><span class="sd">            true, if given point is inside this box (including boundaries).</span>
+</span><span data-line="363"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="364">            <span class="n">l</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="365">            <span class="k">return</span> <span class="p">(</span><span class="n">l</span> <span class="o">&lt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span><span class="n">u</span> <span class="o">&gt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
-</span><span data-line="351">
+</span><span data-line="366">
 <div class="viewcode-block" id="Splitter.Box.get_child_boxes">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes">[docs]</a>
-</span><span data-line="352">        <span class="k">def</span><span class="w"> </span><span class="nf">get_child_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="353"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="354"><span class="sd">            returns all immediate child boxes, which contain given point.</span>
-</span><span data-line="355"><span class="sd">            &quot;&quot;&quot;</span>
-</span><span data-line="356">            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s1">&#39;not applicable for &quot;leaf&quot; box&#39;</span>
-</span><span data-line="357">            <span class="n">ret</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">point</span><span class="p">)]</span>
-</span><span data-line="358">            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;no child box containing </span><span class="si">%s</span><span class="s2"> found!&quot;</span> <span class="o">%</span> <span class="n">point</span>
-</span><span data-line="359">            <span class="k">return</span> <span class="n">ret</span></div>
+</span><span data-line="367">        <span class="k">def</span><span class="w"> </span><span class="nf">get_child_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="368"><span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="369"><span class="sd">            returns all immediate child boxes, which contain given point.</span>
+</span><span data-line="370"><span class="sd">            &quot;&quot;&quot;</span>
+</span><span data-line="371">            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s1">&#39;not applicable for &quot;leaf&quot; box&#39;</span>
+</span><span data-line="372">            <span class="n">ret</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">point</span><span class="p">)]</span>
+</span><span data-line="373">            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;no child box containing </span><span class="si">%s</span><span class="s2"> found!&quot;</span> <span class="o">%</span> <span class="n">point</span>
+</span><span data-line="374">            <span class="k">return</span> <span class="n">ret</span></div>
 
-</span><span data-line="360">
-</span><span data-line="361">        <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="362">            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
-</span><span data-line="363">            <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot;,leaf&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-</span><span data-line="364">            <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot;(</span><span class="si">%d</span><span class="s2">,</span><span class="si">%.3f%s</span><span class="s2">) &quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
-</span><span data-line="365">            <span class="n">b</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
-</span><span data-line="366">            <span class="k">return</span> <span class="s2">&quot;Box-</span><span class="si">%d</span><span class="s2"> </span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+</span><span data-line="375">
+</span><span data-line="376">        <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="377">            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
+</span><span data-line="378">            <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot;,leaf&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="379">            <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot;(</span><span class="si">%d</span><span class="s2">,</span><span class="si">%.3f%s</span><span class="s2">) &quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
+</span><span data-line="380">            <span class="n">b</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="381">            <span class="k">return</span> <span class="s2">&quot;Box-</span><span class="si">%d</span><span class="s2"> </span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

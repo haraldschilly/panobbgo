@@ -77,6 +77,7 @@ class Results:
         self._buffer = []
         self._best_fx = float('inf')
         self._last_nb = 0  # for logging
+        self._cached_min_fx = np.inf
 
         # Initialize storage backend if configured
         self.backend = None
@@ -141,18 +142,43 @@ class Results:
             )
             self._results_df = DataFrame(columns=midx)
 
-        new_rows = []
-        for r in self._buffer:
-            new_rows.append(
-                np.r_[
-                    r.x,
-                    r.fx,
-                    [] if r.cv_vec is None else r.cv_vec,
-                    [r.cv, r.who, r.error],
-                ]
-            )
+        # Build data with explicit types to avoid mixed-type array issues
+        # (np.r_ with strings causes all values to become object dtype)
+        n_results = len(self._buffer)
+        r0 = self._buffer[0]
+        dim_x = len(r0.x)
+        len_cv_vec = 0 if r0.cv_vec is None else len(r0.cv_vec)
 
-        results_new = DataFrame(new_rows, columns=self._results_df.columns)
+        # Pre-allocate typed arrays
+        x_data = np.empty((n_results, dim_x), dtype=np.float64)
+        fx_data = np.empty(n_results, dtype=np.float64)
+        cv_vec_data = np.empty((n_results, len_cv_vec), dtype=np.float64) if len_cv_vec > 0 else None
+        cv_data = np.empty(n_results, dtype=np.float64)
+        who_data = np.empty(n_results, dtype=object)  # strings
+        error_data = np.empty(n_results, dtype=np.float64)
+
+        for i, r in enumerate(self._buffer):
+            x_data[i, :] = r.x
+            fx_data[i] = r.fx if r.fx is not None else np.nan
+            if cv_vec_data is not None:
+                cv_vec_data[i, :] = r.cv_vec if r.cv_vec is not None else 0.0
+            cv_data[i] = r.cv if r.cv is not None else 0.0
+            who_data[i] = r.who
+            error_data[i] = r.error if r.error is not None else 0.0
+
+        # Build DataFrame with proper column types
+        data_dict = {}
+        for j in range(dim_x):
+            data_dict[("x", j)] = x_data[:, j]
+        data_dict[("fx", 0)] = fx_data
+        if cv_vec_data is not None:
+            for j in range(len_cv_vec):
+                data_dict[("cv_vec", j)] = cv_vec_data[:, j]
+        data_dict[("cv", 0)] = cv_data
+        data_dict[("who", 0)] = who_data
+        data_dict[("error", 0)] = error_data
+
+        results_new = DataFrame(data_dict, columns=self._results_df.columns)
         self._results_df = concat([self._results_df, results_new], ignore_index=True)
         self._buffer = []
 
@@ -172,13 +198,49 @@ class Results:
         # notification for all received results at once
         self.eventbus.publish("new_results", results=new_results)
 
+        # Prepare stats for progress reporting
+        progress_stats = {}
+        if self.results is not None and len(self.results) > 0:
+            try:
+                # Use cached min fx if available, or calculate it
+                if self._cached_min_fx is None or np.isinf(self._cached_min_fx):
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
+                    self._cached_min_fx = float(fx_series.astype(float).min())
+
+                progress_stats['current_best_fx'] = self._cached_min_fx
+
+                # Only access dataframe if necessary for other stats
+                if len(self.results) > 1:
+                    fx_series = self.results.xs(0, level=1, axis=1)['fx'].astype(float)
+
+                    if len(self.results) > 10:
+                        sorted_fx = sorted(fx_series.dropna())
+                        threshold_idx = int(len(sorted_fx) * 0.1)
+                        if threshold_idx > 0:
+                            progress_stats['threshold'] = sorted_fx[threshold_idx]
+
+                    # min of history excluding last element (general improvement baseline)
+                    progress_stats['prev_best'] = float(fx_series.iloc[:-1].min())
+            except Exception:
+                pass
+
         # Report progress for each result
         for result in new_results:
             if result.fx is not None and result.fx < self._best_fx:
                 self._best_fx = result.fx
-            self._report_evaluation_progress(result)
+            self._report_evaluation_progress(result, stats=progress_stats)
 
         self._buffer.extend(new_results)
+
+        # Update cached min fx with new results
+        try:
+            # Calculate min of new results efficiently
+            new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
+            if new_min is not None:
+                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or new_min < self._cached_min_fx:
+                    self._cached_min_fx = float(new_min)
+        except Exception:
+            pass
 
         if len(self) // 100 > self._last_nb // 100:
             self.info()
@@ -256,12 +318,13 @@ class Results:
             "error": error,
         }
 
-    def _report_evaluation_progress(self, result: Result):
+    def _report_evaluation_progress(self, result: Result, stats=None):
         """
         Report progress for a single evaluation result.
 
         Args:
             result: The evaluation result to report
+            stats: Optional dictionary of pre-calculated statistics
         """
         from .logging.progress import ProgressContext
 
@@ -278,20 +341,24 @@ class Results:
         if result.fx is not None:
             try:
                 # Check if this is a new global best
-                # Note: self._best_fx is updated in add_results before calling this
-                if result.fx <= self._best_fx and self._best_fx < float('inf'):
-                     # If it matches current best (which might be itself if just updated),
-                     # we consider it a new best if it's better than previous best?
-                     # Since we update _best_fx immediately, we can just check if result.fx == self._best_fx
-                     # But this might flag duplicates.
-                     # However, simplified logic: if result.fx is the current best, it's a global best candidate.
-                     context.is_global_best = True
+                # Use pre-calculated stats if available (more efficient)
+                if stats and 'current_best_fx' in stats:
+                    if result.fx < stats['current_best_fx']:
+                        context.is_global_best = True
+                elif self._best_fx < float('inf') and result.fx <= self._best_fx:
+                    # Fallback to cached _best_fx (updated in add_results)
+                    context.is_global_best = True
 
                 # Check for significant improvement (top 10% of results)
-                # We use _results_df directly to avoid flushing buffer
-                if self._results_df is not None and len(self._results_df) > 10:
+                # Use pre-calculated threshold if available
+                if stats and 'threshold' in stats:
+                    if result.fx < stats['threshold']:
+                        context.is_significant_improvement = True
+                elif self._results_df is not None and len(self._results_df) > 10:
+                    # Use _results_df directly to avoid flushing buffer
+                    # Apply astype(float) to avoid string comparison bug
                     fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
-                    sorted_fx = sorted([float(x) for x in fx_series.dropna()])
+                    sorted_fx = sorted([float(x) for x in fx_series.astype(float).dropna()])
                     threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
                     if threshold_idx > 0:
                         threshold = sorted_fx[threshold_idx]
@@ -299,9 +366,14 @@ class Results:
                             context.is_significant_improvement = True
 
                 # Check for general improvement over previous results
-                if self._results_df is not None and len(self._results_df) > 1:
+                if stats and 'prev_best' in stats:
+                    if result.fx < stats['prev_best']:
+                        context.is_improvement = True
+                elif self._results_df is not None and len(self._results_df) > 1:
+                    # Use _results_df directly to avoid flushing buffer
+                    # Apply astype(float) to avoid string comparison bug
                     fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
-                    prev_best = float(fx_series.min())
+                    prev_best = float(fx_series.astype(float).min())
                     if result.fx < prev_best:
                         context.is_improvement = True
             except (ValueError, TypeError, KeyError):

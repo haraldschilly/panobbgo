@@ -86,9 +86,12 @@ class GaussianProcessHeuristic(Heuristic):
 
         # GP model state
         self.gp_model = None
+        self.gp_constraint = None  # Model for constraint violation
         self.X_train = []
-        self.y_train = []
+        self.y_train = []  # Objective values
+        self.y_cv_train = []  # Constraint violation values
         self.best_y = np.inf
+        self._use_eic = False  # EIC flag
 
     def on_start(self):
         """Initialize the heuristic at the start of optimization."""
@@ -110,21 +113,60 @@ class GaussianProcessHeuristic(Heuristic):
 
         new_X_list = []
         new_y_list = []
+        new_cv_list = []
 
         for r in results:
-            val = get_val(r)
-            # Filter out invalid values (inf, NaN) which can break GP
-            if np.isfinite(val):
-                new_X_list.append(r.x)
-                new_y_list.append(val)
+            # Check if constraints are present (cv > 0 anywhere implies constraints)
+            cv = r.cv if r.cv is not None else 0.0
+
+            if cv > 0:
+                self._use_eic = True
+
+            # If EIC is active, we train y on raw fx (or penalized if we want mixed approach?)
+            # Standard EIC uses objective function. But since we might switch dynamically,
+            # using raw fx is cleaner if we model constraints separately.
+            # However, for backward compatibility or stability, if we are scalarizing,
+            # we should stick to scalarization if EIC is not used.
+
+            if self._use_eic:
+                # Use raw objective for y_train, and cv for y_cv_train
+                # If fx is None (failure), skip
+                if r.fx is None or not np.isfinite(r.fx):
+                    continue
+                val = r.fx
+            else:
+                # Use penalized value (Scalarization)
+                val = get_val(r)
+                if not np.isfinite(val):
+                    continue
+
+            new_X_list.append(r.x)
+            new_y_list.append(val)
+            new_cv_list.append(cv)
 
         if not new_X_list:
             return
 
         self.X_train.extend(new_X_list)
         self.y_train.extend(new_y_list)
+        self.y_cv_train.extend(new_cv_list)
 
-        self.best_y = min(self.best_y, min(new_y_list))
+        # Update best_y. Note: if using EIC, best_y tracks best observed OBJECTIVE (feasible or not).
+        # But EI formula needs "best current value".
+        # For EIC, usually we use best *feasible* value.
+        if self._use_eic:
+            # Find best feasible value in history
+            # This is O(N) but N is usually small for GP
+            feasible_mask = np.array(self.y_cv_train) <= 1e-6
+            if np.any(feasible_mask):
+                y_arr = np.array(self.y_train)
+                self.best_y = np.min(y_arr[feasible_mask])
+            else:
+                # If no feasible point, EI is driven by feasibility probability mostly.
+                # Use min observed value as proxy?
+                self.best_y = min(self.y_train)
+        else:
+            self.best_y = min(self.best_y, min(new_y_list))
 
         if len(self.y_train) < 3:
             # Need at least a few points for meaningful GP
@@ -142,7 +184,7 @@ class GaussianProcessHeuristic(Heuristic):
         """Fit the Gaussian Process model to current training data."""
         try:
             from sklearn.gaussian_process import GaussianProcessRegressor
-            from sklearn.gaussian_process.kernels import Matern
+            from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
             # Use Matern kernel (common choice for optimization)
             kernel = Matern(nu=2.5)
@@ -158,6 +200,27 @@ class GaussianProcessHeuristic(Heuristic):
                 X_arr = np.array(self.X_train)
                 y_arr = np.array(self.y_train)
                 self.gp_model.fit(X_arr, y_arr)
+
+                # Fit Constraint Model if needed
+                if self._use_eic:
+                    # Constraint model
+                    # For constraints, we often use a log transform if values span orders of magnitude?
+                    # Or just fit on raw cv. Matern + WhiteKernel for noise handling.
+                    # We assume CV >= 0.
+                    cv_arr = np.array(self.y_cv_train)
+
+                    # Optional: Log transform CV to make it easier to model?
+                    # log(cv + 1e-6)
+
+                    kernel_cv = Matern(nu=2.5) + WhiteKernel()
+                    self.gp_constraint = GaussianProcessRegressor(
+                         kernel=kernel_cv,
+                         normalize_y=True,
+                         n_restarts_optimizer=5
+                    )
+                    self.gp_constraint.fit(X_arr, cv_arr)
+                    self.logger.debug(f"GP Constraint model fitted on {len(cv_arr)} points")
+
                 n_points = len(self.X_train)
                 self.logger.debug(
                     "GP model fitted with %d points" % n_points
@@ -261,16 +324,39 @@ class GaussianProcessHeuristic(Heuristic):
         # Get GP predictions and uncertainties
         y_pred, y_std = self.gp_model.predict(X, return_std=True)
 
+        # Base acquisition value
         if self.acquisition_func == AcquisitionFunction.EI:
-            return self._expected_improvement(y_pred, y_std)
+            acq = self._expected_improvement(y_pred, y_std)
         elif self.acquisition_func == AcquisitionFunction.UCB:
-            return self._upper_confidence_bound(y_pred, y_std)
+            acq = self._upper_confidence_bound(y_pred, y_std)
         elif self.acquisition_func == AcquisitionFunction.PI:
-            return self._probability_of_improvement(y_pred, y_std)
+            acq = self._probability_of_improvement(y_pred, y_std)
         else:
             raise ValueError(
                 f"Unknown acquisition function: {self.acquisition_func}"
             )
+
+        # Apply constraint probability (EIC)
+        if self._use_eic and self.gp_constraint is not None:
+             # Predict CV
+             cv_pred, cv_std = self.gp_constraint.predict(X, return_std=True)
+
+             # Probability that cv <= 0
+             # P(CV <= 0) = CDF((0 - mean) / std)
+             # Since cv is non-negative physically but GP assumes Gaussian,
+             # this approximates probability of feasibility.
+             # Note: If GP predicts negative mean, prob > 0.5.
+
+             with np.errstate(divide='ignore', invalid='ignore'):
+                 z = (0.0 - cv_pred) / cv_std
+                 prob_feasible = self._norm_cdf(z)
+                 prob_feasible[cv_std == 0] = 0.0 # If deterministic > 0, then 0.
+                 # If deterministic < 0, then 1.
+                 prob_feasible[(cv_std == 0) & (cv_pred <= 0)] = 1.0
+
+             acq *= prob_feasible
+
+        return acq
 
     def _expected_improvement(self, y_pred, y_std):
         """

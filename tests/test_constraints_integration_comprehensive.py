@@ -26,7 +26,7 @@ import numpy as np
 import time
 from panobbgo.lib import Problem, Point
 from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch, ConstraintGradient
+from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch, ConstraintGradient, GaussianProcessHeuristic
 from panobbgo.lib.classic import (
     RosenbrockConstraint,
     RosenbrockAbsConstraint,
@@ -195,3 +195,30 @@ def test_constraint_gradient_effectiveness():
 
     # Expect reasonable feasibility
     assert s.best.cv < 1.0, "Strategy with ConstraintGradient failed to find near-feasible point"
+
+
+def test_gp_eic_effectiveness():
+    """
+    Test Gaussian Process with Expected Improvement with Constraints (EIC)
+    on a constrained problem.
+    """
+    problem = RosenbrockConstraint(dims=2)
+    strategy = StrategyRewarding(problem, testing_mode=True)
+    strategy.config.max_eval = 200 # GP is expensive but sample efficient
+
+    # Add GP Heuristic
+    # Note: EIC should activate automatically when constraints are encountered
+    strategy.add(GaussianProcessHeuristic)
+    strategy.add(Random) # Need some random points to start
+
+    strategy.start()
+
+    print(f"GP EIC Best: fx={strategy.best.fx}, cv={strategy.best.cv}")
+
+    # GP should be able to find a decent solution with 200 evals
+    assert strategy.best.cv < 0.1, f"GP with EIC failed feasibility. CV={strategy.best.cv}"
+
+    # Unconstrained min is -50. Constrained is higher.
+    if strategy.best.cv < 1e-3:
+         # Should be reasonably good
+         assert strategy.best.fx < 100.0, f"GP with EIC found poor solution. fx={strategy.best.fx}"

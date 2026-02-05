@@ -43,6 +43,7 @@ from panobbgo.lib.constraints import (
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
     AugmentedLagrangianConstraintHandler,
+    EpsilonConstraintHandler,
 )
 from .logging import PanobbgoLogger
 import time as time_module
@@ -944,6 +945,24 @@ class StrategyBase:
         elif handler_name == "AugmentedLagrangianConstraintHandler":
             self.constraint_handler = AugmentedLagrangianConstraintHandler(
                 strategy=self, rho=rho, rate=rate
+            )
+        elif handler_name == "EpsilonConstraintHandler":
+            epsilon_start = (
+                float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
+            )
+            epsilon_cp = (
+                float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
+            )
+            epsilon_cutoff = (
+                int(config.epsilon_cutoff) if hasattr(config, "epsilon_cutoff") else 100
+            )
+
+            self.constraint_handler = EpsilonConstraintHandler(
+                strategy=self,
+                epsilon_start=epsilon_start,
+                cp=epsilon_cp,
+                cutoff=epsilon_cutoff,
+                rho=rho,
             )
         else:
             self.constraint_handler = DefaultConstraintHandler(

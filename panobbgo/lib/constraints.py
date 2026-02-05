@@ -496,3 +496,99 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         penalty_term = (1.0 / (2.0 * self.mu)) * (np.sum(term**2) - np.sum(self.lambdas**2))
 
         return result.fx + penalty_term
+
+class EpsilonConstraintHandler(ConstraintHandler):
+    """
+    Handles constraints using the Epsilon-Constraint method (or Epsilon-Level comparison).
+
+    Treats points with constraint violation <= epsilon(t) as feasible.
+    Epsilon starts at epsilon_start and decays to 0.0 over cutoff evaluations/generations.
+
+    Comparison Logic (epsilon-level):
+    - phi(x) = max(0, cv(x) - epsilon(t))
+    - If phi(u) == 0 and phi(v) == 0: Compare f(u) vs f(v)
+    - If phi(u) == 0 and phi(v) > 0: u is better
+    - If phi(u) > 0 and phi(v) == 0: v is better
+    - If phi(u) > 0 and phi(v) > 0: Compare phi(u) vs phi(v) (equivalent to comparing cv)
+
+    Decay Schedule:
+    epsilon(t) = epsilon_start * (1 - t / cutoff)^cp
+    """
+    def __init__(self, strategy=None, epsilon_start=1.0, cp=5.0, cutoff=100, rho=100.0, **kwargs):
+        super().__init__(strategy, **kwargs)
+        self.epsilon_start = epsilon_start
+        self.cp = cp
+        self.cutoff = cutoff
+        self.rho = rho
+
+    def _get_current_epsilon(self):
+        if not self.strategy or not hasattr(self.strategy, 'results'):
+            return self.epsilon_start
+
+        # Use len(results) as time t.
+        # Note: In initial stages, len(results) might be small.
+        t = len(self.strategy.results) if self.strategy.results else 0
+
+        if t >= self.cutoff:
+            return 0.0
+
+        progress = t / float(self.cutoff)
+        return self.epsilon_start * ((1.0 - progress) ** self.cp)
+
+    def _phi(self, result):
+        if result is None: return float('inf')
+        cv = result.cv if result.cv is not None else 0.0
+        eps = self._get_current_epsilon()
+        return max(0.0, cv - eps)
+
+    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
+        if old_best is None: return 1.0
+
+        phi_old = self._phi(old_best)
+        phi_new = self._phi(new_best)
+
+        # Case 1: Both effectively feasible
+        if phi_old == 0.0 and phi_new == 0.0:
+            return float(max(0.0, old_best.fx - new_best.fx))
+
+        # Case 2: Transition from infeasible to feasible (effectively)
+        if phi_old > 0.0 and phi_new == 0.0:
+            # Reward transition. Base reward + scale * violation reduction
+            # Using rho similar to DefaultConstraintHandler
+            return float(10.0 + self.rho * phi_old)
+
+        # Case 3: Both infeasible (effectively)
+        if phi_old > 0.0 and phi_new > 0.0:
+            # Compare effective violations
+            improv = phi_old - phi_new
+            if improv > 0:
+                return float(improv * self.rho)
+            return 0.0
+
+        return 0.0
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        if old_best is None: return True
+
+        phi_old = self._phi(old_best)
+        phi_new = self._phi(new_result)
+
+        if phi_new == 0.0 and phi_old == 0.0:
+            return new_result.fx < old_best.fx
+
+        if phi_new == 0.0 and phi_old > 0.0:
+            return True
+
+        if phi_new > 0.0 and phi_old == 0.0:
+            return False
+
+        # Both infeasible
+        return phi_new < phi_old
+
+    def get_penalty_value(self, result: Result) -> float:
+        if result is None or result.fx is None:
+            return float('inf')
+
+        phi = self._phi(result)
+        # P(x) = f(x) + rho * phi(x)
+        return float(result.fx + self.rho * phi)

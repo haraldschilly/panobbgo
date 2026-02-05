@@ -290,6 +290,11 @@ Panobbgo supports different constraint handling strategies, configurable in ``co
    Implements the Augmented Lagrangian Method. Adaptively updates multipliers $\lambda$ and penalty $\mu$ based on progress.
    Can be more robust for equality constraints or hard inequality constraints.
 
+5. **EpsilonConstraintHandler**:
+   Uses the $\epsilon$-Constrained Method. Initially treats points with small violations ($cv(x) \le \epsilon(t)$) as feasible.
+   $\epsilon(t)$ decreases from `epsilon_start` to 0 over `epsilon_cutoff` evaluations.
+   Effective for finding feasible regions in difficult problems by approaching the boundary gradually.
+
 FeasibleSearch Heuristic
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

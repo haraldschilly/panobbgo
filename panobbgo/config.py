@@ -323,6 +323,9 @@ class Config:
         self.rho = get_config("constraints.rho", None, None, 1.0, float)
         self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
         self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        self.epsilon_start = get_config("constraints.epsilon_start", None, None, 1.0, float)
+        self.epsilon_cp = get_config("constraints.epsilon_cp", None, None, 5.0, float)
+        self.epsilon_cutoff = get_config("constraints.epsilon_cutoff", None, None, 100, int)
         self.constraint_handler = get_config("constraints.handler", None, None, "DefaultConstraintHandler", str)
         self.logging = get_config("logging", None, None, {}, dict)
 

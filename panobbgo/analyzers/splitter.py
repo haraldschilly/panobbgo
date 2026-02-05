@@ -192,11 +192,6 @@ class Splitter(Analyzer):
             self.dim = splitter.dim
             self.best = None  # best point
             self.results = []
-            # Performance optimization: pre-allocate array for points
-            # to avoid list comprehension overhead during split.
-            # Only needed for leaf nodes (until they split).
-            self.X = np.zeros((int(self.limit) + 10, self.dim))
-            self.X_count = 0
             self.children = []
             self.split_dim = None
             self.id = splitter._id
@@ -272,10 +267,6 @@ class Splitter(Analyzer):
             assert isinstance(result, Result)
             self.results.append(result)
 
-            if self.X is not None and self.X_count < len(self.X):
-                self.X[self.X_count] = result.x
-                self.X_count += 1
-
             # new best result in box? (for best fx value, too)
             if self.best is not None:
                 if self.best.fx > result.fx:
@@ -336,13 +327,7 @@ class Splitter(Analyzer):
             b2 = Splitter.Box(self, self.splitter, self.box.copy())
             self.split_dim = dim
             # split_point = np.median(map(lambda r:r.x[dim], self.results))
-            if self.X is not None and self.X_count > 0:
-                split_point = np.average(self.X[: self.X_count, dim])
-                self.X = None  # Free memory for non-leaf node
-            else:
-                # Fallback if self.X was somehow not used or cleared
-                split_point = np.average([r.x[dim] for r in self.results])
-
+            split_point = np.average([r.x[dim] for r in self.results])
             b1.box[dim, 1] = split_point
             b2.box[dim, 0] = split_point
             self.children.extend([b1, b2])

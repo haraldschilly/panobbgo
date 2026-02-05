@@ -86,8 +86,8 @@ class GaussianProcessHeuristic(Heuristic):
 
         # GP model state
         self.gp_model = None
-        self.X_train = []
-        self.y_train = []
+        self.X_train = None
+        self.y_train = None
         self.best_y = np.inf
 
     def on_start(self):
@@ -121,10 +121,17 @@ class GaussianProcessHeuristic(Heuristic):
         if not new_X_list:
             return
 
-        self.X_train.extend(new_X_list)
-        self.y_train.extend(new_y_list)
+        new_X = np.array(new_X_list)
+        new_y = np.array(new_y_list)
 
-        self.best_y = min(self.best_y, min(new_y_list))
+        if self.X_train is None:
+            self.X_train = new_X
+            self.y_train = new_y
+        else:
+            self.X_train = np.vstack([self.X_train, new_X])
+            self.y_train = np.append(self.y_train, new_y)  # type: ignore
+
+        self.best_y = np.min(self.y_train)
 
         if len(self.y_train) < 3:
             # Need at least a few points for meaningful GP
@@ -153,11 +160,8 @@ class GaussianProcessHeuristic(Heuristic):
                 n_restarts_optimizer=10,
             )
 
-            if self.X_train:
-                # Convert to numpy arrays for fitting, but keep lists for efficient growth
-                X_arr = np.array(self.X_train)
-                y_arr = np.array(self.y_train)
-                self.gp_model.fit(X_arr, y_arr)
+            if self.X_train is not None:
+                self.gp_model.fit(self.X_train, self.y_train)
                 n_points = len(self.X_train)
                 self.logger.debug(
                     "GP model fitted with %d points" % n_points
@@ -215,7 +219,7 @@ class GaussianProcessHeuristic(Heuristic):
             starts.append(start)
 
         # Also try current best point as start
-        if self.X_train:
+        if self.X_train is not None and self.y_train is not None:
             best_idx = int(np.argmin(self.y_train))
             starts.append(self.X_train[best_idx].copy())
 

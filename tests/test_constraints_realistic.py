@@ -40,7 +40,7 @@ def test_pressure_vessel_design_alm():
 
     # Increase budget for this harder problem
     strategy = StrategyRewarding(problem, testing_mode=True)
-    strategy.config.max_eval = 5000
+    strategy.config.max_eval = 3000
     strategy.config.convergence_window_size = 500
 
     # Use Augmented Lagrangian
@@ -70,7 +70,7 @@ def test_pressure_vessel_design_alm():
     # We use a loose upper bound because without local search (NelderMead) and with limited budget,
     # finding the exact optimum is difficult. We want to ensure it's in the ballpark.
     if best.cv < 1.0:
-        assert best.fx < 150000.0, f"Solution not optimal enough: fx={best.fx} (target ~6060)"
+        assert best.fx < 40000.0, f"Solution not optimal enough: fx={best.fx} (target ~6060)"
 
 def test_pressure_vessel_design_dynamic_penalty():
     """

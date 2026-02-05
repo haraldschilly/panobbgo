@@ -96,6 +96,14 @@ class GaussianProcessHeuristic(Heuristic):
     def on_start(self):
         """Initialize the heuristic at the start of optimization."""
         self.logger.info("Gaussian Process heuristic started")
+        # Reset training data
+        self.X_train = []
+        self.y_train = []
+        self.y_cv_train = []
+        self.best_y = np.inf
+        self._use_eic = False
+        self.gp_model = None
+        self.gp_constraint = None
 
     def on_new_results(self, results):
         """
@@ -184,7 +192,7 @@ class GaussianProcessHeuristic(Heuristic):
         """Fit the Gaussian Process model to current training data."""
         try:
             from sklearn.gaussian_process import GaussianProcessRegressor
-            from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
+            from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 
             # Use Matern kernel (common choice for optimization)
             kernel = Matern(nu=2.5)

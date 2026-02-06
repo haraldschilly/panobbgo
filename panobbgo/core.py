@@ -43,6 +43,7 @@ from panobbgo.lib.constraints import (
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
     AugmentedLagrangianConstraintHandler,
+    EpsilonConstraintHandler,
 )
 from .logging import PanobbgoLogger
 import time as time_module
@@ -203,7 +204,7 @@ class Results:
         if self.results is not None and len(self.results) > 0:
             try:
                 # Use cached min fx if available, or calculate it
-                if self._cached_min_fx is None or np.isinf(self._cached_min_fx):
+                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx):
                     fx_series = self.results.xs(0, level=1, axis=1)['fx']
                     self._cached_min_fx = float(fx_series.astype(float).min())
 
@@ -237,7 +238,7 @@ class Results:
             # Calculate min of new results efficiently
             new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
             if new_min is not None:
-                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or new_min < self._cached_min_fx:
+                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx) or new_min < self._cached_min_fx:
                     self._cached_min_fx = float(new_min)
         except Exception:
             pass
@@ -578,6 +579,8 @@ class Heuristic(Module):
 
         - ``points``: Either a :class:`numpy.ndarray` of ``float64`` or preferrably a list of them.
         """
+        if self._stopped:
+            raise StopHeuristic()
         try:
             if points is None:
                 raise StopHeuristic()
@@ -1007,6 +1010,24 @@ class StrategyBase:
         elif handler_name == "AugmentedLagrangianConstraintHandler":
             self.constraint_handler = AugmentedLagrangianConstraintHandler(
                 strategy=self, rho=rho, rate=rate
+            )
+        elif handler_name == "EpsilonConstraintHandler":
+            epsilon_start = (
+                float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
+            )
+            epsilon_cp = (
+                float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
+            )
+            epsilon_cutoff = (
+                int(config.epsilon_cutoff) if hasattr(config, "epsilon_cutoff") else 100
+            )
+
+            self.constraint_handler = EpsilonConstraintHandler(
+                strategy=self,
+                epsilon_start=epsilon_start,
+                cp=epsilon_cp,
+                cutoff=epsilon_cutoff,
+                rho=rho,
             )
         else:
             self.constraint_handler = DefaultConstraintHandler(

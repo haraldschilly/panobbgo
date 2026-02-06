@@ -85,6 +85,19 @@ Uses a penalty factor that increases over time to gradually enforce constraints:
 
 where :math:`\rho(t)` grows with the number of evaluations.
 
+Heuristic-Specific Approaches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some heuristics implement specialized constraint handling logic beyond the general handlers.
+
+**Expected Improvement with Constraints (EIC)**:
+The :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic` supports EIC. It models the objective function :math:`f(x)` and constraint violation :math:`cv(x)` separately using Gaussian Processes.
+
+.. math::
+   EIC(x) = EI_f(x) \times P(cv(x) \le 0)
+
+where :math:`EI_f(x)` is the standard Expected Improvement of the objective, and :math:`P(cv(x) \le 0)` is the probability that the point is feasible, derived from the constraint GP model. This effectively penalizes infeasible regions probabilistically rather than using a hard penalty factor.
+
 Lexicographic Ordering
 ~~~~~~~~~~~~~~~~~~~~~~
 

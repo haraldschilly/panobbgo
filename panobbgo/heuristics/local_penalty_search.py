@@ -16,7 +16,6 @@
 from panobbgo.core import Heuristic
 import multiprocessing
 import threading
-import numpy as np
 
 
 class LocalPenaltySearch(Heuristic):

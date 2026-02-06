@@ -26,7 +26,7 @@ import json
 import sqlite3
 import numpy as np
 import time
-from typing import List, Optional
+from typing import List
 from panobbgo.lib import Result, Point
 
 

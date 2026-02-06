@@ -14,8 +14,6 @@
 # limitations under the License.
 from __future__ import unicode_literals
 
-import numpy as np
-
 from panobbgo.core import Analyzer
 
 

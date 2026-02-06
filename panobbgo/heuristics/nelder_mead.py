@@ -18,6 +18,7 @@ from __future__ import unicode_literals
 from panobbgo.core import Heuristic
 
 import numpy as np
+import time
 
 
 class NelderMead(Heuristic):
@@ -168,6 +169,9 @@ class NelderMead(Heuristic):
                     worst, centroid = self.nelder_mead_init(base)
 
                     while not self.got_bb.is_set():
+                        if self._output.full():
+                            time.sleep(0.1)
+                            continue
                         new_point = self.nelder_mead_sample(worst, centroid)
                         # self.logger.info("new point: %s" % new_point)
                         self.emit(new_point)

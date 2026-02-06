@@ -104,6 +104,13 @@ class GaussianProcessHeuristic(Heuristic):
 
     def on_start(self):
         """Initialize the heuristic at the start of optimization."""
+        self.gp_model = None
+        self.gp_constraint = None
+        self.X_train = None
+        self.y_train = None
+        self.y_fx_train = None
+        self.y_cv_train = None
+        self.best_y = np.inf
         self.logger.info("Gaussian Process heuristic started")
 
     def on_new_results(self, results):
@@ -182,7 +189,6 @@ class GaussianProcessHeuristic(Heuristic):
             # We can approximate or use loop.
             # Since we need to update y_train, let's regenerate it.
 
-            penalized_values = []
             get_val = self.strategy.constraint_handler.get_penalty_value
             # We need Result objects for get_penalty_value usually.
             # But we only stored arrays.
@@ -211,22 +217,22 @@ class GaussianProcessHeuristic(Heuristic):
 
             new_penalized = np.array(new_penalized)
 
-            if self.y_train is None: # Initial call or reset
-                 self.y_train = new_penalized
+            if self.y_train is None:  # Initial call or reset
+                self.y_train = new_penalized
             else:
-                 # Check if we are switching from EIC to Coupled (unlikely sequence but possible)
-                 if len(self.y_train) != len(self.y_fx_train) - len(new_penalized):
-                      # Size mismatch implies we might have been in EIC mode (y_train = y_fx_train)
-                      # but now switching to penalty mode?
-                      # Or just first initialization.
-                      # If we switch, we need to recompute full history.
-                      # Since we don't have full history Results, we might be stuck.
-                      # Assumption: Mode doesn't flip back and forth frequently.
-                      # If has_constraints becomes True, we switch TO EIC.
-                      # If it was False, we were in Penalty mode.
-                      pass
+                # Check if we are switching from EIC to Coupled (unlikely sequence but possible)
+                if len(self.y_train) != len(self.y_fx_train) - len(new_penalized):
+                    # Size mismatch implies we might have been in EIC mode (y_train = y_fx_train)
+                    # but now switching to penalty mode?
+                    # Or just first initialization.
+                    # If we switch, we need to recompute full history.
+                    # Since we don't have full history Results, we might be stuck.
+                    # Assumption: Mode doesn't flip back and forth frequently.
+                    # If has_constraints becomes True, we switch TO EIC.
+                    # If it was False, we were in Penalty mode.
+                    pass
 
-                 self.y_train = np.append(self.y_train, new_penalized)
+                self.y_train = np.append(self.y_train, new_penalized)
 
             self.best_y = np.min(self.y_train)
 
@@ -250,11 +256,17 @@ class GaussianProcessHeuristic(Heuristic):
         """
         try:
             from sklearn.gaussian_process import GaussianProcessRegressor
-            from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel
+            from sklearn.gaussian_process.kernels import (
+                Matern,
+                ConstantKernel,
+                WhiteKernel,
+            )
 
             # Use Matern kernel with some white noise for stability
             # ConstantKernel scales the Matern
-            kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(noise_level=1e-5)
+            kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(
+                noise_level=1e-5
+            )
 
             self.gp_model = GaussianProcessRegressor(
                 kernel=kernel,
@@ -272,7 +284,7 @@ class GaussianProcessHeuristic(Heuristic):
                     # Modeling log(cv + epsilon) might be better for scaling?
                     # Or just cv. Let's stick to cv for simplicity first.
                     self.gp_constraint = GaussianProcessRegressor(
-                        kernel=kernel, # Reuse kernel structure
+                        kernel=kernel,  # Reuse kernel structure
                         alpha=1e-6,
                         normalize_y=True,
                         n_restarts_optimizer=10,
@@ -282,9 +294,7 @@ class GaussianProcessHeuristic(Heuristic):
                     self.gp_constraint = None
 
                 n_points = len(self.X_train)
-                self.logger.debug(
-                    "GP model fitted with %d points" % n_points
-                )
+                self.logger.debug("GP model fitted with %d points" % n_points)
 
         except ImportError:
             self.logger.error(
@@ -330,10 +340,7 @@ class GaussianProcessHeuristic(Heuristic):
         bounds = [(low, high) for low, high in self.problem.box.box]
         starts = []
         for _ in range(self.n_restarts):
-            s = [
-                np.random.uniform(low_val, high_val)
-                for low_val, high_val in bounds
-            ]
+            s = [np.random.uniform(low_val, high_val) for low_val, high_val in bounds]
             start = np.array(s)
             starts.append(start)
 
@@ -392,9 +399,7 @@ class GaussianProcessHeuristic(Heuristic):
         elif self.acquisition_func == AcquisitionFunction.PI:
             acq = self._probability_of_improvement(y_pred, y_std)
         else:
-            raise ValueError(
-                f"Unknown acquisition function: {self.acquisition_func}"
-            )
+            raise ValueError(f"Unknown acquisition function: {self.acquisition_func}")
 
         # Apply EIC if enabled and constraint model exists
         if self.gp_constraint is not None:
@@ -406,14 +411,14 @@ class GaussianProcessHeuristic(Heuristic):
             # cv ~ N(c_pred, c_std^2)
             # P(cv <= 0) = CDF((0 - c_pred) / c_std)
             with np.errstate(divide="ignore", invalid="ignore"):
-                 z_feas = (0.0 - c_pred) / c_std
-                 prob_feas = self._norm_cdf(z_feas)
-                 prob_feas[c_std == 0] = 0.0 # Or 1 if c_pred < 0?
-                 # If c_std=0 and c_pred <= 0 -> 1. If c_pred > 0 -> 0.
-                 # Logic:
-                 mask_det = (c_std == 0)
-                 if np.any(mask_det):
-                     prob_feas[mask_det] = (c_pred[mask_det] <= 0).astype(float)
+                z_feas = (0.0 - c_pred) / c_std
+                prob_feas = self._norm_cdf(z_feas)
+                prob_feas[c_std == 0] = 0.0  # Or 1 if c_pred < 0?
+                # If c_std=0 and c_pred <= 0 -> 1. If c_pred > 0 -> 0.
+                # Logic:
+                mask_det = c_std == 0
+                if np.any(mask_det):
+                    prob_feas[mask_det] = (c_pred[mask_det] <= 0).astype(float)
 
             acq *= prob_feas
 
@@ -428,8 +433,7 @@ class GaussianProcessHeuristic(Heuristic):
         """
         with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
-            ei = (self.best_y - y_pred) * self._norm_cdf(z) + \
-                y_std * self._norm_pdf(z)
+            ei = (self.best_y - y_pred) * self._norm_cdf(z) + y_std * self._norm_pdf(z)
             ei[y_std == 0] = 0.0  # Handle zero variance
             return ei
 

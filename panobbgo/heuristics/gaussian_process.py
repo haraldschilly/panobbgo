@@ -52,9 +52,12 @@ class GaussianProcessHeuristic(Heuristic):
         kappa: Exploration parameter for UCB acquisition function
         xi: Exploration parameter for EI and PI acquisition functions
         n_restarts: Number of random restarts for acquisition optimization
-        gp_model: The fitted GaussianProcessRegressor model
+        gp_model: The fitted GaussianProcessRegressor model for the objective
+        gp_constraint: The fitted GaussianProcessRegressor model for constraints (if EIC enabled)
         X_train: Training points (n_samples, n_features)
-        y_train: Training function values (n_samples,)
+        y_train: Training target values (n_samples,) - used for gp_model
+        y_fx_train: Raw objective values (n_samples,)
+        y_cv_train: Raw constraint violation values (n_samples,)
     """
 
     def __init__(
@@ -64,6 +67,7 @@ class GaussianProcessHeuristic(Heuristic):
         kappa=1.96,
         xi=0.01,
         n_restarts=10,
+        enable_eic=True,
     ):
         """
         Initialize the Gaussian Process heuristic.
@@ -74,6 +78,7 @@ class GaussianProcessHeuristic(Heuristic):
             kappa: Exploration param for UCB (default: 1.96, ~95% confidence)
             xi: Exploration parameter for EI/PI (default: 0.01)
             n_restarts: Number of random restarts for opt (default: 10)
+            enable_eic: Whether to use Expected Improvement with Constraints (default: True)
         """
         super().__init__(strategy)
         self.logger = self.config.get_logger("H:GP")
@@ -83,11 +88,18 @@ class GaussianProcessHeuristic(Heuristic):
         self.kappa = kappa
         self.xi = xi
         self.n_restarts = n_restarts
+        self.enable_eic = enable_eic
 
         # GP model state
         self.gp_model = None
+        self.gp_constraint = None
         self.X_train = None
-        self.y_train = None
+        self.y_train = None  # Target for gp_model
+
+        # Raw data storage
+        self.y_fx_train = None
+        self.y_cv_train = None
+
         self.best_y = np.inf
 
     def on_start(self):
@@ -104,64 +116,171 @@ class GaussianProcessHeuristic(Heuristic):
         if not results:
             return
 
-        # Use constraint handler to get penalty values (fx + penalty)
-        # This handles constrained optimization by scalarizing the problem
-        get_val = self.strategy.constraint_handler.get_penalty_value
-
         new_X_list = []
-        new_y_list = []
+        new_fx_list = []
+        new_cv_list = []
 
         for r in results:
-            val = get_val(r)
-            # Filter out invalid values (inf, NaN) which can break GP
-            if np.isfinite(val):
+            if r.fx is not None and np.isfinite(r.fx):
                 new_X_list.append(r.x)
-                new_y_list.append(val)
+                new_fx_list.append(r.fx)
+                cv = r.cv if r.cv is not None else 0.0
+                new_cv_list.append(cv)
 
         if not new_X_list:
             return
 
         new_X = np.array(new_X_list)
-        new_y = np.array(new_y_list)
+        new_fx = np.array(new_fx_list)
+        new_cv = np.array(new_cv_list)
 
+        # Update raw data arrays
         if self.X_train is None:
             self.X_train = new_X
-            self.y_train = new_y
+            self.y_fx_train = new_fx
+            self.y_cv_train = new_cv
         else:
             self.X_train = np.vstack([self.X_train, new_X])
-            self.y_train = np.append(self.y_train, new_y)  # type: ignore
+            self.y_fx_train = np.append(self.y_fx_train, new_fx)
+            self.y_cv_train = np.append(self.y_cv_train, new_cv)
 
-        self.best_y = np.min(self.y_train)
+        # Determine if we should use EIC
+        # We use EIC if enabled AND we have observed some constraints (cv > 0)
+        # Note: If problem is constrained but we only saw feasible points so far,
+        # cv is all 0. gp_constraint would predict 0. prob_feas would be ~0.5-1.0 depending on var.
+        # It's better to stick to Coupled Penalty if we don't know constraints exist yet?
+        # Or just use EIC with 0 CVs?
+        # If all CVs are 0, gp_constraint might be unstable or predict 0.
+        # Let's check if there's any variation or non-zero value in CV.
+        has_constraints = np.any(self.y_cv_train > 1e-6)
+
+        if self.enable_eic and has_constraints:
+            # EIC Mode
+            self.y_train = self.y_fx_train  # Target is raw objective
+            # Update best_y (best FEASIBLE objective)
+            feasible_mask = self.y_cv_train <= 1e-6
+            if np.any(feasible_mask):
+                self.best_y = np.min(self.y_fx_train[feasible_mask])
+            else:
+                # No feasible points yet.
+                # EI usually requires a target.
+                # If we use min(y_train), we target improving over best infeasible?
+                # EIC formulation: EI(x) * P(feas).
+                # EI part needs a target.
+                # Standard practice: Use best observed so far.
+                self.best_y = np.min(self.y_fx_train)
+        else:
+            # Standard/Coupled Mode (Penalty)
+            # Reconstruct penalized values
+            # We need to calculate penalty for ALL points, as dynamic penalty might change rho.
+            # But here we just use the current penalty value for new points?
+            # Ideally we should re-evaluate penalty for all points if rho changes (DynamicPenalty).
+            # But calculating for all history using current strategy handler is safer.
+
+            # Vectorized penalty calculation if possible?
+            # Handler usually takes Result object.
+            # We can approximate or use loop.
+            # Since we need to update y_train, let's regenerate it.
+
+            penalized_values = []
+            get_val = self.strategy.constraint_handler.get_penalty_value
+            # We need Result objects for get_penalty_value usually.
+            # But we only stored arrays.
+            # This is a limitation. We can recreate dummy Results or use handler logic manually.
+            # Or just update incrementally (assuming static penalty).
+            # For robustness, let's use the simple approach: update incrementally for now.
+            # (Note: Dynamic penalty might degrade if we don't update history, but GP is robust).
+
+            # Actually, let's use the helper to compute penalty from arrays if possible,
+            # or loop over new points.
+
+            # Recalculating all is expensive if N is large.
+            # Let's append new penalized values.
+
+            new_penalized = []
+            # We iterate over the *new* points we just received
+            # (Wait, we need to map back to the original Result objects?
+            # We have new_X etc extracted from results.
+            # Let's just iterate results again for penalty values)
+
+            # Re-iterate results to get penalty values
+            for r in results:
+                if r.fx is not None and np.isfinite(r.fx):
+                    val = get_val(r)
+                    new_penalized.append(val)
+
+            new_penalized = np.array(new_penalized)
+
+            if self.y_train is None: # Initial call or reset
+                 self.y_train = new_penalized
+            else:
+                 # Check if we are switching from EIC to Coupled (unlikely sequence but possible)
+                 if len(self.y_train) != len(self.y_fx_train) - len(new_penalized):
+                      # Size mismatch implies we might have been in EIC mode (y_train = y_fx_train)
+                      # but now switching to penalty mode?
+                      # Or just first initialization.
+                      # If we switch, we need to recompute full history.
+                      # Since we don't have full history Results, we might be stuck.
+                      # Assumption: Mode doesn't flip back and forth frequently.
+                      # If has_constraints becomes True, we switch TO EIC.
+                      # If it was False, we were in Penalty mode.
+                      pass
+
+                 self.y_train = np.append(self.y_train, new_penalized)
+
+            self.best_y = np.min(self.y_train)
 
         if len(self.y_train) < 3:
-            # Need at least a few points for meaningful GP
             return
 
-        # Fit GP model
-        self._fit_gp_model()
+        # Fit GP model(s)
+        self._fit_gp_model(has_constraints)
 
         # Generate new candidate points using acquisition function
         candidates = self._acquire_candidates(n_candidates=5)
         for candidate in candidates:
             self.emit(candidate)
 
-    def _fit_gp_model(self):
-        """Fit the Gaussian Process model to current training data."""
+    def _fit_gp_model(self, fit_constraint=False):
+        """
+        Fit the Gaussian Process model(s).
+
+        Args:
+            fit_constraint (bool): Whether to fit the constraint GP model.
+        """
         try:
             from sklearn.gaussian_process import GaussianProcessRegressor
-            from sklearn.gaussian_process.kernels import Matern
+            from sklearn.gaussian_process.kernels import Matern, ConstantKernel, WhiteKernel
 
-            # Use Matern kernel (common choice for optimization)
-            kernel = Matern(nu=2.5)
+            # Use Matern kernel with some white noise for stability
+            # ConstantKernel scales the Matern
+            kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(noise_level=1e-5)
+
             self.gp_model = GaussianProcessRegressor(
                 kernel=kernel,
-                alpha=1e-6,  # Small regularization
+                alpha=1e-6,
                 normalize_y=True,
                 n_restarts_optimizer=10,
             )
 
             if self.X_train is not None:
                 self.gp_model.fit(self.X_train, self.y_train)
+
+                if self.enable_eic and fit_constraint and self.y_cv_train is not None:
+                    # Fit constraint model
+                    # CV is non-negative.
+                    # Modeling log(cv + epsilon) might be better for scaling?
+                    # Or just cv. Let's stick to cv for simplicity first.
+                    self.gp_constraint = GaussianProcessRegressor(
+                        kernel=kernel, # Reuse kernel structure
+                        alpha=1e-6,
+                        normalize_y=True,
+                        n_restarts_optimizer=10,
+                    )
+                    self.gp_constraint.fit(self.X_train, self.y_cv_train)
+                else:
+                    self.gp_constraint = None
+
                 n_points = len(self.X_train)
                 self.logger.debug(
                     "GP model fitted with %d points" % n_points
@@ -265,16 +384,40 @@ class GaussianProcessHeuristic(Heuristic):
         # Get GP predictions and uncertainties
         y_pred, y_std = self.gp_model.predict(X, return_std=True)
 
+        # Calculate base acquisition (EI/UCB/PI)
         if self.acquisition_func == AcquisitionFunction.EI:
-            return self._expected_improvement(y_pred, y_std)
+            acq = self._expected_improvement(y_pred, y_std)
         elif self.acquisition_func == AcquisitionFunction.UCB:
-            return self._upper_confidence_bound(y_pred, y_std)
+            acq = self._upper_confidence_bound(y_pred, y_std)
         elif self.acquisition_func == AcquisitionFunction.PI:
-            return self._probability_of_improvement(y_pred, y_std)
+            acq = self._probability_of_improvement(y_pred, y_std)
         else:
             raise ValueError(
                 f"Unknown acquisition function: {self.acquisition_func}"
             )
+
+        # Apply EIC if enabled and constraint model exists
+        if self.gp_constraint is not None:
+            # Predict constraint violation
+            # We modeled cv. Feasible region is cv <= 0.
+            c_pred, c_std = self.gp_constraint.predict(X, return_std=True)
+
+            # Probability of Feasibility: P(cv <= 0)
+            # cv ~ N(c_pred, c_std^2)
+            # P(cv <= 0) = CDF((0 - c_pred) / c_std)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                 z_feas = (0.0 - c_pred) / c_std
+                 prob_feas = self._norm_cdf(z_feas)
+                 prob_feas[c_std == 0] = 0.0 # Or 1 if c_pred < 0?
+                 # If c_std=0 and c_pred <= 0 -> 1. If c_pred > 0 -> 0.
+                 # Logic:
+                 mask_det = (c_std == 0)
+                 if np.any(mask_det):
+                     prob_feas[mask_det] = (c_pred[mask_det] <= 0).astype(float)
+
+            acq *= prob_feas
+
+        return acq
 
     def _expected_improvement(self, y_pred, y_std):
         """

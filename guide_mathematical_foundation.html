@@ -104,6 +104,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#improvement-calculation">Improvement Calculation</a><ul>
 <li><a class="reference internal" href="#default-constraint-handler">Default Constraint Handler</a></li>
 <li><a class="reference internal" href="#penalty-constraint-handlers">Penalty Constraint Handlers</a></li>
+<li><a class="reference internal" href="#heuristic-specific-approaches">Heuristic-Specific Approaches</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#lexicographic-ordering">Lexicographic Ordering</a></li>
@@ -251,6 +252,17 @@ Uses a penalty factor that increases over time to gradually enforce constraints:
 \[P(x, t) = f(x) + \rho(t) \cdot CV(x)^\gamma\]</div>
 </div>
 <p>where <span class="math notranslate nohighlight">\(\rho(t)\)</span> grows with the number of evaluations.</p>
+</section>
+<section id="heuristic-specific-approaches">
+<h4>Heuristic-Specific Approaches<a class="headerlink" href="#heuristic-specific-approaches" title="Link to this heading">¶</a></h4>
+<p>Some heuristics implement specialized constraint handling logic beyond the general handlers.</p>
+<p><strong>Expected Improvement with Constraints (EIC)</strong>:
+The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a> supports EIC. It models the objective function <span class="math notranslate nohighlight">\(f(x)\)</span> and constraint violation <span class="math notranslate nohighlight">\(cv(x)\)</span> separately using Gaussian Processes.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[EIC(x) = EI_f(x) \times P(cv(x) \le 0)\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(EI_f(x)\)</span> is the standard Expected Improvement of the objective, and <span class="math notranslate nohighlight">\(P(cv(x) \le 0)\)</span> is the probability that the point is feasible, derived from the constraint GP model. This effectively penalizes infeasible regions probabilistically rather than using a hard penalty factor.</p>
 </section>
 </section>
 <section id="lexicographic-ordering">

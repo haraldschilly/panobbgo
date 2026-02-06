@@ -122,8 +122,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.xi"><code class="docutils literal notranslate">xi</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.n_restarts"><code class="docutils literal notranslate">n_restarts</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_model"><code class="docutils literal notranslate">gp_model</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_constraint"><code class="docutils literal notranslate">gp_constraint</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.X_train"><code class="docutils literal notranslate">X_train</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_train"><code class="docutils literal notranslate">y_train</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_fx_train"><code class="docutils literal notranslate">y_fx_train</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_cv_train"><code class="docutils literal notranslate">y_cv_train</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.GaussianProcessHeuristic.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -345,7 +348,7 @@ If it’s infeasible, we try to improve it (reduce CV).</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">GaussianProcessHeuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acquisition_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">AcquisitionFunction.EI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.96</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">GaussianProcessHeuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">acquisition_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">AcquisitionFunction.EI</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.96</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_eic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/gaussian_process.html#GaussianProcessHeuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
 <p>Bayesian optimization heuristic using Gaussian Process surrogate models.</p>
 <p>This heuristic builds a GP model from evaluated points and uses acquisition
@@ -378,7 +381,13 @@ new results by updating the model and suggesting new points.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.gp_model">
 <span class="sig-name descname"><span class="pre">gp_model</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_model" title="Link to this definition">¶</a></dt>
-<dd><p>The fitted GaussianProcessRegressor model</p>
+<dd><p>The fitted GaussianProcessRegressor model for the objective</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.gp_constraint">
+<span class="sig-name descname"><span class="pre">gp_constraint</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.gp_constraint" title="Link to this definition">¶</a></dt>
+<dd><p>The fitted GaussianProcessRegressor model for constraints (if EIC enabled)</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -390,7 +399,19 @@ new results by updating the model and suggesting new points.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.y_train">
 <span class="sig-name descname"><span class="pre">y_train</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_train" title="Link to this definition">¶</a></dt>
-<dd><p>Training function values (n_samples,)</p>
+<dd><p>Training target values (n_samples,) - used for gp_model</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.y_fx_train">
+<span class="sig-name descname"><span class="pre">y_fx_train</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_fx_train" title="Link to this definition">¶</a></dt>
+<dd><p>Raw objective values (n_samples,)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.GaussianProcessHeuristic.y_cv_train">
+<span class="sig-name descname"><span class="pre">y_cv_train</span></span><a class="headerlink" href="#panobbgo.heuristics.GaussianProcessHeuristic.y_cv_train" title="Link to this definition">¶</a></dt>
+<dd><p>Raw constraint violation values (n_samples,)</p>
 </dd></dl>
 
 <p>Initialize the Gaussian Process heuristic.</p>
@@ -402,6 +423,7 @@ new results by updating the model and suggesting new points.</p>
 <li><p><strong>kappa</strong> – Exploration param for UCB (default: 1.96, ~95% confidence)</p></li>
 <li><p><strong>xi</strong> – Exploration parameter for EI/PI (default: 0.01)</p></li>
 <li><p><strong>n_restarts</strong> – Number of random restarts for opt (default: 10)</p></li>
+<li><p><strong>enable_eic</strong> – Whether to use Expected Improvement with Constraints (default: True)</p></li>
 </ul>
 </dd>
 </dl>

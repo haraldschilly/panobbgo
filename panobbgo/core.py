@@ -180,7 +180,10 @@ class Results:
         data_dict[("error", 0)] = error_data
 
         results_new = DataFrame(data_dict, columns=self._results_df.columns)
-        self._results_df = concat([self._results_df, results_new], ignore_index=True)
+        if self._results_df.empty:
+            self._results_df = results_new
+        else:
+            self._results_df = concat([self._results_df, results_new], ignore_index=True)
         self._buffer = []
 
     def add_results(self, new_results, save_to_storage=True):

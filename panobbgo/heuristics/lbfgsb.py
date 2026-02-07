@@ -29,13 +29,20 @@ class LBFGSB(Heuristic):
 
     def __start__(self):
         try:
-            from multiprocessing import Process, Pipe
+            import multiprocessing
 
-            self.p1, self.p2 = Pipe()
-            self.out1, self.out2 = Pipe(False)
-            self.lbfgsb = Process(
+            # Use 'spawn' context to avoid deadlocks (same as LocalPenaltySearch)
+            ctx = multiprocessing.get_context("spawn")
+
+            self.p1, self.p2 = ctx.Pipe()
+            self.out1, self.out2 = ctx.Pipe(False)
+
+            # Prepare bounds for worker (convert to list of tuples)
+            bounds = [tuple(row) for row in self.problem.box.box]
+
+            self.lbfgsb = ctx.Process(
                 target=self.worker,
-                args=(self.p2, self.out2, self.problem.dim),
+                args=(self.p2, self.out2, self.problem.dim, bounds),
                 name="%s-LBFGS" % self.name,
             )
             self.lbfgsb.daemon = True
@@ -49,7 +56,7 @@ class LBFGSB(Heuristic):
             ) from e
 
     @staticmethod
-    def worker(pipe, output, dims):
+    def worker(pipe, output, dims, bounds):
         from scipy.optimize import fmin_l_bfgs_b
         import numpy as np
 
@@ -58,8 +65,12 @@ class LBFGSB(Heuristic):
             fx = pipe.recv()
             return fx
 
-        solution = fmin_l_bfgs_b(f, np.zeros(dims), approx_grad=True)
-        print(solution)
+        # Use center of bounds as starting point instead of zeros
+        # (zeros might be outside or on boundary)
+        x0 = np.array([(low + high) / 2.0 for low, high in bounds])
+
+        solution = fmin_l_bfgs_b(f, x0, bounds=bounds, approx_grad=True)
+        # print(solution)
         output.send(solution)
 
     def on_start(self):

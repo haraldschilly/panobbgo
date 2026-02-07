@@ -254,6 +254,9 @@ class GaussianProcessHeuristic(Heuristic):
         Args:
             fit_constraint (bool): Whether to fit the constraint GP model.
         """
+        import warnings
+        from sklearn.exceptions import ConvergenceWarning
+
         try:
             from sklearn.gaussian_process import GaussianProcessRegressor
             from sklearn.gaussian_process.kernels import (
@@ -276,22 +279,24 @@ class GaussianProcessHeuristic(Heuristic):
             )
 
             if self.X_train is not None:
-                self.gp_model.fit(self.X_train, self.y_train)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+                    self.gp_model.fit(self.X_train, self.y_train)
 
-                if self.enable_eic and fit_constraint and self.y_cv_train is not None:
-                    # Fit constraint model
-                    # CV is non-negative.
-                    # Modeling log(cv + epsilon) might be better for scaling?
-                    # Or just cv. Let's stick to cv for simplicity first.
-                    self.gp_constraint = GaussianProcessRegressor(
-                        kernel=kernel,  # Reuse kernel structure
-                        alpha=1e-6,
-                        normalize_y=True,
-                        n_restarts_optimizer=10,
-                    )
-                    self.gp_constraint.fit(self.X_train, self.y_cv_train)
-                else:
-                    self.gp_constraint = None
+                    if self.enable_eic and fit_constraint and self.y_cv_train is not None:
+                        # Fit constraint model
+                        # CV is non-negative.
+                        # Modeling log(cv + epsilon) might be better for scaling?
+                        # Or just cv. Let's stick to cv for simplicity first.
+                        self.gp_constraint = GaussianProcessRegressor(
+                            kernel=kernel,  # Reuse kernel structure
+                            alpha=1e-6,
+                            normalize_y=True,
+                            n_restarts_optimizer=10,
+                        )
+                        self.gp_constraint.fit(self.X_train, self.y_cv_train)
+                    else:
+                        self.gp_constraint = None
 
                 n_points = len(self.X_train)
                 self.logger.debug("GP model fitted with %d points" % n_points)
@@ -348,6 +353,10 @@ class GaussianProcessHeuristic(Heuristic):
         if self.X_train is not None and self.y_train is not None:
             best_idx = int(np.argmin(self.y_train))
             starts.append(self.X_train[best_idx].copy())
+
+            # Ensure best_y is finite
+            if np.isinf(self.best_y) and len(self.y_train) > 0:
+                self.best_y = np.min(self.y_train)
 
         best_candidate = None
         best_acq_value = -np.inf
@@ -413,12 +422,16 @@ class GaussianProcessHeuristic(Heuristic):
             with np.errstate(divide="ignore", invalid="ignore"):
                 z_feas = (0.0 - c_pred) / c_std
                 prob_feas = self._norm_cdf(z_feas)
-                prob_feas[c_std == 0] = 0.0  # Or 1 if c_pred < 0?
-                # If c_std=0 and c_pred <= 0 -> 1. If c_pred > 0 -> 0.
-                # Logic:
+
+                # Handle deterministic cases (zero variance)
+                # Ensure arrays for indexing safety
+                c_std = np.atleast_1d(c_std)
+                c_pred = np.atleast_1d(c_pred)
+                prob_feas = np.atleast_1d(prob_feas)
+
                 mask_det = c_std == 0
                 if np.any(mask_det):
-                    prob_feas[mask_det] = (c_pred[mask_det] <= 0).astype(float)
+                    prob_feas[mask_det] = (c_pred[mask_det] <= 1e-6).astype(float)
 
             acq *= prob_feas
 

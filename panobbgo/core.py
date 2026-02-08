@@ -146,6 +146,9 @@ class Results:
         # Build data with explicit types to avoid mixed-type array issues
         # (np.r_ with strings causes all values to become object dtype)
         n_results = len(self._buffer)
+        if n_results == 0:
+            return  # Should not happen given check above, but for safety
+
         r0 = self._buffer[0]
         dim_x = len(r0.x)
         len_cv_vec = 0 if r0.cv_vec is None else len(r0.cv_vec)

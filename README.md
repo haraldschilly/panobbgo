@@ -87,16 +87,16 @@ pyright panobbgo
 
 ### One-time Setup
 
-1. **For testing/development**: No cluster setup needed - Panobbgo automatically starts a local 2-worker Dask cluster
-2. **For production/custom clusters**: Setup your Dask cluster according to the [Dask distributed documentation](https://docs.dask.org/en/stable/deploying.html)
+1. **Local evaluation**: By default, Panobbgo uses threaded local evaluation. No additional setup is required.
+2. **Distributed evaluation (optional)**: For large-scale problems, you can use Dask. Setup your cluster according to the [Dask distributed documentation](https://docs.dask.org/en/stable/deploying.html).
 3. `panobbgo.lib` contains the problem definitions (Rosenbrock, HelicalValley, etc.)
 4. After running it the first time, it will create a `config.ini` file
-5. Configure your Dask cluster settings if needed
+5. Configure your evaluation settings in `config.yaml` or `config.ini` if needed.
 
 ### Running Optimization
 
-1. **Default (automatic)**: Just run your optimization script - a local cluster starts automatically
-2. **Custom cluster**: Start your Dask cluster manually: `dask scheduler & dask worker localhost:8786 --nprocs 4 &`
+1. **Default**: Run your optimization script - it uses local threads by default.
+2. **Dask cluster**: Set `evaluation.method: dask` in your config and start your cluster manually: `dask scheduler & dask worker localhost:8786 --nprocs 4 &`
 
 Example:
 ```python

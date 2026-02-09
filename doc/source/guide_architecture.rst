@@ -24,11 +24,11 @@ Data Flow Diagram
    │                         Strategy                            │
    │  ┌─────────────┐      ┌──────────────┐     ┌─────────────┐│
    │  │  Heuristic  │─────▶│ Point Queue  │────▶│  Evaluator  ││
-   │  │ (generates) │      │              │     │ (Dask       ││
-   │  └─────────────┘      └──────────────┘     │  cluster)   ││
-   │         ▲                                   └──────┬──────┘│
-   │         │                                          │       │
-   │         │                                          ▼       │
+   │  │ (generates) │      │              │     │             ││
+   │  └─────────────┘      └──────────────┘     └──────┬──────┘│
+   │         ▲                                          │      │
+   │         │                                          │      │
+   │         │                                          ▼      │
    │  ┌──────┴──────┐       ┌──────────────┐    ┌──────────┐  │
    │  │  Analyzer   │◀──────│  EventBus    │◀───│ Results  │  │
    │  │ (processes) │       │ (publishes)  │    │ Database │  │
@@ -46,7 +46,7 @@ StrategyBase
 - Manages the optimization loop
 - Coordinates heuristics, analyzers, and evaluators
 - Tracks budget (number of evaluations)
-- Connects to Dask distributed cluster for parallel evaluation
+- Manages parallel evaluation of objective functions
 
 **Key methods:**
 
@@ -337,7 +337,7 @@ Initialization Phase
 Startup
 ~~~~~~~
 
-1. Strategy connects to Dask distributed cluster
+1. Strategy initializes the evaluation environment
 2. Strategy calls ``__start__()`` on all modules
 3. EventBus publishes ``start`` event
 4. Modules initialize (e.g., LatinHypercube generates initial grid)
@@ -357,10 +357,8 @@ While budget remaining:
 
    .. code-block:: python
 
-   # Send points to Dask cluster
-   futures = [client.submit(problem, p) for p in points]
-   # Wait for results
-   results = client.gather(futures)
+      # Send points to evaluation environment
+      results = strategy._evaluate(points)
 
 3. **Store results**:
 
@@ -416,16 +414,15 @@ Each event subscription runs in a **daemon thread**:
 - Heuristic queues use thread-safe operations
 - Analyzers should use locks if maintaining mutable state
 
-Dask Distributed
-~~~~~~~~~~~~~~~~
+Parallel Evaluation
+~~~~~~~~~~~~~~~~~~~
 
-Function evaluations run on Dask cluster:
+Function evaluations can run in parallel using different engines:
 
-- **Load-balanced scheduling**: Distributes jobs to available workers
-- **Asynchronous execution**: Returns Future objects immediately
-- **Result collection**: Wait for completion with ``future.result()`` or ``client.gather()``
+- **Threaded (Default)**: Evaluations run in a local thread pool. Suitable for lightweight functions or when running on a single machine.
+- **Dask Distributed**: Connects to a Dask cluster for large-scale distributed evaluation.
 
-**Cluster setup:**
+**Dask setup (optional):**
 
 .. code-block:: bash
 
@@ -436,17 +433,21 @@ Function evaluations run on Dask cluster:
 Configuration
 ~~~~~~~~~~~~~
 
-Threading and parallelism parameters in ``~/.panobbgo/config.ini``:
+Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
+
+.. code-block:: yaml
+
+   evaluation:
+     method: threaded  # or 'dask'
+     # Dask specific configuration
+     dask:
+       address: localhost:8786
 
 .. code-block:: ini
 
-   [ipython]
-   profile = default
-   max_wait_for_job = 10
-
    [optimization]
    queue_capacity = 20      # Heuristic queue size
-   jobs_per_client = 5      # Batch size per engine
+
 
 Extension Points
 ----------------

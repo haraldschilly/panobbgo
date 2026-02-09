@@ -49,6 +49,7 @@ from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
 from typing import TYPE_CHECKING, Any, cast
+from threading import RLock
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
@@ -79,6 +80,7 @@ class Results:
         self._best_fx = float('inf')
         self._last_nb = 0  # for logging
         self._cached_min_fx = np.inf
+        self._lock = RLock()
 
         # Initialize storage backend if configured
         self.backend = None
@@ -107,81 +109,84 @@ class Results:
 
     @property
     def results(self):
-        self._flush_buffer()
-        return self._results_df
+        with self._lock:
+            self._flush_buffer()
+            return self._results_df
 
     @results.setter
     def results(self, value):
-        self._results_df = value
-        self._buffer = []
-        # Update best_fx from new results
-        if value is not None and not value.empty:
-            try:
-                self._best_fx = value.xs(0, level=1, axis=1)['fx'].min()
-            except (KeyError, ValueError):
+        with self._lock:
+            self._results_df = value
+            self._buffer = []
+            # Update best_fx from new results
+            if value is not None and not value.empty:
+                try:
+                    self._best_fx = value.xs(0, level=1, axis=1)['fx'].min()
+                except (KeyError, ValueError):
+                    self._best_fx = float('inf')
+            else:
                 self._best_fx = float('inf')
-        else:
-            self._best_fx = float('inf')
 
     def _flush_buffer(self):
         """
         Flush buffered results to the DataFrame.
         """
-        if not self._buffer:
-            return
+        with self._lock:
+            if not self._buffer:
+                return
 
-        from pandas import DataFrame, MultiIndex, concat
+            from pandas import DataFrame, MultiIndex, concat
 
-        # Initialize DataFrame if needed
-        if self._results_df is None:
-            r = self._buffer[0]
-            midx_x = [("x", _) for _ in range(len(r.x))]
-            len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
-            midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
-            midx = MultiIndex.from_tuples(
-                midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
-            )
-            self._results_df = DataFrame(columns=midx)
+            # Initialize DataFrame if needed
+            if self._results_df is None:
+                r = self._buffer[0]
+                midx_x = [("x", _) for _ in range(len(r.x))]
+                len_cv_vec = 0 if r.cv_vec is None else len(r.cv_vec)
+                midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
+                midx = MultiIndex.from_tuples(
+                    midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
+                )
+                self._results_df = DataFrame(columns=midx)
 
-        # Build data with explicit types to avoid mixed-type array issues
-        # (np.r_ with strings causes all values to become object dtype)
-        n_results = len(self._buffer)
-        r0 = self._buffer[0]
-        dim_x = len(r0.x)
-        len_cv_vec = 0 if r0.cv_vec is None else len(r0.cv_vec)
+            # Build data with explicit types to avoid mixed-type array issues
+            # (np.r_ with strings causes all values to become object dtype)
+            n_results = len(self._buffer)
+            r0 = self._buffer[0]
+            dim_x = len(r0.x)
+            len_cv_vec = 0 if r0.cv_vec is None else len(r0.cv_vec)
 
-        # Pre-allocate typed arrays
-        x_data = np.empty((n_results, dim_x), dtype=np.float64)
-        fx_data = np.empty(n_results, dtype=np.float64)
-        cv_vec_data = np.empty((n_results, len_cv_vec), dtype=np.float64) if len_cv_vec > 0 else None
-        cv_data = np.empty(n_results, dtype=np.float64)
-        who_data = np.empty(n_results, dtype=object)  # strings
-        error_data = np.empty(n_results, dtype=np.float64)
+            # Pre-allocate typed arrays
+            x_data = np.empty((n_results, dim_x), dtype=np.float64)
+            fx_data = np.empty(n_results, dtype=np.float64)
+            cv_vec_data = np.empty((n_results, len_cv_vec), dtype=np.float64) if len_cv_vec > 0 else None
+            cv_data = np.empty(n_results, dtype=np.float64)
+            who_data = np.empty(n_results, dtype=object)  # strings
+            error_data = np.empty(n_results, dtype=np.float64)
 
-        for i, r in enumerate(self._buffer):
-            x_data[i, :] = r.x
-            fx_data[i] = r.fx if r.fx is not None else np.nan
+            for i, r in enumerate(self._buffer):
+                x_data[i, :] = r.x
+                fx_data[i] = r.fx if r.fx is not None else np.nan
+                if cv_vec_data is not None:
+                    cv_vec_data[i, :] = r.cv_vec if r.cv_vec is not None else 0.0
+                cv_data[i] = r.cv if r.cv is not None else 0.0
+                who_data[i] = r.who
+                error_data[i] = r.error if r.error is not None else 0.0
+
+            # Build DataFrame with proper column types
+            data_dict = {}
+            for j in range(dim_x):
+                data_dict[("x", j)] = x_data[:, j]
+            data_dict[("fx", 0)] = fx_data
             if cv_vec_data is not None:
-                cv_vec_data[i, :] = r.cv_vec if r.cv_vec is not None else 0.0
-            cv_data[i] = r.cv if r.cv is not None else 0.0
-            who_data[i] = r.who
-            error_data[i] = r.error if r.error is not None else 0.0
+                for j in range(len_cv_vec):
+                    data_dict[("cv_vec", j)] = cv_vec_data[:, j]
+            data_dict[("cv", 0)] = cv_data
+            data_dict[("who", 0)] = who_data
+            data_dict[("error", 0)] = error_data
 
-        # Build DataFrame with proper column types
-        data_dict = {}
-        for j in range(dim_x):
-            data_dict[("x", j)] = x_data[:, j]
-        data_dict[("fx", 0)] = fx_data
-        if cv_vec_data is not None:
-            for j in range(len_cv_vec):
-                data_dict[("cv_vec", j)] = cv_vec_data[:, j]
-        data_dict[("cv", 0)] = cv_data
-        data_dict[("who", 0)] = who_data
-        data_dict[("error", 0)] = error_data
-
-        results_new = DataFrame(data_dict, columns=self._results_df.columns)
-        self._results_df = concat([self._results_df, results_new], ignore_index=True)
-        self._buffer = []
+            results_new = DataFrame(data_dict, columns=self._results_df.columns)
+            self._results_df = concat([self._results_df, results_new], ignore_index=True)
+            self._buffer = []
 
     def add_results(self, new_results, save_to_storage=True):
         """
@@ -231,17 +236,18 @@ class Results:
                 self._best_fx = result.fx
             self._report_evaluation_progress(result, stats=progress_stats)
 
-        self._buffer.extend(new_results)
+        with self._lock:
+            self._buffer.extend(new_results)
 
-        # Update cached min fx with new results
-        try:
-            # Calculate min of new results efficiently
-            new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
-            if new_min is not None:
-                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx) or new_min < self._cached_min_fx:
-                    self._cached_min_fx = float(new_min)
-        except Exception:
-            pass
+            # Update cached min fx with new results
+            try:
+                # Calculate min of new results efficiently
+                new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
+                if new_min is not None:
+                    if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx) or new_min < self._cached_min_fx:
+                        self._cached_min_fx = float(new_min)
+            except Exception:
+                pass
 
         if len(self) // 100 > self._last_nb // 100:
             self.info()

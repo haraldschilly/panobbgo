@@ -213,11 +213,20 @@ data-aria-dark="Switch to auto color mode">
 <h1>Heuristics Module<a class="headerlink" href="#heuristics-module" title="Link to this heading">¶</a></h1>
 <p>Point generation algorithms (heuristics):</p>
 <ul class="simple">
-<li><p><strong>Heuristic</strong>: Base class for all point generators</p></li>
-<li><p><strong>Center</strong>: Generates center point of search space</p></li>
-<li><p><strong>Random</strong>: Uniform random sampling</p></li>
-<li><p><strong>Nearby</strong>: Local search around best points</p></li>
-<li><p><strong>NelderMead</strong>: Simplex optimization method</p></li>
+<li><p><strong>Center</strong>: Generates center point of search space.</p></li>
+<li><p><strong>Zero</strong>: Generates the zero vector point.</p></li>
+<li><p><strong>Random</strong>: Uniform random sampling within the best leaf box.</p></li>
+<li><p><strong>LatinHypercube</strong>: Stratified sampling (Space-filling).</p></li>
+<li><p><strong>Extremal</strong>: Samples from the boundaries of the search space.</p></li>
+<li><p><strong>Nearby</strong>: Gaussian perturbations around current best points.</p></li>
+<li><p><strong>WeightedAverage</strong>: Averages points in the best region.</p></li>
+<li><p><strong>QuadraticWLS</strong>: Fits a weighted least-squares quadratic surrogate model.</p></li>
+<li><p><strong>GaussianProcess</strong>: Uses Gaussian Process models and Expected Improvement with Constraints (EIC).</p></li>
+<li><p><strong>NelderMead</strong>: Simplex optimization method.</p></li>
+<li><p><strong>LBFGSB</strong>: Local optimization using the L-BFGS-B algorithm.</p></li>
+<li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions.</p></li>
+<li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
+<li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly.</p></li>
 </ul>
 <section id="heuristics">
 <span id="module-panobbgo.heuristics"></span><h2>Heuristics<a class="headerlink" href="#heuristics" title="Link to this heading">¶</a></h2>

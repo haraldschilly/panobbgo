@@ -194,10 +194,10 @@ data-aria-dark="Switch to auto color mode">
 <p>Panobbgo addresses these challenges through:</p>
 <ol class="arabic simple">
 <li><p><strong>Multiple search heuristics</strong> working in parallel</p></li>
-<li><p><strong>Adaptive strategy selection</strong> (multi-armed bandit approach)</p></li>
+<li><p><strong>Adaptive strategy selection</strong> (Multi-Armed Bandit approach)</p></li>
 <li><p><strong>Result database</strong> to avoid re-evaluations and learn from history</p></li>
 <li><p><strong>Event-driven architecture</strong> for modular, extensible design</p></li>
-<li><p><strong>Dask distributed integration</strong> for parallel evaluation</p></li>
+<li><p><strong>Parallel evaluation engines</strong> (Threaded, Processes, or Dask)</p></li>
 </ol>
 </section>
 </section>
@@ -209,12 +209,12 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Event-driven design</strong>: Modules communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a></p></li>
 <li><p><strong>Modular components</strong>: Easy to add new heuristics, analyzers, or strategies</p></li>
 <li><p><strong>Result database</strong>: Pandas-based storage with automatic event publishing</p></li>
-<li><p><strong>Budget tracking</strong>: Automatic termination when evaluation limit reached</p></li>
+<li><p><strong>Parallel evaluation</strong>: Support for local threads, subprocesses, or Dask clusters</p></li>
 </ul>
 </section>
 <section id="point-generators-heuristics">
 <h3>Point Generators (Heuristics)<a class="headerlink" href="#point-generators-heuristics" title="Link to this heading">¶</a></h3>
-<p>Panobbgo includes 10 heuristics with different search strategies:</p>
+<p>Panobbgo includes diverse heuristics with different search strategies:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -242,12 +242,16 @@ data-aria-dark="Switch to auto color mode">
 <td><p>Refine around best</p></td>
 </tr>
 <tr class="row-odd"><td><p>Model-Based</p></td>
-<td><p>Quadratic WLS</p></td>
-<td><p>Fit surrogate, optimize</p></td>
+<td><p>Quadratic WLS, Gaussian Process</p></td>
+<td><p>Fit surrogate, optimize (using EIC)</p></td>
 </tr>
 <tr class="row-even"><td><p>Classical Optimizers</p></td>
 <td><p>Nelder-Mead, L-BFGS-B</p></td>
 <td><p>Local optimization</p></td>
+</tr>
+<tr class="row-odd"><td><p>Constraint Handling</p></td>
+<td><p>Feasible Search, Constraint Gradient</p></td>
+<td><p>Target feasible regions</p></td>
 </tr>
 </tbody>
 </table>
@@ -255,13 +259,11 @@ data-aria-dark="Switch to auto color mode">
 </section>
 <section id="adaptive-selection">
 <h3>Adaptive Selection<a class="headerlink" href="#adaptive-selection" title="Link to this heading">¶</a></h3>
-<p>The <a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a> implements a <strong>multi-armed bandit</strong> approach:</p>
+<p>Panobbgo provides several adaptive strategies based on <strong>multi-armed bandit</strong> algorithms:</p>
 <ul class="simple">
-<li><p>Each heuristic is an “arm” of a bandit machine</p></li>
-<li><p>“Pulling an arm” = requesting a point from that heuristic</p></li>
-<li><p>“Reward” = improvement in objective value</p></li>
-<li><p>Better-performing heuristics are selected more often</p></li>
-<li><p>Additive smoothing ensures exploration continues</p></li>
+<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>: Probability-based selection with additive smoothing and performance decay.</p></li>
+<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a>: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.</p></li>
+<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a>: Probabilistic approach using Beta distributions.</p></li>
 </ul>
 </section>
 <section id="result-analysis">

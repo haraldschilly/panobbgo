@@ -130,7 +130,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
-<li><a class="reference internal" href="#step-14-verify-dask-setup">Step 14: Verify Dask Setup</a></li>
+<li><a class="reference internal" href="#step-14-verify-parallel-evaluation-setup">Step 14: Verify Parallel Evaluation Setup</a></li>
 <li><a class="reference internal" href="#step-15-run-framework-tests">Step 15: Run Framework Tests</a></li>
 </ul>
 </li>
@@ -328,7 +328,7 @@ Each step includes executable doctests that verify the setup works correctly.</p
 <ol class="arabic simple">
 <li><p>Call <code class="docutils literal notranslate"><span class="pre">strategy.start()</span></code> to begin optimization</p></li>
 <li><p>The strategy coordinates heuristics to generate points</p></li>
-<li><p>Points are evaluated in parallel using Dask</p></li>
+<li><p>Points are evaluated in parallel (using local threads by default)</p></li>
 <li><p>Results are collected and the best solution is tracked</p></li>
 <li><p>Optimization continues until the evaluation budget is exhausted</p></li>
 </ol>
@@ -476,9 +476,9 @@ Each step includes executable doctests that verify the setup works correctly.</p
 </section>
 <section id="troubleshooting">
 <h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
-<section id="step-14-verify-dask-setup">
-<h3>Step 14: Verify Dask Setup<a class="headerlink" href="#step-14-verify-dask-setup" title="Link to this heading">¶</a></h3>
-<p>Check that Dask is properly configured:</p>
+<section id="step-14-verify-parallel-evaluation-setup">
+<h3>Step 14: Verify Parallel Evaluation Setup<a class="headerlink" href="#step-14-verify-parallel-evaluation-setup" title="Link to this heading">¶</a></h3>
+<p>By default, Panobbgo uses local threads. If you want to use Dask, check your configuration:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 </span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dask version: </span><span class="si">{</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="3"><span class="go">Dask version: ...</span>
@@ -492,8 +492,8 @@ Each step includes executable doctests that verify the setup works correctly.</p
 <section id="step-15-run-framework-tests">
 <h3>Step 15: Run Framework Tests<a class="headerlink" href="#step-15-run-framework-tests" title="Link to this heading">¶</a></h3>
 <p>Verify the framework is working with built-in tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Run integration tests</span>
-</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>tests/test_integration.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Run all tests using the project&#39;s test script</span>
+</span><span data-line="2">./test.sh
 </span></pre></div>
 </div>
 <p>This setup guide ensures that every step of the Panobbgo installation and basic usage is tested and verified.

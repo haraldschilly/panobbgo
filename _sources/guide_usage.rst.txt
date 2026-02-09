@@ -121,7 +121,7 @@ Minimal Example
    strategy.add(Random)       # Exploration
    strategy.add(NelderMead)   # Exploitation
 
-   # Run optimization (requires: dask scheduler & workers)
+   # Run optimization
    strategy.start()
 
    # Get results
@@ -722,7 +722,7 @@ Troubleshooting
 Dask Cluster Not Found
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Error:** ``TimeoutError: Cluster not found``
+**Error:** ``TimeoutError: Cluster not found`` (Only when using ``evaluation: method: dask``)
 
 **Solution:** Start Dask cluster before running:
 

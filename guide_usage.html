@@ -305,7 +305,7 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="13"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>       <span class="c1"># Exploration</span>
 </span><span data-line="14"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>   <span class="c1"># Exploitation</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="c1"># Run optimization (requires: dask scheduler &amp; workers)</span>
+</span><span data-line="16"><span class="c1"># Run optimization</span>
 </span><span data-line="17"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span><span data-line="18">
 </span><span data-line="19"><span class="c1"># Get results</span>
@@ -875,7 +875,7 @@ continuing from where it left off.</p>
 <h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
 <section id="dask-cluster-not-found">
 <h3>Dask Cluster Not Found<a class="headerlink" href="#dask-cluster-not-found" title="Link to this heading">¶</a></h3>
-<p><strong>Error:</strong> <code class="docutils literal notranslate"><span class="pre">TimeoutError:</span> <span class="pre">Cluster</span> <span class="pre">not</span> <span class="pre">found</span></code></p>
+<p><strong>Error:</strong> <code class="docutils literal notranslate"><span class="pre">TimeoutError:</span> <span class="pre">Cluster</span> <span class="pre">not</span> <span class="pre">found</span></code> (Only when using <code class="docutils literal notranslate"><span class="pre">evaluation:</span> <span class="pre">method:</span> <span class="pre">dask</span></code>)</p>
 <p><strong>Solution:</strong> Start Dask cluster before running:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
 </span><span data-line="2">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>

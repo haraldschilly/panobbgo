@@ -7,6 +7,7 @@ Available optimization strategies:
 - **StrategyRoundRobin**: Simple round-robin point evaluation
 - **StrategyRewarding**: Adaptive heuristic selection based on performance
 - **StrategyUCB**: Upper Confidence Bound algorithm for exploration
+- **StrategyThompsonSampling**: Probabilistic selection using Thompson Sampling
 
 .. automodule:: panobbgo.strategies
    :members:

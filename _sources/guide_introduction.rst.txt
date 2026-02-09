@@ -43,10 +43,10 @@ Panobbgo's Solution
 Panobbgo addresses these challenges through:
 
 1. **Multiple search heuristics** working in parallel
-2. **Adaptive strategy selection** (multi-armed bandit approach)
+2. **Adaptive strategy selection** (Multi-Armed Bandit approach)
 3. **Result database** to avoid re-evaluations and learn from history
 4. **Event-driven architecture** for modular, extensible design
-5. **Dask distributed integration** for parallel evaluation
+5. **Parallel evaluation engines** (Threaded, Processes, or Dask)
 
 Key Features
 ------------
@@ -57,12 +57,12 @@ Architecture
 - **Event-driven design**: Modules communicate through an :class:`~panobbgo.core.EventBus`
 - **Modular components**: Easy to add new heuristics, analyzers, or strategies
 - **Result database**: Pandas-based storage with automatic event publishing
-- **Budget tracking**: Automatic termination when evaluation limit reached
+- **Parallel evaluation**: Support for local threads, subprocesses, or Dask clusters
 
 Point Generators (Heuristics)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Panobbgo includes 10 heuristics with different search strategies:
+Panobbgo includes diverse heuristics with different search strategies:
 
 .. list-table::
    :header-rows: 1
@@ -81,22 +81,23 @@ Panobbgo includes 10 heuristics with different search strategies:
      - Nearby, Weighted Average
      - Refine around best
    * - Model-Based
-     - Quadratic WLS
-     - Fit surrogate, optimize
+     - Quadratic WLS, Gaussian Process
+     - Fit surrogate, optimize (using EIC)
    * - Classical Optimizers
      - Nelder-Mead, L-BFGS-B
      - Local optimization
+   * - Constraint Handling
+     - Feasible Search, Constraint Gradient
+     - Target feasible regions
 
 Adaptive Selection
 ~~~~~~~~~~~~~~~~~~
 
-The :class:`~panobbgo.strategies.rewarding.StrategyRewarding` implements a **multi-armed bandit** approach:
+Panobbgo provides several adaptive strategies based on **multi-armed bandit** algorithms:
 
-- Each heuristic is an "arm" of a bandit machine
-- "Pulling an arm" = requesting a point from that heuristic
-- "Reward" = improvement in objective value
-- Better-performing heuristics are selected more often
-- Additive smoothing ensures exploration continues
+- :class:`~panobbgo.strategies.rewarding.StrategyRewarding`: Probability-based selection with additive smoothing and performance decay.
+- :class:`~panobbgo.strategies.ucb.StrategyUCB`: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.
+- :class:`~panobbgo.strategies.thompson.StrategyThompsonSampling`: Probabilistic approach using Beta distributions.
 
 Result Analysis
 ~~~~~~~~~~~~~~~

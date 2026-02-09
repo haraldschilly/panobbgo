@@ -32,7 +32,7 @@ There are three basic types of parts that work together:
 
 Various tools for extracting statistical data and inspecting the optimization process are included.
 Additionally, parallel evaluation of the objective black-box function can be
-achieved as SMP or on a cluster via Dask distributed.
+achieved via local threads, subprocesses, or on a cluster via Dask distributed.
 
 In the background, there are additional utility features for the configuration and dependency management available.
 

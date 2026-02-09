@@ -267,49 +267,59 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="129">
 </span><span data-line="130">        <span class="n">k</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span>
 </span><span data-line="131">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
-</span><span data-line="132">            <span class="k">return</span>
-</span><span data-line="133">
-</span><span data-line="134">        <span class="c1"># Find k nearest neighbors</span>
-</span><span data-line="135">        <span class="c1"># partial sort (argpartition) is faster than full sort</span>
-</span><span data-line="136">        <span class="c1"># We want indices of k smallest distances</span>
-</span><span data-line="137">        <span class="c1"># Note: argpartition puts the kth element in sorted position,</span>
-</span><span data-line="138">        <span class="c1"># and all smaller elements before it.</span>
-</span><span data-line="139">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">,</span> <span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="n">k</span><span class="p">]</span>
-</span><span data-line="140">
-</span><span data-line="141">        <span class="n">neighbors_X</span> <span class="o">=</span> <span class="n">valid_X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span data-line="142">        <span class="n">neighbors_cv</span> <span class="o">=</span> <span class="n">valid_cv</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span data-line="143">
-</span><span data-line="144">        <span class="c1"># Prepare for Linear Regression: X * w = y</span>
-</span><span data-line="145">        <span class="c1"># X is (k, dim), y is (k,)</span>
-</span><span data-line="146">        <span class="c1"># Shift x to origin for stability</span>
-</span><span data-line="147">        <span class="n">X_mat</span> <span class="o">=</span> <span class="n">neighbors_X</span> <span class="o">-</span> <span class="n">x</span>
-</span><span data-line="148">        <span class="n">y_vec</span> <span class="o">=</span> <span class="n">neighbors_cv</span> <span class="o">-</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span>
-</span><span data-line="149">
-</span><span data-line="150">        <span class="c1"># Solve least squares</span>
-</span><span data-line="151">        <span class="c1"># w = (X^T X)^-1 X^T y</span>
-</span><span data-line="152">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="153">            <span class="n">grad</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">X_mat</span><span class="p">,</span> <span class="n">y_vec</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</span><span data-line="154">        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
-</span><span data-line="155">            <span class="k">return</span>
-</span><span data-line="156">
-</span><span data-line="157">        <span class="c1"># Normalize gradient</span>
-</span><span data-line="158">        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span>
-</span><span data-line="159">        <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
-</span><span data-line="160">            <span class="k">return</span>
-</span><span data-line="161">
-</span><span data-line="162">        <span class="n">grad</span> <span class="o">/=</span> <span class="n">norm</span>
-</span><span data-line="163">
-</span><span data-line="164">        <span class="c1"># Descent direction: -grad</span>
-</span><span data-line="165">        <span class="n">direction</span> <span class="o">=</span> <span class="o">-</span><span class="n">grad</span>
+</span><span data-line="132">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough neighbors for gradient estimation. Need </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="133">            <span class="k">return</span>
+</span><span data-line="134">
+</span><span data-line="135">        <span class="c1"># Find k nearest neighbors</span>
+</span><span data-line="136">        <span class="c1"># partial sort (argpartition) is faster than full sort</span>
+</span><span data-line="137">        <span class="c1"># We want indices of k smallest distances</span>
+</span><span data-line="138">        <span class="c1"># Note: argpartition puts the kth element in sorted position,</span>
+</span><span data-line="139">        <span class="c1"># and all smaller elements before it.</span>
+</span><span data-line="140">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">,</span> <span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="n">k</span><span class="p">]</span>
+</span><span data-line="141">
+</span><span data-line="142">        <span class="n">neighbors_X</span> <span class="o">=</span> <span class="n">valid_X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span data-line="143">        <span class="n">neighbors_cv</span> <span class="o">=</span> <span class="n">valid_cv</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span data-line="144">
+</span><span data-line="145">        <span class="c1"># Prepare for Linear Regression: X * w = y</span>
+</span><span data-line="146">        <span class="c1"># X is (k, dim), y is (k,)</span>
+</span><span data-line="147">        <span class="c1"># Shift x to origin for stability</span>
+</span><span data-line="148">        <span class="n">X_mat</span> <span class="o">=</span> <span class="n">neighbors_X</span> <span class="o">-</span> <span class="n">x</span>
+</span><span data-line="149">        <span class="n">y_vec</span> <span class="o">=</span> <span class="n">neighbors_cv</span> <span class="o">-</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span>
+</span><span data-line="150">
+</span><span data-line="151">        <span class="c1"># Solve using Ridge Regression for stability</span>
+</span><span data-line="152">        <span class="c1"># w = (X^T X + alpha * I)^-1 X^T y</span>
+</span><span data-line="153">        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1e-6</span>
+</span><span data-line="154">        <span class="n">dim_x</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="155">
+</span><span data-line="156">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="157">            <span class="c1"># ATA = X^T X + alpha * I</span>
+</span><span data-line="158">            <span class="n">ATA</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X_mat</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">dim_x</span><span class="p">)</span>
+</span><span data-line="159">            <span class="n">ATy</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y_vec</span>
+</span><span data-line="160">
+</span><span data-line="161">            <span class="c1"># Solve normal equations</span>
+</span><span data-line="162">            <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">ATA</span><span class="p">,</span> <span class="n">ATy</span><span class="p">)</span>
+</span><span data-line="163">        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+</span><span data-line="164">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Linear algebra error in gradient estimation&quot;</span><span class="p">)</span>
+</span><span data-line="165">            <span class="k">return</span>
 </span><span data-line="166">
-</span><span data-line="167">        <span class="c1"># Generate point</span>
-</span><span data-line="168">        <span class="c1"># Step size relative to problem range</span>
-</span><span data-line="169">        <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="170">
-</span><span data-line="171">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
-</span><span data-line="172">        <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="167">        <span class="c1"># Normalize gradient</span>
+</span><span data-line="168">        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span>
+</span><span data-line="169">        <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+</span><span data-line="170">            <span class="k">return</span>
+</span><span data-line="171">
+</span><span data-line="172">        <span class="n">grad</span> <span class="o">/=</span> <span class="n">norm</span>
 </span><span data-line="173">
-</span><span data-line="174">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span></div>
+</span><span data-line="174">        <span class="c1"># Descent direction: -grad</span>
+</span><span data-line="175">        <span class="n">direction</span> <span class="o">=</span> <span class="o">-</span><span class="n">grad</span>
+</span><span data-line="176">
+</span><span data-line="177">        <span class="c1"># Generate point</span>
+</span><span data-line="178">        <span class="c1"># Step size relative to problem range</span>
+</span><span data-line="179">        <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="180">
+</span><span data-line="181">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
+</span><span data-line="182">        <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="183">
+</span><span data-line="184">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

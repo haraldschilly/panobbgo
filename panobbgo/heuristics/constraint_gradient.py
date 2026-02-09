@@ -129,6 +129,7 @@ class ConstraintGradient(Heuristic):
 
         k = dim + 1
         if len(valid_dists) < k:
+            self.logger.debug(f"Not enough neighbors for gradient estimation. Need {k}, got {len(valid_dists)}")
             return
 
         # Find k nearest neighbors
@@ -147,11 +148,20 @@ class ConstraintGradient(Heuristic):
         X_mat = neighbors_X - x
         y_vec = neighbors_cv - best.cv
 
-        # Solve least squares
-        # w = (X^T X)^-1 X^T y
+        # Solve using Ridge Regression for stability
+        # w = (X^T X + alpha * I)^-1 X^T y
+        alpha = 1e-6
+        dim_x = X_mat.shape[1]
+
         try:
-            grad, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
+            # ATA = X^T X + alpha * I
+            ATA = X_mat.T @ X_mat + alpha * np.eye(dim_x)
+            ATy = X_mat.T @ y_vec
+
+            # Solve normal equations
+            grad = np.linalg.solve(ATA, ATy)
         except np.linalg.LinAlgError:
+            self.logger.debug("Linear algebra error in gradient estimation")
             return
 
         # Normalize gradient

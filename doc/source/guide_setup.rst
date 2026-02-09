@@ -179,7 +179,7 @@ The optimization workflow is:
 
 1. Call ``strategy.start()`` to begin optimization
 2. The strategy coordinates heuristics to generate points
-3. Points are evaluated in parallel using Dask
+3. Points are evaluated in parallel (using local threads by default)
 4. Results are collected and the best solution is tracked
 5. Optimization continues until the evaluation budget is exhausted
 
@@ -336,10 +336,10 @@ Put it all together in a complete setup example:
 Troubleshooting
 ---------------
 
-Step 14: Verify Dask Setup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Step 14: Verify Parallel Evaluation Setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Check that Dask is properly configured:
+By default, Panobbgo uses local threads. If you want to use Dask, check your configuration:
 
 .. doctest::
 
@@ -358,8 +358,8 @@ Verify the framework is working with built-in tests:
 
 .. code-block:: bash
 
-   # Run integration tests
-   uv run python tests/test_integration.py
+   # Run all tests using the project's test script
+   ./test.sh
 
 This setup guide ensures that every step of the Panobbgo installation and basic usage is tested and verified.
 If all doctests pass, your Panobbgo installation is ready for optimization tasks.

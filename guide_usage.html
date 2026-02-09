@@ -102,7 +102,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
 <li><a class="reference internal" href="#using-uv-recommended">Using UV (Recommended)</a></li>
 <li><a class="reference internal" href="#using-pip">Using pip</a></li>
-<li><a class="reference internal" href="#dask-cluster-setup">Dask Cluster Setup</a></li>
+<li><a class="reference internal" href="#evaluation-setup">Evaluation Setup</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
 </ul>
 </li>
@@ -233,21 +233,29 @@ data-aria-dark="Switch to auto color mode">
 </span></pre></div>
 </div>
 </section>
-<section id="dask-cluster-setup">
-<h3>Dask Cluster Setup<a class="headerlink" href="#dask-cluster-setup" title="Link to this heading">¶</a></h3>
-<p><strong>Automatic Local Cluster (Default):</strong></p>
-<p>Panobbgo automatically starts a local Dask cluster with 2 workers for testing and development.
-No manual setup required - just run your optimization script!</p>
-<p><strong>Custom Cluster Setup:</strong></p>
-<p>For production use or custom configurations, you can connect to external clusters:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Install Dask distributed</span>
-</span><span data-line="2">pip<span class="w"> </span>install<span class="w"> </span>dask<span class="o">[</span>distributed<span class="o">]</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="c1"># Start local cluster with custom workers</span>
-</span><span data-line="5">dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
-</span><span data-line="6">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
-</span></pre></div>
-</div>
+<section id="evaluation-setup">
+<h3>Evaluation Setup<a class="headerlink" href="#evaluation-setup" title="Link to this heading">¶</a></h3>
+<p><strong>Threaded Evaluation (Default):</strong></p>
+<p>By default, Panobbgo uses local threads for evaluation. This requires no additional setup and is suitable for most local development tasks.</p>
+<p><strong>Dask Cluster (Optional):</strong></p>
+<p>For large-scale distributed optimization, you can use a Dask cluster:</p>
+<ol class="arabic">
+<li><p><strong>Install Dask</strong>:
+.. code-block:: bash</p>
+<blockquote>
+<div><p>pip install dask[distributed]</p>
+</div></blockquote>
+</li>
+<li><p><strong>Start Cluster</strong>:
+.. code-block:: bash</p>
+<blockquote>
+<div><p>dask scheduler &amp;
+dask worker localhost:8786 –nprocs 4 &amp;</p>
+</div></blockquote>
+</li>
+<li><p><strong>Configure Panobbgo</strong>:
+Set <code class="docutils literal notranslate"><span class="pre">evaluation:</span> <span class="pre">method:</span> <span class="pre">dask</span></code> in your <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p></li>
+</ol>
 <p>See <a class="reference external" href="https://docs.dask.org/en/stable/deploying.html">Dask distributed documentation</a> for advanced setup
 (remote clusters, Kubernetes, SLURM integration, etc.).</p>
 </section>

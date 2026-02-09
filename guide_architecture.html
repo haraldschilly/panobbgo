@@ -133,7 +133,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#threading-model">Threading Model</a><ul>
 <li><a class="reference internal" href="#event-handling">Event Handling</a></li>
-<li><a class="reference internal" href="#dask-distributed">Dask Distributed</a></li>
+<li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
 </ul>
 </li>
@@ -193,11 +193,11 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </span><span data-line="2">│                         Strategy                            │
 </span><span data-line="3">│  ┌─────────────┐      ┌──────────────┐     ┌─────────────┐│
 </span><span data-line="4">│  │  Heuristic  │─────▶│ Point Queue  │────▶│  Evaluator  ││
-</span><span data-line="5">│  │ (generates) │      │              │     │ (Dask       ││
-</span><span data-line="6">│  └─────────────┘      └──────────────┘     │  cluster)   ││
-</span><span data-line="7">│         ▲                                   └──────┬──────┘│
-</span><span data-line="8">│         │                                          │       │
-</span><span data-line="9">│         │                                          ▼       │
+</span><span data-line="5">│  │ (generates) │      │              │     │             ││
+</span><span data-line="6">│  └─────────────┘      └──────────────┘     └──────┬──────┘│
+</span><span data-line="7">│         ▲                                          │      │
+</span><span data-line="8">│         │                                          │      │
+</span><span data-line="9">│         │                                          ▼      │
 </span><span data-line="10">│  ┌──────┴──────┐       ┌──────────────┐    ┌──────────┐  │
 </span><span data-line="11">│  │  Analyzer   │◀──────│  EventBus    │◀───│ Results  │  │
 </span><span data-line="12">│  │ (processes) │       │ (publishes)  │    │ Database │  │
@@ -216,7 +216,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 <li><p>Manages the optimization loop</p></li>
 <li><p>Coordinates heuristics, analyzers, and evaluators</p></li>
 <li><p>Tracks budget (number of evaluations)</p></li>
-<li><p>Connects to Dask distributed cluster for parallel evaluation</p></li>
+<li><p>Manages parallel evaluation of objective functions</p></li>
 </ul>
 <p><strong>Key methods:</strong></p>
 <ul class="simple">
@@ -502,7 +502,7 @@ clustering, keeping only min/max representatives per region.</p>
 <section id="startup">
 <h3>Startup<a class="headerlink" href="#startup" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
-<li><p>Strategy connects to Dask distributed cluster</p></li>
+<li><p>Strategy initializes the evaluation environment</p></li>
 <li><p>Strategy calls <code class="docutils literal notranslate"><span class="pre">__start__()</span></code> on all modules</p></li>
 <li><p>EventBus publishes <code class="docutils literal notranslate"><span class="pre">start</span></code> event</p></li>
 <li><p>Modules initialize (e.g., LatinHypercube generates initial grid)</p></li>
@@ -518,13 +518,10 @@ clustering, keeping only min/max representatives per region.</p>
 </div>
 </li>
 <li><p><strong>Evaluate in parallel</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Send points to evaluation environment</span>
+</span><span data-line="2"><span class="n">results</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">_evaluate</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p># Send points to Dask cluster
-futures = [client.submit(problem, p) for p in points]
-# Wait for results
-results = client.gather(futures)</p>
 </li>
 <li><p><strong>Store results</strong>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">results_db</span><span class="o">.</span><span class="n">add_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
@@ -582,15 +579,14 @@ results = client.gather(futures)</p>
 <li><p>Analyzers should use locks if maintaining mutable state</p></li>
 </ul>
 </section>
-<section id="dask-distributed">
-<h3>Dask Distributed<a class="headerlink" href="#dask-distributed" title="Link to this heading">¶</a></h3>
-<p>Function evaluations run on Dask cluster:</p>
+<section id="parallel-evaluation">
+<h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">¶</a></h3>
+<p>Function evaluations can run in parallel using different engines:</p>
 <ul class="simple">
-<li><p><strong>Load-balanced scheduling</strong>: Distributes jobs to available workers</p></li>
-<li><p><strong>Asynchronous execution</strong>: Returns Future objects immediately</p></li>
-<li><p><strong>Result collection</strong>: Wait for completion with <code class="docutils literal notranslate"><span class="pre">future.result()</span></code> or <code class="docutils literal notranslate"><span class="pre">client.gather()</span></code></p></li>
+<li><p><strong>Threaded (Default)</strong>: Evaluations run in a local thread pool. Suitable for lightweight functions or when running on a single machine.</p></li>
+<li><p><strong>Dask Distributed</strong>: Connects to a Dask cluster for large-scale distributed evaluation.</p></li>
 </ul>
-<p><strong>Cluster setup:</strong></p>
+<p><strong>Dask setup (optional):</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Start local cluster with 4 workers</span>
 </span><span data-line="2">dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
 </span><span data-line="3">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
@@ -599,14 +595,16 @@ results = client.gather(futures)</p>
 </section>
 <section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
-<p>Threading and parallelism parameters in <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
-<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[ipython]</span>
-</span><span data-line="2"><span class="na">profile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">default</span>
-</span><span data-line="3"><span class="na">max_wait_for_job</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">10</span>
-</span><span data-line="4">
-</span><span data-line="5"><span class="k">[optimization]</span>
-</span><span data-line="6"><span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
-</span><span data-line="7"><span class="na">jobs_per_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">5</span><span class="w">      </span><span class="c1"># Batch size per engine</span>
+<p>Parallelism parameters in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or &#39;dask&#39;</span>
+</span><span data-line="3"><span class="w">  </span><span class="c1"># Dask specific configuration</span>
+</span><span data-line="4"><span class="w">  </span><span class="nt">dask</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">localhost:8786</span>
+</span></pre></div>
+</div>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[optimization]</span>
+</span><span data-line="2"><span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
 </span></pre></div>
 </div>
 </section>

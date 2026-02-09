@@ -41,26 +41,30 @@ Using pip
    cd panobbgo
    pip install -e ".[dev]"
 
-Dask Cluster Setup
-~~~~~~~~~~~~~~~~~~~
+Evaluation Setup
+~~~~~~~~~~~~~~~~
 
-**Automatic Local Cluster (Default):**
+**Threaded Evaluation (Default):**
 
-Panobbgo automatically starts a local Dask cluster with 2 workers for testing and development.
-No manual setup required - just run your optimization script!
+By default, Panobbgo uses local threads for evaluation. This requires no additional setup and is suitable for most local development tasks.
 
-**Custom Cluster Setup:**
+**Dask Cluster (Optional):**
 
-For production use or custom configurations, you can connect to external clusters:
+For large-scale distributed optimization, you can use a Dask cluster:
 
-.. code-block:: bash
+1. **Install Dask**:
+   .. code-block:: bash
 
-   # Install Dask distributed
-   pip install dask[distributed]
+      pip install dask[distributed]
 
-   # Start local cluster with custom workers
-   dask scheduler &
-   dask worker localhost:8786 --nprocs 4 &
+2. **Start Cluster**:
+   .. code-block:: bash
+
+      dask scheduler &
+      dask worker localhost:8786 --nprocs 4 &
+
+3. **Configure Panobbgo**:
+   Set ``evaluation: method: dask`` in your ``config.yaml``.
 
 See `Dask distributed documentation <https://docs.dask.org/en/stable/deploying.html>`_ for advanced setup
 (remote clusters, Kubernetes, SLURM integration, etc.).

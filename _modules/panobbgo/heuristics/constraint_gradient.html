@@ -312,14 +312,23 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="174">        <span class="c1"># Descent direction: -grad</span>
 </span><span data-line="175">        <span class="n">direction</span> <span class="o">=</span> <span class="o">-</span><span class="n">grad</span>
 </span><span data-line="176">
-</span><span data-line="177">        <span class="c1"># Generate point</span>
+</span><span data-line="177">        <span class="c1"># Generate points</span>
 </span><span data-line="178">        <span class="c1"># Step size relative to problem range</span>
-</span><span data-line="179">        <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="180">
-</span><span data-line="181">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
-</span><span data-line="182">        <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
-</span><span data-line="183">
-</span><span data-line="184">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span></div>
+</span><span data-line="179">        <span class="c1"># We generate &#39;samples&#39; points with varying step sizes to act as a pseudo-line search</span>
+</span><span data-line="180">        <span class="c1"># Range from 0.5x to 1.5x the base descent_step</span>
+</span><span data-line="181">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="182">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span>
+</span><span data-line="183">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="184">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span>
+</span><span data-line="185">
+</span><span data-line="186">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="187">        <span class="k">for</span> <span class="n">factor</span> <span class="ow">in</span> <span class="n">scaling_factors</span><span class="p">:</span>
+</span><span data-line="188">            <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="189">            <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
+</span><span data-line="190">            <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="191">            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="192">
+</span><span data-line="193">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

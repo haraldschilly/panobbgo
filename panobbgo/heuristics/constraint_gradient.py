@@ -174,11 +174,20 @@ class ConstraintGradient(Heuristic):
         # Descent direction: -grad
         direction = -grad
 
-        # Generate point
+        # Generate points
         # Step size relative to problem range
-        step = direction * self.descent_step * self.problem.ranges
+        # We generate 'samples' points with varying step sizes to act as a pseudo-line search
+        # Range from 0.5x to 1.5x the base descent_step
+        if self.samples == 1:
+            scaling_factors = [1.0]
+        else:
+            scaling_factors = np.linspace(0.5, 1.5, self.samples)
 
-        new_x = x + step
-        new_x = self.problem.project(new_x)
+        candidates = []
+        for factor in scaling_factors:
+            step = direction * (self.descent_step * factor) * self.problem.ranges
+            new_x = x + step
+            new_x = self.problem.project(new_x)
+            candidates.append(new_x)
 
-        self.emit(new_x)
+        self.emit(candidates)

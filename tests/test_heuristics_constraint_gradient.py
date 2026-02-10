@@ -137,3 +137,41 @@ class TestConstraintGradient(PanobbgoTestCase):
         # Should descent (negative step)
         self.assertTrue(p.x[0] < 0)
         self.assertTrue(p.x[1] < 0)
+
+    def test_gradient_descent_multiple_samples(self):
+        """
+        Test that multiple points are generated when samples > 1.
+        """
+        class SimpleProblem(Problem):
+             def __init__(self):
+                 super().__init__([(-5, 5), (-5, 5)])
+             def eval(self, x): return 0.0
+
+        self.problem = SimpleProblem()
+        self.strategy.problem = self.problem
+
+        # Mock history points around (0,0)
+        history = []
+        for x1 in np.linspace(-0.1, 0.1, 5):
+            for x2 in np.linspace(-0.1, 0.1, 5):
+                if x1 == 0 and x2 == 0: continue
+                x = np.array([x1, x2])
+                cv_val = np.sum(x) + 1.0
+                r = Result(Point(x, "hist"), 0.0, cv_vec=np.array([cv_val]))
+                history.append(r)
+        self.strategy.results = history
+
+        best = Result(Point(np.zeros(2), "best"), 0.0, cv_vec=np.array([1.0]))
+
+        # Re-initialize heuristic with samples=3
+        self.heuristic = ConstraintGradient(self.strategy, samples=3)
+        self.heuristic.__start__()
+
+        self.heuristic.on_new_best(best)
+        points = self.heuristic.get_points()
+
+        self.assertEqual(len(points), 3, f"Expected 3 points, got {len(points)}")
+
+        # Check that points are distinct (different step sizes)
+        norms = [np.linalg.norm(p.x) for p in points]
+        self.assertEqual(len(set(norms)), 3, "Points should have distinct step sizes")

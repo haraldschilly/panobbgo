@@ -50,6 +50,7 @@ class Nearby(Heuristic):
         x = best.x
         if x is None:
             return
+        self.clear_output()
         # generate self.new many new points near best x
         for _ in range(self.new):
             new_x = x.copy()

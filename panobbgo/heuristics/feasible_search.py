@@ -52,6 +52,7 @@ class FeasibleSearch(Heuristic):
         If it's infeasible, we try to improve it (reduce CV).
         """
         self.current_best = best
+        self.clear_output()
 
         if best.cv == 0:
             self.best_feasible = best

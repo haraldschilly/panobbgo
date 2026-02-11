@@ -32,17 +32,31 @@ class BiasedHeuristic(Heuristic):
              points.append(Point(x, self.name))
         return points
 
+import threading
+
 class MockBiasedProblem(Problem):
     def __init__(self, heuristic_quality_map, heuristic_cv_map=None):
         super().__init__([[-10, 10]])
         self.heuristic_quality_map = heuristic_quality_map
         self.heuristic_cv_map = heuristic_cv_map or {}
+        self.call_counts = {}
+        self._lock = threading.Lock()
 
     def __call__(self, point):
         who = point.who
+        with self._lock:
+            count = self.call_counts.get(who, 0) + 1
+            self.call_counts[who] = count
+
         if who in self.heuristic_quality_map:
             mean = self.heuristic_quality_map[who]
-            fx = np.random.normal(mean, 0.1)
+            # Provide a sequence of improvements for heuristics that are "good" (low mean)
+            # If mean is low (e.g. 0.0), it starts at 20 and goes down to 0.
+            # If mean is high (e.g. 10.0), it starts at 100 and goes down to 10.
+            base_val = 100.0 if mean > 5.0 else 20.0
+            fx = max(mean, base_val - count * 1.0)
+            # Add a tiny bit of noise to avoid exact matches if needed
+            fx += np.random.normal(0, 0.001)
         else:
             fx = 100.0
 

@@ -336,6 +336,38 @@ For problems with constraints handled via penalties (e.g. Penalty or Augmented L
    # Use L-BFGS-B on the penalized objective
    strategy.add(LocalPenaltySearch, method="L-BFGS-B")
 
+ClaudeHeuristic (Cluster-Based Adaptive Search)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The **ClaudeHeuristic** identifies clusters of elite (top-performing) evaluated points,
+fits a local Gaussian distribution to each cluster, and samples new candidates from the
+resulting mixture model. The intuition: near groups of good points, even better points
+may be hiding — especially in constrained problems where feasibility boundaries create
+pockets of promising solutions.
+
+Related to the Cross-Entropy Method and Estimation of Distribution Algorithms (EDAs).
+
+.. code-block:: python
+
+   from panobbgo.heuristics import ClaudeHeuristic
+
+   # Default: top 20% elite, up to 5 clusters, 5 candidates per batch
+   strategy.add(ClaudeHeuristic)
+
+   # Customize for your problem
+   strategy.add(ClaudeHeuristic,
+       elite_fraction=0.3,    # Use top 30% of evaluated points
+       max_clusters=3,        # At most 3 clusters
+       n_candidates=10,       # Emit 10 candidates per trigger
+       regularization=1e-2    # Stronger covariance regularization
+   )
+
+This heuristic is particularly effective for:
+
+- **Multimodal landscapes**: Multiple clusters capture distinct promising regions
+- **Constrained problems**: Penalty-based elite selection naturally favors feasible points
+- **Medium budgets**: Needs enough evaluations to build meaningful clusters (~50+)
+
 Expensive External Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -403,8 +435,11 @@ A good portfolio balances exploration and exploitation:
      - Nearby, NelderMead
      - Smooth problems
    * - Model-based
-     - QuadraticWLS
+     - QuadraticWLS, ClaudeHeuristic
      - Low-dimensional (dim < 20)
+   * - Cluster-based
+     - ClaudeHeuristic
+     - Multimodal landscapes, finding hidden optima near good regions
    * - Gradient-free
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected
@@ -425,6 +460,7 @@ Recommended Configurations
    strategy.add(Nearby)
    strategy.add(NelderMead)
    strategy.add(QuadraticWLS)
+   strategy.add(ClaudeHeuristic)  # Cluster-based search
 
 **Medium-dimensional (5 < dim ≤ 20):**
 

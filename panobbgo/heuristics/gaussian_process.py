@@ -242,6 +242,9 @@ class GaussianProcessHeuristic(Heuristic):
         # Fit GP model(s)
         self._fit_gp_model(has_constraints)
 
+        # Clear stale predictions before emitting fresh ones based on updated model
+        self.clear_output()
+
         # Generate new candidate points using acquisition function
         candidates = self._acquire_candidates(n_candidates=5)
         for candidate in candidates:

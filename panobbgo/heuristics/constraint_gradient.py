@@ -49,6 +49,7 @@ class ConstraintGradient(Heuristic):
         React to a new best point. If infeasible, try to repair it using gradient descent on CV.
         """
         self.current_best = best
+        self.clear_output()
 
         if best.cv > 0:
             self._generate_descent_point(best)

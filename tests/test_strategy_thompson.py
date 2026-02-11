@@ -27,9 +27,10 @@ class TestStrategyThompson(PanobbgoTestCase):
         self.strategy.add_heuristic(h_center)
         self.strategy.add_heuristic(h_random)
 
-        self.assertTrue(hasattr(h_center, "ts_alpha"))
-        self.assertEqual(h_center.ts_alpha, 1.0)
-        self.assertEqual(h_center.ts_beta, 1.0)
+        # Check initialized stats
+        self.assertTrue(hasattr(h_center, "ts_counts"))
+        self.assertEqual(h_center.ts_counts, 0)
+        self.assertEqual(h_center.ts_total_reward, 0.0)
 
     def test_reward_update(self):
         """Test that on_new_best updates Beta parameters correctly"""
@@ -37,12 +38,16 @@ class TestStrategyThompson(PanobbgoTestCase):
         self.strategy.add_heuristic(h)
 
         # Initial state
-        self.assertEqual(h.ts_alpha, 1.0)
-        self.assertEqual(h.ts_beta, 1.0)
+        self.assertEqual(h.ts_counts, 0)
+        self.assertEqual(h.ts_total_reward, 0.0)
 
         # Simulate improvement
         # First best (baseline)
         best1 = Result(Point(np.zeros(2), h.name), 10.0)
+
+        # Simulate execution (point generation)
+        h.ts_counts += 1
+
         self.strategy.on_new_best(best1)
 
         # First point reward is 1.0
@@ -56,10 +61,14 @@ class TestStrategyThompson(PanobbgoTestCase):
         # improvement = 10.0 - 9.0 = 1.0
         # reward = 1 - exp(-1.0) = 1 - 0.3678 = 0.632
         best2 = Result(Point(np.zeros(2), h.name), 9.0)
+
+        # Simulate execution
+        h.ts_counts += 1
+
         self.strategy.on_new_best(best2)
 
         # alpha -> 2 + 0.632 = 2.632
-        # beta -> 1 + (1 - 0.632) = 1.368
+        # beta -> 1 + (2 - 1.632) = 1.368
         self.assertAlmostEqual(h.ts_alpha, 2.63212, places=4)
         self.assertAlmostEqual(h.ts_beta, 1.36788, places=4)
 
@@ -76,11 +85,15 @@ class TestStrategyThompson(PanobbgoTestCase):
         self.strategy.add_heuristic(h2)
 
         # Mock h1 to be very good (high alpha), h2 to be bad (high beta)
-        # Must be set AFTER adding, as add_heuristic resets them
-        h1.ts_alpha = 100.0
-        h1.ts_beta = 1.0
-        h2.ts_alpha = 1.0
-        h2.ts_beta = 100.0
+        # Set counts and reward to influence alpha/beta calculation
+
+        # h1: alpha = 1 + 100 = 101, beta = 1 + (100 - 100) = 1
+        h1.ts_counts = 100
+        h1.ts_total_reward = 100.0
+
+        # h2: alpha = 1 + 0 = 1, beta = 1 + (100 - 0) = 101
+        h2.ts_counts = 100
+        h2.ts_total_reward = 0.0
 
         # Execute should prefer h1 (higher sampled theta)
         points = self.strategy.execute()

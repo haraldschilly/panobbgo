@@ -30,9 +30,9 @@ class StrategyRewarding(StrategyBase):
         self.last_best = None
         StrategyBase.__init__(self, problem, **kwargs)
 
-    def __start__(self):
-        for h in self.heuristics:
-            h.performance = 1.0
+    def add_heuristic(self, h):
+        StrategyBase.add_heuristic(self, h)
+        h.performance = 1.0
 
     def discount(self, heur, discount=None, times=1):
         """
@@ -93,6 +93,21 @@ class StrategyRewarding(StrategyBase):
             "\u2318 %s | \u0394 %.7f %s" % (best, reward, best.who)
         )
         self.last_best = best
+
+    def _get_status_info(self):
+        """Return strategy-specific status info."""
+        info = {}
+        # Report best performance
+        max_perf = 0
+        best_h_name = ""
+        for h in self.heuristics:
+             if hasattr(h, "performance") and h.performance > max_perf:
+                 max_perf = h.performance
+                 best_h_name = h.name
+
+        if best_h_name:
+            info["best_heuristic"] = f"{best_h_name} (perf={max_perf:.2f})"
+        return info
 
     def on_new_results(self, results):
         if self.last_best is None:
@@ -177,7 +192,12 @@ class StrategyRewarding(StrategyBase):
                     prob = (h.performance + s) / (perf_sum + s * len(heurs))
                     nb_h = max(1, round(target * prob))
                     h_pts = h.get_points(nb_h)
-                    batch.extend(h_pts)
+
+                    if h_pts:
+                        # Discount the heuristic performance for emitting points
+                        self.discount(h, times=len(h_pts))
+                        batch.extend(h_pts)
+
                     # print "  %16s -> %s" % (h, nb_h)
                 return batch
 

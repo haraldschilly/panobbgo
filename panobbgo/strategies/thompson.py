@@ -29,8 +29,8 @@ class StrategyThompsonSampling(StrategyBase):
 
     Update rule:
     - Reward r in [0, 1] derived from improvement magnitude.
-    - alpha <- alpha + r
-    - beta <- beta + (1 - r)
+    - alpha = 1 + total_reward (successes)
+    - beta = 1 + total_attempts - total_reward (failures)
 
     Selection:
     - Sample theta ~ Beta(alpha, beta) for each heuristic.
@@ -45,7 +45,11 @@ class StrategyThompsonSampling(StrategyBase):
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        # Initialize Beta parameters (Uniform prior)
+        # Initialize Thompson Sampling statistics
+        h.ts_counts = 0        # Number of points generated (Attempts)
+        h.ts_total_reward = 0.0 # Accumulated reward (Successes)
+
+        # Initialize derived parameters for logging/debugging
         h.ts_alpha = 1.0
         h.ts_beta = 1.0
 
@@ -83,20 +87,41 @@ class StrategyThompsonSampling(StrategyBase):
         # Update the heuristic's statistics
         try:
             h = self.heuristic(best.who)
-            if hasattr(h, "ts_alpha"):
-                # Bernoulli trial update with "soft" outcome r in [0,1]
-                h.ts_alpha += reward
-                h.ts_beta += (1.0 - reward)
+            if hasattr(h, "ts_total_reward"):
+                # Accumulate reward (successes)
+                h.ts_total_reward += reward
+
+                # Calculate current alpha/beta for logging
+                alpha = 1.0 + h.ts_total_reward
+                beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
+
+                h.ts_alpha = alpha
+                h.ts_beta = beta
 
                 self.logger.info(
-                    f"Updated {h.name}: reward={reward:.4f} -> Beta({h.ts_alpha:.2f}, {h.ts_beta:.2f})"
+                    f"Updated {h.name}: reward={reward:.4f} -> Beta({alpha:.2f}, {beta:.2f})"
                 )
             else:
-                self.logger.warning(f"Heuristic {h.name} missing ts_alpha/beta")
+                self.logger.warning(f"Heuristic {h.name} missing ts_total_reward")
         except KeyError:
             self.logger.warning(f"Heuristic '{best.who}' not found in strategy.")
 
         self.logger.info("\u2318 %s | \u0394 %.7f %s (Thompson)" % (best, reward, best.who))
+
+    def _get_status_info(self):
+        """Return strategy-specific status info."""
+        info = {}
+        # Report max alpha (best heuristic confidence)
+        max_alpha = 0
+        best_h_name = ""
+        for h in self.heuristics:
+             if hasattr(h, "ts_alpha") and h.ts_alpha > max_alpha:
+                 max_alpha = h.ts_alpha
+                 best_h_name = h.name
+
+        if best_h_name:
+            info["best_heuristic"] = f"{best_h_name} (\u03B1={max_alpha:.1f})"
+        return info
 
     def execute(self):
         points = []
@@ -116,12 +141,22 @@ class StrategyThompsonSampling(StrategyBase):
                 samples = []
                 for h in heurs:
                     # Ensure initialization
-                    if not hasattr(h, "ts_alpha"):
-                        h.ts_alpha = 1.0
-                        h.ts_beta = 1.0
+                    if not hasattr(h, "ts_counts"):
+                        h.ts_counts = 0
+                        h.ts_total_reward = 0.0
+
+                    # Calculate parameters dynamically
+                    # alpha = 1 + successes
+                    alpha = 1.0 + h.ts_total_reward
+                    # beta = 1 + failures = 1 + (attempts - successes)
+                    beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
+
+                    # Store for inspection
+                    h.ts_alpha = alpha
+                    h.ts_beta = beta
 
                     # Sample theta
-                    theta = np.random.beta(h.ts_alpha, h.ts_beta)
+                    theta = np.random.beta(alpha, beta)
                     samples.append((theta, h))
 
                 # Sort by sampled value (highest first)
@@ -131,10 +166,14 @@ class StrategyThompsonSampling(StrategyBase):
                     # Request points from the selected heuristic
                     new_points = h.get_points(1)
                     if new_points:
-                        # Update selection stats
-                        self.total_selections += len(new_points)
-                        # Note: In pure Thompson Sampling, we select based on samples.
-                        # We don't update parameters until we see a result (reward).
+                        count = len(new_points)
+                        # Update selection stats (attempts)
+                        h.ts_counts += count
+                        self.total_selections += count
+
+                        # Note: We update attempts immediately.
+                        # This increases beta (failures) until reward comes back.
+                        # This naturally handles exploration/exploitation balance in async setting.
                         return new_points
 
                 return []

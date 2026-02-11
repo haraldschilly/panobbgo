@@ -68,8 +68,6 @@ class StrategiesTests(PanobbgoTestCase):
         for h in rwd._hs:
             rwd.add_heuristic(h)
 
-        rwd.__start__()
-
         # Check that heuristics have performance initialized
         for h in rwd.heuristics:
             assert hasattr(h, 'performance')
@@ -115,7 +113,6 @@ class StrategiesTests(PanobbgoTestCase):
         # Manually init heuristics
         for h in rwd._hs:
             rwd.add_heuristic(h)
-        rwd.__start__()
 
         h_random = rwd.heuristics[0]
         initial_perf = h_random.performance

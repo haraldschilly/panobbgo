@@ -103,6 +103,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.Center.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.ClaudeHeuristic"><code class="docutils literal notranslate"><span class="pre">ClaudeHeuristic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.ClaudeHeuristic.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.ClaudeHeuristic.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient"><code class="docutils literal notranslate"><span class="pre">ConstraintGradient</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
 </ul>
@@ -227,6 +232,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions.</p></li>
 <li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
 <li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly.</p></li>
+<li><p><strong>ClaudeHeuristic</strong>: Cluster-based adaptive search using Mixture of Gaussians over elite points.</p></li>
 </ul>
 <section id="heuristics">
 <span id="module-panobbgo.heuristics"></span><h2>Heuristics<a class="headerlink" href="#heuristics" title="Link to this heading">¶</a></h2>
@@ -251,6 +257,43 @@ They are all derived from <a class="reference internal" href="core.html#panobbgo
 <dt class="sig sig-object py" id="panobbgo.heuristics.Center.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/center.html#Center.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Center.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ClaudeHeuristic">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">ClaudeHeuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elite_fraction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_clusters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_candidates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/claude_heuristic.html#ClaudeHeuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ClaudeHeuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Cluster-based adaptive search heuristic.</p>
+<p>Fits a Mixture of Gaussians to the top-performing evaluated points,
+then samples new candidates from the mixture. Mixture weights favor
+clusters with lower penalty values (better objective + feasibility).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – The optimization strategy instance.</p></li>
+<li><p><strong>elite_fraction</strong> – Fraction of all results to consider “elite” (default 0.2).</p></li>
+<li><p><strong>max_clusters</strong> – Maximum number of clusters (default 5).</p></li>
+<li><p><strong>n_candidates</strong> – Number of points to emit per trigger (default 5).</p></li>
+<li><p><strong>min_points</strong> – Minimum total results before activating (default 2*dim+1).</p></li>
+<li><p><strong>regularization</strong> – Covariance regularization strength (default 1e-3).</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ClaudeHeuristic.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/claude_heuristic.html#ClaudeHeuristic.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ClaudeHeuristic.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Accumulate results, rebuild clusters, sample new candidates.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ClaudeHeuristic.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/claude_heuristic.html#ClaudeHeuristic.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ClaudeHeuristic.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Reset state at start of optimization.</p>
+</dd></dl>
 
 </dd></dl>
 

@@ -186,149 +186,150 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="49"><span class="sd">        React to a new best point. If infeasible, try to repair it using gradient descent on CV.</span>
 </span><span data-line="50"><span class="sd">        &quot;&quot;&quot;</span>
 </span><span data-line="51">        <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span> <span class="o">=</span> <span class="n">best</span>
-</span><span data-line="52">
-</span><span data-line="53">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="54">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_descent_point</span><span class="p">(</span><span class="n">best</span><span class="p">)</span></div>
+</span><span data-line="52">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="53">
+</span><span data-line="54">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="55">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_descent_point</span><span class="p">(</span><span class="n">best</span><span class="p">)</span></div>
 
-</span><span data-line="55">
-</span><span data-line="56">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_descent_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="57"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="58"><span class="sd">        Estimates gradient of CV at &#39;best&#39; and generates a new point.</span>
-</span><span data-line="59"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="60">        <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
-</span><span data-line="61">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="62">
-</span><span data-line="63">        <span class="c1"># We need to evaluate the constraint function (cv) at neighboring points.</span>
-</span><span data-line="64">        <span class="c1"># However, we cannot simply evaluate constraints without evaluating the full problem</span>
-</span><span data-line="65">        <span class="c1"># because the interface `problem.eval_constraints(x)` might not be available or</span>
-</span><span data-line="66">        <span class="c1"># evaluating it might be costly/part of the black box.</span>
-</span><span data-line="67">        <span class="c1"># But wait, panobbgo Problems usually have `eval_constraints`.</span>
-</span><span data-line="68">        <span class="c1"># If we assume we can call `problem.eval_constraints(x)` cheaply (or at all), we can do this.</span>
-</span><span data-line="69">        <span class="c1"># In black-box optimization, we usually assume we have to emit points to get their values.</span>
-</span><span data-line="70">        <span class="c1"># BUT, if we emit points for gradient estimation, we use up budget.</span>
-</span><span data-line="71">
-</span><span data-line="72">        <span class="c1"># Strategy:</span>
-</span><span data-line="73">        <span class="c1"># We can&#39;t synchronously calculate gradient by evaluating points here.</span>
-</span><span data-line="74">        <span class="c1"># We have to rely on past points or emit points that *might* improve.</span>
-</span><span data-line="75">
-</span><span data-line="76">        <span class="c1"># Alternative approach for Black Box:</span>
-</span><span data-line="77">        <span class="c1"># Use previous results near &#39;best&#39; to estimate gradient (Weighted Least Squares or simple difference).</span>
-</span><span data-line="78">
-</span><span data-line="79">        <span class="c1"># Simple approach using recent history:</span>
-</span><span data-line="80">        <span class="c1"># Find k nearest neighbors in results.</span>
-</span><span data-line="81">        <span class="c1"># Fit a linear model to CV values: cv(x) ~ a^T x + b</span>
-</span><span data-line="82">        <span class="c1"># Gradient is &#39;a&#39;.</span>
-</span><span data-line="83">
-</span><span data-line="84">        <span class="c1"># Let&#39;s find neighbors.</span>
-</span><span data-line="85">        <span class="c1"># We need access to strategy results.</span>
-</span><span data-line="86">        <span class="n">results_container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span>
-</span><span data-line="87">        <span class="k">if</span> <span class="n">results_container</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_container</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="88">            <span class="k">return</span>
-</span><span data-line="89">
-</span><span data-line="90">        <span class="c1"># Refactored for vectorized processing</span>
-</span><span data-line="91">        <span class="n">X_candidates</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="92">        <span class="n">cv_candidates</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="93">
-</span><span data-line="94">        <span class="c1"># Use get_history if available</span>
-</span><span data-line="95">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">results_container</span><span class="p">,</span> <span class="s2">&quot;get_history&quot;</span><span class="p">):</span>
-</span><span data-line="96">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="97">                <span class="n">h</span> <span class="o">=</span> <span class="n">results_container</span><span class="o">.</span><span class="n">get_history</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</span><span data-line="98">                <span class="n">X_candidates</span> <span class="o">=</span> <span class="n">h</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span>
-</span><span data-line="99">                <span class="n">cv_candidates</span> <span class="o">=</span> <span class="n">h</span><span class="p">[</span><span class="s2">&quot;cv&quot;</span><span class="p">]</span>
-</span><span data-line="100">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="101">                <span class="k">return</span>
-</span><span data-line="102">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results_container</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="103">            <span class="c1"># Test/Legacy case: results_container is a list of Result objects</span>
-</span><span data-line="104">            <span class="n">subset</span> <span class="o">=</span> <span class="n">results_container</span><span class="p">[</span><span class="o">-</span><span class="mi">100</span><span class="p">:]</span>
-</span><span data-line="105">            <span class="k">if</span> <span class="ow">not</span> <span class="n">subset</span><span class="p">:</span>
-</span><span data-line="106">                <span class="k">return</span>
-</span><span data-line="107">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="108">                <span class="n">X_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="109">                <span class="n">cv_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="110">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="111">                <span class="k">return</span>
-</span><span data-line="112">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="113">            <span class="k">return</span>
-</span><span data-line="114">
-</span><span data-line="115">        <span class="k">if</span> <span class="n">X_candidates</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="116">            <span class="k">return</span>
-</span><span data-line="117">
-</span><span data-line="118">        <span class="c1"># Filter for points close to x</span>
-</span><span data-line="119">        <span class="c1"># Vectorized distance calculation</span>
-</span><span data-line="120">        <span class="n">diffs</span> <span class="o">=</span> <span class="n">X_candidates</span> <span class="o">-</span> <span class="n">x</span>
-</span><span data-line="121">        <span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="122">
-</span><span data-line="123">        <span class="c1"># Exclude the point itself (dist &lt;= 1e-9)</span>
-</span><span data-line="124">        <span class="n">mask</span> <span class="o">=</span> <span class="n">dists</span> <span class="o">&gt;</span> <span class="mf">1e-9</span>
-</span><span data-line="125">
-</span><span data-line="126">        <span class="n">valid_dists</span> <span class="o">=</span> <span class="n">dists</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-</span><span data-line="127">        <span class="n">valid_X</span> <span class="o">=</span> <span class="n">X_candidates</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-</span><span data-line="128">        <span class="n">valid_cv</span> <span class="o">=</span> <span class="n">cv_candidates</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
-</span><span data-line="129">
-</span><span data-line="130">        <span class="n">k</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span>
-</span><span data-line="131">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
-</span><span data-line="132">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough neighbors for gradient estimation. Need </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="133">            <span class="k">return</span>
-</span><span data-line="134">
-</span><span data-line="135">        <span class="c1"># Find k nearest neighbors</span>
-</span><span data-line="136">        <span class="c1"># partial sort (argpartition) is faster than full sort</span>
-</span><span data-line="137">        <span class="c1"># We want indices of k smallest distances</span>
-</span><span data-line="138">        <span class="c1"># Note: argpartition puts the kth element in sorted position,</span>
-</span><span data-line="139">        <span class="c1"># and all smaller elements before it.</span>
-</span><span data-line="140">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">,</span> <span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="n">k</span><span class="p">]</span>
-</span><span data-line="141">
-</span><span data-line="142">        <span class="n">neighbors_X</span> <span class="o">=</span> <span class="n">valid_X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span data-line="143">        <span class="n">neighbors_cv</span> <span class="o">=</span> <span class="n">valid_cv</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span><span data-line="144">
-</span><span data-line="145">        <span class="c1"># Prepare for Linear Regression: X * w = y</span>
-</span><span data-line="146">        <span class="c1"># X is (k, dim), y is (k,)</span>
-</span><span data-line="147">        <span class="c1"># Shift x to origin for stability</span>
-</span><span data-line="148">        <span class="n">X_mat</span> <span class="o">=</span> <span class="n">neighbors_X</span> <span class="o">-</span> <span class="n">x</span>
-</span><span data-line="149">        <span class="n">y_vec</span> <span class="o">=</span> <span class="n">neighbors_cv</span> <span class="o">-</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span>
-</span><span data-line="150">
-</span><span data-line="151">        <span class="c1"># Solve using Ridge Regression for stability</span>
-</span><span data-line="152">        <span class="c1"># w = (X^T X + alpha * I)^-1 X^T y</span>
-</span><span data-line="153">        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1e-6</span>
-</span><span data-line="154">        <span class="n">dim_x</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="155">
-</span><span data-line="156">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="157">            <span class="c1"># ATA = X^T X + alpha * I</span>
-</span><span data-line="158">            <span class="n">ATA</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X_mat</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">dim_x</span><span class="p">)</span>
-</span><span data-line="159">            <span class="n">ATy</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y_vec</span>
-</span><span data-line="160">
-</span><span data-line="161">            <span class="c1"># Solve normal equations</span>
-</span><span data-line="162">            <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">ATA</span><span class="p">,</span> <span class="n">ATy</span><span class="p">)</span>
-</span><span data-line="163">        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
-</span><span data-line="164">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Linear algebra error in gradient estimation&quot;</span><span class="p">)</span>
-</span><span data-line="165">            <span class="k">return</span>
-</span><span data-line="166">
-</span><span data-line="167">        <span class="c1"># Normalize gradient</span>
-</span><span data-line="168">        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span>
-</span><span data-line="169">        <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
-</span><span data-line="170">            <span class="k">return</span>
-</span><span data-line="171">
-</span><span data-line="172">        <span class="n">grad</span> <span class="o">/=</span> <span class="n">norm</span>
-</span><span data-line="173">
-</span><span data-line="174">        <span class="c1"># Descent direction: -grad</span>
-</span><span data-line="175">        <span class="n">direction</span> <span class="o">=</span> <span class="o">-</span><span class="n">grad</span>
-</span><span data-line="176">
-</span><span data-line="177">        <span class="c1"># Generate points</span>
-</span><span data-line="178">        <span class="c1"># Step size relative to problem range</span>
-</span><span data-line="179">        <span class="c1"># We generate &#39;samples&#39; points with varying step sizes to act as a pseudo-line search</span>
-</span><span data-line="180">        <span class="c1"># Range from 0.5x to 1.5x the base descent_step</span>
-</span><span data-line="181">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="182">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span>
-</span><span data-line="183">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="184">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span>
-</span><span data-line="185">
-</span><span data-line="186">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="187">        <span class="k">for</span> <span class="n">factor</span> <span class="ow">in</span> <span class="n">scaling_factors</span><span class="p">:</span>
-</span><span data-line="188">            <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="189">            <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
-</span><span data-line="190">            <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
-</span><span data-line="191">            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
-</span><span data-line="192">
-</span><span data-line="193">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span></div>
+</span><span data-line="56">
+</span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_descent_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="58"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="59"><span class="sd">        Estimates gradient of CV at &#39;best&#39; and generates a new point.</span>
+</span><span data-line="60"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="61">        <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="62">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="63">
+</span><span data-line="64">        <span class="c1"># We need to evaluate the constraint function (cv) at neighboring points.</span>
+</span><span data-line="65">        <span class="c1"># However, we cannot simply evaluate constraints without evaluating the full problem</span>
+</span><span data-line="66">        <span class="c1"># because the interface `problem.eval_constraints(x)` might not be available or</span>
+</span><span data-line="67">        <span class="c1"># evaluating it might be costly/part of the black box.</span>
+</span><span data-line="68">        <span class="c1"># But wait, panobbgo Problems usually have `eval_constraints`.</span>
+</span><span data-line="69">        <span class="c1"># If we assume we can call `problem.eval_constraints(x)` cheaply (or at all), we can do this.</span>
+</span><span data-line="70">        <span class="c1"># In black-box optimization, we usually assume we have to emit points to get their values.</span>
+</span><span data-line="71">        <span class="c1"># BUT, if we emit points for gradient estimation, we use up budget.</span>
+</span><span data-line="72">
+</span><span data-line="73">        <span class="c1"># Strategy:</span>
+</span><span data-line="74">        <span class="c1"># We can&#39;t synchronously calculate gradient by evaluating points here.</span>
+</span><span data-line="75">        <span class="c1"># We have to rely on past points or emit points that *might* improve.</span>
+</span><span data-line="76">
+</span><span data-line="77">        <span class="c1"># Alternative approach for Black Box:</span>
+</span><span data-line="78">        <span class="c1"># Use previous results near &#39;best&#39; to estimate gradient (Weighted Least Squares or simple difference).</span>
+</span><span data-line="79">
+</span><span data-line="80">        <span class="c1"># Simple approach using recent history:</span>
+</span><span data-line="81">        <span class="c1"># Find k nearest neighbors in results.</span>
+</span><span data-line="82">        <span class="c1"># Fit a linear model to CV values: cv(x) ~ a^T x + b</span>
+</span><span data-line="83">        <span class="c1"># Gradient is &#39;a&#39;.</span>
+</span><span data-line="84">
+</span><span data-line="85">        <span class="c1"># Let&#39;s find neighbors.</span>
+</span><span data-line="86">        <span class="c1"># We need access to strategy results.</span>
+</span><span data-line="87">        <span class="n">results_container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span>
+</span><span data-line="88">        <span class="k">if</span> <span class="n">results_container</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_container</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="89">            <span class="k">return</span>
+</span><span data-line="90">
+</span><span data-line="91">        <span class="c1"># Refactored for vectorized processing</span>
+</span><span data-line="92">        <span class="n">X_candidates</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="93">        <span class="n">cv_candidates</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="94">
+</span><span data-line="95">        <span class="c1"># Use get_history if available</span>
+</span><span data-line="96">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">results_container</span><span class="p">,</span> <span class="s2">&quot;get_history&quot;</span><span class="p">):</span>
+</span><span data-line="97">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="98">                <span class="n">h</span> <span class="o">=</span> <span class="n">results_container</span><span class="o">.</span><span class="n">get_history</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span data-line="99">                <span class="n">X_candidates</span> <span class="o">=</span> <span class="n">h</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span>
+</span><span data-line="100">                <span class="n">cv_candidates</span> <span class="o">=</span> <span class="n">h</span><span class="p">[</span><span class="s2">&quot;cv&quot;</span><span class="p">]</span>
+</span><span data-line="101">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="102">                <span class="k">return</span>
+</span><span data-line="103">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results_container</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span data-line="104">            <span class="c1"># Test/Legacy case: results_container is a list of Result objects</span>
+</span><span data-line="105">            <span class="n">subset</span> <span class="o">=</span> <span class="n">results_container</span><span class="p">[</span><span class="o">-</span><span class="mi">100</span><span class="p">:]</span>
+</span><span data-line="106">            <span class="k">if</span> <span class="ow">not</span> <span class="n">subset</span><span class="p">:</span>
+</span><span data-line="107">                <span class="k">return</span>
+</span><span data-line="108">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="109">                <span class="n">X_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="110">                <span class="n">cv_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">subset</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="111">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="112">                <span class="k">return</span>
+</span><span data-line="113">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="114">            <span class="k">return</span>
+</span><span data-line="115">
+</span><span data-line="116">        <span class="k">if</span> <span class="n">X_candidates</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="117">            <span class="k">return</span>
+</span><span data-line="118">
+</span><span data-line="119">        <span class="c1"># Filter for points close to x</span>
+</span><span data-line="120">        <span class="c1"># Vectorized distance calculation</span>
+</span><span data-line="121">        <span class="n">diffs</span> <span class="o">=</span> <span class="n">X_candidates</span> <span class="o">-</span> <span class="n">x</span>
+</span><span data-line="122">        <span class="n">dists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="123">
+</span><span data-line="124">        <span class="c1"># Exclude the point itself (dist &lt;= 1e-9)</span>
+</span><span data-line="125">        <span class="n">mask</span> <span class="o">=</span> <span class="n">dists</span> <span class="o">&gt;</span> <span class="mf">1e-9</span>
+</span><span data-line="126">
+</span><span data-line="127">        <span class="n">valid_dists</span> <span class="o">=</span> <span class="n">dists</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+</span><span data-line="128">        <span class="n">valid_X</span> <span class="o">=</span> <span class="n">X_candidates</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+</span><span data-line="129">        <span class="n">valid_cv</span> <span class="o">=</span> <span class="n">cv_candidates</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+</span><span data-line="130">
+</span><span data-line="131">        <span class="n">k</span> <span class="o">=</span> <span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span data-line="132">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
+</span><span data-line="133">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough neighbors for gradient estimation. Need </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="134">            <span class="k">return</span>
+</span><span data-line="135">
+</span><span data-line="136">        <span class="c1"># Find k nearest neighbors</span>
+</span><span data-line="137">        <span class="c1"># partial sort (argpartition) is faster than full sort</span>
+</span><span data-line="138">        <span class="c1"># We want indices of k smallest distances</span>
+</span><span data-line="139">        <span class="c1"># Note: argpartition puts the kth element in sorted position,</span>
+</span><span data-line="140">        <span class="c1"># and all smaller elements before it.</span>
+</span><span data-line="141">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">valid_dists</span><span class="p">,</span> <span class="n">k</span><span class="o">-</span><span class="mi">1</span><span class="p">)[:</span><span class="n">k</span><span class="p">]</span>
+</span><span data-line="142">
+</span><span data-line="143">        <span class="n">neighbors_X</span> <span class="o">=</span> <span class="n">valid_X</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span data-line="144">        <span class="n">neighbors_cv</span> <span class="o">=</span> <span class="n">valid_cv</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span data-line="145">
+</span><span data-line="146">        <span class="c1"># Prepare for Linear Regression: X * w = y</span>
+</span><span data-line="147">        <span class="c1"># X is (k, dim), y is (k,)</span>
+</span><span data-line="148">        <span class="c1"># Shift x to origin for stability</span>
+</span><span data-line="149">        <span class="n">X_mat</span> <span class="o">=</span> <span class="n">neighbors_X</span> <span class="o">-</span> <span class="n">x</span>
+</span><span data-line="150">        <span class="n">y_vec</span> <span class="o">=</span> <span class="n">neighbors_cv</span> <span class="o">-</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span>
+</span><span data-line="151">
+</span><span data-line="152">        <span class="c1"># Solve using Ridge Regression for stability</span>
+</span><span data-line="153">        <span class="c1"># w = (X^T X + alpha * I)^-1 X^T y</span>
+</span><span data-line="154">        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1e-6</span>
+</span><span data-line="155">        <span class="n">dim_x</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="156">
+</span><span data-line="157">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="158">            <span class="c1"># ATA = X^T X + alpha * I</span>
+</span><span data-line="159">            <span class="n">ATA</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X_mat</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">dim_x</span><span class="p">)</span>
+</span><span data-line="160">            <span class="n">ATy</span> <span class="o">=</span> <span class="n">X_mat</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y_vec</span>
+</span><span data-line="161">
+</span><span data-line="162">            <span class="c1"># Solve normal equations</span>
+</span><span data-line="163">            <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">ATA</span><span class="p">,</span> <span class="n">ATy</span><span class="p">)</span>
+</span><span data-line="164">        <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+</span><span data-line="165">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Linear algebra error in gradient estimation&quot;</span><span class="p">)</span>
+</span><span data-line="166">            <span class="k">return</span>
+</span><span data-line="167">
+</span><span data-line="168">        <span class="c1"># Normalize gradient</span>
+</span><span data-line="169">        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span>
+</span><span data-line="170">        <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+</span><span data-line="171">            <span class="k">return</span>
+</span><span data-line="172">
+</span><span data-line="173">        <span class="n">grad</span> <span class="o">/=</span> <span class="n">norm</span>
+</span><span data-line="174">
+</span><span data-line="175">        <span class="c1"># Descent direction: -grad</span>
+</span><span data-line="176">        <span class="n">direction</span> <span class="o">=</span> <span class="o">-</span><span class="n">grad</span>
+</span><span data-line="177">
+</span><span data-line="178">        <span class="c1"># Generate points</span>
+</span><span data-line="179">        <span class="c1"># Step size relative to problem range</span>
+</span><span data-line="180">        <span class="c1"># We generate &#39;samples&#39; points with varying step sizes to act as a pseudo-line search</span>
+</span><span data-line="181">        <span class="c1"># Range from 0.5x to 1.5x the base descent_step</span>
+</span><span data-line="182">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="183">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span>
+</span><span data-line="184">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="185">            <span class="n">scaling_factors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span>
+</span><span data-line="186">
+</span><span data-line="187">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="188">        <span class="k">for</span> <span class="n">factor</span> <span class="ow">in</span> <span class="n">scaling_factors</span><span class="p">:</span>
+</span><span data-line="189">            <span class="n">step</span> <span class="o">=</span> <span class="n">direction</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">descent_step</span> <span class="o">*</span> <span class="n">factor</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="190">            <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span>
+</span><span data-line="191">            <span class="n">new_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="192">            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
+</span><span data-line="193">
+</span><span data-line="194">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

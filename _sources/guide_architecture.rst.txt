@@ -205,6 +205,7 @@ Implemented Heuristics
 **Model-based:**
 
 - :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
+- :class:`~panobbgo.heuristics.claude_heuristic.ClaudeHeuristic`: Mixture of Gaussians over elite points (cluster-based adaptive search)
 
 **Classical optimizers:**
 

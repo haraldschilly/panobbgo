@@ -119,6 +119,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#feasiblesearch-heuristic">FeasibleSearch Heuristic</a></li>
 <li><a class="reference internal" href="#constraintgradient-heuristic">ConstraintGradient Heuristic</a></li>
 <li><a class="reference internal" href="#localpenaltysearch-heuristic">LocalPenaltySearch Heuristic</a></li>
+<li><a class="reference internal" href="#claudeheuristic-cluster-based-adaptive-search">ClaudeHeuristic (Cluster-Based Adaptive Search)</a></li>
 <li><a class="reference internal" href="#expensive-external-function">Expensive External Function</a></li>
 </ul>
 </li>
@@ -506,6 +507,35 @@ This heuristic is specifically designed to:</p>
 </span></pre></div>
 </div>
 </section>
+<section id="claudeheuristic-cluster-based-adaptive-search">
+<h3>ClaudeHeuristic (Cluster-Based Adaptive Search)<a class="headerlink" href="#claudeheuristic-cluster-based-adaptive-search" title="Link to this heading">¶</a></h3>
+<p>The <strong>ClaudeHeuristic</strong> identifies clusters of elite (top-performing) evaluated points,
+fits a local Gaussian distribution to each cluster, and samples new candidates from the
+resulting mixture model. The intuition: near groups of good points, even better points
+may be hiding — especially in constrained problems where feasibility boundaries create
+pockets of promising solutions.</p>
+<p>Related to the Cross-Entropy Method and Estimation of Distribution Algorithms (EDAs).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClaudeHeuristic</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># Default: top 20% elite, up to 5 clusters, 5 candidates per batch</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClaudeHeuristic</span><span class="p">)</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Customize for your problem</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClaudeHeuristic</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">elite_fraction</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>    <span class="c1"># Use top 30% of evaluated points</span>
+</span><span data-line="9">    <span class="n">max_clusters</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>        <span class="c1"># At most 3 clusters</span>
+</span><span data-line="10">    <span class="n">n_candidates</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>       <span class="c1"># Emit 10 candidates per trigger</span>
+</span><span data-line="11">    <span class="n">regularization</span><span class="o">=</span><span class="mf">1e-2</span>    <span class="c1"># Stronger covariance regularization</span>
+</span><span data-line="12"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>This heuristic is particularly effective for:</p>
+<ul class="simple">
+<li><p><strong>Multimodal landscapes</strong>: Multiple clusters capture distinct promising regions</p></li>
+<li><p><strong>Constrained problems</strong>: Penalty-based elite selection naturally favors feasible points</p></li>
+<li><p><strong>Medium budgets</strong>: Needs enough evaluations to build meaningful clusters (~50+)</p></li>
+</ul>
+</section>
 <section id="expensive-external-function">
 <h3>Expensive External Function<a class="headerlink" href="#expensive-external-function" title="Link to this heading">¶</a></h3>
 <p>Wrap subprocess or external program:</p>
@@ -580,14 +610,18 @@ This heuristic is specifically designed to:</p>
 <td><p>Smooth problems</p></td>
 </tr>
 <tr class="row-even"><td><p>Model-based</p></td>
-<td><p>QuadraticWLS</p></td>
+<td><p>QuadraticWLS, ClaudeHeuristic</p></td>
 <td><p>Low-dimensional (dim &lt; 20)</p></td>
 </tr>
-<tr class="row-odd"><td><p>Gradient-free</p></td>
+<tr class="row-odd"><td><p>Cluster-based</p></td>
+<td><p>ClaudeHeuristic</p></td>
+<td><p>Multimodal landscapes, finding hidden optima near good regions</p></td>
+</tr>
+<tr class="row-even"><td><p>Gradient-free</p></td>
 <td><p>LBFGSB, LocalPenaltySearch</p></td>
 <td><p>When local structure suspected</p></td>
 </tr>
-<tr class="row-even"><td><p>Constraint Handling</p></td>
+<tr class="row-odd"><td><p>Constraint Handling</p></td>
 <td><p>FeasibleSearch, ConstraintGradient</p></td>
 <td><p>When constraints are present</p></td>
 </tr>
@@ -604,6 +638,7 @@ This heuristic is specifically designed to:</p>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">)</span>
 </span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
 </span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">QuadraticWLS</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClaudeHeuristic</span><span class="p">)</span>  <span class="c1"># Cluster-based search</span>
 </span></pre></div>
 </div>
 <p><strong>Medium-dimensional (5 &lt; dim ≤ 20):</strong></p>

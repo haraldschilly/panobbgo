@@ -17,6 +17,7 @@ Point generation algorithms (heuristics):
 - **FeasibleSearch**: Actively searches for and repairs feasible solutions.
 - **ConstraintGradient**: Uses estimated gradients of constraint violations to find feasible regions.
 - **LocalPenaltySearch**: Optimizes the scalarized penalty function directly.
+- **ClaudeHeuristic**: Cluster-based adaptive search using Mixture of Gaussians over elite points.
 
 .. automodule:: panobbgo.heuristics
    :members:

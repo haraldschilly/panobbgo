@@ -33,6 +33,8 @@ from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.strategies.rewarding import StrategyRewarding
 
+import threading
+
 class MockBiasedProblem(Problem):
     """
     A mock problem that returns specific values based on the heuristic that
@@ -41,16 +43,21 @@ class MockBiasedProblem(Problem):
     def __init__(self, dim=2):
         super().__init__([(-5, 5)] * dim)
         self.call_count = 0
+        self.good_call_count = 0
+        self._lock = threading.Lock()
 
     def __call__(self, point):
-        self.call_count += 1
+        with self._lock:
+            self.call_count += 1
 
         # Determine value based on heuristic name
         if point.who == "GoodHeuristic":
-            # Always returns good value (improving)
-            # We use a slight noise to ensure distinct values if needed,
-            # but main property is it's low.
-            fx = 0.0 + np.random.random() * 0.1
+            # Sequence of improving values: 10, 9.5, 9.0, ... 0
+            # This ensures multiple improvements and thus higher total reward.
+            with self._lock:
+                self.good_call_count += 1
+                curr_good = self.good_call_count
+            fx = max(0.0, 10.0 - curr_good * 0.5)
         elif point.who == "BadHeuristic":
             # Always returns bad value (non-improving)
             fx = 100.0 + np.random.random() * 0.1

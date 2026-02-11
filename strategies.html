@@ -100,6 +100,7 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#strategies">Strategies</a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding"><code class="docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.discount"><code class="docutils literal notranslate">discount()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
@@ -187,6 +188,17 @@ those more often, which produce better search points.</p>
 &#64;param testing_mode:
 &#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyRewarding.add_heuristic">
+<span class="sig-name descname"><span class="pre">add_heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/rewarding.html#StrategyRewarding.add_heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyRewarding.add_heuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Add a heuristic to the strategy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyRewarding.discount">
 <span class="sig-name descname"><span class="pre">discount</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">heur</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/rewarding.html#StrategyRewarding.discount"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyRewarding.discount" title="Link to this definition">¶</a></dt>
 <dd><p>Discount the given heuristic after emitting a point.</p>
@@ -255,8 +267,8 @@ scheme.</p>
 the probability of success (finding a better point).</p>
 <p>Update rule:
 - Reward r in [0, 1] derived from improvement magnitude.
-- alpha &lt;- alpha + r
-- beta &lt;- beta + (1 - r)</p>
+- alpha = 1 + total_reward (successes)
+- beta = 1 + total_attempts - total_reward (failures)</p>
 <p>Selection:
 - Sample theta ~ Beta(alpha, beta) for each heuristic.
 - Select heuristic with highest theta.</p>

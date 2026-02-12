@@ -39,7 +39,7 @@ class StrategyLinUCB(StrategyBase):
     """
 
     def __init__(self, problem, **kwargs):
-        self.last_best = None
+        self.local_best = None  # Track best internally to avoid event bus race conditions
         self.alpha = kwargs.get('linucb_alpha', 0.5)  # Exploration parameter
         self._lock = threading.RLock()
 
@@ -105,27 +105,16 @@ class StrategyLinUCB(StrategyBase):
 
     def on_new_best(self, best):
         """
-        Capture the reward for a successful point.
+        Logging only. Reward calculation is handled in on_new_results to avoid race conditions.
         """
-        # Calculate reward relative to PREVIOUS best (self.last_best)
-        if self.last_best is None:
-            reward_val = 1.0
-        else:
-            improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
-            reward_val = self.reward(improvement)
-
-        self.last_best = best
-
-        # Store reward for this result
-        if not hasattr(self, '_success_rewards'):
-            self._success_rewards = {}
-
-        # Use object id or hash
-        self._success_rewards[id(best)] = reward_val
-
-        self.logger.info("\u2318 %s | \u0394 %.7f %s (LinUCB)" % (best, reward_val, best.who))
+        # This method is triggered by the Best analyzer via EventBus.
+        # We don't use it for logic anymore, but we log the event.
+        pass
 
     def on_new_results(self, results):
+        """
+        Process new results to update LinUCB models.
+        """
         if not results:
             return
 
@@ -135,11 +124,20 @@ class StrategyLinUCB(StrategyBase):
 
         with self._lock:
             for result in results:
-                # Check if we have a success reward recorded for this result
-                if not hasattr(self, '_success_rewards'):
-                    self._success_rewards = {}
+                # Calculate reward locally using self.local_best
+                if self.local_best is None:
+                    # First point is effectively a success
+                    improvement = 1.0
+                    self.local_best = result
+                else:
+                    improvement = self.constraint_handler.calculate_improvement(self.local_best, result)
+                    if self.constraint_handler.is_better(self.local_best, result):
+                        self.local_best = result
 
-                reward_val = self._success_rewards.pop(id(result), 0.0)
+                reward_val = self.reward(improvement)
+
+                if reward_val > 0:
+                    self.logger.info("\u2318 %s | \u0394 %.7f %s (LinUCB)" % (result, reward_val, result.who))
 
                 # Update recent rewards (keep last 100)
                 self._recent_rewards.append(reward_val)

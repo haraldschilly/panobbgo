@@ -351,6 +351,11 @@ pyright panobbgo
 
 ### Writing Tests
 
+**Flaky / stochastic tests:**
+- Stochastic tests (bandits, integration optimization) may intermittently fail due to randomness.
+- Mark them with `@pytest.mark.flaky(retries=3)` (provided by `pytest-retry`) to auto-retry.
+- Prefer this over manual retry loops in test code.
+
 **For heuristics:**
 ```python
 def test_my_heuristic():

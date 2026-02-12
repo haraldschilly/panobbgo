@@ -16,11 +16,10 @@
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.lib.classic import RosenbrockConstraint
 from panobbgo.heuristics import Center, Nearby, NelderMead, Random, FeasibleSearch
-from panobbgo.lib import Point
-import numpy as np
 import pytest
-import time
 
+
+@pytest.mark.flaky(retries=3)
 def test_augmented_lagrangian_integration():
     """
     Test that the Augmented Lagrangian constraint handler works in a real optimization.

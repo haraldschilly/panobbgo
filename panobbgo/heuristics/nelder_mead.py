@@ -69,20 +69,28 @@ class NelderMead(Heuristic):
         # shuffle(results)
         first = results.pop(0)
         base.append(first.x)
+        # Cache squared norms of basis vectors
+        base_norms_sq = [first.x.dot(first.x)]
         ret.append(first)
         for p in results:
             # Avoid division by zero or near-zero in Gram-Schmidt orthogonalization
-            projections = []
-            for v in base:
-                v_norm_sq = v.dot(v)
+            # Start with original vector and subtract projections
+            w = p.x.copy()
+
+            for i, v in enumerate(base):
+                v_norm_sq = base_norms_sq[i]
                 if abs(v_norm_sq) > 1e-12:  # Check for near-zero norms
-                    projections.append((v.dot(p.x) / v_norm_sq) * v)
+                    # Project p.x onto v: (v . p.x / |v|^2) * v
+                    # Standard Gram-Schmidt uses original vector p.x in dot product
+                    coeff = v.dot(p.x) / v_norm_sq
+                    w -= coeff * v
                 else:
                     # Skip degenerate vectors
                     continue
-            w = p.x - np.sum(projections, axis=0)
+
             if np.any(np.abs(w) > tol):
                 base.append(w)
+                base_norms_sq.append(w.dot(w))
                 ret.append(p)
                 if len(ret) >= dim:
                     return ret

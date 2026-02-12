@@ -59,3 +59,4 @@ The framework runs on **Dask distributed** for parallel evaluation, supporting b
 *   **CI Logs**: View detailed CI logs with `gh run view <RUN_ID> --log` or `gh run view --web <RUN_ID>`
 *   **Code Formatting**: Use `uv run ruff format` to format code, `./codestyle.sh` for convenience
 *   **Linting**: Run `uv run flake8 panobbgo` to check for style issues
+*   **Flaky Tests**: Stochastic/integration tests that may intermittently fail should be decorated with `@pytest.mark.flaky(retries=3)` (provided by `pytest-retry`). This retries the test up to 3 times before reporting failure.

@@ -259,6 +259,13 @@ class Results:
             self.info()
             self._last_nb = len(self)
 
+    def close(self):
+        """
+        Close the storage backend if it exists.
+        """
+        if self.backend and hasattr(self.backend, "close"):
+            self.backend.close()
+
     def info(self):
         self.logger.info("%d results in DB" % len(self))
         if self.results is not None:
@@ -1914,6 +1921,7 @@ with open('{result_file.name}', 'wb') as f:
         self.info()
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
+        self.results.close()
 
         # Close Dask client and cluster
         if hasattr(self, "_client"):

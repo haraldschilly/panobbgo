@@ -13,6 +13,13 @@
 
 ## Recent Improvements
 
+### Contextual Bandit Strategy (2025-01-13)
+- [x] **Implemented StrategyLinUCB (Contextual Bandits)**
+  - Implemented `StrategyLinUCB` with disjoint linear models for each heuristic.
+  - Features include Bias, Budget Progress, and Recent Success Rate.
+  - Added unit/integration test `tests/test_strategy_contextual.py`.
+  - Updated `panobbgo/lib/classic.py` to support `Rosenbrock(dim=2)` kwargs.
+
 ### Thompson Sampling Strategy (2025-01-13)
 - [x] **Implemented StrategyThompsonSampling**
   - Added new strategy using Beta-Bernoulli bandit logic

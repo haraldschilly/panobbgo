@@ -208,10 +208,34 @@ Subclass :class:`~panobbgo.lib.Problem`:
    strategy = StrategyRewarding(problem, max_evaluations=500)
    # ... add heuristics and run ...
 
-Noisy Problem
-~~~~~~~~~~~~~
+Problem Wrappers
+~~~~~~~~~~~~~~~~
 
-Add stochasticity in ``eval()``:
+Instead of modifying your problem class, use composable wrappers from :mod:`panobbgo.lib.wrappers`:
+
+.. code-block:: python
+
+   from panobbgo.lib.wrappers import NormalizedProblem, NoisyProblem, LogTransformProblem
+
+   # Normalize all dimensions to [0, 1]
+   problem = NormalizedProblem(Rosenbrock(dim=5))
+
+   # Add noise for robustness testing (seed for reproducibility)
+   problem = NoisyProblem(Rosenbrock(dim=5), noise_std=0.1, seed=42)
+
+   # Log-transform for objectives spanning orders of magnitude
+   problem = LogTransformProblem(MyProblem(), offset=0.0)
+
+   # Compose multiple wrappers
+   problem = NormalizedProblem(NoisyProblem(MyProblem(), noise_std=0.05))
+
+Wrappers are transparent — the framework sees a standard :class:`~panobbgo.lib.Problem`
+with the transformed box and evaluation.
+
+Noisy Problem (Manual)
+~~~~~~~~~~~~~~~~~~~~~~
+
+You can also add stochasticity directly in ``eval()``:
 
 .. code-block:: python
 
@@ -651,6 +675,48 @@ Parallel Evaluation
    )
 
    # With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously
+
+Multi-start Optimization
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the :class:`~panobbgo.analyzers.restart.Restart` analyzer to automatically restart the search
+when it gets stuck in a local optimum:
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Restart
+
+   strategy.add_analyzer(Restart,
+       patience=100,              # Restart after 100 evals without improvement
+       max_restarts=5,            # Allow up to 5 restarts
+       restart_strategy="diverse" # Maximize distance from previous centers
+   )
+
+Heuristics that define ``on_restart(center, reason)`` will automatically clear their queues
+and begin exploring around the new center. Heuristics without this handler continue as before.
+
+The Restart analyzer pairs well with :class:`~panobbgo.analyzers.convergence.Convergence` —
+set ``patience`` lower than ``Convergence.window_size`` so restarts happen before convergence
+is declared.
+
+Sensitivity Analysis
+~~~~~~~~~~~~~~~~~~~~
+
+Use the :class:`~panobbgo.analyzers.sensitivity.Sensitivity` analyzer to identify which
+input dimensions matter most:
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Sensitivity
+
+   strategy.add_analyzer(Sensitivity,
+       update_interval=50,  # Recompute every 50 new results
+       method="spearman"    # Or "partial" for partial correlation
+   )
+
+   # After optimization, check importance:
+   sens = strategy.analyzer('Sensitivity')
+   print(f"Dimension importance: {sens.importance}")
 
 Custom Events
 ~~~~~~~~~~~~~

@@ -27,7 +27,7 @@ import sqlite3
 import threading
 import numpy as np
 import time
-from typing import List
+from typing import List, Optional
 from panobbgo.lib import Result, Point
 
 
@@ -82,11 +82,13 @@ class SQLiteStorage(StorageBackend):
         # Open connection once and keep it open.
         # check_same_thread=False allows using the connection from multiple threads,
         # provided we serialize access (which we do via self._lock).
-        self._conn = sqlite3.connect(self.uri, check_same_thread=False)
+        self._conn: Optional[sqlite3.Connection] = sqlite3.connect(self.uri, check_same_thread=False)
         self._init_db()
 
     def _init_db(self):
         with self._lock:
+            if self._conn is None:
+                return
             with self._conn:
                 self._conn.execute(
                     """
@@ -129,6 +131,8 @@ class SQLiteStorage(StorageBackend):
             )
 
         with self._lock:
+            if self._conn is None:
+                return
             with self._conn:
                 self._conn.executemany(
                     """
@@ -141,6 +145,8 @@ class SQLiteStorage(StorageBackend):
     def load(self) -> List[Result]:
         results = []
         with self._lock:
+            if self._conn is None:
+                return []
             # We don't need transaction for read, but it's fine.
             # Using cursor directly.
             cursor = self._conn.execute(
@@ -175,6 +181,8 @@ class SQLiteStorage(StorageBackend):
 
     def count(self) -> int:
         with self._lock:
+            if self._conn is None:
+                return 0
             cursor = self._conn.execute("SELECT COUNT(*) FROM results")
             try:
                 return cursor.fetchone()[0]
@@ -183,6 +191,8 @@ class SQLiteStorage(StorageBackend):
 
     def clear(self):
         with self._lock:
+            if self._conn is None:
+                return
             with self._conn:
                 self._conn.execute("DELETE FROM results")
 

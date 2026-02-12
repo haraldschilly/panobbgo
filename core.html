@@ -133,6 +133,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.core.Results.add_results"><code class="docutils literal notranslate">add_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Results.close"><code class="docutils literal notranslate">close()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Results.get_history"><code class="docutils literal notranslate">get_history()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Results.info"><code class="docutils literal notranslate">info()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Results.load_from_storage"><code class="docutils literal notranslate">load_from_storage()</span></code></a></li>
@@ -514,6 +515,12 @@ In the meantime, this is a pandas DataFrame.</p>
 <span class="sig-name descname"><span class="pre">add_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_results</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_to_storage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#Results.add_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Results.add_results" title="Link to this definition">¶</a></dt>
 <dd><p>Add one single or a list of new &#64;Result objects.
 Then, publish a <code class="docutils literal notranslate"><span class="pre">new_result</span></code> event.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Results.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#Results.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Results.close" title="Link to this definition">¶</a></dt>
+<dd><p>Close the storage backend if it exists.</p>
 </dd></dl>
 
 <dl class="py method">

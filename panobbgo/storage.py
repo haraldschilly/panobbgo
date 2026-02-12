@@ -82,13 +82,21 @@ class SQLiteStorage(StorageBackend):
         # Open connection once and keep it open.
         # check_same_thread=False allows using the connection from multiple threads,
         # provided we serialize access (which we do via self._lock).
-        self._conn = sqlite3.connect(self.uri, check_same_thread=False)
+        self._conn: sqlite3.Connection | None = sqlite3.connect(self.uri, check_same_thread=False)
         self._init_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Return the connection, raising if already closed."""
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("SQLiteStorage connection is closed")
+        return conn
 
     def _init_db(self):
         with self._lock:
-            with self._conn:
-                self._conn.execute(
+            conn = self._get_conn()
+            with conn:
+                conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS results (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,8 +137,9 @@ class SQLiteStorage(StorageBackend):
             )
 
         with self._lock:
-            with self._conn:
-                self._conn.executemany(
+            conn = self._get_conn()
+            with conn:
+                conn.executemany(
                     """
                     INSERT INTO results (x, fx, cv_vec, who, error, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -141,9 +150,8 @@ class SQLiteStorage(StorageBackend):
     def load(self) -> List[Result]:
         results = []
         with self._lock:
-            # We don't need transaction for read, but it's fine.
-            # Using cursor directly.
-            cursor = self._conn.execute(
+            conn = self._get_conn()
+            cursor = conn.execute(
                 "SELECT x, fx, cv_vec, who, error, timestamp FROM results ORDER BY id ASC"
             )
             try:
@@ -175,7 +183,7 @@ class SQLiteStorage(StorageBackend):
 
     def count(self) -> int:
         with self._lock:
-            cursor = self._conn.execute("SELECT COUNT(*) FROM results")
+            cursor = self._get_conn().execute("SELECT COUNT(*) FROM results")
             try:
                 return cursor.fetchone()[0]
             finally:
@@ -183,8 +191,9 @@ class SQLiteStorage(StorageBackend):
 
     def clear(self):
         with self._lock:
-            with self._conn:
-                self._conn.execute("DELETE FROM results")
+            conn = self._get_conn()
+            with conn:
+                conn.execute("DELETE FROM results")
 
     def close(self):
         with self._lock:

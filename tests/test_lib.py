@@ -226,6 +226,11 @@ class Classics(unittest.TestCase):
         self.assertEqual(rbrk2.dim, 3)
         self.assertEqual(rbrk2.par1, 50)
 
+    def test_rosenbrock_kwargs_dim(self):
+        """Test that dim keyword argument is accepted."""
+        rbrk = Rosenbrock(dim=4)
+        self.assertEqual(rbrk.dim, 4)
+
     def test_helicalvalley(self):
         assert np.isclose(0.0, HelicalValley._theta(1, 0))
         hv = HelicalValley()

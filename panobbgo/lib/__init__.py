@@ -26,10 +26,20 @@ from .lib import (
     Problem,
     BoundingBox,
 )
+from .wrappers import (
+    ProblemWrapper,
+    NormalizedProblem,
+    LogTransformProblem,
+    NoisyProblem,
+)
 
 __all__ = [
     "Point",
     "Result",
     "Problem",
     "BoundingBox",
+    "ProblemWrapper",
+    "NormalizedProblem",
+    "LogTransformProblem",
+    "NoisyProblem",
 ]

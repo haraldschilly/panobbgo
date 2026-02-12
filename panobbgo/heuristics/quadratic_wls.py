@@ -44,31 +44,32 @@ class QuadraticWlsModel(HeuristicSubprocess):
             calculates the prediction based on the model result
             """
             dim = len(xx)
-            res = [1]
-            res.extend(xx)
-            for i in range(dim - 1):
-                for j in range(i + 1, dim):
-                    res.append(xx[i] * xx[j])
-            for i in range(dim):
-                res.append(xx[i] ** 2)
-            return result.predict(np.array(res))
+            # Use outer product for mixed terms to avoid nested loops
+            outer = np.outer(xx, xx)
+            mixed = outer[np.triu_indices(dim, k=1)]
+            # Construct feature vector: [1, x0..xn, mixed, squared]
+            res = np.concatenate(([1], xx, mixed, xx**2))
+            return result.predict(res)
 
         while True:
             points, bounds, best_point, fx_vals = pipe.recv()
             dim = points.shape[1]
 
-            # import statsmodels.formula.api as sm_formula
-            data = {}
+            # Build data dictionary in the correct order for statsmodels (Intercept first)
+            # Use vectorized slicing instead of list comprehensions for performance
+            data = {"Intercept": np.ones(len(points))}
             for i in range(dim):
-                data["x%s" % i] = [x[i] for x in points]
+                data["x%s" % i] = points[:, i]
             for i in range(dim):
                 for j in range(i + 1, dim):
-                    data["x%s:x%s" % (i, j)] = [x[i] * x[j] for x in points]
+                    data["x%s:x%s" % (i, j)] = points[:, i] * points[:, j]
             for i in range(dim):
-                data["x%s^2" % i] = [x[i] ** 2 for x in points]
-            data.update({"Intercept": np.ones(len(points))})
+                data["x%s^2" % i] = points[:, i] ** 2
+
+            # DataFrame creation preserves insertion order in Python 3.7+
             X = DataFrame(data)
-            # X.columns =
+
+            # Define columns explicitly for clarity, though it now matches X's order
             cols = ["Intercept"] + ["x%i" % i for i in range(dim)]
             mixedterms = reduce(
                 operator.add,
@@ -80,8 +81,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
             y = DataFrame({"y": fx_vals})
 
-            # Type hint for apply_along_axis is tricky, ignoring for now as linalg.norm is well-defined
-            distances = np.apply_along_axis(np.linalg.norm, 1, points - best_point) # type: ignore
+            # Optimized distance calculation using axis parameter instead of apply_along_axis
+            distances = np.linalg.norm(points - best_point, axis=1)
             weights = 1.0 / (1 + np.argsort(distances))
 
             model = sm.WLS(y, X, weights=weights)  # type: ignore

@@ -1,5 +1,6 @@
 # -*- coding: utf8 -*-
 import numpy as np
+import pytest
 from panobbgo.utils import PanobbgoTestCase
 from panobbgo.strategies.contextual import StrategyLinUCB
 from panobbgo.core import Heuristic
@@ -85,24 +86,12 @@ class MockContextualProblem(Problem):
 
 class TestStrategyContextual(PanobbgoTestCase):
 
+    @pytest.mark.flaky(retries=3)
     def test_linucb_preference_switch(self):
         """
         Test that StrategyLinUCB learns to switch preference based on context (progress).
-
-        This is inherently stochastic — the bandit may not always learn fast enough
-        in a single run. We retry up to 3 times to reduce flakiness.
+        Stochastic — the bandit may not always learn fast enough in a single run.
         """
-        # Retry: stochastic bandit may not learn fast enough in every run
-        last_error = None
-        for attempt in range(3):
-            try:
-                self._run_preference_switch_trial()
-                return  # passed
-            except AssertionError as e:
-                last_error = e
-        raise last_error  # type: ignore[misc]
-
-    def _run_preference_switch_trial(self):
         switch_point = 150
         max_eval = 400
         problem = MockContextualProblem(switch_point=switch_point)

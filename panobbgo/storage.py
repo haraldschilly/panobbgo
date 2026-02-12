@@ -24,6 +24,7 @@ This enables features like pausing/resuming optimization and post-hoc analysis.
 import abc
 import json
 import sqlite3
+import threading
 import numpy as np
 import time
 from typing import List
@@ -63,6 +64,12 @@ class StorageBackend(abc.ABC):
         """
         pass
 
+    def close(self):
+        """
+        Close the storage backend connection.
+        """
+        pass
+
 
 class SQLiteStorage(StorageBackend):
     """
@@ -71,24 +78,30 @@ class SQLiteStorage(StorageBackend):
 
     def __init__(self, uri: str = "panobbgo.db"):
         self.uri = uri
+        self._lock = threading.RLock()
+        # Open connection once and keep it open.
+        # check_same_thread=False allows using the connection from multiple threads,
+        # provided we serialize access (which we do via self._lock).
+        self._conn = sqlite3.connect(self.uri, check_same_thread=False)
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.uri) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS results (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    x TEXT,
-                    fx REAL,
-                    cv_vec TEXT,
-                    who TEXT,
-                    error REAL,
-                    timestamp REAL
+        with self._lock:
+            with self._conn:
+                self._conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS results (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        x TEXT,
+                        fx REAL,
+                        cv_vec TEXT,
+                        who TEXT,
+                        error REAL,
+                        timestamp REAL
+                    )
+                    """
                 )
-                """
-            )
-            conn.commit()
+                # No explicit commit needed, context manager handles it
 
     def save(self, results: List[Result]):
         if not results:
@@ -115,52 +128,66 @@ class SQLiteStorage(StorageBackend):
                 )
             )
 
-        with sqlite3.connect(self.uri) as conn:
-            conn.executemany(
-                """
-                INSERT INTO results (x, fx, cv_vec, who, error, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                data,
-            )
-            conn.commit()
+        with self._lock:
+            with self._conn:
+                self._conn.executemany(
+                    """
+                    INSERT INTO results (x, fx, cv_vec, who, error, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    data,
+                )
 
     def load(self) -> List[Result]:
         results = []
-        with sqlite3.connect(self.uri) as conn:
-            cursor = conn.execute(
+        with self._lock:
+            # We don't need transaction for read, but it's fine.
+            # Using cursor directly.
+            cursor = self._conn.execute(
                 "SELECT x, fx, cv_vec, who, error, timestamp FROM results ORDER BY id ASC"
             )
-            for row in cursor:
-                x_json, fx, cv_vec_json, who, error, timestamp = row
+            try:
+                for row in cursor:
+                    x_json, fx, cv_vec_json, who, error, timestamp = row
 
-                try:
-                    x = np.array(json.loads(x_json), dtype=np.float64)
-                except (ValueError, TypeError):
-                    x = np.array([])
+                    try:
+                        x = np.array(json.loads(x_json), dtype=np.float64)
+                    except (ValueError, TypeError):
+                        x = np.array([])
 
-                try:
-                    cv_vec_list = json.loads(cv_vec_json)
-                    cv_vec = np.array(cv_vec_list, dtype=np.float64) if cv_vec_list else None
-                except (ValueError, TypeError):
-                    cv_vec = None
+                    try:
+                        cv_vec_list = json.loads(cv_vec_json)
+                        cv_vec = np.array(cv_vec_list, dtype=np.float64) if cv_vec_list else None
+                    except (ValueError, TypeError):
+                        cv_vec = None
 
-                point = Point(x, who)
-                result = Result(point, fx, cv_vec=cv_vec, error=error)
-                # Ideally restore timestamp too, but Result doesn't expose it in init.
-                # We can manually set it if needed, but it's internal.
-                if hasattr(result, "_time"):
-                     result._time = timestamp
+                    point = Point(x, who)
+                    result = Result(point, fx, cv_vec=cv_vec, error=error)
+                    # Ideally restore timestamp too, but Result doesn't expose it in init.
+                    # We can manually set it if needed, but it's internal.
+                    if hasattr(result, "_time"):
+                         result._time = timestamp
 
-                results.append(result)
+                    results.append(result)
+            finally:
+                cursor.close()
         return results
 
     def count(self) -> int:
-        with sqlite3.connect(self.uri) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM results")
-            return cursor.fetchone()[0]
+        with self._lock:
+            cursor = self._conn.execute("SELECT COUNT(*) FROM results")
+            try:
+                return cursor.fetchone()[0]
+            finally:
+                cursor.close()
 
     def clear(self):
-        with sqlite3.connect(self.uri) as conn:
-            conn.execute("DELETE FROM results")
-            conn.commit()
+        with self._lock:
+            with self._conn:
+                self._conn.execute("DELETE FROM results")
+
+    def close(self):
+        with self._lock:
+            if self._conn:
+                self._conn.close()
+                self._conn = None

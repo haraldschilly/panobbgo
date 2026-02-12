@@ -99,6 +99,14 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#strategies">Strategies</a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.reward"><code class="docutils literal notranslate">reward()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding"><code class="docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.discount"><code class="docutils literal notranslate">discount()</span></code></a></li>
@@ -176,6 +184,74 @@ and another one consumes them and dispatches tasks.
 Subclass the <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> class to implement
 a new strategy.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyLinUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
+<p>This strategy uses the Linear Upper Confidence Bound (LinUCB) algorithm (disjoint)
+to select heuristics based on context features.</p>
+<p>Context features ($x_t$):
+- Bias (1.0)
+- Budget Progress (t / T_max)
+- Recent Global Success Rate (last 100 evaluations)</p>
+<p>Model for each heuristic $a$:
+- $theta_a^* = argmin_{theta} sum (r_t - theta^T x_{t,a})^2 + lambda |theta|^2$
+- Expected reward: $hat{r}_{t,a} = x_t^T theta_a$
+- UCB Score: $p_{t,a} = hat{r}_{t,a} + alpha sqrt{x_t^T A_a^{-1} x_t}$</p>
+<p>where $A_a = sum x_s x_s^T + I$ and $b_a = sum r_s x_s$.</p>
+<p>&#64;type problem: panobbgo.lib.Problem
+&#64;param problem:
+&#64;param parse_args:
+&#64;param testing_mode:
+&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.add_heuristic">
+<span class="sig-name descname"><span class="pre">add_heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB.add_heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.add_heuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Add a heuristic to the strategy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>Logging only. Reward calculation is handled in on_new_results to avoid race conditions.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Process new results to update LinUCB models.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.reward">
+<span class="sig-name descname"><span class="pre">reward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">improvement</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB.reward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.reward" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate reward based on improvement magnitude.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>improvement</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – improvement metric from constraint handler.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Reward in [0, 1]</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyRewarding">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyRewarding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/rewarding.html#StrategyRewarding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyRewarding" title="Link to this definition">¶</a></dt>

@@ -63,5 +63,7 @@ from .convergence import Convergence
 from .splitter import Splitter
 from .grid import Grid
 from .dedensifyer import Dedensifyer
+from .sensitivity import Sensitivity
+from .restart import Restart
 
-__all__ = ["Best", "Convergence", "Splitter", "Grid", "Dedensifyer"]
+__all__ = ["Best", "Convergence", "Splitter", "Grid", "Dedensifyer", "Sensitivity", "Restart"]

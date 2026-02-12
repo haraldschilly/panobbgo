@@ -30,8 +30,6 @@
       "Bash(git pull:*)",
       "Bash(grep:*)",
       "Bash(git stash:*)",
-      "Bash(git fetch:*)",
-      "Bash(gh pr list:*)",
       "Bash(uv pip install:*)"
     ]
   }

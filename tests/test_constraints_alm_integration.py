@@ -88,6 +88,8 @@ def test_augmented_lagrangian_integration():
     strategy = StrategyRewarding(problem)
     strategy.config.max_eval = 1000
     strategy.config.convergence_require_feasibility = True
+    # ALM needs time to converge to a feasible solution, so don't stop early on convergence
+    strategy.config.stop_on_convergence = False
 
     # Swap handler to AugmentedLagrangian
     from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler

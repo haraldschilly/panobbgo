@@ -110,7 +110,7 @@ EventBus
      - All modules (initialization)
    * - ``new_results``
      - Results
-     - Analyzers (Best, Splitter, Sensitivity, Restart)
+     - Analyzers (Best, Splitter)
    * - ``new_best``
      - Best analyzer
      - Heuristics (NelderMead, Nearby)
@@ -120,12 +120,6 @@ EventBus
    * - ``new_split``
      - Splitter analyzer
      - Heuristics (Random)
-   * - ``new_sensitivity``
-     - Sensitivity analyzer
-     - Heuristics (future: adaptive search)
-   * - ``restart``
-     - Restart analyzer
-     - Heuristics (reset and re-explore)
    * - ``finished``
      - Strategy
      - All modules (cleanup)
@@ -270,26 +264,6 @@ Implemented Analyzers
 
 :class:`~panobbgo.analyzers.dedensifyer.Dedensifyer` maintains a hierarchical grid to avoid
 clustering, keeping only min/max representatives per region.
-
-**Sensitivity**
-
-:class:`~panobbgo.analyzers.sensitivity.Sensitivity` estimates per-dimension importance from
-evaluation history using rank correlation. Publishes ``new_sensitivity`` events that heuristics
-can use to focus search on the most influential dimensions.
-
-**Events published:**
-
-- ``new_sensitivity``: Importance scores for each dimension (array in [0, 1])
-
-**Restart**
-
-:class:`~panobbgo.analyzers.restart.Restart` detects search stagnation (no improvement in
-``patience`` evaluations) and publishes ``restart`` events with a suggested new center point.
-Enables multi-start optimization without losing accumulated results.
-
-**Events published:**
-
-- ``restart``: New center point and reason string
 
 Strategies (Orchestration)
 ---------------------------

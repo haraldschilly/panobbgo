@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from panobbgo.analyzers.best import Best
-import numpy as np
 
 from panobbgo.core import Heuristic
 
@@ -42,6 +41,8 @@ class WeightedAverage(Heuristic):
             return
 
         # actual calculation
+        import numpy as np
+
         get_val = self.strategy.constraint_handler.get_penalty_value
         xx = np.array([r.x for r in box.results])
         yy = np.array([get_val(r) for r in box.results])

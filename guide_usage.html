@@ -113,7 +113,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#defining-custom-problems">Defining Custom Problems</a><ul>
 <li><a class="reference internal" href="#basic-problem">Basic Problem</a></li>
-<li><a class="reference internal" href="#noisy-problem">Noisy Problem</a></li>
+<li><a class="reference internal" href="#problem-wrappers">Problem Wrappers</a></li>
+<li><a class="reference internal" href="#noisy-problem-manual">Noisy Problem (Manual)</a></li>
 <li><a class="reference internal" href="#constrained-problem">Constrained Problem</a></li>
 <li><a class="reference internal" href="#constraint-handling-methods">Constraint Handling Methods</a></li>
 <li><a class="reference internal" href="#feasiblesearch-heuristic">FeasibleSearch Heuristic</a></li>
@@ -144,6 +145,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#advanced-topics">Advanced Topics</a><ul>
 <li><a class="reference internal" href="#budget-management">Budget Management</a></li>
 <li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
+<li><a class="reference internal" href="#multi-start-optimization">Multi-start Optimization</a></li>
+<li><a class="reference internal" href="#sensitivity-analysis">Sensitivity Analysis</a></li>
 <li><a class="reference internal" href="#custom-events">Custom Events</a></li>
 <li><a class="reference internal" href="#logging">Logging</a></li>
 </ul>
@@ -392,9 +395,30 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span></pre></div>
 </div>
 </section>
-<section id="noisy-problem">
-<h3>Noisy Problem<a class="headerlink" href="#noisy-problem" title="Link to this heading">¶</a></h3>
-<p>Add stochasticity in <code class="docutils literal notranslate"><span class="pre">eval()</span></code>:</p>
+<section id="problem-wrappers">
+<h3>Problem Wrappers<a class="headerlink" href="#problem-wrappers" title="Link to this heading">¶</a></h3>
+<p>Instead of modifying your problem class, use composable wrappers from <a class="reference internal" href="lib.html#module-panobbgo.lib.wrappers" title="panobbgo.lib.wrappers"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.wrappers</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.wrappers</span><span class="w"> </span><span class="kn">import</span> <span class="n">NormalizedProblem</span><span class="p">,</span> <span class="n">NoisyProblem</span><span class="p">,</span> <span class="n">LogTransformProblem</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># Normalize all dimensions to [0, 1]</span>
+</span><span data-line="4"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Add noise for robustness testing (seed for reproducibility)</span>
+</span><span data-line="7"><span class="n">problem</span> <span class="o">=</span> <span class="n">NoisyProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># Log-transform for objectives spanning orders of magnitude</span>
+</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">LogTransformProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Compose multiple wrappers</span>
+</span><span data-line="13"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">NoisyProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.05</span><span class="p">))</span>
+</span></pre></div>
+</div>
+<p>Wrappers are transparent — the framework sees a standard <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>
+with the transformed box and evaluation.</p>
+</section>
+<section id="noisy-problem-manual">
+<h3>Noisy Problem (Manual)<a class="headerlink" href="#noisy-problem-manual" title="Link to this heading">¶</a></h3>
+<p>You can also add stochasticity directly in <code class="docutils literal notranslate"><span class="pre">eval()</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">NoisySphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
 </span><span data-line="3">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">))</span>
@@ -813,6 +837,42 @@ pockets of promising solutions.</p>
 </span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously</span>
+</span></pre></div>
+</div>
+</section>
+<section id="multi-start-optimization">
+<h3>Multi-start Optimization<a class="headerlink" href="#multi-start-optimization" title="Link to this heading">¶</a></h3>
+<p>Use the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer to automatically restart the search
+when it gets stuck in a local optimum:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restart</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Restart</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">patience</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>              <span class="c1"># Restart after 100 evals without improvement</span>
+</span><span data-line="5">    <span class="n">max_restarts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>            <span class="c1"># Allow up to 5 restarts</span>
+</span><span data-line="6">    <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">&quot;diverse&quot;</span> <span class="c1"># Maximize distance from previous centers</span>
+</span><span data-line="7"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Heuristics that define <code class="docutils literal notranslate"><span class="pre">on_restart(center,</span> <span class="pre">reason)</span></code> will automatically clear their queues
+and begin exploring around the new center. Heuristics without this handler continue as before.</p>
+<p>The Restart analyzer pairs well with <a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence" title="panobbgo.analyzers.convergence.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> —
+set <code class="docutils literal notranslate"><span class="pre">patience</span></code> lower than <code class="docutils literal notranslate"><span class="pre">Convergence.window_size</span></code> so restarts happen before convergence
+is declared.</p>
+</section>
+<section id="sensitivity-analysis">
+<h3>Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Link to this heading">¶</a></h3>
+<p>Use the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> analyzer to identify which
+input dimensions matter most:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sensitivity</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Sensitivity</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">update_interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>  <span class="c1"># Recompute every 50 new results</span>
+</span><span data-line="5">    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spearman&quot;</span>    <span class="c1"># Or &quot;partial&quot; for partial correlation</span>
+</span><span data-line="6"><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># After optimization, check importance:</span>
+</span><span data-line="9"><span class="n">sens</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s1">&#39;Sensitivity&#39;</span><span class="p">)</span>
+</span><span data-line="10"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dimension importance: </span><span class="si">{</span><span class="n">sens</span><span class="o">.</span><span class="n">importance</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>

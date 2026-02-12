@@ -103,6 +103,19 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.BoundingBox.copy"><code class="docutils literal notranslate">copy()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.LogTransformProblem"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.LogTransformProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.NoisyProblem"><code class="docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.NoisyProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.NormalizedProblem"><code class="docutils literal notranslate"><span class="pre">NormalizedProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.NormalizedProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.NormalizedProblem.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.Point"><code class="docutils literal notranslate"><span class="pre">Point</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.Point.who"><code class="docutils literal notranslate">who</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Point.x"><code class="docutils literal notranslate">x</span></code></a></li>
@@ -119,6 +132,12 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.Problem.ranges"><code class="docutils literal notranslate">ranges</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.ProblemWrapper"><code class="docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.ProblemWrapper.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.ProblemWrapper.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.ProblemWrapper.wrapped"><code class="docutils literal notranslate">wrapped</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.Result"><code class="docutils literal notranslate"><span class="pre">Result</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.Result.cv"><code class="docutils literal notranslate">cv</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Result.cv_vec"><code class="docutils literal notranslate">cv_vec</span></code></a></li>
@@ -128,6 +147,26 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.Result.pp"><code class="docutils literal notranslate">pp</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Result.who"><code class="docutils literal notranslate">who</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Result.x"><code class="docutils literal notranslate">x</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#problem-wrappers">Problem Wrappers</a></li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.LogTransformProblem"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.LogTransformProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem"><code class="docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NormalizedProblem"><code class="docutils literal notranslate"><span class="pre">NormalizedProblem</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NormalizedProblem.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NormalizedProblem.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper"><code class="docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper.eval_constraints"><code class="docutils literal notranslate">eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper.wrapped"><code class="docutils literal notranslate">wrapped</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -169,6 +208,13 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Result</strong>: Contains evaluation results</p></li>
 <li><p><strong>BoundingBox</strong>: Defines parameter bounds</p></li>
 </ul>
+<p>Problem Wrappers:</p>
+<ul class="simple">
+<li><p><strong>ProblemWrapper</strong>: Base class for composable problem decorators</p></li>
+<li><p><strong>NormalizedProblem</strong>: Scales all dimensions to [0, 1]</p></li>
+<li><p><strong>LogTransformProblem</strong>: Applies log transform to objective</p></li>
+<li><p><strong>NoisyProblem</strong>: Adds controlled Gaussian noise</p></li>
+</ul>
 <section id="library-core">
 <span id="module-panobbgo.lib"></span><h2>Library Core<a class="headerlink" href="#library-core" title="Link to this heading">¶</a></h2>
 <p>This module exposes the core data structures used throughout Panobbgo.</p>
@@ -182,6 +228,116 @@ data-aria-dark="Switch to auto color mode">
 <dt class="sig sig-object py" id="panobbgo.lib.BoundingBox.copy">
 <span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">immutable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#BoundingBox.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.BoundingBox.copy" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.LogTransformProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">LogTransformProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#LogTransformProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.LogTransformProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Applies log transform to the objective: <code class="docutils literal notranslate"><span class="pre">log(1</span> <span class="pre">+</span> <span class="pre">f(x)</span> <span class="pre">-</span> <span class="pre">offset)</span></code>.
+Useful when objective spans orders of magnitude.</p>
+<p>Constraints are NOT transformed (they have their own scale via cv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.LogTransformProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#LogTransformProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.LogTransformProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.NoisyProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">NoisyProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_std</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'additive'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.NoisyProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Adds controlled Gaussian noise to evaluations. Useful for robustness testing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>problem</strong> – The problem to wrap.</p></li>
+<li><p><strong>noise_std</strong> – Standard deviation of noise (default 0.1).</p></li>
+<li><p><strong>noise_type</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;additive&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;multiplicative&quot;</span></code> (default <code class="docutils literal notranslate"><span class="pre">&quot;additive&quot;</span></code>).</p></li>
+<li><p><strong>seed</strong> – Optional random seed for reproducibility.</p></li>
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.NoisyProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.NoisyProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.NormalizedProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">NormalizedProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.NormalizedProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Scales all dimensions to [0, 1]. Heuristics see a unit hypercube;
+the wrapper maps back to original coordinates for evaluation.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x_original</span> <span class="pre">=</span> <span class="pre">x_normalized</span> <span class="pre">*</span> <span class="pre">ranges</span> <span class="pre">+</span> <span class="pre">lower_bounds</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.NormalizedProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.NormalizedProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.NormalizedProblem.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.NormalizedProblem.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -289,6 +445,54 @@ gives <span class="math notranslate nohighlight">\([-1,1]\)</span></p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.ProblemWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">ProblemWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.ProblemWrapper" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Base class for problem wrappers. Delegates to wrapped problem.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.ProblemWrapper.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.ProblemWrapper.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.ProblemWrapper.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.ProblemWrapper.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.ProblemWrapper.wrapped">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">wrapped</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span><a class="headerlink" href="#panobbgo.lib.ProblemWrapper.wrapped" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying wrapped problem.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.lib.Result">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">Result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_vec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.Result" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
@@ -364,6 +568,173 @@ did generate this point (String).</p>
 <dt class="sig sig-object py" id="panobbgo.lib.Result.x">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#panobbgo.lib.Result.x" title="Link to this definition">¶</a></dt>
 <dd><p>Point <span class="math notranslate nohighlight">\(x\)</span> where this result has been evaluated.</p>
+</dd></dl>
+
+</dd></dl>
+
+<section id="problem-wrappers">
+<span id="module-panobbgo.lib.wrappers"></span><h2>Problem Wrappers<a class="headerlink" href="#problem-wrappers" title="Link to this heading">¶</a></h2>
+<p>Composable decorator classes that wrap a <a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a> instance
+and transform inputs/outputs, without modifying the original problem.</p>
+<p>These are composable:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">wrapped</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">NoisyProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">()))</span>
+</span></pre></div>
+</div>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.LogTransformProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.wrappers.</span></span><span class="sig-name descname"><span class="pre">LogTransformProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#LogTransformProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.LogTransformProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Applies log transform to the objective: <code class="docutils literal notranslate"><span class="pre">log(1</span> <span class="pre">+</span> <span class="pre">f(x)</span> <span class="pre">-</span> <span class="pre">offset)</span></code>.
+Useful when objective spans orders of magnitude.</p>
+<p>Constraints are NOT transformed (they have their own scale via cv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.LogTransformProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#LogTransformProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.LogTransformProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NoisyProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.wrappers.</span></span><span class="sig-name descname"><span class="pre">NoisyProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_std</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">noise_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'additive'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NoisyProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Adds controlled Gaussian noise to evaluations. Useful for robustness testing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>problem</strong> – The problem to wrap.</p></li>
+<li><p><strong>noise_std</strong> – Standard deviation of noise (default 0.1).</p></li>
+<li><p><strong>noise_type</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;additive&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;multiplicative&quot;</span></code> (default <code class="docutils literal notranslate"><span class="pre">&quot;additive&quot;</span></code>).</p></li>
+<li><p><strong>seed</strong> – Optional random seed for reproducibility.</p></li>
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NoisyProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NoisyProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NormalizedProblem">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.wrappers.</span></span><span class="sig-name descname"><span class="pre">NormalizedProblem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NormalizedProblem" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.wrappers.ProblemWrapper" title="panobbgo.lib.wrappers.ProblemWrapper"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemWrapper</span></code></a></p>
+<p>Scales all dimensions to [0, 1]. Heuristics see a unit hypercube;
+the wrapper maps back to original coordinates for evaluation.</p>
+<p><code class="docutils literal notranslate"><span class="pre">x_original</span> <span class="pre">=</span> <span class="pre">x_normalized</span> <span class="pre">*</span> <span class="pre">ranges</span> <span class="pre">+</span> <span class="pre">lower_bounds</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NormalizedProblem.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NormalizedProblem.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NormalizedProblem.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NormalizedProblem.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NormalizedProblem.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.ProblemWrapper">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.wrappers.</span></span><span class="sig-name descname"><span class="pre">ProblemWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.ProblemWrapper" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Base class for problem wrappers. Delegates to wrapped problem.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.ProblemWrapper.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.ProblemWrapper.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.ProblemWrapper.eval_constraints">
+<span class="sig-name descname"><span class="pre">eval_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#ProblemWrapper.eval_constraints"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.ProblemWrapper.eval_constraints" title="Link to this definition">¶</a></dt>
+<dd><p>This method is optionally overwritten by the problem to calculate the constraint violations.
+It has to return a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">floats</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.ProblemWrapper.wrapped">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">wrapped</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><span class="pre">Problem</span></a></span><a class="headerlink" href="#panobbgo.lib.wrappers.ProblemWrapper.wrapped" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying wrapped problem.</p>
 </dd></dl>
 
 </dd></dl>

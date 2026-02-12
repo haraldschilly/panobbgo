@@ -284,7 +284,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_results</span></code></p></td>
 <td><p>Results</p></td>
-<td><p>Analyzers (Best, Splitter)</p></td>
+<td><p>Analyzers (Best, Splitter, Sensitivity, Restart)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">new_best</span></code></p></td>
 <td><p>Best analyzer</p></td>
@@ -297,6 +297,14 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code></p></td>
 <td><p>Splitter analyzer</p></td>
 <td><p>Heuristics (Random)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code></p></td>
+<td><p>Sensitivity analyzer</p></td>
+<td><p>Heuristics (future: adaptive search)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">restart</span></code></p></td>
+<td><p>Restart analyzer</p></td>
+<td><p>Heuristics (reset and re-explore)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finished</span></code></p></td>
 <td><p>Strategy</p></td>
@@ -435,6 +443,22 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 <p><strong>Dedensifyer</strong></p>
 <p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a> maintains a hierarchical grid to avoid
 clustering, keeping only min/max representatives per region.</p>
+<p><strong>Sensitivity</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> estimates per-dimension importance from
+evaluation history using rank correlation. Publishes <code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code> events that heuristics
+can use to focus search on the most influential dimensions.</p>
+<p><strong>Events published:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code>: Importance scores for each dimension (array in [0, 1])</p></li>
+</ul>
+<p><strong>Restart</strong></p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> detects search stagnation (no improvement in
+<code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and publishes <code class="docutils literal notranslate"><span class="pre">restart</span></code> events with a suggested new center point.
+Enables multi-start optimization without losing accumulated results.</p>
+<p><strong>Events published:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">restart</span></code>: New center point and reason string</p></li>
+</ul>
 </section>
 </section>
 <section id="strategies-orchestration">

@@ -43,19 +43,21 @@ class QuadraticWlsModel(HeuristicSubprocess):
             helper for the while loop:
             calculates the prediction based on the model result
             """
-            dim = len(xx)
-            res = [1]
-            res.extend(xx)
-            for i in range(dim - 1):
-                for j in range(i + 1, dim):
-                    res.append(xx[i] * xx[j])
-            for i in range(dim):
-                res.append(xx[i] ** 2)
-            return result.predict(np.array(res))
+            # Linear terms
+            linear = xx
+
+            # Interaction terms
+            interactions = np.outer(xx, xx)[idx]
+
+            # Squared terms
+            squared = xx ** 2
+
+            return result.predict(np.concatenate(([1], linear, interactions, squared)))
 
         while True:
             points, bounds, best_point, fx_vals = pipe.recv()
             dim = points.shape[1]
+            idx = np.triu_indices(dim, k=1)
 
             # import statsmodels.formula.api as sm_formula
             data = {}

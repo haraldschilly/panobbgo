@@ -38,5 +38,6 @@ from .rewarding import StrategyRewarding
 from .round_robin import StrategyRoundRobin
 from .ucb import StrategyUCB
 from .thompson import StrategyThompsonSampling
+from .contextual import StrategyLinUCB
 
-__all__ = ["StrategyRewarding", "StrategyRoundRobin", "StrategyUCB", "StrategyThompsonSampling"]
+__all__ = ["StrategyRewarding", "StrategyRoundRobin", "StrategyUCB", "StrategyThompsonSampling", "StrategyLinUCB"]

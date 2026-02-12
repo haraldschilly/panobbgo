@@ -81,6 +81,10 @@ class Rosenbrock(Problem):
 
         optimum = np.atleast_1d(np.asarray(optimum, dtype=np.float64))
 
+        # Handle 'dim' alias in kwargs
+        if dims is None and 'dim' in kwargs:
+            dims = kwargs.pop('dim')
+
         # Infer or validate dims
         if dims is None:
             if optimum.size == 1:

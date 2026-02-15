@@ -32,28 +32,25 @@ class Convergence(Analyzer):
 
     Configuration parameters (via ``strategy.config`` or kwargs):
     - ``convergence.window_size`` (int): Number of recent best values to consider (default: 50).
-    - ``convergence.min_evaluations`` (int): Minimum number of evaluations before checking convergence (default: window_size).
     - ``convergence.threshold`` (float): Threshold for relative improvement or std dev (default: 1e-6).
-    - ``convergence.mode`` (str): 'std' (standard deviation), 'improv' (relative improvement), or 'slope' (linear regression slope) (default: 'std').
+    - ``convergence.mode`` (str): 'std' (standard deviation) or 'improv' (relative improvement) (default: 'std').
 
     Events published:
     - ``converged``: When convergence criteria are met.
       The event carries ``reason`` (str) and ``stats`` (dict) with details.
     """
 
-    def __init__(self, strategy, window_size=None, threshold=None, mode=None, min_evaluations=None):
+    def __init__(self, strategy, window_size=None, threshold=None, mode=None):
         super(Convergence, self).__init__(strategy)
         self.logger = self.config.get_logger("CONVG")
 
         # Configuration with fallbacks
         self.window_size = int(window_size or getattr(self.config, 'convergence_window_size', 50))
-        self.min_evaluations = int(min_evaluations or getattr(self.config, 'convergence_min_evaluations', self.window_size))
         self.threshold = float(threshold or getattr(self.config, 'convergence_threshold', 1e-6))
         self.mode = mode or getattr(self.config, 'convergence_mode', 'std')
         self.require_feasibility = getattr(self.config, 'convergence_require_feasibility', False)
 
         self.history = deque(maxlen=self.window_size)
-        self.cv_history = deque(maxlen=self.window_size)
         self._converged = False
 
     def on_new_results(self, results):
@@ -69,9 +66,6 @@ class Convergence(Analyzer):
         # with identical values. This is intentional: it represents stagnation over N evaluations.
         for _ in results:
             self.history.append(current_best.fx)
-            # Track constraint violation if available, else 0.0
-            cv = current_best.cv if current_best.cv is not None else 0.0
-            self.cv_history.append(cv)
 
         self._check_convergence()
 
@@ -79,107 +73,60 @@ class Convergence(Analyzer):
         if self._converged:
             return
 
-        # Ensure we have enough data points
         if len(self.history) < self.window_size:
             return
-
-        # Ensure we have processed enough total evaluations
-        # We can estimate total evals by strategy results count, or just by history length if we assume
-        # history started filling from 0. But history is capped.
-        # Strategy results length is better.
-        if hasattr(self.strategy, 'results') and self.strategy.results is not None:
-            try:
-                if len(self.strategy.results) < self.min_evaluations:
-                    return
-            except TypeError:
-                pass
 
         # Check feasibility if required
         if self.require_feasibility:
             best = self.strategy.best
             if best and best.cv > 1e-6:
                 # Still significantly infeasible, do not trigger convergence yet
+                # unless we are also stagnating in CV?
+                # For now, just block convergence on FX if infeasible.
+                # This allows the optimizer to keep searching for feasible regions
+                # even if FX is flat (e.g. in a flat penalty region).
                 return
-
-        # Check if constraints are improving
-        # If CV is decreasing, we are making progress towards feasibility, so don't stop.
-        if len(self.cv_history) >= self.window_size:
-            cv_values = np.array(self.cv_history)
-            # If start > end significantly, we are improving
-            # Check relative improvement in CV
-            start_cv = cv_values[0]
-            end_cv = cv_values[-1]
-            if start_cv > 1e-6:
-                cv_improv = (start_cv - end_cv) / start_cv
-                if cv_improv > self.threshold:
-                    # Significant CV improvement, reset/delay convergence
-                    return
 
         values = np.array(self.history)
 
-        # Handle None values
-        if any(v is None for v in values):
-            return
+        # To avoid premature convergence detection (e.g., initial batch with no improvement),
+        # we can require at least some variation in the history if we are in 'std' mode?
+        # Or simply rely on the fact that if 50 points failed, we ARE stagnant.
+        # However, to be safe, let's ensure we are not just looking at the very first batch
+        # if the window size equals the batch size.
+        # But we don't know the batch size here.
 
         if self.mode == 'std':
-            self._check_std_convergence(values)
+            # Check for None values in the history
+            if any(v is None for v in values):
+                return  # Skip convergence check if we have invalid data
+            # Suppress warnings for edge cases (identical values, small samples)
+            # These warnings come from np.var/np.std when dealing with minimal data
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=RuntimeWarning,
+                                      message='.*Degrees of freedom.*')
+                warnings.filterwarnings('ignore', category=RuntimeWarning,
+                                      message='.*invalid value encountered.*')
+                std = np.std(values)
+            if std < self.threshold:
+                self._trigger_convergence(f"Standard deviation {std:.2e} < {self.threshold:.2e}")
+
         elif self.mode == 'improv':
-            self._check_improv_convergence(values)
-        elif self.mode == 'slope':
-            self._check_slope_convergence(values)
+            # Check relative improvement between start and end of window
+            start = values[0]
+            end = values[-1]
 
-    def _check_std_convergence(self, values):
-        # Suppress warnings for edge cases
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', category=RuntimeWarning)
-            std = np.std(values)
+            # Handle None values
+            if start is None or end is None:
+                return  # Skip convergence check if we have invalid data
 
-        if std < self.threshold:
-            self._trigger_convergence(f"Standard deviation {std:.2e} < {self.threshold:.2e}")
+            if abs(start) > 1e-9:
+                rel_improv = (start - end) / abs(start)
+            else:
+                rel_improv = start - end
 
-    def _check_improv_convergence(self, values):
-        start = values[0]
-        end = values[-1]
-
-        if abs(start) > 1e-9:
-            rel_improv = (start - end) / abs(start)
-        else:
-            rel_improv = start - end
-
-        if rel_improv < self.threshold:
-            self._trigger_convergence(f"Relative improvement {rel_improv:.2e} < {self.threshold:.2e}")
-
-    def _check_slope_convergence(self, values):
-        """
-        Check convergence using linear regression slope.
-        """
-        n = len(values)
-        x = np.arange(n)
-
-        # Fit y = mx + c
-        try:
-            slope, intercept = np.polyfit(x, values, 1)
-        except Exception:
-            return
-
-        # Normalize slope by the range of values or absolute mean to make it scale-independent?
-        # Absolute slope depends on the scale of y.
-        # Relative slope: slope / mean(y) (if mean != 0)
-        mean_val = np.mean(np.abs(values))
-        if mean_val > 1e-9:
-            norm_slope = slope / mean_val
-        else:
-            norm_slope = slope
-
-        # We converge if the slope is effectively zero (flat) or positive (no improvement possible for best so far)
-        # Note: best so far is non-increasing, so slope <= 0.
-        # If slope is very close to 0 (e.g. > -threshold), we are stagnant.
-
-        # Also check residuals/variance to ensure we are not fluctuating wildly?
-        # But best so far is monotonic, so it can't fluctuate. It is a step function.
-
-        if abs(norm_slope) < self.threshold:
-             self._trigger_convergence(f"Slope {norm_slope:.2e} < {self.threshold:.2e}")
+            if rel_improv < self.threshold:
+                self._trigger_convergence(f"Relative improvement {rel_improv:.2e} < {self.threshold:.2e}")
 
     def _trigger_convergence(self, reason):
         self._converged = True

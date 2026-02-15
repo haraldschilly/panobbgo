@@ -61,15 +61,38 @@ class ConstraintGradient(Heuristic):
         x = best.x
         dim = self.problem.dim
 
-        # Collect candidate points from history for gradient estimation
+        # We need to evaluate the constraint function (cv) at neighboring points.
+        # However, we cannot simply evaluate constraints without evaluating the full problem
+        # because the interface `problem.eval_constraints(x)` might not be available or
+        # evaluating it might be costly/part of the black box.
+        # But wait, panobbgo Problems usually have `eval_constraints`.
+        # If we assume we can call `problem.eval_constraints(x)` cheaply (or at all), we can do this.
+        # In black-box optimization, we usually assume we have to emit points to get their values.
+        # BUT, if we emit points for gradient estimation, we use up budget.
+
+        # Strategy:
+        # We can't synchronously calculate gradient by evaluating points here.
+        # We have to rely on past points or emit points that *might* improve.
+
+        # Alternative approach for Black Box:
+        # Use previous results near 'best' to estimate gradient (Weighted Least Squares or simple difference).
+
+        # Simple approach using recent history:
+        # Find k nearest neighbors in results.
+        # Fit a linear model to CV values: cv(x) ~ a^T x + b
+        # Gradient is 'a'.
+
+        # Let's find neighbors.
+        # We need access to strategy results.
         results_container = self.strategy.results
         if results_container is None or len(results_container) == 0:
             return
 
+        # Refactored for vectorized processing
         X_candidates = None
         cv_candidates = None
 
-        # Robustly fetch history
+        # Use get_history if available
         if hasattr(results_container, "get_history"):
             try:
                 h = results_container.get_history(n=100)
@@ -78,7 +101,7 @@ class ConstraintGradient(Heuristic):
             except Exception:
                 return
         elif isinstance(results_container, list):
-            # Test/Legacy case
+            # Test/Legacy case: results_container is a list of Result objects
             subset = results_container[-100:]
             if not subset:
                 return
@@ -93,81 +116,79 @@ class ConstraintGradient(Heuristic):
         if X_candidates is None or len(X_candidates) == 0:
             return
 
-        # Calculate distances to current best
+        # Filter for points close to x
+        # Vectorized distance calculation
         diffs = X_candidates - x
         dists = np.linalg.norm(diffs, axis=1)
 
-        # Exclude the point itself (dist <= 1e-9) to identify neighbors
-        # We will re-add 'best' explicitly later for the regression
+        # Exclude the point itself (dist <= 1e-9)
         mask = dists > 1e-9
 
         valid_dists = dists[mask]
         valid_X = X_candidates[mask]
         valid_cv = cv_candidates[mask]
 
-        # We need at least 'dim' neighbors to form a simplex with 'best' (dim+1 points)
-        # to solve for 'dim' gradients + intercept.
-        min_neighbors = dim
-        if len(valid_dists) < min_neighbors:
-            self.logger.debug(
-                f"Not enough neighbors for gradient estimation. Need {min_neighbors}, got {len(valid_dists)}"
-            )
+        k = dim + 1
+        if len(valid_dists) < k:
+            self.logger.debug(f"Not enough neighbors for gradient estimation. Need {k}, got {len(valid_dists)}")
             return
 
-        # Select k nearest neighbors
-        # Use slightly more neighbors than minimum to be robust to noise (overdetermined system)
-        k = min(len(valid_dists), dim * 2)
-        idx = np.argpartition(valid_dists, k - 1)[:k]
+        # Find k nearest neighbors
+        # partial sort (argpartition) is faster than full sort
+        # We want indices of k smallest distances
+        # Note: argpartition puts the kth element in sorted position,
+        # and all smaller elements before it.
+        idx = np.argpartition(valid_dists, k-1)[:k]
 
         neighbors_X = valid_X[idx]
         neighbors_cv = valid_cv[idx]
 
-        # Prepare for Linear Regression: cv(x) = gradient^T (x - best.x) + intercept
-        # We include 'best' in the regression set
+        # Prepare for Linear Regression: X * w = y
+        # X is (k, dim), y is (k,)
+        # Shift x to origin for stability
+        X_mat = neighbors_X - x
+        y_vec = neighbors_cv - best.cv
 
-        # Combine neighbors and best point
-        X_reg = np.vstack([neighbors_X, x])
-        y_reg = np.concatenate([neighbors_cv, [best.cv]])
-
-        # Shift X to be relative to 'best' (improves numerical stability)
-        X_centered = X_reg - x
-
-        # Design matrix: [X_centered, 1]
-        n_points = len(y_reg)
-        X_design = np.column_stack([X_centered, np.ones(n_points)])
+        # Solve using Ridge Regression for stability
+        # w = (X^T X + alpha * I)^-1 X^T y
+        alpha = 1e-6
+        dim_x = X_mat.shape[1]
 
         try:
-            # Solve using robust least squares
-            # coeffs = [g_1, g_2, ..., g_dim, intercept]
-            coeffs, _, _, _ = np.linalg.lstsq(X_design, y_reg, rcond=None)
+            # ATA = X^T X + alpha * I
+            ATA = X_mat.T @ X_mat + alpha * np.eye(dim_x)
+            ATy = X_mat.T @ y_vec
 
-            gradient = coeffs[:dim]
-            intercept = coeffs[dim]
-
-            # Check if gradient is meaningful (not zero)
-            grad_norm = np.linalg.norm(gradient)
-            if grad_norm < 1e-9:
-                return
-
-            # Descent direction is negative gradient
-            descent_direction = -gradient / grad_norm
-
-            # Generate points along the descent direction
-            # Use pseudo-line search with varying step sizes
-            if self.samples == 1:
-                scaling_factors = [1.0]
-            else:
-                scaling_factors = np.linspace(0.5, 1.5, self.samples)
-
-            candidates = []
-            for factor in scaling_factors:
-                step = descent_direction * (self.descent_step * factor) * self.problem.ranges
-                new_x = x + step
-                new_x = self.problem.project(new_x)
-                candidates.append(new_x)
-
-            self.emit(candidates)
-
+            # Solve normal equations
+            grad = np.linalg.solve(ATA, ATy)
         except np.linalg.LinAlgError:
             self.logger.debug("Linear algebra error in gradient estimation")
             return
+
+        # Normalize gradient
+        norm = np.linalg.norm(grad)
+        if norm < 1e-9:
+            return
+
+        grad /= norm
+
+        # Descent direction: -grad
+        direction = -grad
+
+        # Generate points
+        # Step size relative to problem range
+        # We generate 'samples' points with varying step sizes to act as a pseudo-line search
+        # Range from 0.5x to 1.5x the base descent_step
+        if self.samples == 1:
+            scaling_factors = [1.0]
+        else:
+            scaling_factors = np.linspace(0.5, 1.5, self.samples)
+
+        candidates = []
+        for factor in scaling_factors:
+            step = direction * (self.descent_step * factor) * self.problem.ranges
+            new_x = x + step
+            new_x = self.problem.project(new_x)
+            candidates.append(new_x)
+
+        self.emit(candidates)

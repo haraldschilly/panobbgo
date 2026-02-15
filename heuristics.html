@@ -370,6 +370,8 @@ minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</p>
 <ul class="simple">
 <li><p>It uses a simple randomized local search around the current infeasible best,
 with adaptive step sizes (radius).</p></li>
+<li><p>If a feasible point is known, it searches along the line segment between the
+infeasible best and the feasible best to find the feasibility boundary.</p></li>
 <li><p>If the current best is feasible, this heuristic reduces its activity (emits fewer points
 or stops), as its primary goal is finding feasible regions.</p></li>
 </ul>

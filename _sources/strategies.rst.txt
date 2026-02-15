@@ -8,6 +8,7 @@ Available optimization strategies:
 - **StrategyRewarding**: Adaptive heuristic selection based on performance
 - **StrategyUCB**: Upper Confidence Bound algorithm for exploration
 - **StrategyThompsonSampling**: Probabilistic selection using Thompson Sampling
+- **StrategyPhased**: Budget-phased meta-strategy composing different sub-strategies
 
 .. automodule:: panobbgo.strategies
    :members:

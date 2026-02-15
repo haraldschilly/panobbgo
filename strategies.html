@@ -107,6 +107,14 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.reward"><code class="docutils literal notranslate">reward()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased"><code class="docutils literal notranslate"><span class="pre">StrategyPhased</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased.execute"><code class="docutils literal notranslate">execute()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyPhased.start"><code class="docutils literal notranslate">start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding"><code class="docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.add_heuristic"><code class="docutils literal notranslate">add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyRewarding.discount"><code class="docutils literal notranslate">discount()</span></code></a></li>
@@ -173,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>StrategyRewarding</strong>: Adaptive heuristic selection based on performance</p></li>
 <li><p><strong>StrategyUCB</strong>: Upper Confidence Bound algorithm for exploration</p></li>
 <li><p><strong>StrategyThompsonSampling</strong>: Probabilistic selection using Thompson Sampling</p></li>
+<li><p><strong>StrategyPhased</strong>: Budget-phased meta-strategy composing different sub-strategies</p></li>
 </ul>
 <section id="strategies">
 <span id="module-panobbgo.strategies"></span><h2>Strategies<a class="headerlink" href="#strategies" title="Link to this heading">¶</a></h2>
@@ -249,6 +258,68 @@ to select heuristics based on context features.</p>
 </dd>
 </dl>
 </dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyPhased</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phases</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
+<p>Phased meta-strategy that composes existing strategies across budget phases.</p>
+<p>Each phase specifies:
+- A fraction of the total budget (<code class="docutils literal notranslate"><span class="pre">pct</span></code>, optional on last phase)
+- A sub-strategy class and its kwargs for selection logic
+- A list of heuristic classes and their kwargs</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">StrategyPhased</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="2">    <span class="p">{</span>
+</span><span data-line="3">        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+</span><span data-line="4">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRoundRobin</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
+</span><span data-line="5">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{}),</span> <span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="6">    <span class="p">},</span>
+</span><span data-line="7">    <span class="p">{</span>
+</span><span data-line="8">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRewarding</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="9">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="p">{}),</span> <span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="10">    <span class="p">},</span>
+</span><span data-line="11"><span class="p">])</span>
+</span></pre></div>
+</div>
+<p>At each phase boundary, bandit/selection statistics are reset for the
+new phase’s heuristics, but domain state (GP models, accumulated data,
+etc.) is preserved.</p>
+<p>&#64;type problem: panobbgo.lib.Problem
+&#64;param problem:
+&#64;param parse_args:
+&#64;param testing_mode:
+&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased.add_heuristic">
+<span class="sig-name descname"><span class="pre">add_heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased.add_heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased.add_heuristic" title="Link to this definition">¶</a></dt>
+<dd><p>Override to initialize stats for the first phase’s strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>Delegate reward logic to the current phase’s strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Delegate result processing to the current phase’s strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyPhased.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/phased.html#StrategyPhased.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyPhased.start" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 

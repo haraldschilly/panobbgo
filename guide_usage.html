@@ -133,6 +133,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
 <li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
 <li><a class="reference internal" href="#strategythompsonsampling">StrategyThompsonSampling</a></li>
+<li><a class="reference internal" href="#strategyphased">StrategyPhased</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#analyzing-results">Analyzing Results</a><ul>
@@ -736,6 +737,87 @@ pockets of promising solutions.</p>
 </span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
 </span><span data-line="4">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span>
 </span><span data-line="5"><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="strategyphased">
+<h3>StrategyPhased<a class="headerlink" href="#strategyphased" title="Link to this heading">¶</a></h3>
+<p>Use when:</p>
+<ul class="simple">
+<li><p>You want to divide the evaluation budget into distinct phases with different strategies</p></li>
+<li><p>Early exploration (e.g., random sampling) should transition to later exploitation (e.g., model-based search)</p></li>
+<li><p>Different heuristic portfolios are appropriate at different stages of the optimization</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">StrategyPhased</span></code> is a meta-strategy that composes existing strategies across budget phases.
+Each phase specifies a fraction of the total budget, a sub-strategy for heuristic selection,
+and the heuristics to use in that phase. All heuristics are registered from the start, so
+model-building heuristics (e.g., Gaussian Process) accumulate data even before their phase
+is active.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.phased</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyPhased</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.round_robin</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.ucb</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyUCB</span>
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="6">    <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">NelderMead</span><span class="p">,</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">LBFGSB</span>
+</span><span data-line="8"><span class="p">)</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyPhased</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="13">    <span class="p">{</span>
+</span><span data-line="14">        <span class="c1"># Phase 1: Explore the space (first 25% of budget)</span>
+</span><span data-line="15">        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+</span><span data-line="16">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRoundRobin</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
+</span><span data-line="17">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span data-line="18">            <span class="p">(</span><span class="n">Center</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="19">            <span class="p">(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="20">            <span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="21">        <span class="p">],</span>
+</span><span data-line="22">    <span class="p">},</span>
+</span><span data-line="23">    <span class="p">{</span>
+</span><span data-line="24">        <span class="c1"># Phase 2: Adaptive exploitation (remaining 75%)</span>
+</span><span data-line="25">        <span class="c1"># No &quot;pct&quot; on the last phase — it gets the remaining budget.</span>
+</span><span data-line="26">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRewarding</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="27">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span data-line="28">            <span class="p">(</span><span class="n">NelderMead</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="29">            <span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="30">            <span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="31">        <span class="p">],</span>
+</span><span data-line="32">    <span class="p">},</span>
+</span><span data-line="33"><span class="p">],</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span><span data-line="34">
+</span><span data-line="35"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Phase configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pct</span></code>: Percentage of total budget for this phase. Optional on the last phase
+(it receives the remaining budget automatically).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">strategy</span></code>: A <code class="docutils literal notranslate"><span class="pre">(StrategyClass,</span> <span class="pre">kwargs_dict)</span></code> tuple specifying the selection
+algorithm and its parameters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">heuristics</span></code>: A list of <code class="docutils literal notranslate"><span class="pre">(HeuristicClass,</span> <span class="pre">kwargs_dict)</span></code> tuples.</p></li>
+</ul>
+<p>At phase transitions, bandit/selection statistics (UCB counts, performance scores, etc.)
+are reset for the new phase’s heuristics, but domain state (GP models, accumulated data)
+is preserved.</p>
+<p>Three-phase example with gradual refinement:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyPhased</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="2">    <span class="p">{</span>
+</span><span data-line="3">        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+</span><span data-line="4">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRoundRobin</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
+</span><span data-line="5">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{}),</span> <span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="6">    <span class="p">},</span>
+</span><span data-line="7">    <span class="p">{</span>
+</span><span data-line="8">        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+</span><span data-line="9">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyUCB</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;ucb_c&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}),</span>
+</span><span data-line="10">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{}),</span> <span class="p">(</span><span class="n">NelderMead</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="11">    <span class="p">},</span>
+</span><span data-line="12">    <span class="p">{</span>
+</span><span data-line="13">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRewarding</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="14">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="p">{}),</span> <span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="15">    <span class="p">},</span>
+</span><span data-line="16"><span class="p">],</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>

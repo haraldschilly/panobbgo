@@ -79,3 +79,51 @@ def test_feasible_search_idle_when_feasible(StrategyBaseMock):
     # Should NOT generate points (based on current implementation logic)
     points = h.get_points(10)
     assert len(points) == 0
+
+@mock.patch("panobbgo.core.StrategyBase")
+def test_feasible_search_boundary_search(StrategyBaseMock):
+    problem = MockProblem()
+    config = Config(parse_args=False, testing_mode=True)
+    strategy = StrategyBaseMock()
+    strategy.problem = problem
+    strategy.config = config
+    h = FeasibleSearch(strategy, samples=5)
+    h.__start__()
+
+    # 1. Establish a known feasible point
+    x_feasible = np.array([2.0, 0.0])
+    p_feas = Point(x_feasible, "feas")
+    r_feas = Result(p_feas, fx=4.0, cv_vec=np.array([0.0]))
+
+    # Notify heuristic about feasible point via on_new_results
+    h.on_new_results([r_feas])
+    assert h.best_feasible == r_feas
+
+    # 2. Provide an infeasible best point
+    x_infeasible = np.array([0.0, 0.0])
+    p_inf = Point(x_infeasible, "init")
+    r_inf = Result(p_inf, fx=0.0, cv_vec=np.array([1.0]))
+
+    # Trigger on_new_best with infeasible point
+    h.on_new_best(r_inf)
+
+    points = h.get_points(10)
+    assert len(points) == 5
+
+    # Points should be on the segment between x_infeasible and x_feasible
+    diff_vec = x_feasible - x_infeasible
+    segment_len = np.linalg.norm(diff_vec)
+    diff_dir = diff_vec / segment_len
+
+    for p in points:
+        # Check collinearity: (p - x_inf) should be parallel to (x_feas - x_inf)
+        vec = p.x - x_infeasible
+        dist = np.linalg.norm(vec)
+
+        if dist > 1e-9:
+            vec_dir = vec / dist
+            dot = np.dot(vec_dir, diff_dir)
+            assert dot > 0.99, "Point not on segment"
+
+        # Check it is within segment
+        assert dist <= segment_len + 1e-9

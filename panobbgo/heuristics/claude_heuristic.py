@@ -34,7 +34,7 @@ import numpy as np
 
 class ClaudeHeuristic(Heuristic):
     """
-    Cluster-based adaptive search heuristic.
+    Cluster-based adaptive search heuristic (written by Claude, hence the name).
 
     Fits a Mixture of Gaussians to the top-performing evaluated points,
     then samples new candidates from the mixture. Mixture weights favor

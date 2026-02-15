@@ -27,6 +27,8 @@ class FeasibleSearch(Heuristic):
       in an attempt to reduce constraint violation.
     - It uses a simple randomized local search around the current infeasible best,
       with adaptive step sizes (radius).
+    - If a feasible point is known, it searches along the line segment between the
+      infeasible best and the feasible best to find the feasibility boundary.
     - If the current best is feasible, this heuristic reduces its activity (emits fewer points
       or stops), as its primary goal is finding feasible regions.
     """
@@ -82,8 +84,8 @@ class FeasibleSearch(Heuristic):
         """
         Generates points around the center_result to reduce CV.
         """
-        x = center_result.x
-        if x is None:
+        x_infeasible = center_result.x
+        if x_infeasible is None:
             return
 
         points = []
@@ -91,11 +93,11 @@ class FeasibleSearch(Heuristic):
         # If we have a feasible point and an infeasible point,
         # search on the line between them to find the feasibility boundary!
         if self.best_feasible is not None:
-             xf = self.best_feasible.x
-             diff = xf - x
+             x_feasible = self.best_feasible.x
+             diff_vec = x_feasible - x_infeasible
 
-             # Generate points on the segment between infeasible (x) and feasible (xf)
-             # x_new = x + alpha * (xf - x), where alpha in (0, 1]
+             # Generate points on the segment between infeasible (x_infeasible) and feasible (x_feasible)
+             # x_new = x_infeasible + alpha * (x_feasible - x_infeasible), where alpha in (0, 1]
              # Using Beta distribution biases sampling toward the feasible side
              # Beta(2, 1) gives higher probability near alpha=1 (feasible side)
              # This helps find the boundary more efficiently than uniform sampling
@@ -103,7 +105,7 @@ class FeasibleSearch(Heuristic):
              for _ in range(self.samples):
                  # Beta(2, 1) distribution: more samples near the feasible point
                  alpha = np.random.beta(2, 1)
-                 candidate_x = x + alpha * diff
+                 candidate_x = x_infeasible + alpha * diff_vec
                  points.append(candidate_x)
 
         else:
@@ -119,9 +121,9 @@ class FeasibleSearch(Heuristic):
                 step = direction * self.radius * self.problem.ranges
 
                 # Create candidate
-                candidate_x = x + step
+                candidate_x = x_infeasible + step
 
-                # Project to box (constraints might be outside box? No, box constraints are hard)
+                # Project to box
                 candidate_x = self.problem.project(candidate_x)
 
                 points.append(candidate_x)

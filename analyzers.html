@@ -153,6 +153,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate">on_new_biggest_leaf()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -217,6 +218,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate">on_new_biggest_leaf()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -641,6 +643,13 @@ i.e. upper - lower bound.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_split">
 <span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_split" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_refresh_best">
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best" title="Link to this definition">¶</a></dt>
+<dd><p>Called when the definition of “best” changes (e.g. ALM parameter update).
+We need to re-evaluate the local best for all leaf boxes and update the global best box.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -1085,6 +1094,13 @@ i.e. upper - lower bound.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_split">
 <span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_split" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_refresh_best">
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_refresh_best" title="Link to this definition">¶</a></dt>
+<dd><p>Called when the definition of “best” changes (e.g. ALM parameter update).
+We need to re-evaluate the local best for all leaf boxes and update the global best box.</p>
+</dd></dl>
 
 </dd></dl>
 

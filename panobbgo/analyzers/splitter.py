@@ -165,10 +165,115 @@ class Splitter(Analyzer):
         # update self.best_box
         # check if new box contains the best point (>= because it could
         # be a child box)
+
+        # If the best box was the one being split, we prefer to point to the child
+        # that contains the best point now.
+        best_box_was_parent = (self.best_box is box)
+
         for new_box in children:
-            if self.best_box is None or self.best_box.fx >= new_box.fx:
+            if self.best_box is None:
                 self.best_box = new_box
+                continue
+
+            if new_box.best is None:
+                continue
+
+            if self.best_box.best is None:
+                self.best_box = new_box
+                continue
+
+            is_better = False
+            if (
+                hasattr(self.strategy, "constraint_handler")
+                and self.strategy.constraint_handler
+            ):
+                is_better = self.strategy.constraint_handler.is_better(
+                    self.best_box.best, new_box.best
+                )
+            else:
+                is_better = new_box.fx < self.best_box.fx
+
+            if is_better:
+                self.best_box = new_box
+            elif best_box_was_parent:
+                # If we are splitting the best box, and this child contains the best point
+                # (or an equally good one), we move ownership to the child.
+                # Result equality checks fx. We might need checking identity or value equality.
+                # If fx is same and cv is same (implied by not is_better and not reverse is_better),
+                # we can assume it's the same point or equivalent.
+
+                # Check if new_box.best is effectively "equal" to best_box.best
+                # (Since is_better returned False)
+                # We simply check if new_box.best.fx <= best_box.best.fx (and handling constraints if needed)
+                # But is_better already checked that.
+                # If the parent contained the best point, one child MUST contain it.
+                # So we just need to find WHICH child contains it.
+
+                # Simple check: if fx matches (and cv matches)
+                if new_box.best == self.best_box.best: # Result.__eq__ checks fx
+                     # Ideally check identity
+                     if new_box.best is self.best_box.best:
+                         self.best_box = new_box
+                     # Or check if cv also matches
+                     elif new_box.best.cv == self.best_box.best.cv:
+                         self.best_box = new_box
         self.eventbus.publish("new_best_box", best_box=self.best_box)
+
+    def on_refresh_best(self, candidates):
+        """
+        Called when the definition of "best" changes (e.g. ALM parameter update).
+        We need to re-evaluate the local best for all leaf boxes and update the global best box.
+        """
+        # 1. Re-evaluate local best in each leaf box
+        for box in self.leafs:
+            if not box.results:
+                continue
+
+            # Re-find best in this box
+            current_best = box.results[0]
+            for res in box.results[1:]:
+                is_better = False
+                if (
+                    hasattr(self.strategy, "constraint_handler")
+                    and self.strategy.constraint_handler
+                ):
+                    is_better = self.strategy.constraint_handler.is_better(
+                        current_best, res
+                    )
+                else:
+                    is_better = res.fx < current_best.fx
+
+                if is_better:
+                    current_best = res
+            box.best = current_best
+
+        # 2. Re-evaluate global best box from all leafs
+        new_best_box = None
+        for box in self.leafs:
+            if box.best is None:
+                continue
+
+            if new_best_box is None:
+                new_best_box = box
+                continue
+
+            is_better = False
+            if (
+                hasattr(self.strategy, "constraint_handler")
+                and self.strategy.constraint_handler
+            ):
+                is_better = self.strategy.constraint_handler.is_better(
+                    new_best_box.best, box.best
+                )
+            else:
+                is_better = box.fx < new_best_box.fx
+
+            if is_better:
+                new_best_box = box
+
+        if new_best_box is not None and new_best_box is not self.best_box:
+            self.best_box = new_best_box
+            self.eventbus.publish("new_best_box", best_box=self.best_box)
 
     class Box:
         """
@@ -269,7 +374,18 @@ class Splitter(Analyzer):
 
             # new best result in box? (for best fx value, too)
             if self.best is not None:
-                if self.best.fx > result.fx:
+                is_better = False
+                if (
+                    hasattr(self.splitter.strategy, "constraint_handler")
+                    and self.splitter.strategy.constraint_handler
+                ):
+                    is_better = self.splitter.strategy.constraint_handler.is_better(
+                        self.best, result
+                    )
+                else:
+                    is_better = result.fx < self.best.fx
+
+                if is_better:
                     self.best = result
             else:
                 self.best = result

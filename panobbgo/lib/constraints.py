@@ -451,25 +451,29 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             # cv_vec_all shape: (N, k)
 
             # Robust check for cv_vec
-            if (
-                cv_vec_all is None
-                or cv_vec_all.size == 0
-                or cv_vec_all.ndim < 2
-                or cv_vec_all.shape[1] == 0
-            ):
+            if cv_vec_all is None or cv_vec_all.size == 0:
                 # No constraints visible in history, just minimize fx
                 L_values = fx_all
             else:
-                # Check shape compatibility
-                if cv_vec_all.shape[1] != self.lambdas.shape[0]:
-                    # Mismatch (e.g. results from different problem or initialization issue)
+                # Ensure cv_vec_all is 2D: (N, k)
+                if cv_vec_all.ndim == 1:
+                    cv_vec_all = cv_vec_all.reshape(-1, 1)
+
+                k = cv_vec_all.shape[1]
+
+                # Check shape compatibility with lambdas
+                if self.lambdas.shape[0] != k:
+                    # Try to reshape lambdas if it's 1D and mismatch is trivial
+                    # But lambdas should be (k,)
                     if hasattr(self, "logger"):
                         self.logger.warning(
-                            f"ALM shape mismatch: history cv_vec {cv_vec_all.shape[1]} != lambdas {self.lambdas.shape[0]}"
+                            f"ALM shape mismatch: history cv_vec {cv_vec_all.shape} != lambdas {self.lambdas.shape}"
                         )
+                    # Fallback to fx if shapes don't align
                     return
 
                 # term = max(0, lambda + mu * cv_vec)
+                # Broadcasting: lambdas (k,) + scalar * (N, k) -> (N, k)
                 term = np.maximum(0, self.lambdas + self.mu * cv_vec_all)
                 sum_term_sq = np.sum(term**2, axis=1)
                 sum_lambdas_sq = np.sum(self.lambdas**2)
@@ -532,13 +536,27 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         if result is None: return float('inf')
         if result.cv_vec is None: return result.fx
 
+        # Ensure we have lambdas
         if self.lambdas is None:
              self.lambdas = np.zeros_like(result.cv_vec)
 
+        # Check shape compatibility
+        if result.cv_vec.shape != self.lambdas.shape:
+            # If shapes don't match (e.g. 1D vs 2D mismatch or length mismatch), fall back to fx or try to adapt
+            if result.cv_vec.size == self.lambdas.size:
+                 # Flatten both if just shape mismatch but same size
+                 cv_vec = result.cv_vec.flatten()
+                 lambdas = self.lambdas.flatten()
+            else:
+                 return result.fx
+        else:
+            cv_vec = result.cv_vec
+            lambdas = self.lambdas
+
         # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
         # term = max(0, lambda + mu * g)
-        term = np.maximum(0, self.lambdas + self.mu * result.cv_vec)
-        penalty_term = (1.0 / (2.0 * self.mu)) * (np.sum(term**2) - np.sum(self.lambdas**2))
+        term = np.maximum(0, lambdas + self.mu * cv_vec)
+        penalty_term = (1.0 / (2.0 * self.mu)) * (np.sum(term**2) - np.sum(lambdas**2))
 
         return result.fx + penalty_term
 

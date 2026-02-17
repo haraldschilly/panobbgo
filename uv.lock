@@ -165,6 +165,25 @@ wheels = [
 ]
 
 [[package]]
+name = "coco-experiment"
+version = "2.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a4/67/53fe6d644b34f6b84d644132d2961106b2acd4c14aa41f847f608c82892c/coco_experiment-2.8.2.tar.gz", hash = "sha256:df044be950027d20e30e4d7edf187ed991f96eeb4242e8d5c89ea2719f0a50f2", size = 3919117, upload-time = "2025-11-27T15:05:28.479Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/50/1a11c8e15244b03d19f685c0d7713778e0e1e02643f11f14bcec4d68d71e/coco_experiment-2.8.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c897170eb7a645c39a9b89a283b6b2cbbbb1bdbfe227c2d1b31f92a6e98873b8", size = 565882, upload-time = "2025-11-27T15:05:04.898Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/18/6c52a0de7d5c65f5bd50ab116babb04fc47e8d9acfe62043347b9ee58bfb/coco_experiment-2.8.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3c99d956df654fd8fee77391b196b9a35d34912131170dd31ab5d8c8479979f7", size = 762758, upload-time = "2025-11-27T15:05:06.653Z" },
+    { url = "https://files.pythonhosted.org/packages/70/6d/9d6035675bf4e33d1f5bb458a349f933330821d0a4df87c33bcabb3a600d/coco_experiment-2.8.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:a83a58aaaf664cfeb0a3d0c6f80f6667c0c80c12f3005537dd71d9686e88c87a", size = 770966, upload-time = "2025-11-27T15:05:08.046Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/6f/2e5d52d5e57e175168a4cca037819d96e48d47dc71aef9e82752a4f9554c/coco_experiment-2.8.2-cp311-cp311-win_amd64.whl", hash = "sha256:0b945a08271655f0121b5f4181d1eb8deced060d9dde551a0c97d58cf140758a", size = 425934, upload-time = "2025-11-27T15:05:09.602Z" },
+    { url = "https://files.pythonhosted.org/packages/76/9f/319c71ca0e388a5ef472953bd79d80bfc7bf1f3a8b4f1cd3a298cdf8bd7c/coco_experiment-2.8.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7405d045e6f11b3eb5833148749e06ca270b6ad44c73829a2ba566ba0513d81b", size = 564803, upload-time = "2025-11-27T15:05:10.953Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/85/427899dc8c97e1ff89e760001d2782bbff1e1b5407daa2348210f7666a0d/coco_experiment-2.8.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ebd20860bddf0116c667bcd42b63685f899905f72cb90812830bc5512b4d0436", size = 751836, upload-time = "2025-11-27T15:05:12.325Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/ab/734600690c29927ce88ca6a55ac9c67eeb230d9e4673feb8062d24e963f2/coco_experiment-2.8.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:5d595f40d697356fd38c8b40a8640ac6769158696832482756f2e1a26cf78bc6", size = 762826, upload-time = "2025-11-27T15:05:14.07Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/74/f01e7c88d44dc2d1d7f00424471e5da6c99b0603dfafb84aa9a7fb30678d/coco_experiment-2.8.2-cp312-cp312-win_amd64.whl", hash = "sha256:7d948c90796c3008babe3b131c694a7a0b62a6bc0a9a8ea9bdf1b1b8c597beb6", size = 421795, upload-time = "2025-11-27T15:05:15.435Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1169,6 +1188,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+benchmark = [
+    { name = "coco-experiment" },
+]
 dev = [
     { name = "black" },
     { name = "flake8" },
@@ -1197,6 +1219,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=26.0" },
+    { name = "coco-experiment", marker = "extra == 'benchmark'", specifier = ">=2.6" },
     { name = "dask", extras = ["distributed"], specifier = ">=2026.1.1" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.3" },
     { name = "future" },
@@ -1219,7 +1242,7 @@ requires-dist = [
     { name = "statsmodels", specifier = ">=0.14.6" },
     { name = "types-setuptools", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["benchmark", "dev"]
 
 [package.metadata.requires-dev]
 dev = [

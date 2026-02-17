@@ -19,3 +19,4 @@ cover/
 *.sublime-workspace
 coverage.xml
 .claude/settings.local.json
+exdata/

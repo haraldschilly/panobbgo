@@ -33,6 +33,11 @@ from .wrappers import (
     NoisyProblem,
 )
 
+try:
+    from .coco_wrapper import CocoProblem
+except ImportError:
+    pass
+
 __all__ = [
     "Point",
     "Result",
@@ -42,4 +47,5 @@ __all__ = [
     "NormalizedProblem",
     "LogTransformProblem",
     "NoisyProblem",
+    "CocoProblem",
 ]

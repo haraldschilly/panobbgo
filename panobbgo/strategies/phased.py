@@ -533,6 +533,15 @@ class StrategyPhased(StrategyBase):
     def execute(self):
         self._check_phase_transition()
 
+        # Cap point generation to not exceed the current phase's budget.
+        # Without this, a fast-generating strategy (e.g., RoundRobin) can
+        # submit so many in-flight evaluations that when they complete,
+        # results jump past the next phase's cutoff — skipping it entirely.
+        phase_cutoff = self._phase_cutoffs[self._current_phase]
+        remaining = phase_cutoff - len(self.results) - len(self.pending)
+        if remaining <= 0:
+            return []
+
         info = self._phase_strategy_info[self._current_phase]
         strat_cls = info["cls"]
         strat_kwargs = info["kwargs"]
@@ -548,17 +557,19 @@ class StrategyPhased(StrategyBase):
         from panobbgo.strategies.ucb import StrategyUCB
 
         if issubclass(strat_cls, StrategyRoundRobin):
-            return self._execute_round_robin(phase_heurs, strat_kwargs)
+            points = self._execute_round_robin(phase_heurs, strat_kwargs)
         elif issubclass(strat_cls, StrategyLinUCB):
-            return self._execute_linucb(phase_heurs, strat_kwargs)
+            points = self._execute_linucb(phase_heurs, strat_kwargs)
         elif issubclass(strat_cls, StrategyThompsonSampling):
-            return self._execute_thompson(phase_heurs, strat_kwargs)
+            points = self._execute_thompson(phase_heurs, strat_kwargs)
         elif issubclass(strat_cls, StrategyUCB):
-            return self._execute_ucb(phase_heurs, strat_kwargs)
+            points = self._execute_ucb(phase_heurs, strat_kwargs)
         elif issubclass(strat_cls, StrategyRewarding):
-            return self._execute_rewarding(phase_heurs, strat_kwargs)
+            points = self._execute_rewarding(phase_heurs, strat_kwargs)
         else:
             raise ValueError(f"Unknown strategy class: {strat_cls}")
+
+        return points[:remaining]
 
     def _get_status_info(self):
         """Return strategy-specific status info."""

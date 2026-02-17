@@ -52,6 +52,15 @@ Panobbgo is designed as a **framework for black-box optimization** but includes 
 
 The framework runs on **Dask distributed** for parallel evaluation, supporting both local clusters and remote distributed computing.
 
+## Domain Context: Black-Box Noisy Optimization
+
+Panobbgo solves **expensive, noisy black-box optimization** problems. Key domain constraints:
+
+*   **Evaluation budget is a hard cap**: Each objective function evaluation can be computationally expensive (minutes to hours). The `max_eval` budget is a strict limit, not a soft target. Strategies must respect phase boundaries and never allow in-flight evaluations to overshoot budget allocations.
+*   **Candidate generation vs evaluation**: Generating candidate points (proposals) is cheap. *Evaluating* them is expensive. It's fine to generate more candidates than needed, but submitting them for evaluation must be carefully controlled against the budget.
+*   **Restart capability**: Long-running optimizations need persistence. The storage/database backend enables checkpointing and restarting from previous results, which is critical when evaluations take significant wall-clock time.
+*   **Phased strategies**: When using `StrategyPhased`, each phase has a budget allocation. The system must account for pending (in-flight) evaluations when enforcing phase boundaries to prevent fast-generating strategies from consuming the next phase's budget.
+
 ## CI/CD and Testing
 
 *   **Local Testing**: Run `./test.sh` to replicate the full CI pipeline locally

@@ -184,6 +184,17 @@ wheels = [
 ]
 
 [[package]]
+name = "cocopp"
+version = "2.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "platformdirs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ca/44/ee49edbf0295e2d07f240ce094586fa05ea570868260435f74cd03b515af/cocopp-2.8.2.tar.gz", hash = "sha256:3a1629bac919db8bb3a10d0c6f6c649c85f4602797520efa340ca02504308236", size = 8628160, upload-time = "2025-12-03T19:00:58.371Z" }
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1175,6 +1186,7 @@ name = "panobbgo"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "cocopp" },
     { name = "dask", extra = ["distributed"] },
     { name = "future" },
     { name = "matplotlib" },
@@ -1220,6 +1232,7 @@ dev = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=26.0" },
     { name = "coco-experiment", marker = "extra == 'benchmark'", specifier = ">=2.6" },
+    { name = "cocopp", specifier = ">=2.8.2" },
     { name = "dask", extras = ["distributed"], specifier = ">=2026.1.1" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.3" },
     { name = "future" },

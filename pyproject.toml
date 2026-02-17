@@ -31,6 +31,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "future",
     "rich>=14.2.0",
+    "cocopp>=2.8.2",
 ]
 requires-python = ">=3.11"
 

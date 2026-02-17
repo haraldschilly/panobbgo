@@ -38,6 +38,9 @@ requires-python = ">=3.11"
 "Homepage" = "http://github.com/haraldschilly/panobbgo"
 
 [project.optional-dependencies]
+benchmark = [
+    "coco-experiment>=2.6",
+]
 dev = [
     "pytest>=9.0",
     "pytest-cov>=5.0",

@@ -304,14 +304,20 @@ clusters with lower penalty values (better objective + feasibility).</p>
 <p>Constraint-specific heuristic that uses gradient estimation of constraint violation
 to guide the search towards feasibility.</p>
 <p>Behavior:
-- If the current best point is infeasible (cv &gt; 0), this heuristic estimates the</p>
+- If the current best point is infeasible (cv &gt; 0):</p>
 <blockquote>
-<div><p>gradient of the constraint violation function (sum of violations) using finite differences.</p>
+<div><ul class="simple">
+<li><p>Estimates the gradient of constraint violations using finite differences from history.</p></li>
+<li><p>If <cite>cv_vec</cite> (vector of constraints) is available, it solves a Linear Programming (LP)
+subproblem to find a descent direction that reduces the maximum violation.</p></li>
+<li><p>If only scalar <cite>cv</cite> is available, it uses the gradient of the sum of violations.</p></li>
+</ul>
 </div></blockquote>
 <ul class="simple">
-<li><p>It then generates a new point by taking a step in the direction of the negative gradient
-(descent direction for violation).</p></li>
-<li><p>If the current best is feasible, this heuristic is inactive.</p></li>
+<li><p>If the current best point is feasible (cv == 0):
+- Estimates the gradient of the objective function and constraints.
+- Solves an LP to minimize the objective while respecting linearized constraints.</p></li>
+<li><p>Generates new points by taking steps in the calculated descent direction.</p></li>
 </ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -319,14 +325,14 @@ to guide the search towards feasibility.</p>
 <li><p><strong>strategy</strong> – Reference to the strategy.</p></li>
 <li><p><strong>step_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Step size for finite difference gradient approximation (h).</p></li>
 <li><p><strong>descent_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Step size for moving in the descent direction (relative to box).</p></li>
-<li><p><strong>samples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of points to generate (currently only supports 1 descent step).</p></li>
+<li><p><strong>samples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of points to generate along the direction (if &gt; 1, uses scaling factors).</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintGradient.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient.on_new_best" title="Link to this definition">¶</a></dt>
-<dd><p>React to a new best point. If infeasible, try to repair it using gradient descent on CV.</p>
+<dd><p>React to a new best point. Try to improve it using gradient information.</p>
 </dd></dl>
 
 </dd></dl>

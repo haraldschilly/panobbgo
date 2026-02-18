@@ -110,6 +110,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient"><code class="docutils literal notranslate"><span class="pre">ConstraintGradient</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal"><code class="docutils literal notranslate"><span class="pre">Extremal</span></code></a><ul>
@@ -318,6 +319,8 @@ subproblem to find a descent direction that reduces the maximum violation.</p></
 - Estimates the gradient of the objective function and constraints.
 - Solves an LP to minimize the objective while respecting linearized constraints.</p></li>
 <li><p>Generates new points by taking steps in the calculated descent direction.</p></li>
+<li><p>Active Sampling: If there are not enough neighbors to estimate the gradient,
+it generates perturbation points around the current best solution.</p></li>
 </ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -333,6 +336,13 @@ subproblem to find a descent direction that reduces the maximum violation.</p></
 <dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintGradient.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient.on_new_best" title="Link to this definition">¶</a></dt>
 <dd><p>React to a new best point. Try to improve it using gradient information.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintGradient.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Called when new results are available.
+If we were waiting for samples to estimate gradient, check if we can proceed now.</p>
 </dd></dl>
 
 </dd></dl>

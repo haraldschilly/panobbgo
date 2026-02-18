@@ -32,6 +32,8 @@ class ConstraintGradient(Heuristic):
       - Estimates the gradient of the objective function and constraints.
       - Solves an LP to minimize the objective while respecting linearized constraints.
     - Generates new points by taking steps in the calculated descent direction.
+    - Active Sampling: If there are not enough neighbors to estimate the gradient,
+      it generates perturbation points around the current best solution.
     """
 
     def __init__(self, strategy, step_size=1e-2, descent_step=0.1, samples=1):
@@ -47,6 +49,7 @@ class ConstraintGradient(Heuristic):
         self.descent_step = descent_step
         self.samples = samples
         self.current_best = None
+        self._waiting_for_samples = False
 
     def on_new_best(self, best):
         """
@@ -54,11 +57,26 @@ class ConstraintGradient(Heuristic):
         """
         self.current_best = best
         self.clear_output()
+        self._waiting_for_samples = False # Reset flag for new best
 
         # Try to generate points regardless of feasibility
-        # If feasible -> minimize fx s.t. constraints
-        # If infeasible -> minimize max violation
         self._generate_descent_point(best)
+
+    def on_new_results(self, results):
+        """
+        Called when new results are available.
+        If we were waiting for samples to estimate gradient, check if we can proceed now.
+        """
+        # Only check if we are waiting, or if we want to be more aggressive
+        # Ideally, check if current_best is set
+        if self.current_best is None:
+            return
+
+        # If we were waiting, or even if we weren't (to be robust), check if we can generate descent now.
+        # But we don't want to spam descent points every time a result comes in.
+        # So primarily act if we were waiting.
+        if self._waiting_for_samples:
+             self._generate_descent_point(self.current_best)
 
     def _generate_descent_point(self, best):
         """
@@ -70,6 +88,8 @@ class ConstraintGradient(Heuristic):
         # Collect candidate points from history for gradient estimation
         results_container = self.strategy.results
         if results_container is None or len(results_container) == 0:
+            # Need samples
+            self._sample_neighbors(x, dim, dim + 1)
             return
 
         X_candidates = None
@@ -86,11 +106,13 @@ class ConstraintGradient(Heuristic):
                 cv_candidates = h["cv"]
                 cv_vec_candidates = h["cv_vec"]
             except Exception:
+                self._sample_neighbors(x, dim, dim + 1)
                 return
         elif isinstance(results_container, list):
             # Test/Legacy case
             subset = results_container[-200:]
             if not subset:
+                self._sample_neighbors(x, dim, dim + 1)
                 return
             try:
                 X_candidates = np.array([r.x for r in subset], dtype=float)
@@ -98,18 +120,20 @@ class ConstraintGradient(Heuristic):
                 cv_candidates = np.array([r.cv for r in subset], dtype=float)
                 # Handle cv_vec robustly
                 cv_vec_list = [r.cv_vec if r.cv_vec is not None else [] for r in subset]
-                # Check if all have same length
                 lengths = [len(v) for v in cv_vec_list]
                 if len(set(lengths)) == 1 and lengths[0] > 0:
                     cv_vec_candidates = np.array(cv_vec_list, dtype=float)
                 else:
                     cv_vec_candidates = None
             except Exception:
+                self._sample_neighbors(x, dim, dim + 1)
                 return
         else:
+            self._sample_neighbors(x, dim, dim + 1)
             return
 
         if X_candidates is None or len(X_candidates) == 0:
+            self._sample_neighbors(x, dim, dim + 1)
             return
 
         # Calculate distances to current best
@@ -131,10 +155,13 @@ class ConstraintGradient(Heuristic):
             self.logger.debug(
                 f"Not enough neighbors for gradient estimation. Need {min_neighbors}, got {len(valid_dists)}"
             )
+            self._sample_neighbors(x, dim, min_neighbors - len(valid_dists))
             return
 
+        # We have enough neighbors
+        self._waiting_for_samples = False
+
         # Select k nearest neighbors
-        # Use slightly more neighbors than minimum to be robust to noise (overdetermined system)
         k = min(len(valid_dists), max(min_neighbors + 2, dim * 2))
         idx = np.argpartition(valid_dists, k - 1)[:k]
 
@@ -162,6 +189,33 @@ class ConstraintGradient(Heuristic):
         except Exception as e:
             self.logger.debug(f"Error in gradient estimation: {e}")
 
+    def _sample_neighbors(self, x, dim, needed):
+        """
+        Generate random perturbations around x to creating neighbors.
+        """
+        if self._waiting_for_samples:
+             return
+
+        candidates = []
+        # Generate a few more than needed to be safe
+        count = needed + 2
+        for _ in range(count):
+            # Perturbation scale: step_size * ranges
+            step = np.random.randn(dim) * self.step_size * self.problem.ranges
+            # Ensure it's not zero (unlikely)
+            if np.linalg.norm(step) < 1e-9:
+                continue
+
+            new_x = self.problem.project(x + step)
+            # Ensure it is distinct from x
+            if np.linalg.norm(new_x - x) > 1e-9:
+                 candidates.append(new_x)
+
+        if candidates:
+            self.emit(candidates)
+            self._waiting_for_samples = True
+            self.logger.debug(f"Emitted {len(candidates)} perturbation samples for gradient estimation.")
+
     def _estimate_gradient(self, X_centered, y_vals, best_val):
         """
         Estimates gradient using linear regression: y(x) = gradient^T (x - best.x) + best_val
@@ -169,11 +223,6 @@ class ConstraintGradient(Heuristic):
         dim = X_centered.shape[1]
         y_reg = np.concatenate([y_vals, [best_val]])
         X_reg = np.vstack([X_centered, np.zeros((1, dim))]) # Add origin (best point)
-
-        # Solve least squares for gradient
-        # We assume intercept is best_val (fixed point), so we solve:
-        # y - best_val = gradient^T * X_centered
-        # No, wait, if we fix intercept, we solve X * g = y - c
 
         y_centered = y_reg - best_val
 
@@ -187,8 +236,6 @@ class ConstraintGradient(Heuristic):
         Only applicable if best.cv > 0.
         """
         if best.cv <= 1e-9:
-             # If feasible and no vector info, we can't do much about constraints.
-             # Maybe minimize fx? But without constraint gradients we risk violating feasibility.
              return
 
         X_centered = neighbors_X - x
@@ -230,33 +277,14 @@ class ConstraintGradient(Heuristic):
         box_ranges = self.problem.ranges
         delta = self.descent_step * box_ranges
 
-        # Objective function coefficients c
-        # If feasible (best.cv == 0): Minimize grad_fx^T * d -> c = [grad_fx, 0]
-        # If infeasible (best.cv > 0): Minimize gamma -> c = [0...0, 1]
-
         is_feasible = best.cv <= 1e-9
 
         c = np.zeros(dim + 1)
         if is_feasible:
             c[:dim] = grad_fx
-            # Gamma not used in objective, but used in constraints?
-            # If feasible, we want: grad_cv^T * d <= -best.cv_vec (keep <= 0)
-            # We don't need gamma for feasible case if we just enforce constraints.
-            # But let's use gamma to allow slight relaxation if needed?
-            # No, standard SQP uses strict linearization.
-            # However, to be robust, let's just minimize fx subject to constraints.
             c[dim] = 0.0
         else:
             c[dim] = 1.0 # Minimize gamma
-
-        # Constraints: A_ub * [d, gamma]^T <= b_ub
-        # Condition: grad_cv_i^T * d - gamma <= -best.cv_vec_i
-        # Rearranged: grad_cv_i^T * d + (-1)*gamma <= -best.cv_vec_i
-        # So A_row = [grad_cv_i, -1]
-
-        # Wait, if feasible, we don't want to minimize gamma. We want to satisfy constraints.
-        # But if we use the same formulation, minimizing gamma will push constraints as far negative as possible (into interior).
-        # That's not what we want if we optimize fx.
 
         if is_feasible:
             # Constraints: grad_cv_i^T * d <= -best.cv_vec_i
@@ -264,8 +292,6 @@ class ConstraintGradient(Heuristic):
             # b_ub = -best.cv_vec_i
             A_ub = np.hstack([grad_cv, np.zeros((num_constraints, 1))])
             b_ub = -best.cv_vec
-
-            # Bounds for gamma can be anything, say [-1, 1] but it doesn't affect objective
             bounds_gamma = (None, None)
         else:
             # Constraints: grad_cv_i^T * d - gamma <= -best.cv_vec_i
@@ -296,14 +322,10 @@ class ConstraintGradient(Heuristic):
         """
         Emits points along the direction.
         """
-        # If vector LP, direction magnitude is already scaled by bounds (delta).
-        # If scalar, direction is unit vector, needs scaling.
-
         candidates = []
 
         if is_vector:
             # Just emit x + direction (and maybe scaled versions?)
-            # Since LP bounds were local, x+d is within trust region.
             if self.samples == 1:
                 candidates.append(self.problem.project(x + direction))
             else:
@@ -311,7 +333,6 @@ class ConstraintGradient(Heuristic):
                     candidates.append(self.problem.project(x + direction * factor))
         else:
             # Scalar direction is unit vector
-            # Use pseudo-line search
             if self.samples == 1:
                 scaling_factors = [1.0]
             else:

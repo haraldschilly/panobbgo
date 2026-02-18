@@ -21,20 +21,22 @@ class TestConstraintGradient(PanobbgoTestCase):
         self.assertEqual(self.heuristic.name, "ConstraintGradient")
 
     def test_on_new_best_feasible(self):
-        """Should do nothing if best is feasible"""
+        """Should trigger active sampling if best is feasible but history is insufficient"""
         best = Result(Point(np.zeros(2), "test"), 0.0, cv_vec=None) # cv=0
         self.heuristic.on_new_best(best)
 
         points = self.heuristic.get_points()
-        self.assertEqual(len(points), 0)
+        # Active sampling generates dim + 3 points (2 + 3 = 5)
+        self.assertEqual(len(points), 5)
 
     def test_on_new_best_infeasible_no_history(self):
-        """Should do nothing if history is empty (cannot estimate gradient)"""
+        """Should trigger active sampling if history is empty"""
         best = Result(Point(np.zeros(2), "test"), 0.0, cv_vec=np.array([1.0]))
         self.heuristic.on_new_best(best)
 
         points = self.heuristic.get_points()
-        self.assertEqual(len(points), 0)
+        # Active sampling generates dim + 3 points (2 + 3 = 5)
+        self.assertEqual(len(points), 5)
 
     def test_gradient_descent_generation(self):
         """

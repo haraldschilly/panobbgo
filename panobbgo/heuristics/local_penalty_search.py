@@ -62,7 +62,11 @@ class LocalPenaltySearch(Heuristic):
         if self.process and self.process.is_alive():
             self.process.join(timeout=1.0)
             if self.process.is_alive():
+                self.logger.warning("LocalPenaltySearch process did not exit gracefully, terminating...")
                 self.process.terminate()
+                self.process.join(timeout=0.1)
+                if self.process.is_alive():
+                    self.process.kill()
 
     @staticmethod
     def _worker(pipe, method, dim, bounds):
@@ -79,15 +83,20 @@ class LocalPenaltySearch(Heuristic):
             pipe.send({"type": "eval", "x": x})
             # Wait for response
             try:
-                response = pipe.recv()
-                if response["type"] == "result":
-                    return response["value"]
-                elif response["type"] == "abort":
-                    raise StopIteration("Optimization aborted by parent")
-                elif response["type"] == "stop":
-                    raise StopIteration("Stop heuristic")
+                # Use poll with timeout to prevent hang if parent dies/stalls
+                if pipe.poll(60.0): # 60 seconds timeout
+                    response = pipe.recv()
+                    if response["type"] == "result":
+                        return response["value"]
+                    elif response["type"] == "abort":
+                        raise StopIteration("Optimization aborted by parent")
+                    elif response["type"] == "stop":
+                        raise StopIteration("Stop heuristic")
+                    else:
+                        raise RuntimeError(f"Unknown response: {response}")
                 else:
-                    raise RuntimeError(f"Unknown response: {response}")
+                    # Timeout
+                    raise StopIteration("Optimization timed out waiting for parent")
             except (EOFError, StopIteration):
                 raise StopIteration
 

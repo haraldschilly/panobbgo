@@ -215,19 +215,24 @@ class ConstraintGradient(Heuristic):
             self.emit(candidates)
             self._waiting_for_samples = True
             self.logger.debug(f"Emitted {len(candidates)} perturbation samples for gradient estimation.")
+        else:
+            self.logger.warning("Failed to generate perturbation samples (search space might be too small).")
 
     def _estimate_gradient(self, X_centered, y_vals, best_val):
         """
         Estimates gradient using linear regression: y(x) = gradient^T (x - best.x) + best_val
+        Minimizes sum of squared errors: sum ( (y_i - best_val) - gradient^T * (x_i - best.x) )^2
         """
-        dim = X_centered.shape[1]
-        y_reg = np.concatenate([y_vals, [best_val]])
-        X_reg = np.vstack([X_centered, np.zeros((1, dim))]) # Add origin (best point)
+        y_centered = y_vals - best_val
 
-        y_centered = y_reg - best_val
+        # Use simple least squares: X_centered @ gradient = y_centered
+        gradient, residuals, rank, s = np.linalg.lstsq(X_centered, y_centered, rcond=None)
 
-        # Use simple least squares
-        gradient, _, _, _ = np.linalg.lstsq(X_reg, y_centered, rcond=None)
+        if residuals.size > 0 and residuals[0] > 1.0:
+             # Only log if we have enough points (overdetermined) and error is high
+             if X_centered.shape[0] > X_centered.shape[1]:
+                 self.logger.debug(f"Gradient estimation high residual: {residuals[0]}")
+
         return gradient
 
     def _solve_scalar_direction(self, best, neighbors_X, neighbors_cv, x, dim):

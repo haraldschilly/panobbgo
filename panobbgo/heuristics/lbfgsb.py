@@ -74,13 +74,31 @@ class LBFGSB(Heuristic):
         output.send(solution)
 
     def on_start(self):
-        while True:
-            if self.out1.poll(0):
-                output = self.out1.recv()
-                self.logger.info(output)
-            x = self.p1.recv()
-            self.logger.info("x: %s" % x)
-            self.emit(x)
+        while not self._stopped:
+            try:
+                if self.out1.poll(0):
+                    output = self.out1.recv()
+                    self.logger.info(output)
+
+                # Check for input with timeout to allow loop to check _stopped
+                if self.p1.poll(0.1):
+                    x = self.p1.recv()
+                    self.logger.info("x: %s" % x)
+                    self.emit(x)
+            except (EOFError, OSError):
+                # Pipe closed, exit loop
+                break
+            except Exception as e:
+                self.logger.error(f"Error in LBFGSB loop: {e}")
+                break
+
+    def __stop__(self):
+        super(LBFGSB, self).__stop__()
+        if hasattr(self, "lbfgsb") and self.lbfgsb.is_alive():
+            self.lbfgsb.terminate()
+            self.lbfgsb.join(timeout=1.0)
+            if self.lbfgsb.is_alive():
+                self.lbfgsb.kill()
 
     def on_new_results(self, results):
         for result in results:

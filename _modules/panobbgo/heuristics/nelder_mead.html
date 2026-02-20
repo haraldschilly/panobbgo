@@ -316,42 +316,45 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="164"><span class="sd">        #. The ``break`` exits the outer while and we start fresh with the new best box.</span>
 </span><span data-line="165"><span class="sd">        &quot;&quot;&quot;</span>
 </span><span data-line="166">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="167">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="168">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
-</span><span data-line="169">            <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
-</span><span data-line="170">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="171">            <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="172">                <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="173">                <span class="k">if</span> <span class="n">base</span><span class="p">:</span>  <span class="c1"># was able to find a base</span>
-</span><span data-line="174">                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="175">                        <span class="k">break</span>
-</span><span data-line="176">
-</span><span data-line="177">                    <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-</span><span data-line="178">
-</span><span data-line="179">                    <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
-</span><span data-line="180">                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">full</span><span class="p">():</span>
-</span><span data-line="181">                            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
-</span><span data-line="182">                            <span class="k">continue</span>
-</span><span data-line="183">                        <span class="n">new_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">)</span>
-</span><span data-line="184">                        <span class="c1"># self.logger.info(&quot;new point: %s&quot; % new_point)</span>
-</span><span data-line="185">                        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_point</span><span class="p">)</span>
-</span><span data-line="186">                    <span class="k">break</span>
-</span><span data-line="187">                <span class="k">else</span><span class="p">:</span>  <span class="c1"># not able to find base, try with parent of current best box</span>
-</span><span data-line="188">                    <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="189">                    <span class="k">if</span> <span class="n">bb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="190">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
+</span><span data-line="167">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="168">            <span class="c1"># Wait with timeout to allow checking _stopped</span>
+</span><span data-line="169">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+</span><span data-line="170">                <span class="k">continue</span>
+</span><span data-line="171">
+</span><span data-line="172">            <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
+</span><span data-line="173">            <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="174">            <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="175">                <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="176">                <span class="k">if</span> <span class="n">base</span><span class="p">:</span>  <span class="c1"># was able to find a base</span>
+</span><span data-line="177">                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="178">                        <span class="k">break</span>
+</span><span data-line="179">
+</span><span data-line="180">                    <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+</span><span data-line="181">
+</span><span data-line="182">                    <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="183">                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">full</span><span class="p">():</span>
+</span><span data-line="184">                            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="185">                            <span class="k">continue</span>
+</span><span data-line="186">                        <span class="n">new_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">)</span>
+</span><span data-line="187">                        <span class="c1"># self.logger.info(&quot;new point: %s&quot; % new_point)</span>
+</span><span data-line="188">                        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">new_point</span><span class="p">)</span>
+</span><span data-line="189">                    <span class="k">break</span>
+</span><span data-line="190">                <span class="k">else</span><span class="p">:</span>  <span class="c1"># not able to find base, try with parent of current best box</span>
+</span><span data-line="191">                    <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="192">                    <span class="k">if</span> <span class="n">bb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="193">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
 
-</span><span data-line="191">
+</span><span data-line="194">
 <div class="viewcode-block" id="NelderMead.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
-</span><span data-line="192">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="193"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="194"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
-</span><span data-line="195"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
-</span><span data-line="196"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
-</span><span data-line="198">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
-</span><span data-line="199">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
+</span><span data-line="195">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
+</span><span data-line="196"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="197"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
+</span><span data-line="198"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
+</span><span data-line="199"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="200">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
+</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
 </div>
 
 </span></pre></div>

@@ -214,23 +214,41 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="LBFGSB.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LBFGSB.on_start">[docs]</a>
 </span><span data-line="76">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="77">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="78">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="79">                <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="80">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
-</span><span data-line="81">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="82">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;x: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="p">)</span>
-</span><span data-line="83">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</span><span data-line="77">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="78">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="79">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+</span><span data-line="80">                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="81">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+</span><span data-line="82">
+</span><span data-line="83">                <span class="c1"># Check for input with timeout to allow loop to check _stopped</span>
+</span><span data-line="84">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
+</span><span data-line="85">                    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="86">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;x: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="p">)</span>
+</span><span data-line="87">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="88">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="89">                <span class="c1"># Pipe closed, exit loop</span>
+</span><span data-line="90">                <span class="k">break</span>
+</span><span data-line="91">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="92">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in LBFGSB loop: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="93">                <span class="k">break</span></div>
 
-</span><span data-line="84">
+</span><span data-line="94">
+</span><span data-line="95">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="96">        <span class="nb">super</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
+</span><span data-line="97">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;lbfgsb&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="98">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="99">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="100">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="101">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="102">
 <div class="viewcode-block" id="LBFGSB.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LBFGSB.on_new_results">[docs]</a>
-</span><span data-line="85">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="86">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="87">            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
-</span><span data-line="88">                <span class="c1"># Use constraint handler to get penalty value (fx if feasible, else penalized)</span>
-</span><span data-line="89">                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="90">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></div>
+</span><span data-line="103">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="104">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="105">            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+</span><span data-line="106">                <span class="c1"># Use constraint handler to get penalty value (fx if feasible, else penalized)</span>
+</span><span data-line="107">                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="108">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

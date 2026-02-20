@@ -164,11 +164,14 @@ class NelderMead(Heuristic):
         #. The ``break`` exits the outer while and we start fresh with the new best box.
         """
         dim = self.problem.dim
-        while True:
-            self.got_bb.wait()
+        while not self._stopped:
+            # Wait with timeout to allow checking _stopped
+            if not self.got_bb.wait(timeout=0.1):
+                continue
+
             bb = self.best_box
             self.got_bb.clear()
-            while bb is not None:
+            while bb is not None and not self._stopped:
                 base = self.gram_schmidt(dim, bb.results)
                 if base:  # was able to find a base
                     if len(base) == 0:
@@ -176,7 +179,7 @@ class NelderMead(Heuristic):
 
                     worst, centroid = self.nelder_mead_init(base)
 
-                    while not self.got_bb.is_set():
+                    while not self.got_bb.is_set() and not self._stopped:
                         if self._output.full():
                             time.sleep(0.1)
                             continue

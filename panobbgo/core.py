@@ -992,6 +992,7 @@ class StrategyBase:
 
         # statistics
         self.show_last = 0  # for printing the info line in _add_tasks()
+        self._last_status_update = 0  # for throttling _update_progress_status
         self.time_start = time_module.time()
         self.tasks_walltimes = {}
 
@@ -1558,6 +1559,8 @@ class StrategyBase:
             # limit loop speed - sleep briefly
             time_module.sleep(1e-3)
 
+        # Final forced update to ensure UI shows 100% or final results
+        self._update_progress_status(force=True)
         self._cleanup()
 
     def _run_dask_evaluation(self, points):
@@ -1765,9 +1768,12 @@ with open('{result_file.name}', 'wb') as f:
 
         self.results += new_results
 
-    def _update_progress_status(self):
+    def _update_progress_status(self, force=False):
         """
         Update the progress status line with current optimization information.
+
+        Args:
+            force (bool): If True, force an update regardless of throttling.
         """
         if not hasattr(self, 'panobbgo_logger'):
             return
@@ -1775,6 +1781,14 @@ with open('{result_file.name}', 'wb') as f:
         progress_reporter = self.panobbgo_logger.progress_reporter
         if not progress_reporter.status_enabled:
             return
+
+        # Throttle updates to avoid excessive UI processing
+        now = time_module.time()
+        # 0.1 seconds (10 Hz) is a good balance for responsive UI without high CPU overhead
+        if not force and now - self._last_status_update < 0.1:
+            return
+
+        self._last_status_update = now
 
         # Gather status information
         current_evals = len(self.results)

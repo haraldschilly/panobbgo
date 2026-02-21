@@ -44,6 +44,7 @@ from panobbgo.lib.constraints import (
     DynamicPenaltyConstraintHandler,
     AugmentedLagrangianConstraintHandler,
     EpsilonConstraintHandler,
+    FilterConstraintHandler,
 )
 from .logging import PanobbgoLogger
 import time as time_module
@@ -1049,6 +1050,8 @@ class StrategyBase:
                 cutoff=epsilon_cutoff,
                 rho=rho,
             )
+        elif handler_name == "FilterConstraintHandler":
+            self.constraint_handler = FilterConstraintHandler(strategy=self)
         else:
             self.constraint_handler = DefaultConstraintHandler(
                 strategy=self, rho=rho

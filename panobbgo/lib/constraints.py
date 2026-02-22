@@ -655,3 +655,124 @@ class EpsilonConstraintHandler(ConstraintHandler):
         phi = self._phi(result)
         # P(x) = f(x) + rho * phi(x)
         return float(result.fx + self.rho * phi)
+
+
+class FilterConstraintHandler(ConstraintHandler):
+    """
+    Handles constraints using a multi-objective filter approach.
+    Maintains a filter (Pareto set) of non-dominated pairs (fx, cv).
+
+    A point is accepted (and considered an improvement) if it is not dominated
+    by any point in the current filter.
+    """
+    def __init__(self, strategy=None, **kwargs):
+        super().__init__(strategy, **kwargs)
+        # Filter is a list of tuples: (fx, cv, result_obj)
+        self.filter = []
+
+    def on_new_results(self, results):
+        """
+        Update filter with new results.
+        """
+        for r in results:
+            self._update_filter(r)
+
+    def _update_filter(self, result):
+        if result is None or result.fx is None:
+            return False
+
+        fx = result.fx
+        cv = result.cv if result.cv is not None else 0.0
+
+        # Check if dominated by any point in filter
+        is_dominated = False
+        for (f_f, f_cv, _) in self.filter:
+            # Check if f_point dominates result
+            # Dominance: f_f <= fx AND f_cv <= cv AND (f_f < fx OR f_cv < cv)
+            if f_f <= fx and f_cv <= cv:
+                if f_f < fx or f_cv < cv:
+                    is_dominated = True
+                    break
+            # Special case: equal (duplicate), considered dominated/redundant
+            if f_f == fx and f_cv == cv:
+                is_dominated = True
+                break
+
+        if is_dominated:
+            return False
+
+        # Not dominated, so add to filter
+        # Remove points dominated by this new result
+        new_filter = []
+        for (f_f, f_cv, r) in self.filter:
+            # Check if result dominates f_point
+            if fx <= f_f and cv <= f_cv:
+                 if fx < f_f or cv < f_cv:
+                     # f_point is dominated, discard
+                     continue
+            # Keep f_point
+            new_filter.append((f_f, f_cv, r))
+
+        new_filter.append((fx, cv, result))
+        self.filter = new_filter
+        return True
+
+    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
+        # Check if new_best is accepted by the filter logic.
+        # We simulate adding to filter (without modifying it here, rely on on_new_results for update).
+        # Actually, since calculate_improvement is usually called BEFORE or concurrently with on_new_results
+        # (by StrategyRewarding), we just check dominance against current filter.
+
+        # NOTE: StrategyRewarding calls calculate_improvement only if is_better returned True,
+        # OR in on_new_results loop.
+        # But here we want to reward ANY non-dominated point.
+
+        # Check if dominated by current filter
+        fx = new_best.fx
+        cv = new_best.cv if new_best.cv is not None else 0.0
+
+        is_dominated = False
+        for (f_f, f_cv, _) in self.filter:
+            if f_f <= fx and f_cv <= cv:
+                if f_f < fx or f_cv < cv:
+                    is_dominated = True
+                    break
+            if f_f == fx and f_cv == cv:
+                is_dominated = True
+                break
+
+        if not is_dominated:
+            # Reward magnitude.
+            # Boost if feasible?
+            if cv <= 1e-9:
+                return 2.0
+            return 1.0
+
+        return 0.0
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        # Standard feasibility rules for "Global Best" tracking
+        if old_best is None: return True
+
+        cv_old = old_best.cv if old_best.cv is not None else 0.0
+        cv_new = new_result.cv if new_result.cv is not None else 0.0
+
+        is_feasible_old = cv_old <= 1e-9
+        is_feasible_new = cv_new <= 1e-9
+
+        if is_feasible_new and is_feasible_old:
+            return new_result.fx < old_best.fx
+
+        if is_feasible_new and not is_feasible_old:
+            return True
+
+        if not is_feasible_new and is_feasible_old:
+            return False
+
+        # Both infeasible: prefer lower CV
+        if cv_new < cv_old:
+            return True
+        if cv_new > cv_old:
+            return False
+
+        return new_result.fx < old_best.fx

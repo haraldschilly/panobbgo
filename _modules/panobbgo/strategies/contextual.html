@@ -175,229 +175,230 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="40">
 </span><span data-line="41">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 </span><span data-line="42">        <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Track best internally to avoid event bus race conditions</span>
-</span><span data-line="43">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;linucb_alpha&#39;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>  <span class="c1"># Exploration parameter</span>
-</span><span data-line="44">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">RLock</span><span class="p">()</span>
-</span><span data-line="45">
-</span><span data-line="46">        <span class="c1"># LinUCB state per heuristic: A (d x d), b (d), theta (d)</span>
-</span><span data-line="47">        <span class="c1"># Context dimension d = 3 (Bias, Progress, SuccessRate)</span>
-</span><span data-line="48">        <span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span> <span class="o">=</span> <span class="mi">3</span>
-</span><span data-line="49">
-</span><span data-line="50">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="51">
+</span><span data-line="43">        <span class="c1"># Default alpha increased to 2.0 to encourage exploration</span>
+</span><span data-line="44">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;linucb_alpha&#39;</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">RLock</span><span class="p">()</span>
+</span><span data-line="46">
+</span><span data-line="47">        <span class="c1"># LinUCB state per heuristic: A (d x d), b (d), theta (d)</span>
+</span><span data-line="48">        <span class="c1"># Context dimension d = 3 (Bias, Progress, SuccessRate)</span>
+</span><span data-line="49">        <span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span> <span class="o">=</span> <span class="mi">3</span>
+</span><span data-line="50">
+</span><span data-line="51">        <span class="n">StrategyBase</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="52">
 <div class="viewcode-block" id="StrategyLinUCB.add_heuristic">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.add_heuristic">[docs]</a>
-</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
-</span><span data-line="53">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
-</span><span data-line="54">        <span class="c1"># Initialize LinUCB matrices for this heuristic</span>
-</span><span data-line="55">        <span class="c1"># A = Identity(d)</span>
-</span><span data-line="56">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
-</span><span data-line="57">        <span class="c1"># b = Zeros(d)</span>
-</span><span data-line="58">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
-</span><span data-line="59">        <span class="c1"># Cached inverse of A for speed (optional, but A is small 3x3 so inversion is fast)</span>
-</span><span data-line="60">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span></div>
+</span><span data-line="53">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+</span><span data-line="54">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+</span><span data-line="55">        <span class="c1"># Initialize LinUCB matrices for this heuristic</span>
+</span><span data-line="56">        <span class="c1"># A = Identity(d)</span>
+</span><span data-line="57">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
+</span><span data-line="58">        <span class="c1"># b = Zeros(d)</span>
+</span><span data-line="59">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
+</span><span data-line="60">        <span class="c1"># Cached inverse of A for speed (optional, but A is small 3x3 so inversion is fast)</span>
+</span><span data-line="61">        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span></div>
 
-</span><span data-line="61">
-</span><span data-line="62">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_context_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="63"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="64"><span class="sd">        Constructs the context vector $x_t$ for the current state.</span>
-</span><span data-line="65">
-</span><span data-line="66"><span class="sd">        Features:</span>
-</span><span data-line="67"><span class="sd">        1. Bias (1.0)</span>
-</span><span data-line="68"><span class="sd">        2. Budget Progress [0, 1]</span>
-</span><span data-line="69"><span class="sd">        3. Recent Success Rate [0, 1]</span>
-</span><span data-line="70"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="71">        <span class="c1"># 1. Bias</span>
-</span><span data-line="72">        <span class="n">feat_bias</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="73">
-</span><span data-line="74">        <span class="c1"># 2. Budget Progress</span>
-</span><span data-line="75">        <span class="n">n_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="76">        <span class="n">max_evals</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="k">else</span> <span class="mf">1000.0</span>
-</span><span data-line="77">        <span class="n">feat_progress</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span>
-</span><span data-line="78">
-</span><span data-line="79">        <span class="c1"># 3. Recent Success Rate</span>
-</span><span data-line="80">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_recent_rewards&#39;</span><span class="p">):</span>
-</span><span data-line="81">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="82">
-</span><span data-line="83">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">:</span>
-</span><span data-line="84">            <span class="c1"># Average of recent binary success (reward &gt; 0)</span>
-</span><span data-line="85">            <span class="n">feat_success</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">)</span>
-</span><span data-line="86">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="87">            <span class="n">feat_success</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="88">
-</span><span data-line="89">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">feat_bias</span><span class="p">,</span> <span class="n">feat_progress</span><span class="p">,</span> <span class="n">feat_success</span><span class="p">])</span>
-</span><span data-line="90">
+</span><span data-line="62">
+</span><span data-line="63">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_context_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="64"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="65"><span class="sd">        Constructs the context vector $x_t$ for the current state.</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="sd">        Features:</span>
+</span><span data-line="68"><span class="sd">        1. Bias (1.0)</span>
+</span><span data-line="69"><span class="sd">        2. Budget Progress [0, 1]</span>
+</span><span data-line="70"><span class="sd">        3. Recent Success Rate [0, 1]</span>
+</span><span data-line="71"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="72">        <span class="c1"># 1. Bias</span>
+</span><span data-line="73">        <span class="n">feat_bias</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="74">
+</span><span data-line="75">        <span class="c1"># 2. Budget Progress</span>
+</span><span data-line="76">        <span class="n">n_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="77">        <span class="n">max_evals</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="k">else</span> <span class="mf">1000.0</span>
+</span><span data-line="78">        <span class="n">feat_progress</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span>
+</span><span data-line="79">
+</span><span data-line="80">        <span class="c1"># 3. Recent Success Rate</span>
+</span><span data-line="81">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_recent_rewards&#39;</span><span class="p">):</span>
+</span><span data-line="82">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="83">
+</span><span data-line="84">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">:</span>
+</span><span data-line="85">            <span class="c1"># Average of recent binary success (reward &gt; 0)</span>
+</span><span data-line="86">            <span class="n">feat_success</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">)</span>
+</span><span data-line="87">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="88">            <span class="n">feat_success</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="89">
+</span><span data-line="90">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">feat_bias</span><span class="p">,</span> <span class="n">feat_progress</span><span class="p">,</span> <span class="n">feat_success</span><span class="p">])</span>
+</span><span data-line="91">
 <div class="viewcode-block" id="StrategyLinUCB.reward">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.reward">[docs]</a>
-</span><span data-line="91">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">improvement</span><span class="p">):</span>
-</span><span data-line="92"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="93"><span class="sd">        Calculate reward based on improvement magnitude.</span>
-</span><span data-line="94">
-</span><span data-line="95"><span class="sd">        Args:</span>
-</span><span data-line="96"><span class="sd">            improvement (float): improvement metric from constraint handler.</span>
-</span><span data-line="97">
-</span><span data-line="98"><span class="sd">        Returns:</span>
-</span><span data-line="99"><span class="sd">            float: Reward in [0, 1]</span>
-</span><span data-line="100"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="101">        <span class="k">if</span> <span class="n">improvement</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="102">            <span class="k">return</span> <span class="mf">0.0</span>
-</span><span data-line="103">        <span class="c1"># Bounded reward in [0, 1]</span>
-</span><span data-line="104">        <span class="k">return</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">improvement</span><span class="p">)</span></div>
+</span><span data-line="92">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">improvement</span><span class="p">):</span>
+</span><span data-line="93"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="94"><span class="sd">        Calculate reward based on improvement magnitude.</span>
+</span><span data-line="95">
+</span><span data-line="96"><span class="sd">        Args:</span>
+</span><span data-line="97"><span class="sd">            improvement (float): improvement metric from constraint handler.</span>
+</span><span data-line="98">
+</span><span data-line="99"><span class="sd">        Returns:</span>
+</span><span data-line="100"><span class="sd">            float: Reward in [0, 1]</span>
+</span><span data-line="101"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="102">        <span class="k">if</span> <span class="n">improvement</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="103">            <span class="k">return</span> <span class="mf">0.0</span>
+</span><span data-line="104">        <span class="c1"># Bounded reward in [0, 1]</span>
+</span><span data-line="105">        <span class="k">return</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">improvement</span><span class="p">)</span></div>
 
-</span><span data-line="105">
+</span><span data-line="106">
 <div class="viewcode-block" id="StrategyLinUCB.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.on_new_best">[docs]</a>
-</span><span data-line="106">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="107"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="108"><span class="sd">        Logging only. Reward calculation is handled in on_new_results to avoid race conditions.</span>
-</span><span data-line="109"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="110">        <span class="c1"># This method is triggered by the Best analyzer via EventBus.</span>
-</span><span data-line="111">        <span class="c1"># We don&#39;t use it for logic anymore, but we log the event.</span>
-</span><span data-line="112">        <span class="k">pass</span></div>
+</span><span data-line="107">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="108"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="109"><span class="sd">        Logging only. Reward calculation is handled in on_new_results to avoid race conditions.</span>
+</span><span data-line="110"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="111">        <span class="c1"># This method is triggered by the Best analyzer via EventBus.</span>
+</span><span data-line="112">        <span class="c1"># We don&#39;t use it for logic anymore, but we log the event.</span>
+</span><span data-line="113">        <span class="k">pass</span></div>
 
-</span><span data-line="113">
+</span><span data-line="114">
 <div class="viewcode-block" id="StrategyLinUCB.on_new_results">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.on_new_results">[docs]</a>
-</span><span data-line="114">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="115"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="116"><span class="sd">        Process new results to update LinUCB models.</span>
-</span><span data-line="117"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="118">        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="119">            <span class="k">return</span>
-</span><span data-line="120">
-</span><span data-line="121">        <span class="c1"># Update recent rewards buffer</span>
-</span><span data-line="122">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_recent_rewards&#39;</span><span class="p">):</span>
-</span><span data-line="123">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="124">
-</span><span data-line="125">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-</span><span data-line="126">            <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="127">                <span class="c1"># Calculate reward locally using self.local_best</span>
-</span><span data-line="128">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="129">                    <span class="c1"># First point is effectively a success</span>
-</span><span data-line="130">                    <span class="n">improvement</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="131">                    <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="n">result</span>
-</span><span data-line="132">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="133">                    <span class="n">improvement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">calculate_improvement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_best</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-</span><span data-line="134">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_best</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="135">                        <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="n">result</span>
-</span><span data-line="136">
-</span><span data-line="137">                <span class="n">reward_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">improvement</span><span class="p">)</span>
-</span><span data-line="138">
-</span><span data-line="139">                <span class="k">if</span> <span class="n">reward_val</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="140">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (LinUCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">reward_val</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
-</span><span data-line="141">
-</span><span data-line="142">                <span class="c1"># Update recent rewards (keep last 100)</span>
-</span><span data-line="143">                <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reward_val</span><span class="p">)</span>
-</span><span data-line="144">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
-</span><span data-line="145">                    <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="146">
-</span><span data-line="147">                <span class="c1"># Get context vector from point</span>
-</span><span data-line="148">                <span class="c1"># It should have been attached in execute()</span>
-</span><span data-line="149">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="p">,</span> <span class="s1">&#39;context_vector&#39;</span><span class="p">):</span>
-</span><span data-line="150">                    <span class="n">x_t</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="o">.</span><span class="n">context_vector</span>
-</span><span data-line="151">
-</span><span data-line="152">                    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="153">                        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
-</span><span data-line="154">                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="155">                        <span class="k">continue</span>
-</span><span data-line="156">
-</span><span data-line="157">                    <span class="c1"># LinUCB Update</span>
-</span><span data-line="158">                    <span class="c1"># A += x x^T</span>
-</span><span data-line="159">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">x_t</span><span class="p">)</span>
-</span><span data-line="160">                    <span class="c1"># b += r * x</span>
-</span><span data-line="161">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">+=</span> <span class="n">reward_val</span> <span class="o">*</span> <span class="n">x_t</span>
-</span><span data-line="162">
-</span><span data-line="163">                    <span class="c1"># Recompute inverse (or use Sherman-Morrison for O(d^2) update, but d=3 is tiny)</span>
-</span><span data-line="164">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span><span class="p">)</span>
-</span><span data-line="165">
-</span><span data-line="166">                    <span class="c1"># Update stats for logging</span>
-</span><span data-line="167">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s1">&#39;linucb_count&#39;</span><span class="p">):</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="168">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s1">&#39;linucb_reward&#39;</span><span class="p">):</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="169">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="170">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">+=</span> <span class="n">reward_val</span>
-</span><span data-line="171">
-</span><span data-line="172">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="173">                    <span class="c1"># Point generated without context (e.g. at startup or by other means)</span>
-</span><span data-line="174">                    <span class="k">pass</span></div>
+</span><span data-line="115">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="116"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="117"><span class="sd">        Process new results to update LinUCB models.</span>
+</span><span data-line="118"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="119">        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="120">            <span class="k">return</span>
+</span><span data-line="121">
+</span><span data-line="122">        <span class="c1"># Update recent rewards buffer</span>
+</span><span data-line="123">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_recent_rewards&#39;</span><span class="p">):</span>
+</span><span data-line="124">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="125">
+</span><span data-line="126">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="127">            <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="128">                <span class="c1"># Calculate reward locally using self.local_best</span>
+</span><span data-line="129">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="130">                    <span class="c1"># First point is effectively a success</span>
+</span><span data-line="131">                    <span class="n">improvement</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="132">                    <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="n">result</span>
+</span><span data-line="133">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="134">                    <span class="n">improvement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">calculate_improvement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_best</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+</span><span data-line="135">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_best</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="136">                        <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="n">result</span>
+</span><span data-line="137">
+</span><span data-line="138">                <span class="n">reward_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">improvement</span><span class="p">)</span>
+</span><span data-line="139">
+</span><span data-line="140">                <span class="k">if</span> <span class="n">reward_val</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="141">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (LinUCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">reward_val</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
+</span><span data-line="142">
+</span><span data-line="143">                <span class="c1"># Update recent rewards (keep last 100)</span>
+</span><span data-line="144">                <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reward_val</span><span class="p">)</span>
+</span><span data-line="145">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+</span><span data-line="146">                    <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="147">
+</span><span data-line="148">                <span class="c1"># Get context vector from point</span>
+</span><span data-line="149">                <span class="c1"># It should have been attached in execute()</span>
+</span><span data-line="150">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="p">,</span> <span class="s1">&#39;context_vector&#39;</span><span class="p">):</span>
+</span><span data-line="151">                    <span class="n">x_t</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="o">.</span><span class="n">context_vector</span>
+</span><span data-line="152">
+</span><span data-line="153">                    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="154">                        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
+</span><span data-line="155">                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+</span><span data-line="156">                        <span class="k">continue</span>
+</span><span data-line="157">
+</span><span data-line="158">                    <span class="c1"># LinUCB Update</span>
+</span><span data-line="159">                    <span class="c1"># A += x x^T</span>
+</span><span data-line="160">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">x_t</span><span class="p">)</span>
+</span><span data-line="161">                    <span class="c1"># b += r * x</span>
+</span><span data-line="162">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">+=</span> <span class="n">reward_val</span> <span class="o">*</span> <span class="n">x_t</span>
+</span><span data-line="163">
+</span><span data-line="164">                    <span class="c1"># Recompute inverse (or use Sherman-Morrison for O(d^2) update, but d=3 is tiny)</span>
+</span><span data-line="165">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span><span class="p">)</span>
+</span><span data-line="166">
+</span><span data-line="167">                    <span class="c1"># Update stats for logging</span>
+</span><span data-line="168">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s1">&#39;linucb_count&#39;</span><span class="p">):</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="169">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s1">&#39;linucb_reward&#39;</span><span class="p">):</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="170">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="171">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">+=</span> <span class="n">reward_val</span>
+</span><span data-line="172">
+</span><span data-line="173">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="174">                    <span class="c1"># Point generated without context (e.g. at startup or by other means)</span>
+</span><span data-line="175">                    <span class="k">pass</span></div>
 
-</span><span data-line="175">
+</span><span data-line="176">
 <div class="viewcode-block" id="StrategyLinUCB.execute">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.execute">[docs]</a>
-</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="177">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="178">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
-</span><span data-line="179">
-</span><span data-line="180">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="181">
-</span><span data-line="182">            <span class="c1"># Calculate context once for this batch</span>
-</span><span data-line="183">            <span class="n">current_context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context_vector</span><span class="p">()</span>
-</span><span data-line="184">
-</span><span data-line="185">            <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-</span><span data-line="186">                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
-</span><span data-line="187">
-</span><span data-line="188">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
-</span><span data-line="189">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
-</span><span data-line="190">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="191">                    <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="192">
-</span><span data-line="193">                <span class="c1"># Calculate LinUCB scores</span>
-</span><span data-line="194">                <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="195">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="196">                    <span class="c1"># Ensure initialization</span>
-</span><span data-line="197">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A&quot;</span><span class="p">):</span>
-</span><span data-line="198">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
-</span><span data-line="199">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
-</span><span data-line="200">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
-</span><span data-line="201">
-</span><span data-line="202">                    <span class="c1"># Theta = A^-1 b</span>
-</span><span data-line="203">                    <span class="n">theta</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span>
-</span><span data-line="204">
-</span><span data-line="205">                    <span class="c1"># Predicted reward: x^T theta</span>
-</span><span data-line="206">                    <span class="n">mean</span> <span class="o">=</span> <span class="n">current_context</span> <span class="o">@</span> <span class="n">theta</span>
-</span><span data-line="207">
-</span><span data-line="208">                    <span class="c1"># Confidence interval: alpha * sqrt(x^T A^-1 x)</span>
-</span><span data-line="209">                    <span class="n">variance</span> <span class="o">=</span> <span class="n">current_context</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">current_context</span>
-</span><span data-line="210">                    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
-</span><span data-line="211">
-</span><span data-line="212">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">mean</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">std</span>
-</span><span data-line="213">
-</span><span data-line="214">                    <span class="n">scores</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">ucb_score</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
-</span><span data-line="215">
-</span><span data-line="216">                <span class="c1"># Sort by score (descending)</span>
-</span><span data-line="217">                <span class="n">scores</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="218">
-</span><span data-line="219">                <span class="k">for</span> <span class="n">score</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">:</span>
-</span><span data-line="220">                    <span class="c1"># Request points from the selected heuristic</span>
-</span><span data-line="221">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="222">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
-</span><span data-line="223">                        <span class="c1"># Attach context to points!</span>
-</span><span data-line="224">                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_points</span><span class="p">:</span>
-</span><span data-line="225">                            <span class="n">p</span><span class="o">.</span><span class="n">context_vector</span> <span class="o">=</span> <span class="n">current_context</span>
-</span><span data-line="226">                        <span class="k">return</span> <span class="n">new_points</span>
-</span><span data-line="227">
-</span><span data-line="228">                <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="229">
-</span><span data-line="230">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
-</span><span data-line="231">
-</span><span data-line="232">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="177">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="178">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="179">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+</span><span data-line="180">
+</span><span data-line="181">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
+</span><span data-line="182">
+</span><span data-line="183">            <span class="c1"># Calculate context once for this batch</span>
+</span><span data-line="184">            <span class="n">current_context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context_vector</span><span class="p">()</span>
+</span><span data-line="185">
+</span><span data-line="186">            <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+</span><span data-line="187">                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
+</span><span data-line="188">
+</span><span data-line="189">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
+</span><span data-line="190">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="191">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="192">                    <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="193">
+</span><span data-line="194">                <span class="c1"># Calculate LinUCB scores</span>
+</span><span data-line="195">                <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="196">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="197">                    <span class="c1"># Ensure initialization</span>
+</span><span data-line="198">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A&quot;</span><span class="p">):</span>
+</span><span data-line="199">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
+</span><span data-line="200">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
+</span><span data-line="201">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
+</span><span data-line="202">
+</span><span data-line="203">                    <span class="c1"># Theta = A^-1 b</span>
+</span><span data-line="204">                    <span class="n">theta</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span>
+</span><span data-line="205">
+</span><span data-line="206">                    <span class="c1"># Predicted reward: x^T theta</span>
+</span><span data-line="207">                    <span class="n">mean</span> <span class="o">=</span> <span class="n">current_context</span> <span class="o">@</span> <span class="n">theta</span>
+</span><span data-line="208">
+</span><span data-line="209">                    <span class="c1"># Confidence interval: alpha * sqrt(x^T A^-1 x)</span>
+</span><span data-line="210">                    <span class="n">variance</span> <span class="o">=</span> <span class="n">current_context</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">current_context</span>
+</span><span data-line="211">                    <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
+</span><span data-line="212">
+</span><span data-line="213">                    <span class="n">ucb_score</span> <span class="o">=</span> <span class="n">mean</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">std</span>
+</span><span data-line="214">
+</span><span data-line="215">                    <span class="n">scores</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">ucb_score</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+</span><span data-line="216">
+</span><span data-line="217">                <span class="c1"># Sort by score (descending)</span>
+</span><span data-line="218">                <span class="n">scores</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="219">
+</span><span data-line="220">                <span class="k">for</span> <span class="n">score</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">:</span>
+</span><span data-line="221">                    <span class="c1"># Request points from the selected heuristic</span>
+</span><span data-line="222">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="223">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="224">                        <span class="c1"># Attach context to points!</span>
+</span><span data-line="225">                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="226">                            <span class="n">p</span><span class="o">.</span><span class="n">context_vector</span> <span class="o">=</span> <span class="n">current_context</span>
+</span><span data-line="227">                        <span class="k">return</span> <span class="n">new_points</span>
+</span><span data-line="228">
+</span><span data-line="229">                <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="230">
+</span><span data-line="231">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
+</span><span data-line="232">
+</span><span data-line="233">        <span class="k">return</span> <span class="n">points</span></div>
 
-</span><span data-line="233">
-</span><span data-line="234">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="235"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
-</span><span data-line="236">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="237">        <span class="c1"># Report max theta magnitude</span>
-</span><span data-line="238">        <span class="n">max_theta</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="239">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-</span><span data-line="240">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
-</span><span data-line="241">             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A_inv&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_b&quot;</span><span class="p">):</span>
-</span><span data-line="242">                 <span class="n">theta</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span>
-</span><span data-line="243">                 <span class="n">norm_theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-</span><span data-line="244">                 <span class="k">if</span> <span class="n">norm_theta</span> <span class="o">&gt;</span> <span class="n">max_theta</span><span class="p">:</span>
-</span><span data-line="245">                     <span class="n">max_theta</span> <span class="o">=</span> <span class="n">norm_theta</span>
-</span><span data-line="246">                     <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
-</span><span data-line="247">
-</span><span data-line="248">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
-</span><span data-line="249">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;max_theta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">max_theta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span>
-</span><span data-line="250">        <span class="k">return</span> <span class="n">info</span></div>
+</span><span data-line="234">
+</span><span data-line="235">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="236"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
+</span><span data-line="237">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="238">        <span class="c1"># Report max theta magnitude</span>
+</span><span data-line="239">        <span class="n">max_theta</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="240">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="241">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+</span><span data-line="242">             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A_inv&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_b&quot;</span><span class="p">):</span>
+</span><span data-line="243">                 <span class="n">theta</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span>
+</span><span data-line="244">                 <span class="n">norm_theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span><span data-line="245">                 <span class="k">if</span> <span class="n">norm_theta</span> <span class="o">&gt;</span> <span class="n">max_theta</span><span class="p">:</span>
+</span><span data-line="246">                     <span class="n">max_theta</span> <span class="o">=</span> <span class="n">norm_theta</span>
+</span><span data-line="247">                     <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
+</span><span data-line="248">
+</span><span data-line="249">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
+</span><span data-line="250">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;max_theta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">max_theta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="251">        <span class="k">return</span> <span class="n">info</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

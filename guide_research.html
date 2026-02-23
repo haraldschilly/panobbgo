@@ -128,6 +128,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#short-term-improvements-3-6-months">Short-Term Improvements (3-6 months)</a></li>
 <li><a class="reference internal" href="#medium-term-research-6-12-months">Medium-Term Research (6-12 months)</a></li>
 <li><a class="reference internal" href="#long-term-vision-1-2-years">Long-Term Vision (1-2 years)</a></li>
+<li><a class="reference internal" href="#benchmark-script">Benchmark Script</a></li>
+<li><a class="reference internal" href="#strategies-compared">Strategies Compared</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#contributing-to-research">Contributing to Research</a><ul>
@@ -590,6 +592,52 @@ uses probabilistic selection, but without explicit temperature</p>
 <li><p>Physical constraint discovery</p></li>
 </ul>
 </li>
+</ol>
+<blockquote>
+<div><p>Bandit Strategy Benchmarking</p>
+</div></blockquote>
+<hr class="docutils" />
+<p>Panobbgo includes a comprehensive benchmarking suite for comparing different
+adaptive strategies (multi-armed bandits).</p>
+</section>
+<section id="benchmark-script">
+<h3>Benchmark Script<a class="headerlink" href="#benchmark-script" title="Link to this heading">¶</a></h3>
+<p>The script <code class="docutils literal notranslate"><span class="pre">benchmarks/run_bandit_comparison.py</span></code> allows you to empirically
+compare the performance of:</p>
+<ul class="simple">
+<li><p><strong>RoundRobin</strong>: Deterministic baseline</p></li>
+<li><p><strong>Rewarding</strong>: Softmax-based adaptive strategy</p></li>
+<li><p><strong>UCB</strong>: Upper Confidence Bound (UCB1)</p></li>
+<li><p><strong>Thompson</strong>: Thompson Sampling (Beta-Bernoulli)</p></li>
+<li><p><strong>LinUCB</strong>: Contextual bandit using problem features</p></li>
+</ul>
+<p>Usage:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmarks/run_bandit_comparison.py
+</span></pre></div>
+</div>
+<p>This generates convergence plots and a summary CSV in <code class="docutils literal notranslate"><span class="pre">benchmarks/results_bandits/</span></code>.</p>
+</section>
+<section id="strategies-compared">
+<h3>Strategies Compared<a class="headerlink" href="#strategies-compared" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>StrategyRoundRobin</strong>:
+Cycles through heuristics in a fixed order. Serves as a robust baseline
+that ensures all heuristics get equal resources.</p></li>
+<li><p><strong>StrategyRewarding</strong>:
+Uses a weighted probability distribution (Softmax) based on recent performance.
+Rewards are discounted over time to adapt to changing landscapes.</p></li>
+<li><p><strong>StrategyUCB</strong>:
+Balances exploration (uncertainty) and exploitation (average reward) using
+the UCB1 algorithm. Effective for stationary distributions but adapts slowly.</p></li>
+<li><p><strong>StrategyThompsonSampling</strong>:
+Maintains a Beta distribution for each heuristic’s success probability.
+Samples from these distributions to select heuristics, naturally handling
+exploration-exploitation trade-offs.</p></li>
+<li><p><strong>StrategyLinUCB</strong>:
+Learns a linear mapping from context features (e.g., budget progress,
+global success rate) to expected reward for each heuristic.
+Allows the strategy to learn <em>when</em> to use specific heuristics (e.g.,
+exploration early, local search late).</p></li>
 </ol>
 </section>
 </section>

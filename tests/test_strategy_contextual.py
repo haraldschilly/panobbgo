@@ -99,7 +99,7 @@ class TestStrategyContextual(PanobbgoTestCase):
         strategy = StrategyLinUCB(problem, parse_args=False)
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = max_eval
-        strategy.config.linucb_alpha = 0.1  # Lower exploration to favor exploitation
+        strategy.config.linucb_alpha = 1.0  # Moderate exploration to allow switching
         # Disable convergence check to ensure we run full budget
         strategy.config.stop_on_convergence = False
 

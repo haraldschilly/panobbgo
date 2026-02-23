@@ -390,6 +390,58 @@ Long-Term Vision (1-2 years)
    - Symbolic surrogate optimization
    - Physical constraint discovery
 
+ Bandit Strategy Benchmarking
+----------------------------
+
+Panobbgo includes a comprehensive benchmarking suite for comparing different
+adaptive strategies (multi-armed bandits).
+
+Benchmark Script
+~~~~~~~~~~~~~~~~
+
+The script ``benchmarks/run_bandit_comparison.py`` allows you to empirically
+compare the performance of:
+
+- **RoundRobin**: Deterministic baseline
+- **Rewarding**: Softmax-based adaptive strategy
+- **UCB**: Upper Confidence Bound (UCB1)
+- **Thompson**: Thompson Sampling (Beta-Bernoulli)
+- **LinUCB**: Contextual bandit using problem features
+
+Usage:
+
+.. code-block:: bash
+
+   uv run python benchmarks/run_bandit_comparison.py
+
+This generates convergence plots and a summary CSV in ``benchmarks/results_bandits/``.
+
+Strategies Compared
+~~~~~~~~~~~~~~~~~~~
+
+1. **StrategyRoundRobin**:
+   Cycles through heuristics in a fixed order. Serves as a robust baseline
+   that ensures all heuristics get equal resources.
+
+2. **StrategyRewarding**:
+   Uses a weighted probability distribution (Softmax) based on recent performance.
+   Rewards are discounted over time to adapt to changing landscapes.
+
+3. **StrategyUCB**:
+   Balances exploration (uncertainty) and exploitation (average reward) using
+   the UCB1 algorithm. Effective for stationary distributions but adapts slowly.
+
+4. **StrategyThompsonSampling**:
+   Maintains a Beta distribution for each heuristic's success probability.
+   Samples from these distributions to select heuristics, naturally handling
+   exploration-exploitation trade-offs.
+
+5. **StrategyLinUCB**:
+   Learns a linear mapping from context features (e.g., budget progress,
+   global success rate) to expected reward for each heuristic.
+   Allows the strategy to learn *when* to use specific heuristics (e.g.,
+   exploration early, local search late).
+
 Contributing to Research
 ------------------------
 

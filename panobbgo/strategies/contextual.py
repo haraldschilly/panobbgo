@@ -40,7 +40,8 @@ class StrategyLinUCB(StrategyBase):
 
     def __init__(self, problem, **kwargs):
         self.local_best = None  # Track best internally to avoid event bus race conditions
-        self.alpha = kwargs.get('linucb_alpha', 0.5)  # Exploration parameter
+        # Default alpha increased to 2.0 to encourage exploration
+        self.alpha = kwargs.get('linucb_alpha', 2.0)
         self._lock = threading.RLock()
 
         # LinUCB state per heuristic: A (d x d), b (d), theta (d)

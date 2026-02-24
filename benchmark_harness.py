@@ -202,6 +202,14 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 {"problem": p, "strategy": s, "before": b, "after": a}
                 for p, s, b, a in comparison.degraded
             ],
+            "only_before": [
+                {"problem": p, "strategy": s, "score": sc}
+                for p, s, sc in comparison.only_before
+            ],
+            "only_after": [
+                {"problem": p, "strategy": s, "score": sc}
+                for p, s, sc in comparison.only_after
+            ],
         }
         print(json.dumps(out, indent=2))
 

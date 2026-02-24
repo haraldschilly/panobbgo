@@ -55,16 +55,17 @@ Score interpretation:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
-import warnings
+import threading
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from panobbgo.benchmark import BenchmarkSuite, ProblemSpec, StrategySpec
+from panobbgo.benchmark import ProblemSpec, StrategySpec
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ from panobbgo.benchmark import BenchmarkSuite, ProblemSpec, StrategySpec
 
 def _make_quick_problems() -> List[ProblemSpec]:
     """Three problems: easy, medium, hard – fast to run."""
-    from panobbgo.lib.classic import Rosenbrock, Rastrigin, Griewank
+    from panobbgo.lib.classic import Rosenbrock, Rastrigin
 
     return [
         ProblemSpec(
@@ -191,12 +192,6 @@ def _make_standard_problems() -> List[ProblemSpec]:
 def _make_full_problems() -> List[ProblemSpec]:
     """Extended problem set including higher-dimensional variants."""
     from panobbgo.lib.classic import (
-        Rosenbrock,
-        Rastrigin,
-        Ackley,
-        Griewank,
-        Himmelblau,
-        StyblinskiTang,
         Schwefel,
         DixonPrice,
         Zakharov,
@@ -262,8 +257,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
 
 def _make_standard_strategies() -> List[StrategySpec]:
     """Three strategies: baseline, adaptive, bandit."""
-    from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding, StrategyUCB
-    from panobbgo.heuristics import Random, Nearby, NelderMead, Center, LatinHypercube
+    from panobbgo.strategies import StrategyUCB
+    from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
 
     quick = _make_quick_strategies()
     ucb = StrategySpec(
@@ -286,9 +281,7 @@ def _make_full_strategies() -> List[StrategySpec]:
         Random,
         Nearby,
         NelderMead,
-        Center,
         LatinHypercube,
-        LBFGSB,
     )
 
     base = _make_standard_strategies()
@@ -521,12 +514,14 @@ class ProblemStrategyResult:
         # Composite score: mean over runs of the "hitting fraction".
         # For each run: solve_fraction = 1 - (hit_eval - 1) / budget   if solved
         #                                0                               otherwise
-        # This is in [0, 1]: 1 = solved at eval 1, epsilon = solved at eval budget.
+        # This is in (0, 1]: 1 = solved at eval 1, 1/budget = solved at last eval.
+        # Failure always scores 0.0, so even solving at the last eval is
+        # strictly better than not solving at all.
         solve_fractions = []
         for run in self.runs:
             hit = run.first_success_eval
             if hit is not None:
-                frac = 1.0 - (hit - 1) / max(1, self.budget - 1)
+                frac = 1.0 - (hit - 1) / max(1, self.budget)
                 solve_fractions.append(max(0.0, min(1.0, frac)))
             else:
                 solve_fractions.append(0.0)
@@ -747,6 +742,8 @@ class ComparisonResult:
         improved: Problem-strategy pairs where ``score_after > score_before + eps``.
         degraded: Problem-strategy pairs where ``score_after < score_before - eps``.
         unchanged: Problem-strategy pairs with no significant change.
+        only_before: Pairs present only in the baseline (not compared).
+        only_after: Pairs present only in the candidate (not compared).
     """
 
     before: str
@@ -758,6 +755,8 @@ class ComparisonResult:
     improved: List[Tuple[str, str, float, float]]  # (problem, strategy, before, after)
     degraded: List[Tuple[str, str, float, float]]
     unchanged: List[Tuple[str, str, float, float]]
+    only_before: List[Tuple[str, str, float]] = field(default_factory=list)
+    only_after: List[Tuple[str, str, float]] = field(default_factory=list)
 
     def print_summary(self, width: int = 72) -> None:
         """Print a formatted comparison to stdout."""
@@ -784,6 +783,16 @@ class ComparisonResult:
             print(
                 f"  Unchanged ({len(self.unchanged)}): "
                 + ", ".join(f"{p}/{s}" for p, s, _, _ in self.unchanged)
+            )
+        if self.only_before:
+            print(
+                f"  Only in baseline ({len(self.only_before)}): "
+                + ", ".join(f"{p}/{s}" for p, s, _ in self.only_before)
+            )
+        if self.only_after:
+            print(
+                f"  Only in candidate ({len(self.only_after)}): "
+                + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
             )
         print(bar)
 
@@ -823,17 +832,25 @@ def compare(
     degraded = []
     unchanged = []
 
-    all_keys = sorted(set(before_map) | set(after_map))
-    for key in all_keys:
+    # Only compare pairs present in both results to avoid false
+    # regressions/improvements from differing problem/strategy sets.
+    both_keys = sorted(set(before_map) & set(after_map))
+    ob_keys = sorted(set(before_map) - set(after_map))
+    oa_keys = sorted(set(after_map) - set(before_map))
+
+    for key in both_keys:
         prob, strat = key
-        b = before_map.get(key, 0.0)
-        a = after_map.get(key, 0.0)
+        b = before_map[key]
+        a = after_map[key]
         if a - b > eps:
             improved.append((prob, strat, b, a))
         elif b - a > eps:
             degraded.append((prob, strat, b, a))
         else:
             unchanged.append((prob, strat, b, a))
+
+    only_before = [(p, s, before_map[(p, s)]) for p, s in ob_keys]
+    only_after = [(p, s, after_map[(p, s)]) for p, s in oa_keys]
 
     delta = after.composite_score - before.composite_score
     rel_delta = (
@@ -852,6 +869,8 @@ def compare(
         improved=improved,
         degraded=degraded,
         unchanged=unchanged,
+        only_before=only_before,
+        only_after=only_after,
     )
 
 
@@ -1036,12 +1055,14 @@ class BenchmarkHarness:
     def _derive_seed(base: int, problem: str, strategy: str, rep: int) -> int:
         """Derive a deterministic seed from run parameters.
 
+        Uses SHA-256 (not Python's ``hash()``) so that the result is stable
+        across interpreter invocations regardless of ``PYTHONHASHSEED``.
+
         The result is always a non-negative 32-bit integer so it can be passed
         directly to ``numpy.random.seed``.
         """
-        # Use a simple but collision-resistant hash
-        raw = hash(f"{base}:{problem}:{strategy}:{rep}")
-        return raw % (2**32)
+        raw = hashlib.sha256(f"{base}:{problem}:{strategy}:{rep}".encode()).hexdigest()
+        return int(raw, 16) % (2**32)
 
     def _run_single(
         self,
@@ -1066,8 +1087,6 @@ class BenchmarkHarness:
         Returns:
             A populated :class:`RunRecord`.
         """
-        import signal as _signal
-
         f_opt = prob_spec.known_optima[0]["fx"]
         tolerance = prob_spec.tolerance
 
@@ -1086,21 +1105,36 @@ class BenchmarkHarness:
             strategy.config.max_eval = budget
             strategy.config.evaluation_method = "threaded"
 
-            # Run with optional wall-clock timeout
+            # Run with optional wall-clock timeout.
+            # We use a daemon thread + join(timeout) instead of SIGALRM
+            # because SIGALRM can corrupt state in threaded evaluation workers.
             timeout = self.config.timeout_per_run
-            if timeout is not None:
+            run_error: Optional[Exception] = None
 
-                def _timeout_handler(signum: int, frame: Any) -> None:
-                    raise TimeoutError(f"Run timed out after {timeout:.0f}s")
-
-                _signal.signal(_signal.SIGALRM, _timeout_handler)
-                _signal.alarm(int(timeout))
+            def _run_strategy() -> None:
+                nonlocal run_error
                 try:
                     strategy.start()
-                finally:
-                    _signal.alarm(0)
-            else:
-                strategy.start()
+                except Exception as e:
+                    run_error = e
+
+            runner = threading.Thread(target=_run_strategy, daemon=True)
+            runner.start()
+            runner.join(timeout=timeout)
+
+            if runner.is_alive():
+                # Timed out — signal the strategy to stop gracefully
+                try:
+                    strategy._stopped = True  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                runner.join(timeout=5.0)
+                raise TimeoutError(
+                    f"Run timed out after {timeout:.0f}s"
+                )
+
+            if run_error is not None:
+                raise run_error
 
             # Best result
             best_result = strategy.best

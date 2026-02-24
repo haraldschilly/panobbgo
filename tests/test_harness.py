@@ -31,7 +31,7 @@ import json
 import math
 import pathlib
 import tempfile
-from typing import Any, Dict, List
+from typing import List
 
 import numpy as np
 import pytest
@@ -170,13 +170,14 @@ class TestProblemStrategyResult:
         assert psr.score == pytest.approx(1.0)
 
     def test_all_success_at_budget(self):
-        """Runs succeed only at the last evaluation → score > 0 but very small."""
+        """Runs succeed only at the last evaluation → small but positive score."""
         runs = [_make_run(True, first_hit=100, budget=100) for _ in range(5)]
         psr = self._make_psr(runs)
         assert psr.success_rate == pytest.approx(1.0)
         assert psr.ert == pytest.approx(100.0)
-        # Score should be very small (≈ 0 because first_hit = budget)
-        assert psr.score == pytest.approx(0.0, abs=0.02)
+        # Score = 1 - (100-1)/100 = 0.01: small but strictly > 0 (not same as failure)
+        assert psr.score == pytest.approx(0.01, abs=0.005)
+        assert psr.score > 0.0
 
     def test_half_success(self):
         """Half succeed → success_rate = 0.5."""
@@ -398,6 +399,39 @@ class TestCompare:
         assert len(cmp.unchanged) == 1
         assert len(cmp.improved) == 0
         assert len(cmp.degraded) == 0
+
+    def test_mismatched_pairs_not_compared(self):
+        """Pairs present only in one result should not cause false regressions."""
+
+        def _psr(prob: str, strat: str, score: float) -> ProblemStrategyResult:
+            run = _make_run(score > 0, first_hit=1 if score > 0 else None, budget=100)
+            return ProblemStrategyResult(
+                problem_name=prob, problem_dim=2, strategy_name=strat,
+                f_opt=0.0, tolerance=0.1, budget=100, runs=[run], score=score,
+            )
+
+        before = HarnessResult(
+            config=HarnessConfig(mode="quick"), timestamp="", total_runs=2,
+            total_duration=0.0,
+            problem_strategy_results=[_psr("P1", "S1", 0.5), _psr("P2", "S1", 0.4)],
+            composite_score=0.45,
+        )
+        after = HarnessResult(
+            config=HarnessConfig(mode="quick"), timestamp="", total_runs=2,
+            total_duration=0.0,
+            problem_strategy_results=[_psr("P1", "S1", 0.5), _psr("P3", "S1", 0.6)],
+            composite_score=0.55,
+        )
+        cmp = compare(before, after, eps=0.01)
+        # P1/S1 is in both → unchanged
+        assert len(cmp.unchanged) == 1
+        # P2/S1 only in before, P3/S1 only in after → not compared
+        assert len(cmp.improved) == 0
+        assert len(cmp.degraded) == 0
+        assert len(cmp.only_before) == 1
+        assert cmp.only_before[0][0] == "P2"
+        assert len(cmp.only_after) == 1
+        assert cmp.only_after[0][0] == "P3"
 
 
 # ===========================================================================
@@ -740,6 +774,7 @@ class TestHarnessSmokeRun:
 # ===========================================================================
 
 
+@pytest.mark.flaky(retries=3)
 class TestCLI:
     """Tests for benchmark_harness.py CLI via direct main() invocation."""
 

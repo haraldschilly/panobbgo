@@ -61,6 +61,51 @@ Panobbgo solves **expensive, noisy black-box optimization** problems. Key domain
 *   **Restart capability**: Long-running optimizations need persistence. The storage/database backend enables checkpointing and restarting from previous results, which is critical when evaluations take significant wall-clock time.
 *   **Phased strategies**: When using `StrategyPhased`, each phase has a budget allocation. The system must account for pending (in-flight) evaluations when enforcing phase boundaries to prevent fast-generating strategies from consuming the next phase's budget.
 
+## Benchmark Harness (Self-Improvement Workflow)
+
+A reproducible benchmark harness is available for measuring the impact of code changes on optimization performance. **Agents MUST use this when modifying strategies, heuristics, or core optimization logic.**
+
+### Workflow
+
+```bash
+# 1. Capture baseline BEFORE making changes
+uv run python benchmark_harness.py run --quick --output before.json
+
+# 2. Make your changes to panobbgo
+
+# 3. Capture results AFTER changes
+uv run python benchmark_harness.py run --quick --output after.json
+
+# 4. Compare — exits with code 2 if regressions detected
+uv run python benchmark_harness.py compare before.json after.json
+```
+
+### Modes
+
+*   `--quick`: 3 problems, 2 strategies, 3 reps, 75 evals (~30s) — use during development
+*   `--standard`: 8 problems, 3 strategies, 5 reps, 200 evals — use before merging
+*   `--full`: 11 problems, 4 strategies, 10 reps, 500 evals — thorough validation
+
+### Key files
+
+*   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, comparison
+*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands)
+*   `tests/test_harness.py` — comprehensive test suite for the harness itself
+
+### Score interpretation
+
+*   **1.0** = solved at first evaluation (theoretical best)
+*   **0.7+** = good; strategies consistently find optima efficiently
+*   **0.3** = poor; strategies rarely find optima
+*   **0.0** = never found any optimum
+
+### When to use
+
+*   Modifying any strategy (`strategies/`)
+*   Modifying any heuristic (`heuristics/`)
+*   Changing core evaluation or constraint handling logic
+*   Adding new benchmark problems or strategies to the registry
+
 ## CI/CD and Testing
 
 *   **Local Testing**: Run `./test.sh` to replicate the full CI pipeline locally

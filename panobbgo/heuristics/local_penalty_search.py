@@ -14,8 +14,90 @@
 # limitations under the License.
 
 from panobbgo.core import Heuristic
+from panobbgo.lib import Point
 import multiprocessing
-import threading
+import time
+from queue import Full
+
+
+def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
+    """
+    Worker function that runs optimization in a separate process.
+
+    Args:
+        pipe: Multiprocessing connection for communication with parent.
+        method: Optimization method (str).
+        dim: Problem dimension.
+        bounds: List of (min, max) tuples.
+        max_iter: Maximum iterations for the optimizer.
+    """
+    try:
+        from scipy.optimize import minimize
+    except ImportError:
+        return
+
+    def objective_function(x):
+        # 1. Send candidate point to parent for evaluation
+        try:
+            pipe.send({"type": "eval", "x": x})
+        except Exception:
+            raise StopIteration("Pipe closed")
+
+        # 2. Wait for penalized objective value
+        # Use a loop with poll/timeout to detect aborts or parent death
+        start_wait = time.time()
+        while True:
+            if time.time() - start_wait > 600.0:  # 10 minute timeout per evaluation
+                raise StopIteration("Timeout waiting for evaluation result")
+
+            try:
+                if pipe.poll(0.1):
+                    msg = pipe.recv()
+                    if msg["type"] == "result":
+                        return msg["value"]
+                    elif msg["type"] == "stop":
+                        raise StopIteration("Stop requested")
+                    elif msg["type"] == "abort":
+                        raise StopIteration("Optimization aborted")
+            except (EOFError, OSError):
+                raise StopIteration("Pipe closed")
+
+    while True:
+        try:
+            # Wait for start command
+            if pipe.poll(1.0):
+                msg = pipe.recv()
+                if msg["type"] == "stop":
+                    break
+
+                if msg["type"] == "start":
+                    x0 = msg["x0"]
+                    # Run optimization
+                    try:
+                        options = {'maxiter': max_iter}
+                        res = minimize(
+                            objective_function,
+                            x0,
+                            method=method,
+                            bounds=bounds,
+                            options=options
+                        )
+                        # Notify parent we are done
+                        pipe.send({"type": "done", "success": res.success, "message": res.message})
+                    except StopIteration:
+                        # Optimization interrupted (e.g. by stop/abort or pipe close)
+                        pass
+                    except Exception as e:
+                        # Optimization failed for other reasons
+                        try:
+                            pipe.send({"type": "error", "message": str(e)})
+                        except Exception:
+                            pass
+        except (EOFError, OSError):
+            break
+        except Exception:
+            # unexpected error in worker loop
+            break
 
 
 class LocalPenaltySearch(Heuristic):
@@ -24,27 +106,31 @@ class LocalPenaltySearch(Heuristic):
     on the penalized objective function provided by the strategy's constraint handler.
 
     It runs in a separate process and communicates via Pipe.
+    The heuristic thread acts as a bridge:
+    1. Receives "eval" requests from worker -> Emits point to strategy.
+    2. Receives results from strategy -> Sends penalty value back to worker.
     """
 
-    def __init__(self, strategy, method="L-BFGS-B"):
+    def __init__(self, strategy, method="L-BFGS-B", max_iter=50):
         super().__init__(strategy, name="LocalPenaltySearch")
         self.method = method
+        self.max_iter = max_iter
         self.ctx = multiprocessing.get_context("spawn")
         self.parent_conn, self.child_conn = self.ctx.Pipe()
         self.process = None
-        self._waiting_for_result = False
-        self._lock = threading.Lock()
 
         # State tracking
         self._optimization_active = False
+        self._waiting_for_eval = False  # True if worker is waiting for us to send a result
+        self._pending_x = None  # Last point emitted, waiting for result
 
     def __start__(self):
         # Convert bounds to list of tuples for pickling and scipy compatibility
         bounds = [tuple(row) for row in self.problem.box.box]
 
         self.process = self.ctx.Process(
-            target=self._worker,
-            args=(self.child_conn, self.method, self.problem.dim, bounds),
+            target=_local_penalty_search_worker,
+            args=(self.child_conn, self.method, self.problem.dim, bounds, self.max_iter),
             name=f"{self.name}-Worker",
         )
         self.process.daemon = True
@@ -54,8 +140,7 @@ class LocalPenaltySearch(Heuristic):
         super().__stop__()
         # Send stop message
         try:
-            with self._lock:
-                self.parent_conn.send({"type": "stop"})
+            self.parent_conn.send({"type": "stop"})
         except Exception:
             pass
 
@@ -68,123 +153,107 @@ class LocalPenaltySearch(Heuristic):
                 if self.process.is_alive():
                     self.process.kill()
 
-    @staticmethod
-    def _worker(pipe, method, dim, bounds):
-        # Worker loop
-        # Delayed import
+        # Close pipes
         try:
-            from scipy.optimize import minimize
-        except ImportError:
-            return
+            self.parent_conn.close()
+            self.child_conn.close()
+        except Exception:
+            pass
 
-        # Callback for minimize to evaluate function
-        def func(x):
-            # Send x to parent
-            pipe.send({"type": "eval", "x": x})
-            # Wait for response
-            try:
-                # Use poll with timeout to prevent hang if parent dies/stalls
-                if pipe.poll(60.0): # 60 seconds timeout
-                    response = pipe.recv()
-                    if response["type"] == "result":
-                        return response["value"]
-                    elif response["type"] == "abort":
-                        raise StopIteration("Optimization aborted by parent")
-                    elif response["type"] == "stop":
-                        raise StopIteration("Stop heuristic")
-                    else:
-                        raise RuntimeError(f"Unknown response: {response}")
-                else:
-                    # Timeout
-                    raise StopIteration("Optimization timed out waiting for parent")
-            except (EOFError, StopIteration):
-                raise StopIteration
+    def emit_reliable(self, point):
+        """
+        Emits a single point reliably, blocking if necessary until the queue accepts it.
+        """
+        if self._stopped:
+            return False
 
-        while True:
-            # Wait for start command
+        x = self.problem.project(point)
+        p = Point(x, self.name)
+
+        while not self._stopped:
             try:
-                if pipe.poll(1.0):
-                    msg = pipe.recv()
-                    if msg["type"] == "stop":
-                        break
-                    if msg["type"] == "start":
-                        x0 = msg["x0"]
-                        # Run optimization
-                        try:
-                            minimize(func, x0, method=method, bounds=bounds)
-                            # Notify parent we are done with this run
-                            pipe.send({"type": "done"})
-                        except StopIteration:
-                            pass  # Aborted
-                        except Exception:
-                            # Log error or ignore
-                            pass
-            except (EOFError, BrokenPipeError):
-                break
-            except Exception:
-                pass
+                self._output.put(p, timeout=1.0)
+                return True
+            except Full:
+                continue
+            except Exception as e:
+                self.logger.error(f"Error emitting point: {e}")
+                return False
+        return False
 
     def on_start(self):
-        # Start initial optimization
+        # Initial start
         x0 = self.problem.random_point()
         self._start_optimization(x0)
 
         while not self._stopped:
-            if self.parent_conn.poll(0.5):
-                try:
+            try:
+                # Check for messages from worker
+                if self.parent_conn.poll(0.1):
                     msg = self.parent_conn.recv()
+
                     if msg["type"] == "eval":
                         x = msg["x"]
-                        with self._lock:
-                            self._waiting_for_result = True
-                        self.emit(x)
-                    elif msg["type"] == "done":
-                        with self._lock:
-                            self._waiting_for_result = False
+                        self._pending_x = x
+                        self._waiting_for_eval = True
+                        if not self.emit_reliable(x):
+                            self.logger.warning("Failed to emit reliable point, stopping local search.")
                             self._optimization_active = False
-                            # Optimization finished naturally
-                            # We could restart automatically or wait for on_new_best
-                except EOFError:
-                    break
-            else:
+
+                    elif msg["type"] == "done":
+                        self._optimization_active = False
+                        self._waiting_for_eval = False
+                        self._pending_x = None
+                        self.logger.debug(f"Local search finished: {msg.get('message', 'unknown')}")
+
+                    elif msg["type"] == "error":
+                        self.logger.warning(f"Local search error: {msg.get('message')}")
+                        self._optimization_active = False
+                        self._waiting_for_eval = False
+
+            except (EOFError, OSError):
+                self.logger.debug("Pipe closed, stopping heuristic loop")
+                break
+            except Exception as e:
+                self.logger.error(f"Error in LocalPenaltySearch loop: {e}")
+                # Don't break, try to recover
                 pass
 
     def _start_optimization(self, x0):
-        with self._lock:
-            # Only start if not active
-            if not self._optimization_active:
-                try:
-                    self.parent_conn.send({"type": "start", "x0": x0})
-                    self._optimization_active = True
-                    self._waiting_for_result = False
-                except Exception:
-                    pass
+        if not self._optimization_active:
+            try:
+                self.parent_conn.send({"type": "start", "x0": x0})
+                self._optimization_active = True
+                self._waiting_for_eval = False
+                self.logger.debug("Started local search optimization")
+            except Exception as e:
+                self.logger.error(f"Failed to start optimization: {e}")
 
     def on_new_best(self, best):
-        # Restart search from new best if idle
-        with self._lock:
-            if not self._optimization_active:
-                try:
-                    self.parent_conn.send({"type": "start", "x0": best.x})
-                    self._optimization_active = True
-                    self._waiting_for_result = False
-                except Exception:
-                    pass
+        # If idle, restart search from new best
+        if not self._optimization_active:
+            x0 = best.x
+            self._start_optimization(x0)
 
     def on_new_results(self, results):
-        # Filter for my results
+        # We need to find the result corresponding to our pending evaluation
+        if not self._waiting_for_eval:
+            return
+
         my_results = [r for r in results if r.who == self.name]
         if not my_results:
             return
 
-        # Assuming sequential execution, the last result corresponds to current wait
+        # Take the latest one, assuming sequential processing
+        # (the worker blocks waiting for the result)
         result = my_results[-1]
 
-        with self._lock:
-            if self._waiting_for_result:
-                val = self.strategy.constraint_handler.get_penalty_value(result)
-                try:
-                    self.parent_conn.send({"type": "result", "value": val})
-                except Exception:
-                    pass
-                self._waiting_for_result = False
+        # Calculate penalized value
+        val = self.strategy.constraint_handler.get_penalty_value(result)
+
+        try:
+            self.parent_conn.send({"type": "result", "value": val})
+            self._waiting_for_eval = False
+            self._pending_x = None
+        except Exception as e:
+            self.logger.error(f"Failed to send result to worker: {e}")

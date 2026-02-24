@@ -181,9 +181,17 @@ class ConstraintGradient(Heuristic):
         )
 
         try:
+            lp_success = False
             if use_vector:
-                self._solve_lp_direction(best, neighbors_X, neighbors_fx, neighbors_cv_vec, x, dim)
-            else:
+                try:
+                    lp_success = self._solve_lp_direction(best, neighbors_X, neighbors_fx, neighbors_cv_vec, x, dim)
+                except ImportError:
+                    self.logger.warning("Scipy linprog not found, falling back to scalar constraint gradient.")
+                except Exception as e:
+                    self.logger.debug(f"LP direction failed: {e}. Falling back to scalar.")
+
+            # Fallback if LP failed or not used
+            if not lp_success:
                 self._solve_scalar_direction(best, neighbors_X, neighbors_cv, x, dim)
 
         except Exception as e:
@@ -318,10 +326,13 @@ class ConstraintGradient(Heuristic):
             # Check if d is non-zero
             if np.linalg.norm(d) > 1e-9:
                 self._emit_candidates(x, d, is_vector=True)
+                return True
             else:
                  self.logger.debug("LP returned zero step")
+                 return False
         else:
              self.logger.debug(f"LP failed: {res.message}")
+             return False
 
     def _emit_candidates(self, x, direction, is_vector=False):
         """

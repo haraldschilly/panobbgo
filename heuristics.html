@@ -153,6 +153,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.emit_reliable"><code class="docutils literal notranslate">emit_reliable()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
@@ -621,11 +622,14 @@ Then, it randomly selects one point from inside such a cube.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LocalPenaltySearch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'L-BFGS-B'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LocalPenaltySearch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'L-BFGS-B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
 <p>Heuristic that runs a local search using Scipy’s optimizers (e.g. L-BFGS-B, Nelder-Mead)
 on the penalized objective function provided by the strategy’s constraint handler.</p>
-<p>It runs in a separate process and communicates via Pipe.</p>
+<p>It runs in a separate process and communicates via Pipe.
+The heuristic thread acts as a bridge:
+1. Receives “eval” requests from worker -&gt; Emits point to strategy.
+2. Receives results from strategy -&gt; Sends penalty value back to worker.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -635,6 +639,12 @@ on the penalized objective function provided by the strategy’s constraint hand
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.emit_reliable">
+<span class="sig-name descname"><span class="pre">emit_reliable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.emit_reliable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.emit_reliable" title="Link to this definition">¶</a></dt>
+<dd><p>Emits a single point reliably, blocking if necessary until the queue accepts it.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best" title="Link to this definition">¶</a></dt>

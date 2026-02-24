@@ -368,9 +368,12 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
         # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec
         # WE use the mu that was active during the optimization (current_mu), not the new one.
-        new_lambdas = np.maximum(0, self.lambdas + current_mu * cv)
-
-        self.lambdas = new_lambdas
+        if self.lambdas.shape == cv.shape:
+            new_lambdas = np.maximum(0, self.lambdas + current_mu * cv)
+            self.lambdas = new_lambdas
+        else:
+            if hasattr(self, 'logger'):
+                self.logger.warning(f"ALM: Shape mismatch in update_parameters. lambdas {self.lambdas.shape} vs cv {cv.shape}")
 
         if hasattr(self, 'logger'):
             self.logger.debug(f"Updated AL params: mu={self.mu:.2f}, lambdas={self.lambdas}")
@@ -472,6 +475,13 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
                     # Fallback to fx if shapes don't align
                     return
 
+            # Check for NaNs
+            if cv_vec_all is not None:
+                if np.isnan(cv_vec_all).any():
+                    if hasattr(self, "logger"):
+                        self.logger.warning("ALM: NaNs detected in constraint history, using 0.0 for those values.")
+                    cv_vec_all = np.nan_to_num(cv_vec_all)
+
                 # term = max(0, lambda + mu * cv_vec)
                 # Broadcasting: lambdas (k,) + scalar * (N, k) -> (N, k)
                 term = np.maximum(0, self.lambdas + self.mu * cv_vec_all)
@@ -480,6 +490,8 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
                 penalty_term = (1.0 / (2.0 * self.mu)) * (sum_term_sq - sum_lambdas_sq)
                 L_values = fx_all + penalty_term
+            else:
+                L_values = fx_all
 
             # Find minimum
             min_idx = np.argmin(L_values)

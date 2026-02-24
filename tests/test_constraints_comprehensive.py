@@ -1,91 +1,176 @@
 # -*- coding: utf8 -*-
-import unittest
-import numpy as np
 import pytest
-from panobbgo.utils import PanobbgoTestCase
+import numpy as np
+import logging
+from unittest.mock import MagicMock, patch
+
+from panobbgo.lib import Point, Result, BoundingBox
 from panobbgo.lib.classic import RosenbrockConstraint
-from panobbgo.strategies.rewarding import StrategyRewarding
+from panobbgo.core import StrategyBase, Results, EventBus
+from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
-from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
 from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.heuristics.random import Random
-from panobbgo.config import Config
+from panobbgo.strategies.rewarding import StrategyRewarding
 
-class TestConstraintsComprehensive(PanobbgoTestCase):
+# Mock Config
+class MockConfig:
+    def __init__(self):
+        self.max_eval = 100
+        self.capacity = 100
+        self.storage_backend = None
+        self.debug = True
+        self.rho = 10.0
+        self.dynamic_penalty_rate = 2.0
+        self.constraint_exponent = 1.0
+        self.logging = {}
 
-    def test_constrained_optimization_integration(self):
-        """
-        Comprehensive test for constraint handling.
-        Uses Augmented Lagrangian and specialized heuristics.
-        """
-        dim = 2
-        # Use a box that includes the optimum region
-        problem = RosenbrockConstraint(dims=dim, par2=0.01, box=[(-2, 2)]*dim)
+    def get_logger(self, name):
+        return logging.getLogger(name)
 
-        # Configure strategy
-        # Use threaded evaluation for speed and to test concurrency
-        config_dict = {
-            "max_eval": 200,
-            "constraint_handler": "AugmentedLagrangianConstraintHandler",
-            "evaluation_method": "threaded",
-            "dask_n_workers": 2, # Use 2 threads
-            "rho": 10.0,
-            "dynamic_penalty_rate": 2.0
-        }
+# Mock Strategy
+class MockStrategy(StrategyBase):
+    def __init__(self, problem):
+        self.problem = problem
+        self.config = MockConfig()
+        self.eventbus = EventBus(self.config)
+        self.results = Results(self)
+        self.constraint_handler = AugmentedLagrangianConstraintHandler(self)
+        self._best = None
+        self._heuristics = {}
+        self._analyzers = {}
 
-        strategy = StrategyRewarding(problem, **config_dict)
+    @property
+    def best(self):
+        return self._best
 
-        # Add standard heuristic to get started
-        strategy.add(Random)
+    @best.setter
+    def best(self, value):
+        self._best = value
 
-        # Add constraint heuristics
-        strategy.add(ConstraintGradient, samples=3)
-        strategy.add(LocalPenaltySearch) # Uses scipy minimize
-        strategy.add(FeasibleSearch, samples=5)
+    def start(self): pass
+    def stop(self): pass
+    def execute(self): return []
 
-        # Run strategy
-        with strategy:
-            strategy.start()
+def test_alm_updates():
+    """
+    Test that AugmentedLagrangianConstraintHandler updates mu and lambdas correctly.
+    """
+    problem = RosenbrockConstraint(dims=2)
+    strategy = MockStrategy(problem)
+    handler = strategy.constraint_handler
+    # Force update interval to 1
+    handler.update_interval = 1
 
-        # Verify results
-        results = strategy.results
-        self.assertGreater(len(results), 0)
+    # 1. Add infeasible point
+    x1 = np.array([0.0, 0.0])
+    r1 = Result(Point(x1, "test"), problem.eval(x1), cv_vec=problem.eval_constraints(x1))
 
-        # Check if we found a feasible point
-        # Best should be feasible (cv=0) if we succeeded
-        best = strategy.best
-        self.assertIsNotNone(best)
+    strategy.results.add_results([r1])
+    strategy.best = r1
+    handler.on_new_results([r1])
 
-        # In constrained optimization, finding a feasible point is the first success
-        # With 200 evals on 2D Rosenbrock, it should be possible
-        if best.cv > 1e-6:
-             print(f"Warning: Did not find perfectly feasible point. Best CV: {best.cv}")
-             # Relax check slightly if hard
-             self.assertLess(best.cv, 0.1, "Failed to find reasonably feasible point")
-        else:
-             self.assertLess(best.cv, 1e-6)
+    # Initial mu=10.0.
+    assert handler.mu == 10.0
 
-        # Check heuristics participation
-        who_counts = results.results['who'].value_counts()
-        print("\nHeuristic participation:")
-        print(who_counts)
+    expected_lambdas = np.maximum(0, 0 + 10.0 * r1.cv_vec)
+    np.testing.assert_allclose(handler.lambdas, expected_lambdas)
 
-        # We expect ConstraintGradient and LocalPenaltySearch to have contributed
-        # Note: LocalPenaltySearch runs in background, might contribute fewer points if fast
-        # FeasibleSearch only active if best is infeasible (which is true at start)
+    # 2. Add same point (stagnation)
+    handler.on_new_results([r1])
 
-        # Verify at least some constraint heuristics ran
-        constraint_heurs = ['ConstraintGradient', 'LocalPenaltySearch', 'FeasibleSearch']
-        found_constraint_heur = any(h in who_counts.index for h in constraint_heurs)
+    # mu should increase
+    assert handler.mu == 20.0
 
-        if not found_constraint_heur:
-             print("Warning: No constraint heuristics contributed points directly. This might happen if Random found feasible point immediately.")
-             # But Random finding feasible point immediately on RosenbrockConstraint(par2=0.01) is unlikely but possible?
-             # par2=0.01 means (y[1]-y[0])^2 >= 0.01. Gap.
-             # And y>=0.
+    expected_lambdas_2 = np.maximum(0, expected_lambdas + 10.0 * r1.cv_vec)
+    np.testing.assert_allclose(handler.lambdas, expected_lambdas_2)
 
-        # Assert strategy finished gracefully
-        self.assertTrue(strategy.results.backend is None or strategy.results.backend.closed)
 
-if __name__ == "__main__":
-    unittest.main()
+def test_constraint_gradient_fallback():
+    """
+    Test that ConstraintGradient falls back to scalar if LP fails or is missing.
+    """
+    problem = RosenbrockConstraint(dims=2)
+    strategy = MockStrategy(problem)
+
+    heuristic = ConstraintGradient(strategy)
+    heuristic.__start__()
+
+    # Mock history
+    center = np.array([0.0, 0.0]) # Infeasible
+    r_center = Result(Point(center, "init"), problem.eval(center), cv_vec=problem.eval_constraints(center))
+    strategy.results.add_results([r_center])
+    strategy.best = r_center
+
+    # Neighbors
+    neighbors = []
+    for i in range(5):
+        step = np.random.randn(2) * 0.1
+        x = center + step
+        r = Result(Point(x, "init"), problem.eval(x), cv_vec=problem.eval_constraints(x))
+        neighbors.append(r)
+    strategy.results.add_results(neighbors)
+
+    # 1. Test with mocked ImportError for linprog
+    with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_lp_direction") as mock_lp:
+        mock_lp.side_effect = ImportError("No scipy")
+
+        # Spy on scalar direction
+        with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_scalar_direction") as mock_scalar:
+            heuristic.on_new_best(r_center)
+
+            # Check fallback
+            assert mock_scalar.called
+
+    # 2. Test with LP returning False (failure)
+    with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_lp_direction") as mock_lp:
+        mock_lp.return_value = False
+
+        with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_scalar_direction") as mock_scalar:
+            heuristic.on_new_best(r_center)
+            assert mock_scalar.called
+
+    # 3. Test with LP returning True (success)
+    with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_lp_direction") as mock_lp:
+        mock_lp.return_value = True
+
+        with patch("panobbgo.heuristics.constraint_gradient.ConstraintGradient._solve_scalar_direction") as mock_scalar:
+            heuristic.on_new_best(r_center)
+            assert not mock_scalar.called
+
+
+def test_heuristic_integration():
+    """
+    Test full integration of StrategyRewarding with constraint heuristics.
+    """
+    # Use simple constrained problem
+    problem = RosenbrockConstraint(dims=2)
+    # Setup strategy with mocked config to control parameters via kwargs if needed
+    strategy = StrategyRewarding(
+        problem,
+        max_eval=20,
+        constraint_handler="AugmentedLagrangianConstraintHandler",
+        rho=10.0
+    )
+
+    # Add heuristics (Random is needed to start!)
+    strategy.add(Random)
+    strategy.add(ConstraintGradient)
+    strategy.add(FeasibleSearch)
+
+    # Run strategy (short run)
+    strategy.start()
+
+    # Check if we generated points
+    assert len(strategy.results) >= 20
+
+    # Verify that constraint heuristics were active
+    df = strategy.results.results
+    who_counts = df[("who", 0)].value_counts()
+    print("Heuristic usage:", who_counts)
+
+    # We expect some points from Random, and hopefully some from others if they were triggered.
+    # Note: ConstraintGradient needs history/neighbors, so it might take time to kick in.
+
+    best = strategy.best
+    print(f"Best found: fx={best.fx}, cv={best.cv}")

@@ -13,6 +13,26 @@
 
 ## Recent Improvements
 
+### Benchmark Harness for Agent Feedback Loops (2026-02-23)
+- [x] **Implemented `panobbgo/harness.py` – Reproducible Benchmark Harness**
+  - `BenchmarkHarness` class: runs seeded, reproducible benchmark suites
+  - Three modes: `quick` (3 problems × 2 strategies × 3 reps, 75 evals), `standard`, `full`
+  - Per-run seed derivation for best-effort reproducibility across runs
+  - Convergence trace extraction directly from the MultiIndex results DataFrame
+  - ERT (Expected Running Time) and per-pair performance score in [0, 1]
+  - Composite score = mean of per-pair scores; single scalar for before/after comparison
+  - Full JSON serialisation / deserialisation (`save()` / `load()`)
+  - `compare()` helper: diff two `HarnessResult` files, flag regressions/improvements
+- [x] **`benchmark_harness.py` – CLI for Agent Loop**
+  - `run`: execute benchmarks and save a timestamped JSON file
+  - `score`: print human-readable summary + optional machine-readable JSON
+  - `compare`: side-by-side diff with `--fail-on-regression` exit-code support
+  - `list`: enumerate available problems and strategies per mode
+- [x] **`tests/test_harness.py` – 60 tests covering all harness components**
+  - Unit tests for metrics, serialisation, comparison, seed derivation
+  - Smoke integration tests for end-to-end runs (single problem, 30 evals)
+  - CLI tests via `main()` invocation
+
 ### Contextual Bandit Strategy (2025-01-13)
 - [x] **Implemented StrategyLinUCB (Contextual Bandits)**
   - Implemented `StrategyLinUCB` with disjoint linear models for each heuristic.

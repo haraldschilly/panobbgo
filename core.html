@@ -157,6 +157,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.heuristics"><code class="docutils literal notranslate">heuristics</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.info"><code class="docutils literal notranslate">info()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.init_module"><code class="docutils literal notranslate">init_module()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate">initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate">name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate">on_converged()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.start"><code class="docutils literal notranslate">start()</span></code></a></li>
@@ -696,6 +697,13 @@ Returns a mock object with attributes needed by strategies.</p>
 <dd class="field-odd"><p><strong>module</strong> (<a class="reference internal" href="#panobbgo.core.Module" title="panobbgo.core.Module"><em>Module</em></a>)</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.initialize" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the strategy components (heuristics, analyzers) without running the optimization loop.
+Useful for manual control or custom runners (e.g. benchmarks).</p>
 </dd></dl>
 
 <dl class="py property">

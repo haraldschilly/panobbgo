@@ -133,6 +133,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
 <li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
 <li><a class="reference internal" href="#strategythompsonsampling">StrategyThompsonSampling</a></li>
+<li><a class="reference internal" href="#strategyucb">StrategyUCB</a></li>
+<li><a class="reference internal" href="#strategylinucb">StrategyLinUCB</a></li>
 <li><a class="reference internal" href="#strategyphased">StrategyPhased</a></li>
 </ul>
 </li>
@@ -498,6 +500,10 @@ Can be more robust for equality constraints or hard inequality constraints.</p><
 Uses the $epsilon$-Constrained Method. Initially treats points with small violations ($cv(x) le epsilon(t)$) as feasible.
 $epsilon(t)$ decreases from <cite>epsilon_start</cite> to 0 over <cite>epsilon_cutoff</cite> evaluations.
 Effective for finding feasible regions in difficult problems by approaching the boundary gradually.</p></li>
+<li><p><strong>FilterConstraintHandler</strong>:
+Uses a multi-objective filter approach (Pareto dominance on (objective, violation)).
+Accepts points that are not dominated by any previously accepted point in the filter.
+Useful for maintaining a diverse set of trade-off solutions during the search.</p></li>
 </ol>
 </section>
 <section id="feasiblesearch-heuristic">
@@ -737,6 +743,38 @@ pockets of promising solutions.</p>
 </span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
 </span><span data-line="4">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span>
 </span><span data-line="5"><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="strategyucb">
+<h3>StrategyUCB<a class="headerlink" href="#strategyucb" title="Link to this heading">¶</a></h3>
+<p>Use when:</p>
+<ul class="simple">
+<li><p>You want a deterministic bandit strategy with theoretical guarantees</p></li>
+<li><p>You prefer the Upper Confidence Bound (UCB1) algorithm</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.ucb</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyUCB</span>
+</span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyUCB</span><span class="p">(</span>
+</span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">ucb_c</span><span class="o">=</span><span class="mf">1.414</span>  <span class="c1"># Exploration constant (default sqrt(2))</span>
+</span><span data-line="6"><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="strategylinucb">
+<h3>StrategyLinUCB<a class="headerlink" href="#strategylinucb" title="Link to this heading">¶</a></h3>
+<p>Use when:</p>
+<ul class="simple">
+<li><p>You want a contextual bandit strategy that adapts based on optimization state</p></li>
+<li><p>Uses context features (budget progress, success rate) to select heuristics</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.contextual</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyLinUCB</span>
+</span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyLinUCB</span><span class="p">(</span>
+</span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">linucb_alpha</span><span class="o">=</span><span class="mf">2.0</span>  <span class="c1"># Exploration parameter</span>
+</span><span data-line="6"><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>

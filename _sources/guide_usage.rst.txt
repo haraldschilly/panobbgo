@@ -323,6 +323,11 @@ Panobbgo supports different constraint handling strategies, configurable in ``co
    $\epsilon(t)$ decreases from `epsilon_start` to 0 over `epsilon_cutoff` evaluations.
    Effective for finding feasible regions in difficult problems by approaching the boundary gradually.
 
+6. **FilterConstraintHandler**:
+   Uses a multi-objective filter approach (Pareto dominance on (objective, violation)).
+   Accepts points that are not dominated by any previously accepted point in the filter.
+   Useful for maintaining a diverse set of trade-off solutions during the search.
+
 FeasibleSearch Heuristic
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -566,6 +571,40 @@ Use when:
    strategy = StrategyThompsonSampling(
        problem,
        max_evaluations=1000
+   )
+
+StrategyUCB
+~~~~~~~~~~~
+
+Use when:
+
+- You want a deterministic bandit strategy with theoretical guarantees
+- You prefer the Upper Confidence Bound (UCB1) algorithm
+
+.. code-block:: python
+
+   from panobbgo.strategies.ucb import StrategyUCB
+   strategy = StrategyUCB(
+       problem,
+       max_evaluations=1000,
+       ucb_c=1.414  # Exploration constant (default sqrt(2))
+   )
+
+StrategyLinUCB
+~~~~~~~~~~~~~~
+
+Use when:
+
+- You want a contextual bandit strategy that adapts based on optimization state
+- Uses context features (budget progress, success rate) to select heuristics
+
+.. code-block:: python
+
+   from panobbgo.strategies.contextual import StrategyLinUCB
+   strategy = StrategyLinUCB(
+       problem,
+       max_evaluations=1000,
+       linucb_alpha=2.0  # Exploration parameter
    )
 
 StrategyPhased

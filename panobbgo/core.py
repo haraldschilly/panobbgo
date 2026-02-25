@@ -1085,7 +1085,11 @@ class StrategyBase:
         self.logger.debug("init: %s %s" % (Heur.__name__, kwargs))
         self._hs.append(Heur(self, **kwargs))
 
-    def start(self):
+    def initialize(self):
+        """
+        Initialize the strategy components (heuristics, analyzers) without running the optimization loop.
+        Useful for manual control or custom runners (e.g. benchmarks).
+        """
         # heuristics
         for h in sorted(self._hs, key=lambda h: h.name):
             self.add_heuristic(h)
@@ -1095,7 +1099,8 @@ class StrategyBase:
 
         new_analyzers = [Best(self), Grid(self), Splitter(self), Convergence(self)]
         for a in new_analyzers:
-            self.add_analyzer(a)
+            if a.name not in self._analyzers:
+                self.add_analyzer(a)
 
         self.check_dependencies()
 
@@ -1107,6 +1112,17 @@ class StrategyBase:
             self.results.load_from_storage()
 
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
+
+        # Prepare for execution
+        self.eventbus.publish("start", terminate=True)
+        # Give heuristics a moment to process the start event and emit initial points
+        time_module.sleep(0.1)
+        self._start = time_module.time()
+        self.eventbus.register(self)
+        self.logger.info("Strategy '%s' initialized" % self._name)
+
+    def start(self):
+        self.initialize()
 
         try:
             import threading
@@ -1481,12 +1497,11 @@ class StrategyBase:
             return DirectEvaluatorsMock(self)
 
     def _run(self):
-        self.eventbus.publish("start", terminate=True)
-        # Give heuristics a moment to process the start event and emit initial points
-        time_module.sleep(0.1)
-        self._start = time_module.time()
-        self.eventbus.register(self)
-        self.logger.info("Strategy '%s' started" % self._name)
+        # Initialization logic moved to self.initialize() which is called by self.start()
+        # We assume self.initialize() has been called if we are here via self.start()
+        # If _run is called directly (legacy), we might miss init, but that's discouraged.
+
+        self.logger.info("Strategy '%s' started main loop" % self._name)
         self.loops = 0
         self._last_results_count = 0
         self._loops_without_progress = 0

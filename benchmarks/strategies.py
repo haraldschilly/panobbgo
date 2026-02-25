@@ -8,6 +8,9 @@ including various combinations of heuristics and bandit parameters.
 from typing import Dict, List, Any
 from dataclasses import dataclass
 from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding
+from panobbgo.strategies.ucb import StrategyUCB
+from panobbgo.strategies.thompson import StrategyThompsonSampling
+from panobbgo.strategies.contextual import StrategyLinUCB
 from panobbgo.heuristics import (
     Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead, LBFGSB,
     QuadraticWlsModel, Center, WeightedAverage, GaussianProcessHeuristic
@@ -19,7 +22,7 @@ class BenchmarkStrategy:
     """Represents a strategy configuration for benchmarking."""
     name: str
     strategy_class: type
-    heuristics: List[type]
+    heuristics: List[Any]
     config_overrides: Dict[str, Any]
     description: str
 
@@ -36,8 +39,12 @@ class BenchmarkStrategy:
                 setattr(strategy.config, key, value)
 
         # Add heuristics
-        for heuristic_class in self.heuristics:
-            strategy.add(heuristic_class)
+        for heuristic_item in self.heuristics:
+            if isinstance(heuristic_item, tuple):
+                h_class, h_kwargs = heuristic_item
+                strategy.add(h_class, **h_kwargs)
+            else:
+                strategy.add(heuristic_item)
 
         return strategy
 
@@ -65,7 +72,7 @@ BENCHMARK_STRATEGIES = [
     BenchmarkStrategy(
         name="round_robin_latin",
         strategy_class=StrategyRoundRobin,
-        heuristics=[LatinHypercube],
+        heuristics=[(LatinHypercube, {'div': 10})],
         config_overrides={},
         description="Round-robin with single LatinHypercube heuristic"
     ),
@@ -134,7 +141,7 @@ BENCHMARK_STRATEGIES = [
         name="bandit_large_pool",
         strategy_class=StrategyRewarding,
         heuristics=[
-            Random, Nearby, Zero, LatinHypercube, Extremal,
+            Random, Nearby, Zero, (LatinHypercube, {'div': 10}), Extremal,
             Center, WeightedAverage, NelderMead, QuadraticWlsModel
         ],
         config_overrides={},
@@ -153,9 +160,34 @@ BENCHMARK_STRATEGIES = [
     BenchmarkStrategy(
         name="bandit_multimodal",
         strategy_class=StrategyRewarding,
-        heuristics=[Random, Extremal, LatinHypercube, WeightedAverage],
+        heuristics=[Random, Extremal, (LatinHypercube, {'div': 10}), WeightedAverage],
         config_overrides={},
         description="Bandit optimized for multimodal problems"
+    ),
+
+    # New bandit strategies
+    BenchmarkStrategy(
+        name="bandit_ucb",
+        strategy_class=StrategyUCB,
+        heuristics=[Random, Nearby, Extremal, Center],
+        config_overrides={},
+        description="UCB1 bandit strategy"
+    ),
+
+    BenchmarkStrategy(
+        name="bandit_thompson",
+        strategy_class=StrategyThompsonSampling,
+        heuristics=[Random, Nearby, Extremal, Center],
+        config_overrides={},
+        description="Thompson Sampling bandit strategy"
+    ),
+
+    BenchmarkStrategy(
+        name="bandit_linucb",
+        strategy_class=StrategyLinUCB,
+        heuristics=[Random, Nearby, Extremal, Center],
+        config_overrides={},
+        description="LinUCB contextual bandit strategy"
     )
 ]
 

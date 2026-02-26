@@ -40,6 +40,7 @@ from .constraint_gradient import ConstraintGradient
 from .local_penalty_search import LocalPenaltySearch
 from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
+from .repair import ConstraintRepair
 
 __all__ = [
     "Center",
@@ -58,4 +59,5 @@ __all__ = [
     "LocalPenaltySearch",
     "ClaudeHeuristic",
     "DifferentialEvolution",
+    "ConstraintRepair",
 ]

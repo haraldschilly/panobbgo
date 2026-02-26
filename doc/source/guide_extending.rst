@@ -394,6 +394,42 @@ Basic Template
 
            return points
 
+Constraint Handling
+-------------------
+
+Implementing Constraint Handlers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can implement custom constraint handling logic by subclassing `ConstraintHandler`.
+This allows you to define how solutions are compared (`is_better`) and how improvement is calculated.
+
+.. code-block:: python
+
+   from panobbgo.lib.constraints import ConstraintHandler
+
+   class MyConstraintHandler(ConstraintHandler):
+       def is_better(self, old_best, new_result):
+           # Custom logic, e.g., tolerance-based comparison
+           if new_result.cv < 1e-6 and old_best.cv < 1e-6:
+               return new_result.fx < old_best.fx
+           return new_result.cv < old_best.cv
+
+Constraint-Specific Heuristics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Panobbgo includes heuristics designed for constrained optimization:
+
+- **ConstraintGradient**: Uses gradient estimation of constraints to guide search towards feasibility.
+- **LocalPenaltySearch**: Optimizes a penalized objective function locally.
+- **ConstraintRepair**: Projects infeasible best points onto the feasible region using SLSQP.
+
+You can add these to your strategy for constrained problems:
+
+.. code-block:: python
+
+   from panobbgo.heuristics import ConstraintRepair
+   strategy.add(ConstraintRepair)
+
 Example: Epsilon-Greedy Strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -535,7 +571,11 @@ Problem with Complex Constraints
            g1 = stress - self.max_stress
            g2 = deflection - self.max_deflection
 
-           return np.array([max(0, g1), max(0, g2)])
+           # Note: For best performance with advanced constraint handlers (like Augmented Lagrangian
+           # and Constraint Gradient), return the raw slack values (negative when satisfied).
+           # Handlers like DefaultConstraintHandler automatically ignore negative values (slack),
+           # while gradient-based methods can use them to stay within feasible boundaries.
+           return np.array([g1, g2])
 
        def _compute_stress(self, x):
            """Compute maximum stress (simplified)."""

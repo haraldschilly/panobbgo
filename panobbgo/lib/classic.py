@@ -189,9 +189,7 @@ class RosenbrockConstraint(Problem):
     def eval_constraints(self, x):
         y = x - self._shift
         cv = - (y[1:] - y[:-1]) ** 2.0 + self.par2
-        cv[cv < 0] = 0.0
         pos = -y.copy()  # note the -
-        pos[pos < 0] = 0.0
         return np.concatenate([cv, pos])
 
 
@@ -243,9 +241,7 @@ class RosenbrockAbsConstraint(Problem):
 
     def eval_constraints(self, x):
         cv = - np.abs(x[1:] - x[:-1]) + self.par2
-        cv[cv < 0] = 0.0
         pos = -x.copy()  # note the -
-        pos[pos < 0] = 0.0
         return np.concatenate([cv, pos])
 
 
@@ -1174,7 +1170,7 @@ class Simionescu(Problem):
         r_T = 1.0 + 0.2 * np.cos(8.0 * theta)
 
         val = r_sq - r_T**2
-        return np.array([max(0.0, val)])
+        return np.array([val])
 
 
 class MishraBird(Problem):
@@ -1197,7 +1193,7 @@ class MishraBird(Problem):
     def eval_constraints(self, x):
         # (x+5)^2 + (y+5)^2 - 25 <= 0
         val = (x[0] + 5)**2 + (x[1] + 5)**2 - 25
-        return np.array([max(0.0, val)])
+        return np.array([val])
 
 
 class PressureVessel(Problem):
@@ -1243,8 +1239,8 @@ class PressureVessel(Problem):
 
         # Normalize constraints to O(1) for better optimizer performance
         return np.array([
-            max(0.0, g1),
-            max(0.0, g2),
-            max(0.0, g3 / 1296000.0),
-            max(0.0, g4 / 240.0)
+            g1,
+            g2,
+            g3 / 1296000.0,
+            g4 / 240.0
         ])

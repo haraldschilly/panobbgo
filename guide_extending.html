@@ -114,6 +114,11 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#adding-a-custom-strategy">Adding a Custom Strategy</a><ul>
 <li><a class="reference internal" href="#id2">Basic Template</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#constraint-handling">Constraint Handling</a><ul>
+<li><a class="reference internal" href="#implementing-constraint-handlers">Implementing Constraint Handlers</a></li>
+<li><a class="reference internal" href="#constraint-specific-heuristics">Constraint-Specific Heuristics</a></li>
 <li><a class="reference internal" href="#example-epsilon-greedy-strategy">Example: Epsilon-Greedy Strategy</a></li>
 </ul>
 </li>
@@ -554,6 +559,38 @@ a simple version yourself:</p>
 </span></pre></div>
 </div>
 </section>
+</section>
+<section id="constraint-handling">
+<h2>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h2>
+<section id="implementing-constraint-handlers">
+<h3>Implementing Constraint Handlers<a class="headerlink" href="#implementing-constraint-handlers" title="Link to this heading">¶</a></h3>
+<p>You can implement custom constraint handling logic by subclassing <cite>ConstraintHandler</cite>.
+This allows you to define how solutions are compared (<cite>is_better</cite>) and how improvement is calculated.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConstraintHandler</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="k">class</span><span class="w"> </span><span class="nc">MyConstraintHandler</span><span class="p">(</span><span class="n">ConstraintHandler</span><span class="p">):</span>
+</span><span data-line="4">    <span class="k">def</span><span class="w"> </span><span class="nf">is_better</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">old_best</span><span class="p">,</span> <span class="n">new_result</span><span class="p">):</span>
+</span><span data-line="5">        <span class="c1"># Custom logic, e.g., tolerance-based comparison</span>
+</span><span data-line="6">        <span class="k">if</span> <span class="n">new_result</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="ow">and</span> <span class="n">old_best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+</span><span data-line="7">            <span class="k">return</span> <span class="n">new_result</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="n">old_best</span><span class="o">.</span><span class="n">fx</span>
+</span><span data-line="8">        <span class="k">return</span> <span class="n">new_result</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="n">old_best</span><span class="o">.</span><span class="n">cv</span>
+</span></pre></div>
+</div>
+</section>
+<section id="constraint-specific-heuristics">
+<h3>Constraint-Specific Heuristics<a class="headerlink" href="#constraint-specific-heuristics" title="Link to this heading">¶</a></h3>
+<p>Panobbgo includes heuristics designed for constrained optimization:</p>
+<ul class="simple">
+<li><p><strong>ConstraintGradient</strong>: Uses gradient estimation of constraints to guide search towards feasibility.</p></li>
+<li><p><strong>LocalPenaltySearch</strong>: Optimizes a penalized objective function locally.</p></li>
+<li><p><strong>ConstraintRepair</strong>: Projects infeasible best points onto the feasible region using SLSQP.</p></li>
+</ul>
+<p>You can add these to your strategy for constrained problems:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConstraintRepair</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ConstraintRepair</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
 <section id="example-epsilon-greedy-strategy">
 <h3>Example: Epsilon-Greedy Strategy<a class="headerlink" href="#example-epsilon-greedy-strategy" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
@@ -690,22 +727,26 @@ a simple version yourself:</p>
 </span><span data-line="28">        <span class="n">g1</span> <span class="o">=</span> <span class="n">stress</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_stress</span>
 </span><span data-line="29">        <span class="n">g2</span> <span class="o">=</span> <span class="n">deflection</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_deflection</span>
 </span><span data-line="30">
-</span><span data-line="31">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g1</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">g2</span><span class="p">)])</span>
-</span><span data-line="32">
-</span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-</span><span data-line="34"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum stress (simplified).&quot;&quot;&quot;</span>
-</span><span data-line="35">        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>  <span class="c1"># N</span>
-</span><span data-line="36">        <span class="n">min_area</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
-</span><span data-line="37">        <span class="n">stress</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="n">min_area</span> <span class="k">if</span> <span class="n">min_area</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
-</span><span data-line="38">        <span class="k">return</span> <span class="n">stress</span>
-</span><span data-line="39">
-</span><span data-line="40">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_deflection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-</span><span data-line="41"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum deflection (simplified).&quot;&quot;&quot;</span>
-</span><span data-line="42">        <span class="n">E</span> <span class="o">=</span> <span class="mf">200e9</span>  <span class="c1"># Pa (Young&#39;s modulus)</span>
-</span><span data-line="43">        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>
-</span><span data-line="44">        <span class="n">I</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="mi">12</span>  <span class="c1"># Moment of inertia</span>
-</span><span data-line="45">        <span class="n">deflection</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">I</span><span class="p">)</span> <span class="k">if</span> <span class="n">I</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
-</span><span data-line="46">        <span class="k">return</span> <span class="n">deflection</span>
+</span><span data-line="31">        <span class="c1"># Note: For best performance with advanced constraint handlers (like Augmented Lagrangian</span>
+</span><span data-line="32">        <span class="c1"># and Constraint Gradient), return the raw slack values (negative when satisfied).</span>
+</span><span data-line="33">        <span class="c1"># Handlers like DefaultConstraintHandler automatically ignore negative values (slack),</span>
+</span><span data-line="34">        <span class="c1"># while gradient-based methods can use them to stay within feasible boundaries.</span>
+</span><span data-line="35">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">g1</span><span class="p">,</span> <span class="n">g2</span><span class="p">])</span>
+</span><span data-line="36">
+</span><span data-line="37">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="38"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum stress (simplified).&quot;&quot;&quot;</span>
+</span><span data-line="39">        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>  <span class="c1"># N</span>
+</span><span data-line="40">        <span class="n">min_area</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+</span><span data-line="41">        <span class="n">stress</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="n">min_area</span> <span class="k">if</span> <span class="n">min_area</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
+</span><span data-line="42">        <span class="k">return</span> <span class="n">stress</span>
+</span><span data-line="43">
+</span><span data-line="44">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_deflection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="45"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute maximum deflection (simplified).&quot;&quot;&quot;</span>
+</span><span data-line="46">        <span class="n">E</span> <span class="o">=</span> <span class="mf">200e9</span>  <span class="c1"># Pa (Young&#39;s modulus)</span>
+</span><span data-line="47">        <span class="n">force</span> <span class="o">=</span> <span class="mi">10000</span>
+</span><span data-line="48">        <span class="n">I</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="mi">12</span>  <span class="c1"># Moment of inertia</span>
+</span><span data-line="49">        <span class="n">deflection</span> <span class="o">=</span> <span class="n">force</span> <span class="o">/</span> <span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">I</span><span class="p">)</span> <span class="k">if</span> <span class="n">I</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1e10</span>
+</span><span data-line="50">        <span class="k">return</span> <span class="n">deflection</span>
 </span></pre></div>
 </div>
 </section>

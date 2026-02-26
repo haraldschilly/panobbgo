@@ -380,7 +380,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="240">            <span class="k">return</span>
 </span><span data-line="241">
 </span><span data-line="242">        <span class="c1"># Fit GP model(s)</span>
-</span><span data-line="243">        <span class="bp">self</span><span class="o">.</span><span class="n">_fit_gp_model</span><span class="p">(</span><span class="n">has_constraints</span><span class="p">)</span>
+</span><span data-line="243">        <span class="bp">self</span><span class="o">.</span><span class="n">_fit_gp_model</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">has_constraints</span><span class="p">))</span>
 </span><span data-line="244">
 </span><span data-line="245">        <span class="c1"># Clear stale predictions before emitting fresh ones based on updated model</span>
 </span><span data-line="246">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>

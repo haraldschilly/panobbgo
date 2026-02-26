@@ -366,7 +366,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="217">                <span class="c1"># Sort by score (descending)</span>
 </span><span data-line="218">                <span class="n">scores</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="219">
-</span><span data-line="220">                <span class="k">for</span> <span class="n">score</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">:</span>
+</span><span data-line="220">                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">:</span>
 </span><span data-line="221">                    <span class="c1"># Request points from the selected heuristic</span>
 </span><span data-line="222">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="223">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>

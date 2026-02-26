@@ -113,6 +113,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.ConstraintGradient.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.ConstraintRepair"><code class="docutils literal notranslate"><span class="pre">ConstraintRepair</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.ConstraintRepair.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution"><code class="docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
@@ -349,6 +353,34 @@ it generates perturbation points around the current best solution.</p></li>
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/constraint_gradient.html#ConstraintGradient.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintGradient.on_new_results" title="Link to this definition">¶</a></dt>
 <dd><p>Called when new results are available.
 If we were waiting for samples to estimate gradient, check if we can proceed now.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintRepair">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">ConstraintRepair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/repair.html#ConstraintRepair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintRepair" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Heuristic that attempts to repair infeasible solutions by projecting them
+onto the feasible region.</p>
+<p>It triggers when a new best point is found that is infeasible (cv &gt; 0).
+It uses Scipy’s SLSQP optimizer to minimize the distance to the original point
+subject to the problem’s constraints.</p>
+<p>Objective: min ||x - x_start||^2
+Subject to: g(x) &lt;= 0  (evaluated via problem.eval_constraints)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – Reference to strategy.</p></li>
+<li><p><strong>max_iter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum iterations for the repair optimizer.</p></li>
+<li><p><strong>tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Feasibility tolerance.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.ConstraintRepair.on_new_best">
+<span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/repair.html#ConstraintRepair.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.ConstraintRepair.on_new_best" title="Link to this definition">¶</a></dt>
+<dd><p>Check if the new best point needs repair.</p>
 </dd></dl>
 
 </dd></dl>

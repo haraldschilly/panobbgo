@@ -240,7 +240,7 @@ class GaussianProcessHeuristic(Heuristic):
             return
 
         # Fit GP model(s)
-        self._fit_gp_model(has_constraints)
+        self._fit_gp_model(bool(has_constraints))
 
         # Clear stale predictions before emitting fresh ones based on updated model
         self.clear_output()

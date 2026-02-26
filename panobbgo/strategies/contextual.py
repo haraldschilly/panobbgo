@@ -217,7 +217,7 @@ class StrategyLinUCB(StrategyBase):
                 # Sort by score (descending)
                 scores.sort(key=lambda x: x[0], reverse=True)
 
-                for score, h in scores:
+                for _, h in scores:
                     # Request points from the selected heuristic
                     new_points = h.get_points(1)
                     if new_points:

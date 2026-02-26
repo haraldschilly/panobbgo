@@ -15,7 +15,6 @@
 
 from panobbgo.core import Heuristic
 import numpy as np
-import time
 
 
 class ConstraintRepair(Heuristic):
@@ -81,7 +80,11 @@ class ConstraintRepair(Heuristic):
         # Panobbgo eval_constraints returns g(x) where g(x) <= 0 is feasible
         # So we need -g(x) >= 0
         def constraint_fun(x):
-            return -self.problem.eval_constraints(x)
+            val = self.problem.eval_constraints(x)
+            # Handle case where eval_constraints returns None (unconstrained)
+            if val is None:
+                return np.array([])
+            return -val
 
         constraints = {
             'type': 'ineq',

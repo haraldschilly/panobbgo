@@ -19,7 +19,7 @@ from panobbgo.core import Heuristic
 
 import numpy as np
 import time
-
+from functools import cmp_to_key
 
 class NelderMead(Heuristic):
     r"""
@@ -61,9 +61,18 @@ class NelderMead(Heuristic):
         ret = []  # list of results, which will be returned
         if len(results) < dim:
             return None
-        # sort the results by asc. f(x) or penalty
-        get_val = self.strategy.constraint_handler.get_penalty_value
-        results = sorted(results, key=lambda p: get_val(p))
+
+        def compare(a, b):
+            # Sort using constraint_handler.is_better logic to prioritize feasible points
+            if self.strategy.constraint_handler.is_better(b, a):
+                return -1
+            elif self.strategy.constraint_handler.is_better(a, b):
+                return 1
+            else:
+                return 0
+
+        results = sorted(results, key=cmp_to_key(compare))
+
         # better? randomize results to diversify
         # from random import shuffle
         # shuffle(results)
@@ -106,15 +115,31 @@ class NelderMead(Heuristic):
         from the given base.
         """
         get_val = self.strategy.constraint_handler.get_penalty_value
-        # get worst point and it's index (to remove it)
-        worst_idx, worst = max(enumerate(base), key=lambda _: get_val(_[1]))
+
+        def compare(a, b):
+            if self.strategy.constraint_handler.is_better(b, a):
+                return -1
+            elif self.strategy.constraint_handler.is_better(a, b):
+                return 1
+            return 0
+
+        # Find the worst point (last in sorted list)
+        sorted_base = sorted(enumerate(base), key=cmp_to_key(lambda x, y: compare(x[1], y[1])))
+        worst_idx, worst = sorted_base[-1]
 
         others = [p for i, p in enumerate(base) if i != worst_idx]
         others_x = [p.x for p in others]
 
-        # f(x) values are available and could be used for weighting
+        # Calculate weights based on penalty values
         worst_val = get_val(worst)
-        weights = [np.log1p(worst_val - get_val(r)) for r in others]
+        vals = [get_val(r) for r in others]
+        weights = []
+        for v in vals:
+            # Use absolute difference to robustly handle cases where worst point might have lower penalty
+            # (e.g. if constraint handler prioritizes feasibility over penalty magnitude)
+            diff = worst_val - v
+            weights.append(np.log1p(abs(diff)))
+
         if sum(weights) < 1e-4:
             weights = None  # fall back to normal average
 

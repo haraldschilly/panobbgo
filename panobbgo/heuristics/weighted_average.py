@@ -45,13 +45,27 @@ class WeightedAverage(Heuristic):
         get_val = self.strategy.constraint_handler.get_penalty_value
         xx = np.array([r.x for r in box.results])
         yy = np.array([get_val(r) for r in box.results])
-        best_val = get_val(best)
-        weights = np.log1p(yy - best_val)
+
+        # Calculate weights based on penalty values.
+        # Shift values relative to the box minimum to ensure non-negative inputs for log1p.
+        # This handles cases where some points might have lower penalties than the current best
+        # (e.g. infeasible points with lower combined penalty in some constraint schemes).
+        min_val = yy.min()
+        shifted_yy = yy - min_val
+
+        weights = np.log1p(shifted_yy)
+
+        # Invert weights: smaller shifted_yy (better points) -> smaller log1p -> larger final weight
         weights = -weights + (1 + self.k) * weights.max()
-        # weights = np.log1p(np.arange(len(yy) + 1, 1, -1))
+
         # self.logger.info("weights: %s" % zip(weights, yy))
         self.clear_output()
-        avg_ret = np.average(xx, axis=0, weights=weights)
+        try:
+            avg_ret = np.average(xx, axis=0, weights=weights)
+        except ZeroDivisionError:
+             # Fallback to simple mean if weights sum to zero
+             avg_ret = np.mean(xx, axis=0)
+
         std = xx.std(axis=0)
         # std must be > 0
         std[std < self.minstd] = self.minstd

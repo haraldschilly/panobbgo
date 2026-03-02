@@ -1616,7 +1616,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="1364">            <span class="p">)</span>
 </span><span data-line="1365">            <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">dask_scheduler_address</span><span class="p">)</span>
 </span><span data-line="1366">
-</span><span data-line="1367">        <span class="c1"># Scatter the problem to all workers (similar to IPython Reference)</span>
+</span><span data-line="1367">        <span class="c1"># Scatter the problem to all workers</span>
 </span><span data-line="1368">        <span class="bp">self</span><span class="o">.</span><span class="n">_problem_future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">broadcast</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="1369">
 </span><span data-line="1370">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -2233,7 +2233,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="1975">    <span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">):</span>
 </span><span data-line="1976"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="1977"><span class="sd">        Accounting routine for the parallel tasks, only used by :meth:`.run`.</span>
-</span><span data-line="1978"><span class="sd">        Adapted for Dask futures instead of IPython message IDs.</span>
+</span><span data-line="1978"><span class="sd">        Adapted for Dask futures.</span>
 </span><span data-line="1979"><span class="sd">        &quot;&quot;&quot;</span>
 </span><span data-line="1980">        <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="1981">            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>

@@ -1364,7 +1364,7 @@ class StrategyBase:
             )
             self._client = Client(self.config.dask_scheduler_address)
 
-        # Scatter the problem to all workers (similar to IPython Reference)
+        # Scatter the problem to all workers
         self._problem_future = self._client.scatter(problem, broadcast=True)
 
         self.logger.info(
@@ -1975,7 +1975,7 @@ with open('{result_file.name}', 'wb') as f:
     def _add_tasks(self, new_futures):
         """
         Accounting routine for the parallel tasks, only used by :meth:`.run`.
-        Adapted for Dask futures instead of IPython message IDs.
+        Adapted for Dask futures.
         """
         if new_futures is not None:
             for future in new_futures:

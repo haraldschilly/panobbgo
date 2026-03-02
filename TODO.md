@@ -104,9 +104,9 @@
 - [x] Add integration tests for constrained optimization scenarios
 
 ### 🟢 LOW: Documentation & Polish (Priority 3)
-- [ ] Update documentation references from IPython parallel to Dask
+- [x] Update documentation references from IPython parallel to Dask
 - [ ] Review and fix minor naming inconsistencies in guide documentation
-- [ ] Remove remaining IPython parallel references from code and documentation
+- [x] Remove remaining IPython parallel references from code and documentation
 - [ ] Review and potentially simplify UI components
 - [ ] Add performance benchmarks comparing different strategies
 - [ ] Review and optimize threading/event handling

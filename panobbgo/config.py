@@ -110,13 +110,6 @@ class Config:
         parser.add_argument("--version", action="version", version=__version__)
 
         parser.add_argument(
-            "-p",
-            "--profile",
-            dest="ipy_profile",
-            help="IPython profile for the ipcluster configuration",
-        )
-
-        parser.add_argument(
             "--max", dest="max_eval", help="maximum number of evaluations", type=int
         )
 
@@ -178,9 +171,6 @@ class Config:
             # cfgp.set('db', 'port', '37010')
             # cfgp.set('db', 'host', 'localhost')
 
-            cfgp.add_section("ipython")
-            cfgp.set("ipython", "profile", "default")
-
             cfgp.add_section("heuristic")
             cfgp.set("heuristic", "capacity", "20")
 
@@ -221,8 +211,6 @@ class Config:
                 cfgp.set("core", "smooth", str(args.smooth))
             if args.capacity:
                 cfgp.set("heuristic", "capacity", str(args.capacity))
-            if args.ipy_profile:
-                cfgp.set("ipython", "profile", args.ipy_profile)
 
 
         # some generic function
@@ -311,9 +299,6 @@ class Config:
         self.dask_scheduler_address = get_config(
             "dask.remote.scheduler_address", None, None, "tcp://localhost:8786", str
         )
-
-        # Legacy IPython support (kept for backward compatibility)
-        self.ipy_profile = get_config(None, "ipython", "profile", "default", str)
 
         self.logger_focus = [] if args is None else args.logger_focus
         self.version = __version__

@@ -27,7 +27,7 @@ from panobbgo.lib import Result, Point
 
 def get_my_setup_cluster():
     def my_setup_cluster(self, problem):
-        # Mock Dask client instead of IPython generators/evaluators
+        # Mock Dask client
         self._client = mock.MagicMock()
         self._problem_future = mock.MagicMock()
         # Initialize pending dict for evaluators property to work

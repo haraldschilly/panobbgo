@@ -94,7 +94,7 @@ Your framework is substantially complete with the following components:
 - ✅ Abstract Problem base class for custom problems
 
 #### Infrastructure
-- ✅ **Dask distributed integration** for evaluation (replaced IPython Parallel)
+- ✅ **Dask distributed integration** for evaluation
   - ⚠️ **Testing Note**: For now, focus on `evaluation_method="threaded"` for development and testing
   - Dask tests are skipped to avoid port conflicts and simplify test suite
   - Threaded evaluation is faster and more suitable for unit testing

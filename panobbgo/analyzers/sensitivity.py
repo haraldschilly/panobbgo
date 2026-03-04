@@ -93,7 +93,7 @@ class Sensitivity(Analyzer):
         new_X = []
         new_y = []
         for r in results:
-            if r.x is None or r.fx is None:
+            if r.x is None or r.fx is None or np.isnan(r.fx):
                 continue
             if handler:
                 y_val = handler.get_penalty_value(r)

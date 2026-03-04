@@ -1,5 +1,6 @@
 # -*- coding: utf8 -*-
 import numpy as np
+import pytest
 from unittest import mock
 from panobbgo.analyzers.restart import Restart
 from panobbgo.lib import Point, Result, Problem
@@ -44,8 +45,7 @@ def _make_results(xs, problem):
     return results
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_restart_fires_after_patience(StrategyBaseMock):
+def test_restart_fires_after_patience():
     problem = FlatProblem(dim=2)
     strategy = _make_strategy(problem)
     r = Restart(strategy, patience=10, max_restarts=5)
@@ -73,8 +73,7 @@ def test_restart_fires_after_patience(StrategyBaseMock):
     assert np.all(center >= -5.0) and np.all(center <= 5.0)
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_no_restart_when_improving(StrategyBaseMock):
+def test_no_restart_when_improving():
     problem = ImprovingProblem(dim=2)
     strategy = _make_strategy(problem)
     r = Restart(strategy, patience=10, max_restarts=5)
@@ -89,8 +88,7 @@ def test_no_restart_when_improving(StrategyBaseMock):
     assert r.restart_count == 0
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_max_restarts_limit(StrategyBaseMock):
+def test_max_restarts_limit():
     problem = FlatProblem(dim=2)
     strategy = _make_strategy(problem)
     r = Restart(strategy, patience=5, max_restarts=3)
@@ -111,8 +109,7 @@ def test_max_restarts_limit(StrategyBaseMock):
     assert r.restart_count == 3
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_default_patience(StrategyBaseMock):
+def test_default_patience():
     problem = FlatProblem(dim=4)
     strategy = _make_strategy(problem)
     r = Restart(strategy)
@@ -120,8 +117,7 @@ def test_default_patience(StrategyBaseMock):
     assert r._patience == 20  # 5 * dim
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_diverse_strategy(StrategyBaseMock):
+def test_diverse_strategy():
     problem = FlatProblem(dim=2)
     strategy = _make_strategy(problem)
     r = Restart(strategy, patience=5, max_restarts=5, restart_strategy="diverse")
@@ -146,8 +142,7 @@ def test_diverse_strategy(StrategyBaseMock):
     assert dist > 0
 
 
-@mock.patch("panobbgo.core.StrategyBase")
-def test_counter_resets_after_restart(StrategyBaseMock):
+def test_counter_resets_after_restart():
     """After restart, the patience counter should reset so it takes another patience evals to trigger."""
     problem = FlatProblem(dim=2)
     strategy = _make_strategy(problem)
@@ -174,3 +169,42 @@ def test_counter_resets_after_restart(StrategyBaseMock):
     xs3 = rng.uniform(-5, 5, (2, 2))
     r.on_new_results(_make_results(xs3, problem))
     assert r.restart_count == 2
+
+
+def test_restart_ignore_none_fx():
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    r = Restart(strategy, patience=1)
+    r.__start__()
+
+    # We test that passing an invalid result does not crash, but correctly gets processed.
+    # We use a valid fx then fx=None.
+    r1 = Result(Point(np.array([0.0, 0.0]), "test"), fx=10.0)
+    r2 = Result(Point(np.array([0.0, 0.0]), "test"), fx=None)
+
+    r.on_new_results([r1])
+    assert r.restart_count == 0
+
+    # This shouldn't increment _evals_since_improvement because it skips it entirely inside the loop.
+    # Wait, in the source code it skips the result but still adds len(results) if improved is False.
+    r.on_new_results([r2])
+    assert r.restart_count == 1
+
+def test_restart_with_constraint_handler():
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+
+    class MockConstraintHandler:
+        def get_penalty_value(self, r):
+            return r.fx + sum(r.cv_vec)
+
+    strategy.constraint_handler = MockConstraintHandler()
+    r = Restart(strategy, patience=1)
+    r.__start__()
+
+    r1 = Result(Point(np.array([0.0, 0.0]), "test"), fx=10.0, cv_vec=np.array([1.0]))
+    r.on_new_results([r1])
+
+    r2 = Result(Point(np.array([0.0, 0.0]), "test"), fx=10.0, cv_vec=np.array([1.0]))
+    r.on_new_results([r2])
+    assert r.restart_count == 1

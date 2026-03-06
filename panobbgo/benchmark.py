@@ -289,10 +289,8 @@ class BenchmarkSuite:
         """
         Get a summary DataFrame of all benchmark runs.
         """
-        data = []
-
-        for run in self.runs:
-            row = {
+        return pd.DataFrame([
+            {
                 'problem': run.problem_spec.name,
                 'strategy': run.strategy_spec.name,
                 'run_id': run.run_id,
@@ -301,19 +299,15 @@ class BenchmarkSuite:
                 'error': run.error,
                 'best_fx': run.best_result.fx if run.best_result else None,
                 'evaluations': len(run.all_results),
-            }
-
-            if run.validation:
-                row.update({
+                **({
                     'distance': run.validation['distance'],
                     'param_distance': run.validation['param_distance'],
                     'func_distance': run.validation['func_distance'],
                     'tolerance': run.validation['tolerance'],
-                })
-
-            data.append(row)
-
-        return pd.DataFrame(data)
+                } if run.validation else {})
+            }
+            for run in self.runs
+        ])
 
     def print_summary(self):
         """

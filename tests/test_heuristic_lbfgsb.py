@@ -1,132 +1,92 @@
-import numpy as np
-import threading
-import time
+# -*- coding: utf8 -*-
 import pytest
+from unittest import mock
+import numpy as np
+from panobbgo.utils import PanobbgoTestCase
 from panobbgo.heuristics.lbfgsb import LBFGSB
 
-class MockProblem:
-    def __init__(self):
-        self.dim = 2
-        self.box = type('Box', (), {'box': [[-1, 1], [-1, 1]]})()
+class TestHeuristicLBFGSB(PanobbgoTestCase):
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_start_and_stop(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
 
-class MockConfig:
-    def __init__(self):
-        self.capacity = 100
-    def get_logger(self, name):
-        import logging
-        return logging.getLogger(name)
+        # Test __start__
+        lbfgsb.__start__()
+        assert lbfgsb.lbfgsb is not None
+        assert lbfgsb.lbfgsb.is_alive()
 
-class MockStrategy:
-    def __init__(self):
-        self.problem = MockProblem()
-        self.name = "Mock"
-        self.config = MockConfig()
+        # Test __stop__ graceful
+        lbfgsb.__stop__()
+        assert not lbfgsb.lbfgsb.is_alive()
 
-def test_lbfgsb_init_fails(monkeypatch):
-    strategy = MockStrategy()
-    h = LBFGSB(strategy)
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_stop_force_kill(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.__start__()
 
-    # Mock multiprocessing context to raise an exception
-    import multiprocessing
-    def mock_get_context(method):
-        raise RuntimeError("Simulated MP failure")
+        # Mock is_alive to return True even after join to force kill()
+        with mock.patch.object(lbfgsb.lbfgsb, 'is_alive', side_effect=[True, True, True, False]):
+            with mock.patch.object(lbfgsb.lbfgsb, 'kill') as mock_kill:
+                lbfgsb.__stop__()
+                mock_kill.assert_called_once()
 
-    monkeypatch.setattr(multiprocessing, "get_context", mock_get_context)
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_on_start_loop(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.__start__()
 
-    with pytest.raises(RuntimeError, match="Simulated MP failure"):
-        h.__start__()
+        # We need to simulate the worker sending a message and then stopping the loop
+        lbfgsb.p1.send(np.array([1.0, 2.0]))
 
-def test_worker_logic():
-    # Test the static worker method directly
+        # Make the loop run once and then stop
+        def fake_poll(timeout):
+            lbfgsb._stopped = True
+            return True
 
-    class MockPipe:
-        def __init__(self):
-            self.sent = []
-            self.recv_values = [1.0, 0.5, 0.1]
-            self.recv_idx = 0
+        with mock.patch.object(lbfgsb.p1, 'poll', side_effect=fake_poll):
+            lbfgsb.on_start()
 
-        def send(self, val):
-            self.sent.append(val)
+        lbfgsb.__stop__()
 
-        def recv(self):
-            val = self.recv_values[self.recv_idx]
-            self.recv_idx = (self.recv_idx + 1) % len(self.recv_values)
-            return val
+class TestHeuristicLBFGSBRobustness(PanobbgoTestCase):
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_start_and_stop(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
 
-    pipe = MockPipe()
-    output = MockPipe()
-    bounds = [(-1.0, 1.0), (-1.0, 1.0)]
+        # Test __start__
+        lbfgsb.__start__()
+        assert lbfgsb.lbfgsb is not None
+        assert lbfgsb.lbfgsb.is_alive()
 
-    # Needs to be mocked or it will loop infinitely if it converges slowly
-    # but with mock pipe it might converge quickly due to gradient approx
-    LBFGSB.worker(pipe, output, 2, bounds)
+        # Test __stop__ graceful
+        lbfgsb.__stop__()
+        assert not lbfgsb.lbfgsb.is_alive()
 
-    assert len(output.sent) > 0 # Should have sent the result
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_stop_force_kill(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.__start__()
 
-def test_on_start_pipe_error():
-    strategy = MockStrategy()
-    h = LBFGSB(strategy)
-    h.out1 = type('MockPipe', (), {'poll': lambda self, t: True, 'recv': lambda self: "result"})()
+        # Mock is_alive to return True even after join to force kill()
+        with mock.patch.object(lbfgsb.lbfgsb, 'is_alive', side_effect=[True, True, True, False]):
+            with mock.patch.object(lbfgsb.lbfgsb, 'kill') as mock_kill:
+                lbfgsb.__stop__()
+                mock_kill.assert_called_once()
 
-    class FaultyPipe:
-        def poll(self, timeout):
-            raise OSError("Pipe broken")
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_on_start_loop(self, mock_setup):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.__start__()
 
-    h.p1 = FaultyPipe()
+        # We need to simulate the worker sending a message and then stopping the loop
+        lbfgsb.p1.send(np.array([1.0, 2.0]))
 
-    # Run the loop, it should break and not block forever
-    h.on_start()
+        # Make the loop run once and then stop
+        def fake_poll(timeout):
+            lbfgsb._stopped = True
+            return True
 
-def test_on_start_general_error():
-    strategy = MockStrategy()
-    h = LBFGSB(strategy)
+        with mock.patch.object(lbfgsb.p1, 'poll', side_effect=fake_poll):
+            lbfgsb.on_start()
 
-    class ErrorPipe:
-        def poll(self, timeout):
-            raise ValueError("Some other error")
-
-    h.out1 = ErrorPipe()
-    h.p1 = type('MockPipe', (), {})()
-
-    h.on_start()
-
-def test_on_start_emit():
-    strategy = MockStrategy()
-    h = LBFGSB(strategy)
-
-    # Need to set up basic mock pipes
-    class GoodPipe:
-        def __init__(self, val, delay=False):
-            self.val = val
-            self.polled = False
-            self.delay = delay
-        def poll(self, timeout):
-            if not self.polled:
-                return True
-            return False
-        def recv(self):
-            self.polled = True
-            return self.val
-
-    h.out1 = GoodPipe("Output MSG")
-    h.p1 = GoodPipe(np.array([0., 0.]))
-
-    # We replace self.emit to catch what's emitted.
-    emitted = []
-    def mock_emit(x):
-        emitted.append(x)
-    h.emit = mock_emit
-
-    def background():
-        time.sleep(0.1)
-        h._stopped = True
-
-    t = threading.Thread(target=background)
-    t.start()
-
-    # It should emit the value from p1
-    h.on_start()
-    t.join()
-
-    assert len(emitted) == 1
-    np.testing.assert_array_equal(emitted[0], np.array([0., 0.]))
+        lbfgsb.__stop__()

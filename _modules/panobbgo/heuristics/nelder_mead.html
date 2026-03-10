@@ -283,7 +283,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="140">            <span class="n">diff</span> <span class="o">=</span> <span class="n">worst_val</span> <span class="o">-</span> <span class="n">v</span>
 </span><span data-line="141">            <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">diff</span><span class="p">)))</span>
 </span><span data-line="142">
-</span><span data-line="143">        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">:</span>
+</span><span data-line="143">        <span class="k">if</span> <span class="ow">not</span> <span class="n">weights</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">:</span>
 </span><span data-line="144">            <span class="n">weights</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># fall back to normal average</span>
 </span><span data-line="145">
 </span><span data-line="146">        <span class="c1"># Calculate centroid of other points</span>

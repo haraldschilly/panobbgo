@@ -240,5 +240,47 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         # Should be: [2.0, 5.0, 10.0, 15.0]
         self.assertEqual(fx_values, [2.0, 5.0, 10.0, 15.0])
 
+    def test_missing_lines_coverage(self):
+        """Test the remaining lines to reach 100% coverage."""
+        from panobbgo.analyzers.best import Best
+
+        # Remove the constraint handler to test the fallback logic
+        self.strategy.constraint_handler = None
+        best_analyzer = Best(self.strategy)
+
+        # test on_new_pareto
+        best_analyzer.on_new_pareto(None)
+
+        # test on_refresh_best with no _pareto (line 223)
+        r1 = Result(Point(np.array([1.0, 1.0]), "init"), 10.0, cv_vec=np.array([1.0]))
+        best_analyzer.on_refresh_best([r1])
+
+        # Now _pareto is r1. Test on_refresh_best fallback when r.cv == self._pareto.cv and r.fx < self._pareto.fx (line 234)
+        r2 = Result(Point(np.array([0.5, 0.5]), "init"), 5.0, cv_vec=np.array([1.0]))
+        best_analyzer.on_refresh_best([r2])
+
+        # Test on_new_results fallback when r.cv < self._pareto.cv (line 188)
+        r3 = Result(Point(np.array([0.0, 0.0]), "init"), 15.0, cv_vec=np.array([0.5]))
+        best_analyzer.on_new_results([r3])
+
+        # Test on_new_results fallback when r.cv == self._pareto.cv and r.fx < self._pareto.fx (line 190)
+        r4 = Result(Point(np.array([0.0, 0.0]), "init"), 12.0, cv_vec=np.array([0.5]))
+        best_analyzer.on_new_results([r4])
+
+        # Test properties min and cv (line 89, 100)
+        self.assertEqual(best_analyzer.cv, r4)
+        self.assertEqual(best_analyzer.min, r4)
+
+        # Test exception in _report_progress_event (line 261-263)
+        # We need self.strategy.panobbgo_logger.progress_reporter to exist, and self.strategy._update_progress_status to raise an exception
+        import logging
+        from panobbgo.logging.logger import PanobbgoLogger
+        self.strategy.panobbgo_logger = PanobbgoLogger({})
+        self.strategy.panobbgo_logger.progress_reporter.enabled = True
+
+        # Mock _update_progress_status to raise an exception
+        with mock.patch.object(self.strategy, '_update_progress_status', side_effect=Exception("Test Exception")):
+            best_analyzer._report_progress_event("Test exception handling", "test_event")
+
 if __name__ == "__main__":
     unittest.main()

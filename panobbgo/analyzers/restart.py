@@ -109,15 +109,16 @@ class Restart(Analyzer):
             penalty = handler.get_penalty_value(r) if handler else r.fx
 
             if penalty < self._best_penalty:
-                rel_improvement = (self._best_penalty - penalty) / max(
-                    abs(self._best_penalty), 1e-12
-                )
-                if (
-                    self._best_penalty == float("inf")
-                    or rel_improvement > self._improvement_threshold
-                ):
+                if self._best_penalty == float("inf"):
                     self._best_penalty = penalty
                     improved = True
+                else:
+                    rel_improvement = (self._best_penalty - penalty) / max(
+                        abs(self._best_penalty), 1e-12
+                    )
+                    if rel_improvement > self._improvement_threshold:
+                        self._best_penalty = penalty
+                        improved = True
 
         if improved:
             self._evals_since_improvement = 0

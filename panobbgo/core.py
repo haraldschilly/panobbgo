@@ -1239,7 +1239,7 @@ class StrategyBase:
             )
 
         # Check for required analyzers
-        required_analyzers = ['Best', 'Grid', 'Splitter']
+        required_analyzers = ['Best', 'Grid', 'Splitter', 'Convergence']
         missing_analyzers = []
         for analyzer_name in required_analyzers:
             if analyzer_name not in self._analyzers:
@@ -1248,8 +1248,8 @@ class StrategyBase:
         if missing_analyzers:
             errors.append(
                 f"Missing required analyzers: {', '.join(missing_analyzers)}.\n"
-                "These analyzers are automatically added by StrategyBase.start(). "
-                "If you're seeing this error, there may be an initialization issue."
+                "These analyzers are automatically added by StrategyBase.initialize() or StrategyBase.start(). "
+                "Ensure you call strategy.initialize() or strategy.start() before accessing results."
             )
 
         # Check configuration validity

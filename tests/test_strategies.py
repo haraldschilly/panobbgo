@@ -409,7 +409,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
     def test_validation_success_with_heuristics(self, my_setup_cluster):
         """Test that validation passes when setup is correct."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
-        from panobbgo.analyzers import Best, Grid, Splitter
+        from panobbgo.analyzers import Best, Grid, Splitter, Convergence
 
         strategy = StrategyRoundRobin(self.problem, parse_args=False)
         strategy.add(Random)  # Add a heuristic
@@ -422,6 +422,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
         strategy.add_analyzer(Best(strategy))
         strategy.add_analyzer(Grid(strategy))
         strategy.add_analyzer(Splitter(strategy))
+        strategy.add_analyzer(Convergence(strategy))
 
         # This should not raise an exception
         try:

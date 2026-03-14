@@ -347,8 +347,7 @@ def test_threaded_evaluation_integration():
     print("Thread-based evaluation works correctly.")
 
 
-@pytest.mark.skip(reason="Skipping dask tests for now - focusing on threaded evaluation")
-def test_dask_evaluation_integration():
+def test_dask_evaluation_integration(dask_cluster):
     """
     Test Dask integration for distributed evaluation.
     """
@@ -360,16 +359,22 @@ def test_dask_evaluation_integration():
 
     # Force dask evaluation method by modifying the strategy's config
     strategy.config.evaluation_method = "dask"
+    strategy.config.dask_dashboard_address = dask_cluster.dashboard_link
 
     # Set up dask cluster
-    strategy._setup_cluster(problem)
+    strategy._cluster = dask_cluster
+    from dask.distributed import Client
+    strategy._client = Client(strategy._cluster)
+
+    # Scatter the problem to all workers
+    strategy._problem_future = strategy._client.scatter(problem, broadcast=True)
 
     # Test single evaluation through Dask
-    def evaluate_point(point):
-        return problem(point)
+    def evaluate_point(problem_instance, point):
+        return problem_instance(point)
 
     test_point = Point([1.0, 1.0], "test")
-    future = strategy._client.submit(evaluate_point, test_point)
+    future = strategy._client.submit(evaluate_point, strategy._problem_future, test_point)
     result = future.result(timeout=5)
 
     assert isinstance(result, Result), "Dask evaluation should return Result"
@@ -654,8 +659,10 @@ def test_minimal_optimization_works():
     from panobbgo.strategies import StrategyRoundRobin
     from panobbgo.lib.classic import Rosenbrock
 
+    from panobbgo.config import Config
+    Config._instance = None # reset to make sure
     problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True)
+    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.ui_show = False
 
     # Add a simple heuristic
@@ -720,10 +727,11 @@ def test_pandas_compatibility():
     import numpy as np
 
     # Create a minimal strategy for testing Results
+    from panobbgo.config import Config
+    Config._instance = None # reset to make sure
     problem = Rosenbrock(dims=2)
-    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True)
+    strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.max_eval = 100
-    strategy.config.evaluation_method = "threaded"
     strategy.config.ui_show = False
 
     # Access the Results database through the strategy

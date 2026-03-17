@@ -32,6 +32,7 @@ dependencies = [
     "future",
     "rich>=14.2.0",
     "cocopp>=2.8.2",
+    "pytest-benchmark>=5.2.3",
 ]
 requires-python = ">=3.11"
 

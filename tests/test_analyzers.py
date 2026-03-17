@@ -295,8 +295,11 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='std')
 
+        self.strategy.results = [mock.Mock()] * 5
+
         # Mock strategy.best to return consistent values
         with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.cv = 0.0
             mock_best.fx = 1.0
 
             # Add results to fill window with same value (no variation)
@@ -305,6 +308,65 @@ class AnalyzersUtils(PanobbgoTestCase):
 
             # Should not converge yet (check_convergence is called after each addition)
             # But since we're adding one by one, it should converge when window is full
+            assert conv._converged
+
+    def test_convergence_improv_mode(self):
+        """Test convergence detection in improvement mode."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='improv')
+
+        # Mock strategy.results to bypass the minimum evaluation check
+        self.strategy.results = [mock.Mock()] * 5
+
+        # Add values that have a relative improvement < 0.01
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.cv = 0.0
+            values = [1.0, 0.999, 0.998, 0.997, 0.996]
+            for val in values:
+                mock_best.fx = val
+                conv.on_new_results([mock.Mock()])
+
+            assert conv._converged
+
+        # Test start == 0 case
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='improv')
+        self.strategy.results = [mock.Mock()] * 3
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.cv = 0.0
+            for val in [0.0, -0.05, -0.05]:
+                mock_best.fx = val
+                conv.on_new_results([mock.Mock()])
+            assert conv._converged
+
+    def test_convergence_slope_mode(self):
+        """Test convergence detection in slope mode."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='slope')
+        self.strategy.results = [mock.Mock()] * 5
+
+        # Add values that follow a relatively flat line
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.cv = 0.0
+            values = [1.0, 0.999, 0.998, 0.997, 0.996]
+            for val in values:
+                mock_best.fx = val
+                conv.on_new_results([mock.Mock()])
+
+            assert conv._converged
+
+        # Test start == 0 case
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='slope')
+        self.strategy.results = [mock.Mock()] * 3
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.cv = 0.0
+            for val in [0.0, 0.0, 0.0]:
+                mock_best.fx = val
+                conv.on_new_results([mock.Mock()])
+            assert conv._converged
 
     def test_convergence_trigger_convergence(self):
         """Test that convergence analyzer triggers convergence correctly."""
@@ -343,6 +405,67 @@ class AnalyzersUtils(PanobbgoTestCase):
         with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
+
+    def test_convergence_skip_conditions(self):
+        """Test conditions that skip convergence detection."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01)
+        self.strategy.results = [mock.Mock()] * 5
+
+        # Test minimum evaluations skip
+        conv.min_evaluations = 10
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.fx = 1.0
+            mock_best.cv = 0.0
+            for i in range(5):
+                conv.on_new_results([mock.Mock()])
+            # Shouldn't converge despite values being the same, min_evals not met
+            assert not conv._converged
+
+        # Reset minimum evaluations
+        conv.min_evaluations = 5
+        self.strategy.results = [mock.Mock()] * 5
+
+        # Test require_feasibility skipping when not feasible
+        conv.require_feasibility = True
+        conv.history.clear()
+        conv.cv_history.clear()
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.fx = 1.0
+            mock_best.cv = 1.0 # Infeasible
+            for i in range(5):
+                conv.on_new_results([mock.Mock()])
+            # Shouldn't converge due to being infeasible
+            assert not conv._converged
+
+        # Test improving constraints skipping convergence
+        conv.require_feasibility = False
+        conv.history.clear()
+        conv.cv_history.clear()
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.fx = 1.0
+            cv_values = [5.0, 4.0, 3.0, 2.0, 1.0] # Decreasing CV
+            for cv in cv_values:
+                mock_best.cv = cv
+                conv.on_new_results([mock.Mock()])
+            # Shouldn't converge because CV is improving (decrease > threshold)
+            assert not conv._converged
+
+        # Test None in history values skipping convergence
+        conv.history.clear()
+        conv.cv_history.clear()
+        with mock.patch.object(self.strategy, 'best') as mock_best:
+            mock_best.fx = None
+            mock_best.cv = 0.0
+            # Manually push None values to history because on_new_results skips them
+            for i in range(5):
+                conv.history.append(None)
+                conv.cv_history.append(0.0)
+            conv._check_convergence()
+            assert not conv._converged
+
 
 if __name__ == "__main__":
     import unittest

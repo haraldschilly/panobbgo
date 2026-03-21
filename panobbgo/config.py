@@ -39,19 +39,23 @@ Sources: https://github.com/haraldschilly/panobbgo
 """
 
 
+from typing import Any, Callable, Dict, Optional
+import logging
+
+
 class Config:
     # Singleton instance
-    _instance = None
+    _instance: Optional['Config'] = None
     # Class variable to track if config info has been logged
-    _config_logged = False
+    _config_logged: bool = False
 
-    def __new__(cls, parse_args=False, testing_mode=False):
+    def __new__(cls, parse_args: bool = False, testing_mode: bool = False) -> 'Config':
         """Singleton pattern implementation."""
         if cls._instance is None:
             cls._instance = super(Config, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, parse_args=False, testing_mode=False):
+    def __init__(self, parse_args: bool = False, testing_mode: bool = False) -> None:
         """
         Initialize Config singleton.
 
@@ -65,20 +69,20 @@ class Config:
         if (
             current_parse_args != parse_args
             or current_testing_mode != testing_mode
-            or not hasattr(self, "_initialized")
+            or not getattr(self, "_initialized", False)
         ):
             import os
 
-            self.parse_args = parse_args
-            self.testing_mode = testing_mode
-            self._appdata_dir = os.path.expanduser("~/.panobbgo")
-            self.config_fn = os.path.join(self._appdata_dir, "config.ini")
-            self.config_yaml = "config.yaml"  # YAML config in current directory
-            self._loggers = {}
+            self.parse_args: bool = parse_args
+            self.testing_mode: bool = testing_mode
+            self._appdata_dir: str = os.path.expanduser("~/.panobbgo")
+            self.config_fn: str = os.path.join(self._appdata_dir, "config.ini")
+            self.config_yaml: str = "config.yaml"  # YAML config in current directory
+            self._loggers: Dict[str, logging.Logger] = {}
             self._create()
-            self._initialized = True
+            self._initialized: bool = True
 
-    def _create(self):
+    def _create(self) -> None:
         import os
         from .utils import info, create_logger
 
@@ -214,11 +218,11 @@ class Config:
 
 
         # some generic function
-        def getself(section, key):
+        def getself(section: str, key: str) -> str:
             return cfgp.get(section, key)
 
-        def allcfgp(sep="."):
-            ret = {}
+        def allcfgp(sep: str = ".") -> Dict[str, str]:
+            ret: Dict[str, str] = {}
             for s in cfgp.sections():
                 for k, v in cfgp.items(s):
                     ret["%s%s%s" % (s, sep, str(k))] = v
@@ -226,12 +230,11 @@ class Config:
 
         if not Config._config_logged:
             logger.info("config.ini: %s" % allcfgp())
-        self.environment = info()
+        self.environment: Dict[str, str] = info()
         from panobbgo import __version__
 
-        from typing import Callable, Any
         # Helper function to get config value (YAML takes precedence over INI)
-        def get_config(yaml_path: str | None, ini_section: str | None, ini_key: str | None, default: Any = None, type_cast: Callable[[Any], Any] = str):
+        def get_config(yaml_path: Optional[str], ini_section: Optional[str], ini_key: Optional[str], default: Any = None, type_cast: Callable[[Any], Any] = str) -> Any:
             """Get config value from YAML first, then INI, then default"""
             # Check YAML first
             if yaml_path and self.yaml_config:
@@ -327,10 +330,10 @@ class Config:
             Config._config_logged = True
 
     @property
-    def debug(self):
+    def debug(self) -> bool:
         return __debug__
 
-    def get_logger(self, name, loglevel=None):
+    def get_logger(self, name: str, loglevel: Optional[int] = None) -> logging.Logger:
         assert len(name) <= 5, 'Length of logger name > 5: "%s"' % name
         name = "%-5s" % name
         loglevel = loglevel or self.loglevel
@@ -346,6 +349,6 @@ class Config:
 
         if loglevel is None:
             loglevel = self.loglevel
-        l = create_logger(name, int(loglevel))
+        l = create_logger(name, int(loglevel) if loglevel is not None else 40)
         self._loggers[key] = l
         return l

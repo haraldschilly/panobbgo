@@ -49,12 +49,13 @@ from panobbgo.lib.constraints import (
 from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple
 from threading import RLock
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
     from .core import EventBus
+    from pandas import DataFrame
 
 
 class Results:
@@ -71,20 +72,20 @@ class Results:
       In the meantime, this is a pandas DataFrame.
     """
 
-    def __init__(self, strategy):
+    def __init__(self, strategy: 'StrategyBase') -> None:
         self.logger = strategy.config.get_logger("RSLTS")
-        self.strategy = strategy
-        self.eventbus = strategy.eventbus
-        self.problem = strategy.problem
-        self._results_df = None
-        self._buffer = []
-        self._best_fx = float('inf')
-        self._last_nb = 0  # for logging
-        self._cached_min_fx = np.inf
-        self._lock = RLock()
+        self.strategy: 'StrategyBase' = strategy
+        self.eventbus: 'EventBus' = strategy.eventbus
+        self.problem: 'Problem' = strategy.problem
+        self._results_df: Optional['DataFrame'] = None
+        self._buffer: List['Result'] = []
+        self._best_fx: float = float('inf')
+        self._last_nb: int = 0  # for logging
+        self._cached_min_fx: float = np.inf
+        self._lock: RLock = RLock()
 
         # Initialize storage backend if configured
-        self.backend = None
+        self.backend: Any = None
         if (
             hasattr(strategy.config, "storage_backend")
             and strategy.config.storage_backend == "sqlite"
@@ -96,7 +97,7 @@ class Results:
                 f"Using SQLite storage backend: {strategy.config.storage_uri}"
             )
 
-    def load_from_storage(self):
+    def load_from_storage(self) -> int:
         """
         Load results from storage backend and populate the database.
         """
@@ -109,13 +110,13 @@ class Results:
         return 0
 
     @property
-    def results(self):
+    def results(self) -> Optional['DataFrame']:
         with self._lock:
             self._flush_buffer()
             return self._results_df
 
     @results.setter
-    def results(self, value):
+    def results(self, value: Optional['DataFrame']) -> None:
         with self._lock:
             self._results_df = value
             self._buffer = []
@@ -128,7 +129,7 @@ class Results:
             else:
                 self._best_fx = float('inf')
 
-    def _flush_buffer(self):
+    def _flush_buffer(self) -> None:
         """
         Flush buffered results to the DataFrame.
         """
@@ -195,7 +196,7 @@ class Results:
                 self._results_df = concat([self._results_df, results_new], ignore_index=True)
             self._buffer = []
 
-    def add_results(self, new_results, save_to_storage=True):
+    def add_results(self, new_results: List['Result'], save_to_storage: bool = True) -> None:
         """
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
@@ -260,28 +261,28 @@ class Results:
             self.info()
             self._last_nb = len(self)
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the storage backend if it exists.
         """
         if self.backend and hasattr(self.backend, "close"):
             self.backend.close()
 
-    def info(self):
+    def info(self) -> None:
         self.logger.info("%d results in DB" % len(self))
         if self.results is not None:
             self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
 
-    def __iadd__(self, results):
+    def __iadd__(self, results: List['Result']) -> 'Results':
         self.add_results(results)
         return self
 
-    def __len__(self):
+    def __len__(self) -> int:
         l = len(self._results_df) if self._results_df is not None else 0
         l += len(self._buffer)
         return l
 
-    def get_history(self, n=None):
+    def get_history(self, n: Optional[int] = None) -> Dict[str, Any]:
         """
         Retrieve the last n results as numpy arrays.
 
@@ -339,7 +340,7 @@ class Results:
             "error": error,
         }
 
-    def _report_evaluation_progress(self, result: Result, stats=None):
+    def _report_evaluation_progress(self, result: 'Result', stats: Optional[Dict[str, float]] = None) -> None:
         """
         Report progress for a single evaluation result.
 
@@ -419,27 +420,27 @@ class Module:
     :class:`.Heuristic` and :class:`.Analyzer`.
     """
 
-    def __init__(self, strategy, name=None):
+    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None) -> None:
         """
         :param StrategyBase strategy:
         :param str name:
         @type strategy: StrategyBase
         """
         name = name if name else self.__class__.__name__
-        self._strategy = strategy
+        self._strategy: 'StrategyBase' = strategy
         self.config = strategy.config
-        self._name = name
-        self._threads = []
+        self._name: str = name
+        self._threads: List[Any] = []
         # implicit dependency check (only class references)
-        self._depends_on = []
-        self._stopped = False
+        self._depends_on: List[Any] = []
+        self._stopped: bool = False
         self.eventbus_events: dict[str, Any] = {}
         # Ensure logger name is at most 5 characters to satisfy config.get_logger assertion
         log_name = self._name[:5].upper()
         self.logger = self.config.get_logger(log_name)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         The module's name.
 
@@ -468,7 +469,7 @@ class Module:
     def results(self) -> Any:
         return self._strategy.results
 
-    def check_dependencies(self, analyzers, heuristics):
+    def check_dependencies(self, analyzers: List['Analyzer'], heuristics: List['Heuristic']) -> bool:
         """
         This method is called by the core initialization to assess,
         if the dependencies for the given module are met.
@@ -481,7 +482,7 @@ class Module:
         """
         return True
 
-    def __start__(self):
+    def __start__(self) -> None:
         """
         This method should be overwritten by the respective subclass.
         It is called in the 2nd initialization phase, inside :meth:`._init_module`.
@@ -490,7 +491,7 @@ class Module:
         """
         pass
 
-    def __stop__(self):
+    def __stop__(self) -> None:
         """
         Called right at the end after the strategy has finished.
         """
@@ -516,7 +517,7 @@ class Module:
                 if t.is_alive():
                     self.logger.debug(f"Thread {t.name} did not terminate gracefully.")
 
-    def _init_plot(self):
+    def _init_plot(self) -> Tuple[Any, Any]:
         """
         This plot initializer is called right after the :meth:`._init` method.
         It could be used to tell the (optionally enabled) :module:`user interface <.ui>` that
@@ -530,7 +531,7 @@ class Module:
         """
         return None, None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Module %s" % self.name
 
 
@@ -539,7 +540,7 @@ class StopHeuristic(Exception):
     Indicates the heuristic has finished and should be ignored/removed.
     """
 
-    def __init__(self, msg="stopped"):
+    def __init__(self, msg: str = "stopped") -> None:
         """
         Args:
 
@@ -571,20 +572,20 @@ class Heuristic(Module):
        or to queue up tasks for itself.
     """
 
-    def __init__(self, strategy, name=None, cap=None):
+    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Module.__init__(self, strategy, name)
         self.config = strategy.config
         self.logger = self.config.get_logger("HEUR")
-        self.cap = cap if cap is not None else self.config.capacity
-        self._stopped = False
+        self.cap: int = cap if cap is not None else self.config.capacity
+        self._stopped: bool = False
         from queue import Queue
 
-        self._output = Queue(self.cap)
+        self._output: Queue = Queue(self.cap)
 
         # statistics; performance
-        self.performance = 0.0
+        self.performance: float = 0.0
 
-    def clear_output(self):
+    def clear_output(self) -> None:
         q = self._output
         with q.not_full:
             # with q.mutex:
@@ -592,7 +593,7 @@ class Heuristic(Module):
             q.queue.clear()  # Queue
             q.not_full.notify()  # to wakeup "put()"
 
-    def emit(self, points):
+    def emit(self, points: Union[np.ndarray, List[np.ndarray], 'Point', List['Point'], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.
         Args:
@@ -620,7 +621,7 @@ class Heuristic(Module):
             self.logger.debug(f"Failed to emit point from {self.name}: {repr(e)}")
             pass
 
-    def get_points(self, limit=None):
+    def get_points(self, limit: Optional[int] = None) -> List['Point']:
         """
         this drains the output Queue until ``limit``
         elements are removed or the Queue is empty.
@@ -639,7 +640,7 @@ class Heuristic(Module):
         return new_points
 
     @property
-    def active(self):
+    def active(self) -> bool:
         """
         This is queried by the strategy to determine, if it should still consider it.
         This is the case, iff there is still something in its output queue
@@ -658,7 +659,7 @@ class HeuristicSubprocess(Heuristic):
     communication scheme.
     """
 
-    def __init__(self, strategy, name=None, cap=None):
+    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Heuristic.__init__(self, strategy, name=name, cap=cap)
 
         import multiprocessing
@@ -678,7 +679,7 @@ class HeuristicSubprocess(Heuristic):
         self.__subprocess.start()
 
     @staticmethod
-    def subprocess(pipe):
+    def subprocess(pipe: Any) -> None:
         """
         overwrite this pipe.recv() & pipe.send() loop and
         compute something in between.
@@ -696,7 +697,7 @@ class Analyzer(Module):
     Abstract parent class for all types of analyzers.
     """
 
-    def __init__(self, strategy, name=None):
+    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None) -> None:
         Module.__init__(self, strategy, name)
 
 
@@ -710,14 +711,14 @@ class Event:
     This class holds the data for one single :class:`~.EventBus` event.
     """
 
-    def __init__(self, **kwargs):
-        self._when = time_module.time()
-        self.terminate = False
-        self._kwargs = kwargs
+    def __init__(self, **kwargs: Any) -> None:
+        self._when: float = time_module.time()
+        self.terminate: bool = False
+        self._kwargs: Dict[str, Any] = kwargs
         for k, v in list(kwargs.items()):
             setattr(self, k, v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Event[%s]" % self._kwargs
 
 
@@ -733,19 +734,19 @@ class EventBus:
 
     _re_key = re.compile(r"^[a-z_]+$")
 
-    def __init__(self, config):
-        self._subs = {}
+    def __init__(self, config: Any) -> None:
+        self._subs: Dict[str, List[Any]] = {}
         self.config = config
         self.logger = config.get_logger("EVBUS")
 
     @property
-    def keys(self):
+    def keys(self) -> List[str]:
         """
         List of all keys where you can send an :class:`Event` to.
         """
         return list(self._subs.keys())
 
-    def register(self, target):
+    def register(self, target: Any) -> None:
         """
         Registers a given ``target`` for this EventBus instance.
         It needs to have suitable ``on_<key>`` methods.
@@ -867,12 +868,12 @@ class EventBus:
             # logger.debug("%s subscribed and running." % t.name)
 
     @staticmethod
-    def _check_key(key):
+    def _check_key(key: str) -> str:
         if not EventBus._re_key.match(key):
             raise ValueError('"%s" key not allowed' % key)
         return key
 
-    def subscribe(self, key, target):
+    def subscribe(self, key: str, target: Any) -> None:
         """
         Called by :meth:`.register`.
 
@@ -885,7 +886,7 @@ class EventBus:
         assert target not in self._subs[key]
         self._subs[key].append(target)
 
-    def unsubscribe(self, key, target):
+    def unsubscribe(self, key: Optional[str], target: Any) -> None:
         """
         Args:
 
@@ -907,7 +908,7 @@ class EventBus:
         if target in self._subs[key]:
             self._subs[key].remove(target)
 
-    def publish(self, key, event=None, terminate=False, **kwargs):
+    def publish(self, key: str, event: Optional[Event] = None, terminate: bool = False, **kwargs: Any) -> None:
         """
         Publishes a new :class:`.Event` to all subscribers,
         who listen to the given ``key``.

@@ -158,7 +158,7 @@ class Convergence(Analyzer):
 
         # Fit y = mx + c
         try:
-            slope, intercept = np.polyfit(x, values, 1)
+            slope, _ = np.polyfit(x, values, 1)
         except Exception:
             return
 

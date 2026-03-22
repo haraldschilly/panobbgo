@@ -346,7 +346,7 @@ class BenchmarkSuite:
         print(grouped.to_string())
 
         # Overall statistics
-        if df['success'].any():
+        if not df.empty and 'success' in df.columns and bool(df['success'].any()):
             print("\nOverall Statistics (Successful Runs):")
             successful = df[df['success']]
             print(f"Mean duration: {successful['duration'].mean():.2f}s")

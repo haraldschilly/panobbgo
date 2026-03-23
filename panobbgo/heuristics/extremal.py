@@ -36,6 +36,12 @@ class Extremal(Heuristic):
         self.diameter = diameter  # inside the box or around zero
         self.vals = None
 
+    def on_restart(self, center, reason):
+        """
+        Respond to a restart event by flushing stale points.
+        """
+        self.clear_output()
+
     def __start__(self):
         import numpy as np
 

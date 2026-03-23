@@ -105,6 +105,17 @@ class Random(Heuristic):
                 continue
             time.sleep(sleep_time)
 
+    def on_restart(self, center, reason):
+        """
+        Respond to a restart event by resetting the search area to the leaf around the new center.
+        """
+        from panobbgo.lib import Point
+
+        self.clear_output()
+        if center is not None:
+            self.leaf = self.strategy.analyzer("Splitter").get_leaf(Point(center, "dummy"))
+            self.first_split.set()
+
     def on_new_split(self, box, children, dim):
         """
         we are only interested in the (possibly new)

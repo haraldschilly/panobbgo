@@ -314,7 +314,8 @@ class _DejongProxy:
 
 # Patch Himmelblau into namespace for the _make_standard_problems function
 try:
-    from panobbgo.lib.classic import Himmelblau  # noqa: F401
+    from panobbgo.lib.classic import Himmelblau  # type: ignore
+    _ = Himmelblau  # suppress unused import warning
 except ImportError:
     Himmelblau = None  # type: ignore[assignment,misc]
 

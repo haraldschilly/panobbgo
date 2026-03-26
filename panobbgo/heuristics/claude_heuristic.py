@@ -121,7 +121,7 @@ class ClaudeHeuristic(Heuristic):
         new_X_arr = np.array(new_X)
         new_y_arr = np.array(new_y)
 
-        if self.X_all is None:
+        if self.X_all is None or self.y_all is None:
             self.X_all = new_X_arr
             self.y_all = new_y_arr
         else:
@@ -158,7 +158,7 @@ class ClaudeHeuristic(Heuristic):
 
         from sklearn.cluster import KMeans
 
-        kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
+        kmeans = KMeans(n_clusters=k, n_init="auto", random_state=42)
         labels = kmeans.fit_predict(X_elite)
 
         components = []

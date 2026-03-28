@@ -112,7 +112,6 @@ def _make_standard_problems() -> List[ProblemSpec]:
         Rastrigin,
         Ackley,
         Griewank,
-        Himmelblau,
         StyblinskiTang,
     )
 
@@ -154,19 +153,6 @@ def _make_standard_problems() -> List[ProblemSpec]:
             problem_class=Griewank,
             dims=2,
             known_optima=[{"x": [0.0, 0.0], "fx": 0.0}],
-            tolerance=0.1,
-            max_evaluations=200,
-        ),
-        ProblemSpec(
-            name="Himmelblau",
-            problem_class=Himmelblau,
-            dims=2,
-            known_optima=[
-                {"x": [3.0, 2.0], "fx": 0.0},
-                {"x": [-2.805118, 3.131312], "fx": 0.0},
-                {"x": [-3.779310, -3.283186], "fx": 0.0},
-                {"x": [3.584428, -1.848126], "fx": 0.0},
-            ],
             tolerance=0.1,
             max_evaluations=200,
         ),
@@ -310,13 +296,6 @@ class _DejongProxy:
         from panobbgo.lib.classic import DeJong
 
         return DeJong(dims=dims)
-
-
-# Patch Himmelblau into namespace for the _make_standard_problems function
-try:
-    from panobbgo.lib.classic import Himmelblau  # noqa: F401
-except ImportError:
-    Himmelblau = None  # type: ignore[assignment,misc]
 
 
 # ---------------------------------------------------------------------------

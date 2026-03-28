@@ -148,8 +148,10 @@ class GaussianProcessHeuristic(Heuristic):
             self.y_cv_train = new_cv
         else:
             self.X_train = np.vstack([self.X_train, new_X])
-            self.y_fx_train = np.append(self.y_fx_train, new_fx)
-            self.y_cv_train = np.append(self.y_cv_train, new_cv)
+            assert self.y_fx_train is not None
+            assert self.y_cv_train is not None
+            self.y_fx_train = np.concatenate([self.y_fx_train, new_fx])
+            self.y_cv_train = np.concatenate([self.y_cv_train, new_cv])
 
         # Determine if we should use EIC
         # We use EIC if enabled AND we have observed some constraints (cv > 0)
@@ -232,7 +234,8 @@ class GaussianProcessHeuristic(Heuristic):
                     # If it was False, we were in Penalty mode.
                     pass
 
-                self.y_train = np.append(self.y_train, new_penalized)
+                assert self.y_train is not None
+                self.y_train = np.concatenate([self.y_train, new_penalized])
 
             self.best_y = np.min(self.y_train)
 

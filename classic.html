@@ -211,6 +211,14 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.classic.RotatedEllipse2.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Salomon"><code class="docutils literal notranslate"><span class="pre">Salomon</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Salomon.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Sargan"><code class="docutils literal notranslate"><span class="pre">Sargan</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.lib.classic.Sargan.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Schwefel"><code class="docutils literal notranslate"><span class="pre">Schwefel</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.classic.Schwefel.eval"><code class="docutils literal notranslate">eval()</span></code></a></li>
 </ul>
@@ -1435,6 +1443,102 @@ n-dimensional vector (default: None)</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.lib.classic.RotatedEllipse2.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#RotatedEllipse2.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.RotatedEllipse2.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Salomon">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Salomon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Salomon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Salomon" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Salomon function.</p>
+<p>The Salomon function is a continuous, differentiable, non-separable, scalable,
+multimodal test function for optimization algorithms.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = 1 - \cos\left(2\pi \sqrt{\sum_{i=1}^D x_i^2}\right) + 0.1 \sqrt{\sum_{i=1}^D x_i^2}\]</div>
+</div>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0, \dots, 0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="salomon" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Salomon<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Salomon.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Salomon.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Salomon.eval" title="Link to this definition">¶</a></dt>
+<dd><p>This is called to evaluate the given black-box function.
+The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
+and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.float64</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Sargan">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.classic.</span></span><span class="sig-name descname"><span class="pre">Sargan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Sargan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Sargan" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
+<p>Sargan function.</p>
+<p>The Sargan function is a continuous, differentiable, non-separable, scalable,
+multimodal test function for optimization algorithms.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\mathbf{x}) = \sum_{i=1}^D \left(x_i^2 + 0.4 \sum_{j \neq i} x_i x_j\right)\]</div>
+</div>
+<p>Global minimum: <span class="math notranslate nohighlight">\(f(0, \dots, 0) = 0\)</span></p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="sargan" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Sargan<span class="fn-bracket">]</span></span>
+<p>Momin Jamil and Xin-She Yang,
+A literature survey of benchmark functions for global optimization problems,
+{it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+Vol.~4, No.~2, pp. 150–194 (2013).
+DOI: 10.1504/IJMMNO.2013.055204</p>
+</div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
+e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
+n-dimensional vector (default: None)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.classic.Sargan.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/lib/classic.html#Sargan.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.classic.Sargan.eval" title="Link to this definition">¶</a></dt>
 <dd><p>This is called to evaluate the given black-box function.
 The problem should be called directly (<code class="docutils literal notranslate"><span class="pre">__call__</span></code> special function wraps this)
 and the given problem should subclass this <code class="docutils literal notranslate"><span class="pre">eval</span></code> method.</p>

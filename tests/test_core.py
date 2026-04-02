@@ -117,3 +117,21 @@ class TestCoreEventBus(PanobbgoTestCase):
         # Should not crash
         eb.publish("unknown_event")
         eb.publish("unknown_event", event=Event())
+from unittest import mock
+
+def test_on_converged_stops_strategy():
+    problem = mock.Mock()
+    strategy = StrategyBase(problem, parse_args=False)
+
+    assert not strategy._stop_requested
+    strategy.on_converged("Test Reason", {"stats": True})
+    assert strategy._stop_requested
+
+def test_on_converged_does_not_stop_if_configured():
+    problem = mock.Mock()
+    strategy = StrategyBase(problem, parse_args=False)
+
+    strategy.config.stop_on_convergence = False
+    assert not strategy._stop_requested
+    strategy.on_converged("Test Reason", {"stats": True})
+    assert not strategy._stop_requested

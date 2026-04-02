@@ -126,7 +126,7 @@ class ClaudeHeuristic(Heuristic):
             self.y_all = new_y_arr
         else:
             self.X_all = np.vstack([self.X_all, new_X_arr])
-            self.y_all = np.append(self.y_all, new_y_arr)
+            self.y_all = np.concatenate([self.y_all, new_y_arr])
 
         return True
 

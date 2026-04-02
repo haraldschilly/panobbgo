@@ -148,8 +148,8 @@ class GaussianProcessHeuristic(Heuristic):
             self.y_cv_train = new_cv
         else:
             self.X_train = np.vstack([self.X_train, new_X])
-            self.y_fx_train = np.append(self.y_fx_train, new_fx)
-            self.y_cv_train = np.append(self.y_cv_train, new_cv)
+            self.y_fx_train = np.concatenate([self.y_fx_train, new_fx])
+            self.y_cv_train = np.concatenate([self.y_cv_train, new_cv])
 
         # Determine if we should use EIC
         # We use EIC if enabled AND we have observed some constraints (cv > 0)

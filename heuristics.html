@@ -123,6 +123,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal"><code class="docutils literal notranslate"><span class="pre">Extremal</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
@@ -160,11 +161,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.emit_reliable"><code class="docutils literal notranslate">emit_reliable()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Nearby"><code class="docutils literal notranslate"><span class="pre">Nearby</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Nearby.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Nearby.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead"><code class="docutils literal notranslate"><span class="pre">NelderMead</span></code></a><ul>
@@ -173,6 +176,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead_init"><code class="docutils literal notranslate">nelder_mead_init()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead_sample"><code class="docutils literal notranslate">nelder_mead_sample()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
@@ -183,6 +187,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random"><code class="docutils literal notranslate"><span class="pre">Random</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
@@ -440,6 +445,12 @@ minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</p>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Extremal.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Respond to a restart event by flushing stale points.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Extremal.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -688,6 +699,12 @@ The heuristic thread acts as a bridge:
 <dd></dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Respond to a restart event by resetting the search around the new center.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -728,6 +745,12 @@ The &#64;radius is scaled along each dimension’s range in the search box.</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.Nearby.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nearby.html#Nearby.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Nearby.on_new_best" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Nearby.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nearby.html#Nearby.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Nearby.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Respond to a restart event by resetting the search around the new center.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -801,6 +824,12 @@ from the given base.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Respond to a restart event by flushing points and pausing until a new best box is found.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_start" title="Link to this definition">¶</a></dt>
 <dd><p>Algorithm Outline:</p>
@@ -869,6 +898,12 @@ compute something in between.</p>
 <span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_new_split" title="Link to this definition">¶</a></dt>
 <dd><p>we are only interested in the (possibly new)
 leaf around the best point</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Respond to a restart event by resetting the search area to the leaf around the new center.</p>
 </dd></dl>
 
 <dl class="py method">

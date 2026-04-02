@@ -370,39 +370,57 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="229">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 </span><span data-line="230">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to start optimization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="231">
+<div class="viewcode-block" id="LocalPenaltySearch.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_restart">[docs]</a>
+</span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="233"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="234"><span class="sd">        Respond to a restart event by resetting the search around the new center.</span>
+</span><span data-line="235"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="236">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="237">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="238">            <span class="c1"># Send abort message to stop any ongoing search</span>
+</span><span data-line="239">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="240">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;abort&quot;</span><span class="p">})</span>
+</span><span data-line="241">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="242">                <span class="k">pass</span>
+</span><span data-line="243">            <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="244">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="245">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">center</span><span class="p">)</span></div>
+
+</span><span data-line="246">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_best">[docs]</a>
-</span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="233">        <span class="c1"># If idle, restart search from new best</span>
-</span><span data-line="234">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
-</span><span data-line="235">            <span class="n">x0</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
-</span><span data-line="236">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span></div>
+</span><span data-line="247">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="248">        <span class="c1"># If idle, restart search from new best</span>
+</span><span data-line="249">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
+</span><span data-line="250">            <span class="n">x0</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="251">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span></div>
 
-</span><span data-line="237">
+</span><span data-line="252">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_results">[docs]</a>
-</span><span data-line="238">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="239">        <span class="c1"># We need to find the result corresponding to our pending evaluation</span>
-</span><span data-line="240">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span><span class="p">:</span>
-</span><span data-line="241">            <span class="k">return</span>
-</span><span data-line="242">
-</span><span data-line="243">        <span class="n">my_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
-</span><span data-line="244">        <span class="k">if</span> <span class="ow">not</span> <span class="n">my_results</span><span class="p">:</span>
-</span><span data-line="245">            <span class="k">return</span>
-</span><span data-line="246">
-</span><span data-line="247">        <span class="c1"># Take the latest one, assuming sequential processing</span>
-</span><span data-line="248">        <span class="c1"># (the worker blocks waiting for the result)</span>
-</span><span data-line="249">        <span class="n">result</span> <span class="o">=</span> <span class="n">my_results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="250">
-</span><span data-line="251">        <span class="c1"># Calculate penalized value</span>
-</span><span data-line="252">        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="253">
-</span><span data-line="254">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="255">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">val</span><span class="p">})</span>
-</span><span data-line="256">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="257">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="258">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="259">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to send result to worker: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span data-line="253">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="254">        <span class="c1"># We need to find the result corresponding to our pending evaluation</span>
+</span><span data-line="255">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span><span class="p">:</span>
+</span><span data-line="256">            <span class="k">return</span>
+</span><span data-line="257">
+</span><span data-line="258">        <span class="n">my_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+</span><span data-line="259">        <span class="k">if</span> <span class="ow">not</span> <span class="n">my_results</span><span class="p">:</span>
+</span><span data-line="260">            <span class="k">return</span>
+</span><span data-line="261">
+</span><span data-line="262">        <span class="c1"># Take the latest one, assuming sequential processing</span>
+</span><span data-line="263">        <span class="c1"># (the worker blocks waiting for the result)</span>
+</span><span data-line="264">        <span class="n">result</span> <span class="o">=</span> <span class="n">my_results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="265">
+</span><span data-line="266">        <span class="c1"># Calculate penalized value</span>
+</span><span data-line="267">        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="268">
+</span><span data-line="269">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="270">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">val</span><span class="p">})</span>
+</span><span data-line="271">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="272">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="273">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="274">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to send result to worker: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

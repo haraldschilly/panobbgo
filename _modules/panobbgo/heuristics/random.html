@@ -246,17 +246,31 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="106">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep_time</span><span class="p">)</span></div>
 
 </span><span data-line="107">
+<div class="viewcode-block" id="Random.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_restart">[docs]</a>
+</span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="109"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="110"><span class="sd">        Respond to a restart event by resetting the search area to the leaf around the new center.</span>
+</span><span data-line="111"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="112">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="113">
+</span><span data-line="114">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="115">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="116">            <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="s2">&quot;dummy&quot;</span><span class="p">))</span>
+</span><span data-line="117">            <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+
+</span><span data-line="118">
 <div class="viewcode-block" id="Random.on_new_split">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_new_split">[docs]</a>
-</span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
-</span><span data-line="109"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="110"><span class="sd">        we are only interested in the (possibly new)</span>
-</span><span data-line="111"><span class="sd">        leaf around the best point</span>
-</span><span data-line="112"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="113">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Best&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">best</span>
-</span><span data-line="114">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
-</span><span data-line="115">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="116">        <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
+</span><span data-line="119">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+</span><span data-line="120"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="121"><span class="sd">        we are only interested in the (possibly new)</span>
+</span><span data-line="122"><span class="sd">        leaf around the best point</span>
+</span><span data-line="123"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="124">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Best&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">best</span>
+</span><span data-line="125">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="126">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="127">        <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span></div>
 </div>
 
 </span></pre></div>

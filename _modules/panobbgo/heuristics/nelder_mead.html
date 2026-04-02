@@ -370,16 +370,26 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="218">                        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># the &quot;wait()&quot; at the top is now active</span></div>
 
 </span><span data-line="219">
+<div class="viewcode-block" id="NelderMead.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_restart">[docs]</a>
+</span><span data-line="220">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="221"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="222"><span class="sd">        Respond to a restart event by flushing points and pausing until a new best box is found.</span>
+</span><span data-line="223"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+</span><span data-line="226">
 <div class="viewcode-block" id="NelderMead.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
-</span><span data-line="220">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="221"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="222"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
-</span><span data-line="223"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
-</span><span data-line="224"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
-</span><span data-line="226">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
-</span><span data-line="227">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
+</span><span data-line="228"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="229"><span class="sd">        When a new best box has been found by the :class:`~.analyzers.Splitter`, the</span>
+</span><span data-line="230"><span class="sd">        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.</span>
+</span><span data-line="231"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="232">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
+</span><span data-line="233">        <span class="bp">self</span><span class="o">.</span><span class="n">got_bb</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</span><span data-line="234">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>  <span class="c1"># clearing must come last</span></div>
 </div>
 
 </span></pre></div>

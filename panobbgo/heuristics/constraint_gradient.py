@@ -234,7 +234,7 @@ class ConstraintGradient(Heuristic):
         y_centered = y_vals - best_val
 
         # Use simple least squares: X_centered @ gradient = y_centered
-        gradient, residuals, rank, s = np.linalg.lstsq(X_centered, y_centered, rcond=None)
+        gradient, residuals, _, _ = np.linalg.lstsq(X_centered, y_centered, rcond=None)
 
         if residuals.size > 0 and residuals[0] > 1.0:
              # Only log if we have enough points (overdetermined) and error is high

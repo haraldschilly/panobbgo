@@ -1222,7 +1222,9 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "flake8" },
     { name = "pyright" },
+    { name = "pytest-benchmark" },
     { name = "pytest-cov" },
     { name = "pytest-retry" },
     { name = "shibuya" },
@@ -1262,7 +1264,10 @@ provides-extras = ["benchmark", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "flake8", specifier = ">=7.3.0" },
     { name = "pyright", specifier = ">=1.1.407" },
+    { name = "pytest-benchmark", specifier = ">=4.0" },
+    { name = "pytest-benchmark", specifier = ">=5.2.3" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-retry", specifier = ">=1.7.0" },
     { name = "shibuya", specifier = ">=2026.1.9" },

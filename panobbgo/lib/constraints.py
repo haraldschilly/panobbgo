@@ -122,6 +122,8 @@ class DefaultConstraintHandler(ConstraintHandler):
         # Case 1: Both Feasible
         if old_feasible and new_feasible:
             # Standard improvement in objective function
+            if old_best.fx is None or new_best.fx is None:
+                return 0.0
             return float(max(0.0, old_best.fx - new_best.fx))
 
         # Case 2: Old Infeasible, New Feasible
@@ -160,6 +162,8 @@ class DefaultConstraintHandler(ConstraintHandler):
             return False
 
         # If CV is equal (e.g. both 0), check FX
+        if new_result.fx is None or old_best.fx is None:
+            return False
         return new_result.fx < old_best.fx
 
 
@@ -528,7 +532,9 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # Calculate Lagrangian value for both
         L_old = self._calculate_lagrangian(old_best)
         L_new = self._calculate_lagrangian(new_best)
-        return float(max(0.0, L_old - L_new))
+        if L_old is None or L_new is None:
+            return 0.0
+        return float(max(0.0, float(L_old) - float(L_new)))
 
     def is_better(self, old_best: Result, new_result: Result) -> bool:
         if old_best is None:
@@ -537,12 +543,18 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         L_old = self._calculate_lagrangian(old_best)
         L_new = self._calculate_lagrangian(new_result)
 
-        return L_new < L_old
+        if L_old is None or L_new is None:
+            return False
+
+        return float(L_new) < float(L_old)
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
             return float('inf')
-        return float(self._calculate_lagrangian(result))
+        val = self._calculate_lagrangian(result)
+        if val is None:
+            return float('inf')
+        return float(val)
 
     def _calculate_lagrangian(self, result: Result):
         if result is None: return float('inf')
@@ -624,6 +636,8 @@ class EpsilonConstraintHandler(ConstraintHandler):
 
         # Case 1: Both effectively feasible
         if phi_old == 0.0 and phi_new == 0.0:
+            if old_best.fx is None or new_best.fx is None:
+                return 0.0
             return float(max(0.0, old_best.fx - new_best.fx))
 
         # Case 2: Transition from infeasible to feasible (effectively)
@@ -649,6 +663,8 @@ class EpsilonConstraintHandler(ConstraintHandler):
         phi_new = self._phi(new_result)
 
         if phi_new == 0.0 and phi_old == 0.0:
+            if new_result.fx is None or old_best.fx is None:
+                return False
             return new_result.fx < old_best.fx
 
         if phi_new == 0.0 and phi_old > 0.0:
@@ -773,6 +789,8 @@ class FilterConstraintHandler(ConstraintHandler):
         is_feasible_new = cv_new <= 1e-9
 
         if is_feasible_new and is_feasible_old:
+            if new_result.fx is None or old_best.fx is None:
+                return False
             return new_result.fx < old_best.fx
 
         if is_feasible_new and not is_feasible_old:
@@ -787,4 +805,6 @@ class FilterConstraintHandler(ConstraintHandler):
         if cv_new > cv_old:
             return False
 
+        if new_result.fx is None or old_best.fx is None:
+            return False
         return new_result.fx < old_best.fx

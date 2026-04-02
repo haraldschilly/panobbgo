@@ -383,7 +383,10 @@ class Splitter(Analyzer):
                         self.best, result
                     )
                 else:
-                    is_better = result.fx < self.best.fx
+                    if result.fx is None or self.best.fx is None:
+                        is_better = False
+                    else:
+                        is_better = result.fx < self.best.fx
 
                 if is_better:
                     self.best = result

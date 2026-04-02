@@ -398,6 +398,88 @@ class HeuristicTests(PanobbgoTestCase):
         assert p.x[1] < 0.5
         assert p in self.problem.box
 
+    def test_nearby_restart(self):
+        from panobbgo.heuristics.nearby import Nearby
+        import unittest.mock as mock
+
+        nearby = Nearby(self.strategy)
+        nearby.clear_output = mock.Mock()
+        nearby.emit = mock.Mock()
+
+        center = np.array([0.5, 0.5])
+        nearby.on_restart(center, "test_reason")
+
+        nearby.clear_output.assert_called_once()
+        nearby.emit.assert_called_once()
+        # Verify points emitted are around center
+        emitted_points = nearby.emit.call_args[0][0]
+        assert len(emitted_points) == nearby.new
+
+    def test_extremal_restart(self):
+        from panobbgo.heuristics.extremal import Extremal
+        import unittest.mock as mock
+
+        extremal = Extremal(self.strategy)
+        extremal.clear_output = mock.Mock()
+
+        center = np.array([0.5, 0.5])
+        extremal.on_restart(center, "test_reason")
+
+        extremal.clear_output.assert_called_once()
+
+    def test_random_restart(self):
+        from panobbgo.heuristics.random import Random
+        import unittest.mock as mock
+
+        random_h = Random(self.strategy)
+        random_h.clear_output = mock.Mock()
+        random_h.first_split.set = mock.Mock()
+
+        # Mock splitter
+        mock_splitter = mock.Mock()
+        mock_splitter.get_leaf.return_value = "mock_leaf"
+        self.strategy.analyzer = mock.Mock(return_value=mock_splitter)
+
+        center = np.array([0.5, 0.5])
+        random_h.on_restart(center, "test_reason")
+
+        random_h.clear_output.assert_called_once()
+        mock_splitter.get_leaf.assert_called_once()
+        random_h.first_split.set.assert_called_once()
+        assert random_h.leaf == "mock_leaf"
+
+    def test_nelder_mead_restart(self):
+        from panobbgo.heuristics.nelder_mead import NelderMead
+        import unittest.mock as mock
+
+        nm = NelderMead(self.strategy)
+        nm.clear_output = mock.Mock()
+        nm.got_bb.clear = mock.Mock()
+
+        center = np.array([0.5, 0.5])
+        nm.on_restart(center, "test_reason")
+
+        nm.clear_output.assert_called_once()
+        nm.got_bb.clear.assert_called_once()
+
+    def test_local_penalty_search_restart(self):
+        from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
+        import unittest.mock as mock
+
+        lps = LocalPenaltySearch(self.strategy)
+        lps.clear_output = mock.Mock()
+        lps._start_optimization = mock.Mock()
+        lps.parent_conn = mock.Mock()
+
+        center = np.array([0.5, 0.5])
+        lps.on_restart(center, "test_reason")
+
+        lps.clear_output.assert_called_once()
+        lps.parent_conn.send.assert_called_with({"type": "abort"})
+        lps._start_optimization.assert_called_with(center)
+        assert lps._optimization_active is False
+        assert lps._waiting_for_eval is False
+
     def test_gaussian_process_norm_cdf(self):
         """Test the _norm_cdf static method in GaussianProcessHeuristic."""
         from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic

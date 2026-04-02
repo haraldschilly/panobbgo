@@ -229,6 +229,21 @@ class LocalPenaltySearch(Heuristic):
             except Exception as e:
                 self.logger.error(f"Failed to start optimization: {e}")
 
+    def on_restart(self, center, reason):
+        """
+        Respond to a restart event by resetting the search around the new center.
+        """
+        self.clear_output()
+        if center is not None:
+            # Send abort message to stop any ongoing search
+            try:
+                self.parent_conn.send({"type": "abort"})
+            except Exception:
+                pass
+            self._optimization_active = False
+            self._waiting_for_eval = False
+            self._start_optimization(center)
+
     def on_new_best(self, best):
         # If idle, restart search from new best
         if not self._optimization_active:

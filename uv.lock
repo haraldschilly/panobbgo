@@ -1221,6 +1221,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "flake8" },
     { name = "pyright" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
@@ -1261,6 +1262,7 @@ provides-extras = ["benchmark", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "flake8", specifier = ">=7.3.0" },
     { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest-benchmark", specifier = ">=4.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },

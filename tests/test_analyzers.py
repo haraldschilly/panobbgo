@@ -406,7 +406,6 @@ class AnalyzersUtils(PanobbgoTestCase):
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
-<<<<<<< HEAD
     def test_convergence_skip_conditions(self):
         """Test conditions that skip convergence detection."""
         from panobbgo.analyzers.convergence import Convergence
@@ -467,7 +466,6 @@ class AnalyzersUtils(PanobbgoTestCase):
             conv._check_convergence()
             assert not conv._converged
 
-=======
     def test_convergence_improv_mode(self):
         """Test convergence detection in improv mode."""
         from panobbgo.analyzers.convergence import Convergence
@@ -640,4 +638,3 @@ if __name__ == "__main__":
     import unittest
 
     unittest.main()
-main()

@@ -217,6 +217,13 @@ class NelderMead(Heuristic):
                     if bb is None:
                         self.got_bb.clear()  # the "wait()" at the top is now active
 
+    def on_restart(self, center, reason):
+        """
+        Respond to a restart event by flushing points and pausing until a new best box is found.
+        """
+        self.clear_output()
+        self.got_bb.clear()
+
     def on_new_best_box(self, best_box):
         """
         When a new best box has been found by the :class:`~.analyzers.Splitter`, the

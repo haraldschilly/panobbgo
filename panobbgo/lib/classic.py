@@ -531,6 +531,74 @@ class Zakharov(Problem):
         return quad_term + poly_squared + poly_fourth
 
 
+class Salomon(Problem):
+
+    r"""
+    Salomon function.
+
+    The Salomon function is a continuous, differentiable, non-separable, scalable,
+    multimodal test function for optimization algorithms.
+
+    .. math::
+
+      f(\mathbf{x}) = 1 - \cos\left(2\pi \sqrt{\sum_{i=1}^D x_i^2}\right) + 0.1 \sqrt{\sum_{i=1}^D x_i^2}
+
+    Global minimum: :math:`f(0, \dots, 0) = 0`
+
+    References
+    ----------
+    .. [Salomon] Momin Jamil and Xin-She Yang,
+                 A literature survey of benchmark functions for global optimization problems,
+                 {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                 Vol.~4, No.~2, pp. 150--194 (2013).
+                 DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-100, 100)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        sq_sum = np.sqrt(np.sum(x**2))
+        return 1 - np.cos(2 * np.pi * sq_sum) + 0.1 * sq_sum
+
+
+class Sargan(Problem):
+
+    r"""
+    Sargan function.
+
+    The Sargan function is a continuous, differentiable, non-separable, scalable,
+    multimodal test function for optimization algorithms.
+
+    .. math::
+
+      f(\mathbf{x}) = \sum_{i=1}^D \left(x_i^2 + 0.4 \sum_{j \neq i} x_i x_j\right)
+
+    Global minimum: :math:`f(0, \dots, 0) = 0`
+
+    References
+    ----------
+    .. [Sargan] Momin Jamil and Xin-She Yang,
+                A literature survey of benchmark functions for global optimization problems,
+                {\it Int. Journal of Mathematical Modelling and Numerical Optimisation},
+                Vol.~4, No.~2, pp. 150--194 (2013).
+                DOI: 10.1504/IJMMNO.2013.055204
+    """
+
+    def __init__(self, dims, box=None, **kwargs):
+        box = box or [(-100, 100)] * dims
+        Problem.__init__(self, box, **kwargs)
+
+    def eval(self, x):
+        # f(x) = sum_i (x_i^2 + 0.4 * sum_{j!=i} x_i x_j)
+        # sum_{j!=i} x_j = sum(x) - x_i
+        # sum_{j!=i} x_i x_j = x_i * (sum(x) - x_i)
+
+        sum_x = np.sum(x)
+        return np.sum(x**2 + 0.4 * x * (sum_x - x))
+
+
 class RosenbrockModified(Problem):
 
     r"""

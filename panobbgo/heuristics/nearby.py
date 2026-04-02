@@ -43,6 +43,36 @@ class Nearby(Heuristic):
         self.axes = axes
         self._depends_on = [Best]
 
+    def on_restart(self, center, reason):
+        """
+        Respond to a restart event by resetting the search around the new center.
+        """
+        import numpy as np
+
+        ret = []
+        if center is None:
+            return
+        self.clear_output()
+        # generate self.new many new points near center
+        for _ in range(self.new):
+            new_x = center.copy()
+            if self.axes == "all":
+                dx = (2.0 * np.random.rand(self.problem.dim) - 1.0) * self.radius
+                dx *= self.problem.ranges
+                new_x += dx
+            elif self.axes == "one":
+                idx = np.random.randint(self.problem.dim)
+                dx = (2.0 * np.random.rand() - 1.0) * self.radius
+                dx *= self.problem.ranges[idx]
+                new_x[idx] += dx
+            else:
+                raise ValueError(
+                    f"Nearby heuristic received invalid 'axes' parameter: '{self.axes}'. "
+                    f"Valid options are 'one' (perturb one axis) or 'all' (perturb all axes)."
+                )
+            ret.append(new_x)
+        self.emit(ret)
+
     def on_new_best(self, best):
         import numpy as np
 

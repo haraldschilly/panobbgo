@@ -16,6 +16,11 @@
 from panobbgo.core import Heuristic
 import numpy as np
 
+try:
+    from scipy.optimize import linprog
+except ImportError:
+    linprog = None
+
 
 class ConstraintGradient(Heuristic):
     """
@@ -267,7 +272,8 @@ class ConstraintGradient(Heuristic):
         """
         New logic: Use LP to find descent direction respecting all constraints.
         """
-        from scipy.optimize import linprog
+        if linprog is None:
+            raise ImportError("scipy.optimize.linprog is required for LP direction")
 
         X_centered = neighbors_X - x
         num_constraints = neighbors_cv_vec.shape[1]

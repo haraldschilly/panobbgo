@@ -9,7 +9,7 @@ Tests core framework components working together.
 import time
 import numpy as np
 import pytest
-from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang, Schwefel, DixonPrice, Zakharov, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25
+from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang, Schwefel, DixonPrice, Zakharov, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25, Salomon, Sargan
 from panobbgo.lib import Point, Result
 
 
@@ -190,6 +190,36 @@ def test_dixon_price_function():
     assert abs(result_3d.fx) < 1e-10, f"3D global minimum should be 0, got {result_3d.fx}"
 
     print("✅ Dixon & Price function test passed!")
+
+
+def test_salomon_function():
+    """
+    Test Salomon function implementation and evaluation.
+    """
+    # Test 2D Salomon function
+    problem = Salomon(2)
+    print(f"Created Salomon problem: {problem}")
+
+    # Test global minimum at origin
+    global_min_point = Point([0.0, 0.0], "global_min")
+    result = problem(global_min_point)
+    print(f"Salomon at global minimum {global_min_point.x} -> f(x) = {result.fx}")
+    assert abs(result.fx) < 1e-10, f"Global minimum should be 0, got {result.fx}"
+
+
+def test_sargan_function():
+    """
+    Test Sargan function implementation and evaluation.
+    """
+    # Test 2D Sargan function
+    problem = Sargan(2)
+    print(f"Created Sargan problem: {problem}")
+
+    # Test global minimum at origin
+    global_min_point = Point([0.0, 0.0], "global_min")
+    result = problem(global_min_point)
+    print(f"Sargan at global minimum {global_min_point.x} -> f(x) = {result.fx}")
+    assert abs(result.fx) < 1e-10, f"Global minimum should be 0, got {result.fx}"
 
 
 def test_zakharov_function():

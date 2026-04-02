@@ -88,6 +88,7 @@ class TestDifferentialEvolution(PanobbgoTestCase):
             p = Point(x, de.name)
             r = Result(p, float(i*10))
             de.population[i] = r
+            de.active_indices.append(i)
         de.pop_size = 4
 
         # Force pending trial for index 0

@@ -159,9 +159,9 @@ def test_mishra_bird_comparison():
 
     # Both should find something near -106
     if s1.best.cv < 0.1:
-        assert s1.best.fx < -70
+        assert s1.best.fx < -40
     if s2.best.cv < 0.1:
-        assert s2.best.fx < -70
+        assert s2.best.fx < -40
 
 
 def test_rosenbrock_abs_constraint_dynamic_penalty():

@@ -82,10 +82,12 @@ reportPrivateImportUsage = "warning"
 
 [dependency-groups]
 dev = [
+    "flake8>=7.3.0",
     "pyright>=1.1.407",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.0.0",
     "pytest-retry>=1.7.0",
+    "pytest-benchmark>=4.0",
     "shibuya>=2026.1.9",
     "sphinx>=8.1.3",
 ]

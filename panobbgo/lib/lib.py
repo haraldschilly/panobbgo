@@ -31,6 +31,7 @@ import numpy as np
 import time
 from numpy.linalg import norm
 from numbers import Number
+from typing import Optional, Union, List, Tuple, Any
 
 
 class Point:
@@ -40,17 +41,17 @@ class Point:
     reference to :attr:`.who` has generated it.
     """
 
-    def __init__(self, x, who):
+    def __init__(self, x: Union[np.ndarray, List[float], Tuple[float, ...]], who: str) -> None:
         if not isinstance(who, str):
             raise ValueError(
                 'who needs to be a string describing the heuristic, was %s of type %s'
                 % (who, type(who)))
         if not isinstance(x, np.ndarray):
             x = np.array(x, dtype=np.float64)
-        self._x = x
-        self._who = who  # heuristic.name, a string
+        self._x: np.ndarray = x
+        self._who: str = who  # heuristic.name, a string
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         >>> Point
         <class panobbgo.lib.Point at ...>
@@ -62,14 +63,14 @@ class Point:
         return '%s by %s' % (self.x, self.who)
 
     @property
-    def x(self):
+    def x(self) -> np.ndarray:
         """
         The vector :math:`x`, a :class:`numpy.ndarray`
         """
         return self._x
 
     @property
-    def who(self):
+    def who(self) -> str:
         """
         A string, which is the :attr:`~panobbgo.core.Module.name` of a heuristic.
 
@@ -78,7 +79,7 @@ class Point:
         """
         return self._who
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> float:
         """
         get x vector
 
@@ -104,46 +105,53 @@ class Result:
       each constraint.
     """
 
-    def __init__(self, point, fx, cv_vec=None, cv_norm=None, error=0.0):
+    def __init__(
+        self,
+        point: Optional[Point],
+        fx: Optional[float],
+        cv_vec: Optional[np.ndarray] = None,
+        cv_norm: Optional[Union[int, float, str]] = None,
+        error: float = 0.0
+    ) -> None:
         """
         Args:
 
-        - ``cv``: the constraint violation vector
+        - ``cv_vec``: the constraint violation vector
         - ``cv_norm``: the norm used to calculate :attr:`.cv`.
           (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
         """
-        if point and not isinstance(point, Point):
+        if point is not None and not isinstance(point, Point):
             raise ValueError("point must be an instance of lib.Point")
-        self._point = point
-        self._fx = fx
-        self._error = error
-        self._cv_vec = cv_vec
-        self._cv_norm = cv_norm
-        self._time = time.time()
+        self._point: Optional[Point] = point
+        self._fx: Optional[float] = fx
+        self._error: float = error
+        self._cv_vec: Optional[np.ndarray] = cv_vec
+        self._cv_norm: Optional[Union[int, float, str]] = cv_norm
+        self._time: float = time.time()
 
     @property
-    def x(self):
+    def x(self) -> Optional[np.ndarray]:
         """
         Point :math:`x` where this result has been evaluated.
         """
         return self.point.x if self.point else None
 
     @property
-    def point(self):
+    def point(self) -> Optional[Point]:
         """
         Returns the actual :class:`.Point` object.
         """
         return self._point
 
     @property
-    def fx(self):
+    def fx(self) -> Optional[float]:
         """
         The function value :math:`f(x)` after :meth:`evaluating <panobbgo.lib.Problem.eval>` it.
         """
         return self._fx
 
     @property
-    def cv_vec(self):
+    def cv_vec(self) -> Optional[np.ndarray]:
         """
         Vector of constraint violations for each constraint, or None.
 
@@ -156,7 +164,7 @@ class Result:
         return self._cv_vec
 
     @property
-    def cv(self):
+    def cv(self) -> float:
         """
         Constraint Violation.
 
@@ -168,31 +176,33 @@ class Result:
         """
         if self._cv_vec is None:
             return 0.0
-        return norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm)
+        return float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm)) # type: ignore
 
     @property
-    def pp(self):
+    def pp(self) -> np.ndarray:
         """
         pareto point, i.e. array([cv, fx])
         """
         return np.array([self.cv, self.fx])
 
     @property
-    def who(self):
+    def who(self) -> str:
         """
         The :attr:`~panobbgo.core.Module.name` of the heuristic, who
         did generate this point (String).
         """
-        return self.point.who
+        if self.point is not None:
+            return self.point.who
+        return "unknown"
 
     @property
-    def error(self):
+    def error(self) -> float:
         """
         Error margin of function evaluation, usually 0.0.
         """
         return self._error
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         """
         Compare with other point by fx (and fx only!).
 
@@ -201,15 +211,21 @@ class Result:
           This is also used by mechanism
           like Best -> pareto_front
         """
-        assert isinstance(other, Result)
+        if not isinstance(other, Result):
+            return NotImplemented
+        # Ensure we have numeric values for comparison
+        if self._fx is None:
+            return False
+        if other._fx is None:
+            return True
         return self._fx < other._fx
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Result):
             return NotImplemented
         return self._fx == other._fx
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Hash function for Result objects, needed for use in sets and dictionaries.
 
@@ -219,7 +235,7 @@ class Result:
         x_tuple = tuple(self.x) if self.x is not None else ()
         return hash((x_tuple, self._fx, self.who))
 
-    def __str__(self):
+    def __str__(self) -> str:
         x = ' '.join(
             '%11.6f' % _ for _ in self.x) if self.x is not None else None
         cv = '' if self._cv_vec is None else '\u22DB%8.4f ' % self.cv
@@ -233,40 +249,42 @@ class BoundingBox:
     """
     # this follows http://docs.scipy.org/doc/numpy/user/basics.subclassing.html
     # #slightly-more-realistic-example-attribute-added-to-existing-array
-    def __init__(self, box, dx=None, immutable=True):
-        self.box = np.asarray(box, dtype=np.float64)
+    def __init__(self, box: Union[List[Tuple[float, float]], Tuple[Tuple[float, float], ...], np.ndarray], dx: Optional[np.ndarray] = None, immutable: bool = True) -> None:
+        self.box: np.ndarray = np.asarray(box, dtype=np.float64)
         assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
 
         if dx is not None:
             self.box += dx
 
-        self.ranges = np.ptp(self.box, axis=1)  # self._box[:,1] - self._box[:,0]
-        self.center = self.box[:, 0] + self.ranges / 2.
+        self.ranges: np.ndarray = np.ptp(self.box, axis=1)  # type: ignore # self._box[:,1] - self._box[:,0]
+        self.center: np.ndarray = self.box[:, 0] + self.ranges / 2.
 
         if immutable:
             for arr in [self.box, dx, self.ranges, self.center]:
                 if arr is not None:
                     try:
-                        arr.setflags(write=False)
+                        arr.setflags(write=False) # type: ignore
                     except AttributeError:
                         pass
 
-    def copy(self, immutable=False):
+    def copy(self, immutable: bool = False) -> 'BoundingBox':
         return type(self)(self.box.copy(), immutable=immutable)
 
-    def __contains__(self, point):
+    def __contains__(self, point: Point) -> bool:
         """
         :param Point point: the box of the problem
         """
-        lower_check = np.all(point.x >= self.box[:, 0])
-        upper_check = np.all(point.x <= self.box[:, 1])
+        if point.x is None:
+            return False
+        lower_check = bool(np.all(point.x >= self.box[:, 0]))
+        upper_check = bool(np.all(point.x <= self.box[:, 1]))
         return lower_check and upper_check
 
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Any) -> Any:
         return self.box.__getitem__(item)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: Any, value: Any) -> None:
         return self.box.__setitem__(key, value)
 
 
@@ -277,7 +295,11 @@ class Problem:
     information about the problem, etc.
     """
 
-    def __init__(self, box=None, dx=None):
+    def __init__(
+        self,
+        box: Union[List[Tuple[float, float]], Tuple[Tuple[float, float], ...]],
+        dx: Optional[Union[np.ndarray, List[float], Tuple[float, ...]]] = None
+    ) -> None:
         r"""
         :param list box: list of tuples for the bounding box with length n,
                           e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
@@ -292,43 +314,44 @@ class Problem:
                 assert isinstance(e, Number), "box entries must be numbers"
             assert entry[0] <= entry[1], "box entries must be non-decreasing"
 
-        self._dim = len(box)
-        if dx is not None:
-            dx = np.array(dx, dtype=np.float64)
-            dx.setflags(write=False)
-        self._box = BoundingBox(box, dx)
+        self._dim: int = len(box)
+        self.dx: Optional[np.ndarray] = None
 
-        self.dx = dx
+        if dx is not None:
+            self.dx = np.array(dx, dtype=np.float64)
+            self.dx.setflags(write=False)
+
+        self._box: BoundingBox = BoundingBox(box, self.dx)
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         """
         The number of dimensions.
         """
         return self._dim
 
     @property
-    def ranges(self):
+    def ranges(self) -> np.ndarray:
         """
         The ranges along each dimension, a :class:`numpy.ndarray`.
         """
         return self.box.ranges
 
     @property
-    def box(self):
+    def box(self) -> BoundingBox:
         r"""
         The bounding box for this problem, a :math:`(\mathit{dim},2)`-:class:`array <.BoundingBox>`.
         """
         return self._box
 
     @property
-    def center(self):
+    def center(self) -> np.ndarray:
         r"""
         center of the box
         """
         return self.box.center
 
-    def project(self, point):
+    def project(self, point: np.ndarray) -> np.ndarray:
         r"""
         projects given point into the search box.
         e.g. :math:`[-1.1, 1]` with box :math:`[(-1,1),(-1,1)]`
@@ -337,7 +360,7 @@ class Problem:
         assert isinstance(point, np.ndarray), 'point must be a numpy ndarray'
         return np.minimum(np.maximum(point, self.box[:, 0]), self.box[:, 1])
 
-    def random_point(self):
+    def random_point(self) -> np.ndarray:
         """
         generates a random point inside the given search box (ranges).
         """
@@ -345,7 +368,7 @@ class Problem:
         return self.ranges * np.random.rand(self.dim) + self._box[:, 0]
         # TODO other distributions, too?
 
-    def eval(self, x):
+    def eval(self, x: np.ndarray) -> float:
         """
         This is called to evaluate the given black-box function.
         The problem should be called directly (``__call__`` special function wraps this)
@@ -355,22 +378,24 @@ class Problem:
         """
         raise Exception("You have to subclass and overwrite the eval function")
 
-    def eval_constraints(self, x):
+    def eval_constraints(self, x: np.ndarray) -> Optional[np.ndarray]:
         """
         This method is optionally overwritten by the problem to calculate the constraint violations.
         It has to return a :class:`numpy.ndarray` of ``floats``.
 
         :rtype: numpy.ndarray
         """
-        pass
+        return None
 
-    def __call__(self, point):
-        x = point.x + self.dx if self.dx is not None else point.x
+    def __call__(self, point: Point) -> Result:
+        x = point.x + self.dx if self.dx is not None and point.x is not None else point.x
+        if x is None:
+            raise ValueError("Point coordinates cannot be None during evaluation")
         fx = self.eval(x)
         cv = self.eval_constraints(x)
         return Result(point, fx, cv_vec=cv)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         descr = "Problem '{}': {:d} dims, ".format(
             self.__class__.__name__, self._dim)
         p = [_ for _ in iter(list(self.__dict__.items())) if not _[0].startswith("_")]

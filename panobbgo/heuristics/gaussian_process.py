@@ -30,6 +30,21 @@ from enum import Enum
 from scipy.special import ndtr
 from scipy.optimize import minimize
 
+import warnings
+
+try:
+    from sklearn.exceptions import ConvergenceWarning
+    from sklearn.gaussian_process import GaussianProcessRegressor
+    from sklearn.gaussian_process.kernels import (
+        Matern,
+        ConstantKernel,
+        WhiteKernel,
+    )
+
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
+
 
 class AcquisitionFunction(Enum):
     """Acquisition functions for Bayesian optimization."""
@@ -260,17 +275,13 @@ class GaussianProcessHeuristic(Heuristic):
         Args:
             fit_constraint (bool): Whether to fit the constraint GP model.
         """
-        import warnings
-        from sklearn.exceptions import ConvergenceWarning
+        if not HAS_SKLEARN:
+            self.logger.error(
+                "scikit-learn not available. Install with: pip install scikit-learn"  # noqa: E501
+            )
+            raise ImportError("scikit-learn not available.")
 
         try:
-            from sklearn.gaussian_process import GaussianProcessRegressor
-            from sklearn.gaussian_process.kernels import (
-                Matern,
-                ConstantKernel,
-                WhiteKernel,
-            )
-
             # Use Matern kernel with some white noise for stability
             # ConstantKernel scales the Matern
             kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(
@@ -307,10 +318,8 @@ class GaussianProcessHeuristic(Heuristic):
                 n_points = len(self.X_train)
                 self.logger.debug("GP model fitted with %d points" % n_points)
 
-        except ImportError:
-            self.logger.error(
-                "scikit-learn not available. Install with: pip install scikit-learn"  # noqa: E501
-            )
+        except Exception as e:
+            self.logger.error(f"Error during GP model fitting: {e}")
             raise
 
     def _acquire_candidates(self, n_candidates):

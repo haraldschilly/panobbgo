@@ -298,6 +298,13 @@ class _DejongProxy:
         return DeJong(dims=dims)
 
 
+# Patch Himmelblau into namespace for the _make_standard_problems function
+try:
+    from panobbgo.lib.classic import Himmelblau  # pyright: ignore[reportUnusedImport] # noqa: F401
+except ImportError:
+    Himmelblau = None  # type: ignore[assignment,misc]
+
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------

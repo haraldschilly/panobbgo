@@ -142,7 +142,7 @@ class GaussianProcessHeuristic(Heuristic):
         new_cv = np.array(new_cv_list)
 
         # Update raw data arrays
-        if self.X_train is None:
+        if self.X_train is None or self.y_fx_train is None or self.y_cv_train is None:
             self.X_train = new_X
             self.y_fx_train = new_fx
             self.y_cv_train = new_cv

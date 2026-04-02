@@ -121,7 +121,7 @@ class ClaudeHeuristic(Heuristic):
         new_X_arr = np.array(new_X)
         new_y_arr = np.array(new_y)
 
-        if self.X_all is None:
+        if self.X_all is None or self.y_all is None:
             self.X_all = new_X_arr
             self.y_all = new_y_arr
         else:

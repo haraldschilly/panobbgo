@@ -17,6 +17,7 @@ from panobbgo.core import Heuristic
 from panobbgo.lib import Point
 import numpy as np
 import uuid
+import random
 
 
 class DifferentialEvolution(Heuristic):
@@ -43,6 +44,7 @@ class DifferentialEvolution(Heuristic):
         # Population: list of Result objects (or None for uninitialized slots)
         self.population = [None] * NP
         self.pop_size = 0
+        self.active_indices = []
 
         # Pending trials: map ID (str) -> target_index (int)
         self.pending_trials = {}
@@ -97,6 +99,7 @@ class DifferentialEvolution(Heuristic):
                     if self.population[target_idx] is None:
                         self.population[target_idx] = r
                         self.pop_size += 1
+                        self.active_indices.append(target_idx)
                     else:
                         target = self.population[target_idx]
                         if self.strategy.constraint_handler.is_better(target, r):
@@ -141,11 +144,14 @@ class DifferentialEvolution(Heuristic):
             return
 
         # Select r1, r2, r3 distinct from target_idx and each other
-        candidates = [i for i in range(self.NP) if self.population[i] is not None and i != target_idx]
-        if len(candidates) < 3:
-            return
+        # Sample 4 to ensure we can exclude target_idx without re-scanning active_indices
+        idxs = random.sample(self.active_indices, 4)
+        if target_idx in idxs:
+            idxs.remove(target_idx)
+            idxs = idxs[:3]
+        else:
+            idxs = idxs[:3]
 
-        idxs = np.random.choice(candidates, 3, replace=False)
         r1, r2, r3 = self.population[idxs[0]], self.population[idxs[1]], self.population[idxs[2]]
 
         x_r1 = r1.x

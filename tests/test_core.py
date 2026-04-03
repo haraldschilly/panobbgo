@@ -135,3 +135,81 @@ def test_on_converged_does_not_stop_if_configured():
     assert not strategy._stop_requested
     strategy.on_converged("Test Reason", {"stats": True})
     assert not strategy._stop_requested
+
+def test_results_setter_exception():
+    import pandas as pd
+    from unittest import mock
+    from panobbgo.core import StrategyBase, Results
+    problem = mock.Mock()
+    strategy = StrategyBase(problem, parse_args=False)
+    results = Results(strategy)
+
+    # Create a DataFrame missing 'fx' in level 1, with a proper multi-index so xs doesn't fail on index check
+    midx = pd.MultiIndex.from_tuples([('other', 0)], names=['prop', 'dim'])
+    df = pd.DataFrame([[1]], columns=midx)
+
+    # It should catch KeyError and set _best_fx to inf
+    results.results = df
+    assert results._best_fx == float('inf')
+
+def test_add_results_exception():
+    from unittest import mock
+    from panobbgo.core import StrategyBase, Results
+    from panobbgo.lib import Result, Point
+    import pandas as pd
+    problem = mock.Mock()
+    strategy = StrategyBase(problem, parse_args=False)
+    results = Results(strategy)
+    results.backend = None # Disable storage backend so it doesn't fail on save() mock json
+
+    # Create a dummy DataFrame so len(self.results) > 0 check passes
+    midx = pd.MultiIndex.from_tuples([('fx', 0)], names=['prop', 'dim'])
+    df = pd.DataFrame([[1]], columns=midx)
+
+    # Set the dummy df first
+    results._results_df = df
+
+    # The progress formatting tries to access xs(0, level=1)
+    # If we replace xs with a method that raises an Exception
+    # it will hit the try/except block at line 218 in core.py
+
+    import numpy as np
+    mock_res = Result(Point(np.array([1.0]), "test"), fx=1.0)
+
+    with mock.patch.object(pd.DataFrame, 'xs', side_effect=Exception("Test exception")):
+        # Calling add_results should silently catch the exception
+        results.add_results([mock_res])
+
+def test_check_dependencies_failure():
+    from unittest import mock
+    from panobbgo.core import StrategyBase, Module
+    import pytest
+    problem = mock.Mock()
+    strategy = StrategyBase(problem, parse_args=False)
+
+    # Mock a module that fails check_dependencies
+    mock_mod1 = mock.Mock()
+    mock_mod1.check_dependencies.return_value = False
+    mock_mod1._depends_on = []
+    # Make sure we use a class type for __class__ to avoid TypeError in set()
+    class MockClass: pass
+    mock_mod1.__class__ = MockClass
+
+    strategy._analyzers = {'mock1': mock_mod1}
+
+    with pytest.raises(Exception, match="does not satisfy dependencies. #1"):
+        strategy.check_dependencies()
+
+    # Mock a module that depends on a non-existent class
+    class DummyClass:
+        pass
+
+    mock_mod2 = mock.Mock()
+    mock_mod2.check_dependencies.return_value = True
+    mock_mod2._depends_on = [DummyClass]
+    mock_mod2.__class__ = MockClass # Same dummy class so it's added to available modules
+
+    strategy._analyzers = {'mock2': mock_mod2}
+
+    with pytest.raises(Exception, match="depends on.*but missing"):
+        strategy.check_dependencies()

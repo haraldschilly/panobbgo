@@ -171,3 +171,46 @@ class TestHeuristicRegressions:
 
         # Verify value
         assert prob_feas_arr[0] == 0.0 # 0.5 > 1e-6, so 0.0
+
+
+def test_quadratic_wls_subprocess():
+    import multiprocessing
+    import time
+    from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
+
+    parent_conn, child_conn = multiprocessing.Pipe()
+
+    # We will run the subprocess in a separate Python process to avoid blocking
+    ctx = multiprocessing.get_context('spawn') # Avoid fork warning
+    p = ctx.Process(target=QuadraticWlsModel.subprocess, args=(child_conn,))
+    p.start()
+
+    try:
+        # Dummy data
+        # For 2D quadratic model: 1 + 2 + 1 + 2 = 6 coefficients, need >= 6 points
+        points = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.5, 0.5], [0.2, 0.8], [0.8, 0.2]])
+        bounds = [(-5.0, 5.0), (-5.0, 5.0)]
+        best_point = np.array([0.5, 0.5])
+        fx_vals = np.array([1.0, 1.0, 1.0, 1.0, 0.0, 0.5, 0.5])
+
+        parent_conn.send((points, bounds, best_point, fx_vals))
+
+        # Wait for result
+        if parent_conn.poll(10.0):
+            sol = parent_conn.recv()
+            assert sol is not None
+            assert len(sol) == 2
+        else:
+            pytest.fail("Subprocess timed out")
+
+    finally:
+        # Stop subprocess by closing connection or terminating
+        try:
+            # Send EOF/break
+            child_conn.close()
+        except:
+            pass
+        p.terminate()
+        p.join(timeout=1.0)
+        if p.is_alive():
+            p.kill()

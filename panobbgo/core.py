@@ -49,13 +49,27 @@ from panobbgo.lib.constraints import (
 from .logging import PanobbgoLogger
 import time as time_module
 import numpy as np
+import pandas as pd
+from pandas import DataFrame, MultiIndex, concat
+import sys
+import os
+import pickle
+import subprocess
+import tempfile
+import inspect
+from queue import Empty, Queue
+from threading import RLock, Thread
+import multiprocessing
+import collections
+import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple
-from threading import RLock
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
     from .core import EventBus
-    from pandas import DataFrame
 
 
 class Results:
@@ -136,8 +150,6 @@ class Results:
         with self._lock:
             if not self._buffer:
                 return
-
-            from pandas import DataFrame, MultiIndex, concat
 
             # Initialize DataFrame if needed
             if self._results_df is None:
@@ -348,8 +360,6 @@ class Results:
             result: The evaluation result to report
             stats: Optional dictionary of pre-calculated statistics
         """
-        from .logging.progress import ProgressContext
-
         # Get strategy's logger for progress reporting
         if not hasattr(self.strategy, 'panobbgo_logger'):
             return  # No logger configured, skip progress reporting
@@ -503,7 +513,6 @@ class Module:
             for _, q in self.eventbus_events.items():
                 try:
                     # Create a dummy termination event if not already stopped
-                    from .core import Event
                     event = Event()
                     event.terminate = True
                     q.put(event, block=False)
@@ -578,7 +587,6 @@ class Heuristic(Module):
         self.logger = self.config.get_logger("HEUR")
         self.cap: int = cap if cap is not None else self.config.capacity
         self._stopped: bool = False
-        from queue import Queue
 
         self._output: Queue = Queue(self.cap)
 
@@ -629,8 +637,6 @@ class Heuristic(Module):
         the performance value is discounted (i.e. "punishment" or "energy
         consumption")
         """
-        from queue import Empty
-
         new_points = []
         try:
             while limit is None or len(new_points) < limit:
@@ -662,8 +668,6 @@ class HeuristicSubprocess(Heuristic):
     def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Heuristic.__init__(self, strategy, name=name, cap=cap)
 
-        import multiprocessing
-        
         # Use 'spawn' context to avoid DeprecationWarning: use of fork() may lead to deadlocks
         # in multi-threaded process. 'spawn' is safer and cross-platform.
         ctx = multiprocessing.get_context("spawn")
@@ -730,8 +734,6 @@ class EventBus:
     """
 
     # pattern for a valid key
-    import re
-
     _re_key = re.compile(r"^[a-z_]+$")
 
     def __init__(self, config: Any) -> None:
@@ -754,9 +756,6 @@ class EventBus:
 
         :param Module target:
         """
-        from queue import Empty, Queue  # LifoQueue
-        from threading import Thread
-
         # important: this decouples the dispatcher's thread from the actual
         # target
         def run(key, target, drain=False):
@@ -831,7 +830,6 @@ class EventBus:
                         if self.config.debug:
                             # sys.exc_info() -> re-create original exception
                             # (otherwise we don't know the actual cause!)
-                            import sys
                             exc_info = sys.exc_info()
                             if exc_info:
                                 e = exc_info[1]
@@ -845,8 +843,6 @@ class EventBus:
 
         target.eventbus_events = {}
         # bind all 'on_<key>' methods to events in the eventbus
-        import inspect
-
         for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
             if not name.startswith("on_"):
                 continue
@@ -986,8 +982,6 @@ class StrategyBase:
         logger.info("%s" % problem)
 
         # aux configuration
-        import pandas as pd
-
         # determine width based on console info
         pd.set_option("display.width", None)
         pd.set_option("display.precision", 2)  # default 7
@@ -1008,7 +1002,6 @@ class StrategyBase:
         self._setup_cluster(problem)
         self._threads = []
         self._hs = []
-        import collections
 
         self._heuristics = collections.OrderedDict()
         self._analyzers = collections.OrderedDict()
@@ -1126,8 +1119,6 @@ class StrategyBase:
         self.initialize()
 
         try:
-            import threading
-
             if isinstance(self, threading.Thread):
                 raise Exception("change run() to start()")
             self._run()
@@ -1382,11 +1373,6 @@ class StrategyBase:
         """
         Set up process pool evaluation using subprocesses.
         """
-        import multiprocessing
-        import pickle
-        import os
-        import tempfile
-
         # Store problem for subprocess evaluation
         self._problem = problem
 
@@ -1426,9 +1412,6 @@ class StrategyBase:
         - Functions that release the GIL
         - CPU-intensive parallel work (use Dask instead)
         """
-        from concurrent.futures import ThreadPoolExecutor
-        import multiprocessing
-
         # Store problem directly (shared memory, no pickling needed)
         self._problem = problem
 
@@ -1623,13 +1606,6 @@ class StrategyBase:
 
     def _run_process_evaluation(self, points):
         """Run evaluation using subprocess calls."""
-        import subprocess
-        import pickle
-        import tempfile
-        import os
-        import tempfile
-        import os
-
         # Submit each point as a separate subprocess task
         new_processes = []
         temp_files = []
@@ -1736,8 +1712,6 @@ with open('{result_file.name}', 'wb') as f:
         This is much faster than subprocess evaluation for pure Python functions
         since it avoids process creation overhead and pickle serialization.
         """
-        import time as time_mod
-
         # Prepare for result collection
         self.new_finished = []
         new_results = []
@@ -1752,7 +1726,7 @@ with open('{result_file.name}', 'wb') as f:
                 # Store start time for walltime calculation
                 if not hasattr(self, '_task_start_times'):
                     self._task_start_times = {}
-                self._task_start_times[task_id] = time_mod.time()
+                self._task_start_times[task_id] = time_module.time()
 
         # Wait for completion with short timeout for responsiveness
         self.new_finished = []
@@ -1768,7 +1742,7 @@ with open('{result_file.name}', 'wb') as f:
 
                 # Record wall time
                 if hasattr(self, '_task_start_times') and task_id in self._task_start_times:
-                    self.tasks_walltimes[task_id] = time_mod.time() - self._task_start_times[task_id]
+                    self.tasks_walltimes[task_id] = time_module.time() - self._task_start_times[task_id]
                     self._task_start_times.pop(task_id)
 
                 try:
@@ -1929,8 +1903,6 @@ with open('{result_file.name}', 'wb') as f:
         elif self.config.evaluation_method == "processes":
             # Clean up problem file for process evaluation
             if hasattr(self, "_problem_file"):
-                import os
-
                 try:
                     os.unlink(self._problem_file.name)
                 except:

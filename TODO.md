@@ -93,7 +93,7 @@
 - [x] **Optimization Correctness Validation** - Add tests proving algorithms work
   - [x] Write tests validating convergence to known optima
   - [x] Compare optimization vs random baseline performance
-  - [ ] Add statistical significance testing
+  - [x] Add statistical significance testing
 
 ### 🟡 MEDIUM: Coverage Expansion on Validated Code (Priority 2)
 **Revised Goal**: 75% coverage on components proven to work correctly
@@ -105,7 +105,7 @@
 
 ### 🟢 LOW: Documentation & Polish (Priority 3)
 - [x] Update documentation references from IPython parallel to Dask
-- [ ] Review and fix minor naming inconsistencies in guide documentation
+- [x] Review and fix minor naming inconsistencies in guide documentation
 - [x] Remove remaining IPython parallel references from code and documentation
 - [ ] Review and potentially simplify UI components
 - [ ] Add performance benchmarks comparing different strategies
@@ -149,7 +149,7 @@
 - [x] **FIXED**: Cleanly terminate background processes.
 - [x] **FIXED**: Implementation of `strategy.cleanup()` methods.
 - [x] **FIXED**: Context manager support (`__enter__`/`__exit__`).
-- [ ] Implement pytest fixtures for automatic strategy setup/teardown in tests.
+- [x] Implement pytest fixtures for automatic strategy setup/teardown in tests.
 - [ ] Review all Dask distributed usage for best practice cleanup patterns.
 
 **Affected Files**:

@@ -7,7 +7,7 @@
 - [x] Replace `nose` with `pytest`.
 - [x] Update imports after restructuring.
 - [x] Run and fix existing tests.
-- [ ] Add type hinting where possible.
+- [x] Add type hinting where possible.
 - [x] Update `README.md` with new installation and usage instructions.
 - [x] Setup CI/CD (GitHub Actions) - *optional but recommended*.
 

@@ -31,7 +31,7 @@ import numpy as np
 import time
 from numpy.linalg import norm
 from numbers import Number
-from typing import Optional, Union, List, Tuple, Any
+from typing import Optional, Union, List, Tuple, Any, Sequence
 
 
 class Point:
@@ -249,7 +249,7 @@ class BoundingBox:
     """
     # this follows http://docs.scipy.org/doc/numpy/user/basics.subclassing.html
     # #slightly-more-realistic-example-attribute-added-to-existing-array
-    def __init__(self, box: Union[List[Tuple[float, float]], Tuple[Tuple[float, float], ...], np.ndarray], dx: Optional[np.ndarray] = None, immutable: bool = True) -> None:
+    def __init__(self, box: Union[List[Tuple[float, float]], Sequence[Tuple[float, float]], Tuple[Tuple[float, float], ...], np.ndarray], dx: Optional[np.ndarray] = None, immutable: bool = True) -> None:
         self.box: np.ndarray = np.asarray(box, dtype=np.float64)
         assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
 
@@ -297,7 +297,7 @@ class Problem:
 
     def __init__(
         self,
-        box: Union[List[Tuple[float, float]], Tuple[Tuple[float, float], ...]],
+        box: Union[List[Tuple[float, float]], Sequence[Tuple[float, float]], Tuple[Tuple[float, float], ...]],
         dx: Optional[Union[np.ndarray, List[float], Tuple[float, ...]]] = None
     ) -> None:
         r"""

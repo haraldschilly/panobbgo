@@ -27,6 +27,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 #       the serialization and reconstruction won't work!
 import numpy as np
 from .lib import Problem
+from typing import Sequence, Tuple, Optional, Any
 
 
 class Rosenbrock(Problem):
@@ -74,7 +75,7 @@ class Rosenbrock(Problem):
     >>> problem = Rosenbrock(optimum=[24, -12], box=[(-100, 100), (-100, 100)])
     """
 
-    def __init__(self, dims=None, par1=100, optimum=None, box=None, **kwargs):
+    def __init__(self, dims: Optional[int] = None, par1: float = 100, optimum: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         # Handle optimum parameter
         if optimum is None:
             optimum = 1.0  # Standard Rosenbrock optimum
@@ -151,7 +152,7 @@ class RosenbrockConstraint(Problem):
     they apply relative to the optimum location.
     """
 
-    def __init__(self, dims=None, par1=100, par2=0.25, optimum=None, box=None, **kwargs):
+    def __init__(self, dims: Optional[int] = None, par1: float = 100, par2: float = 0.25, optimum: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         # Handle optimum parameter
         if optimum is None:
             optimum = 1.0  # Standard Rosenbrock optimum
@@ -204,8 +205,8 @@ class RosenbrockAbs(Problem):
 
     """
 
-    def __init__(self, dims, par1=100, **kwargs):
-        box = [(-5, 5)] * dims
+    def __init__(self, dims: int, par1: float = 100, **kwargs: Any):
+        box = [(-5.0, 5.0)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         Problem.__init__(self, box, **kwargs)
@@ -228,8 +229,8 @@ class RosenbrockAbsConstraint(Problem):
 
     """
 
-    def __init__(self, dims, par1=100, par2=0.1, **kwargs):
-        box = [(-5, 5)] * dims
+    def __init__(self, dims: int, par1: float = 100, par2: float = 0.1, **kwargs: Any):
+        box = [(-5.0, 5.0)] * dims
         box[0] = (0, 2)  # for cornercases + testing
         self.par1 = par1
         self.par2 = par2
@@ -258,8 +259,8 @@ class RosenbrockStochastic(Problem):
     vector in :math:`\left[0, 1\right)^{n-1}`.
     """
 
-    def __init__(self, dims, par1=100, jitter=.1, **kwargs):
-        box = [(-5, 5)] * dims
+    def __init__(self, dims: int, par1: float = 100, jitter: float = .1, **kwargs: Any):
+        box = [(-5.0, 5.0)] * dims
         box[0] = (-1, 2)  # for cornercases + testing
         self.par1 = par1
         self.jitter = jitter
@@ -282,8 +283,8 @@ class Himmelblau(Problem):
       f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
     """
 
-    def __init__(self, **kwargs):
-        Problem.__init__(self, [(-5, 5)] * 2, **kwargs)
+    def __init__(self, **kwargs: Any):
+        Problem.__init__(self, [(-5.0, 5.0)] * 2, **kwargs)
 
     def eval(self, x):
         x, y = x[0], x[1]
@@ -301,8 +302,8 @@ class Rastrigin(Problem):
 
     """
 
-    def __init__(self, dims, par1=10, offset=0, box=None, **kwargs):
-        box = box or [(-2, 2)] * dims
+    def __init__(self, dims: int, par1: float = 10, offset: float = 0, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-2.0, 2.0)] * dims
         self.offset = offset
         self.par1 = par1
         Problem.__init__(self, box, **kwargs)
@@ -333,8 +334,8 @@ class Ackley(Problem):
     .. [Ackley] https://en.wikipedia.org/wiki/Ackley_function
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-5, 5)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -368,8 +369,8 @@ class Griewank(Problem):
     .. [Griewank] https://en.wikipedia.org/wiki/Griewank_function
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-600, 600)] * dims  # Common bounds for Griewank
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-600.0, 600.0)] * dims  # Common bounds for Griewank
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -402,8 +403,8 @@ class StyblinskiTang(Problem):
     .. [StyblinskiTang] https://en.wikipedia.org/wiki/Styblinski%E2%80%93Tang_function
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-5, 5)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -434,8 +435,8 @@ class Schwefel(Problem):
     .. [Schwefel] https://en.wikipedia.org/wiki/Schwefel_function
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-500, 500)] * dims  # Common bounds for Schwefel
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-500.0, 500.0)] * dims  # Common bounds for Schwefel
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -470,8 +471,8 @@ class DixonPrice(Problem):
                     DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-10, 10)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-10.0, 10.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -511,8 +512,8 @@ class Zakharov(Problem):
                    DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-5, 10)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 10.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -554,8 +555,8 @@ class Salomon(Problem):
                  DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-100, 100)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-100.0, 100.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -625,8 +626,8 @@ class RosenbrockModified(Problem):
                             DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-2, 2), (-2, 2)]
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-2.0, 2.0), (-2.0, 2.0)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -661,8 +662,8 @@ class RotatedEllipse(Problem):
                         DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-500, 500), (-500, 500)]
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-500.0, 500.0), (-500.0, 500.0)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -731,8 +732,8 @@ class Ripple1(Problem):
                  DOI: 10.1504/IJMMNO.2013.055204
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(0, 1), (0, 1)]
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(0.0, 1.0), (0.0, 1.0)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -821,8 +822,8 @@ class Shekel(Problem):
     .. [SH] https://en.wikipedia.org/wiki/Shekel_function
     """
 
-    def __init__(self, dims, m=10, a=None, c=None, box=None, **kwargs):
-        box = box or [(-2, 2)] * dims
+    def __init__(self, dims: int, m: int = 10, a: Any = None, c: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-2.0, 2.0)] * dims
         Problem.__init__(self, box, **kwargs)
         self.m = m
 
@@ -863,8 +864,8 @@ class DeJong(Problem):
     with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
     """
 
-    def __init__(self, dims, c=1, box=None, **kwargs):
-        box = box or [(-5, 5)] * dims
+    def __init__(self, dims: int, c: float = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * dims
         self.c = c
         Problem.__init__(self, box, **kwargs)
 
@@ -884,8 +885,8 @@ class Quadruple(Problem):
     with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
     """
 
-    def __init__(self, dims, c=1, box=None, **kwargs):
-        box = box or [(-10, 10)] * dims
+    def __init__(self, dims: int, c: float = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-10.0, 10.0)] * dims
         self.c = c
         Problem.__init__(self, box, **kwargs)
 
@@ -905,8 +906,8 @@ class Powell(Problem):
                10 ((x_1 - x_4)^2)^2
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-10, 10)] * 4
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-10.0, 10.0)] * 4
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -931,8 +932,8 @@ class Trigonometric(Problem):
     with :math:`n = m`.
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-1, 1)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-1.0, 1.0)] * dims
         Problem.__init__(self, box, **kwargs)
         self.indices = np.arange(dims, dtype=np.float64)
 
@@ -955,8 +956,8 @@ class SumDifferentPower(Problem):
         F(x) = \sum_{i=1}^n |x_i|^{i+1}
     """
 
-    def __init__(self, dims, box=None, **kwargs):
-        box = box or [(-5, 5)] * dims
+    def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -995,11 +996,11 @@ class Box(Problem):
         t_i = i / 10
     """
 
-    def __init__(self, m=1, box=None, **kwargs):
+    def __init__(self, m: int = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         """
         :param int m: positive integer (default 1)
         """
-        box = box or [(-5, 5)] * 3
+        box = box or [(-5.0, 5.0)] * 3
         self.m = m
         Problem.__init__(self, box, **kwargs)
 
@@ -1026,8 +1027,8 @@ class Wood(Problem):
 
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-5, 5)] * 4
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * 4
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -1058,8 +1059,8 @@ class HelicalValley(Problem):
 
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-5, 5)] * 3
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * 3
         Problem.__init__(self, box, **kwargs)
 
     @staticmethod
@@ -1092,8 +1093,8 @@ class Beale(Problem):
         y_1 = 1.5, \, y_2 = 2.25, \, y_3 = 2.625
     """
 
-    def __init__(self, box=None, **kwargs):
-        box = box or [(-5, 5)] * 2
+    def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+        box = box or [(-5.0, 5.0)] * 2
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -1112,21 +1113,21 @@ class NesterovQuadratic(Problem):
             F(x) = \frac{1}{2} \lVert A x - b \rVert_2^2 + \lVert x \rVert_1
     """
 
-    def __init__(self, dim=None, box=None, A=None, b=None, nonsmooth=True, **kwargs):
+    def __init__(self, dim: Optional[int] = None, box: Optional[Sequence[Tuple[float, float]]] = None, A: Any = None, b: Any = None, nonsmooth: bool = True, **kwargs: Any):
         r"""
         :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
         """
         self.nonsmooth = nonsmooth
         if A is None and b is None:
-            dim = 2
-            A = np.random.randn(dim, dim)
-            b = np.random.randn(dim)
+            dim_val = 2
+            A = np.random.randn(dim_val, dim_val)
+            b = np.random.randn(dim_val)
         else:
             assert b is not None, "b must be provided if A is provided"
-            dim = b.shape[0]
+            dim_val = int(b.shape[0])
             if A is None:
-                A = np.random.randn(dim, dim)
-        box = box or [(-5, 5)] * dim
+                A = np.random.randn(dim_val, dim_val)
+        box = box or [(-5.0, 5.0)] * dim_val
         self.A, self.b = A, b
         Problem.__init__(self, box, **kwargs)
 
@@ -1146,10 +1147,10 @@ class Arwhead(Problem):
         F(x) = \sum_{i=1}^{n-1} \left( (x_i^2 + x_n^2)^2 - 4 x_i + 3 \right)
     """
 
-    def __init__(self, dim=None, box=None, **kwargs):
+    def __init__(self, dim: Optional[int] = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         if dim is None:
-            dim = box.shape[0] if box else 3
-        box = box or [(-5, 5)] * dim
+            dim = len(box) if box else 3
+        box = box or [(-5.0, 5.0)] * dim
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -1168,14 +1169,14 @@ class Branin(Problem):
     """
 
     def __init__(self,
-            a = 1,
-            b = 5.1 / (4 * np.pi**2),
-            c = 5 / np.pi,
-            r = 6,
-            s = 10,
-            t = 1,
-            **kwargs):
-        box = [[-5, 10], [0, 15]]
+            a: float = 1,
+            b: float = 5.1 / (4 * np.pi**2),
+            c: float = 5 / np.pi,
+            r: float = 6,
+            s: float = 10,
+            t: float = 1,
+            **kwargs: Any):
+        box = [(-5.0, 10.0), (0.0, 15.0)]
         self.a = a
         self.b = b
         self.c = c
@@ -1200,8 +1201,8 @@ class GoldsteinPrice(Problem):
         f(x,y) = \left(1+\left(x+y+1\right)^{2}\left(19-14x+3x^{2}-14y+6xy+3y^{2}\right)\right)
                  \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
     """
-    def __init__(self, **kwargs):
-        box = [(-2, 2), (-2, 2)]
+    def __init__(self, **kwargs: Any):
+        box = [(-2.0, 2.0), (-2.0, 2.0)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
@@ -1219,7 +1220,7 @@ class Simionescu(Problem):
     f(x,y) = 0.1 * xy
     subject to: x^2 + y^2 <= (1 + 0.2 cos(8 atan(x/y)))^2
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         # Box is typically [-1.25, 1.25]
         super().__init__([(-1.25, 1.25), (-1.25, 1.25)], **kwargs)
 
@@ -1247,8 +1248,8 @@ class MishraBird(Problem):
     f(x,y) = sin(y)e^((1-cos(x))^2) + cos(x)e^((1-sin(y))^2) + (x-y)^2
     s.t. (x+5)^2 + (y+5)^2 < 25
     """
-    def __init__(self, **kwargs):
-        super().__init__([(-10, 0), (-6.5, 0)], **kwargs)
+    def __init__(self, **kwargs: Any):
+        super().__init__([(-10.0, 0.0), (-6.5, 0.0)], **kwargs)
         # Optimum approx -106.7645 at (-3.1302468, -1.5821422)
 
     def eval(self, x):
@@ -1283,13 +1284,13 @@ class PressureVessel(Problem):
 
     Best known solution: f(x) approx 6059.7143
     """
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         # Continuous version bounds
         box = [
-            (0, 99),    # x1
-            (0, 99),    # x2
-            (10, 200),  # x3
-            (10, 200)   # x4
+            (0.0, 99.0),    # x1
+            (0.0, 99.0),    # x2
+            (10.0, 200.0),  # x3
+            (10.0, 200.0)   # x4
         ]
         super().__init__(box, **kwargs)
 

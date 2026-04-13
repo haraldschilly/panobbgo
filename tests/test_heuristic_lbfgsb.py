@@ -90,3 +90,45 @@ class TestHeuristicLBFGSBRobustness(PanobbgoTestCase):
             lbfgsb.on_start()
 
         lbfgsb.__stop__()
+
+class TestHeuristicLBFGSBExtra(PanobbgoTestCase):
+    def test_on_new_results(self):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.p1 = mock.MagicMock()
+
+        class ResultMock:
+            def __init__(self, who, fx):
+                self.who = who
+                self.fx = fx
+
+        results = [ResultMock("LBFGSB", 5.0), ResultMock("Other", 3.0)]
+        self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+
+        lbfgsb.on_new_results(results)
+
+        lbfgsb.p1.send.assert_called_once_with(5.0)
+
+    def test_on_start_pipe_closed(self):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.out1 = mock.MagicMock()
+        lbfgsb.out1.poll.return_value = False
+        lbfgsb.p1 = mock.MagicMock()
+        lbfgsb.p1.poll.side_effect = EOFError()
+        lbfgsb._stopped = False
+
+        lbfgsb.on_start()
+        # Should exit loop silently without error
+
+    def test_on_start_output_received(self):
+        lbfgsb = LBFGSB(self.strategy)
+        lbfgsb.out1 = mock.MagicMock()
+        lbfgsb.out1.poll.return_value = True
+        lbfgsb.out1.recv.return_value = "Test Output"
+        lbfgsb.p1 = mock.MagicMock()
+        lbfgsb.p1.poll.side_effect = EOFError() # exit loop after first pass
+        lbfgsb._stopped = False
+        lbfgsb.logger = mock.MagicMock()
+
+        lbfgsb.on_start()
+
+        lbfgsb.logger.info.assert_called_with("Test Output")

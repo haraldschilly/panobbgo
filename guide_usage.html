@@ -375,7 +375,7 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 <h2>Defining Custom Problems<a class="headerlink" href="#defining-custom-problems" title="Link to this heading">¶</a></h2>
 <section id="basic-problem">
 <h3>Basic Problem<a class="headerlink" href="#basic-problem" title="Link to this heading">¶</a></h3>
-<p>Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code>:</p>
+<p>Subclass <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
 </span><span data-line="3">
@@ -400,7 +400,7 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </section>
 <section id="problem-wrappers">
 <h3>Problem Wrappers<a class="headerlink" href="#problem-wrappers" title="Link to this heading">¶</a></h3>
-<p>Instead of modifying your problem class, use composable wrappers from <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.wrappers</span></code>:</p>
+<p>Instead of modifying your problem class, use composable wrappers from <a class="reference internal" href="lib.html#module-panobbgo.lib.wrappers" title="panobbgo.lib.wrappers"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.wrappers</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.wrappers</span><span class="w"> </span><span class="kn">import</span> <span class="n">NormalizedProblem</span><span class="p">,</span> <span class="n">NoisyProblem</span><span class="p">,</span> <span class="n">LogTransformProblem</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Normalize all dimensions to [0, 1]</span>
@@ -416,7 +416,7 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="13"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">NoisyProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.05</span><span class="p">))</span>
 </span></pre></div>
 </div>
-<p>Wrappers are transparent — the framework sees a standard <code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code>
+<p>Wrappers are transparent — the framework sees a standard <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>
 with the transformed box and evaluation.</p>
 </section>
 <section id="noisy-problem-manual">
@@ -903,7 +903,7 @@ is preserved.</p>
 </section>
 <section id="heuristic-performance">
 <h3>Heuristic Performance<a class="headerlink" href="#heuristic-performance" title="Link to this heading">¶</a></h3>
-<p>For <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code>:</p>
+<p>For <a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Heuristic performance scores</span>
 </span><span data-line="2"><span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">strategy</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
 </span><span data-line="3">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: performance = </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">performance</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -962,7 +962,7 @@ is preserved.</p>
 </section>
 <section id="multi-start-optimization">
 <h3>Multi-start Optimization<a class="headerlink" href="#multi-start-optimization" title="Link to this heading">¶</a></h3>
-<p>Use the <code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code> analyzer to automatically restart the search
+<p>Use the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer to automatically restart the search
 when it gets stuck in a local optimum:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restart</span>
 </span><span data-line="2">
@@ -975,13 +975,13 @@ when it gets stuck in a local optimum:</p>
 </div>
 <p>Heuristics that define <code class="docutils literal notranslate"><span class="pre">on_restart(center,</span> <span class="pre">reason)</span></code> will automatically clear their queues
 and begin exploring around the new center. Heuristics without this handler continue as before.</p>
-<p>The Restart analyzer pairs well with <code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code> —
+<p>The Restart analyzer pairs well with <a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence" title="panobbgo.analyzers.convergence.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> —
 set <code class="docutils literal notranslate"><span class="pre">patience</span></code> lower than <code class="docutils literal notranslate"><span class="pre">Convergence.window_size</span></code> so restarts happen before convergence
 is declared.</p>
 </section>
 <section id="sensitivity-analysis">
 <h3>Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Link to this heading">¶</a></h3>
-<p>Use the <code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code> analyzer to identify which
+<p>Use the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> analyzer to identify which
 input dimensions matter most:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sensitivity</span>
 </span><span data-line="2">

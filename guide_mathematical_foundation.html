@@ -257,7 +257,7 @@ Uses a penalty factor that increases over time to gradually enforce constraints:
 <h4>Heuristic-Specific Approaches<a class="headerlink" href="#heuristic-specific-approaches" title="Link to this heading">¶</a></h4>
 <p>Some heuristics implement specialized constraint handling logic beyond the general handlers.</p>
 <p><strong>Expected Improvement with Constraints (EIC)</strong>:
-The <code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code> supports EIC. It models the objective function <span class="math notranslate nohighlight">\(f(x)\)</span> and constraint violation <span class="math notranslate nohighlight">\(cv(x)\)</span> separately using Gaussian Processes.</p>
+The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a> supports EIC. It models the objective function <span class="math notranslate nohighlight">\(f(x)\)</span> and constraint violation <span class="math notranslate nohighlight">\(cv(x)\)</span> separately using Gaussian Processes.</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
 \[EIC(x) = EI_f(x) \times P(cv(x) \le 0)\]</div>
@@ -440,7 +440,7 @@ p_h(t) &amp; \text{otherwise}
 <section id="motivation">
 <h3>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">¶</a></h3>
 <p>As optimization progresses, we learn which regions of the search space are promising.
-The <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code> maintains a hierarchical decomposition
+The <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> maintains a hierarchical decomposition
 to focus search appropriately.</p>
 </section>
 <section id="box-tree-algorithm">

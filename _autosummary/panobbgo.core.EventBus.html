@@ -97,7 +97,13 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.EventBus.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -128,6 +134,51 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <section id="panobbgo-core-eventbus">
 <h1>panobbgo.core.EventBus<a class="headerlink" href="#panobbgo-core-eventbus" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">EventBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/core.html#EventBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus" title="Link to this definition">¶</a></dt>
+<dd><p>This event bus is used to publish and send events.
+E.g. it is used to send information like “new best point”
+to all subscribing heuristics.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/panobbgo/core.html#EventBus.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.core.EventBus.__init__" title="panobbgo.core.EventBus.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(config)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.publish" title="panobbgo.core.EventBus.publish"><code class="xref py py-obj docutils literal notranslate"><span class="pre">publish</span></code></a>(key[, event, terminate])</p></td>
+<td><p>Publishes a new <a class="reference internal" href="../core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> to all subscribers, who listen to the given <code class="docutils literal notranslate"><span class="pre">key</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.register" title="panobbgo.core.EventBus.register"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register</span></code></a>(target)</p></td>
+<td><p>Registers a given <code class="docutils literal notranslate"><span class="pre">target</span></code> for this EventBus instance.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.subscribe" title="panobbgo.core.EventBus.subscribe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">subscribe</span></code></a>(key, target)</p></td>
+<td><p>Called by <a class="reference internal" href="../core.html#panobbgo.core.EventBus.register" title="panobbgo.core.EventBus.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.unsubscribe" title="panobbgo.core.EventBus.unsubscribe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unsubscribe</span></code></a>(key, target)</p></td>
+<td><p>Args:</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Attributes</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.keys" title="panobbgo.core.EventBus.keys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">keys</span></code></a></p></td>
+<td><p>List of all keys where you can send an <a class="reference internal" href="../core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> to.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
 </section>
 
         </article><button class="back-to-top" type="button">

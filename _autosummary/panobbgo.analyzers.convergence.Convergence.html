@@ -97,7 +97,13 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -128,6 +134,87 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <section id="panobbgo-analyzers-convergence-convergence">
 <h1>panobbgo.analyzers.convergence.Convergence<a class="headerlink" href="#panobbgo-analyzers-convergence-convergence" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.convergence.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence" title="Link to this definition">¶</a></dt>
+<dd><p>Analyzes the progress of the optimization to detect convergence or stagnation.</p>
+<p>It listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events and tracks the history of the best objective function values.
+If the improvement over a specified window of evaluations is below a threshold,
+or if the standard deviation of the best values in the window is small enough,
+it publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event.</p>
+<p>Configuration parameters (via <code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> or kwargs):
+- <code class="docutils literal notranslate"><span class="pre">convergence.window_size</span></code> (int): Number of recent best values to consider (default: 50).
+- <code class="docutils literal notranslate"><span class="pre">convergence.min_evaluations</span></code> (int): Minimum number of evaluations before checking convergence (default: window_size).
+- <code class="docutils literal notranslate"><span class="pre">convergence.threshold</span></code> (float): Threshold for relative improvement or std dev (default: 1e-6).
+- <code class="docutils literal notranslate"><span class="pre">convergence.mode</span></code> (str): ‘std’ (standard deviation), ‘improv’ (relative improvement), or ‘slope’ (linear regression slope) (default: ‘std’).</p>
+<p>Events published:
+- <code class="docutils literal notranslate"><span class="pre">converged</span></code>: When convergence criteria are met.</p>
+<blockquote>
+<div><p>The event carries <code class="docutils literal notranslate"><span class="pre">reason</span></code> (str) and <code class="docutils literal notranslate"><span class="pre">stats</span></code> (dict) with details.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/convergence.html#Convergence.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.__init__" title="panobbgo.analyzers.convergence.Convergence.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(strategy[, window_size, threshold, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code>(analyzers, heuristics)</p></td>
+<td><p>This method is called by the core initialization to assess, if the dependencies for the given module are met.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.convergence.Convergence.on_new_results" title="panobbgo.analyzers.convergence.Convergence.on_new_results"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_results</span></code></a>(results)</p></td>
+<td><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Attributes</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">eventbus</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>The module's name.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">problem</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">results</span></code></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">strategy</span></code></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</dd></dl>
+
 </section>
 
         </article><button class="back-to-top" type="button">

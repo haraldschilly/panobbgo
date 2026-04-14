@@ -208,6 +208,71 @@ Registering Your Heuristic
    strategy.add(Random)  # Include other heuristics
    strategy.start()
 
+Responding to Analyzer Events
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Heuristics can subscribe to events published by analyzers by defining the
+corresponding ``on_<event>`` method. Two commonly useful events are:
+
+**Sensitivity weights** (from :class:`~panobbgo.analyzers.sensitivity.Sensitivity`):
+
+When the ``new_sensitivity`` event is published, the ``importance`` array ranks which
+dimensions influence the objective. A heuristic can use this to focus perturbations
+on important dimensions:
+
+.. code-block:: python
+
+   class SensitivityAwareHeuristic(Heuristic):
+       def __init__(self, strategy):
+           super().__init__(strategy)
+           self._importance = None
+
+       def on_new_sensitivity(self, importance):
+           """Receive updated dimension importance scores.
+
+           Args:
+               importance: ndarray of shape (dim,), values in [0, 1].
+                   Higher values indicate more influential dimensions.
+           """
+           self._importance = importance.copy()
+
+       def on_new_best(self, best):
+           x = best.x.copy()
+           if self._importance is not None:
+               # Sample axis proportional to importance
+               probs = self._importance / self._importance.sum()
+               idx = np.random.choice(self.problem.dim, p=probs)
+           else:
+               idx = np.random.randint(self.problem.dim)
+           step = 0.01 * self.problem.ranges[idx] * np.random.randn()
+           x[idx] += step
+           self.emit(Point(self.problem.project(x), self.name))
+
+**Restart events** (from :class:`~panobbgo.analyzers.restart.Restart`):
+
+When the optimizer stagnates, the ``restart`` event provides a new center point
+to explore. A heuristic should clear its output queue and reset its state:
+
+.. code-block:: python
+
+   class RestartAwareHeuristic(Heuristic):
+       def on_restart(self, center, reason):
+           """Respond to a stagnation restart.
+
+           Args:
+               center: Suggested new center ndarray.
+               reason: Human-readable string explaining the restart.
+           """
+           self.clear_output()          # flush stale queued points
+           # Reset internal state here (e.g. model data, best reference)
+           # Then generate new points around the restart center
+           for _ in range(5):
+               x = center + 0.1 * self.problem.ranges * np.random.randn(self.problem.dim)
+               self.emit(Point(self.problem.project(x), self.name))
+
+Heuristics that do **not** implement ``on_restart`` simply continue as before
+(graceful degradation — restarts only affect heuristics that opt in).
+
 Adding a Custom Analyzer
 -------------------------
 

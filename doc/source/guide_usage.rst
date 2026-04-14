@@ -843,6 +843,32 @@ input dimensions matter most:
    sens = strategy.analyzer('Sensitivity')
    print(f"Dimension importance: {sens.importance}")
 
+Sensitivity-Aware Nearby Heuristic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When :class:`~panobbgo.analyzers.sensitivity.Sensitivity` is registered **before**
+:class:`~panobbgo.heuristics.nearby.Nearby` is added, the Nearby heuristic automatically
+subscribes to ``new_sensitivity`` events and weights its perturbations accordingly:
+
+- **``axes="one"`` (default)**: the perturbed dimension is sampled proportional to importance,
+  so dimensions that influence the objective are explored more often.
+- **``axes="all"``**: each dimension's step size is multiplied by its importance score,
+  freezing irrelevant dimensions and focusing budget on impactful ones.
+
+This is particularly useful for **high-dimensional problems** where only a handful of
+dimensions drive the objective (effective dimensionality reduction without changing the problem).
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Sensitivity
+   from panobbgo.heuristics import Nearby
+
+   strategy.add_analyzer(Sensitivity, update_interval=30)
+   strategy.add(Nearby, axes="one")   # will automatically use sensitivity weights
+
+   # For problems with very different dimension importance, axes="all" is better:
+   strategy.add(Nearby, axes="all", radius=0.05)
+
 Custom Events
 ~~~~~~~~~~~~~
 

@@ -209,6 +209,31 @@ class ClaudeHeuristic(Heuristic):
 
         return mean, cov
 
+    def on_restart(self, center: np.ndarray, reason: str) -> None:
+        """Reset accumulated data and generate new candidates around restart center.
+
+        Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer when the
+        search has stagnated. Clears the history so the cluster model is rebuilt fresh
+        from the new region.
+
+        Args:
+            center: Suggested new center point for search.
+            reason: Human-readable reason string from the Restart analyzer.
+        """
+        self.logger.info(f"ClaudeHeuristic reset: {reason}")
+        self.clear_output()
+        # Clear accumulated history so future on_new_results builds a fresh model
+        self.X_all = None
+        self.y_all = None
+        # Emit a few initial candidates scattered around the new center
+        if center is not None:
+            sigma = 0.1 * self.problem.ranges
+            candidates = []
+            for _ in range(self.n_candidates):
+                x = center + sigma * np.random.randn(self.problem.dim)
+                candidates.append(self.problem.project(x))
+            self.emit(candidates)
+
     def _sample_from_mixture(self, components) -> list[np.ndarray]:
         """Draw n_candidates points from the mixture model, projected to box."""
         candidates: list[np.ndarray] = []

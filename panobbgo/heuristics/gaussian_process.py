@@ -128,6 +128,28 @@ class GaussianProcessHeuristic(Heuristic):
         self.best_y = np.inf
         self.logger.info("Gaussian Process heuristic started")
 
+    def on_restart(self, center: np.ndarray, reason: str) -> None:
+        """Reset GP model and training data, starting fresh around the new center.
+
+        Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer when the
+        search has stagnated. Clearing the GP's training history prevents it from
+        being biased towards the old local basin.
+
+        Args:
+            center: Suggested new center point for search.
+            reason: Human-readable reason string from the Restart analyzer.
+        """
+        self.logger.info(f"GP heuristic reset: {reason}")
+        self.clear_output()
+        # Clear all training data so the GP rebuilds from the new region
+        self.X_train = None
+        self.y_train = None
+        self.y_fx_train = None
+        self.y_cv_train = None
+        self.gp_model = None
+        self.gp_constraint = None
+        self.best_y = np.inf
+
     def on_new_results(self, results):
         """
         Update GP model when new results are available.

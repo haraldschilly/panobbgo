@@ -13,6 +13,30 @@
 
 ## Recent Improvements
 
+### Sensitivity-Aware Nearby & Multi-Start Reset for Model Heuristics (2026-04-14)
+- [x] **Sensitivity-weighted perturbations in `Nearby` heuristic**
+  - Added `on_new_sensitivity(importance)` handler: Nearby now automatically subscribes
+    to `new_sensitivity` events published by the `Sensitivity` analyzer
+  - `axes="one"`: axis selected proportional to importance (frequently-important dims perturbed more)
+  - `axes="all"`: per-dimension step scaled by importance (irrelevant dims frozen)
+  - Refactored into `_perturb(x)` helper used by both `on_new_best` and `on_restart`
+  - Backward-compatible: no sensitivity analyzer = original uniform behavior
+- [x] **`on_restart` handler for `ClaudeHeuristic`**
+  - Clears accumulated X/y training history on restart so the cluster model rebuilds fresh
+  - Emits `n_candidates` initial candidates scattered around the new center
+- [x] **`on_restart` handler for `GaussianProcessHeuristic`**
+  - Resets all GP training data (X_train, y_train, y_fx_train, y_cv_train) and the fitted models
+  - Resets `best_y = inf` so EI acquisition starts fresh in the new region
+- [x] **13 new tests in `tests/test_heuristic_nearby_sensitivity.py`**
+  - Sensitivity axes="one" favors important dimensions exclusively (importance=[1,0,0])
+  - Sensitivity axes="all" freezes zero-importance dimensions
+  - Restart clears stale output and generates points near new center
+  - GP and ClaudeHeuristic restart clears all training state
+- [x] **Documentation updates**
+  - `doc/source/guide_usage.rst`: Added "Sensitivity-Aware Nearby Heuristic" sub-section
+  - `doc/source/guide_extending.rst`: Added "Responding to Analyzer Events" section with
+    concrete patterns for `on_new_sensitivity` and `on_restart` in custom heuristics
+
 ### Benchmark Harness for Agent Feedback Loops (2026-02-23)
 - [x] **Implemented `panobbgo/harness.py` – Reproducible Benchmark Harness**
   - `BenchmarkHarness` class: runs seeded, reproducible benchmark suites

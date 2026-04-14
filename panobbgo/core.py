@@ -154,8 +154,9 @@ class Results:
             # Initialize DataFrame if needed
             if self._results_df is None:
                 r = self._buffer[0]
-                midx_x = [("x", _) for _ in range(r.x.size if hasattr(r.x, 'size') else len(r.x))] # pyright: ignore
-                len_cv_vec = 0 if r.cv_vec is None else (r.cv_vec.size if hasattr(r.cv_vec, 'size') else len(r.cv_vec)) # pyright: ignore
+                midx_x = [("x", _) for _ in range(r.x.size if hasattr(r.x, "size") else len(r.x))]  # pyright: ignore
+                cv_vec = r.cv_vec
+                len_cv_vec = 0 if cv_vec is None else np.atleast_1d(cv_vec).size
                 midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
                 midx = MultiIndex.from_tuples(
                     midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
@@ -169,8 +170,9 @@ class Results:
                 return  # Should not happen given check above, but for safety
 
             r0 = self._buffer[0]
-            dim_x = r0.x.size if hasattr(r0.x, 'size') else len(r0.x) # pyright: ignore
-            len_cv_vec = 0 if r0.cv_vec is None else (r0.cv_vec.size if hasattr(r0.cv_vec, 'size') else len(r0.cv_vec)) # pyright: ignore
+            dim_x = r0.x.size if hasattr(r0.x, "size") else len(r0.x)  # pyright: ignore
+            r0_cv_vec = r0.cv_vec
+            len_cv_vec = 0 if r0_cv_vec is None else np.atleast_1d(r0_cv_vec).size
 
             # Pre-allocate typed arrays
             x_data = np.empty((n_results, dim_x), dtype=np.float64)

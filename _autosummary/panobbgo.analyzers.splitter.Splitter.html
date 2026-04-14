@@ -97,13 +97,7 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -134,98 +128,6 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <section id="panobbgo-analyzers-splitter-splitter">
 <h1>panobbgo.analyzers.splitter.Splitter<a class="headerlink" href="#panobbgo-analyzers-splitter-splitter" title="Link to this heading">¶</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter" title="Link to this definition">¶</a></dt>
-<dd><p>Manages a tree of splits.
-Each split in this tree is a <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">box</span></code></a>, which
-partitions the search space into smaller boxes and can have children.
-Boxes without children are <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.leaf" title="panobbgo.analyzers.splitter.Splitter.Box.leaf"><code class="xref py py-attr docutils literal notranslate"><span class="pre">leafs</span></code></a>.</p>
-<p>The goal for this splitter is to balance between the
-depth level of splits and the number of points inside such a box.</p>
-<p>A heuristic can build upon this hierarchy
-to investigate interesting subregions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/splitter.html#Splitter.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.__init__" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-</dd></dl>
-
-<p class="rubric">Methods</p>
-<div class="table-wrapper autosummary longtable docutils container">
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.__init__" title="panobbgo.analyzers.splitter.Splitter.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(strategy)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code>(analyzers, heuristics)</p></td>
-<td><p>This method is called by the core initialization to assess, if the dependencies for the given module are met.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.get_all_boxes" title="panobbgo.analyzers.splitter.Splitter.get_all_boxes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_all_boxes</span></code></a>(result)</p></td>
-<td><p>return all boxes, where point is contained in</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.get_box" title="panobbgo.analyzers.splitter.Splitter.get_box"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_box</span></code></a>(point)</p></td>
-<td><p>return &quot;leftmost&quot; leaf box, where given point is contained in</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.get_leaf" title="panobbgo.analyzers.splitter.Splitter.get_leaf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_leaf</span></code></a>(result)</p></td>
-<td><p>returns the leaf box, where given result is currently sitting in</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth" title="panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_biggest_by_depth</span></code></a>(depth, box)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf" title="panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_biggest_leaf</span></code></a>(box)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.on_new_results" title="panobbgo.analyzers.splitter.Splitter.on_new_results"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_results</span></code></a>(results)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../analyzers.html#panobbgo.analyzers.splitter.Splitter.on_new_split" title="panobbgo.analyzers.splitter.Splitter.on_new_split"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_split</span></code></a>(box, children, dim)</p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p class="rubric">Attributes</p>
-<div class="table-wrapper autosummary longtable docutils container">
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">eventbus</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">name</span></code></p></td>
-<td><p>The module's name.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">problem</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">results</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">strategy</span></code></p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</dd></dl>
-
 </section>
 
         </article><button class="back-to-top" type="button">

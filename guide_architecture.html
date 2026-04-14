@@ -180,7 +180,7 @@ and interact during optimization.</p>
 <section id="high-level-design">
 <h2>High-Level Design<a class="headerlink" href="#high-level-design" title="Link to this heading">¶</a></h2>
 <p>Panobbgo follows an <strong>event-driven, modular architecture</strong> where independent components
-communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a>. This design enables:</p>
+communicate through an <code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code>. This design enables:</p>
 <ul class="simple">
 <li><p><strong>Extensibility</strong>: Add new heuristics or analyzers without modifying existing code</p></li>
 <li><p><strong>Composability</strong>: Mix and match components to create custom optimization strategies</p></li>
@@ -211,7 +211,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 <h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
 <section id="strategybase">
 <h3>StrategyBase<a class="headerlink" href="#strategybase" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> is the main orchestrator that:</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code> is the main orchestrator that:</p>
 <ul class="simple">
 <li><p>Manages the optimization loop</p></li>
 <li><p>Coordinates heuristics, analyzers, and evaluators</p></li>
@@ -236,7 +236,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </section>
 <section id="results-database">
 <h3>Results Database<a class="headerlink" href="#results-database" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> stores all evaluated points in a pandas DataFrame.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code> stores all evaluated points in a pandas DataFrame.</p>
 <p><strong>Structure:</strong></p>
 <p>The DataFrame uses MultiIndex columns:</p>
 <ul class="simple">
@@ -255,7 +255,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </section>
 <section id="eventbus">
 <h3>EventBus<a class="headerlink" href="#eventbus" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a> implements the publisher-subscriber pattern.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code> implements the publisher-subscriber pattern.</p>
 <p><strong>How it works:</strong></p>
 <ol class="arabic simple">
 <li><p>Modules define methods named <code class="docutils literal notranslate"><span class="pre">on_&lt;event_name&gt;(self,</span> <span class="pre">**kwargs)</span></code></p></li>
@@ -316,8 +316,8 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </section>
 <section id="module-base-classes">
 <h3>Module Base Classes<a class="headerlink" href="#module-base-classes" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="core.html#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> is the abstract parent for <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a>
-and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a>.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> is the abstract parent for <code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code>
+and <code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code>.</p>
 <p><strong>Lifecycle:</strong></p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">__init__(strategy,</span> <span class="pre">**kwargs)</span></code>: Construction with parameter storage</p></li>
@@ -338,7 +338,7 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </section>
 <section id="heuristics-point-generators">
 <h2>Heuristics (Point Generators)<a class="headerlink" href="#heuristics-point-generators" title="Link to this heading">¶</a></h2>
-<p><a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a> extends Module to generate candidate points.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code> extends Module to generate candidate points.</p>
 <section id="architecture">
 <h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h3>
 <p>Each heuristic maintains:</p>
@@ -373,35 +373,35 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 <h3>Implemented Heuristics<a class="headerlink" href="#implemented-heuristics" title="Link to this heading">¶</a></h3>
 <p><strong>Initialization:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.center.Center.html#panobbgo.heuristics.center.Center" title="panobbgo.heuristics.center.Center"><code class="xref py py-class docutils literal notranslate"><span class="pre">Center</span></code></a>: Returns center of bounding box</p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.Zero" title="panobbgo.heuristics.zero.Zero"><code class="xref py py-class docutils literal notranslate"><span class="pre">Zero</span></code></a>: Returns zero vector</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Center</span></code>: Returns center of bounding box</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Zero</span></code>: Returns zero vector</p></li>
 </ul>
 <p><strong>Space-filling:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LatinHypercube" title="panobbgo.heuristics.latin_hypercube.LatinHypercube"><code class="xref py py-class docutils literal notranslate"><span class="pre">LatinHypercube</span></code></a>: Stratified sampling with parameter <code class="docutils literal notranslate"><span class="pre">div</span></code></p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.Extremal" title="panobbgo.heuristics.extremal.Extremal"><code class="xref py py-class docutils literal notranslate"><span class="pre">Extremal</span></code></a>: Samples from box boundaries</p></li>
-<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.random.Random.html#panobbgo.heuristics.random.Random" title="panobbgo.heuristics.random.Random"><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code></a>: Uniform sampling in best leaf box</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">LatinHypercube</span></code>: Stratified sampling with parameter <code class="docutils literal notranslate"><span class="pre">div</span></code></p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Extremal</span></code>: Samples from box boundaries</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code>: Uniform sampling in best leaf box</p></li>
 </ul>
 <p><strong>Local refinement:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby" title="panobbgo.heuristics.nearby.Nearby"><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code></a>: Gaussian perturbations around best</p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.WeightedAverage" title="panobbgo.heuristics.weighted_average.WeightedAverage"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAverage</span></code></a>: Averages points in best region</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code>: Gaussian perturbations around best</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAverage</span></code>: Averages points in best region</p></li>
 </ul>
 <p><strong>Model-based:</strong></p>
 <ul class="simple">
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>: Weighted least-squares quadratic surrogate</p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.ClaudeHeuristic" title="panobbgo.heuristics.claude_heuristic.ClaudeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClaudeHeuristic</span></code></a>: Mixture of Gaussians over elite points (cluster-based adaptive search)</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ClaudeHeuristic</span></code>: Mixture of Gaussians over elite points (cluster-based adaptive search)</p></li>
 </ul>
 <p><strong>Classical optimizers:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead" title="panobbgo.heuristics.nelder_mead.NelderMead"><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code></a>: Randomized simplex method</p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>: L-BFGS-B in subprocess</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code>: Randomized simplex method</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code>: L-BFGS-B in subprocess</p></li>
 </ul>
 </section>
 </section>
 <section id="analyzers-result-processors">
 <h2>Analyzers (Result Processors)<a class="headerlink" href="#analyzers-result-processors" title="Link to this heading">¶</a></h2>
-<p><a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a> extends Module to process results and maintain derived information.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code> extends Module to process results and maintain derived information.</p>
 <section id="id1">
 <h3>Architecture<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
 <p>Analyzers typically:</p>
@@ -414,7 +414,7 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 <section id="implemented-analyzers">
 <h3>Implemented Analyzers<a class="headerlink" href="#implemented-analyzers" title="Link to this heading">¶</a></h3>
 <p><strong>Best Tracker</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.best.Best" title="panobbgo.analyzers.best.Best"><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code></a> maintains:</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code> maintains:</p>
 <ul class="simple">
 <li><p>Best feasible point (<span class="math notranslate nohighlight">\(CV(x) = 0\)</span>, minimum <span class="math notranslate nohighlight">\(f(x)\)</span>)</p></li>
 <li><p>Best infeasible point (minimum <span class="math notranslate nohighlight">\(CV(x)\)</span>)</p></li>
@@ -428,7 +428,7 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 <li><p><code class="docutils literal notranslate"><span class="pre">new_pareto</span></code>: Pareto front updated</p></li>
 </ul>
 <p><strong>Splitter</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> manages hierarchical box decomposition:</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code> manages hierarchical box decomposition:</p>
 <ul class="simple">
 <li><p>Maintains tree of boxes splitting the search space</p></li>
 <li><p>Splits boxes when they contain sufficient points</p></li>
@@ -439,12 +439,12 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 <li><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>: A box was split into children</p></li>
 </ul>
 <p><strong>Grid</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> maintains a simple spatial grid for grouping nearby points.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code> maintains a simple spatial grid for grouping nearby points.</p>
 <p><strong>Dedensifyer</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a> maintains a hierarchical grid to avoid
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code> maintains a hierarchical grid to avoid
 clustering, keeping only min/max representatives per region.</p>
 <p><strong>Sensitivity</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> estimates per-dimension importance from
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code> estimates per-dimension importance from
 evaluation history using rank correlation. Publishes <code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code> events that heuristics
 can use to focus search on the most influential dimensions.</p>
 <p><strong>Events published:</strong></p>
@@ -452,7 +452,7 @@ can use to focus search on the most influential dimensions.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code>: Importance scores for each dimension (array in [0, 1])</p></li>
 </ul>
 <p><strong>Restart</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> detects search stagnation (no improvement in
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code> detects search stagnation (no improvement in
 <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and publishes <code class="docutils literal notranslate"><span class="pre">restart</span></code> events with a suggested new center point.
 Enables multi-start optimization without losing accumulated results.</p>
 <p><strong>Events published:</strong></p>
@@ -466,7 +466,7 @@ Enables multi-start optimization without losing accumulated results.</p>
 <p>Strategy subclasses implement the <code class="docutils literal notranslate"><span class="pre">execute()</span></code> method to determine which points to evaluate next.</p>
 <section id="strategyroundrobin">
 <h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="_autosummary/panobbgo.strategies.round_robin.StrategyRoundRobin.html#panobbgo.strategies.round_robin.StrategyRoundRobin" title="panobbgo.strategies.round_robin.StrategyRoundRobin"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code></a> cycles through heuristics in fixed order:</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code> cycles through heuristics in fixed order:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="2">    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="3">    <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
@@ -483,7 +483,7 @@ Enables multi-start optimization without losing accumulated results.</p>
 </section>
 <section id="strategyrewarding">
 <h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading">¶</a></h3>
-<p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a> implements multi-armed bandit:</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code> implements multi-armed bandit:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="2">    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="3">    <span class="c1"># Calculate selection probabilities based on performance</span>
@@ -638,10 +638,10 @@ Enables multi-start optimization without losing accumulated results.</p>
 <h2>Extension Points<a class="headerlink" href="#extension-points" title="Link to this heading">¶</a></h2>
 <p>To extend Panobbgo:</p>
 <ol class="arabic simple">
-<li><p><strong>Add a heuristic</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p></li>
-<li><p><strong>Add an analyzer</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p></li>
-<li><p><strong>Add a strategy</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p></li>
-<li><p><strong>Define a problem</strong>: Subclass <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p></li>
+<li><p><strong>Add a heuristic</strong>: Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></p></li>
+<li><p><strong>Add an analyzer</strong>: Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></p></li>
+<li><p><strong>Add a strategy</strong>: Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></p></li>
+<li><p><strong>Define a problem</strong>: Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></p></li>
 <li><p><strong>Create custom events</strong>: Publish with <code class="docutils literal notranslate"><span class="pre">eventbus.publish(event_name,</span> <span class="pre">**kwargs)</span></code></p></li>
 </ol>
 <p>See <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for detailed examples.</p>

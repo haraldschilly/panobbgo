@@ -255,7 +255,7 @@ uses simpler quadratic surrogate</p>
 <section id="cma-es-covariance-matrix-adaptation-evolution-strategy">
 <h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Evolutionary algorithm with adaptive covariance matrix</p>
-<p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead" title="panobbgo.heuristics.nelder_mead.NelderMead"><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code></a>
+<p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code>
 has similar adaptive sampling, but deterministic</p>
 <p><strong>Trade-offs</strong>:</p>
 <ul class="simple">
@@ -267,7 +267,7 @@ has similar adaptive sampling, but deterministic</p>
 <section id="direct-dividing-rectangles">
 <h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Lipschitz-based partitioning, optimistic sampling</p>
-<p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>
+<p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code>
 provides hierarchical box decomposition, but without Lipschitz assumptions</p>
 <p><strong>Trade-offs</strong>:</p>
 <ul class="simple">
@@ -279,7 +279,7 @@ provides hierarchical box decomposition, but without Lipschitz assumptions</p>
 <section id="simulated-annealing">
 <h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Probabilistic acceptance with cooling schedule</p>
-<p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>
+<p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code>
 uses probabilistic selection, but without explicit temperature</p>
 <p><strong>Trade-offs</strong>:</p>
 <ul class="simple">
@@ -344,7 +344,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <p><strong>Assumptions</strong>:</p>
 <ol class="arabic simple">
 <li><p><span class="math notranslate nohighlight">\(f\)</span> is locally Lipschitz continuous almost everywhere</p></li>
-<li><p>At least one heuristic performs dense sampling (e.g., <a class="reference internal" href="_autosummary/panobbgo.heuristics.random.Random.html#panobbgo.heuristics.random.Random" title="panobbgo.heuristics.random.Random"><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code></a>)</p></li>
+<li><p>At least one heuristic performs dense sampling (e.g., <code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code>)</p></li>
 <li><p>Multi-armed bandit maintains non-zero selection probability for all heuristics (via additive smoothing)</p></li>
 </ol>
 <p><strong>Proof Sketch</strong>:</p>
@@ -483,7 +483,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </li>
 <li><p><strong>Persistent Storage</strong></p>
 <ul class="simple">
-<li><p>SQLite backend for <a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a></p></li>
+<li><p>SQLite backend for <code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></p></li>
 <li><p>Save/load optimization state</p></li>
 <li><p>Resume from checkpoint</p></li>
 <li><p>Share results across runs</p></li>

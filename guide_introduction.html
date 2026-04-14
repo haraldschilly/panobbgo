@@ -206,7 +206,7 @@ data-aria-dark="Switch to auto color mode">
 <section id="architecture">
 <h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><strong>Event-driven design</strong>: Modules communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a></p></li>
+<li><p><strong>Event-driven design</strong>: Modules communicate through an <code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></p></li>
 <li><p><strong>Modular components</strong>: Easy to add new heuristics, analyzers, or strategies</p></li>
 <li><p><strong>Result database</strong>: Pandas-based storage with automatic event publishing</p></li>
 <li><p><strong>Parallel evaluation</strong>: Support for local threads, subprocesses, or Dask clusters</p></li>
@@ -261,9 +261,9 @@ data-aria-dark="Switch to auto color mode">
 <h3>Adaptive Selection<a class="headerlink" href="#adaptive-selection" title="Link to this heading">¶</a></h3>
 <p>Panobbgo provides several adaptive strategies based on <strong>multi-armed bandit</strong> algorithms:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>: Probability-based selection with additive smoothing and performance decay.</p></li>
-<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a>: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.</p></li>
-<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a>: Probabilistic approach using Beta distributions.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code>: Probability-based selection with additive smoothing and performance decay.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code>: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code>: Probabilistic approach using Beta distributions.</p></li>
 </ul>
 </section>
 <section id="result-analysis">
@@ -283,19 +283,19 @@ data-aria-dark="Switch to auto color mode">
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.best.Best" title="panobbgo.analyzers.best.Best"><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code></a></p></td>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code></p></td>
 <td><p>Best points, Pareto front</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">new_best</span></code>, <code class="docutils literal notranslate"><span class="pre">new_min</span></code>, <code class="docutils literal notranslate"><span class="pre">new_cv</span></code>, <code class="docutils literal notranslate"><span class="pre">new_pareto</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></p></td>
 <td><p>Hierarchical box decomposition</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>, identifies best leaf box</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></p></td>
+<tr class="row-even"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></p></td>
 <td><p>Spatial grid grouping</p></td>
 <td><p>Grid-based neighborhoods</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></p></td>
 <td><p>Hierarchical grid</p></td>
 <td><p>Min/max representatives per region</p></td>
 </tr>

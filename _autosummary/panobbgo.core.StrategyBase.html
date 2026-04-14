@@ -97,13 +97,7 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#panobbgo.core.StrategyBase"><code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.core.StrategyBase.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -134,121 +128,6 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <section id="panobbgo-core-strategybase">
 <h1>panobbgo.core.StrategyBase<a class="headerlink" href="#panobbgo-core-strategybase" title="Link to this heading">¶</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.core.StrategyBase">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">StrategyBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/core.html#StrategyBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase" title="Link to this definition">¶</a></dt>
-<dd><p>This abstract BaseStrategy is the parent class of all Strategies.</p>
-<p>Use it this way:</p>
-<ol class="arabic simple">
-<li><p>Subclass it, write your optional initializer, <em>afterwards</em> call the initializer
-of this class (it will start its the main loop).</p></li>
-<li><p>Overwrite the <a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.execute" title="panobbgo.core.StrategyBase.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a>, which returns a list of new search points
-(by requesting them from the <a class="reference internal" href="../heuristics.html#module-panobbgo.heuristics" title="panobbgo.heuristics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heuristics</span></code></a> via the
-<a class="reference internal" href="../core.html#panobbgo.core.Heuristic.get_points" title="panobbgo.core.Heuristic.get_points"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code></a> method) and might
-also emit <a class="reference internal" href="../core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Events</span></code></a>.</p></li>
-</ol>
-<p>This <code class="docutils literal notranslate"><span class="pre">execute</span></code> method will be called repeatedly as long as there are less than the
-given maximum number of search points evaluated.</p>
-<p>&#64;type problem: panobbgo.lib.Problem
-&#64;param problem:
-&#64;param parse_args:
-&#64;param testing_mode:
-&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parse_args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/core.html#StrategyBase.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.__init__" title="Link to this definition">¶</a></dt>
-<dd><p>&#64;type problem: panobbgo.lib.Problem
-&#64;param problem:
-&#64;param parse_args:
-&#64;param testing_mode:
-&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
-</dd></dl>
-
-<p class="rubric">Methods</p>
-<div class="table-wrapper autosummary longtable docutils container">
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.core.StrategyBase.__init__" title="panobbgo.core.StrategyBase.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(problem[, parse_args, testing_mode])</p></td>
-<td><p>&#64;type problem: panobbgo.lib.Problem &#64;param problem: &#64;param parse_args: &#64;param testing_mode: &#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.add" title="panobbgo.core.StrategyBase.add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code></a>(Heur, **kwargs)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.add_analyzer" title="panobbgo.core.StrategyBase.add_analyzer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_analyzer</span></code></a>(a)</p></td>
-<td><p>Add an analyzer to the strategy.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.add_heuristic" title="panobbgo.core.StrategyBase.add_heuristic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_heuristic</span></code></a>(h)</p></td>
-<td><p>Add a heuristic to the strategy.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.analyzer" title="panobbgo.core.StrategyBase.analyzer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyzer</span></code></a>(who)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.check_dependencies" title="panobbgo.core.StrategyBase.check_dependencies"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code></a>()</p></td>
-<td><p>This method is called in self.start() (and only there) for checking all the dependencies of all modules.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.execute" title="panobbgo.core.StrategyBase.execute"><code class="xref py py-obj docutils literal notranslate"><span class="pre">execute</span></code></a>()</p></td>
-<td><p>Overwrite this method when you extend this base strategy.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.heuristic" title="panobbgo.core.StrategyBase.heuristic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">heuristic</span></code></a>(who)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.info" title="panobbgo.core.StrategyBase.info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">info</span></code></a>()</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.init_module" title="panobbgo.core.StrategyBase.init_module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_module</span></code></a>(module)</p></td>
-<td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> calls this method.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.on_converged" title="panobbgo.core.StrategyBase.on_converged"><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_converged</span></code></a>(reason, stats)</p></td>
-<td><p>Called when the Convergence analyzer detects convergence.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.start" title="panobbgo.core.StrategyBase.start"><code class="xref py py-obj docutils literal notranslate"><span class="pre">start</span></code></a>()</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.validate_setup" title="panobbgo.core.StrategyBase.validate_setup"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_setup</span></code></a>()</p></td>
-<td><p>Validate that the framework is properly set up before starting optimization.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p class="rubric">Attributes</p>
-<div class="table-wrapper autosummary longtable docutils container">
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.PROBLEM_KEY" title="panobbgo.core.StrategyBase.PROBLEM_KEY"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PROBLEM_KEY</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.analyzers" title="panobbgo.core.StrategyBase.analyzers"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyzers</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.avg_time_per_task" title="panobbgo.core.StrategyBase.avg_time_per_task"><code class="xref py py-obj docutils literal notranslate"><span class="pre">avg_time_per_task</span></code></a></p></td>
-<td><p>average time per task</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.best" title="panobbgo.core.StrategyBase.best"><code class="xref py py-obj docutils literal notranslate"><span class="pre">best</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.evaluators" title="panobbgo.core.StrategyBase.evaluators"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluators</span></code></a></p></td>
-<td><p>Compatibility property for legacy code that references evaluators.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.heuristics" title="panobbgo.core.StrategyBase.heuristics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">heuristics</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.name" title="panobbgo.core.StrategyBase.name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">name</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.time_cpu" title="panobbgo.core.StrategyBase.time_cpu"><code class="xref py py-obj docutils literal notranslate"><span class="pre">time_cpu</span></code></a></p></td>
-<td><p>effective cpu time in seconds</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.time_start_str" title="panobbgo.core.StrategyBase.time_start_str"><code class="xref py py-obj docutils literal notranslate"><span class="pre">time_start_str</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.StrategyBase.time_wall" title="panobbgo.core.StrategyBase.time_wall"><code class="xref py py-obj docutils literal notranslate"><span class="pre">time_wall</span></code></a></p></td>
-<td><p>wall time in seconds</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</dd></dl>
-
 </section>
 
         </article><button class="back-to-top" type="button">

@@ -44,7 +44,7 @@ benchmark = [
     "coco-experiment>=2.6",
 ]
 dev = [
-    "pytest>=9.0",
+    "pytest>=9.0.3",
     "pytest-cov>=5.0",
     "pytest-benchmark>=4.0",
     "flake8>=7.3",

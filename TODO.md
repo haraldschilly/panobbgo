@@ -13,6 +13,36 @@
 
 ## Recent Improvements
 
+### Sensitivity-Aware Nearby Heuristic & StrategySpec Analyzers (2026-04-15)
+- [x] **Sensitivity-Aware `Nearby` Heuristic** (`panobbgo/heuristics/nearby.py`)
+  - Added `on_new_sensitivity(importance)` event handler to `Nearby`
+  - When `Sensitivity` analyzer is active and has published importance scores,
+    `Nearby` scales per-dimension perturbations by importance (normalised so overall
+    magnitude is preserved)
+  - New `sensitivity_scale` constructor parameter controls contrast sharpness (default 1.0)
+  - For `axes="all"`: each dimension's step is multiplied by its (normalised) weight
+  - For `axes="one"`: dimension is sampled proportionally to importance weights
+  - Both `on_new_best` and `on_restart` use the sensitivity-aware `_make_perturbation` helper
+  - Improves local search in high-dimensional problems where only a subset of dimensions matter
+  - Added `_perturbation_weights()` helper returning normalised weights (mean = 1)
+- [x] **`StrategySpec.analyzers` field** (`panobbgo/benchmark.py`)
+  - Added optional `analyzers: List[Tuple[type, dict]]` field to `StrategySpec`
+  - `create_strategy()` adds extra analyzers (e.g. `Sensitivity`, `Restart`) alongside heuristics
+  - Four required analyzers (Best, Grid, Splitter, Convergence) still added in `initialize()`
+- [x] **Sensitivity in Benchmark Strategies** (`panobbgo/harness.py`)
+  - Added `Sensitivity(update_interval=20)` to `Rewarding_Diverse`, `UCB_Diverse`, and `Thompson_Diverse`
+  - Enables adaptive Nearby perturbations in all adaptive benchmark strategies
+- [x] **15 new tests** (`tests/test_heuristic_nearby_sensitivity.py`)
+  - Verifies `_perturbation_weights()` normalisation and ordering
+  - Confirms sensitivity-aware perturbations statistically bias important dimensions
+  - Tests both `axes="all"` and `axes="one"` modes
+  - Tests `on_restart` with/without sensitivity and with None center
+  - Tests that sensitivity updates are immediately effective
+  - Tests `StrategySpec.analyzers` round-trip and creation
+- [x] **Documentation updated**
+  - `doc/source/guide_architecture.rst`: updated event table and Nearby description
+  - `doc/source/guide_usage.rst`: added Sensitivity-Aware Nearby section with example
+
 ### Benchmark Harness for Agent Feedback Loops (2026-02-23)
 - [x] **Implemented `panobbgo/harness.py` – Reproducible Benchmark Harness**
   - `BenchmarkHarness` class: runs seeded, reproducible benchmark suites

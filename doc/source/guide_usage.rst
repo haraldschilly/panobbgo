@@ -843,6 +843,38 @@ input dimensions matter most:
    sens = strategy.analyzer('Sensitivity')
    print(f"Dimension importance: {sens.importance}")
 
+**Sensitivity-Aware Nearby Heuristic**
+
+When both ``Sensitivity`` and :class:`~panobbgo.heuristics.nearby.Nearby` are active,
+``Nearby`` automatically becomes *sensitivity-aware*: it scales its per-dimension perturbations
+proportionally to the importance scores. Important dimensions receive larger perturbations,
+focusing the local search where it matters most.
+
+This is particularly valuable for **high-dimensional** problems where only a subset of
+dimensions drive the objective.  For a 10-D problem where only 3 dimensions are active,
+the sensitivity-aware Nearby focuses ≈70 % of search effort on those 3 dimensions:
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Sensitivity
+   from panobbgo.heuristics import Nearby
+
+   strategy.add(Nearby,
+       radius=0.05,
+       axes="all",
+       new=3,
+       sensitivity_scale=1.5,   # Sharpens dim-importance contrast (default 1.0)
+   )
+   strategy.add_analyzer(Sensitivity(strategy,
+       update_interval=20,       # Recompute every 20 evaluations
+   ))
+
+   strategy.start()
+   print("Dimension importance:", strategy.analyzer("Sensitivity").importance)
+
+The ``sensitivity_scale`` parameter controls how aggressively important dimensions dominate.
+Values > 1 amplify the contrast; 0 disables sensitivity-awareness entirely.
+
 Custom Events
 ~~~~~~~~~~~~~
 

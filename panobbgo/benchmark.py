@@ -110,10 +110,24 @@ class ProblemSpec:
 class StrategySpec:
     """
     Specification for a strategy configuration in benchmarks.
+
+    Attributes:
+        name: Human-readable strategy name shown in reports.
+        strategy_class: The :class:`~panobbgo.core.StrategyBase` subclass to use.
+        heuristics: List of ``(HeuristicClass, kwargs)`` pairs added via
+            :meth:`~panobbgo.core.StrategyBase.add`.
+        analyzers: Optional list of ``(AnalyzerClass, kwargs)`` pairs added via
+            :meth:`~panobbgo.core.StrategyBase.add_analyzer`.  The four required
+            analyzers (``Best``, ``Grid``, ``Splitter``, ``Convergence``) are always
+            added automatically by the strategy; only supply *extra* analyzers here.
+        config_overrides: Key/value pairs applied to ``strategy.config`` before the
+            run starts.
     """
+
     name: str
     strategy_class: type
     heuristics: List[Tuple[type, Dict[str, Any]]]  # List of (HeuristicClass, kwargs) tuples
+    analyzers: List[Tuple[type, Dict[str, Any]]] = field(default_factory=list)
     config_overrides: Dict[str, Any] = field(default_factory=dict)
 
     def create_strategy(self, problem: Problem) -> StrategyBase:
@@ -127,6 +141,10 @@ class StrategySpec:
         # Add heuristics
         for heur_class, kwargs in self.heuristics:
             strategy.add(heur_class, **kwargs)
+
+        # Add optional extra analyzers (e.g. Sensitivity, Restart)
+        for analyzer_class, kwargs in self.analyzers:
+            strategy.add_analyzer(analyzer_class(strategy, **kwargs))
 
         return strategy
 
@@ -280,7 +298,7 @@ class BenchmarkSuite:
                             validation = run.problem_spec.validate_result(run.best_result)
                             print(f"    Validation details: {validation}")
                         else:
-                            print(f"  ⚠ No valid result found")
+                            print("  ⚠ No valid result found")
 
         self.runs.extend(runs)
         return runs

@@ -218,9 +218,16 @@ def _make_full_problems() -> List[ProblemSpec]:
 
 
 def _make_quick_strategies() -> List[StrategySpec]:
-    """Minimal strategy set: one baseline + one adaptive."""
+    """Minimal strategy set: one baseline + one adaptive.
+
+    The adaptive strategy includes a :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
+    analyzer so that the sensitivity-aware :class:`~panobbgo.heuristics.nearby.Nearby`
+    heuristic can scale perturbations by dimension importance once enough evaluations
+    have been accumulated.
+    """
     from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding
     from panobbgo.heuristics import Random, Nearby, NelderMead, Center
+    from panobbgo.analyzers import Sensitivity
 
     return [
         StrategySpec(
@@ -237,6 +244,7 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 (Center, {}),
                 (NelderMead, {}),
             ],
+            analyzers=[(Sensitivity, {"update_interval": 20})],
         ),
     ]
 
@@ -245,6 +253,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
     """Three strategies: baseline, adaptive, bandit."""
     from panobbgo.strategies import StrategyUCB
     from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
+    from panobbgo.analyzers import Sensitivity
 
     quick = _make_quick_strategies()
     ucb = StrategySpec(
@@ -256,6 +265,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
     )
     return quick + [ucb]
 
@@ -269,6 +279,7 @@ def _make_full_strategies() -> List[StrategySpec]:
         NelderMead,
         LatinHypercube,
     )
+    from panobbgo.analyzers import Sensitivity
 
     base = _make_standard_strategies()
     thompson = StrategySpec(
@@ -280,6 +291,7 @@ def _make_full_strategies() -> List[StrategySpec]:
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
     )
     return base + [thompson]
 

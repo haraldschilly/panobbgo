@@ -136,23 +136,28 @@ data-aria-dark="Switch to auto color mode">
 <h1>panobbgo.heuristics.nearby.Nearby<a class="headerlink" href="#panobbgo-heuristics-nearby-nearby" title="Link to this heading">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.nearby.Nearby">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.nearby.</span></span><span class="sig-name descname"><span class="pre">Nearby</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'one'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/heuristics/nearby.html#Nearby"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.nearby.Nearby" title="Link to this definition">¶</a></dt>
-<dd><p>This provider generates new points based
-on a cheap (i.e. fast) algorithm. For each new best point,
-it and generates <code class="docutils literal notranslate"><span class="pre">new</span></code> many nearby point(s).
-The &#64;radius is scaled along each dimension’s range in the search box.</p>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.nearby.</span></span><span class="sig-name descname"><span class="pre">Nearby</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'one'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sensitivity_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/heuristics/nearby.html#Nearby"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.nearby.Nearby" title="Link to this definition">¶</a></dt>
+<dd><p>Generates new points based on a cheap, fast algorithm.</p>
+<p>For each new best point, generates <code class="docutils literal notranslate"><span class="pre">new</span></code> many nearby points by applying
+a random perturbation of magnitude <code class="docutils literal notranslate"><span class="pre">radius</span></code> (relative to dimension ranges).</p>
+<p>When a <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> analyzer is active
+and has produced importance scores, the perturbation along each dimension is
+scaled proportionally to that dimension’s importance score. This focuses the
+local search on dimensions that have the greatest impact on the objective,
+making it significantly more efficient in high-dimensional problems.</p>
 <p>Arguments:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">- ``axes``:
-</span></pre></div>
-</div>
-<blockquote>
-<div><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">one</span></code>: only desturb one axis</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">all</span></code>: desturb all axes</p></li>
-</ul>
-</div></blockquote>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">new</span></code>: number of new points to generate (default: 1)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">axes</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">one</span></code>: perturb only one randomly chosen axis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">all</span></code>: perturb all axes simultaneously</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">new</span></code>: number of new points to generate per best update (default: 1)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">radius</span></code>: perturbation size as a fraction of the dimension’s range (default: 0.01)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sensitivity_scale</span></code>: when sensitivity data is available, scale perturbations
+by dimension importance raised to this power (default: 1.0). Higher values focus
+more aggressively on important dimensions; 0.0 disables sensitivity scaling.</p></li>
 </ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -165,7 +170,7 @@ The &#64;radius is scaled along each dimension’s range in the search box.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.nearby.Nearby.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'one'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/heuristics/nearby.html#Nearby.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.nearby.Nearby.__init__" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'one'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sensitivity_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/heuristics/nearby.html#Nearby.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.nearby.Nearby.__init__" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -181,7 +186,7 @@ The &#64;radius is scaled along each dimension’s range in the search box.</p>
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.heuristics.nearby.Nearby.__init__" title="panobbgo.heuristics.nearby.Nearby.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(strategy[, cap, radius, new, axes])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.heuristics.nearby.Nearby.__init__" title="panobbgo.heuristics.nearby.Nearby.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(strategy[, cap, radius, new, axes, ...])</p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_dependencies</span></code>(analyzers, heuristics)</p></td>
@@ -197,7 +202,7 @@ The &#64;radius is scaled along each dimension’s range in the search box.</p>
 <td><p>this drains the output Queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> elements are removed or the Queue is empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_best</span></code>(best)</p></td>
-<td><p></p></td>
+<td><p>React to a new best result by generating nearby candidate points.</p></td>
 </tr>
 </tbody>
 </table>

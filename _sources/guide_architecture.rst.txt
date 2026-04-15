@@ -122,7 +122,7 @@ EventBus
      - Heuristics (Random)
    * - ``new_sensitivity``
      - Sensitivity analyzer
-     - Heuristics (future: adaptive search)
+     - Heuristics (Nearby — scales perturbations by dimension importance)
    * - ``restart``
      - Restart analyzer
      - Heuristics (reset and re-explore)
@@ -205,7 +205,9 @@ Implemented Heuristics
 
 **Local refinement:**
 
-- :class:`~panobbgo.heuristics.nearby.Nearby`: Gaussian perturbations around best
+- :class:`~panobbgo.heuristics.nearby.Nearby`: Perturbations around best; sensitivity-aware when
+  :class:`~panobbgo.analyzers.sensitivity.Sensitivity` is active — scales perturbations along
+  each dimension proportionally to its importance score
 - :class:`~panobbgo.heuristics.weighted_average.WeightedAverage`: Averages points in best region
 
 **Model-based:**

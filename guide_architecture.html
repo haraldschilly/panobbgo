@@ -300,7 +300,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code></p></td>
 <td><p>Sensitivity analyzer</p></td>
-<td><p>Heuristics (future: adaptive search)</p></td>
+<td><p>Heuristics (Nearby — scales perturbations by dimension importance)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">restart</span></code></p></td>
 <td><p>Restart analyzer</p></td>
@@ -384,7 +384,9 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </ul>
 <p><strong>Local refinement:</strong></p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby" title="panobbgo.heuristics.nearby.Nearby"><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code></a>: Gaussian perturbations around best</p></li>
+<li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby" title="panobbgo.heuristics.nearby.Nearby"><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code></a>: Perturbations around best; sensitivity-aware when
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> is active — scales perturbations along
+each dimension proportionally to its importance score</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.WeightedAverage" title="panobbgo.heuristics.weighted_average.WeightedAverage"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAverage</span></code></a>: Averages points in best region</p></li>
 </ul>
 <p><strong>Model-based:</strong></p>

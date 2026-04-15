@@ -995,6 +995,33 @@ input dimensions matter most:</p>
 </span><span data-line="10"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dimension importance: </span><span class="si">{</span><span class="n">sens</span><span class="o">.</span><span class="n">importance</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
+<p><strong>Sensitivity-Aware Nearby Heuristic</strong></p>
+<p>When both <code class="docutils literal notranslate"><span class="pre">Sensitivity</span></code> and <a class="reference internal" href="_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby" title="panobbgo.heuristics.nearby.Nearby"><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code></a> are active,
+<code class="docutils literal notranslate"><span class="pre">Nearby</span></code> automatically becomes <em>sensitivity-aware</em>: it scales its per-dimension perturbations
+proportionally to the importance scores. Important dimensions receive larger perturbations,
+focusing the local search where it matters most.</p>
+<p>This is particularly valuable for <strong>high-dimensional</strong> problems where only a subset of
+dimensions drive the objective.  For a 10-D problem where only 3 dimensions are active,
+the sensitivity-aware Nearby focuses ≈70 % of search effort on those 3 dimensions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sensitivity</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Nearby</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">radius</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">axes</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">new</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">sensitivity_scale</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>   <span class="c1"># Sharpens dim-importance contrast (default 1.0)</span>
+</span><span data-line="9"><span class="p">)</span>
+</span><span data-line="10"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Sensitivity</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="11">    <span class="n">update_interval</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>       <span class="c1"># Recompute every 20 evaluations</span>
+</span><span data-line="12"><span class="p">))</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="15"><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dimension importance:&quot;</span><span class="p">,</span> <span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Sensitivity&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">importance</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">sensitivity_scale</span></code> parameter controls how aggressively important dimensions dominate.
+Values &gt; 1 amplify the contrast; 0 disables sensitivity-awareness entirely.</p>
 </section>
 <section id="custom-events">
 <h3>Custom Events<a class="headerlink" href="#custom-events" title="Link to this heading">¶</a></h3>

@@ -633,6 +633,21 @@ class AnalyzersUtils(PanobbgoTestCase):
         with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
+    def test_convergence_slope_mode_exception(self):
+        """Test convergence slope mode exception handling."""
+        from panobbgo.analyzers.convergence import Convergence
+        import unittest.mock as mock
+        from collections import deque
+
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='slope')
+        self.strategy.results = [mock.Mock()] * 50
+
+        # Create values that will cause polyfit to raise an exception
+        # For example, inf or nan
+        conv.history = deque([1.0, float('inf'), 1.0], maxlen=3)
+        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+            conv._check_convergence()
+            mock_trigger.assert_not_called()
 
 if __name__ == "__main__":
     import unittest

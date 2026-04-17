@@ -459,6 +459,8 @@ class GaussianProcessHeuristic(Heuristic):
         EI(x) = (μ(x) - f*) * Φ(Z) + σ(x) * φ(Z)
         where Z = (μ(x) - f*) / σ(x)
         """
+        y_pred = np.atleast_1d(y_pred)
+        y_std = np.atleast_1d(y_std)
         with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
             ei = (self.best_y - y_pred) * self._norm_cdf(z) + y_std * self._norm_pdf(z)
@@ -481,6 +483,8 @@ class GaussianProcessHeuristic(Heuristic):
 
         PI(x) = Φ((f* - μ(x)) / σ(x))
         """
+        y_pred = np.atleast_1d(y_pred)
+        y_std = np.atleast_1d(y_std)
         with np.errstate(divide="ignore", invalid="ignore"):
             z = (self.best_y - y_pred) / y_std
             pi = self._norm_cdf(z)

@@ -14,6 +14,7 @@
 # limitations under the License.
 import unittest
 import numpy as np
+import pytest
 
 from panobbgo.lib.classic import *
 from panobbgo.lib import *
@@ -83,9 +84,26 @@ class Lib(unittest.TestCase):
         assert rbrk(p2).fx > 5000.0
         p = Point([-1.41, -2.14], "nose")
         assert np.isclose(rbrk(p).fx, 0.0)
+
+        # Test random_point uniform (default)
         rp = rbrk.random_point()
         assert np.all(rbrk.box[:, 0] <= rp)
         assert np.all(rbrk.box[:, 1] >= rp)
+
+        # Test random_point uniform explicitly
+        rp_uniform = rbrk.random_point(distribution='uniform')
+        assert np.all(rbrk.box[:, 0] <= rp_uniform)
+        assert np.all(rbrk.box[:, 1] >= rp_uniform)
+
+        # Test random_point normal
+        rp_normal = rbrk.random_point(distribution='normal')
+        assert np.all(rbrk.box[:, 0] <= rp_normal)
+        assert np.all(rbrk.box[:, 1] >= rp_normal)
+
+        # Test unsupported distribution
+        with pytest.raises(ValueError, match="Unsupported distribution: 'invalid_dist'"):
+            rbrk.random_point(distribution='invalid_dist')
+
         r = repr(rbrk)  # ordering of dict is arbitrary, hence this:
         assert "Problem 'Rosenbrock': 2 dims, params: " in r
         assert "'par1': 100" in r

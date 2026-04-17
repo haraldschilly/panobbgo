@@ -92,6 +92,7 @@ class Results:
         self.eventbus: 'EventBus' = strategy.eventbus
         self.problem: 'Problem' = strategy.problem
         self._results_df: Optional['DataFrame'] = None
+        self._unmerged_dfs: List['DataFrame'] = []
         self._buffer: List['Result'] = []
         self._best_fx: float = float('inf')
         self._last_nb: int = 0  # for logging
@@ -127,12 +128,22 @@ class Results:
     def results(self) -> Optional['DataFrame']:
         with self._lock:
             self._flush_buffer()
+            if self._unmerged_dfs:
+                if self._results_df is None or self._results_df.empty:
+                    if len(self._unmerged_dfs) == 1:
+                        self._results_df = self._unmerged_dfs[0]
+                    else:
+                        self._results_df = concat(self._unmerged_dfs, ignore_index=True)
+                else:
+                    self._results_df = concat([self._results_df] + self._unmerged_dfs, ignore_index=True)
+                self._unmerged_dfs = []
             return self._results_df
 
     @results.setter
     def results(self, value: Optional['DataFrame']) -> None:
         with self._lock:
             self._results_df = value
+            self._unmerged_dfs = []
             self._buffer = []
             # Update best_fx from new results
             if value is not None and not value.empty:
@@ -203,11 +214,13 @@ class Results:
             data_dict[("who", 0)] = who_data
             data_dict[("error", 0)] = error_data
 
-            results_new = DataFrame(data_dict, columns=self._results_df.columns)
-            if self._results_df.empty:
+            results_new = DataFrame(data_dict, columns=self._results_df.columns if self._results_df is not None else midx)
+
+            if self._results_df is None and not self._unmerged_dfs:
                 self._results_df = results_new
             else:
-                self._results_df = concat([self._results_df, results_new], ignore_index=True)
+                self._unmerged_dfs.append(results_new)
+
             self._buffer = []
 
     def add_results(self, new_results: List['Result'], save_to_storage: bool = True) -> None:
@@ -228,27 +241,36 @@ class Results:
 
         # Prepare stats for progress reporting
         progress_stats = {}
-        if self.results is not None and len(self.results) > 0:
+        if len(self) > 0:
             try:
+                # Collect fx values without triggering concat
+                fx_values = []
+                if self._results_df is not None and not self._results_df.empty:
+                    fx_values.extend(self._results_df.xs(0, level=1, axis=1)['fx'].dropna().tolist())
+                for df in self._unmerged_dfs:
+                    if not df.empty:
+                        fx_values.extend(df.xs(0, level=1, axis=1)['fx'].dropna().tolist())
+                for r in self._buffer:
+                    if r.fx is not None:
+                        fx_values.append(float(r.fx))
+
                 # Use cached min fx if available, or calculate it
                 if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx):
-                    fx_series = self.results.xs(0, level=1, axis=1)['fx']
-                    self._cached_min_fx = float(fx_series.astype(float).min())
+                    if fx_values:
+                        self._cached_min_fx = float(min(fx_values))
 
                 progress_stats['current_best_fx'] = self._cached_min_fx
 
-                # Only access dataframe if necessary for other stats
-                if len(self.results) > 1:
-                    fx_series = self.results.xs(0, level=1, axis=1)['fx'].astype(float)
-
-                    if len(self.results) > 10:
-                        sorted_fx = sorted(fx_series.dropna())
+                # Only compute other stats if we have enough data
+                if len(fx_values) > 1:
+                    if len(fx_values) > 10:
+                        sorted_fx = sorted(fx_values)
                         threshold_idx = int(len(sorted_fx) * 0.1)
                         if threshold_idx > 0:
                             progress_stats['threshold'] = sorted_fx[threshold_idx]
 
                     # min of history excluding last element (general improvement baseline)
-                    progress_stats['prev_best'] = float(fx_series.iloc[:-1].min())
+                    progress_stats['prev_best'] = float(min(fx_values[:-1]))
             except Exception:
                 pass
 
@@ -292,9 +314,11 @@ class Results:
         return self
 
     def __len__(self) -> int:
-        l = len(self._results_df) if self._results_df is not None else 0
-        l += len(self._buffer)
-        return l
+        with self._lock:
+            l = len(self._results_df) if self._results_df is not None else 0
+            l += sum(len(df) for df in self._unmerged_dfs)
+            l += len(self._buffer)
+            return l
 
     def get_history(self, n: Optional[int] = None) -> Dict[str, Any]:
         """

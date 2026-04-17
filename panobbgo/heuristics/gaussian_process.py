@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -466,8 +466,14 @@ class GaussianProcessHeuristic(Heuristic):
             return ei
 
     def _upper_confidence_bound(self, y_pred, y_std):
-        """Upper Confidence Bound acquisition function."""
-        return y_pred - self.kappa * y_std  # Negative for maximization
+        """Lower Confidence Bound (LCB) acquisition function for minimization.
+
+        LCB(x) = μ(x) - κ·σ(x).  The outer acquisition maximiser negates this
+        result, so returning the *negative* LCB here makes the outer code
+        minimise the LCB — equivalent to searching for low-mean, high-uncertainty
+        regions, which is the correct behaviour for minimisation problems.
+        """
+        return -(y_pred - self.kappa * y_std)
 
     def _probability_of_improvement(self, y_pred, y_std):
         """

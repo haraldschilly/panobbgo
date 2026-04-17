@@ -250,9 +250,20 @@ def _make_quick_strategies() -> List[StrategySpec]:
 
 
 def _make_standard_strategies() -> List[StrategySpec]:
-    """Three strategies: baseline, adaptive, bandit."""
-    from panobbgo.strategies import StrategyUCB
-    from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
+    """Four strategies: baseline, adaptive, bandit, Bayesian GP.
+
+    BayesOpt_GP uses a Gaussian Process surrogate (Expected Improvement acquisition)
+    paired with LatinHypercube initialization.  With 200 evaluations the GP model
+    has enough data to build an accurate surrogate and guide search efficiently.
+    """
+    from panobbgo.strategies import StrategyUCB, StrategyRewarding
+    from panobbgo.heuristics import (
+        Random,
+        Nearby,
+        NelderMead,
+        LatinHypercube,
+        GaussianProcessHeuristic,
+    )
     from panobbgo.analyzers import Sensitivity
 
     quick = _make_quick_strategies()
@@ -267,17 +278,35 @@ def _make_standard_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return quick + [ucb]
+    bayes_gp = StrategySpec(
+        name="BayesOpt_GP",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (GaussianProcessHeuristic, {"n_restarts": 5}),
+            (Nearby, {"radius": 0.05, "axes": "all", "new": 3}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+    return quick + [ucb, bayes_gp]
 
 
 def _make_full_strategies() -> List[StrategySpec]:
-    """Full strategy set including Thompson Sampling and Contextual Bandit."""
-    from panobbgo.strategies import StrategyThompsonSampling
+    """Full strategy set including Thompson Sampling and enhanced Bayesian GP.
+
+    BayesOpt_Enhanced pairs GP (EI acquisition, 10 restarts) with DifferentialEvolution
+    for global exploration and NelderMead for local refinement.  The larger 500-evaluation
+    budget lets the GP build a highly accurate surrogate model.
+    """
+    from panobbgo.strategies import StrategyThompsonSampling, StrategyRewarding
     from panobbgo.heuristics import (
         Random,
         Nearby,
         NelderMead,
         LatinHypercube,
+        GaussianProcessHeuristic,
+        DifferentialEvolution,
     )
     from panobbgo.analyzers import Sensitivity
 
@@ -293,7 +322,18 @@ def _make_full_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return base + [thompson]
+    bayes_enhanced = StrategySpec(
+        name="BayesOpt_Enhanced",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (GaussianProcessHeuristic, {"n_restarts": 10}),
+            (DifferentialEvolution, {}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+    return base + [thompson, bayes_enhanced]
 
 
 # ---------------------------------------------------------------------------

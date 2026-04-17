@@ -150,6 +150,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
 <li><a class="reference internal" href="#multi-start-optimization">Multi-start Optimization</a></li>
 <li><a class="reference internal" href="#sensitivity-analysis">Sensitivity Analysis</a></li>
+<li><a class="reference internal" href="#bayesian-optimization-with-gaussian-process">Bayesian Optimization with Gaussian Process</a></li>
 <li><a class="reference internal" href="#custom-events">Custom Events</a></li>
 <li><a class="reference internal" href="#logging">Logging</a></li>
 </ul>
@@ -640,20 +641,24 @@ pockets of promising solutions.</p>
 <td><p>Nearby, NelderMead</p></td>
 <td><p>Smooth problems</p></td>
 </tr>
-<tr class="row-even"><td><p>Model-based</p></td>
-<td><p>QuadraticWLS, ClaudeHeuristic</p></td>
-<td><p>Low-dimensional (dim &lt; 20)</p></td>
+<tr class="row-even"><td><p>Model-based (surrogate)</p></td>
+<td><p>GaussianProcessHeuristic, QuadraticWLS</p></td>
+<td><p>Few evaluations, smooth/expensive functions (Bayesian optimization)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Cluster-based</p></td>
 <td><p>ClaudeHeuristic</p></td>
 <td><p>Multimodal landscapes, finding hidden optima near good regions</p></td>
 </tr>
-<tr class="row-even"><td><p>Gradient-free</p></td>
+<tr class="row-even"><td><p>Population-based</p></td>
+<td><p>DifferentialEvolution</p></td>
+<td><p>Multimodal problems (Rastrigin, Schwefel); no surrogate model needed</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gradient-free local</p></td>
 <td><p>LBFGSB, LocalPenaltySearch</p></td>
 <td><p>When local structure suspected</p></td>
 </tr>
-<tr class="row-odd"><td><p>Constraint Handling</p></td>
-<td><p>FeasibleSearch, ConstraintGradient</p></td>
+<tr class="row-even"><td><p>Constraint Handling</p></td>
+<td><p>FeasibleSearch, ConstraintGradient, ConstraintRepair</p></td>
 <td><p>When constraints are present</p></td>
 </tr>
 </tbody>
@@ -662,13 +667,27 @@ pockets of promising solutions.</p>
 </section>
 <section id="recommended-configurations">
 <h3>Recommended Configurations<a class="headerlink" href="#recommended-configurations" title="Link to this heading">¶</a></h3>
+<p><strong>Bayesian optimization (≤ 500 evals, smooth/expensive function):</strong></p>
+<p>The gold standard for expensive black-box optimization.  The GP surrogate models the
+objective; Expected Improvement (EI) acquisition balances exploration and exploitation.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span><span class="p">,</span> <span class="n">Random</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>          <span class="c1"># Space-filling initial design</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span>        <span class="c1"># GP + EI acquisition</span>
+</span><span data-line="6">    <span class="n">n_restarts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>                             <span class="c1"># Acquisition restarts (speed/quality)</span>
+</span><span data-line="7">    <span class="n">xi</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>                                  <span class="c1"># EI exploration parameter</span>
+</span><span data-line="8"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>                      <span class="c1"># Local refinement</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>                          <span class="c1"># Fallback exploration</span>
+</span></pre></div>
+</div>
 <p><strong>Low-dimensional (dim ≤ 5):</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">)</span>
 </span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
-</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">QuadraticWLS</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">)</span>
 </span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClaudeHeuristic</span><span class="p">)</span>  <span class="c1"># Cluster-based search</span>
 </span></pre></div>
 </div>
@@ -685,6 +704,13 @@ pockets of promising solutions.</p>
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
 </span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Multimodal problems (Rastrigin, Schwefel):</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">DifferentialEvolution</span><span class="p">)</span>   <span class="c1"># Global search</span>
+</span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>                  <span class="c1"># Exploration</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>              <span class="c1"># Local refinement</span>
 </span></pre></div>
 </div>
 <p><strong>Very noisy problems:</strong></p>
@@ -1023,6 +1049,80 @@ the sensitivity-aware Nearby focuses ≈70 % of search effort on those 3 dimensi
 <p>The <code class="docutils literal notranslate"><span class="pre">sensitivity_scale</span></code> parameter controls how aggressively important dimensions dominate.
 Values &gt; 1 amplify the contrast; 0 disables sensitivity-awareness entirely.</p>
 </section>
+<section id="bayesian-optimization-with-gaussian-process">
+<h3>Bayesian Optimization with Gaussian Process<a class="headerlink" href="#bayesian-optimization-with-gaussian-process" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a> implements full
+Bayesian optimization — the gold standard for expensive black-box functions with a limited
+evaluation budget.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>After each batch of results, a Gaussian Process (GP) is fitted to all observed
+<span class="math notranslate nohighlight">\((x, f(x))\)</span> pairs using a Matérn-5/2 kernel (via scikit-learn).</p></li>
+<li><p>The fitted GP gives a probabilistic prediction <span class="math notranslate nohighlight">\((\mu(x), \sigma^2(x))\)</span> at
+any un-evaluated point.</p></li>
+<li><p>An <em>acquisition function</em> selects the next candidate point by trading off
+predicted quality (<span class="math notranslate nohighlight">\(\mu\)</span>) against prediction uncertainty (<span class="math notranslate nohighlight">\(\sigma\)</span>).</p></li>
+</ol>
+<p><strong>Acquisition functions</strong> (<code class="docutils literal notranslate"><span class="pre">acquisition_func</span></code> parameter):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.EI</span></code> (<strong>default</strong>) — Expected Improvement:
+<span class="math notranslate nohighlight">\(\text{EI}(x) = (\mu^* - \mu)\,\Phi(Z) + \sigma\,\phi(Z)\)</span> where
+<span class="math notranslate nohighlight">\(Z = (\mu^* - \mu)/\sigma\)</span>.  Best for exploitation-heavy search.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.UCB</span></code> — Lower Confidence Bound for minimisation:
+<span class="math notranslate nohighlight">\(\text{LCB}(x) = \mu(x) - \kappa\,\sigma(x)\)</span>.  Higher <code class="docutils literal notranslate"><span class="pre">kappa</span></code> → more exploration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AcquisitionFunction.PI</span></code> — Probability of Improvement:
+<span class="math notranslate nohighlight">\(\text{PI}(x) = \Phi((\mu^* - \mu)/\sigma)\)</span>.  Conservative; similar to EI.</p></li>
+</ul>
+<p><strong>Constrained EI (EIC):</strong> When the problem has active constraint violations the GP
+automatically trains a <em>second</em> surrogate on <span class="math notranslate nohighlight">\(CV(x)\)</span> and weights the acquisition by
+the probability of feasibility: <span class="math notranslate nohighlight">\(\text{EIC}(x) = \text{EI}(x) \cdot P(\text{feas.})\)</span>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianProcessHeuristic</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.gaussian_process</span><span class="w"> </span><span class="kn">import</span> <span class="n">AcquisitionFunction</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Default: EI acquisition, good for smooth/unimodal functions</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">)</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># UCB for more exploratory search (useful for multimodal problems)</span>
+</span><span data-line="8"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">acquisition_func</span><span class="o">=</span><span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">UCB</span><span class="p">,</span>
+</span><span data-line="10">    <span class="n">kappa</span><span class="o">=</span><span class="mf">2.576</span><span class="p">,</span>        <span class="c1"># 99% confidence level</span>
+</span><span data-line="11">    <span class="n">n_restarts</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>      <span class="c1"># Acquisition optimisation restarts</span>
+</span><span data-line="12"><span class="p">)</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="c1"># EI with more exploration (higher xi)</span>
+</span><span data-line="15"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span>
+</span><span data-line="16">    <span class="n">acquisition_func</span><span class="o">=</span><span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">EI</span><span class="p">,</span>
+</span><span data-line="17">    <span class="n">xi</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>             <span class="c1"># Default 0.01 → more exploitative; 0.1 → more explorative</span>
+</span><span data-line="18"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Recommended pairing</strong> with StrategyPhased for a classic two-phase BO workflow:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.phased</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyPhased</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.round_robin</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">NelderMead</span><span class="p">,</span> <span class="n">Random</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyPhased</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="7">    <span class="p">{</span>
+</span><span data-line="8">        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>                                       <span class="c1"># 20% = initial design</span>
+</span><span data-line="9">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRoundRobin</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}),</span>
+</span><span data-line="10">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;div&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}),</span> <span class="p">(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{})],</span>
+</span><span data-line="11">    <span class="p">},</span>
+</span><span data-line="12">    <span class="p">{</span>
+</span><span data-line="13">        <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">StrategyRewarding</span><span class="p">,</span> <span class="p">{}),</span>              <span class="c1"># Remaining 80% = BO</span>
+</span><span data-line="14">        <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span data-line="15">            <span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;n_restarts&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}),</span>
+</span><span data-line="16">            <span class="p">(</span><span class="n">NelderMead</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="17">            <span class="p">(</span><span class="n">Random</span><span class="p">,</span> <span class="p">{}),</span>
+</span><span data-line="18">        <span class="p">],</span>
+</span><span data-line="19">    <span class="p">},</span>
+</span><span data-line="20"><span class="p">],</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+</span><span data-line="21">
+</span><span data-line="22"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="23"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
 <section id="custom-events">
 <h3>Custom Events<a class="headerlink" href="#custom-events" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Publish custom event from a heuristic</span>
@@ -1209,5 +1309,6 @@ continuing from where it left off.</p>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

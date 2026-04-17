@@ -132,7 +132,7 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <h1>Source code for panobbgo.heuristics.gaussian_process</h1><div class="highlight"><pre>
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
-</span><span data-line="2"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="2"><span class="c1"># Copyright 2012-2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
 </span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -607,30 +607,36 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="466">            <span class="k">return</span> <span class="n">ei</span>
 </span><span data-line="467">
 </span><span data-line="468">    <span class="k">def</span><span class="w"> </span><span class="nf">_upper_confidence_bound</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
-</span><span data-line="469"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Upper Confidence Bound acquisition function.&quot;&quot;&quot;</span>
-</span><span data-line="470">        <span class="k">return</span> <span class="n">y_pred</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">y_std</span>  <span class="c1"># Negative for maximization</span>
-</span><span data-line="471">
-</span><span data-line="472">    <span class="k">def</span><span class="w"> </span><span class="nf">_probability_of_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
-</span><span data-line="473"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="474"><span class="sd">        Probability of Improvement acquisition function.</span>
-</span><span data-line="475">
-</span><span data-line="476"><span class="sd">        PI(x) = Φ((f* - μ(x)) / σ(x))</span>
-</span><span data-line="477"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="478">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-</span><span data-line="479">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
-</span><span data-line="480">            <span class="n">pi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
-</span><span data-line="481">            <span class="n">pi</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
-</span><span data-line="482">            <span class="k">return</span> <span class="n">pi</span>
-</span><span data-line="483">
-</span><span data-line="484">    <span class="nd">@staticmethod</span>
-</span><span data-line="485">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="486"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal probability density function.&quot;&quot;&quot;</span>
-</span><span data-line="487">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
-</span><span data-line="488">
-</span><span data-line="489">    <span class="nd">@staticmethod</span>
-</span><span data-line="490">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="491"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal cumulative distribution function.&quot;&quot;&quot;</span>
-</span><span data-line="492">        <span class="k">return</span> <span class="n">ndtr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</span><span data-line="469"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Lower Confidence Bound (LCB) acquisition function for minimization.</span>
+</span><span data-line="470">
+</span><span data-line="471"><span class="sd">        LCB(x) = μ(x) - κ·σ(x).  The outer acquisition maximiser negates this</span>
+</span><span data-line="472"><span class="sd">        result, so returning the *negative* LCB here makes the outer code</span>
+</span><span data-line="473"><span class="sd">        minimise the LCB — equivalent to searching for low-mean, high-uncertainty</span>
+</span><span data-line="474"><span class="sd">        regions, which is the correct behaviour for minimisation problems.</span>
+</span><span data-line="475"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="476">        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">y_pred</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="477">
+</span><span data-line="478">    <span class="k">def</span><span class="w"> </span><span class="nf">_probability_of_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
+</span><span data-line="479"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="480"><span class="sd">        Probability of Improvement acquisition function.</span>
+</span><span data-line="481">
+</span><span data-line="482"><span class="sd">        PI(x) = Φ((f* - μ(x)) / σ(x))</span>
+</span><span data-line="483"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="484">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+</span><span data-line="485">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
+</span><span data-line="486">            <span class="n">pi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span data-line="487">            <span class="n">pi</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
+</span><span data-line="488">            <span class="k">return</span> <span class="n">pi</span>
+</span><span data-line="489">
+</span><span data-line="490">    <span class="nd">@staticmethod</span>
+</span><span data-line="491">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="492"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal probability density function.&quot;&quot;&quot;</span>
+</span><span data-line="493">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+</span><span data-line="494">
+</span><span data-line="495">    <span class="nd">@staticmethod</span>
+</span><span data-line="496">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="497"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal cumulative distribution function.&quot;&quot;&quot;</span>
+</span><span data-line="498">        <span class="k">return</span> <span class="n">ndtr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

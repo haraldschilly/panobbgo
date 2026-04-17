@@ -122,6 +122,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#strategies-orchestration">Strategies (Orchestration)</a><ul>
 <li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
 <li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
+<li><a class="reference internal" href="#strategyucb">StrategyUCB</a></li>
+<li><a class="reference internal" href="#strategythompsonsampling">StrategyThompsonSampling</a></li>
+<li><a class="reference internal" href="#strategylinucb">StrategyLinUCB</a></li>
+<li><a class="reference internal" href="#strategyphased">StrategyPhased</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#execution-flow">Execution Flow</a><ul>
@@ -389,15 +393,37 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 each dimension proportionally to its importance score</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.WeightedAverage" title="panobbgo.heuristics.weighted_average.WeightedAverage"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAverage</span></code></a>: Averages points in best region</p></li>
 </ul>
-<p><strong>Model-based:</strong></p>
+<p><strong>Model-based (surrogate):</strong></p>
 <ul class="simple">
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>: Weighted least-squares quadratic surrogate</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>: Gaussian Process surrogate with EI / UCB / PI
+acquisition functions (scikit-learn backend).  Supports constrained Expected Improvement (EIC)
+when the problem has active constraint violations.  Gold standard for expensive black-box
+optimization — builds an accurate probabilistic model and queries it via the acquisition function.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.ClaudeHeuristic" title="panobbgo.heuristics.claude_heuristic.ClaudeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClaudeHeuristic</span></code></a>: Mixture of Gaussians over elite points (cluster-based adaptive search)</p></li>
 </ul>
 <p><strong>Classical optimizers:</strong></p>
 <ul class="simple">
 <li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead" title="panobbgo.heuristics.nelder_mead.NelderMead"><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code></a>: Randomized simplex method</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>: L-BFGS-B in subprocess</p></li>
+</ul>
+<p><strong>Population-based (global search):</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>: Differential Evolution
+mutation/crossover/selection operators run against the accumulated result database.  Excels on
+multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p></li>
+</ul>
+<p><strong>Constraint-focused:</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.FeasibleSearch" title="panobbgo.heuristics.feasible_search.FeasibleSearch"><code class="xref py py-class docutils literal notranslate"><span class="pre">FeasibleSearch</span></code></a>: Beta(2,1)-biased line search
+between the last feasible and last infeasible point; efficiently locates the constraint boundary.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.ConstraintGradient" title="panobbgo.heuristics.constraint_gradient.ConstraintGradient"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintGradient</span></code></a>: Approximate constraint
+gradient via finite-differences; perturbs the best infeasible point in the direction that most
+reduces constraint violation.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LocalPenaltySearch" title="panobbgo.heuristics.local_penalty_search.LocalPenaltySearch"><code class="xref py py-class docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code></a>: Local search with an
+adaptive penalty function to steer towards feasibility while minimising the objective.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.ConstraintRepair" title="panobbgo.heuristics.repair.ConstraintRepair"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintRepair</span></code></a>: Repairs infeasible points by projecting
+them back into the feasible region using nearest-feasible-point logic.</p></li>
 </ul>
 </section>
 </section>
@@ -503,6 +529,45 @@ Enables multi-start optimization without losing accumulated results.</p>
 <li><p>Reward function: <span class="math notranslate nohighlight">\(R(x) = 1 - e^{-(f_{best} - f(x))}\)</span></p></li>
 <li><p>Discount factor: causes old successes to fade</p></li>
 </ul>
+</section>
+<section id="strategyucb">
+<h3>StrategyUCB<a class="headerlink" href="#strategyucb" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a> extends the multi-armed bandit with an Upper
+Confidence Bound selection rule (UCB1 / UCB-tuned variant):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{score}(h) = \bar{r}_h + C \sqrt{\frac{\ln N}{n_h}}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\bar{r}_h\)</span> is the average reward, <span class="math notranslate nohighlight">\(N\)</span> is total selections, <span class="math notranslate nohighlight">\(n_h\)</span> is
+selections of heuristic <span class="math notranslate nohighlight">\(h\)</span>, and <span class="math notranslate nohighlight">\(C\)</span> is an exploration constant.  UCB provides
+a principled exploration–exploitation trade-off with theoretical regret bounds.</p>
+</section>
+<section id="strategythompsonsampling">
+<h3>StrategyThompsonSampling<a class="headerlink" href="#strategythompsonsampling" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a> uses Thompson Sampling (Beta–
+Bernoulli bandit) to select heuristics.  Each heuristic maintains a Beta posterior
+<span class="math notranslate nohighlight">\(\text{Beta}(\alpha_h, \beta_h)\)</span> over its success probability.  At each step, an arm is
+selected by drawing a sample from each posterior and picking the largest.</p>
+<p><strong>Advantages:</strong> Naturally balances exploration and exploitation; often outperforms UCB in practice.</p>
+</section>
+<section id="strategylinucb">
+<h3>StrategyLinUCB<a class="headerlink" href="#strategylinucb" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyLinUCB" title="panobbgo.strategies.contextual.StrategyLinUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a> implements a contextual bandit using
+disjoint linear UCB models.  Each heuristic has its own linear reward model:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\hat{r}_h(s) = \theta_h^\top s + \alpha \sqrt{s^\top A_h^{-1} s}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(s\)</span> is a feature vector capturing budget progress, recent success rate, and a bias
+term.  LinUCB adapts selection to the <em>current optimization context</em>, not just historical averages.</p>
+</section>
+<section id="strategyphased">
+<h3>StrategyPhased<a class="headerlink" href="#strategyphased" title="Link to this heading">¶</a></h3>
+<p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyPhased" title="panobbgo.strategies.phased.StrategyPhased"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyPhased</span></code></a> divides the evaluation budget into phases.
+Each phase can use a different sub-strategy or heuristic portfolio.  The phase transitions are
+triggered by evaluation count, enabling a two-stage approach (e.g., initial exploration followed
+by focused exploitation).</p>
+<p><strong>Typical usage:</strong> Phase 1 = LatinHypercube global exploration → Phase 2 = GP-guided exploitation.</p>
 </section>
 </section>
 <section id="execution-flow">

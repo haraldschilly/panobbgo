@@ -210,15 +210,37 @@ Implemented Heuristics
   each dimension proportionally to its importance score
 - :class:`~panobbgo.heuristics.weighted_average.WeightedAverage`: Averages points in best region
 
-**Model-based:**
+**Model-based (surrogate):**
 
 - :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
+- :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`: Gaussian Process surrogate with EI / UCB / PI
+  acquisition functions (scikit-learn backend).  Supports constrained Expected Improvement (EIC)
+  when the problem has active constraint violations.  Gold standard for expensive black-box
+  optimization — builds an accurate probabilistic model and queries it via the acquisition function.
 - :class:`~panobbgo.heuristics.claude_heuristic.ClaudeHeuristic`: Mixture of Gaussians over elite points (cluster-based adaptive search)
 
 **Classical optimizers:**
 
 - :class:`~panobbgo.heuristics.nelder_mead.NelderMead`: Randomized simplex method
 - :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`: L-BFGS-B in subprocess
+
+**Population-based (global search):**
+
+- :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`: Differential Evolution
+  mutation/crossover/selection operators run against the accumulated result database.  Excels on
+  multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.
+
+**Constraint-focused:**
+
+- :class:`~panobbgo.heuristics.feasible_search.FeasibleSearch`: Beta(2,1)-biased line search
+  between the last feasible and last infeasible point; efficiently locates the constraint boundary.
+- :class:`~panobbgo.heuristics.constraint_gradient.ConstraintGradient`: Approximate constraint
+  gradient via finite-differences; perturbs the best infeasible point in the direction that most
+  reduces constraint violation.
+- :class:`~panobbgo.heuristics.local_penalty_search.LocalPenaltySearch`: Local search with an
+  adaptive penalty function to steer towards feasibility while minimising the objective.
+- :class:`~panobbgo.heuristics.repair.ConstraintRepair`: Repairs infeasible points by projecting
+  them back into the feasible region using nearest-feasible-point logic.
 
 Analyzers (Result Processors)
 ------------------------------
@@ -339,6 +361,53 @@ StrategyRewarding
 - Probabilistic: maintains exploration
 - Reward function: :math:`R(x) = 1 - e^{-(f_{best} - f(x))}`
 - Discount factor: causes old successes to fade
+
+StrategyUCB
+~~~~~~~~~~~
+
+:class:`~panobbgo.strategies.ucb.StrategyUCB` extends the multi-armed bandit with an Upper
+Confidence Bound selection rule (UCB1 / UCB-tuned variant):
+
+.. math::
+
+   \text{score}(h) = \bar{r}_h + C \sqrt{\frac{\ln N}{n_h}}
+
+where :math:`\bar{r}_h` is the average reward, :math:`N` is total selections, :math:`n_h` is
+selections of heuristic :math:`h`, and :math:`C` is an exploration constant.  UCB provides
+a principled exploration–exploitation trade-off with theoretical regret bounds.
+
+StrategyThompsonSampling
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+:class:`~panobbgo.strategies.thompson.StrategyThompsonSampling` uses Thompson Sampling (Beta–
+Bernoulli bandit) to select heuristics.  Each heuristic maintains a Beta posterior
+:math:`\text{Beta}(\alpha_h, \beta_h)` over its success probability.  At each step, an arm is
+selected by drawing a sample from each posterior and picking the largest.
+
+**Advantages:** Naturally balances exploration and exploitation; often outperforms UCB in practice.
+
+StrategyLinUCB
+~~~~~~~~~~~~~~
+
+:class:`~panobbgo.strategies.contextual.StrategyLinUCB` implements a contextual bandit using
+disjoint linear UCB models.  Each heuristic has its own linear reward model:
+
+.. math::
+
+   \hat{r}_h(s) = \theta_h^\top s + \alpha \sqrt{s^\top A_h^{-1} s}
+
+where :math:`s` is a feature vector capturing budget progress, recent success rate, and a bias
+term.  LinUCB adapts selection to the *current optimization context*, not just historical averages.
+
+StrategyPhased
+~~~~~~~~~~~~~~
+
+:class:`~panobbgo.strategies.phased.StrategyPhased` divides the evaluation budget into phases.
+Each phase can use a different sub-strategy or heuristic portfolio.  The phase transitions are
+triggered by evaluation count, enabling a two-stage approach (e.g., initial exploration followed
+by focused exploitation).
+
+**Typical usage:** Phase 1 = LatinHypercube global exploration → Phase 2 = GP-guided exploitation.
 
 Execution Flow
 --------------

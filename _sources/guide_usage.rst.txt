@@ -463,21 +463,41 @@ A good portfolio balances exploration and exploitation:
    * - Local search
      - Nearby, NelderMead
      - Smooth problems
-   * - Model-based
-     - QuadraticWLS, ClaudeHeuristic
-     - Low-dimensional (dim < 20)
+   * - Model-based (surrogate)
+     - GaussianProcessHeuristic, QuadraticWLS
+     - Few evaluations, smooth/expensive functions (Bayesian optimization)
    * - Cluster-based
      - ClaudeHeuristic
      - Multimodal landscapes, finding hidden optima near good regions
-   * - Gradient-free
+   * - Population-based
+     - DifferentialEvolution
+     - Multimodal problems (Rastrigin, Schwefel); no surrogate model needed
+   * - Gradient-free local
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected
    * - Constraint Handling
-     - FeasibleSearch, ConstraintGradient
+     - FeasibleSearch, ConstraintGradient, ConstraintRepair
      - When constraints are present
 
 Recommended Configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Bayesian optimization (≤ 500 evals, smooth/expensive function):**
+
+The gold standard for expensive black-box optimization.  The GP surrogate models the
+objective; Expected Improvement (EI) acquisition balances exploration and exploitation.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import GaussianProcessHeuristic, LatinHypercube, NelderMead, Random
+
+   strategy = StrategyRewarding(problem, max_evaluations=200)
+   strategy.add(LatinHypercube, div=4)          # Space-filling initial design
+   strategy.add(GaussianProcessHeuristic,        # GP + EI acquisition
+       n_restarts=5,                             # Acquisition restarts (speed/quality)
+       xi=0.01)                                  # EI exploration parameter
+   strategy.add(NelderMead)                      # Local refinement
+   strategy.add(Random)                          # Fallback exploration
 
 **Low-dimensional (dim ≤ 5):**
 
@@ -488,7 +508,7 @@ Recommended Configurations
    strategy.add(Random)
    strategy.add(Nearby)
    strategy.add(NelderMead)
-   strategy.add(QuadraticWLS)
+   strategy.add(GaussianProcessHeuristic)
    strategy.add(ClaudeHeuristic)  # Cluster-based search
 
 **Medium-dimensional (5 < dim ≤ 20):**
@@ -509,6 +529,15 @@ Recommended Configurations
    strategy.add(Random)
    strategy.add(NelderMead)
    strategy.add(LBFGSB)
+
+**Multimodal problems (Rastrigin, Schwefel):**
+
+.. code-block:: python
+
+   strategy.add(LatinHypercube, div=5)
+   strategy.add(DifferentialEvolution)   # Global search
+   strategy.add(Random)                  # Exploration
+   strategy.add(NelderMead)              # Local refinement
 
 **Very noisy problems:**
 
@@ -874,6 +903,85 @@ the sensitivity-aware Nearby focuses ≈70 % of search effort on those 3 dimensi
 
 The ``sensitivity_scale`` parameter controls how aggressively important dimensions dominate.
 Values > 1 amplify the contrast; 0 disables sensitivity-awareness entirely.
+
+Bayesian Optimization with Gaussian Process
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic` implements full
+Bayesian optimization — the gold standard for expensive black-box functions with a limited
+evaluation budget.
+
+**How it works:**
+
+1. After each batch of results, a Gaussian Process (GP) is fitted to all observed
+   :math:`(x, f(x))` pairs using a Matérn-5/2 kernel (via scikit-learn).
+2. The fitted GP gives a probabilistic prediction :math:`(\mu(x), \sigma^2(x))` at
+   any un-evaluated point.
+3. An *acquisition function* selects the next candidate point by trading off
+   predicted quality (:math:`\mu`) against prediction uncertainty (:math:`\sigma`).
+
+**Acquisition functions** (``acquisition_func`` parameter):
+
+- ``AcquisitionFunction.EI`` (**default**) — Expected Improvement:
+  :math:`\text{EI}(x) = (\mu^* - \mu)\,\Phi(Z) + \sigma\,\phi(Z)` where
+  :math:`Z = (\mu^* - \mu)/\sigma`.  Best for exploitation-heavy search.
+- ``AcquisitionFunction.UCB`` — Lower Confidence Bound for minimisation:
+  :math:`\text{LCB}(x) = \mu(x) - \kappa\,\sigma(x)`.  Higher ``kappa`` → more exploration.
+- ``AcquisitionFunction.PI`` — Probability of Improvement:
+  :math:`\text{PI}(x) = \Phi((\mu^* - \mu)/\sigma)`.  Conservative; similar to EI.
+
+**Constrained EI (EIC):** When the problem has active constraint violations the GP
+automatically trains a *second* surrogate on :math:`CV(x)` and weights the acquisition by
+the probability of feasibility: :math:`\text{EIC}(x) = \text{EI}(x) \cdot P(\text{feas.})`.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import GaussianProcessHeuristic
+   from panobbgo.heuristics.gaussian_process import AcquisitionFunction
+
+   # Default: EI acquisition, good for smooth/unimodal functions
+   strategy.add(GaussianProcessHeuristic)
+
+   # UCB for more exploratory search (useful for multimodal problems)
+   strategy.add(GaussianProcessHeuristic,
+       acquisition_func=AcquisitionFunction.UCB,
+       kappa=2.576,        # 99% confidence level
+       n_restarts=10,      # Acquisition optimisation restarts
+   )
+
+   # EI with more exploration (higher xi)
+   strategy.add(GaussianProcessHeuristic,
+       acquisition_func=AcquisitionFunction.EI,
+       xi=0.1,             # Default 0.01 → more exploitative; 0.1 → more explorative
+   )
+
+**Recommended pairing** with StrategyPhased for a classic two-phase BO workflow:
+
+.. code-block:: python
+
+   from panobbgo.strategies.phased import StrategyPhased
+   from panobbgo.strategies.round_robin import StrategyRoundRobin
+   from panobbgo.strategies.rewarding import StrategyRewarding
+   from panobbgo.heuristics import LatinHypercube, GaussianProcessHeuristic, NelderMead, Random
+
+   strategy = StrategyPhased(problem, phases=[
+       {
+           "pct": 20,                                       # 20% = initial design
+           "strategy": (StrategyRoundRobin, {"size": 5}),
+           "heuristics": [(LatinHypercube, {"div": 4}), (Random, {})],
+       },
+       {
+           "strategy": (StrategyRewarding, {}),              # Remaining 80% = BO
+           "heuristics": [
+               (GaussianProcessHeuristic, {"n_restarts": 10}),
+               (NelderMead, {}),
+               (Random, {}),
+           ],
+       },
+   ], max_evaluations=500)
+
+   strategy.start()
+   print(f"Best: {strategy.best.fx:.6f} at {strategy.best.x}")
 
 Custom Events
 ~~~~~~~~~~~~~

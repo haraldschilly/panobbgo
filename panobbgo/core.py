@@ -407,7 +407,7 @@ class Results:
                     # Use _results_df directly to avoid flushing buffer
                     # Apply astype(float) to avoid string comparison bug
                     fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
-                    prev_best = float(fx_series.astype(float).min())
+                    prev_best = min([float(x) for x in fx_series.astype(float).dropna()])
                     if result.fx < prev_best:
                         context.is_improvement = True
             except (ValueError, TypeError, KeyError):

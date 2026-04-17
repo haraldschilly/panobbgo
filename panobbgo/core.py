@@ -65,7 +65,7 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from .logging.progress import ProgressContext
-from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple
+from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple, Type
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
@@ -737,6 +737,7 @@ class EventBus:
 
     # pattern for a valid key
     _re_key = re.compile(r"^[a-z_]+$")
+    _method_cache: Dict[Type[Any], List[str]] = {}
 
     def __init__(self, config: Any) -> None:
         self._subs: Dict[str, List[Any]] = {}
@@ -845,9 +846,15 @@ class EventBus:
 
         target.eventbus_events = {}
         # bind all 'on_<key>' methods to events in the eventbus
-        for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
-            if not name.startswith("on_"):
-                continue
+        cls = type(target)
+        if cls not in self._method_cache:
+            methods = []
+            for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
+                if name.startswith("on_"):
+                    methods.append(name)
+            self._method_cache[cls] = methods
+
+        for name in self._method_cache[cls]:
             key = self._check_key(name[3:])
             target.eventbus_events[key] = Queue()
             t = Thread(

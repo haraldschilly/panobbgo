@@ -13,6 +13,28 @@
 
 ## Recent Improvements
 
+### Bayesian Optimization Harness Integration & UCB Bug Fix (2026-04-17)
+- [x] **BayesOpt_GP strategy added to standard harness** (`panobbgo/harness.py`)
+  - New `BayesOpt_GP` strategy spec added to `_make_standard_strategies()` (200-eval budget)
+  - Uses `GaussianProcessHeuristic(n_restarts=5)` + `LatinHypercube(div=4)` + `Nearby` + `NelderMead`
+  - Demonstrates GP-based Bayesian optimization within the reproducible harness
+- [x] **BayesOpt_Enhanced added to full harness** (`panobbgo/harness.py`)
+  - New `BayesOpt_Enhanced` strategy spec added to `_make_full_strategies()` (500-eval budget)
+  - Combines `GaussianProcessHeuristic(n_restarts=10)` + `DifferentialEvolution` + `NelderMead`
+  - DifferentialEvolution provides global search; GP provides surrogate-guided exploitation
+- [x] **Fixed UCB acquisition function bug** (`panobbgo/heuristics/gaussian_process.py`)
+  - `_upper_confidence_bound` was maximising LCB instead of minimising it (wrong for minimisation)
+  - Fixed: method now returns `-(μ - κσ)` so the outer maximiser correctly minimises LCB
+  - Acquisition functions EI and PI were already correct; only UCB was affected
+- [x] **Documentation updated** (`doc/source/guide_architecture.rst`, `doc/source/guide_usage.rst`)
+  - `guide_architecture.rst`: Added `GaussianProcessHeuristic`, `DifferentialEvolution`,
+    `FeasibleSearch`, `ConstraintGradient`, `LocalPenaltySearch`, `ConstraintRepair` to heuristics
+  - `guide_architecture.rst`: Added `StrategyUCB`, `StrategyThompsonSampling`, `StrategyLinUCB`,
+    `StrategyPhased` with mathematical descriptions
+  - `guide_usage.rst`: Added "Bayesian Optimization with Gaussian Process" section with
+    acquisition function details, EIC description, and two-phase BO workflow example
+  - `guide_usage.rst`: Updated heuristic portfolio table and recommended configurations
+
 ### Sensitivity-Aware Nearby Heuristic & StrategySpec Analyzers (2026-04-15)
 - [x] **Sensitivity-Aware `Nearby` Heuristic** (`panobbgo/heuristics/nearby.py`)
   - Added `on_new_sensitivity(importance)` event handler to `Nearby`

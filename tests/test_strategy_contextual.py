@@ -38,7 +38,7 @@ class MockContextualProblem(Problem):
     - Heuristic "LateBloomer": Bad early, Good late (evals > 100).
     """
     def __init__(self, switch_point=100):
-        super().__init__([[-10, 10]])
+        super().__init__([[-10, 10], [-10, 10]])
         self.switch_point = switch_point
         self.call_count = 0
         self._lock = threading.Lock()

@@ -21,3 +21,7 @@ coverage.xml
 .claude/settings.local.json
 exdata/
 ppdata/
+# benchmark harness output files
+before.json
+after.json
+harness_*.json

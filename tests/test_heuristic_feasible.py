@@ -8,7 +8,6 @@ from panobbgo.config import Config
 
 class MockProblem(Problem):
     def __init__(self, dim=2):
-        # Fix: box must be a list of tuples, not a numpy array
         box = [(-5.0, 5.0)] * dim
         super().__init__(box=box)
 

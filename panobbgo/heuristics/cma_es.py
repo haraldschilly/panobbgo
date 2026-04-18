@@ -282,6 +282,16 @@ class CMAES(Heuristic):
         assert self._B is not None
         assert self._D is not None
         assert self._w is not None
+        assert self._ranges is not None
+
+        # Local non-None aliases (avoid repeated attribute-narrowing loss).
+        C = self._C
+        p_c = self._p_c
+        p_sigma = self._p_sigma
+        B = self._B
+        D = self._D
+        w_full = self._w
+        ranges = self._ranges
 
         n = self.problem.dim
 
@@ -291,7 +301,7 @@ class CMAES(Heuristic):
 
         # Recombination weights (may use fewer than μ if fewer arrived)
         actual_mu = len(selected)
-        if actual_mu < len(self._w):
+        if actual_mu < len(w_full):
             # Re-normalise weights for the actual number of survivors
             raw = np.log(actual_mu + 0.5) - np.log(
                 np.arange(1, actual_mu + 1, dtype=float)
@@ -299,7 +309,7 @@ class CMAES(Heuristic):
             w = raw / raw.sum()
             mu_eff = 1.0 / (w**2).sum()
         else:
-            w = self._w
+            w = w_full
             mu_eff = self._mu_eff
 
         # --- Mean update ---
@@ -310,20 +320,20 @@ class CMAES(Heuristic):
 
         # --- Step-size path update ---
         # C^{-1/2} y_w  =  B diag(1/D) Bᵀ y_w
-        C_invsqrt_yw = self._B @ ((1.0 / self._D) * (self._B.T @ y_w))
+        C_invsqrt_yw = B @ ((1.0 / D) * (B.T @ y_w))
 
-        self._p_sigma = (1.0 - self._c_sigma) * self._p_sigma + np.sqrt(
+        p_sigma = (1.0 - self._c_sigma) * p_sigma + np.sqrt(
             self._c_sigma * (2.0 - self._c_sigma) * mu_eff
         ) * C_invsqrt_yw
 
         # Stall indicator: is p_sigma still growing?
-        norm_p_sigma = float(np.linalg.norm(self._p_sigma))
+        norm_p_sigma = float(np.linalg.norm(p_sigma))
         gen_count = self._counteval / self._lam + 1.0
         expected = np.sqrt(1.0 - (1.0 - self._c_sigma) ** (2.0 * gen_count))
         h_sigma = norm_p_sigma / (expected * self._chi_n) < 1.4 + 2.0 / (n + 1.0)
 
         # --- Covariance path update ---
-        self._p_c = (1.0 - self._c_c) * self._p_c + h_sigma * np.sqrt(
+        p_c = (1.0 - self._c_c) * p_c + h_sigma * np.sqrt(
             self._c_c * (2.0 - self._c_c) * mu_eff
         ) * y_w
 
@@ -335,10 +345,9 @@ class CMAES(Heuristic):
         # Correction for h_sigma = 0
         delta_h = (1.0 - h_sigma) * self._c_c * (2.0 - self._c_c)
 
-        self._C = (
-            (1.0 - self._c_1 - self._c_mu) * self._C
-            + self._c_1
-            * (np.outer(self._p_c, self._p_c) + delta_h * self._C)
+        C = (
+            (1.0 - self._c_1 - self._c_mu) * C
+            + self._c_1 * (np.outer(p_c, p_c) + delta_h * C)
             + self._c_mu * rank_mu
         )
 
@@ -351,10 +360,15 @@ class CMAES(Heuristic):
         )
 
         # Clamp step size
-        max_sigma = float(np.mean(self._ranges))
+        max_sigma = float(np.mean(ranges))
         self._sigma = float(np.clip(self._sigma, 1e-12, max_sigma))
 
         self._counteval += actual_mu
+
+        # Persist path/covariance state back to instance.
+        self._p_c = p_c
+        self._p_sigma = p_sigma
+        self._C = C
 
         # --- Lazy eigendecomposition ---
         # Update frequency: every lam / (c_1 + c_mu) / n / 10 evaluations
@@ -362,9 +376,9 @@ class CMAES(Heuristic):
         if self._counteval - self._eigeneval >= update_gap:
             self._eigeneval = self._counteval
             # Enforce symmetry, then decompose
-            C_sym = (self._C + self._C.T) / 2.0
+            C_sym = (C + C.T) / 2.0
             try:
-                eigvals, self._B = np.linalg.eigh(C_sym)
+                eigvals, B_new = np.linalg.eigh(C_sym)
             except np.linalg.LinAlgError:
                 self.logger.warning("CMA-ES: eigendecomposition failed — resetting C")
                 self._reset_covariance(n)
@@ -372,11 +386,13 @@ class CMAES(Heuristic):
 
             # Clamp eigenvalues (avoid collapse or explosion)
             eigvals = np.maximum(eigvals, 1e-20)
-            self._D = np.sqrt(eigvals)
+            D_new = np.sqrt(eigvals)
+            self._B = B_new
+            self._D = D_new
             self._C = C_sym
 
             # Condition-number guard
-            if self._D.max() / self._D.min() > 1e7:
+            if D_new.max() / D_new.min() > 1e7:
                 self.logger.info("CMA-ES: condition number too large — resetting C")
                 self._reset_covariance(n)
 

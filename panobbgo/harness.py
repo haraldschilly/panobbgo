@@ -224,6 +224,11 @@ def _make_quick_strategies() -> List[StrategySpec]:
     analyzer so that the sensitivity-aware :class:`~panobbgo.heuristics.nearby.Nearby`
     heuristic can scale perturbations by dimension importance once enough evaluations
     have been accumulated.
+
+    CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
+    its covariance adaptation has too little data to converge, and the population overhead
+    dilutes the budget for the faster local heuristics.  Use ``CMAES_Portfolio`` in
+    standard or full mode for CMA-ES benchmarking.
     """
     from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding
     from panobbgo.heuristics import Random, Nearby, NelderMead, Center
@@ -250,11 +255,15 @@ def _make_quick_strategies() -> List[StrategySpec]:
 
 
 def _make_standard_strategies() -> List[StrategySpec]:
-    """Four strategies: baseline, adaptive, bandit, Bayesian GP.
+    """Five strategies: baseline, adaptive (with CMA-ES), UCB bandit, Bayesian GP, CMA-ES portfolio.
 
     BayesOpt_GP uses a Gaussian Process surrogate (Expected Improvement acquisition)
     paired with LatinHypercube initialization.  With 200 evaluations the GP model
     has enough data to build an accurate surrogate and guide search efficiently.
+
+    CMAES_Portfolio pairs CMA-ES with LatinHypercube initialization and NelderMead
+    local refinement inside a Rewarding strategy.  CMA-ES adapts its covariance
+    matrix to the local geometry, providing strong performance on smooth functions.
     """
     from panobbgo.strategies import StrategyUCB, StrategyRewarding
     from panobbgo.heuristics import (
@@ -263,6 +272,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
         NelderMead,
         LatinHypercube,
         GaussianProcessHeuristic,
+        CMAES,
     )
     from panobbgo.analyzers import Sensitivity
 
@@ -289,15 +299,30 @@ def _make_standard_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return quick + [ucb, bayes_gp]
+    cmaes_portfolio = StrategySpec(
+        name="CMAES_Portfolio",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (CMAES, {"sigma0": 0.3}),
+            (Nearby, {"radius": 0.05, "axes": "all", "new": 3}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+    return quick + [ucb, bayes_gp, cmaes_portfolio]
 
 
 def _make_full_strategies() -> List[StrategySpec]:
-    """Full strategy set including Thompson Sampling and enhanced Bayesian GP.
+    """Full strategy set including Thompson Sampling, enhanced Bayesian GP, and CMA-ES+GP.
 
     BayesOpt_Enhanced pairs GP (EI acquisition, 10 restarts) with DifferentialEvolution
     for global exploration and NelderMead for local refinement.  The larger 500-evaluation
     budget lets the GP build a highly accurate surrogate model.
+
+    CMAES_GP combines CMA-ES with the Gaussian Process heuristic inside a Rewarding
+    strategy.  CMA-ES provides efficient local adaptation while GP suggests globally
+    promising regions, and the bandit allocates budget according to performance.
     """
     from panobbgo.strategies import StrategyThompsonSampling, StrategyRewarding
     from panobbgo.heuristics import (
@@ -307,6 +332,7 @@ def _make_full_strategies() -> List[StrategySpec]:
         LatinHypercube,
         GaussianProcessHeuristic,
         DifferentialEvolution,
+        CMAES,
     )
     from panobbgo.analyzers import Sensitivity
 
@@ -333,7 +359,18 @@ def _make_full_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return base + [thompson, bayes_enhanced]
+    cmaes_gp = StrategySpec(
+        name="CMAES_GP",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (CMAES, {"sigma0": 0.3}),
+            (GaussianProcessHeuristic, {"n_restarts": 5}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+    return base + [thompson, bayes_enhanced, cmaes_gp]
 
 
 # ---------------------------------------------------------------------------

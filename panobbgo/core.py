@@ -1168,7 +1168,19 @@ class StrategyBase:
         return list(self._analyzers.values())
 
     def heuristic(self, who):
-        return self._heuristics[who]
+        """Look up a heuristic by its *who* tag.
+
+        Some heuristics (e.g. :class:`~panobbgo.heuristics.CMAES`,
+        :class:`~panobbgo.heuristics.DifferentialEvolution`) embed extra
+        context in the ``who`` field (e.g. ``"CMAES:g3:i0"``).  We first try
+        the full string, then fall back to the prefix before the first ``:``.
+        """
+        if who in self._heuristics:
+            return self._heuristics[who]
+        base = who.split(":")[0]
+        if base in self._heuristics:
+            return self._heuristics[base]
+        raise KeyError(who)
 
     def analyzer(self, who):
         return self._analyzers[who]

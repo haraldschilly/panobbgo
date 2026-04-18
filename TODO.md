@@ -13,6 +13,33 @@
 
 ## Recent Improvements
 
+### CMA-ES Heuristic & Core Reward Fix (2026-04-18)
+- [x] **Implemented `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
+  - Pure-NumPy implementation of the canonical CMA-ES algorithm (Hansen 2016)
+  - Async-compatible: tracks results per generation via `who = "CMAES:g<gen>:i<idx>"` tags
+  - Adapts covariance matrix C and step size σ from evaluated offspring
+  - Lazy eigendecomposition with condition-number guard (resets to spherical if > 1e7)
+  - Parameters: `sigma0` (initial step-size fraction), `popsize` (overrides λ=4+3 ln n),
+    `min_results_fraction` (fraction of λ before update trigger, default 0.5 = μ)
+  - Gold standard for smooth/ridge-following problems (Rosenbrock, ill-conditioned quadratics)
+- [x] **Added `CMAES` to standard and full harness strategies** (`panobbgo/harness.py`)
+  - `CMAES_Portfolio` strategy in standard mode: LatinHypercube + CMAES + Nearby + NelderMead
+  - `CMAES_GP` strategy in full mode: LatinHypercube + CMAES + GaussianProcessHeuristic + NelderMead
+  - Intentionally excluded from quick mode (75 evals) — CMA-ES needs ≥ 100 evals to converge
+- [x] **Fixed `StrategyBase.heuristic()` lookup for compound `who` strings** (`panobbgo/core.py`)
+  - Heuristics like CMAES and DifferentialEvolution embed generation/UUID info in `who`
+    (e.g., `"CMAES:g3:i0"`, `"DifferentialEvolution:abc123"`)
+  - `heuristic(who)` now falls back to the prefix before `:` if the full key is not found
+  - Prevents spurious `KeyError` in `StrategyRewarding.on_new_best` and `_reward_near_best`
+- [x] **20 comprehensive tests** (`tests/test_heuristic_cmaes.py`)
+  - Initialisation, parameter validation, point emission within bounds
+  - Update triggering from partial results, mean convergence, sigma adaptation
+  - Covariance positive-definiteness, weight normalisation, foreign-result handling
+  - End-to-end integration test on Rosenbrock 2D (150 evals, fx < 5.0)
+- [x] **Documentation updated**
+  - `doc/source/guide_architecture.rst`: CMAES added to "Population-based" heuristics section
+  - `doc/source/guide_usage.rst`: Added CMA-ES portfolio table entry and usage example
+
 ### Bayesian Optimization Harness Integration & UCB Bug Fix (2026-04-17)
 - [x] **BayesOpt_GP strategy added to standard harness** (`panobbgo/harness.py`)
   - New `BayesOpt_GP` strategy spec added to `_make_standard_strategies()` (200-eval budget)

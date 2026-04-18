@@ -470,8 +470,8 @@ A good portfolio balances exploration and exploitation:
      - ClaudeHeuristic
      - Multimodal landscapes, finding hidden optima near good regions
    * - Population-based
-     - DifferentialEvolution
-     - Multimodal problems (Rastrigin, Schwefel); no surrogate model needed
+     - CMAES, DifferentialEvolution
+     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); DE: multimodal (Rastrigin, Schwefel)
    * - Gradient-free local
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected
@@ -529,6 +529,23 @@ objective; Expected Improvement (EI) acquisition balances exploration and exploi
    strategy.add(Random)
    strategy.add(NelderMead)
    strategy.add(LBFGSB)
+
+**Smooth/ill-conditioned problems with CMA-ES (≥ 100 evals recommended):**
+
+CMA-ES is the gold standard for derivative-free optimization of continuous functions.
+It adapts both step size and covariance to the local geometry, making it exceptionally
+effective on problems with elongated valleys (Rosenbrock), ill-conditioned quadratics,
+or rotated search spaces.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead, Nearby
+
+   strategy = StrategyRewarding(problem, max_evaluations=200)
+   strategy.add(LatinHypercube, div=4)  # Spread initial samples evenly
+   strategy.add(CMAES, sigma0=0.3)      # Self-adapting covariance-matrix search
+   strategy.add(Nearby, radius=0.05)    # Fine local refinement
+   strategy.add(NelderMead)             # Gradient-free simplex local optimizer
 
 **Multimodal problems (Rastrigin, Schwefel):**
 

@@ -41,6 +41,7 @@ from .local_penalty_search import LocalPenaltySearch
 from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
 from .repair import ConstraintRepair
+from .cma_es import CMAES
 
 __all__ = [
     "Center",
@@ -60,4 +61,5 @@ __all__ = [
     "ClaudeHeuristic",
     "DifferentialEvolution",
     "ConstraintRepair",
+    "CMAES",
 ]

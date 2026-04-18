@@ -99,6 +99,11 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#heuristics">Heuristics</a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES"><code class="docutils literal notranslate"><span class="pre">CMAES</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Center"><code class="docutils literal notranslate"><span class="pre">Center</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Center.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -256,6 +261,44 @@ data-aria-dark="Switch to auto color mode">
 <p>The following heuristics for generating new points are implemented.
 They are all derived from <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a>.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">CMAES</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">popsize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_results_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Covariance Matrix Adaptation Evolution Strategy heuristic.</p>
+<p>Maintains a multivariate Gaussian search distribution N(m, σ²C) and
+adapts it from the history of evaluated points.  Particularly effective
+for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – The optimization strategy instance.</p></li>
+<li><p><strong>sigma0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><em>optional</em>) – Initial step size as a fraction of the mean
+box half-range.  Defaults to 0.3 (30 % of the search space).</p></li>
+<li><p><strong>popsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Override the default population size
+<code class="docutils literal notranslate"><span class="pre">λ</span> <span class="pre">=</span> <span class="pre">4</span> <span class="pre">+</span> <span class="pre">floor(3·ln</span> <span class="pre">n)</span></code>.  Useful for low-budget runs.</p></li>
+<li><p><strong>min_results_fraction</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Fraction of λ that must arrive before
+a CMA-ES update is triggered.  Default 0.5 (= μ).</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Collect results and trigger a CMA-ES update when enough have arrived.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Initialise CMA-ES state and emit the first generation.</p>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Center">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/center.html#Center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Center" title="Link to this definition">¶</a></dt>

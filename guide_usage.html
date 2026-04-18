@@ -650,8 +650,8 @@ pockets of promising solutions.</p>
 <td><p>Multimodal landscapes, finding hidden optima near good regions</p></td>
 </tr>
 <tr class="row-even"><td><p>Population-based</p></td>
-<td><p>DifferentialEvolution</p></td>
-<td><p>Multimodal problems (Rastrigin, Schwefel); no surrogate model needed</p></td>
+<td><p>CMAES, DifferentialEvolution</p></td>
+<td><p>CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); DE: multimodal (Rastrigin, Schwefel)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Gradient-free local</p></td>
 <td><p>LBFGSB, LocalPenaltySearch</p></td>
@@ -704,6 +704,20 @@ objective; Expected Improvement (EI) acquisition balances exploration and exploi
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
 </span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Smooth/ill-conditioned problems with CMA-ES (≥ 100 evals recommended):</strong></p>
+<p>CMA-ES is the gold standard for derivative-free optimization of continuous functions.
+It adapts both step size and covariance to the local geometry, making it exceptionally
+effective on problems with elongated valleys (Rosenbrock), ill-conditioned quadratics,
+or rotated search spaces.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span><span class="p">,</span> <span class="n">Nearby</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># Spread initial samples evenly</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>      <span class="c1"># Self-adapting covariance-matrix search</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>    <span class="c1"># Fine local refinement</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>             <span class="c1"># Gradient-free simplex local optimizer</span>
 </span></pre></div>
 </div>
 <p><strong>Multimodal problems (Rastrigin, Schwefel):</strong></p>

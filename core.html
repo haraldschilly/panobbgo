@@ -714,7 +714,12 @@ Returns a mock object with attributes needed by strategies.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.heuristic">
 <span class="sig-name descname"><span class="pre">heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">who</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.heuristic" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Look up a heuristic by its <em>who</em> tag.</p>
+<p>Some heuristics (e.g. <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>) embed extra
+context in the <code class="docutils literal notranslate"><span class="pre">who</span></code> field (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;CMAES:g3:i0&quot;</span></code>).  We first try
+the full string, then fall back to the prefix before the first <code class="docutils literal notranslate"><span class="pre">:</span></code>.</p>
+</dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.heuristics">

@@ -720,7 +720,36 @@ or rotated search spaces.</p>
 </span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>             <span class="c1"># Gradient-free simplex local optimizer</span>
 </span></pre></div>
 </div>
-<p><strong>Multimodal problems (Rastrigin, Schwefel):</strong></p>
+<p><strong>Multimodal problems with IPOP-CMA-ES (competition-winning restart strategy):</strong></p>
+<p>IPOP-CMA-ES (Increasing Population CMA-ES; Auger &amp; Hansen 2005) is the approach used by
+competition-winning solvers on the BBOB/COCO benchmark suite.  When stagnation is detected
+the population doubles (λ → 2λ) and the search restarts from a diverse new center, enabling
+systematic escape from local optima while the full result history is retained.</p>
+<p>Pair <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> with the
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restart</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">ipop_factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
+</span><span data-line="8"><span class="c1"># Add Restart *before* calling start()</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Restart</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>   <span class="c1"># default: 5 * dim</span>
+</span><span data-line="10">                              <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">&quot;diverse&quot;</span><span class="p">,</span>
+</span><span data-line="11">                              <span class="n">max_restarts</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</span><span data-line="12"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Key parameters of <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">patience</span></code> (int | None): evaluations without improvement before restart.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> uses <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">*</span> <span class="pre">problem.dim</span></code> (recommended).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">restart_strategy</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> picks the new center to maximize
+distance from all previous restart centers — better coverage than random.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_restarts</span></code>: cap on total restarts to prevent budget exhaustion.</p></li>
+</ul>
+<p><strong>Multimodal problems (Rastrigin, Schwefel) — lighter portfolio:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">DifferentialEvolution</span><span class="p">)</span>   <span class="c1"># Global search</span>
 </span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>                  <span class="c1"># Exploration</span>

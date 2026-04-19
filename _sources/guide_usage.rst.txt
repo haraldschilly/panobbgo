@@ -547,7 +547,40 @@ or rotated search spaces.
    strategy.add(Nearby, radius=0.05)    # Fine local refinement
    strategy.add(NelderMead)             # Gradient-free simplex local optimizer
 
-**Multimodal problems (Rastrigin, Schwefel):**
+**Multimodal problems with IPOP-CMA-ES (competition-winning restart strategy):**
+
+IPOP-CMA-ES (Increasing Population CMA-ES; Auger & Hansen 2005) is the approach used by
+competition-winning solvers on the BBOB/COCO benchmark suite.  When stagnation is detected
+the population doubles (λ → 2λ) and the search restarts from a diverse new center, enabling
+systematic escape from local optima while the full result history is retained.
+
+Pair :class:`~panobbgo.heuristics.cma_es.CMAES` with the
+:class:`~panobbgo.analyzers.restart.Restart` analyzer:
+
+.. code-block:: python
+
+   from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead
+   from panobbgo.analyzers import Restart
+
+   strategy = StrategyRewarding(problem, max_evaluations=500)
+   strategy.add(LatinHypercube, div=4)
+   strategy.add(CMAES, sigma0=0.3, ipop_factor=2.0)
+   strategy.add(NelderMead)
+   # Add Restart *before* calling start()
+   strategy.add_analyzer(Restart(strategy, patience=None,   # default: 5 * dim
+                                 restart_strategy="diverse",
+                                 max_restarts=5))
+   strategy.start()
+
+Key parameters of :class:`~panobbgo.analyzers.restart.Restart`:
+
+- ``patience`` (int | None): evaluations without improvement before restart.
+  ``None`` uses ``5 * problem.dim`` (recommended).
+- ``restart_strategy``: ``"diverse"`` picks the new center to maximize
+  distance from all previous restart centers — better coverage than random.
+- ``max_restarts``: cap on total restarts to prevent budget exhaustion.
+
+**Multimodal problems (Rastrigin, Schwefel) — lighter portfolio:**
 
 .. code-block:: python
 

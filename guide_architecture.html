@@ -408,14 +408,22 @@ optimization — builds an accurate probabilistic model and queries it via the a
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>: L-BFGS-B in subprocess</p></li>
 </ul>
 <p><strong>Population-based (global search):</strong></p>
-<ul class="simple">
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>: Covariance Matrix Adaptation Evolution Strategy.
+<ul>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>: Covariance Matrix Adaptation Evolution Strategy
+<strong>with IPOP restart support</strong>.
 The gold standard for derivative-free optimization of continuous functions.  Maintains a
 multivariate Gaussian search distribution N(m, σ²C) and adapts both the step size σ and
 covariance matrix C online.  Invariant under order-preserving objective transformations and
 orthogonal search-space transformations; excels on ill-conditioned and ridge-following problems
 such as Rosenbrock.  Implemented in pure NumPy with asynchronous generation tracking that
-is compatible with panobbgo’s threaded evaluation model.</p></li>
+is compatible with panobbgo’s threaded evaluation model.</p>
+<p>When paired with the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer, implements
+<strong>IPOP-CMA-ES</strong> (Increasing Population CMA-ES; Auger &amp; Hansen, CEC 2005): each restart
+doubles the population size λ → 2λ, resets the covariance to identity, and moves the
+search mean to a new diverse center.  This enables systematic escape from local optima
+on multimodal landscapes without losing accumulated result history.  The <code class="docutils literal notranslate"><span class="pre">ipop_factor</span></code>
+parameter (default 2.0) controls the per-restart population growth multiplier.</p>
+</li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>: Differential Evolution
 mutation/crossover/selection operators run against the accumulated result database.  Excels on
 multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p></li>

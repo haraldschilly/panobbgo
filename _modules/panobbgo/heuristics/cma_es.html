@@ -147,403 +147,532 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
 </span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="17"><span class="sd">CMA-ES Heuristic</span>
-</span><span data-line="18"><span class="sd">================</span>
+</span><span data-line="17"><span class="sd">CMA-ES Heuristic (with IPOP restart)</span>
+</span><span data-line="18"><span class="sd">=====================================</span>
 </span><span data-line="19">
-</span><span data-line="20"><span class="sd">Covariance Matrix Adaptation Evolution Strategy (CMA-ES).</span>
-</span><span data-line="21">
-</span><span data-line="22"><span class="sd">CMA-ES is the gold-standard algorithm for derivative-free optimization of</span>
-</span><span data-line="23"><span class="sd">continuous, possibly multimodal functions.  It maintains a multivariate</span>
-</span><span data-line="24"><span class="sd">Gaussian search distribution N(m, σ²C) and adapts both the step-size σ</span>
-</span><span data-line="25"><span class="sd">and the full covariance matrix C from the history of successful steps.</span>
-</span><span data-line="26">
-</span><span data-line="27"><span class="sd">Key strengths:</span>
-</span><span data-line="28"><span class="sd">- Invariant under order-preserving transformations of the objective</span>
-</span><span data-line="29"><span class="sd">- Invariant under orthogonal transformations of the search space</span>
-</span><span data-line="30"><span class="sd">- Excellent at following narrow ridges / valleys (e.g. Rosenbrock)</span>
-</span><span data-line="31"><span class="sd">- Self-adaptive: no manual step-size tuning required</span>
-</span><span data-line="32">
-</span><span data-line="33"><span class="sd">This implementation follows the canonical description in:</span>
-</span><span data-line="34"><span class="sd">  N. Hansen (2016). &quot;The CMA Evolution Strategy: A Tutorial.&quot;</span>
-</span><span data-line="35"><span class="sd">  arXiv:1604.00772.</span>
+</span><span data-line="20"><span class="sd">Covariance Matrix Adaptation Evolution Strategy (CMA-ES) with optional</span>
+</span><span data-line="21"><span class="sd">IPOP (Increasing Population) restart support.</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="sd">CMA-ES is the gold-standard algorithm for derivative-free optimization of</span>
+</span><span data-line="24"><span class="sd">continuous, possibly multimodal functions.  It maintains a multivariate</span>
+</span><span data-line="25"><span class="sd">Gaussian search distribution N(m, σ²C) and adapts both the step-size σ</span>
+</span><span data-line="26"><span class="sd">and the full covariance matrix C from the history of successful steps.</span>
+</span><span data-line="27">
+</span><span data-line="28"><span class="sd">Key strengths:</span>
+</span><span data-line="29"><span class="sd">- Invariant under order-preserving transformations of the objective</span>
+</span><span data-line="30"><span class="sd">- Invariant under orthogonal transformations of the search space</span>
+</span><span data-line="31"><span class="sd">- Excellent at following narrow ridges / valleys (e.g. Rosenbrock)</span>
+</span><span data-line="32"><span class="sd">- Self-adaptive: no manual step-size tuning required</span>
+</span><span data-line="33">
+</span><span data-line="34"><span class="sd">**IPOP restart** (Hansen &amp; Ostermeier, 2001): when the :class:`~panobbgo.analyzers.restart.Restart`</span>
+</span><span data-line="35"><span class="sd">analyzer detects stagnation and fires a ``restart`` event, this heuristic:</span>
 </span><span data-line="36">
-</span><span data-line="37"><span class="sd">The heuristic works asynchronously inside the panobbgo event loop:</span>
-</span><span data-line="38">
-</span><span data-line="39"><span class="sd">1. ``on_start()``  — initialise parameters and emit the first generation of λ candidates.</span>
-</span><span data-line="40"><span class="sd">2. ``on_new_results()``  — collect returned results tagged with our generation ID.</span>
-</span><span data-line="41"><span class="sd">   When at least μ results from the oldest open generation have arrived, perform</span>
-</span><span data-line="42"><span class="sd">   one CMA-ES update step and emit the next generation.</span>
-</span><span data-line="43">
-</span><span data-line="44"><span class="sd">.. codeauthor:: Harald Schilly</span>
-</span><span data-line="45"><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="46">
-</span><span data-line="47"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span data-line="48">
-</span><span data-line="49"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
-</span><span data-line="50">
-</span><span data-line="51"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="52">
-</span><span data-line="53"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
-</span><span data-line="54"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
-</span><span data-line="55">
-</span><span data-line="56">
+</span><span data-line="37"><span class="sd">1. Resets the search distribution to the new ``center`` provided by the analyzer.</span>
+</span><span data-line="38"><span class="sd">2. Doubles the population size λ → 2λ (IPOP doubling schedule).</span>
+</span><span data-line="39"><span class="sd">3. Resets σ to its initial fraction of the search-space range.</span>
+</span><span data-line="40"><span class="sd">4. Flushes the pending/stale generation results.</span>
+</span><span data-line="41">
+</span><span data-line="42"><span class="sd">This combination lets CMA-ES escape local optima systematically, and is the</span>
+</span><span data-line="43"><span class="sd">approach used by competition-winning solvers on the BBOB/COCO benchmark suite.</span>
+</span><span data-line="44">
+</span><span data-line="45"><span class="sd">This implementation follows:</span>
+</span><span data-line="46"><span class="sd">  N. Hansen (2016). &quot;The CMA Evolution Strategy: A Tutorial.&quot; arXiv:1604.00772.</span>
+</span><span data-line="47"><span class="sd">  A. Auger &amp; N. Hansen (2005). &quot;A restart CMA evolution strategy with increasing</span>
+</span><span data-line="48"><span class="sd">  population size.&quot; CEC 2005.</span>
+</span><span data-line="49">
+</span><span data-line="50"><span class="sd">The heuristic works asynchronously inside the panobbgo event loop:</span>
+</span><span data-line="51">
+</span><span data-line="52"><span class="sd">1. ``on_start()``  — initialise parameters and emit the first generation of λ candidates.</span>
+</span><span data-line="53"><span class="sd">2. ``on_new_results()``  — collect returned results tagged with our generation ID.</span>
+</span><span data-line="54"><span class="sd">   When at least μ results from the oldest open generation have arrived, perform</span>
+</span><span data-line="55"><span class="sd">   one CMA-ES update step and emit the next generation.</span>
+</span><span data-line="56"><span class="sd">3. ``on_restart(center, reason)``  — reset distribution to *center* with doubled λ (IPOP).</span>
+</span><span data-line="57">
+</span><span data-line="58"><span class="sd">.. codeauthor:: Harald Schilly</span>
+</span><span data-line="59"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="60">
+</span><span data-line="61"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="62">
+</span><span data-line="63"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+</span><span data-line="64">
+</span><span data-line="65"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="68"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="69">
+</span><span data-line="70">
 <div class="viewcode-block" id="CMAES">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES">[docs]</a>
-</span><span data-line="57"><span class="k">class</span><span class="w"> </span><span class="nc">CMAES</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="58"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Covariance Matrix Adaptation Evolution Strategy heuristic.</span>
-</span><span data-line="59">
-</span><span data-line="60"><span class="sd">    Maintains a multivariate Gaussian search distribution N(m, σ²C) and</span>
-</span><span data-line="61"><span class="sd">    adapts it from the history of evaluated points.  Particularly effective</span>
-</span><span data-line="62"><span class="sd">    for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).</span>
-</span><span data-line="63">
-</span><span data-line="64"><span class="sd">    Args:</span>
-</span><span data-line="65"><span class="sd">        strategy: The optimization strategy instance.</span>
-</span><span data-line="66"><span class="sd">        sigma0 (float, optional): Initial step size as a fraction of the mean</span>
-</span><span data-line="67"><span class="sd">            box half-range.  Defaults to 0.3 (30 % of the search space).</span>
-</span><span data-line="68"><span class="sd">        popsize (int, optional): Override the default population size</span>
-</span><span data-line="69"><span class="sd">            ``λ = 4 + floor(3·ln n)``.  Useful for low-budget runs.</span>
-</span><span data-line="70"><span class="sd">        min_results_fraction (float): Fraction of λ that must arrive before</span>
-</span><span data-line="71"><span class="sd">            a CMA-ES update is triggered.  Default 0.5 (= μ).</span>
-</span><span data-line="72"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="71"><span class="k">class</span><span class="w"> </span><span class="nc">CMAES</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="72"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP restart.</span>
 </span><span data-line="73">
-</span><span data-line="74">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="75">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="76">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="77">        <span class="n">sigma0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.3</span><span class="p">,</span>
-</span><span data-line="78">        <span class="n">popsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="79">        <span class="n">min_results_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span data-line="80">    <span class="p">):</span>
-</span><span data-line="81">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CMAES&quot;</span><span class="p">)</span>
-</span><span data-line="82">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;H:CMA&quot;</span><span class="p">)</span>
-</span><span data-line="83">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">=</span> <span class="n">sigma0</span>
-</span><span data-line="84">        <span class="bp">self</span><span class="o">.</span><span class="n">_popsize_override</span> <span class="o">=</span> <span class="n">popsize</span>
-</span><span data-line="85">        <span class="bp">self</span><span class="o">.</span><span class="n">_min_results_fraction</span> <span class="o">=</span> <span class="n">min_results_fraction</span>
-</span><span data-line="86">
-</span><span data-line="87">        <span class="c1"># CMA-ES algorithm state (set in on_start)</span>
-</span><span data-line="88">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="90">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="91">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="92">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="93">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="94">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="95">        <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="96">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="97">
-</span><span data-line="98">        <span class="c1"># Strategy parameters (set in on_start)</span>
-</span><span data-line="99">        <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="100">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="101">        <span class="bp">self</span><span class="o">.</span><span class="n">_w</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="102">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="103">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="104">        <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="105">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="106">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="107">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="108">        <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="109">
-</span><span data-line="110">        <span class="c1"># Generation tracking for async operation</span>
-</span><span data-line="111">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="112">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="113">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="114">
-</span><span data-line="115">        <span class="c1"># Box bounds (set in on_start)</span>
-</span><span data-line="116">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="117">        <span class="bp">self</span><span class="o">.</span><span class="n">_hi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="119">
-</span><span data-line="120">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="121">    <span class="c1"># Lifecycle</span>
-</span><span data-line="122">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="123">
+</span><span data-line="74"><span class="sd">    Maintains a multivariate Gaussian search distribution N(m, σ²C) and</span>
+</span><span data-line="75"><span class="sd">    adapts it from the history of evaluated points.  Particularly effective</span>
+</span><span data-line="76"><span class="sd">    for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).</span>
+</span><span data-line="77">
+</span><span data-line="78"><span class="sd">    When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer,</span>
+</span><span data-line="79"><span class="sd">    the heuristic implements IPOP-CMA-ES: each restart doubles the population</span>
+</span><span data-line="80"><span class="sd">    size λ → 2λ and resets the search distribution to the new center, enabling</span>
+</span><span data-line="81"><span class="sd">    systematic escape from local optima on multimodal problems.</span>
+</span><span data-line="82">
+</span><span data-line="83"><span class="sd">    Args:</span>
+</span><span data-line="84"><span class="sd">        strategy: The optimization strategy instance.</span>
+</span><span data-line="85"><span class="sd">        sigma0 (float, optional): Initial step size as a fraction of the mean</span>
+</span><span data-line="86"><span class="sd">            box half-range.  Defaults to 0.3 (30 % of the search space).</span>
+</span><span data-line="87"><span class="sd">        popsize (int, optional): Override the *base* population size</span>
+</span><span data-line="88"><span class="sd">            ``λ = 4 + floor(3·ln n)``.  Useful for low-budget runs.</span>
+</span><span data-line="89"><span class="sd">            On IPOP restarts the population is doubled relative to the *current*</span>
+</span><span data-line="90"><span class="sd">            λ, not this base value.</span>
+</span><span data-line="91"><span class="sd">        min_results_fraction (float): Fraction of λ that must arrive before</span>
+</span><span data-line="92"><span class="sd">            a CMA-ES update is triggered.  Default 0.5 (= μ).</span>
+</span><span data-line="93"><span class="sd">        ipop_factor (float): Population multiplication factor applied on each</span>
+</span><span data-line="94"><span class="sd">            restart.  Default 2.0 (standard IPOP doubling).</span>
+</span><span data-line="95"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="96">
+</span><span data-line="97">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="98">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="99">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="100">        <span class="n">sigma0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="101">        <span class="n">popsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="102">        <span class="n">min_results_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="103">        <span class="n">ipop_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+</span><span data-line="104">    <span class="p">):</span>
+</span><span data-line="105">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CMAES&quot;</span><span class="p">)</span>
+</span><span data-line="106">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;H:CMA&quot;</span><span class="p">)</span>
+</span><span data-line="107">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">=</span> <span class="n">sigma0</span>
+</span><span data-line="108">        <span class="bp">self</span><span class="o">.</span><span class="n">_popsize_override</span> <span class="o">=</span> <span class="n">popsize</span>
+</span><span data-line="109">        <span class="bp">self</span><span class="o">.</span><span class="n">_min_results_fraction</span> <span class="o">=</span> <span class="n">min_results_fraction</span>
+</span><span data-line="110">        <span class="bp">self</span><span class="o">.</span><span class="n">_ipop_factor</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ipop_factor</span><span class="p">)</span>
+</span><span data-line="111">
+</span><span data-line="112">        <span class="c1"># IPOP restart tracking</span>
+</span><span data-line="113">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="114">        <span class="bp">self</span><span class="o">.</span><span class="n">_base_lam</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># λ at first on_start() — doubles each restart</span>
+</span><span data-line="115">
+</span><span data-line="116">        <span class="c1"># CMA-ES algorithm state (set in on_start)</span>
+</span><span data-line="117">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="119">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="120">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="121">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="122">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="123">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="124">        <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="125">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="126">
+</span><span data-line="127">        <span class="c1"># Strategy parameters (set in on_start)</span>
+</span><span data-line="128">        <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="129">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="130">        <span class="bp">self</span><span class="o">.</span><span class="n">_w</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="131">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="132">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="133">        <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="134">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="135">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="136">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="137">        <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="138">
+</span><span data-line="139">        <span class="c1"># Generation tracking for async operation</span>
+</span><span data-line="140">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="141">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="142">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="143">
+</span><span data-line="144">        <span class="c1"># Box bounds (set in on_start)</span>
+</span><span data-line="145">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="146">        <span class="bp">self</span><span class="o">.</span><span class="n">_hi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="147">        <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="148">
+</span><span data-line="149">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="150">    <span class="c1"># Lifecycle</span>
+</span><span data-line="151">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="152">
 <div class="viewcode-block" id="CMAES.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_start">[docs]</a>
-</span><span data-line="124">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="125"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise CMA-ES state and emit the first generation.&quot;&quot;&quot;</span>
-</span><span data-line="126">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="127">
-</span><span data-line="128">        <span class="c1"># Population sizes</span>
-</span><span data-line="129">        <span class="n">lam</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_popsize_override</span> <span class="ow">or</span> <span class="p">(</span><span class="mi">4</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">))))</span>
-</span><span data-line="130">        <span class="n">mu</span> <span class="o">=</span> <span class="n">lam</span> <span class="o">//</span> <span class="mi">2</span>
-</span><span data-line="131">
-</span><span data-line="132">        <span class="c1"># Recombination weights (log-linear, positive)</span>
-</span><span data-line="133">        <span class="n">raw_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mu</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
-</span><span data-line="134">        <span class="n">w</span> <span class="o">=</span> <span class="n">raw_w</span> <span class="o">/</span> <span class="n">raw_w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span data-line="135">
-</span><span data-line="136">        <span class="c1"># Effective number of parents</span>
-</span><span data-line="137">        <span class="n">mu_eff</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span data-line="138">
-</span><span data-line="139">        <span class="c1"># Step-size control</span>
-</span><span data-line="140">        <span class="n">c_sigma</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu_eff</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">mu_eff</span> <span class="o">+</span> <span class="mf">5.0</span><span class="p">)</span>
-</span><span data-line="141">        <span class="n">d_sigma</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="142">            <span class="mf">1.0</span>
-</span><span data-line="143">            <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">mu_eff</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="144">            <span class="o">+</span> <span class="n">c_sigma</span>
-</span><span data-line="145">        <span class="p">)</span>
-</span><span data-line="146">
-</span><span data-line="147">        <span class="c1"># Covariance matrix control</span>
-</span><span data-line="148">        <span class="n">c_c</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">+</span> <span class="n">mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">4.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
-</span><span data-line="149">        <span class="n">c_1</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.3</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">mu_eff</span><span class="p">)</span>
-</span><span data-line="150">        <span class="n">c_mu</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
-</span><span data-line="151">            <span class="mf">1.0</span> <span class="o">-</span> <span class="n">c_1</span><span class="p">,</span>
-</span><span data-line="152">            <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_eff</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">mu_eff</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">mu_eff</span><span class="p">),</span>
-</span><span data-line="153">        <span class="p">)</span>
-</span><span data-line="154">
-</span><span data-line="155">        <span class="c1"># Expected norm of N(0,I)</span>
-</span><span data-line="156">        <span class="n">chi_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">21.0</span> <span class="o">*</span> <span class="n">n</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
-</span><span data-line="157">
-</span><span data-line="158">        <span class="c1"># Search-space bounds</span>
-</span><span data-line="159">        <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span>
-</span><span data-line="160">        <span class="n">lo</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="161">        <span class="n">hi</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
-</span><span data-line="162">        <span class="n">ranges</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
-</span><span data-line="163">
-</span><span data-line="164">        <span class="c1"># Initial mean: box centre</span>
-</span><span data-line="165">        <span class="n">m</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="166">
-</span><span data-line="167">        <span class="c1"># Initial step size: fraction of mean box half-range</span>
-</span><span data-line="168">        <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ranges</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
-</span><span data-line="169">        <span class="n">sigma</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
-</span><span data-line="170">
-</span><span data-line="171">        <span class="c1"># Persist</span>
-</span><span data-line="172">        <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">=</span> <span class="n">lam</span>
-</span><span data-line="173">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span> <span class="o">=</span> <span class="n">mu</span>
-</span><span data-line="174">        <span class="bp">self</span><span class="o">.</span><span class="n">_w</span> <span class="o">=</span> <span class="n">w</span>
-</span><span data-line="175">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span> <span class="o">=</span> <span class="n">mu_eff</span>
-</span><span data-line="176">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">=</span> <span class="n">c_sigma</span>
-</span><span data-line="177">        <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span> <span class="o">=</span> <span class="n">d_sigma</span>
-</span><span data-line="178">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">=</span> <span class="n">c_c</span>
-</span><span data-line="179">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">=</span> <span class="n">c_1</span>
-</span><span data-line="180">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span> <span class="o">=</span> <span class="n">c_mu</span>
-</span><span data-line="181">        <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span> <span class="o">=</span> <span class="n">chi_n</span>
-</span><span data-line="182">
-</span><span data-line="183">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="o">=</span> <span class="n">lo</span>
-</span><span data-line="184">        <span class="bp">self</span><span class="o">.</span><span class="n">_hi</span> <span class="o">=</span> <span class="n">hi</span>
-</span><span data-line="185">        <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="o">=</span> <span class="n">ranges</span>
-</span><span data-line="186">
-</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="n">m</span>
-</span><span data-line="188">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="n">sigma</span>
-</span><span data-line="189">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="190">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="191">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="192">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="193">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="194">        <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="195">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="196">
-</span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="198">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="199">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="200">
-</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="202">            <span class="s2">&quot;CMA-ES started: n=</span><span class="si">%d</span><span class="s2"> λ=</span><span class="si">%d</span><span class="s2"> μ=</span><span class="si">%d</span><span class="s2"> σ0=</span><span class="si">%.4f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span>
-</span><span data-line="203">        <span class="p">)</span>
-</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_generation</span><span class="p">()</span></div>
-
-</span><span data-line="205">
-</span><span data-line="206">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="207">    <span class="c1"># Event handler</span>
-</span><span data-line="208">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="153">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="154"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise CMA-ES state and emit the first generation.&quot;&quot;&quot;</span>
+</span><span data-line="155">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="156">
+</span><span data-line="157">        <span class="c1"># Population sizes</span>
+</span><span data-line="158">        <span class="n">lam</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_popsize_override</span> <span class="ow">or</span> <span class="p">(</span><span class="mi">4</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">))))</span>
+</span><span data-line="159">        <span class="n">mu</span> <span class="o">=</span> <span class="n">lam</span> <span class="o">//</span> <span class="mi">2</span>
+</span><span data-line="160">
+</span><span data-line="161">        <span class="c1"># Recombination weights (log-linear, positive)</span>
+</span><span data-line="162">        <span class="n">raw_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mu</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="163">        <span class="n">w</span> <span class="o">=</span> <span class="n">raw_w</span> <span class="o">/</span> <span class="n">raw_w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="164">
+</span><span data-line="165">        <span class="c1"># Effective number of parents</span>
+</span><span data-line="166">        <span class="n">mu_eff</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="167">
+</span><span data-line="168">        <span class="c1"># Step-size control</span>
+</span><span data-line="169">        <span class="n">c_sigma</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu_eff</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">mu_eff</span> <span class="o">+</span> <span class="mf">5.0</span><span class="p">)</span>
+</span><span data-line="170">        <span class="n">d_sigma</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="171">            <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">mu_eff</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">+</span> <span class="n">c_sigma</span>
+</span><span data-line="172">        <span class="p">)</span>
+</span><span data-line="173">
+</span><span data-line="174">        <span class="c1"># Covariance matrix control</span>
+</span><span data-line="175">        <span class="n">c_c</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">+</span> <span class="n">mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">4.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="176">        <span class="n">c_1</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.3</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">mu_eff</span><span class="p">)</span>
+</span><span data-line="177">        <span class="n">c_mu</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+</span><span data-line="178">            <span class="mf">1.0</span> <span class="o">-</span> <span class="n">c_1</span><span class="p">,</span>
+</span><span data-line="179">            <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu_eff</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">mu_eff</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">mu_eff</span><span class="p">),</span>
+</span><span data-line="180">        <span class="p">)</span>
+</span><span data-line="181">
+</span><span data-line="182">        <span class="c1"># Expected norm of N(0,I)</span>
+</span><span data-line="183">        <span class="n">chi_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">21.0</span> <span class="o">*</span> <span class="n">n</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+</span><span data-line="184">
+</span><span data-line="185">        <span class="c1"># Search-space bounds</span>
+</span><span data-line="186">        <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span>
+</span><span data-line="187">        <span class="n">lo</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="188">        <span class="n">hi</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="189">        <span class="n">ranges</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
+</span><span data-line="190">
+</span><span data-line="191">        <span class="c1"># Initial mean: box centre</span>
+</span><span data-line="192">        <span class="n">m</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="193">
+</span><span data-line="194">        <span class="c1"># Initial step size: fraction of mean box half-range</span>
+</span><span data-line="195">        <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ranges</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="196">        <span class="n">sigma</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+</span><span data-line="197">
+</span><span data-line="198">        <span class="c1"># Persist</span>
+</span><span data-line="199">        <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">=</span> <span class="n">lam</span>
+</span><span data-line="200">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span> <span class="o">=</span> <span class="n">mu</span>
+</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">_w</span> <span class="o">=</span> <span class="n">w</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span> <span class="o">=</span> <span class="n">mu_eff</span>
+</span><span data-line="203">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">=</span> <span class="n">c_sigma</span>
+</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span> <span class="o">=</span> <span class="n">d_sigma</span>
+</span><span data-line="205">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">=</span> <span class="n">c_c</span>
+</span><span data-line="206">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">=</span> <span class="n">c_1</span>
+</span><span data-line="207">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span> <span class="o">=</span> <span class="n">c_mu</span>
+</span><span data-line="208">        <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span> <span class="o">=</span> <span class="n">chi_n</span>
 </span><span data-line="209">
+</span><span data-line="210">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="o">=</span> <span class="n">lo</span>
+</span><span data-line="211">        <span class="bp">self</span><span class="o">.</span><span class="n">_hi</span> <span class="o">=</span> <span class="n">hi</span>
+</span><span data-line="212">        <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="o">=</span> <span class="n">ranges</span>
+</span><span data-line="213">
+</span><span data-line="214">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="n">m</span>
+</span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="n">sigma</span>
+</span><span data-line="216">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="218">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="219">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="220">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="222">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="223">
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="226">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="227">
+</span><span data-line="228">        <span class="c1"># Remember base population so IPOP doubling scales correctly</span>
+</span><span data-line="229">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_lam</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="230">            <span class="bp">self</span><span class="o">.</span><span class="n">_base_lam</span> <span class="o">=</span> <span class="n">lam</span>
+</span><span data-line="231">
+</span><span data-line="232">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CMA-ES started: n=</span><span class="si">%d</span><span class="s2"> λ=</span><span class="si">%d</span><span class="s2"> μ=</span><span class="si">%d</span><span class="s2"> σ0=</span><span class="si">%.4f</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+</span><span data-line="233">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_generation</span><span class="p">()</span></div>
+
+</span><span data-line="234">
+</span><span data-line="235">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="236">    <span class="c1"># Event handlers</span>
+</span><span data-line="237">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="238">
 <div class="viewcode-block" id="CMAES.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_new_results">[docs]</a>
-</span><span data-line="210">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="211"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect results and trigger a CMA-ES update when enough have arrived.&quot;&quot;&quot;</span>
-</span><span data-line="212">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="213">            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;CMAES:&quot;</span><span class="p">):</span>
-</span><span data-line="214">                <span class="k">continue</span>
-</span><span data-line="215">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">):</span>
-</span><span data-line="216">                <span class="k">continue</span>
-</span><span data-line="217">
-</span><span data-line="218">            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="219">            <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="220">                <span class="k">continue</span>
-</span><span data-line="221">
-</span><span data-line="222">            <span class="n">gen</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
-</span><span data-line="223">            <span class="n">gen_bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>
-</span><span data-line="224">            <span class="k">if</span> <span class="n">gen_bucket</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="225">                <span class="k">continue</span>
-</span><span data-line="226">
-</span><span data-line="227">            <span class="n">penalty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="228">            <span class="n">gen_bucket</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="229">                <span class="p">{</span>
-</span><span data-line="230">                    <span class="s2">&quot;penalty&quot;</span><span class="p">:</span> <span class="n">penalty</span><span class="p">,</span>
-</span><span data-line="231">                    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
-</span><span data-line="232">                    <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
-</span><span data-line="233">                <span class="p">}</span>
-</span><span data-line="234">            <span class="p">)</span>
-</span><span data-line="235">
-</span><span data-line="236">        <span class="c1"># Check if we can perform an update for the oldest open generation.</span>
-</span><span data-line="237">        <span class="n">min_needed</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_results_fraction</span><span class="p">))</span>
-</span><span data-line="238">        <span class="k">for</span> <span class="n">gen</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
-</span><span data-line="239">            <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span>
-</span><span data-line="240">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bucket</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_needed</span><span class="p">:</span>
-</span><span data-line="241">                <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">(</span><span class="n">bucket</span><span class="p">)</span>
-</span><span data-line="242">                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span>
-</span><span data-line="243">                <span class="bp">self</span><span class="o">.</span><span class="n">_emit_generation</span><span class="p">()</span>
-</span><span data-line="244">                <span class="k">break</span></div>
+</span><span data-line="239">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="240"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect results and trigger a CMA-ES update when enough have arrived.&quot;&quot;&quot;</span>
+</span><span data-line="241">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="242">            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;CMAES:&quot;</span><span class="p">):</span>
+</span><span data-line="243">                <span class="k">continue</span>
+</span><span data-line="244">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">):</span>
+</span><span data-line="245">                <span class="k">continue</span>
+</span><span data-line="246">
+</span><span data-line="247">            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="248">            <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="249">                <span class="k">continue</span>
+</span><span data-line="250">
+</span><span data-line="251">            <span class="n">gen</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+</span><span data-line="252">            <span class="n">gen_bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>
+</span><span data-line="253">            <span class="k">if</span> <span class="n">gen_bucket</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="254">                <span class="k">continue</span>
+</span><span data-line="255">
+</span><span data-line="256">            <span class="n">penalty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="257">            <span class="n">gen_bucket</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="258">                <span class="p">{</span>
+</span><span data-line="259">                    <span class="s2">&quot;penalty&quot;</span><span class="p">:</span> <span class="n">penalty</span><span class="p">,</span>
+</span><span data-line="260">                    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+</span><span data-line="261">                    <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+</span><span data-line="262">                <span class="p">}</span>
+</span><span data-line="263">            <span class="p">)</span>
+</span><span data-line="264">
+</span><span data-line="265">        <span class="c1"># Check if we can perform an update for the oldest open generation.</span>
+</span><span data-line="266">        <span class="n">min_needed</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_results_fraction</span><span class="p">))</span>
+</span><span data-line="267">        <span class="k">for</span> <span class="n">gen</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+</span><span data-line="268">            <span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span>
+</span><span data-line="269">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bucket</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_needed</span><span class="p">:</span>
+</span><span data-line="270">                <span class="bp">self</span><span class="o">.</span><span class="n">_update</span><span class="p">(</span><span class="n">bucket</span><span class="p">)</span>
+</span><span data-line="271">                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span>
+</span><span data-line="272">                <span class="bp">self</span><span class="o">.</span><span class="n">_emit_generation</span><span class="p">()</span>
+</span><span data-line="273">                <span class="k">break</span></div>
 
-</span><span data-line="245">
-</span><span data-line="246">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="247">    <span class="c1"># Core CMA-ES update</span>
-</span><span data-line="248">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="249">
-</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="251"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample λ candidates from N(m, σ²C) and emit them.&quot;&quot;&quot;</span>
-</span><span data-line="252">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="253">            <span class="k">return</span>
-</span><span data-line="254">
-</span><span data-line="255">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="256">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="257">        <span class="n">gen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span>
-</span><span data-line="258">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="259">
-</span><span data-line="260">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">):</span>
-</span><span data-line="261">            <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="262">            <span class="c1"># y = B D z  →  covariance = B D² Bᵀ = C</span>
-</span><span data-line="263">            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">@</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">*</span> <span class="n">z</span><span class="p">)</span>
-</span><span data-line="264">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">*</span> <span class="n">y</span>
-</span><span data-line="265">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="266">
-</span><span data-line="267">            <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;CMAES:g</span><span class="si">{</span><span class="n">gen</span><span class="si">}</span><span class="s2">:i</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="268">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">gen</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>
-</span><span data-line="269">            <span class="c1"># Put directly to bypass emit()&#39;s ndarray-only check,</span>
-</span><span data-line="270">            <span class="c1"># preserving the custom &#39;who&#39; tag needed for generation tracking.</span>
-</span><span data-line="271">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="272">                <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
-</span><span data-line="273">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="274">                <span class="k">pass</span>
-</span><span data-line="275">
-</span><span data-line="276">    <span class="k">def</span><span class="w"> </span><span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collected</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="277"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform one CMA-ES parameter update from a set of evaluated offspring.&quot;&quot;&quot;</span>
-</span><span data-line="278">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="279">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="280">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="281">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="282">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="283">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="284">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_w</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="285">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="274">
+<div class="viewcode-block" id="CMAES.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_restart">[docs]</a>
+</span><span data-line="275">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="276"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset CMA-ES to *center* with IPOP population doubling.</span>
+</span><span data-line="277">
+</span><span data-line="278"><span class="sd">        Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer</span>
+</span><span data-line="279"><span class="sd">        when stagnation is detected.  Implements the IPOP restart schedule:</span>
+</span><span data-line="280">
+</span><span data-line="281"><span class="sd">        - Move the search mean to *center* (a fresh region of the search space).</span>
+</span><span data-line="282"><span class="sd">        - Double λ (and recompute μ and all adaptation parameters accordingly).</span>
+</span><span data-line="283"><span class="sd">        - Reset σ to its initial fraction of the search-space range.</span>
+</span><span data-line="284"><span class="sd">        - Reset evolution paths p_c, p_σ and covariance C to the identity.</span>
+</span><span data-line="285"><span class="sd">        - Flush all stale pending and in-flight generation results.</span>
 </span><span data-line="286">
-</span><span data-line="287">        <span class="c1"># Local non-None aliases (avoid repeated attribute-narrowing loss).</span>
-</span><span data-line="288">        <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C</span>
-</span><span data-line="289">        <span class="n">p_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span>
-</span><span data-line="290">        <span class="n">p_sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span>
-</span><span data-line="291">        <span class="n">B</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span>
-</span><span data-line="292">        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span>
-</span><span data-line="293">        <span class="n">w_full</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_w</span>
-</span><span data-line="294">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span>
-</span><span data-line="295">
-</span><span data-line="296">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="287"><span class="sd">        The population doubling (IPOP) is the key mechanism from:</span>
+</span><span data-line="288"><span class="sd">          A. Auger &amp; N. Hansen (2005). CEC 2005.</span>
+</span><span data-line="289">
+</span><span data-line="290"><span class="sd">        Args:</span>
+</span><span data-line="291"><span class="sd">            center (np.ndarray): New starting mean for the search distribution.</span>
+</span><span data-line="292"><span class="sd">            reason (str): Human-readable reason string from the Restart analyzer.</span>
+</span><span data-line="293"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="294">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="295">            <span class="c1"># on_start() has not been called yet — ignore</span>
+</span><span data-line="296">            <span class="k">return</span>
 </span><span data-line="297">
-</span><span data-line="298">        <span class="c1"># Sort by penalty (ascending = minimise)</span>
-</span><span data-line="299">        <span class="n">collected</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;penalty&quot;</span><span class="p">])</span>
-</span><span data-line="300">        <span class="n">selected</span> <span class="o">=</span> <span class="n">collected</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span><span class="p">]</span>
-</span><span data-line="301">
-</span><span data-line="302">        <span class="c1"># Recombination weights (may use fewer than μ if fewer arrived)</span>
-</span><span data-line="303">        <span class="n">actual_mu</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
-</span><span data-line="304">        <span class="k">if</span> <span class="n">actual_mu</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">w_full</span><span class="p">):</span>
-</span><span data-line="305">            <span class="c1"># Re-normalise weights for the actual number of survivors</span>
-</span><span data-line="306">            <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">actual_mu</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
-</span><span data-line="307">                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">actual_mu</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="308">            <span class="p">)</span>
-</span><span data-line="309">            <span class="n">w</span> <span class="o">=</span> <span class="n">raw</span> <span class="o">/</span> <span class="n">raw</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span data-line="310">            <span class="n">mu_eff</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span data-line="311">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="312">            <span class="n">w</span> <span class="o">=</span> <span class="n">w_full</span>
-</span><span data-line="313">            <span class="n">mu_eff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span>
-</span><span data-line="314">
-</span><span data-line="315">        <span class="c1"># --- Mean update ---</span>
-</span><span data-line="316">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>  <span class="c1"># type: ignore[assignment]</span>
-</span><span data-line="317">
-</span><span data-line="318">        <span class="c1"># Step in normalised y-space (weighted recombination)</span>
-</span><span data-line="319">        <span class="n">y_w</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>
-</span><span data-line="320">
-</span><span data-line="321">        <span class="c1"># --- Step-size path update ---</span>
-</span><span data-line="322">        <span class="c1"># C^{-1/2} y_w  =  B diag(1/D) Bᵀ y_w</span>
-</span><span data-line="323">        <span class="n">C_invsqrt_yw</span> <span class="o">=</span> <span class="n">B</span> <span class="o">@</span> <span class="p">((</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">D</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y_w</span><span class="p">))</span>
+</span><span data-line="298">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="299">
+</span><span data-line="300">        <span class="c1"># IPOP: double the population relative to the *current* λ</span>
+</span><span data-line="301">        <span class="n">new_lam</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ipop_factor</span><span class="p">)</span>
+</span><span data-line="302">        <span class="n">new_mu</span> <span class="o">=</span> <span class="n">new_lam</span> <span class="o">//</span> <span class="mi">2</span>
+</span><span data-line="303">
+</span><span data-line="304">        <span class="c1"># Recompute recombination weights for new μ</span>
+</span><span data-line="305">        <span class="n">raw_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">new_mu</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">new_mu</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="306">        <span class="n">new_w</span> <span class="o">=</span> <span class="n">raw_w</span> <span class="o">/</span> <span class="n">raw_w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="307">        <span class="n">new_mu_eff</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">new_w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="308">
+</span><span data-line="309">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="310">
+</span><span data-line="311">        <span class="c1"># Recompute adaptation constants for new population size</span>
+</span><span data-line="312">        <span class="n">new_c_sigma</span> <span class="o">=</span> <span class="p">(</span><span class="n">new_mu_eff</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">new_mu_eff</span> <span class="o">+</span> <span class="mf">5.0</span><span class="p">)</span>
+</span><span data-line="313">        <span class="n">new_d_sigma</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="314">            <span class="mf">1.0</span>
+</span><span data-line="315">            <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">new_mu_eff</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="316">            <span class="o">+</span> <span class="n">new_c_sigma</span>
+</span><span data-line="317">        <span class="p">)</span>
+</span><span data-line="318">        <span class="n">new_c_c</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">+</span> <span class="n">new_mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">4.0</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">new_mu_eff</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="319">        <span class="n">new_c_1</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.3</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">new_mu_eff</span><span class="p">)</span>
+</span><span data-line="320">        <span class="n">new_c_mu</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+</span><span data-line="321">            <span class="mf">1.0</span> <span class="o">-</span> <span class="n">new_c_1</span><span class="p">,</span>
+</span><span data-line="322">            <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">new_mu_eff</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">new_mu_eff</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">new_mu_eff</span><span class="p">),</span>
+</span><span data-line="323">        <span class="p">)</span>
 </span><span data-line="324">
-</span><span data-line="325">        <span class="n">p_sigma</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_sigma</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-</span><span data-line="326">            <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="n">mu_eff</span>
-</span><span data-line="327">        <span class="p">)</span> <span class="o">*</span> <span class="n">C_invsqrt_yw</span>
+</span><span data-line="325">        <span class="c1"># Reset step size to initial fraction (fresh start)</span>
+</span><span data-line="326">        <span class="n">new_sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="327">        <span class="n">new_sigma</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">new_sigma</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
 </span><span data-line="328">
-</span><span data-line="329">        <span class="c1"># Stall indicator: is p_sigma still growing?</span>
-</span><span data-line="330">        <span class="n">norm_p_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p_sigma</span><span class="p">))</span>
-</span><span data-line="331">        <span class="n">gen_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">+</span> <span class="mf">1.0</span>
-</span><span data-line="332">        <span class="n">expected</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">gen_count</span><span class="p">))</span>
-</span><span data-line="333">        <span class="n">h_sigma</span> <span class="o">=</span> <span class="n">norm_p_sigma</span> <span class="o">/</span> <span class="p">(</span><span class="n">expected</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1.4</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="334">
-</span><span data-line="335">        <span class="c1"># --- Covariance path update ---</span>
-</span><span data-line="336">        <span class="n">p_c</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_c</span> <span class="o">+</span> <span class="n">h_sigma</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
-</span><span data-line="337">            <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span> <span class="o">*</span> <span class="n">mu_eff</span>
-</span><span data-line="338">        <span class="p">)</span> <span class="o">*</span> <span class="n">y_w</span>
-</span><span data-line="339">
-</span><span data-line="340">        <span class="c1"># --- Covariance matrix update ---</span>
-</span><span data-line="341">        <span class="c1"># Rank-μ term</span>
-</span><span data-line="342">        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">])</span>  <span class="c1"># (n, actual_mu)</span>
-</span><span data-line="343">        <span class="n">rank_mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:</span><span class="n">actual_mu</span><span class="p">])</span> <span class="o">@</span> <span class="n">Y</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># weighted outer-product sum</span>
-</span><span data-line="344">
-</span><span data-line="345">        <span class="c1"># Correction for h_sigma = 0</span>
-</span><span data-line="346">        <span class="n">delta_h</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">h_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span>
-</span><span data-line="347">
-</span><span data-line="348">        <span class="n">C</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="349">            <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">)</span> <span class="o">*</span> <span class="n">C</span>
-</span><span data-line="350">            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">p_c</span><span class="p">,</span> <span class="n">p_c</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta_h</span> <span class="o">*</span> <span class="n">C</span><span class="p">)</span>
-</span><span data-line="351">            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span> <span class="o">*</span> <span class="n">rank_mu</span>
-</span><span data-line="352">        <span class="p">)</span>
-</span><span data-line="353">
-</span><span data-line="354">        <span class="c1"># --- Step-size update (cumulative path length control) ---</span>
-</span><span data-line="355">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">*=</span> <span class="nb">float</span><span class="p">(</span>
-</span><span data-line="356">            <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span>
-</span><span data-line="357">                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span><span class="p">)</span>
-</span><span data-line="358">                <span class="o">*</span> <span class="p">(</span><span class="n">norm_p_sigma</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="359">            <span class="p">)</span>
-</span><span data-line="360">        <span class="p">)</span>
-</span><span data-line="361">
-</span><span data-line="362">        <span class="c1"># Clamp step size</span>
-</span><span data-line="363">        <span class="n">max_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ranges</span><span class="p">))</span>
-</span><span data-line="364">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="n">max_sigma</span><span class="p">))</span>
-</span><span data-line="365">
-</span><span data-line="366">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">+=</span> <span class="n">actual_mu</span>
-</span><span data-line="367">
-</span><span data-line="368">        <span class="c1"># Persist path/covariance state back to instance.</span>
-</span><span data-line="369">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">p_c</span>
-</span><span data-line="370">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">p_sigma</span>
-</span><span data-line="371">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">C</span>
-</span><span data-line="372">
-</span><span data-line="373">        <span class="c1"># --- Lazy eigendecomposition ---</span>
-</span><span data-line="374">        <span class="c1"># Update frequency: every lam / (c_1 + c_mu) / n / 10 evaluations</span>
-</span><span data-line="375">        <span class="n">update_gap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">/</span> <span class="mi">10</span><span class="p">))</span>
-</span><span data-line="376">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">&gt;=</span> <span class="n">update_gap</span><span class="p">:</span>
-</span><span data-line="377">            <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span>
-</span><span data-line="378">            <span class="c1"># Enforce symmetry, then decompose</span>
-</span><span data-line="379">            <span class="n">C_sym</span> <span class="o">=</span> <span class="p">(</span><span class="n">C</span> <span class="o">+</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
-</span><span data-line="380">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="381">                <span class="n">eigvals</span><span class="p">,</span> <span class="n">B_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">C_sym</span><span class="p">)</span>
-</span><span data-line="382">            <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
-</span><span data-line="383">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;CMA-ES: eigendecomposition failed — resetting C&quot;</span><span class="p">)</span>
-</span><span data-line="384">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="385">                <span class="k">return</span>
-</span><span data-line="386">
-</span><span data-line="387">            <span class="c1"># Clamp eigenvalues (avoid collapse or explosion)</span>
-</span><span data-line="388">            <span class="n">eigvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">eigvals</span><span class="p">,</span> <span class="mf">1e-20</span><span class="p">)</span>
-</span><span data-line="389">            <span class="n">D_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">eigvals</span><span class="p">)</span>
-</span><span data-line="390">            <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">B_new</span>
-</span><span data-line="391">            <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">D_new</span>
-</span><span data-line="392">            <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">C_sym</span>
-</span><span data-line="393">
-</span><span data-line="394">            <span class="c1"># Condition-number guard</span>
-</span><span data-line="395">            <span class="k">if</span> <span class="n">D_new</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="n">D_new</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e7</span><span class="p">:</span>
-</span><span data-line="396">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CMA-ES: condition number too large — resetting C&quot;</span><span class="p">)</span>
-</span><span data-line="397">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="398">
-</span><span data-line="399">    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_covariance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="400"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset covariance to identity (recover from ill-conditioning).&quot;&quot;&quot;</span>
-</span><span data-line="401">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="402">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="403">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="404">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="405">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></div>
+</span><span data-line="329">        <span class="c1"># Clamp center to the box</span>
+</span><span data-line="330">        <span class="n">new_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">center</span><span class="p">)</span>
+</span><span data-line="331">
+</span><span data-line="332">        <span class="c1"># Apply new state</span>
+</span><span data-line="333">        <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">=</span> <span class="n">new_lam</span>
+</span><span data-line="334">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span> <span class="o">=</span> <span class="n">new_mu</span>
+</span><span data-line="335">        <span class="bp">self</span><span class="o">.</span><span class="n">_w</span> <span class="o">=</span> <span class="n">new_w</span>
+</span><span data-line="336">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span> <span class="o">=</span> <span class="n">new_mu_eff</span>
+</span><span data-line="337">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">=</span> <span class="n">new_c_sigma</span>
+</span><span data-line="338">        <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span> <span class="o">=</span> <span class="n">new_d_sigma</span>
+</span><span data-line="339">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">=</span> <span class="n">new_c_c</span>
+</span><span data-line="340">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">=</span> <span class="n">new_c_1</span>
+</span><span data-line="341">        <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span> <span class="o">=</span> <span class="n">new_c_mu</span>
+</span><span data-line="342">
+</span><span data-line="343">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="n">new_m</span>
+</span><span data-line="344">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="n">new_sigma</span>
+</span><span data-line="345">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="346">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="347">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="348">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="349">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="350">        <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="351">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="352">
+</span><span data-line="353">        <span class="c1"># Flush stale generation tracking</span>
+</span><span data-line="354">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="355">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="356">
+</span><span data-line="357">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+</span><span data-line="358">            <span class="s2">&quot;CMA-ES restart #</span><span class="si">%d</span><span class="s2">: λ </span><span class="si">%d</span><span class="s2">→</span><span class="si">%d</span><span class="s2">  σ=</span><span class="si">%.4f</span><span class="s2">  center=</span><span class="si">%s</span><span class="s2">  (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+</span><span data-line="359">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="p">,</span>
+</span><span data-line="360">            <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">//</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ipop_factor</span><span class="p">),</span>
+</span><span data-line="361">            <span class="n">new_lam</span><span class="p">,</span>
+</span><span data-line="362">            <span class="n">new_sigma</span><span class="p">,</span>
+</span><span data-line="363">            <span class="n">np</span><span class="o">.</span><span class="n">array2string</span><span class="p">(</span><span class="n">new_m</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">suppress_small</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+</span><span data-line="364">            <span class="n">reason</span> <span class="ow">or</span> <span class="s2">&quot;stagnation&quot;</span><span class="p">,</span>
+</span><span data-line="365">        <span class="p">)</span>
+</span><span data-line="366">
+</span><span data-line="367">        <span class="c1"># Emit the first generation from the new distribution</span>
+</span><span data-line="368">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_generation</span><span class="p">()</span></div>
+
+</span><span data-line="369">
+</span><span data-line="370">    <span class="nd">@property</span>
+</span><span data-line="371">    <span class="k">def</span><span class="w"> </span><span class="nf">restart_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="372"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of IPOP restarts triggered so far.&quot;&quot;&quot;</span>
+</span><span data-line="373">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span>
+</span><span data-line="374">
+</span><span data-line="375">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="376">    <span class="c1"># Core CMA-ES update</span>
+</span><span data-line="377">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="378">
+</span><span data-line="379">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="380"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample λ candidates from N(m, σ²C) and emit them.&quot;&quot;&quot;</span>
+</span><span data-line="381">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="382">            <span class="k">return</span>
+</span><span data-line="383">
+</span><span data-line="384">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="385">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="386">        <span class="n">gen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen</span>
+</span><span data-line="387">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="388">
+</span><span data-line="389">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">):</span>
+</span><span data-line="390">            <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="391">            <span class="c1"># y = B D z  →  covariance = B D² Bᵀ = C</span>
+</span><span data-line="392">            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">@</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">*</span> <span class="n">z</span><span class="p">)</span>
+</span><span data-line="393">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">*</span> <span class="n">y</span>
+</span><span data-line="394">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="395">
+</span><span data-line="396">            <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;CMAES:g</span><span class="si">{</span><span class="n">gen</span><span class="si">}</span><span class="s2">:i</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="397">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">gen</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>
+</span><span data-line="398">            <span class="c1"># Put directly to bypass emit()&#39;s ndarray-only check,</span>
+</span><span data-line="399">            <span class="c1"># preserving the custom &#39;who&#39; tag needed for generation tracking.</span>
+</span><span data-line="400">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="401">                <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
+</span><span data-line="402">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="403">                <span class="k">pass</span>
+</span><span data-line="404">
+</span><span data-line="405">    <span class="k">def</span><span class="w"> </span><span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collected</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="406"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform one CMA-ES parameter update from a set of evaluated offspring.&quot;&quot;&quot;</span>
+</span><span data-line="407">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="408">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="409">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="410">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="411">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="412">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="413">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_w</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="414">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="415">
+</span><span data-line="416">        <span class="c1"># Local non-None aliases (avoid repeated attribute-narrowing loss).</span>
+</span><span data-line="417">        <span class="n">C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C</span>
+</span><span data-line="418">        <span class="n">p_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span>
+</span><span data-line="419">        <span class="n">p_sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span>
+</span><span data-line="420">        <span class="n">B</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span>
+</span><span data-line="421">        <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span>
+</span><span data-line="422">        <span class="n">w_full</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_w</span>
+</span><span data-line="423">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span>
+</span><span data-line="424">
+</span><span data-line="425">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="426">
+</span><span data-line="427">        <span class="c1"># Sort by penalty (ascending = minimise)</span>
+</span><span data-line="428">        <span class="n">collected</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;penalty&quot;</span><span class="p">])</span>
+</span><span data-line="429">        <span class="n">selected</span> <span class="o">=</span> <span class="n">collected</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span><span class="p">]</span>
+</span><span data-line="430">
+</span><span data-line="431">        <span class="c1"># Recombination weights (may use fewer than μ if fewer arrived)</span>
+</span><span data-line="432">        <span class="n">actual_mu</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span>
+</span><span data-line="433">        <span class="k">if</span> <span class="n">actual_mu</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">w_full</span><span class="p">):</span>
+</span><span data-line="434">            <span class="c1"># Re-normalise weights for the actual number of survivors</span>
+</span><span data-line="435">            <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">actual_mu</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+</span><span data-line="436">                <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">actual_mu</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="437">            <span class="p">)</span>
+</span><span data-line="438">            <span class="n">w</span> <span class="o">=</span> <span class="n">raw</span> <span class="o">/</span> <span class="n">raw</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="439">            <span class="n">mu_eff</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span data-line="440">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="441">            <span class="n">w</span> <span class="o">=</span> <span class="n">w_full</span>
+</span><span data-line="442">            <span class="n">mu_eff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span>
+</span><span data-line="443">
+</span><span data-line="444">        <span class="c1"># --- Mean update ---</span>
+</span><span data-line="445">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>  <span class="c1"># type: ignore[assignment]</span>
+</span><span data-line="446">
+</span><span data-line="447">        <span class="c1"># Step in normalised y-space (weighted recombination)</span>
+</span><span data-line="448">        <span class="n">y_w</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>
+</span><span data-line="449">
+</span><span data-line="450">        <span class="c1"># --- Step-size path update ---</span>
+</span><span data-line="451">        <span class="c1"># C^{-1/2} y_w  =  B diag(1/D) Bᵀ y_w</span>
+</span><span data-line="452">        <span class="n">C_invsqrt_yw</span> <span class="o">=</span> <span class="n">B</span> <span class="o">@</span> <span class="p">((</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">D</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y_w</span><span class="p">))</span>
+</span><span data-line="453">
+</span><span data-line="454">        <span class="n">p_sigma</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_sigma</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+</span><span data-line="455">            <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="n">mu_eff</span>
+</span><span data-line="456">        <span class="p">)</span> <span class="o">*</span> <span class="n">C_invsqrt_yw</span>
+</span><span data-line="457">
+</span><span data-line="458">        <span class="c1"># Stall indicator: is p_sigma still growing?</span>
+</span><span data-line="459">        <span class="n">norm_p_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p_sigma</span><span class="p">))</span>
+</span><span data-line="460">        <span class="n">gen_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">+</span> <span class="mf">1.0</span>
+</span><span data-line="461">        <span class="n">expected</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">gen_count</span><span class="p">))</span>
+</span><span data-line="462">        <span class="n">h_sigma</span> <span class="o">=</span> <span class="n">norm_p_sigma</span> <span class="o">/</span> <span class="p">(</span><span class="n">expected</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1.4</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="463">
+</span><span data-line="464">        <span class="c1"># --- Covariance path update ---</span>
+</span><span data-line="465">        <span class="n">p_c</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_c</span> <span class="o">+</span> <span class="n">h_sigma</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+</span><span data-line="466">            <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span> <span class="o">*</span> <span class="n">mu_eff</span>
+</span><span data-line="467">        <span class="p">)</span> <span class="o">*</span> <span class="n">y_w</span>
+</span><span data-line="468">
+</span><span data-line="469">        <span class="c1"># --- Covariance matrix update ---</span>
+</span><span data-line="470">        <span class="c1"># Rank-μ term</span>
+</span><span data-line="471">        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">])</span>  <span class="c1"># (n, actual_mu)</span>
+</span><span data-line="472">        <span class="n">rank_mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:</span><span class="n">actual_mu</span><span class="p">])</span> <span class="o">@</span> <span class="n">Y</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># weighted outer-product sum</span>
+</span><span data-line="473">
+</span><span data-line="474">        <span class="c1"># Correction for h_sigma = 0</span>
+</span><span data-line="475">        <span class="n">delta_h</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">h_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_c</span><span class="p">)</span>
+</span><span data-line="476">
+</span><span data-line="477">        <span class="n">C</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="478">            <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">)</span> <span class="o">*</span> <span class="n">C</span>
+</span><span data-line="479">            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">p_c</span><span class="p">,</span> <span class="n">p_c</span><span class="p">)</span> <span class="o">+</span> <span class="n">delta_h</span> <span class="o">*</span> <span class="n">C</span><span class="p">)</span>
+</span><span data-line="480">            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span> <span class="o">*</span> <span class="n">rank_mu</span>
+</span><span data-line="481">        <span class="p">)</span>
+</span><span data-line="482">
+</span><span data-line="483">        <span class="c1"># --- Step-size update (cumulative path length control) ---</span>
+</span><span data-line="484">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">*=</span> <span class="nb">float</span><span class="p">(</span>
+</span><span data-line="485">            <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_c_sigma</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_d_sigma</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">norm_p_sigma</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chi_n</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="486">        <span class="p">)</span>
+</span><span data-line="487">
+</span><span data-line="488">        <span class="c1"># Clamp step size</span>
+</span><span data-line="489">        <span class="n">max_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ranges</span><span class="p">))</span>
+</span><span data-line="490">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="n">max_sigma</span><span class="p">))</span>
+</span><span data-line="491">
+</span><span data-line="492">        <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">+=</span> <span class="n">actual_mu</span>
+</span><span data-line="493">
+</span><span data-line="494">        <span class="c1"># Persist path/covariance state back to instance.</span>
+</span><span data-line="495">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">p_c</span>
+</span><span data-line="496">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">p_sigma</span>
+</span><span data-line="497">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">C</span>
+</span><span data-line="498">
+</span><span data-line="499">        <span class="c1"># --- Lazy eigendecomposition ---</span>
+</span><span data-line="500">        <span class="c1"># Update frequency: every lam / (c_1 + c_mu) / n / 10 evaluations</span>
+</span><span data-line="501">        <span class="n">update_gap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_c_1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_c_mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">/</span> <span class="mi">10</span><span class="p">))</span>
+</span><span data-line="502">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">&gt;=</span> <span class="n">update_gap</span><span class="p">:</span>
+</span><span data-line="503">            <span class="bp">self</span><span class="o">.</span><span class="n">_eigeneval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span>
+</span><span data-line="504">            <span class="c1"># Enforce symmetry, then decompose</span>
+</span><span data-line="505">            <span class="n">C_sym</span> <span class="o">=</span> <span class="p">(</span><span class="n">C</span> <span class="o">+</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+</span><span data-line="506">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="507">                <span class="n">eigvals</span><span class="p">,</span> <span class="n">B_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">C_sym</span><span class="p">)</span>
+</span><span data-line="508">            <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+</span><span data-line="509">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;CMA-ES: eigendecomposition failed — resetting C&quot;</span><span class="p">)</span>
+</span><span data-line="510">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="511">                <span class="k">return</span>
+</span><span data-line="512">
+</span><span data-line="513">            <span class="c1"># Clamp eigenvalues (avoid collapse or explosion)</span>
+</span><span data-line="514">            <span class="n">eigvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">eigvals</span><span class="p">,</span> <span class="mf">1e-20</span><span class="p">)</span>
+</span><span data-line="515">            <span class="n">D_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">eigvals</span><span class="p">)</span>
+</span><span data-line="516">            <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">B_new</span>
+</span><span data-line="517">            <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">D_new</span>
+</span><span data-line="518">            <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">C_sym</span>
+</span><span data-line="519">
+</span><span data-line="520">            <span class="c1"># Condition-number guard</span>
+</span><span data-line="521">            <span class="k">if</span> <span class="n">D_new</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="n">D_new</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e7</span><span class="p">:</span>
+</span><span data-line="522">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CMA-ES: condition number too large — resetting C&quot;</span><span class="p">)</span>
+</span><span data-line="523">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="524">
+</span><span data-line="525">    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_covariance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="526"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset covariance to identity (recover from ill-conditioning).&quot;&quot;&quot;</span>
+</span><span data-line="527">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="528">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="529">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="530">        <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="531">        <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

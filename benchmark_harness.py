@@ -17,8 +17,11 @@
 Benchmark Harness CLI
 =====================
 
-Command-line interface for the panobbgo benchmark harness, designed as the
-primary tool for agent-driven unsupervised improvement cycles.
+Command-line interface for the Panobbgo benchmark harness, designed as the
+primary tool for agent-driven unsupervised improvement cycles.  This CLI
+wraps :class:`panobbgo.harness.BenchmarkHarness` — see that module for the
+full composite-score definition and see ``doc/source/guide_benchmarking.rst``
+for the user-facing guide.
 
 Subcommands
 -----------
@@ -31,14 +34,22 @@ Subcommands
         uv run python benchmark_harness.py run --standard --output after.json
 
 ``score``
-    Print the composite score and per-pair breakdown for a result file::
+    Print the composite score and per-pair breakdown for a result file.
+    Add ``--json`` for a machine-readable summary aimed at coding agents::
 
-        uv run python benchmark_harness.py score results.json
+        uv run python benchmark_harness.py score results.json --json
 
 ``compare``
     Compare two result files and show what improved or degraded::
 
         uv run python benchmark_harness.py compare before.json after.json
+        uv run python benchmark_harness.py compare before.json after.json --fail-on-regression
+
+``list``
+    Enumerate available problems and strategies for a given mode — useful
+    when restricting a run with ``--problems`` or ``--strategies``::
+
+        uv run python benchmark_harness.py list --standard
 
 Typical agent loop
 ------------------
@@ -55,17 +66,30 @@ Typical agent loop
 
 4. Compare::
 
-       uv run python benchmark_harness.py compare baseline.json candidate.json
+       uv run python benchmark_harness.py compare baseline.json candidate.json --fail-on-regression
 
-5. Keep changes if ``composite_score`` improved; revert otherwise.
+5. Keep changes if ``composite_score`` improved and the process exited
+   ``0``; revert otherwise.
 
 6. Repeat.
+
+The ``planning/SELF_IMPROVEMENT_LOOP.md`` document describes how this CLI
+fits into a fully autonomous improvement loop (parametrically-randomised
+problem battery, external baselines, statistical acceptance rule).
+
+Statistical pitfalls
+--------------------
+
+The composite score is noisy at ``--quick`` mode (3 reps).  Treat deltas
+of ±0.02 as within noise.  For small deltas, re-run at a second base seed
+(``--seed 43``) before accepting a change; for significant algorithmic
+changes, re-run at ``--standard`` or ``--full``.
 
 Exit codes
 ----------
 - ``0`` – success
 - ``1`` – argument/file error
-- ``2`` – candidate is worse than baseline (useful for scripted gating)
+- ``2`` – candidate is worse than baseline (for scripted gating)
 """
 
 from __future__ import annotations

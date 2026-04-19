@@ -55,13 +55,16 @@ Bayesian Optimization
 
 **Approach**: Fit Gaussian process (GP) surrogate model, optimize acquisition function
 
-**Panobbgo equivalent**: :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel`
-uses simpler quadratic surrogate
+**Panobbgo implementation**: :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`
+fits a Matérn-5/2 GP via scikit-learn and optimises EI / UCB / PI acquisition functions.  Uses
+Constrained Expected Improvement (EIC) automatically when the problem has active constraint
+violations.  :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel` is retained as a
+faster, less accurate quadratic surrogate alternative.
 
 **Trade-offs**:
 
-- GP: Better uncertainty quantification, higher computational cost
-- Quadratic: Faster, scales better, but less accurate
+- GP (GaussianProcessHeuristic): Better uncertainty quantification, higher computational cost — gold standard for expensive BO
+- Quadratic (QuadraticWlsModel): Faster, scales better, but less accurate
 
 **References**: [Mockus1989]_, [Brochu2010]_
 
@@ -70,15 +73,32 @@ CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
 
 **Approach**: Evolutionary algorithm with adaptive covariance matrix
 
-**Panobbgo equivalent**: :class:`~panobbgo.heuristics.nelder_mead.NelderMead`
-has similar adaptive sampling, but deterministic
+**Panobbgo implementation**: :class:`~panobbgo.heuristics.cma_es.CMAES` provides a pure-NumPy
+CMA-ES with asynchronous generation tracking that fits panobbgo's threaded evaluation model.
+When paired with :class:`~panobbgo.analyzers.restart.Restart` it becomes **IPOP-CMA-ES**
+(Increasing Population CMA-ES, Auger & Hansen CEC 2005) — the competition-winning approach on
+BBOB/COCO: each restart doubles the population λ → 2λ, resets the covariance to identity, and
+moves the mean to a diverse new center, enabling systematic escape from local optima while the
+accumulated result history is preserved.
 
 **Trade-offs**:
 
-- CMA-ES: Powerful for smooth problems, populations approach
-- NelderMead: Deterministic simplex, good for local search
+- CMA-ES: Powerful for smooth, ill-conditioned, and ridge-following problems (e.g., Rosenbrock); invariant under orthogonal search-space transformations
+- IPOP-CMA-ES: Adds multimodal robustness at the cost of extra restarts
+- NelderMead: Deterministic simplex, good for final local refinement
 
 **References**: [Hansen2001]_
+
+Differential Evolution
+~~~~~~~~~~~~~~~~~~~~~~
+
+**Approach**: Population-based mutation/crossover/selection on a population of solution vectors
+
+**Panobbgo implementation**: :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
+runs DE operators against the accumulated result database.  Strong complement to CMA-ES on
+multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.
+
+**References**: [Storn1997]_
 
 DIRECT (Dividing Rectangles)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,20 +254,24 @@ Constraint Handling
 
 **Challenge**: Efficiently find feasible solutions
 
-**Current Panobbgo**: Lexicographic ordering (feasibility first)
+**Current Panobbgo**: Pluggable :class:`~panobbgo.lib.constraints.ConstraintHandler` implementations:
 
-**Alternatives**:
+- ``DefaultConstraintHandler`` — lexicographic ordering (feasibility first)
+- ``PenaltyConstraintHandler`` — static penalty :math:`f(x) + \rho \cdot cv(x)^{e}`
+- ``DynamicPenaltyConstraintHandler`` — penalty coefficient increases over time
+- ``AugmentedLagrangianConstraintHandler`` — adaptive multipliers :math:`\lambda` and penalty :math:`\mu`
+- ``EpsilonConstraintHandler`` — tolerance :math:`\epsilon(t)` shrinks towards zero
+- ``FilterConstraintHandler`` — Pareto-dominance filter on :math:`(f, cv)`
 
-- Penalty methods
-- Augmented Lagrangian
-- Constraint approximation
-- Feasibility restoration
+Complemented by constraint-focused heuristics: FeasibleSearch (line search to feasibility),
+ConstraintGradient (finite-difference constraint-gradient descent), LocalPenaltySearch
+(scipy local optimiser on the scalarised penalty), and ConstraintRepair (SLSQP projection).
 
 **Future work**:
 
-- Constraint-specific heuristics
 - Feasibility pump analyzer
-- Adaptive penalty parameters
+- Adaptive penalty parameters guided by the Sensitivity analyzer
+- Constraint approximation / surrogate-assisted repair
 
 Robust Optimization
 ~~~~~~~~~~~~~~~~~~~
@@ -288,70 +312,65 @@ Transfer Learning
 Future Directions
 -----------------
 
-Short-Term Improvements (3-6 months)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Recently Completed
+~~~~~~~~~~~~~~~~~~
 
-1. **Gaussian Process Surrogate**
+The following items from earlier roadmaps have been implemented:
 
-   - Replace :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel` with GP
-   - Use scikit-learn or GPyTorch
-   - Implement acquisition functions (EI, UCB, PI)
+1. **Gaussian Process Surrogate** — see :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`
+   (scikit-learn, Matérn-5/2 kernel, EI / UCB / PI acquisition, constrained EI).
+2. **Persistent Storage** — SQLite backend for :class:`~panobbgo.core.Results` with automatic
+   resume-from-checkpoint (see :mod:`panobbgo.storage`).
+3. **Convergence Detection** — :class:`~panobbgo.analyzers.convergence.Convergence` analyzer
+   with ``std`` and ``improv`` modes publishing a ``converged`` event.
+4. **Better Constraint Handling** — multiple constraint handlers (Default, Penalty,
+   DynamicPenalty, AugmentedLagrangian, Epsilon, Filter) plus constraint-focused heuristics
+   (FeasibleSearch, ConstraintGradient, LocalPenaltySearch, ConstraintRepair).
+5. **Advanced Bandit Strategies** — :class:`~panobbgo.strategies.ucb.StrategyUCB`,
+   :class:`~panobbgo.strategies.thompson.StrategyThompsonSampling`, and contextual
+   :class:`~panobbgo.strategies.contextual.StrategyLinUCB`.
+6. **Budget-Phased Meta-Strategy** — :class:`~panobbgo.strategies.phased.StrategyPhased`
+   composes different sub-strategies and heuristic portfolios across budget phases.
+7. **Population-Based Global Search** — :class:`~panobbgo.heuristics.cma_es.CMAES` with
+   IPOP restart support via :class:`~panobbgo.analyzers.restart.Restart`, and
+   :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`.
+8. **Sensitivity Analysis** — :class:`~panobbgo.analyzers.sensitivity.Sensitivity` with a
+   sensitivity-aware :class:`~panobbgo.heuristics.nearby.Nearby` heuristic.
+9. **Reproducible Benchmark Harness** — see :mod:`panobbgo.harness` and ``benchmark_harness.py``
+   CLI for measuring the impact of code changes on optimisation performance.
 
-2. **Persistent Storage**
+Short-Term Improvements
+~~~~~~~~~~~~~~~~~~~~~~~
 
-   - SQLite backend for :class:`~panobbgo.core.Results`
-   - Save/load optimization state
-   - Resume from checkpoint
-   - Share results across runs
-
-3. **Convergence Detection**
-
-   - Implement :class:`ConvergenceDetector` analyzer (see :doc:`guide_extending`)
-   - Statistical tests for stagnation
-   - Automatic termination
-   - Publish ``converged`` event
-
-4. **Better Constraint Handling**
-
-   - Penalty function methods
-   - Augmented Lagrangian heuristic
-   - Constraint-specific strategies
-
-5. **Enhanced Visualization**
+1. **Enhanced Visualization**
 
    - Real-time optimization plots
    - Convergence dashboards
    - Pareto front visualization
    - Heuristic performance tracking
 
-Medium-Term Research (6-12 months)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-1. **Advanced Bandit Strategies**
-
-   - UCB (Upper Confidence Bound) [Auer2002]_
-   - Thompson Sampling [Thompson1933]_
-   - Contextual bandits using problem features
-
-2. **Parallel Batch Generation**
+2. **Parallel Batch Generation (q-acquisition)**
 
    - Generate batches considering pending evaluations
    - Avoid redundant sampling (q-EI, q-UCB)
    - Optimize batch diversity
 
-3. **Multi-Fidelity Support**
+Medium-Term Research
+~~~~~~~~~~~~~~~~~~~~
+
+1. **Multi-Fidelity Support**
 
    - Multi-fidelity Problem class
    - Fidelity allocation strategy
    - Low/high-fidelity coordination
 
-4. **Dimension Reduction**
+2. **Dimension Reduction**
 
    - Random embeddings
    - Active subspace detection
-   - Coordinate importance ranking
+   - Coordinate importance ranking (building on the Sensitivity analyzer)
 
-5. **Benchmarking Suite**
+3. **Benchmarking Suite**
 
    - Standardized test problems
    - Performance profiles [Dolan2002]_
@@ -565,6 +584,10 @@ References
 .. [Mockus1989] Mockus, J. (1989).
    *Bayesian Approach to Global Optimization: Theory and Applications*.
    Kluwer Academic Publishers.
+
+.. [Storn1997] Storn, R., & Price, K. (1997).
+   Differential evolution – A simple and efficient heuristic for global optimization over continuous spaces.
+   *Journal of Global Optimization*, 11(4), 341-359.
 
 .. [Thompson1933] Thompson, W. R. (1933).
    On the likelihood that one unknown probability exceeds another in view of the evidence of two samples.

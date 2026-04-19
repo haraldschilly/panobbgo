@@ -226,13 +226,21 @@ Implemented Heuristics
 
 **Population-based (global search):**
 
-- :class:`~panobbgo.heuristics.cma_es.CMAES`: Covariance Matrix Adaptation Evolution Strategy.
+- :class:`~panobbgo.heuristics.cma_es.CMAES`: Covariance Matrix Adaptation Evolution Strategy
+  **with IPOP restart support**.
   The gold standard for derivative-free optimization of continuous functions.  Maintains a
   multivariate Gaussian search distribution N(m, σ²C) and adapts both the step size σ and
   covariance matrix C online.  Invariant under order-preserving objective transformations and
   orthogonal search-space transformations; excels on ill-conditioned and ridge-following problems
   such as Rosenbrock.  Implemented in pure NumPy with asynchronous generation tracking that
   is compatible with panobbgo's threaded evaluation model.
+
+  When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer, implements
+  **IPOP-CMA-ES** (Increasing Population CMA-ES; Auger & Hansen, CEC 2005): each restart
+  doubles the population size λ → 2λ, resets the covariance to identity, and moves the
+  search mean to a new diverse center.  This enables systematic escape from local optima
+  on multimodal landscapes without losing accumulated result history.  The ``ipop_factor``
+  parameter (default 2.0) controls the per-restart population growth multiplier.
 
 - :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`: Differential Evolution
   mutation/crossover/selection operators run against the accumulated result database.  Excels on

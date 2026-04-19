@@ -255,7 +255,7 @@ def _make_quick_strategies() -> List[StrategySpec]:
 
 
 def _make_standard_strategies() -> List[StrategySpec]:
-    """Five strategies: baseline, adaptive (with CMA-ES), UCB bandit, Bayesian GP, CMA-ES portfolio.
+    """Six strategies: baseline, adaptive, UCB bandit, Bayesian GP, CMA-ES portfolio, IPOP-CMA-ES.
 
     BayesOpt_GP uses a Gaussian Process surrogate (Expected Improvement acquisition)
     paired with LatinHypercube initialization.  With 200 evaluations the GP model
@@ -264,6 +264,12 @@ def _make_standard_strategies() -> List[StrategySpec]:
     CMAES_Portfolio pairs CMA-ES with LatinHypercube initialization and NelderMead
     local refinement inside a Rewarding strategy.  CMA-ES adapts its covariance
     matrix to the local geometry, providing strong performance on smooth functions.
+
+    IPOP_CMAES combines IPOP-CMA-ES (Increasing Population restart) with the
+    Restart analyzer so that when stagnation is detected the population doubles
+    and the search restarts from a new diverse center.  This systematically
+    escapes local optima and is the approach used by competition-winning solvers
+    on the BBOB/COCO benchmark suite.
     """
     from panobbgo.strategies import StrategyUCB, StrategyRewarding
     from panobbgo.heuristics import (
@@ -274,7 +280,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
         GaussianProcessHeuristic,
         CMAES,
     )
-    from panobbgo.analyzers import Sensitivity
+    from panobbgo.analyzers import Sensitivity, Restart
 
     quick = _make_quick_strategies()
     ucb = StrategySpec(
@@ -310,7 +316,25 @@ def _make_standard_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return quick + [ucb, bayes_gp, cmaes_portfolio]
+    ipop_cmaes = StrategySpec(
+        name="IPOP_CMAES",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (CMAES, {"sigma0": 0.3, "ipop_factor": 2.0}),
+            (NelderMead, {}),
+        ],
+        # Restart analyzer: patience=20*dim, diverse centers to maximize distance
+        # from previous restarts (better coverage of the search space)
+        analyzers=[
+            (
+                Restart,
+                {"patience": None, "restart_strategy": "diverse", "max_restarts": 5},
+            ),
+            (Sensitivity, {"update_interval": 20}),
+        ],
+    )
+    return quick + [ucb, bayes_gp, cmaes_portfolio, ipop_cmaes]
 
 
 def _make_full_strategies() -> List[StrategySpec]:
@@ -334,7 +358,7 @@ def _make_full_strategies() -> List[StrategySpec]:
         DifferentialEvolution,
         CMAES,
     )
-    from panobbgo.analyzers import Sensitivity
+    from panobbgo.analyzers import Sensitivity, Restart
 
     base = _make_standard_strategies()
     thompson = StrategySpec(
@@ -370,7 +394,24 @@ def _make_full_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    return base + [thompson, bayes_enhanced, cmaes_gp]
+    # BIPOP-style: IPOP-CMA-ES with aggressive restart budget for the larger 500-eval budget
+    bipop_cmaes = StrategySpec(
+        name="BIPOP_CMAES",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (CMAES, {"sigma0": 0.3, "ipop_factor": 2.0}),
+            (NelderMead, {}),
+        ],
+        analyzers=[
+            (
+                Restart,
+                {"patience": None, "restart_strategy": "diverse", "max_restarts": 10},
+            ),
+            (Sensitivity, {"update_interval": 20}),
+        ],
+    )
+    return base + [thompson, bayes_enhanced, cmaes_gp, bipop_cmaes]
 
 
 # ---------------------------------------------------------------------------
@@ -1204,9 +1245,7 @@ class BenchmarkHarness:
                 except Exception:
                     pass
                 runner.join(timeout=5.0)
-                raise TimeoutError(
-                    f"Run timed out after {timeout:.0f}s"
-                )
+                raise TimeoutError(f"Run timed out after {timeout:.0f}s")
 
             if run_error is not None:
                 raise run_error

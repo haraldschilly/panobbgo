@@ -14,10 +14,11 @@
 # limitations under the License.
 
 """
-CMA-ES Heuristic
-================
+CMA-ES Heuristic (with IPOP restart)
+=====================================
 
-Covariance Matrix Adaptation Evolution Strategy (CMA-ES).
+Covariance Matrix Adaptation Evolution Strategy (CMA-ES) with optional
+IPOP (Increasing Population) restart support.
 
 CMA-ES is the gold-standard algorithm for derivative-free optimization of
 continuous, possibly multimodal functions.  It maintains a multivariate
@@ -30,9 +31,21 @@ Key strengths:
 - Excellent at following narrow ridges / valleys (e.g. Rosenbrock)
 - Self-adaptive: no manual step-size tuning required
 
-This implementation follows the canonical description in:
-  N. Hansen (2016). "The CMA Evolution Strategy: A Tutorial."
-  arXiv:1604.00772.
+**IPOP restart** (Hansen & Ostermeier, 2001): when the :class:`~panobbgo.analyzers.restart.Restart`
+analyzer detects stagnation and fires a ``restart`` event, this heuristic:
+
+1. Resets the search distribution to the new ``center`` provided by the analyzer.
+2. Doubles the population size λ → 2λ (IPOP doubling schedule).
+3. Resets σ to its initial fraction of the search-space range.
+4. Flushes the pending/stale generation results.
+
+This combination lets CMA-ES escape local optima systematically, and is the
+approach used by competition-winning solvers on the BBOB/COCO benchmark suite.
+
+This implementation follows:
+  N. Hansen (2016). "The CMA Evolution Strategy: A Tutorial." arXiv:1604.00772.
+  A. Auger & N. Hansen (2005). "A restart CMA evolution strategy with increasing
+  population size." CEC 2005.
 
 The heuristic works asynchronously inside the panobbgo event loop:
 
@@ -40,6 +53,7 @@ The heuristic works asynchronously inside the panobbgo event loop:
 2. ``on_new_results()``  — collect returned results tagged with our generation ID.
    When at least μ results from the oldest open generation have arrived, perform
    one CMA-ES update step and emit the next generation.
+3. ``on_restart(center, reason)``  — reset distribution to *center* with doubled λ (IPOP).
 
 .. codeauthor:: Harald Schilly
 """
@@ -55,20 +69,29 @@ from panobbgo.lib import Point
 
 
 class CMAES(Heuristic):
-    """Covariance Matrix Adaptation Evolution Strategy heuristic.
+    """Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP restart.
 
     Maintains a multivariate Gaussian search distribution N(m, σ²C) and
     adapts it from the history of evaluated points.  Particularly effective
     for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).
 
+    When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer,
+    the heuristic implements IPOP-CMA-ES: each restart doubles the population
+    size λ → 2λ and resets the search distribution to the new center, enabling
+    systematic escape from local optima on multimodal problems.
+
     Args:
         strategy: The optimization strategy instance.
         sigma0 (float, optional): Initial step size as a fraction of the mean
             box half-range.  Defaults to 0.3 (30 % of the search space).
-        popsize (int, optional): Override the default population size
+        popsize (int, optional): Override the *base* population size
             ``λ = 4 + floor(3·ln n)``.  Useful for low-budget runs.
+            On IPOP restarts the population is doubled relative to the *current*
+            λ, not this base value.
         min_results_fraction (float): Fraction of λ that must arrive before
             a CMA-ES update is triggered.  Default 0.5 (= μ).
+        ipop_factor (float): Population multiplication factor applied on each
+            restart.  Default 2.0 (standard IPOP doubling).
     """
 
     def __init__(
@@ -77,12 +100,18 @@ class CMAES(Heuristic):
         sigma0: float = 0.3,
         popsize: Optional[int] = None,
         min_results_fraction: float = 0.5,
+        ipop_factor: float = 2.0,
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
         self._sigma0_frac = sigma0
         self._popsize_override = popsize
         self._min_results_fraction = min_results_fraction
+        self._ipop_factor = float(ipop_factor)
+
+        # IPOP restart tracking
+        self._restart_count: int = 0
+        self._base_lam: int = 0  # λ at first on_start() — doubles each restart
 
         # CMA-ES algorithm state (set in on_start)
         self._m: Optional[np.ndarray] = None
@@ -139,9 +168,7 @@ class CMAES(Heuristic):
         # Step-size control
         c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
         d_sigma = (
-            1.0
-            + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0)
-            + c_sigma
+            1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0) + c_sigma
         )
 
         # Covariance matrix control
@@ -198,13 +225,15 @@ class CMAES(Heuristic):
         self._pending = {}
         self._gen_results = {}
 
-        self.logger.info(
-            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f", n, lam, mu, sigma
-        )
+        # Remember base population so IPOP doubling scales correctly
+        if self._base_lam == 0:
+            self._base_lam = lam
+
+        self.logger.info("CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f", n, lam, mu, sigma)
         self._emit_generation()
 
     # ------------------------------------------------------------------
-    # Event handler
+    # Event handlers
     # ------------------------------------------------------------------
 
     def on_new_results(self, results) -> None:
@@ -242,6 +271,106 @@ class CMAES(Heuristic):
                 del self._gen_results[gen]
                 self._emit_generation()
                 break
+
+    def on_restart(self, center: np.ndarray, reason: str = "") -> None:
+        """Reset CMA-ES to *center* with IPOP population doubling.
+
+        Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer
+        when stagnation is detected.  Implements the IPOP restart schedule:
+
+        - Move the search mean to *center* (a fresh region of the search space).
+        - Double λ (and recompute μ and all adaptation parameters accordingly).
+        - Reset σ to its initial fraction of the search-space range.
+        - Reset evolution paths p_c, p_σ and covariance C to the identity.
+        - Flush all stale pending and in-flight generation results.
+
+        The population doubling (IPOP) is the key mechanism from:
+          A. Auger & N. Hansen (2005). CEC 2005.
+
+        Args:
+            center (np.ndarray): New starting mean for the search distribution.
+            reason (str): Human-readable reason string from the Restart analyzer.
+        """
+        if self._lo is None or self._ranges is None:
+            # on_start() has not been called yet — ignore
+            return
+
+        self._restart_count += 1
+
+        # IPOP: double the population relative to the *current* λ
+        new_lam = int(self._lam * self._ipop_factor)
+        new_mu = new_lam // 2
+
+        # Recompute recombination weights for new μ
+        raw_w = np.log(new_mu + 0.5) - np.log(np.arange(1, new_mu + 1, dtype=float))
+        new_w = raw_w / raw_w.sum()
+        new_mu_eff = 1.0 / (new_w**2).sum()
+
+        n = self.problem.dim
+
+        # Recompute adaptation constants for new population size
+        new_c_sigma = (new_mu_eff + 2.0) / (n + new_mu_eff + 5.0)
+        new_d_sigma = (
+            1.0
+            + 2.0 * max(0.0, np.sqrt((new_mu_eff - 1.0) / (n + 1.0)) - 1.0)
+            + new_c_sigma
+        )
+        new_c_c = (4.0 + new_mu_eff / n) / (n + 4.0 + 2.0 * new_mu_eff / n)
+        new_c_1 = 2.0 / ((n + 1.3) ** 2 + new_mu_eff)
+        new_c_mu = min(
+            1.0 - new_c_1,
+            2.0 * (new_mu_eff - 2.0 + 1.0 / new_mu_eff) / ((n + 2.0) ** 2 + new_mu_eff),
+        )
+
+        # Reset step size to initial fraction (fresh start)
+        new_sigma = self._sigma0_frac * float(np.mean(self._ranges) / 2.0)
+        new_sigma = max(new_sigma, 1e-6)
+
+        # Clamp center to the box
+        new_m = self.problem.project(center)
+
+        # Apply new state
+        self._lam = new_lam
+        self._mu = new_mu
+        self._w = new_w
+        self._mu_eff = new_mu_eff
+        self._c_sigma = new_c_sigma
+        self._d_sigma = new_d_sigma
+        self._c_c = new_c_c
+        self._c_1 = new_c_1
+        self._c_mu = new_c_mu
+
+        self._m = new_m
+        self._sigma = new_sigma
+        self._C = np.eye(n)
+        self._p_c = np.zeros(n)
+        self._p_sigma = np.zeros(n)
+        self._B = np.eye(n)
+        self._D = np.ones(n)
+        self._eigeneval = 0
+        self._counteval = 0
+
+        # Flush stale generation tracking
+        self._pending.clear()
+        self._gen_results.clear()
+
+        self.logger.info(
+            "CMA-ES restart #%d: λ %d→%d  σ=%.4f  center=%s  (%s)",
+            self._restart_count,
+            self._lam // int(self._ipop_factor),
+            new_lam,
+            new_sigma,
+            np.array2string(new_m, precision=3, suppress_small=True),
+            reason or "stagnation",
+        )
+
+        # Emit the first generation from the new distribution
+        self._emit_generation()
+
+    @property
+    def restart_count(self) -> int:
+        """Number of IPOP restarts triggered so far."""
+        return self._restart_count
 
     # ------------------------------------------------------------------
     # Core CMA-ES update
@@ -353,10 +482,7 @@ class CMAES(Heuristic):
 
         # --- Step-size update (cumulative path length control) ---
         self._sigma *= float(
-            np.exp(
-                (self._c_sigma / self._d_sigma)
-                * (norm_p_sigma / self._chi_n - 1.0)
-            )
+            np.exp((self._c_sigma / self._d_sigma) * (norm_p_sigma / self._chi_n - 1.0))
         )
 
         # Clamp step size

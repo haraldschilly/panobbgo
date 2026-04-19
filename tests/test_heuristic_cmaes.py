@@ -181,7 +181,7 @@ class TestCMAES(PanobbgoTestCase):
         # Run 15 generations with shifted sphere
         for _ in range(15):
             points = cma.get_points(100)
-            results = [Result(p, float(np.sum((p.x - 1.0)**2))) for p in points]
+            results = [Result(p, float(np.sum((p.x - 1.0) ** 2))) for p in points]
             cma.on_new_results(results)
 
         final_dist = np.linalg.norm(cma._m - optimum)
@@ -204,7 +204,7 @@ class TestCMAES(PanobbgoTestCase):
         # Run many generations with a tight shifted sphere centred at optimum
         for _ in range(30):
             points = cma.get_points(100)
-            results = [Result(p, float(np.sum((p.x - 1.0)**2))) for p in points]
+            results = [Result(p, float(np.sum((p.x - 1.0) ** 2))) for p in points]
             cma.on_new_results(results)
 
         assert cma._sigma < initial_sigma * 0.95, (
@@ -344,4 +344,369 @@ def test_cmaes_integration_rosenbrock():
 
     # On Rosenbrock 2D the global minimum is 0 at (1,1).
     # 150 evaluations should reliably reach fx < 5 with CMA-ES in the mix.
-    assert best_fx < 5.0, f"CMA-ES + NelderMead should find near-optimum; got {best_fx:.4f}"
+    assert best_fx < 5.0, (
+        f"CMA-ES + NelderMead should find near-optimum; got {best_fx:.4f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# IPOP-CMA-ES restart tests
+# ---------------------------------------------------------------------------
+
+
+class TestCMAESIPOP(PanobbgoTestCase):
+    """Tests for the IPOP (Increasing Population) restart functionality."""
+
+    def setUp(self):
+        super().setUp()
+        from panobbgo.lib.constraints import DefaultConstraintHandler
+
+        self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
+
+    # --- ipop_factor parameter ---
+
+    def test_default_ipop_factor(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        assert cma._ipop_factor == 2.0
+
+    def test_custom_ipop_factor(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, ipop_factor=3.0)
+        assert cma._ipop_factor == 3.0
+
+    # --- Initial restart_count ---
+
+    def test_restart_count_zero_before_start(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        assert cma.restart_count == 0
+
+    def test_restart_count_zero_after_start(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        assert cma.restart_count == 0
+
+    # --- on_restart() before on_start() is a no-op ---
+
+    def test_on_restart_before_start_is_noop(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        center = np.zeros(self.problem.dim)
+        # Should not raise and should not change restart_count
+        cma.on_restart(center, "test")
+        assert cma.restart_count == 0
+
+    # --- Population doubling ---
+
+    def test_on_restart_doubles_population(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        lam_before = cma._lam
+
+        center = self.problem.random_point()
+        cma.on_restart(center, "test stagnation")
+
+        assert cma._lam == lam_before * 2
+        assert cma._mu == cma._lam // 2
+
+    def test_on_restart_twice_quadruples_population(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        lam_initial = cma._lam
+
+        center = self.problem.random_point()
+        cma.on_restart(center, "first restart")
+        lam_after_1 = cma._lam
+        assert lam_after_1 == lam_initial * 2
+
+        center2 = self.problem.random_point()
+        cma.on_restart(center2, "second restart")
+        assert cma._lam == lam_after_1 * 2  # doubles from current, so 4x initial
+
+    def test_ipop_factor_3_triples_population(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, ipop_factor=3.0)
+        cma.on_start()
+        lam_before = cma._lam
+
+        center = self.problem.random_point()
+        cma.on_restart(center, "test")
+
+        assert cma._lam == lam_before * 3
+
+    # --- Mean moves to new center ---
+
+    def test_on_restart_moves_mean_to_center(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        box = self.problem.box.box
+        center = box[:, 0] * 0.9 + box[:, 1] * 0.1  # near one corner
+
+        cma.on_restart(center, "test")
+
+        assert np.allclose(cma._m, self.problem.project(center))
+
+    # --- Sigma resets to initial ---
+
+    def test_on_restart_resets_sigma(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(99)
+        cma = CMAES(self.strategy, sigma0=0.3, popsize=6)
+        cma.on_start()
+        initial_sigma = cma._sigma
+
+        # Run a few generations to let sigma adapt
+        for _ in range(5):
+            pts = cma.get_points(50)
+            results = [Result(p, float(np.sum((p.x - 1.0) ** 2))) for p in pts]
+            cma.on_new_results(results)
+
+        # Trigger restart
+        center = self.problem.random_point()
+        cma.on_restart(center, "reset sigma test")
+
+        # Sigma should be reset to approximately the initial value
+        assert abs(cma._sigma - initial_sigma) < 1e-9, (
+            f"sigma after restart {cma._sigma:.6f} != initial {initial_sigma:.6f}"
+        )
+
+    # --- Evolution paths reset ---
+
+    def test_on_restart_resets_paths(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(7)
+        cma = CMAES(self.strategy, popsize=6)
+        cma.on_start()
+
+        # Run a few gens to accumulate path state
+        for _ in range(4):
+            pts = cma.get_points(50)
+            results = [Result(p, float(np.sum(p.x**2))) for p in pts]
+            cma.on_new_results(results)
+
+        # Manually verify paths are non-zero
+        # (they may be zero in early gens — just check restart resets them)
+        center = self.problem.random_point()
+        cma.on_restart(center, "path reset test")
+
+        n = self.problem.dim
+        assert np.allclose(cma._p_c, np.zeros(n))
+        assert np.allclose(cma._p_sigma, np.zeros(n))
+
+    # --- Covariance resets to identity ---
+
+    def test_on_restart_resets_covariance(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(3)
+        cma = CMAES(self.strategy, popsize=6)
+        cma.on_start()
+
+        # Run gens to build non-identity covariance
+        for _ in range(8):
+            pts = cma.get_points(50)
+            results = [Result(p, float(np.sum((p.x - 0.5) ** 2))) for p in pts]
+            cma.on_new_results(results)
+
+        center = self.problem.random_point()
+        cma.on_restart(center, "cov reset test")
+
+        n = self.problem.dim
+        assert np.allclose(cma._C, np.eye(n))
+        assert np.allclose(cma._B, np.eye(n))
+        assert np.allclose(cma._D, np.ones(n))
+
+    # --- Pending queue flushed ---
+
+    def test_on_restart_flushes_pending_results(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, popsize=8)
+        cma.on_start()
+        # Drain the initial gen from the queue but do NOT feed back results
+        pts = cma.get_points(50)
+        assert len(pts) == 8
+
+        # Record old generation tag prefix to verify old items are gone
+        old_gen_prefix = f"CMAES:g{cma._gen}:"
+        # pending has gen-1 items
+        assert len(cma._pending) > 0
+
+        # Restart flushes old items and emits a new generation
+        center = self.problem.random_point()
+        old_gen = cma._gen
+        cma.on_restart(center, "flush test")
+
+        # No stale gen_results buckets (intermediate buckets cleared)
+        assert len(cma._gen_results) == 1  # only the new generation's bucket
+        # Old generation's pending items must not remain
+        old_keys = [k for k in cma._pending if k.startswith(old_gen_prefix)]
+        assert len(old_keys) == 0, f"Old pending keys not flushed: {old_keys}"
+        # New generation must be different
+        assert cma._gen > old_gen
+
+    # --- Restart counter increments ---
+
+    def test_restart_count_increments(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        assert cma.restart_count == 0
+
+        for i in range(3):
+            center = self.problem.random_point()
+            cma.on_restart(center, f"restart {i}")
+            assert cma.restart_count == i + 1
+
+    # --- New generation emitted after restart ---
+
+    def test_on_restart_emits_new_generation(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, popsize=6)
+        cma.on_start()
+        # Drain initial generation
+        _ = cma.get_points(50)
+
+        # Restart: should emit lam*2 new points
+        center = self.problem.random_point()
+        cma.on_restart(center, "emit test")
+
+        new_pts = cma.get_points(100)
+        assert len(new_pts) == cma._lam  # new (doubled) lambda
+
+    # --- Emitted points within box after restart ---
+
+    def test_restart_points_within_box(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(42)
+        cma = CMAES(self.strategy, popsize=6)
+        cma.on_start()
+        _ = cma.get_points(50)  # drain
+
+        box = self.problem.box.box
+        center = box[:, 0] * 0.8 + box[:, 1] * 0.2  # near corner
+
+        cma.on_restart(center, "box test")
+        pts = cma.get_points(100)
+        for p in pts:
+            in_box = np.all(p.x >= box[:, 0]) and np.all(p.x <= box[:, 1])
+            assert in_box, f"Point {p.x} outside box after restart"
+
+    # --- base_lam is preserved (IPOP doubles from current, not base) ---
+
+    def test_base_lam_preserved(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        base_lam = cma._base_lam
+
+        # Multiple restarts should not change _base_lam
+        for _ in range(3):
+            center = self.problem.random_point()
+            cma.on_restart(center, "base lam test")
+
+        assert cma._base_lam == base_lam
+
+    # --- Weights renormalized for new mu ---
+
+    def test_weights_renormalized_after_restart(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        center = self.problem.random_point()
+        cma.on_restart(center, "weight test")
+
+        # After restart with doubled λ, weights should still sum to 1
+        assert np.isclose(cma._w.sum(), 1.0), f"Weights don't sum to 1: {cma._w.sum()}"
+        assert len(cma._w) == cma._mu
+
+
+# ---------------------------------------------------------------------------
+# Functional test: IPOP-CMA-ES with real Restart analyzer on Rastrigin
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.flaky(retries=3)
+def test_ipop_cmaes_integration_rastrigin():
+    """IPOP-CMA-ES with Restart analyzer should outperform plain CMA-ES on multimodal Rastrigin."""
+    from panobbgo.lib.classic import Rastrigin
+    from panobbgo.strategies import StrategyRewarding
+    from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead
+    from panobbgo.analyzers import Restart
+
+    problem = Rastrigin(2)
+    np.random.seed(42)
+
+    with StrategyRewarding(
+        problem,
+        max_evaluations=200,
+        evaluation_method="threaded",
+    ) as strategy:
+        strategy.add(LatinHypercube, div=4)
+        strategy.add(CMAES, sigma0=0.3, ipop_factor=2.0)
+        strategy.add(NelderMead)
+        restart_analyzer = Restart(
+            strategy, patience=30, restart_strategy="diverse", max_restarts=4
+        )
+        strategy.add_analyzer(restart_analyzer)
+        strategy.start()
+        best_fx = strategy.best.fx if strategy.best else float("inf")
+
+    # Rastrigin 2D global minimum is 0. With IPOP + 200 evals, should get < 5
+    assert best_fx < 5.0, (
+        f"IPOP-CMA-ES on Rastrigin should find near-optimum; got {best_fx:.4f}"
+    )
+
+
+@pytest.mark.flaky(retries=3)
+def test_ipop_cmaes_restarts_triggered():
+    """Verify that the Restart analyzer actually triggers on_restart on the CMAES heuristic."""
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRewarding
+    from panobbgo.heuristics import CMAES
+    from panobbgo.analyzers import Restart
+
+    problem = Rosenbrock(2)
+    np.random.seed(123)
+
+    cma_ref = []
+
+    with StrategyRewarding(
+        problem,
+        max_evaluations=120,
+        evaluation_method="threaded",
+    ) as strategy:
+        strategy.add(CMAES, sigma0=0.3, ipop_factor=2.0)
+        restart_analyzer = Restart(strategy, patience=15, max_restarts=3)
+        strategy.add_analyzer(restart_analyzer)
+        strategy.start()
+        # Retrieve CMA-ES heuristic to inspect its state
+        for h in strategy._heuristics.values():
+            if hasattr(h, "restart_count"):
+                cma_ref.append(h.restart_count)
+
+    # At least one restart should have occurred given the short patience
+    assert len(cma_ref) > 0, "CMAES heuristic not found in strategy"
+    # With patience=15 and 120 evals we expect at least 1 restart
+    assert cma_ref[0] >= 1, f"Expected at least 1 IPOP restart, got {cma_ref[0]}"

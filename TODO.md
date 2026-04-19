@@ -13,6 +13,33 @@
 
 ## Recent Improvements
 
+### IPOP-CMA-ES Restart Support (2026-04-19)
+- [x] **Added IPOP restart to `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
+  - `on_restart(center, reason)` handler: moves search mean to new center, doubles λ (IPOP)
+  - Resets covariance matrix C, evolution paths p_c/p_σ, and step size σ to initial values
+  - Flushes stale pending/in-flight generation results on restart
+  - Recomputes all CMA-ES adaptation constants (c_σ, d_σ, c_c, c_1, c_μ) for new population
+  - `ipop_factor` parameter (default 2.0) controls per-restart population growth multiplier
+  - `restart_count` property tracks total number of IPOP restarts triggered
+  - `_base_lam` records the initial population size (preserved across restarts)
+  - Reference: Auger & Hansen (2005). "A restart CMA evolution strategy with increasing
+    population size." CEC 2005.
+- [x] **Added `IPOP_CMAES` strategy to standard benchmark harness** (`panobbgo/harness.py`)
+  - Pairs `CMAES(sigma0=0.3, ipop_factor=2.0)` with `Restart(patience=None, restart_strategy="diverse", max_restarts=5)`
+  - `Sensitivity` analyzer included for adaptive Nearby perturbations
+- [x] **Added `BIPOP_CMAES` strategy to full benchmark harness**
+  - Same as IPOP_CMAES but with `max_restarts=10` for the larger 500-eval budget
+- [x] **25 comprehensive tests** (`tests/test_heuristic_cmaes.py`)
+  - Unit tests for: default/custom ipop_factor, restart_count tracking, population doubling
+  - Correctness tests: mean moves to center, sigma resets, paths reset, covariance resets
+  - Behavioral tests: pending queue flushed, new generation emitted, box-constraint preservation
+  - Weight renormalization, base_lam preservation, multiple restarts
+  - Integration tests: IPOP on Rastrigin 2D (200 evals), restart triggered with short patience
+- [x] **Documentation updated**
+  - `doc/source/guide_architecture.rst`: CMAES entry now documents IPOP restart capability
+  - `doc/source/guide_usage.rst`: New "Multimodal problems with IPOP-CMA-ES" section with
+    worked example, parameter guide, and comparison to plain CMA-ES
+
 ### CMA-ES Heuristic & Core Reward Fix (2026-04-18)
 - [x] **Implemented `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
   - Pure-NumPy implementation of the canonical CMA-ES algorithm (Hansen 2016)

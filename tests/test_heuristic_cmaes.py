@@ -710,3 +710,269 @@ def test_ipop_cmaes_restarts_triggered():
     assert len(cma_ref) > 0, "CMAES heuristic not found in strategy"
     # With patience=15 and 120 evals we expect at least 1 restart
     assert cma_ref[0] >= 1, f"Expected at least 1 IPOP restart, got {cma_ref[0]}"
+
+
+# ---------------------------------------------------------------------------
+# BIPOP-CMA-ES restart tests (Hansen 2009)
+# ---------------------------------------------------------------------------
+
+
+class TestCMAESBIPOP(PanobbgoTestCase):
+    """Tests for the BIPOP (Bi-Population) restart functionality."""
+
+    def setUp(self):
+        super().setUp()
+        from panobbgo.lib.constraints import DefaultConstraintHandler
+
+        self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
+
+    # --- restart_mode parameter ---
+
+    def test_default_restart_mode_is_ipop(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        assert cma._restart_mode == "ipop"
+
+    def test_bipop_restart_mode(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop")
+        assert cma._restart_mode == "bipop"
+
+    def test_invalid_restart_mode_raises(self):
+        from panobbgo.heuristics import CMAES
+
+        with pytest.raises(ValueError, match="restart_mode"):
+            CMAES(self.strategy, restart_mode="invalid")
+
+    # --- Initial state ---
+
+    def test_initial_bipop_state(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop")
+        assert cma.bipop_evals_large == 0
+        assert cma.bipop_evals_small == 0
+        # First run is always considered the "large" regime
+        assert cma.bipop_regime == "large"
+
+    def test_on_start_anchors_large_regime(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=8)
+        cma.on_start()
+        assert cma.bipop_regime == "large"
+        # Initial λ matches popsize override (BIPOP base population)
+        assert cma._lam == 8
+        assert cma._base_lam == 8
+
+    # --- First restart with no large evals → still large (tie → large) ---
+
+    def test_first_bipop_restart_picks_small_when_anchor_evals_credited(self):
+        """After first run accumulates evals_large, second restart should pick small."""
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(0)
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=6)
+        cma.on_start()
+
+        # Simulate that the large regime ran for several evaluations
+        cma._counteval = 30  # 30 evals attributed to current "large" regime
+
+        center = self.problem.random_point()
+        cma.on_restart(center, "first restart")
+
+        # 30 evals credited to large; small has 0 → small picked next
+        assert cma.bipop_evals_large == 30
+        assert cma.bipop_regime == "small"
+
+    def test_bipop_regime_alternation_balances_budget(self):
+        """Repeated restarts should approximately balance large and small evals."""
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(7)
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=6)
+        cma.on_start()
+
+        # Simulate alternating regimes by always adding a fixed delta of evals
+        # before each restart.
+        for _ in range(6):
+            cma._counteval = 20  # delta of 20 each time (anchor reset per restart)
+            cma.on_restart(self.problem.random_point(), "alt")
+
+        # After 6 restarts with equal deltas, the cumulative evals in each
+        # regime must differ by at most one delta (20).
+        diff = abs(cma.bipop_evals_large - cma.bipop_evals_small)
+        total = cma.bipop_evals_large + cma.bipop_evals_small
+        assert total == 6 * 20, f"Total evals tracked mismatch: {total}"
+        assert diff <= 20, (
+            f"BIPOP regimes not balanced: large={cma.bipop_evals_large}, small={cma.bipop_evals_small}"
+        )
+
+    def test_bipop_large_regime_geometric_growth(self):
+        """Each large-regime selection should double λ from the base."""
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(11)
+        base = 6
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=base)
+        cma.on_start()
+
+        # Force several large-regime restarts by having small evals always exceed large.
+        for k in range(1, 4):
+            cma._counteval = 10  # small evals so large regime is picked
+            cma._bipop_evals_small = 10**6  # ensure small >> large
+            cma.on_restart(self.problem.random_point(), f"force large {k}")
+            # _bipop_large_count incremented; new λ_l = base * 2^k
+            assert cma._lam == base * (2**k), (
+                f"Large regime λ wrong at k={k}: got {cma._lam}, expected {base * 2**k}"
+            )
+            assert cma.bipop_regime == "large"
+
+    def test_bipop_small_regime_uses_small_population_and_sigma(self):
+        """Small regime should produce λ ≥ base and σ < default."""
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(3)
+        base = 6
+        cma = CMAES(self.strategy, restart_mode="bipop", sigma0=0.3, popsize=base)
+        cma.on_start()
+        sigma_default = cma._sigma
+
+        # Force small regime: large evals >> small evals
+        cma._counteval = 10
+        cma._bipop_evals_large = 10**6
+        cma.on_restart(self.problem.random_point(), "force small")
+
+        assert cma.bipop_regime == "small"
+        # Small regime sigma is σ_default · 10^(-2·U[0,1]) ∈ (0.01·σ_def, σ_def]
+        assert cma._sigma <= sigma_default + 1e-9, (
+            f"Small regime σ should be ≤ default, got {cma._sigma} vs {sigma_default}"
+        )
+        # λ should be ≥ base population (clamped lower bound)
+        assert cma._lam >= base, f"Small regime λ {cma._lam} < base {base}"
+
+    # --- Restart count still increments in BIPOP mode ---
+
+    def test_bipop_restart_increments_count(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=6)
+        cma.on_start()
+        assert cma.restart_count == 0
+
+        for i in range(4):
+            cma._counteval = 5
+            cma.on_restart(self.problem.random_point(), f"restart {i}")
+            assert cma.restart_count == i + 1
+
+    # --- Distribution state still resets correctly in BIPOP mode ---
+
+    def test_bipop_restart_resets_paths_and_covariance(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(5)
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=6)
+        cma.on_start()
+
+        # Run a few generations to dirty the state
+        for _ in range(3):
+            pts = cma.get_points(50)
+            results = [Result(p, float(np.sum(p.x**2))) for p in pts]
+            cma.on_new_results(results)
+
+        cma.on_restart(self.problem.random_point(), "reset test")
+
+        n = self.problem.dim
+        assert np.allclose(cma._p_c, np.zeros(n))
+        assert np.allclose(cma._p_sigma, np.zeros(n))
+        assert np.allclose(cma._C, np.eye(n))
+        assert np.allclose(cma._B, np.eye(n))
+        assert np.allclose(cma._D, np.ones(n))
+
+    def test_bipop_restart_emits_new_generation_in_box(self):
+        from panobbgo.heuristics import CMAES
+
+        np.random.seed(13)
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=6)
+        cma.on_start()
+        _ = cma.get_points(50)  # drain initial gen
+
+        box = self.problem.box.box
+        center = box[:, 0] * 0.7 + box[:, 1] * 0.3
+        cma._counteval = 12
+        cma.on_restart(center, "emit + box test")
+
+        pts = cma.get_points(200)
+        assert len(pts) == cma._lam
+        for p in pts:
+            in_box = np.all(p.x >= box[:, 0]) and np.all(p.x <= box[:, 1])
+            assert in_box, f"BIPOP point {p.x} outside box"
+
+    # --- base_lam preserved across BIPOP restarts ---
+
+    def test_bipop_base_lam_preserved(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=8)
+        cma.on_start()
+        base = cma._base_lam
+        assert base == 8
+
+        for _ in range(5):
+            cma._counteval = 10
+            cma.on_restart(self.problem.random_point(), "base preserve")
+
+        assert cma._base_lam == base
+
+    # --- IPOP path unchanged: ipop_factor still doubles ---
+
+    def test_ipop_mode_ignores_bipop_state(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="ipop", popsize=6)
+        cma.on_start()
+        cma._counteval = 100
+        cma.on_restart(self.problem.random_point(), "ipop")
+
+        # IPOP doubles λ; BIPOP attribution should NOT have updated
+        assert cma._lam == 12
+        assert cma.bipop_evals_large == 0
+        assert cma.bipop_evals_small == 0
+
+
+# ---------------------------------------------------------------------------
+# Functional test: BIPOP-CMA-ES with real Restart analyzer on Rastrigin
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.flaky(retries=3)
+def test_bipop_cmaes_integration_rastrigin():
+    """BIPOP-CMA-ES should improve on multimodal Rastrigin within a tight budget."""
+    from panobbgo.lib.classic import Rastrigin
+    from panobbgo.strategies import StrategyRewarding
+    from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead
+    from panobbgo.analyzers import Restart
+
+    problem = Rastrigin(2)
+    np.random.seed(42)
+
+    with StrategyRewarding(
+        problem,
+        max_evaluations=80,
+        evaluation_method="threaded",
+    ) as strategy:
+        strategy.add(LatinHypercube, div=4)
+        strategy.add(CMAES, sigma0=0.3, restart_mode="bipop")
+        strategy.add(NelderMead)
+        restart_analyzer = Restart(
+            strategy, patience=12, restart_strategy="diverse", max_restarts=4
+        )
+        strategy.add_analyzer(restart_analyzer)
+        strategy.start()
+        best_fx = strategy.best.fx if strategy.best else float("inf")
+
+    assert best_fx < 20.0, (
+        f"BIPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"
+    )

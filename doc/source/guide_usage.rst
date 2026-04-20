@@ -470,8 +470,8 @@ A good portfolio balances exploration and exploitation:
      - ClaudeHeuristic
      - Multimodal landscapes, finding hidden optima near good regions
    * - Population-based
-     - CMAES, DifferentialEvolution
-     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); DE: multimodal (Rastrigin, Schwefel)
+     - CMAES (IPOP/BIPOP), DifferentialEvolution
+     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel)
    * - Gradient-free local
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected
@@ -579,6 +579,40 @@ Key parameters of :class:`~panobbgo.analyzers.restart.Restart`:
 - ``restart_strategy``: ``"diverse"`` picks the new center to maximize
   distance from all previous restart centers — better coverage than random.
 - ``max_restarts``: cap on total restarts to prevent budget exhaustion.
+
+**Highly multimodal problems with BIPOP-CMA-ES (BBOB-2009 winner):**
+
+For problems with many local optima or unknown structure, switch to
+``restart_mode="bipop"``.  BIPOP-CMA-ES (Hansen 2009) alternates between two restart
+regimes — a *large* regime that grows the population geometrically (like IPOP) and a
+*small* regime that runs a small population with a random small step size.  After every
+restart the regime that has consumed *fewer* cumulative evaluations is selected next,
+balancing exploitation and exploration.  BIPOP won the BBOB-2009 competition and remains
+the state of the art for limited-budget multimodal black-box optimization.
+
+.. code-block:: python
+
+   strategy = StrategyRewarding(problem, max_evaluations=500)
+   strategy.add(LatinHypercube, div=4)
+   strategy.add(CMAES, sigma0=0.3, restart_mode="bipop")
+   strategy.add(NelderMead)
+   strategy.add_analyzer(Restart(strategy, patience=None,
+                                 restart_strategy="diverse",
+                                 max_restarts=10))
+   strategy.start()
+
+Inspect the BIPOP regime distribution after the run::
+
+   cma = strategy._heuristics["CMAES"]
+   print(cma.bipop_regime, cma.bipop_evals_large, cma.bipop_evals_small)
+
+When to choose IPOP vs. BIPOP:
+
+* **IPOP** — moderately multimodal landscapes; you trust that increasing the population
+  will eventually find the global structure.
+* **BIPOP** — highly multimodal landscapes where a small, randomly-scaled distribution
+  occasionally finds basins that the large regime would miss.  Pay-off improves with a
+  larger evaluation budget (≥ 200 evals).
 
 **Multimodal problems (Rastrigin, Schwefel) — lighter portfolio:**
 

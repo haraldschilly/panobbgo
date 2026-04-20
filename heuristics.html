@@ -101,6 +101,9 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#heuristics">Heuristics</a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES"><code class="docutils literal notranslate"><span class="pre">CMAES</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.bipop_evals_large"><code class="docutils literal notranslate">bipop_evals_large</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.bipop_evals_small"><code class="docutils literal notranslate">bipop_evals_small</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.bipop_regime"><code class="docutils literal notranslate">bipop_regime</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
@@ -269,16 +272,25 @@ They are all derived from <a class="reference internal" href="core.html#panobbgo
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">CMAES</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">popsize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_results_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ipop_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">CMAES</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">popsize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_results_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ipop_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ipop'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
-<p>Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP restart.</p>
+<p>Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP / BIPOP restart.</p>
 <p>Maintains a multivariate Gaussian search distribution N(m, σ²C) and
 adapts it from the history of evaluated points.  Particularly effective
 for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).</p>
 <p>When paired with the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer,
-the heuristic implements IPOP-CMA-ES: each restart doubles the population
-size λ → 2λ and resets the search distribution to the new center, enabling
-systematic escape from local optima on multimodal problems.</p>
+the heuristic implements either:</p>
+<ul class="simple">
+<li><p><strong>IPOP-CMA-ES</strong> (<code class="docutils literal notranslate"><span class="pre">restart_mode=&quot;ipop&quot;</span></code>, default): each restart multiplies
+the population size by <code class="docutils literal notranslate"><span class="pre">ipop_factor</span></code> (default 2.0) and resets the search
+distribution to the new center.  Good for moderately multimodal problems.</p></li>
+<li><p><strong>BIPOP-CMA-ES</strong> (<code class="docutils literal notranslate"><span class="pre">restart_mode=&quot;bipop&quot;</span></code>): alternates between a <em>large</em>
+regime (geometric population growth from the base λ) and a <em>small</em> regime
+(small λ with a random small σ).  The regime that has consumed <em>fewer</em>
+cumulative evaluations is selected next, balancing exploitation and
+exploration.  This is the BBOB-2009 winning strategy and the gold standard
+for highly multimodal problems with limited budget.</p></li>
+</ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -287,18 +299,41 @@ systematic escape from local optima on multimodal problems.</p>
 box half-range.  Defaults to 0.3 (30 % of the search space).</p></li>
 <li><p><strong>popsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em>, </em><em>optional</em>) – Override the <em>base</em> population size
 <code class="docutils literal notranslate"><span class="pre">λ</span> <span class="pre">=</span> <span class="pre">4</span> <span class="pre">+</span> <span class="pre">floor(3·ln</span> <span class="pre">n)</span></code>.  Useful for low-budget runs.
-On IPOP restarts the population is doubled relative to the <em>current</em>
-λ, not this base value.</p></li>
+On IPOP restarts the population is multiplied relative to the
+<em>current</em> λ; in BIPOP mode the large-regime population grows from
+this base value.</p></li>
 <li><p><strong>min_results_fraction</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Fraction of λ that must arrive before
 a CMA-ES update is triggered.  Default 0.5 (= μ).</p></li>
 <li><p><strong>ipop_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Population multiplication factor applied on each
-restart.  Default 2.0 (standard IPOP doubling).</p></li>
+IPOP restart.  Default 2.0 (standard IPOP doubling).  Ignored in
+BIPOP mode (which always doubles the large regime).</p></li>
+<li><p><strong>restart_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Restart scheme selector — <code class="docutils literal notranslate"><span class="pre">&quot;ipop&quot;</span></code> (default) or
+<code class="docutils literal notranslate"><span class="pre">&quot;bipop&quot;</span></code>.</p></li>
 <li><p><strong>strategy</strong></p></li>
 <li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.bipop_evals_large">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">bipop_evals_large</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.bipop_evals_large" title="Link to this definition">¶</a></dt>
+<dd><p>Cumulative evaluations spent in the BIPOP large regime.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.bipop_evals_small">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">bipop_evals_small</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.bipop_evals_small" title="Link to this definition">¶</a></dt>
+<dd><p>Cumulative evaluations spent in the BIPOP small regime.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.bipop_regime">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">bipop_regime</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.bipop_regime" title="Link to this definition">¶</a></dt>
+<dd><p>Current BIPOP regime (<code class="docutils literal notranslate"><span class="pre">&quot;large&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;small&quot;</span></code>).</p>
+<p>In IPOP mode this stays at <code class="docutils literal notranslate"><span class="pre">&quot;large&quot;</span></code>.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES.on_new_results" title="Link to this definition">¶</a></dt>
@@ -308,22 +343,20 @@ restart.  Default 2.0 (standard IPOP doubling).</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES.on_restart" title="Link to this definition">¶</a></dt>
-<dd><p>Reset CMA-ES to <em>center</em> with IPOP population doubling.</p>
+<dd><p>Reset CMA-ES to <em>center</em> using the configured restart scheme.</p>
 <p>Called by the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer
-when stagnation is detected.  Implements the IPOP restart schedule:</p>
+when stagnation is detected.  Dispatches to the IPOP or BIPOP
+sub-routine according to <code class="docutils literal notranslate"><span class="pre">restart_mode</span></code>.  Both schemes:</p>
 <ul class="simple">
 <li><p>Move the search mean to <em>center</em> (a fresh region of the search space).</p></li>
-<li><p>Double λ (and recompute μ and all adaptation parameters accordingly).</p></li>
-<li><p>Reset σ to its initial fraction of the search-space range.</p></li>
+<li><p>Recompute μ and all adaptation parameters for the new λ.</p></li>
 <li><p>Reset evolution paths p_c, p_σ and covariance C to the identity.</p></li>
 <li><p>Flush all stale pending and in-flight generation results.</p></li>
 </ul>
-<dl class="simple">
-<dt>The population doubling (IPOP) is the key mechanism from:</dt><dd><ol class="upperalpha simple">
-<li><p>Auger &amp; N. Hansen (2005). CEC 2005.</p></li>
-</ol>
-</dd>
-</dl>
+<p>The IPOP scheme (Auger &amp; Hansen, 2005) multiplies λ by <code class="docutils literal notranslate"><span class="pre">ipop_factor</span></code>
+and resets σ to its initial fraction.  The BIPOP scheme (Hansen, 2009)
+alternates between a large regime (geometric λ growth from the base
+population) and a small regime (small λ + random small σ).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -343,7 +376,7 @@ when stagnation is detected.  Implements the IPOP restart schedule:</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.restart_count">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">restart_count</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.restart_count" title="Link to this definition">¶</a></dt>
-<dd><p>Number of IPOP restarts triggered so far.</p>
+<dd><p>Number of restarts triggered so far (IPOP or BIPOP).</p>
 </dd></dl>
 
 </dd></dl>

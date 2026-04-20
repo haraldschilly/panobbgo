@@ -13,6 +13,34 @@
 
 ## Recent Improvements
 
+### Benchmark Harness Documentation & Self-Improvement Plan (2026-04-19)
+- [x] **New Sphinx guide** (`doc/source/guide_benchmarking.rst`)
+  - Full definition of `composite_score` with math, interpretation table, pitfalls
+  - Documents the `quick`/`standard`/`full` modes, reproducibility model, `compare` workflow
+  - Sections on statistical caveats, parametric randomization (planned), absolute baselines (planned)
+  - Wired into `doc/source/guide.rst` toctree
+- [x] **Expanded `AGENTS.md`** Benchmark Harness section
+  - Statistical rigor subsection (quick-mode noise, re-run at alt seed before accepting small deltas)
+  - Self-improvement loop pointer
+  - Explicit "composite score formula is a stable contract" note
+- [x] **Enriched module docstrings** (`panobbgo/harness.py`, `benchmark_harness.py`)
+  - Explicit composite-score formula with per-run solve fraction `s = 1 - (k* - 1)/B`
+  - Stability contract for the formula
+  - Pointers to the guide and self-improvement plan
+- [x] **New plan** (`planning/SELF_IMPROVEMENT_LOOP.md`)
+  - Vision for measure→propose→apply→measure→accept/revert loop against randomized problems
+  - Parametric problem battery design (translate/rotate/scale/noise/dim sampling)
+  - External absolute baselines (scipy DE, dual_annealing, pycma, random)
+  - Bootstrap-CI-based statistical acceptance rule + anti-cherry-pick guard
+  - Safety rails (dedicated branch, atomic commits, test gating, STOP sentinel)
+  - Six-phase rollout from MVP to production loop + success criteria
+
+### Known gap (tracked in plan)
+- [ ] Parametric randomization of benchmark problems — plan Phase 3
+- [ ] External absolute baselines in the harness — plan Phase 2
+- [ ] Statistical acceptance rule (bootstrap CI) in `compare` — plan Phase 4
+- [ ] Loop driver `scripts/self_improve.py` — plan Phase 5
+
 ### IPOP-CMA-ES Restart Support (2026-04-19)
 - [x] **Added IPOP restart to `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
   - `on_restart(center, reason)` handler: moves search mean to new center, doubles λ (IPOP)

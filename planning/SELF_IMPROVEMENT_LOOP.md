@@ -40,7 +40,13 @@ What exists (as of 2026-04-19):
 What's missing for a true self-improvement loop:
 
 - [ ] Parametric randomization — all problem instances are currently fixed.
-- [ ] External absolute baselines (scipy DE, pycma, random search).
+- [x] External absolute baselines (Random, scipy DE, scipy dual annealing)
+      — shipped 2026-04-20 as `panobbgo/harness_baselines.py` and the
+      `--baselines` CLI flag; see `tests/test_harness_baselines.py`.
+      `pycma` wrapper still optional — Panobbgo already ships its own
+      CMA-ES via the `CMAES` heuristic (`CMAES_Portfolio` / `IPOP_CMAES`
+      strategies), so CMA-ES is present on *both* sides of the comparison
+      internally.
 - [ ] Statistically principled accept/reject (only a naive `eps` threshold
       today).
 - [ ] A driver that closes the loop: apply change, measure, accept/revert,
@@ -250,13 +256,22 @@ Each phase is independently deliverable and keeps the framework usable.
 - Add a `benchmark_harness.py score --json` diff as a CI artefact on
   every PR so reviewers see the before/after.
 
-### Phase 2 — External baselines (~3-5 days)
+### Phase 2 — External baselines (shipped 2026-04-20)
 
-- Implement `Random`, `SciPyDE`, `SciPyAnneal`, `PyCMA` wrappers in a new
-  `panobbgo/harness_baselines.py`.
-- Register them as `StrategySpec`s selectable via a `--baselines` flag
-  on `benchmark_harness.py run`.
-- Document the gap between Panobbgo and the strongest baseline.
+- [x] Implemented `Random`, `SciPyDE`, `SciPyAnneal` adapter strategies in
+      `panobbgo/harness_baselines.py`.
+- [x] Registered as `StrategySpec`s, appended via
+      `HarnessConfig(include_baselines=True)` and the `--baselines` flag
+      on `benchmark_harness.py run` / `list`.
+- [x] Adapters enforce a **hard** evaluation budget via `_BudgetExhausted`
+      — external solvers can never overshoot `config.max_eval`.
+- [x] Results DataFrame uses the Panobbgo MultiIndex convention so the
+      harness convergence extractor works unchanged.
+- [x] 22 tests in `tests/test_harness_baselines.py`.
+- [ ] `PyCMA` wrapper deferred — Panobbgo's own `CMAES` heuristic already
+      provides an internal CMA-ES reference (`CMAES_Portfolio`,
+      `IPOP_CMAES`, `BIPOP_CMAES`).  Add later if round-tripping against
+      the upstream pycma implementation becomes useful.
 
 ### Phase 3 — Parametric randomization (~1-2 weeks)
 

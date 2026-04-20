@@ -219,25 +219,60 @@ sampled instances, becomes a meaningful generalisation signal.
 Design details: see ``planning/SELF_IMPROVEMENT_LOOP.md``.
 
 
-Absolute baselines (planned)
-----------------------------
+Absolute baselines
+------------------
 
-The harness currently reports *Panobbgo strategies vs. Panobbgo strategies*.
-To judge Panobbgo in absolute terms we need external reference solvers in the
-same harness:
+The harness runs *Panobbgo strategies vs. Panobbgo strategies* by default.
+To judge Panobbgo in **absolute** terms, the
+:mod:`panobbgo.harness_baselines` module plugs three external reference
+solvers into the same :class:`~panobbgo.benchmark.StrategySpec` interface:
 
-- ``scipy.optimize.differential_evolution``
-- ``scipy.optimize.dual_annealing``
-- ``pycma`` (pure CMA-ES)
-- uniform random search (floor)
+- ``Baseline_Random`` — uniform random search (the **floor**: any serious
+  optimizer should beat it most of the time).
+- ``Baseline_SciPyDE`` — ``scipy.optimize.differential_evolution``.
+- ``Baseline_SciPyAnneal`` — ``scipy.optimize.dual_annealing``.
 
-These establish:
+Enable them with the ``--baselines`` flag on ``run`` or ``list``:
 
-- A **floor** (random search) — anything better is actually optimising.
-- A **ceiling** (tuned DE / CMA-ES) — how far is Panobbgo from well-engineered
-  solvers on the same budget?
+.. code-block:: bash
 
-See the plan document for the integration interface.
+   uv run python benchmark_harness.py list --standard --baselines
+   uv run python benchmark_harness.py run --standard --baselines --output standard_with_refs.json
+   uv run python benchmark_harness.py score standard_with_refs.json
+
+They appear in the results table alongside Panobbgo strategies — the
+composite score still averages over every ``(problem, strategy)`` pair,
+so a fair comparison should either *include baselines on both sides* of
+a ``compare`` call or *exclude them from both*.
+
+Design
+~~~~~~
+
+Baselines are thin adapters that implement the subset of the strategy
+surface the harness actually uses (``.config.max_eval``, ``.start()``,
+``.best``, ``.results.results``).  They do **not** subclass
+:class:`~panobbgo.core.StrategyBase` — spinning up the event bus and Dask
+machinery for a single-shot external solver would be pure overhead.
+
+The shared objective wrapper enforces a **hard evaluation budget**: it
+raises :class:`~panobbgo.harness_baselines._BudgetExhausted` once
+``max_eval`` evaluations are recorded, giving baselines the same budget
+contract as Panobbgo strategies.  Convergence traces are extracted from
+the wrapper's log, and the results DataFrame carries the same MultiIndex
+columns (``("fx", 0)``, ``("who", 0)``, …) the harness expects.
+
+CMA-ES as a baseline
+~~~~~~~~~~~~~~~~~~~~
+
+The pure CMA-ES reference is already available **inside** Panobbgo via
+the :class:`~panobbgo.heuristics.cma_es.CMAES` heuristic, used by the
+``CMAES_Portfolio`` and ``IPOP_CMAES`` strategies.  That gives a fair
+internal comparison without the extra dependency on ``pycma``.  A
+dedicated ``pycma`` adapter is easy to add if a round-trip against the
+upstream reference becomes valuable.
+
+See ``panobbgo/harness_baselines.py`` for the full interface and
+``tests/test_harness_baselines.py`` for the guarantees.
 
 
 Self-improvement loop
@@ -291,7 +326,10 @@ See also
 --------
 
 - :mod:`panobbgo.harness` — the harness implementation.
+- :mod:`panobbgo.harness_baselines` — external reference strategies
+  (Random, SciPy DE, SciPy dual annealing).
 - ``benchmark_harness.py`` — CLI.
-- ``tests/test_harness.py`` — test suite (60+ tests).
+- ``tests/test_harness.py`` — harness test suite (60+ tests).
+- ``tests/test_harness_baselines.py`` — baseline adapter tests.
 - ``planning/SELF_IMPROVEMENT_LOOP.md`` — roadmap for the autonomous
   improvement loop.

@@ -248,15 +248,18 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Random</strong>: Uniform random sampling within the best leaf box.</p></li>
 <li><p><strong>LatinHypercube</strong>: Stratified sampling (Space-filling).</p></li>
 <li><p><strong>Extremal</strong>: Samples from the boundaries of the search space.</p></li>
-<li><p><strong>Nearby</strong>: Gaussian perturbations around current best points.</p></li>
+<li><p><strong>Nearby</strong>: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).</p></li>
 <li><p><strong>WeightedAverage</strong>: Averages points in the best region.</p></li>
-<li><p><strong>QuadraticWLS</strong>: Fits a weighted least-squares quadratic surrogate model.</p></li>
-<li><p><strong>GaussianProcess</strong>: Uses Gaussian Process models and Expected Improvement with Constraints (EIC).</p></li>
+<li><p><strong>QuadraticWlsModel</strong>: Fits a weighted least-squares quadratic surrogate model.</p></li>
+<li><p><strong>GaussianProcessHeuristic</strong>: Gaussian Process surrogate with EI / UCB / PI acquisition functions; uses Expected Improvement with Constraints (EIC) when constraints are active.</p></li>
 <li><p><strong>NelderMead</strong>: Simplex optimization method.</p></li>
 <li><p><strong>LBFGSB</strong>: Local optimization using the L-BFGS-B algorithm.</p></li>
-<li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions.</p></li>
+<li><p><strong>CMAES</strong>: Covariance Matrix Adaptation Evolution Strategy with IPOP-CMA-ES restart support (paired with the Restart analyzer) — gold standard for derivative-free continuous optimization, excellent on ill-conditioned/ridge-following problems like Rosenbrock.</p></li>
+<li><p><strong>DifferentialEvolution</strong>: DE mutation/crossover/selection applied to the accumulated result database — strong on multimodal landscapes (Rastrigin, Schwefel).</p></li>
+<li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions via line search towards feasibility.</p></li>
 <li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
-<li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly.</p></li>
+<li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly with a local scipy optimizer.</p></li>
+<li><p><strong>ConstraintRepair</strong>: Projects infeasible best points onto the feasible region using SLSQP.</p></li>
 <li><p><strong>ClaudeHeuristic</strong>: Cluster-based adaptive search using Mixture of Gaussians over elite points.</p></li>
 </ul>
 <section id="heuristics">

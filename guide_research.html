@@ -107,6 +107,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#related-algorithms">Related Algorithms</a><ul>
 <li><a class="reference internal" href="#bayesian-optimization">Bayesian Optimization</a></li>
 <li><a class="reference internal" href="#cma-es-covariance-matrix-adaptation-evolution-strategy">CMA-ES (Covariance Matrix Adaptation Evolution Strategy)</a></li>
+<li><a class="reference internal" href="#differential-evolution">Differential Evolution</a></li>
 <li><a class="reference internal" href="#direct-dividing-rectangles">DIRECT (Dividing Rectangles)</a></li>
 <li><a class="reference internal" href="#simulated-annealing">Simulated Annealing</a></li>
 <li><a class="reference internal" href="#comparison-summary">Comparison Summary</a></li>
@@ -126,8 +127,9 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#future-directions">Future Directions</a><ul>
-<li><a class="reference internal" href="#short-term-improvements-3-6-months">Short-Term Improvements (3-6 months)</a></li>
-<li><a class="reference internal" href="#medium-term-research-6-12-months">Medium-Term Research (6-12 months)</a></li>
+<li><a class="reference internal" href="#recently-completed">Recently Completed</a></li>
+<li><a class="reference internal" href="#short-term-improvements">Short-Term Improvements</a></li>
+<li><a class="reference internal" href="#medium-term-research">Medium-Term Research</a></li>
 <li><a class="reference internal" href="#long-term-vision-1-2-years">Long-Term Vision (1-2 years)</a></li>
 <li><a class="reference internal" href="#benchmark-script">Benchmark Script</a></li>
 <li><a class="reference internal" href="#strategies-compared">Strategies Compared</a></li>
@@ -244,26 +246,43 @@ data-aria-dark="Switch to auto color mode">
 <section id="bayesian-optimization">
 <h3>Bayesian Optimization<a class="headerlink" href="#bayesian-optimization" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Fit Gaussian process (GP) surrogate model, optimize acquisition function</p>
-<p><strong>Panobbgo equivalent</strong>: <code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>
-uses simpler quadratic surrogate</p>
+<p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>
+fits a Matérn-5/2 GP via scikit-learn and optimises EI / UCB / PI acquisition functions.  Uses
+Constrained Expected Improvement (EIC) automatically when the problem has active constraint
+violations.  <code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code> is retained as a
+faster, less accurate quadratic surrogate alternative.</p>
 <p><strong>Trade-offs</strong>:</p>
 <ul class="simple">
-<li><p>GP: Better uncertainty quantification, higher computational cost</p></li>
-<li><p>Quadratic: Faster, scales better, but less accurate</p></li>
+<li><p>GP (GaussianProcessHeuristic): Better uncertainty quantification, higher computational cost — gold standard for expensive BO</p></li>
+<li><p>Quadratic (QuadraticWlsModel): Faster, scales better, but less accurate</p></li>
 </ul>
 <p><strong>References</strong>: <a class="reference internal" href="#mockus1989" id="id2"><span>[Mockus1989]</span></a>, <a class="reference internal" href="#brochu2010" id="id3"><span>[Brochu2010]</span></a></p>
 </section>
 <section id="cma-es-covariance-matrix-adaptation-evolution-strategy">
 <h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Evolutionary algorithm with adaptive covariance matrix</p>
-<p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead" title="panobbgo.heuristics.nelder_mead.NelderMead"><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code></a>
-has similar adaptive sampling, but deterministic</p>
+<p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> provides a pure-NumPy
+CMA-ES with asynchronous generation tracking that fits panobbgo’s threaded evaluation model.
+When paired with <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> it becomes <strong>IPOP-CMA-ES</strong>
+(Increasing Population CMA-ES, Auger &amp; Hansen CEC 2005) — the competition-winning approach on
+BBOB/COCO: each restart doubles the population λ → 2λ, resets the covariance to identity, and
+moves the mean to a diverse new center, enabling systematic escape from local optima while the
+accumulated result history is preserved.</p>
 <p><strong>Trade-offs</strong>:</p>
 <ul class="simple">
-<li><p>CMA-ES: Powerful for smooth problems, populations approach</p></li>
-<li><p>NelderMead: Deterministic simplex, good for local search</p></li>
+<li><p>CMA-ES: Powerful for smooth, ill-conditioned, and ridge-following problems (e.g., Rosenbrock); invariant under orthogonal search-space transformations</p></li>
+<li><p>IPOP-CMA-ES: Adds multimodal robustness at the cost of extra restarts</p></li>
+<li><p>NelderMead: Deterministic simplex, good for final local refinement</p></li>
 </ul>
 <p><strong>References</strong>: <a class="reference internal" href="#hansen2001" id="id4"><span>[Hansen2001]</span></a></p>
+</section>
+<section id="differential-evolution">
+<h3>Differential Evolution<a class="headerlink" href="#differential-evolution" title="Link to this heading">¶</a></h3>
+<p><strong>Approach</strong>: Population-based mutation/crossover/selection on a population of solution vectors</p>
+<p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>
+runs DE operators against the accumulated result database.  Strong complement to CMA-ES on
+multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p>
+<p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a></p>
 </section>
 <section id="direct-dividing-rectangles">
 <h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>
@@ -275,7 +294,7 @@ provides hierarchical box decomposition, but without Lipschitz assumptions</p>
 <li><p>DIRECT: Rigorous convergence guarantees with Lipschitz constant</p></li>
 <li><p>Splitter: No Lipschitz assumption, adapts to actual problem</p></li>
 </ul>
-<p><strong>References</strong>: <a class="reference internal" href="#jones1993" id="id5"><span>[Jones1993]</span></a></p>
+<p><strong>References</strong>: <a class="reference internal" href="#jones1993" id="id6"><span>[Jones1993]</span></a></p>
 </section>
 <section id="simulated-annealing">
 <h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading">¶</a></h3>
@@ -287,7 +306,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <li><p>SA: Single-point trajectory, cooling schedule critical</p></li>
 <li><p>StrategyRewarding: Multi-heuristic, adapts automatically</p></li>
 </ul>
-<p><strong>References</strong>: <a class="reference internal" href="#kirkpatrick1983" id="id6"><span>[Kirkpatrick1983]</span></a></p>
+<p><strong>References</strong>: <a class="reference internal" href="#kirkpatrick1983" id="id7"><span>[Kirkpatrick1983]</span></a></p>
 </section>
 <section id="comparison-summary">
 <h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading">¶</a></h3>
@@ -391,7 +410,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <p><strong>Challenge</strong>: Curse of dimensionality—exponential growth of search space</p>
 <p><strong>Current approaches</strong>:</p>
 <ul class="simple">
-<li><p>Random embeddings <a class="reference internal" href="#wang2013" id="id7"><span>[Wang2013]</span></a></p></li>
+<li><p>Random embeddings <a class="reference internal" href="#wang2013" id="id8"><span>[Wang2013]</span></a></p></li>
 <li><p>Coordinate descent</p></li>
 <li><p>Additive models</p></li>
 </ul>
@@ -422,19 +441,23 @@ uses probabilistic selection, but without explicit temperature</p>
 <section id="constraint-handling">
 <h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h3>
 <p><strong>Challenge</strong>: Efficiently find feasible solutions</p>
-<p><strong>Current Panobbgo</strong>: Lexicographic ordering (feasibility first)</p>
-<p><strong>Alternatives</strong>:</p>
+<p><strong>Current Panobbgo</strong>: Pluggable <code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code> implementations:</p>
 <ul class="simple">
-<li><p>Penalty methods</p></li>
-<li><p>Augmented Lagrangian</p></li>
-<li><p>Constraint approximation</p></li>
-<li><p>Feasibility restoration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DefaultConstraintHandler</span></code> — lexicographic ordering (feasibility first)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PenaltyConstraintHandler</span></code> — static penalty <span class="math notranslate nohighlight">\(f(x) + \rho \cdot cv(x)^{e}\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DynamicPenaltyConstraintHandler</span></code> — penalty coefficient increases over time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AugmentedLagrangianConstraintHandler</span></code> — adaptive multipliers <span class="math notranslate nohighlight">\(\lambda\)</span> and penalty <span class="math notranslate nohighlight">\(\mu\)</span></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EpsilonConstraintHandler</span></code> — tolerance <span class="math notranslate nohighlight">\(\epsilon(t)\)</span> shrinks towards zero</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FilterConstraintHandler</span></code> — Pareto-dominance filter on <span class="math notranslate nohighlight">\((f, cv)\)</span></p></li>
 </ul>
+<p>Complemented by constraint-focused heuristics: FeasibleSearch (line search to feasibility),
+ConstraintGradient (finite-difference constraint-gradient descent), LocalPenaltySearch
+(scipy local optimiser on the scalarised penalty), and ConstraintRepair (SLSQP projection).</p>
 <p><strong>Future work</strong>:</p>
 <ul class="simple">
-<li><p>Constraint-specific heuristics</p></li>
 <li><p>Feasibility pump analyzer</p></li>
-<li><p>Adaptive penalty parameters</p></li>
+<li><p>Adaptive penalty parameters guided by the Sensitivity analyzer</p></li>
+<li><p>Constraint approximation / surrogate-assisted repair</p></li>
 </ul>
 </section>
 <section id="robust-optimization">
@@ -472,39 +495,36 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 <section id="future-directions">
 <h2>Future Directions<a class="headerlink" href="#future-directions" title="Link to this heading">¶</a></h2>
-<section id="short-term-improvements-3-6-months">
-<h3>Short-Term Improvements (3-6 months)<a class="headerlink" href="#short-term-improvements-3-6-months" title="Link to this heading">¶</a></h3>
+<section id="recently-completed">
+<h3>Recently Completed<a class="headerlink" href="#recently-completed" title="Link to this heading">¶</a></h3>
+<p>The following items from earlier roadmaps have been implemented:</p>
 <ol class="arabic simple">
-<li><p><strong>Gaussian Process Surrogate</strong></p>
-<ul class="simple">
-<li><p>Replace <code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code> with GP</p></li>
-<li><p>Use scikit-learn or GPyTorch</p></li>
-<li><p>Implement acquisition functions (EI, UCB, PI)</p></li>
-</ul>
-</li>
-<li><p><strong>Persistent Storage</strong></p>
-<ul class="simple">
-<li><p>SQLite backend for <a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a></p></li>
-<li><p>Save/load optimization state</p></li>
-<li><p>Resume from checkpoint</p></li>
-<li><p>Share results across runs</p></li>
-</ul>
-</li>
-<li><p><strong>Convergence Detection</strong></p>
-<ul class="simple">
-<li><p>Implement <code class="xref py py-class docutils literal notranslate"><span class="pre">ConvergenceDetector</span></code> analyzer (see <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a>)</p></li>
-<li><p>Statistical tests for stagnation</p></li>
-<li><p>Automatic termination</p></li>
-<li><p>Publish <code class="docutils literal notranslate"><span class="pre">converged</span></code> event</p></li>
-</ul>
-</li>
-<li><p><strong>Better Constraint Handling</strong></p>
-<ul class="simple">
-<li><p>Penalty function methods</p></li>
-<li><p>Augmented Lagrangian heuristic</p></li>
-<li><p>Constraint-specific strategies</p></li>
-</ul>
-</li>
+<li><p><strong>Gaussian Process Surrogate</strong> — see <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>
+(scikit-learn, Matérn-5/2 kernel, EI / UCB / PI acquisition, constrained EI).</p></li>
+<li><p><strong>Persistent Storage</strong> — SQLite backend for <a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> with automatic
+resume-from-checkpoint (see <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.storage</span></code>).</p></li>
+<li><p><strong>Convergence Detection</strong> — <a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence" title="panobbgo.analyzers.convergence.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> analyzer
+with <code class="docutils literal notranslate"><span class="pre">std</span></code> and <code class="docutils literal notranslate"><span class="pre">improv</span></code> modes publishing a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event.</p></li>
+<li><p><strong>Better Constraint Handling</strong> — multiple constraint handlers (Default, Penalty,
+DynamicPenalty, AugmentedLagrangian, Epsilon, Filter) plus constraint-focused heuristics
+(FeasibleSearch, ConstraintGradient, LocalPenaltySearch, ConstraintRepair).</p></li>
+<li><p><strong>Advanced Bandit Strategies</strong> — <a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a>,
+<a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a>, and contextual
+<a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyLinUCB" title="panobbgo.strategies.contextual.StrategyLinUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a>.</p></li>
+<li><p><strong>Budget-Phased Meta-Strategy</strong> — <a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyPhased" title="panobbgo.strategies.phased.StrategyPhased"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyPhased</span></code></a>
+composes different sub-strategies and heuristic portfolios across budget phases.</p></li>
+<li><p><strong>Population-Based Global Search</strong> — <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> with
+IPOP restart support via <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>, and
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>.</p></li>
+<li><p><strong>Sensitivity Analysis</strong> — <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> with a
+sensitivity-aware <a class="reference internal" href="_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby" title="panobbgo.heuristics.nearby.Nearby"><code class="xref py py-class docutils literal notranslate"><span class="pre">Nearby</span></code></a> heuristic.</p></li>
+<li><p><strong>Reproducible Benchmark Harness</strong> — see <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> and <code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code>
+CLI for measuring the impact of code changes on optimisation performance.</p></li>
+</ol>
+</section>
+<section id="short-term-improvements">
+<h3>Short-Term Improvements<a class="headerlink" href="#short-term-improvements" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
 <li><p><strong>Enhanced Visualization</strong></p>
 <ul class="simple">
 <li><p>Real-time optimization plots</p></li>
@@ -513,25 +533,18 @@ uses probabilistic selection, but without explicit temperature</p>
 <li><p>Heuristic performance tracking</p></li>
 </ul>
 </li>
-</ol>
-</section>
-<section id="medium-term-research-6-12-months">
-<h3>Medium-Term Research (6-12 months)<a class="headerlink" href="#medium-term-research-6-12-months" title="Link to this heading">¶</a></h3>
-<ol class="arabic simple">
-<li><p><strong>Advanced Bandit Strategies</strong></p>
-<ul class="simple">
-<li><p>UCB (Upper Confidence Bound) <a class="reference internal" href="#auer2002" id="id8"><span>[Auer2002]</span></a></p></li>
-<li><p>Thompson Sampling <a class="reference internal" href="#thompson1933" id="id9"><span>[Thompson1933]</span></a></p></li>
-<li><p>Contextual bandits using problem features</p></li>
-</ul>
-</li>
-<li><p><strong>Parallel Batch Generation</strong></p>
+<li><p><strong>Parallel Batch Generation (q-acquisition)</strong></p>
 <ul class="simple">
 <li><p>Generate batches considering pending evaluations</p></li>
 <li><p>Avoid redundant sampling (q-EI, q-UCB)</p></li>
 <li><p>Optimize batch diversity</p></li>
 </ul>
 </li>
+</ol>
+</section>
+<section id="medium-term-research">
+<h3>Medium-Term Research<a class="headerlink" href="#medium-term-research" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
 <li><p><strong>Multi-Fidelity Support</strong></p>
 <ul class="simple">
 <li><p>Multi-fidelity Problem class</p></li>
@@ -543,13 +556,13 @@ uses probabilistic selection, but without explicit temperature</p>
 <ul class="simple">
 <li><p>Random embeddings</p></li>
 <li><p>Active subspace detection</p></li>
-<li><p>Coordinate importance ranking</p></li>
+<li><p>Coordinate importance ranking (building on the Sensitivity analyzer)</p></li>
 </ul>
 </li>
 <li><p><strong>Benchmarking Suite</strong></p>
 <ul class="simple">
 <li><p>Standardized test problems</p></li>
-<li><p>Performance profiles <a class="reference internal" href="#dolan2002" id="id10"><span>[Dolan2002]</span></a></p></li>
+<li><p>Performance profiles <a class="reference internal" href="#dolan2002" id="id9"><span>[Dolan2002]</span></a></p></li>
 <li><p>Comparison with state-of-the-art</p></li>
 </ul>
 </li>
@@ -687,9 +700,9 @@ exploration early, local search late).</p></li>
 <h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">¶</a></h3>
 <p>Standard test suites for validation:</p>
 <ul class="simple">
-<li><p><strong>CEC Benchmark Functions</strong> <a class="reference internal" href="#liang2013" id="id11"><span>[Liang2013]</span></a></p></li>
-<li><p><strong>BBOB (Black-Box Optimization Benchmarking)</strong> <a class="reference internal" href="#hansen2009" id="id12"><span>[Hansen2009]</span></a></p></li>
-<li><p><strong>Engineering design problems</strong> <a class="reference internal" href="#mezura2006" id="id13"><span>[Mezura2006]</span></a></p></li>
+<li><p><strong>CEC Benchmark Functions</strong> <a class="reference internal" href="#liang2013" id="id10"><span>[Liang2013]</span></a></p></li>
+<li><p><strong>BBOB (Black-Box Optimization Benchmarking)</strong> <a class="reference internal" href="#hansen2009" id="id11"><span>[Hansen2009]</span></a></p></li>
+<li><p><strong>Engineering design problems</strong> <a class="reference internal" href="#mezura2006" id="id12"><span>[Mezura2006]</span></a></p></li>
 </ul>
 </section>
 <section id="performance-metrics">
@@ -719,7 +732,7 @@ exploration early, local search late).</p></li>
 <h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
 <div role="list" class="citation-list">
 <div class="citation" id="auer2002" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">Auer2002</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span>Auer2002<span class="fn-bracket">]</span></span>
 <p>Auer, P., Cesa-Bianchi, N., &amp; Fischer, P. (2002).
 Finite-time analysis of the multiarmed bandit problem.
 <em>Machine Learning</em>, 47(2), 235-256.</p>
@@ -731,7 +744,7 @@ A tutorial on Bayesian optimization of expensive cost functions.
 <em>arXiv preprint arXiv:1012.2599</em>.</p>
 </div>
 <div class="citation" id="dolan2002" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id10">Dolan2002</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id9">Dolan2002</a><span class="fn-bracket">]</span></span>
 <p>Dolan, E. D., &amp; Moré, J. J. (2002).
 Benchmarking optimization software with performance profiles.
 <em>Mathematical Programming</em>, 91(2), 201-213.</p>
@@ -743,7 +756,7 @@ Completely derandomized self-adaptation in evolution strategies.
 <em>Evolutionary Computation</em>, 9(2), 159-195.</p>
 </div>
 <div class="citation" id="hansen2009" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id12">Hansen2009</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">Hansen2009</a><span class="fn-bracket">]</span></span>
 <p>Hansen, N., Auger, A., Ros, R., Finck, S., &amp; Pošík, P. (2009).
 Comparing results of 31 algorithms from the black-box optimization benchmarking BBOB-2009.
 <em>ACM SIGEVO</em>, 1(1), 1-25.</p>
@@ -755,26 +768,26 @@ SNOBFIT–stable noisy optimization by branch and fit.
 <em>ACM Trans. Math. Softw.</em>, 35(2), 1-25.</p>
 </div>
 <div class="citation" id="jones1993" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">Jones1993</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id6">Jones1993</a><span class="fn-bracket">]</span></span>
 <p>Jones, D. R., Perttunen, C. D., &amp; Stuckman, B. E. (1993).
 Lipschitzian optimization without the Lipschitz constant.
 <em>Journal of Optimization Theory and Applications</em>, 79(1), 157-181.</p>
 </div>
 <div class="citation" id="kirkpatrick1983" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id6">Kirkpatrick1983</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id7">Kirkpatrick1983</a><span class="fn-bracket">]</span></span>
 <p>Kirkpatrick, S., Gelatt, C. D., &amp; Vecchi, M. P. (1983).
 Optimization by simulated annealing.
 <em>Science</em>, 220(4598), 671-680.</p>
 </div>
 <div class="citation" id="liang2013" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">Liang2013</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id10">Liang2013</a><span class="fn-bracket">]</span></span>
 <p>Liang, J. J., Qu, B. Y., &amp; Suganthan, P. N. (2013).
 Problem definitions and evaluation criteria for the CEC 2014 special session
 and competition on single objective real-parameter numerical optimization.
 <em>Technical Report</em>.</p>
 </div>
 <div class="citation" id="mezura2006" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id13">Mezura2006</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id12">Mezura2006</a><span class="fn-bracket">]</span></span>
 <p>Mezura-Montes, E., &amp; Coello, C. A. C. (2006).
 A simple multimembered evolution strategy to solve constrained optimization problems.
 <em>IEEE Transactions on Evolutionary Computation</em>, 9(1), 1-17.</p>
@@ -785,14 +798,20 @@ A simple multimembered evolution strategy to solve constrained optimization prob
 <em>Bayesian Approach to Global Optimization: Theory and Applications</em>.
 Kluwer Academic Publishers.</p>
 </div>
+<div class="citation" id="storn1997" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">Storn1997</a><span class="fn-bracket">]</span></span>
+<p>Storn, R., &amp; Price, K. (1997).
+Differential evolution – A simple and efficient heuristic for global optimization over continuous spaces.
+<em>Journal of Global Optimization</em>, 11(4), 341-359.</p>
+</div>
 <div class="citation" id="thompson1933" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id9">Thompson1933</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span>Thompson1933<span class="fn-bracket">]</span></span>
 <p>Thompson, W. R. (1933).
 On the likelihood that one unknown probability exceeds another in view of the evidence of two samples.
 <em>Biometrika</em>, 25(3-4), 285-294.</p>
 </div>
 <div class="citation" id="wang2013" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id7">Wang2013</a><span class="fn-bracket">]</span></span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">Wang2013</a><span class="fn-bracket">]</span></span>
 <p>Wang, Z., Zoghi, M., Hutter, F., Matheson, D., &amp; De Freitas, N. (2013).
 Bayesian optimization in high dimensions via random embeddings.
 <em>IJCAI</em>, 1778-1784.</p>

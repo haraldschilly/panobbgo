@@ -257,12 +257,13 @@ data-aria-dark="Switch to auto color mode">
 <p>Result analysis and monitoring components:</p>
 <ul class="simple">
 <li><p><strong>Analyzer</strong>: Base class for analysis components</p></li>
-<li><p><strong>Best</strong>: Tracks best solutions found</p></li>
-<li><p><strong>Convergence</strong>: Monitors optimization progress</p></li>
-<li><p><strong>Sensitivity</strong>: Estimates per-dimension importance</p></li>
-<li><p><strong>Restart</strong>: Detects stagnation and triggers multi-start restarts</p></li>
-<li><p><strong>Grid</strong>: Space partitioning for analysis</p></li>
-<li><p><strong>Splitter</strong>: Adaptive space subdivision</p></li>
+<li><p><strong>Best</strong>: Tracks best solutions found (feasible best, infeasible best, Pareto front of <code class="docutils literal notranslate"><span class="pre">(f,</span> <span class="pre">CV)</span></code>)</p></li>
+<li><p><strong>Convergence</strong>: Monitors optimization progress; publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event using <code class="docutils literal notranslate"><span class="pre">std</span></code> or <code class="docutils literal notranslate"><span class="pre">improv</span></code> mode</p></li>
+<li><p><strong>Sensitivity</strong>: Estimates per-dimension importance via rank correlation; enables sensitivity-aware perturbations in <code class="docutils literal notranslate"><span class="pre">Nearby</span></code></p></li>
+<li><p><strong>Restart</strong>: Detects stagnation (no improvement within <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and triggers multi-start restarts; pairs with CMAES for IPOP-CMA-ES</p></li>
+<li><p><strong>Grid</strong>: Simple spatial grid grouping of nearby points</p></li>
+<li><p><strong>Dedensifyer</strong>: Hierarchical grid that avoids point clustering by keeping only min/max representatives per region</p></li>
+<li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box</p></li>
 </ul>
 <section id="analyzers">
 <span id="module-panobbgo.analyzers"></span><h2>Analyzers<a class="headerlink" href="#analyzers" title="Link to this heading">¶</a></h2>

@@ -79,30 +79,39 @@ Panobbgo includes diverse heuristics with different search strategies:
      - Explore broadly
    * - Local Search
      - Nearby, Weighted Average
-     - Refine around best
+     - Refine around best (Nearby is sensitivity-aware when paired with the Sensitivity analyzer)
    * - Model-Based
      - Quadratic WLS, Gaussian Process
-     - Fit surrogate, optimize (using EIC)
+     - Fit surrogate, optimize acquisition function (EI / UCB / PI, with EIC under constraints)
    * - Classical Optimizers
      - Nelder-Mead, L-BFGS-B
      - Local optimization
+   * - Population-Based
+     - CMA-ES (with optional IPOP restarts), Differential Evolution
+     - Global evolutionary search; CMA-ES excels on ill-conditioned/ridge-following problems, DE on multimodal ones
+   * - Cluster-Based
+     - ClaudeHeuristic
+     - Mixture-of-Gaussians over elite points, related to Cross-Entropy / EDA methods
    * - Constraint Handling
-     - Feasible Search, Constraint Gradient
-     - Target feasible regions
+     - Feasible Search, Constraint Gradient, Local Penalty Search, Constraint Repair
+     - Target feasible regions, minimise penalised objective, repair infeasible points
 
 Adaptive Selection
 ~~~~~~~~~~~~~~~~~~
 
-Panobbgo provides several adaptive strategies based on **multi-armed bandit** algorithms:
+Panobbgo provides several adaptive strategies based on **multi-armed bandit** algorithms, plus a
+budget-phased meta-strategy:
 
-- :class:`~panobbgo.strategies.rewarding.StrategyRewarding`: Probability-based selection with additive smoothing and performance decay.
-- :class:`~panobbgo.strategies.ucb.StrategyUCB`: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.
-- :class:`~panobbgo.strategies.thompson.StrategyThompsonSampling`: Probabilistic approach using Beta distributions.
+- :class:`~panobbgo.strategies.rewarding.StrategyRewarding`: Probability-based selection with additive smoothing and performance decay (softmax bandit).
+- :class:`~panobbgo.strategies.ucb.StrategyUCB`: Upper Confidence Bound (UCB1) algorithm for principled exploration-exploitation trade-off.
+- :class:`~panobbgo.strategies.thompson.StrategyThompsonSampling`: Probabilistic approach using Beta-Bernoulli Thompson Sampling.
+- :class:`~panobbgo.strategies.contextual.StrategyLinUCB`: Contextual bandit (disjoint linear UCB) that uses budget progress and success-rate features to adapt heuristic selection over time.
+- :class:`~panobbgo.strategies.phased.StrategyPhased`: Meta-strategy that splits the evaluation budget into phases, each with its own sub-strategy and heuristic portfolio (e.g., LHS exploration → GP-guided exploitation).
 
 Result Analysis
 ~~~~~~~~~~~~~~~
 
-Four analyzers process results and maintain derived information:
+Analyzers process results and maintain derived information:
 
 .. list-table::
    :header-rows: 1
@@ -123,6 +132,15 @@ Four analyzers process results and maintain derived information:
    * - :class:`~panobbgo.analyzers.dedensifyer.Dedensifyer`
      - Hierarchical grid
      - Min/max representatives per region
+   * - :class:`~panobbgo.analyzers.convergence.Convergence`
+     - Recent objective statistics (std / improvement)
+     - ``converged``
+   * - :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
+     - Rank-correlation-based per-dimension importance scores
+     - ``new_sensitivity``
+   * - :class:`~panobbgo.analyzers.restart.Restart`
+     - Stagnation detection and diverse restart centers
+     - ``restart`` (enables IPOP-CMA-ES when paired with CMAES)
 
 Benchmark Problems
 ~~~~~~~~~~~~~~~~~~

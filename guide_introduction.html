@@ -240,19 +240,27 @@ data-aria-dark="Switch to auto color mode">
 </tr>
 <tr class="row-even"><td><p>Local Search</p></td>
 <td><p>Nearby, Weighted Average</p></td>
-<td><p>Refine around best</p></td>
+<td><p>Refine around best (Nearby is sensitivity-aware when paired with the Sensitivity analyzer)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Model-Based</p></td>
 <td><p>Quadratic WLS, Gaussian Process</p></td>
-<td><p>Fit surrogate, optimize (using EIC)</p></td>
+<td><p>Fit surrogate, optimize acquisition function (EI / UCB / PI, with EIC under constraints)</p></td>
 </tr>
 <tr class="row-even"><td><p>Classical Optimizers</p></td>
 <td><p>Nelder-Mead, L-BFGS-B</p></td>
 <td><p>Local optimization</p></td>
 </tr>
+<tr class="row-odd"><td><p>Population-Based</p></td>
+<td><p>CMA-ES (with optional IPOP restarts), Differential Evolution</p></td>
+<td><p>Global evolutionary search; CMA-ES excels on ill-conditioned/ridge-following problems, DE on multimodal ones</p></td>
+</tr>
+<tr class="row-even"><td><p>Cluster-Based</p></td>
+<td><p>ClaudeHeuristic</p></td>
+<td><p>Mixture-of-Gaussians over elite points, related to Cross-Entropy / EDA methods</p></td>
+</tr>
 <tr class="row-odd"><td><p>Constraint Handling</p></td>
-<td><p>Feasible Search, Constraint Gradient</p></td>
-<td><p>Target feasible regions</p></td>
+<td><p>Feasible Search, Constraint Gradient, Local Penalty Search, Constraint Repair</p></td>
+<td><p>Target feasible regions, minimise penalised objective, repair infeasible points</p></td>
 </tr>
 </tbody>
 </table>
@@ -260,16 +268,19 @@ data-aria-dark="Switch to auto color mode">
 </section>
 <section id="adaptive-selection">
 <h3>Adaptive Selection<a class="headerlink" href="#adaptive-selection" title="Link to this heading">¶</a></h3>
-<p>Panobbgo provides several adaptive strategies based on <strong>multi-armed bandit</strong> algorithms:</p>
+<p>Panobbgo provides several adaptive strategies based on <strong>multi-armed bandit</strong> algorithms, plus a
+budget-phased meta-strategy:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>: Probability-based selection with additive smoothing and performance decay.</p></li>
-<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a>: Upper Confidence Bound algorithm for optimal exploration-exploitation trade-off.</p></li>
-<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a>: Probabilistic approach using Beta distributions.</p></li>
+<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>: Probability-based selection with additive smoothing and performance decay (softmax bandit).</p></li>
+<li><p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a>: Upper Confidence Bound (UCB1) algorithm for principled exploration-exploitation trade-off.</p></li>
+<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a>: Probabilistic approach using Beta-Bernoulli Thompson Sampling.</p></li>
+<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyLinUCB" title="panobbgo.strategies.contextual.StrategyLinUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a>: Contextual bandit (disjoint linear UCB) that uses budget progress and success-rate features to adapt heuristic selection over time.</p></li>
+<li><p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyPhased" title="panobbgo.strategies.phased.StrategyPhased"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyPhased</span></code></a>: Meta-strategy that splits the evaluation budget into phases, each with its own sub-strategy and heuristic portfolio (e.g., LHS exploration → GP-guided exploitation).</p></li>
 </ul>
 </section>
 <section id="result-analysis">
 <h3>Result Analysis<a class="headerlink" href="#result-analysis" title="Link to this heading">¶</a></h3>
-<p>Four analyzers process results and maintain derived information:</p>
+<p>Analyzers process results and maintain derived information:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -299,6 +310,18 @@ data-aria-dark="Switch to auto color mode">
 <tr class="row-odd"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a></p></td>
 <td><p>Hierarchical grid</p></td>
 <td><p>Min/max representatives per region</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence" title="panobbgo.analyzers.convergence.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a></p></td>
+<td><p>Recent objective statistics (std / improvement)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">converged</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a></p></td>
+<td><p>Rank-correlation-based per-dimension importance scores</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a></p></td>
+<td><p>Stagnation detection and diverse restart centers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">restart</span></code> (enables IPOP-CMA-ES when paired with CMAES)</p></td>
 </tr>
 </tbody>
 </table>

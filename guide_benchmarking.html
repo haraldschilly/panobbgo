@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="./">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Benchmarking and the Composite Score - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Research Context and Future Directions" href="guide_research.html" /><link rel="prev" title="Extending Panobbgo" href="guide_extending.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="Benchmarking and the Composite Score"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#why-a-single-number">Why a single number?</a></li>
+<li><a class="reference internal" href="#definition">Definition</a></li>
+<li><a class="reference internal" href="#interpretation">Interpretation</a><ul>
+<li><a class="reference internal" href="#also-reported">Also reported</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#running-benchmarks">Running benchmarks</a><ul>
+<li><a class="reference internal" href="#reproducibility">Reproducibility</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-compare-workflow">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></li>
+<li><a class="reference internal" href="#when-to-run-which-mode">When to run which mode</a></li>
+<li><a class="reference internal" href="#pitfalls-and-statistical-caveats">Pitfalls and statistical caveats</a></li>
+<li><a class="reference internal" href="#parametrically-randomised-problems-planned">Parametrically randomised problems (planned)</a></li>
+<li><a class="reference internal" href="#absolute-baselines-planned">Absolute baselines (planned)</a></li>
+<li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a></li>
+<li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
+<li><a class="reference internal" href="#adding-a-problem">Adding a problem</a></li>
+<li><a class="reference internal" href="#adding-a-strategy">Adding a strategy</a></li>
+<li><a class="reference internal" href="#adding-a-metric">Adding a metric</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#see-also">See also</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="guide.html"><span itemprop="name">Panobbgo User Guide</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Benchmarking and the Composite Score</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="benchmarking-and-the-composite-score">
+<h1>Benchmarking and the Composite Score<a class="headerlink" href="#benchmarking-and-the-composite-score" title="Link to this heading">¶</a></h1>
+<p>This chapter explains <em>how we measure the quality of Panobbgo</em> — what number
+we track, what it means, how to compute it, and how it feeds the planned
+self-improvement loop.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#why-a-single-number" id="id1">Why a single number?</a></p></li>
+<li><p><a class="reference internal" href="#definition" id="id2">Definition</a></p></li>
+<li><p><a class="reference internal" href="#interpretation" id="id3">Interpretation</a></p>
+<ul>
+<li><p><a class="reference internal" href="#also-reported" id="id4">Also reported</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#running-benchmarks" id="id5">Running benchmarks</a></p>
+<ul>
+<li><p><a class="reference internal" href="#reproducibility" id="id6">Reproducibility</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#the-compare-workflow" id="id7">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></p></li>
+<li><p><a class="reference internal" href="#when-to-run-which-mode" id="id8">When to run which mode</a></p></li>
+<li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id9">Pitfalls and statistical caveats</a></p></li>
+<li><p><a class="reference internal" href="#parametrically-randomised-problems-planned" id="id10">Parametrically randomised problems (planned)</a></p></li>
+<li><p><a class="reference internal" href="#absolute-baselines-planned" id="id11">Absolute baselines (planned)</a></p></li>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id12">Self-improvement loop</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id13">Extending the harness</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id14">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id15">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id16">Adding a metric</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id17">See also</a></p></li>
+</ul>
+</nav>
+<section id="why-a-single-number">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Why a single number?</a><a class="headerlink" href="#why-a-single-number" title="Link to this heading">¶</a></h2>
+<p>Black-box optimization has no shortage of metrics: success rate, ERT
+(Expected Running Time), best distance to optimum, area under the convergence
+curve, wall-clock time. Each captures a facet, none captures the whole.</p>
+<p>For iterative, agent-driven self-improvement we need <strong>one scalar</strong> that:</p>
+<ol class="arabic simple">
+<li><p>Lives in a bounded, comparable range (<code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>).</p></li>
+<li><p>Is monotonic in “doing better” — no artificial ceilings.</p></li>
+<li><p>Penalises both <em>failing to solve</em> and <em>solving slowly</em>.</p></li>
+<li><p>Is cheap enough to compute that it can gate every code change.</p></li>
+</ol>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">BenchmarkHarness</span></code> exposes exactly this number as
+<code class="docutils literal notranslate"><span class="pre">HarnessResult.composite_score</span></code>.</p>
+</section>
+<section id="definition">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Definition</a><a class="headerlink" href="#definition" title="Link to this heading">¶</a></h2>
+<p>For each optimization run we track a <em>convergence trace</em> — the sequence of
+evaluation indices at which the best-so-far value improved. From the trace we
+extract the <strong>first-hit evaluation</strong> <span class="math notranslate nohighlight">\(k^\star\)</span>, defined as the first
+index whose <code class="docutils literal notranslate"><span class="pre">func_distance</span> <span class="pre">=</span> <span class="pre">|f_best</span> <span class="pre">−</span> <span class="pre">f_opt|</span></code> is within the tolerance.</p>
+<p>Per-run “solve fraction”:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split}s = \begin{cases}
+  1 - \dfrac{k^\star - 1}{B} &amp; \text{if the run solved (} k^\star \le B \text{)} \\
+  0                          &amp; \text{otherwise}
+\end{cases}\end{split}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is the evaluation budget.  This is in <span class="math notranslate nohighlight">\((0, 1]\)</span> for
+successful runs: <code class="docutils literal notranslate"><span class="pre">1</span></code> means “solved on the first evaluation”,
+<span class="math notranslate nohighlight">\(1/B\)</span> means “solved on the very last evaluation”. Failure always scores
+<code class="docutils literal notranslate"><span class="pre">0</span></code>, so even a last-evaluation success is strictly better than no success.</p>
+<p>Per <strong>(problem, strategy)</strong> pair we average <span class="math notranslate nohighlight">\(s\)</span> across repetitions.
+The final <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> is the unweighted mean over all pairs.</p>
+<p>See <code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.harness.ProblemStrategyResult.compute_metrics()</span></code> for the
+exact implementation.</p>
+</section>
+<section id="interpretation">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Interpretation</a><a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 85.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Score</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
+<td><p>Theoretical ceiling — every run solves at evaluation 1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0.7+</span></code></p></td>
+<td><p>Strong. Strategies consistently locate the optimum with budget left over.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0.4</span> <span class="pre">–</span> <span class="pre">0.7</span></code></p></td>
+<td><p>Mixed. Typical of hard multimodal problems or under-powered strategies.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">–</span> <span class="pre">0.3</span></code></p></td>
+<td><p>Weak. Usually succeeds only near the budget limit, or rarely succeeds.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>Never found any optimum within tolerance on any problem.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="also-reported">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">Also reported</a><a class="headerlink" href="#also-reported" title="Link to this heading">¶</a></h3>
+<p>Alongside <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> each pair exposes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code> — fraction of reps hitting tolerance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ert</span></code> — Expected Running Time in evaluations, the BBOB/COCO standard.
+<code class="docutils literal notranslate"><span class="pre">inf</span></code> when no rep succeeded.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">best_func_distance</span></code> / <code class="docutils literal notranslate"><span class="pre">median_func_distance</span></code> — absolute gap to optimum.</p></li>
+</ul>
+<p>Together these let you diagnose <em>why</em> the composite score moved, not just that
+it moved.</p>
+</section>
+</section>
+<section id="running-benchmarks">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Running benchmarks</a><a class="headerlink" href="#running-benchmarks" title="Link to this heading">¶</a></h2>
+<p>The CLI lives at the repository root.  Always prefix with <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> so the
+correct environment is used.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Quick — ~30 seconds, 3 problems × 2 strategies × 3 reps, 75 evals each.</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--quick<span class="w"> </span>--output<span class="w"> </span>before.json
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Make changes to panobbgo ...</span>
+</span><span data-line="5">
+</span><span data-line="6">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--quick<span class="w"> </span>--output<span class="w"> </span>after.json
+</span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>compare<span class="w"> </span>before.json<span class="w"> </span>after.json
+</span></pre></div>
+</div>
+<p>Three preset modes trade cost against statistical power:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 25.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Problems</p></th>
+<th class="head"><p>Strategies</p></th>
+<th class="head"><p>Reps</p></th>
+<th class="head"><p>Budget</p></th>
+<th class="head"><p>Typical wall-clock</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">quick</span></code></p></td>
+<td><p>3</p></td>
+<td><p>2</p></td>
+<td><p>3</p></td>
+<td><p>75</p></td>
+<td><p>~30 s</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">standard</span></code></p></td>
+<td><p>8</p></td>
+<td><p>~6</p></td>
+<td><p>5</p></td>
+<td><p>200</p></td>
+<td><p>few minutes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">full</span></code></p></td>
+<td><p>11</p></td>
+<td><p>~10</p></td>
+<td><p>10</p></td>
+<td><p>500</p></td>
+<td><p>~1 hour</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="reproducibility">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">¶</a></h3>
+<p>Seeds are deterministic: each <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy,</span> <span class="pre">rep)</span></code> triple derives its
+seed via SHA-256 from a base seed (default <code class="docutils literal notranslate"><span class="pre">42</span></code>). Re-running with the same
+base seed produces byte-identical convergence traces. See
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.harness.BenchmarkHarness._derive_seed()</span></code>.</p>
+</section>
+</section>
+<section id="the-compare-workflow">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a><a class="headerlink" href="#the-compare-workflow" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">compare</span> <span class="pre">before.json</span> <span class="pre">after.json</span></code> reports:</p>
+<ul class="simple">
+<li><p>Composite-score delta and relative percent change.</p></li>
+<li><p>Per-pair improved / degraded / unchanged classification, gated by <code class="docutils literal notranslate"><span class="pre">--eps</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">0.01</span></code>).</p></li>
+<li><p>Pairs that exist in only one file (e.g. you added a new strategy).</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">--fail-on-regression</span></code>, the process exits <code class="docutils literal notranslate"><span class="pre">2</span></code> when the candidate
+scores worse.  Useful for CI gating and automated accept/revert loops.</p></li>
+</ul>
+</section>
+<section id="when-to-run-which-mode">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>During development</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> after each meaningful change.  Fast
+enough to keep you honest without hurting flow.</p></li>
+<li><p><strong>Before opening a PR</strong> — <code class="docutils literal notranslate"><span class="pre">--standard</span></code>.  Saves the result JSON as a build
+artefact so reviewers can compare.</p></li>
+<li><p><strong>Before merging a significant algorithmic change</strong> — <code class="docutils literal notranslate"><span class="pre">--full</span></code>, on a
+machine you are not actively using.</p></li>
+</ul>
+</section>
+<section id="pitfalls-and-statistical-caveats">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
+<p>The composite score is <strong>noisy</strong>. Three symptoms to watch for:</p>
+<ol class="arabic simple">
+<li><p><strong>Few reps</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> uses only 3 reps per pair. A delta of <code class="docutils literal notranslate"><span class="pre">±0.02</span></code>
+is firmly within noise. Treat quick-mode comparisons as trend signals, not
+proof.</p></li>
+<li><p><strong>Lucky seeds</strong> — if a regression vanishes when you change the base seed
+(<code class="docutils literal notranslate"><span class="pre">--seed</span></code>), the effect was seed-specific, not a real improvement.</p></li>
+<li><p><strong>Problem-specific over-fitting</strong> — improving on a fixed problem set does
+not imply generalisation. This is the <em>central motivation</em> for the
+parametrically randomised battery described below.</p></li>
+</ol>
+<p>Recommended practice: run the same comparison at two different base seeds
+before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>
+</section>
+<section id="parametrically-randomised-problems-planned">
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Parametrically randomised problems (planned)</a><a class="headerlink" href="#parametrically-randomised-problems-planned" title="Link to this heading">¶</a></h2>
+<p>The current registry (<code class="docutils literal notranslate"><span class="pre">_make_quick_problems</span></code> etc. in
+<code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) uses <em>fixed</em> problem instances. This is great for
+A/B reproducibility but vulnerable to over-fitting: an agent that tunes a
+heuristic to the specific Rosenbrock valley at <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">1)</span></code> may regress on the
+next problem it encounters.</p>
+<p>The roadmap adds a <strong>parametric problem layer</strong> that samples fresh instances
+from a family each harness run:</p>
+<ul class="simple">
+<li><p><strong>Translation</strong> — shift the optimum <code class="docutils literal notranslate"><span class="pre">x*</span></code> to a random point in the box.</p></li>
+<li><p><strong>Rotation</strong> — for functions separable in the canonical frame (Rastrigin,
+Ackley), apply a random orthogonal transform so that axis-aligned local
+search is no longer privileged.</p></li>
+<li><p><strong>Scaling</strong> — sample ill-conditioning factors (e.g. log-uniform in
+<code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">1e4]</span></code>) to stress second-order-aware heuristics.</p></li>
+<li><p><strong>Noise injection</strong> — additive Gaussian noise on evaluations, mirroring the
+real noisy-black-box use case.</p></li>
+<li><p><strong>Dimensionality sampling</strong> — draw <code class="docutils literal notranslate"><span class="pre">d</span></code> uniformly from a stated set.</p></li>
+</ul>
+<p>Each harness run will log the per-instance parameters so that individual
+failures remain reproducible; the <em>aggregate</em> score, computed across many
+sampled instances, becomes a meaningful generalisation signal.</p>
+<p>Design details: see <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
+</section>
+<section id="absolute-baselines-planned">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Absolute baselines (planned)</a><a class="headerlink" href="#absolute-baselines-planned" title="Link to this heading">¶</a></h2>
+<p>The harness currently reports <em>Panobbgo strategies vs. Panobbgo strategies</em>.
+To judge Panobbgo in absolute terms we need external reference solvers in the
+same harness:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scipy.optimize.differential_evolution</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scipy.optimize.dual_annealing</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pycma</span></code> (pure CMA-ES)</p></li>
+<li><p>uniform random search (floor)</p></li>
+</ul>
+<p>These establish:</p>
+<ul class="simple">
+<li><p>A <strong>floor</strong> (random search) — anything better is actually optimising.</p></li>
+<li><p>A <strong>ceiling</strong> (tuned DE / CMA-ES) — how far is Panobbgo from well-engineered
+solvers on the same budget?</p></li>
+</ul>
+<p>See the plan document for the integration interface.</p>
+</section>
+<section id="self-improvement-loop">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
+<p>The benchmark harness is the <em>measurement substrate</em> for an autonomous
+improvement loop:</p>
+<ol class="arabic simple">
+<li><p>Capture baseline composite score.</p></li>
+<li><p>Propose a change (heuristic tweak, new analyzer, parameter retune).</p></li>
+<li><p>Apply in an isolated branch; run the benchmark.</p></li>
+<li><p>Accept if <code class="docutils literal notranslate"><span class="pre">delta</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> with statistical confidence; revert otherwise.</p></li>
+<li><p>Commit and repeat.</p></li>
+</ol>
+<p>Design and phased roadmap: <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> in the
+repository.</p>
+</section>
+<section id="extending-the-harness">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<section id="adding-a-problem">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
+<code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
+<li><p>Provide <code class="docutils literal notranslate"><span class="pre">known_optima</span></code> and a <code class="docutils literal notranslate"><span class="pre">tolerance</span></code> that is achievable for the
+mode’s budget but not trivially so.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">--quick</span></code> to confirm the new problem is well-formed.</p></li>
+</ol>
+</section>
+<section id="adding-a-strategy">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
+<code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
+<li><p>The strategy must be deterministic given a seed (no external randomness
+outside the seeded <code class="docutils literal notranslate"><span class="pre">numpy</span></code> generator).</p></li>
+<li><p>Validate with <code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span> <span class="pre">list</span> <span class="pre">--standard</span></code>.</p></li>
+</ol>
+</section>
+<section id="adding-a-metric">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<p>Per-pair aggregates live on
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
+<code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
+<code class="docutils literal notranslate"><span class="pre">cmd_score</span></code>’s JSON path. Do <strong>not</strong> change the composite score formula
+without an ADR — historical comparisons depend on its stability.</p>
+</section>
+</section>
+<section id="see-also">
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code> — CLI.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — test suite (60+ tests).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> — roadmap for the autonomous
+improvement loop.</p></li>
+</ul>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="guide_extending.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Extending Panobbgo</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="guide_research.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Research Context and Future Directions</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
+</html>

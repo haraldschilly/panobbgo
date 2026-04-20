@@ -63,7 +63,14 @@ Panobbgo solves **expensive, noisy black-box optimization** problems. Key domain
 
 ## Benchmark Harness (Self-Improvement Workflow)
 
-A reproducible benchmark harness is available for measuring the impact of code changes on optimization performance. **Agents MUST use this when modifying strategies, heuristics, or core optimization logic.**
+A reproducible benchmark harness is the **single source of truth** for
+"is Panobbgo better or worse than it was before this change?".  It produces
+one scalar, ``composite_score`` ∈ [0, 1], designed to gate every change an
+agent makes. **Agents MUST use this when modifying strategies, heuristics,
+or core optimization logic.**
+
+Full guide: `doc/source/guide_benchmarking.rst`. Self-improvement plan:
+`planning/SELF_IMPROVEMENT_LOOP.md`.
 
 ### Workflow
 
@@ -77,27 +84,32 @@ uv run python benchmark_harness.py run --quick --output before.json
 uv run python benchmark_harness.py run --quick --output after.json
 
 # 4. Compare — exits with code 2 if regressions detected
-uv run python benchmark_harness.py compare before.json after.json
+uv run python benchmark_harness.py compare before.json after.json --fail-on-regression
 ```
 
 ### Modes
 
-*   `--quick`: 3 problems, 2 strategies, 3 reps, 75 evals (~30s) — use during development
-*   `--standard`: 8 problems, 3 strategies, 5 reps, 200 evals — use before merging
-*   `--full`: 11 problems, 4 strategies, 10 reps, 500 evals — thorough validation
+*   `--quick`: 3 problems × 2 strategies × 3 reps × 75 evals (~30s) — use during development
+*   `--standard`: 8 problems × ~6 strategies × 5 reps × 200 evals (~few min) — use before merging
+*   `--full`: 11 problems × ~10 strategies × 10 reps × 500 evals (~1h) — thorough validation
 
 ### Key files
 
 *   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, comparison
 *   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands)
 *   `tests/test_harness.py` — comprehensive test suite for the harness itself
+*   `doc/source/guide_benchmarking.rst` — user-facing guide
+*   `planning/SELF_IMPROVEMENT_LOOP.md` — design for autonomous improvement loop
 
 ### Score interpretation
 
-*   **1.0** = solved at first evaluation (theoretical best)
-*   **0.7+** = good; strategies consistently find optima efficiently
-*   **0.3** = poor; strategies rarely find optima
-*   **0.0** = never found any optimum
+*   **1.0** = every run solves at evaluation 1 (theoretical ceiling)
+*   **0.7+** = strong; strategies consistently find optima with budget left over
+*   **0.3** = weak; rare successes, usually late in the budget
+*   **0.0** = never found any optimum within tolerance
+
+Per-pair metrics also reported: ``success_rate``, ``ert`` (BBOB standard),
+``best_func_distance``, ``median_func_distance``.
 
 ### When to use
 
@@ -105,6 +117,33 @@ uv run python benchmark_harness.py compare before.json after.json
 *   Modifying any heuristic (`heuristics/`)
 *   Changing core evaluation or constraint handling logic
 *   Adding new benchmark problems or strategies to the registry
+
+### Statistical rigor
+
+The composite score is **noisy** at `--quick` mode (3 reps). A delta of
+±0.02 is within noise.
+
+*   Treat quick-mode deltas as *trend signals*, not proof.
+*   For deltas in the `+0.01` to `+0.03` range, re-run at a second seed
+    (`--seed 43`) before accepting the change.
+*   Before merging a significant algorithmic change, run `--standard` or
+    `--full` on a machine you are not actively using.
+*   The composite-score formula itself is a **stable contract**:  do not
+    change it without an architectural decision record — historical
+    comparisons depend on it.
+
+### Agent self-improvement loop (in progress)
+
+The harness is the measurement substrate for an autonomous
+"measure → propose → apply → measure → accept/revert" loop. See
+`planning/SELF_IMPROVEMENT_LOOP.md` for:
+
+*   The parametrically-randomised problem battery (rotations, shifts,
+    conditioning, noise) that prevents over-fitting to fixed instances.
+*   External absolute baselines (scipy DE, CMA-ES, random search) so the
+    number judges Panobbgo in absolute, not just relative, terms.
+*   Statistical acceptance rules (bootstrap CI on score delta).
+*   Phased rollout from MVP to production loop.
 
 ## CI/CD and Testing
 

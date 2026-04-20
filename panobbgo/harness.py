@@ -20,37 +20,73 @@ Benchmark Harness
 
 Reproducible benchmark harness for automated agent feedback loops.
 
-This module provides a self-contained, reproducible benchmark system designed
-for iterative improvement cycles where a coding agent runs benchmarks, makes
-changes, and needs concrete quantitative feedback on whether improvements occurred.
+This module is the *measurement substrate* of Panobbgo: it produces one
+scalar, :attr:`HarnessResult.composite_score` ∈ ``[0, 1]``, that captures
+how well the framework is doing on a fixed battery of problems under a
+fixed set of strategies. Every code change that touches optimisation logic
+is expected to be gated against this number.
 
-Key features:
+For the full user-facing guide (interpretation, workflow, pitfalls,
+roadmap) see ``doc/source/guide_benchmarking.rst``. For the planned
+autonomous self-improvement loop that builds on top of this harness, see
+``planning/SELF_IMPROVEMENT_LOOP.md``.
 
-- **Single composite score** in [0, 1] for easy before/after comparison
-- **Reproducible** via seeded random states per run
-- **Convergence tracking** per run for diagnosing optimization behaviour
-- **ERT (Expected Running Time)** computation – the standard BBOBench metric
-- **JSON serialization** for agent-readable structured output
-- **Three modes**: ``quick`` (fast iteration), ``standard``, ``full``
-- **Comparison tool** to diff two result files
+Key features
+------------
 
-Typical agent workflow::
+- **Single composite score** in ``[0, 1]`` for easy before/after comparison.
+- **Reproducible** via SHA-256-derived seeds per ``(problem, strategy, rep)``.
+- **Convergence tracking** per run — all improvement events are recorded,
+  so the first-hit evaluation is always recoverable.
+- **ERT (Expected Running Time)** — the BBOB / COCO standard metric.
+- **JSON serialisation** so results can be diffed by a coding agent or CI.
+- **Three modes**: ``quick`` (fast iteration), ``standard``, ``full``.
+- **Comparison tool** with per-pair classification of improvements and
+  regressions.
 
-    # Run benchmarks, save results
+Composite score — formula
+-------------------------
+
+For each run with budget ``B`` we extract the first-hit evaluation
+``k* = first index where |f_best - f_opt| ≤ tolerance``.  The per-run
+"solve fraction" is::
+
+    s = 1 - (k* - 1) / B    if the run solved (k* ≤ B)
+        0                   otherwise
+
+- ``1`` means "solved on evaluation 1" (theoretical ceiling).
+- ``1/B`` means "solved on the very last evaluation".
+- Failure scores ``0`` — strictly worse than any successful run, even a
+  last-evaluation one.
+
+Per ``(problem, strategy)`` pair we average ``s`` across repetitions.
+The final composite score is the unweighted mean over all pairs.
+
+Score interpretation
+--------------------
+
+- ``1.0`` — theoretical best; every run solves at evaluation 1.
+- ``0.7+`` — strong; consistently finds optima with budget left over.
+- ``0.3`` — weak; rare successes, usually late in the budget.
+- ``0.0`` — never found any optimum within tolerance.
+
+**Stability contract**: the composite score formula is a stable contract.
+Historical before/after comparisons depend on it.  Do not change it without
+an architectural decision record.
+
+Typical agent workflow
+----------------------
+
+::
+
     uv run python benchmark_harness.py run --quick --output before.json
-
-    # ... make changes to panobbgo ...
-
-    # Run again and compare
+    # ... make changes ...
     uv run python benchmark_harness.py run --quick --output after.json
     uv run python benchmark_harness.py compare before.json after.json
 
-Score interpretation:
-
-- ``1.0`` – every run found the global optimum on the first evaluation (theoretical)
-- ``0.7`` – good; strategies consistently find optima efficiently
-- ``0.3`` – poor; strategies rarely find optima or only after many evaluations
-- ``0.0`` – never found any optimum
+The exit code of ``compare --fail-on-regression`` is ``2`` if the
+candidate scores worse, which makes this usable as a CI gate or an
+automated revert trigger inside a self-improvement loop.
 """
 
 from __future__ import annotations

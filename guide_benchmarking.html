@@ -113,7 +113,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#when-to-run-which-mode">When to run which mode</a></li>
 <li><a class="reference internal" href="#pitfalls-and-statistical-caveats">Pitfalls and statistical caveats</a></li>
 <li><a class="reference internal" href="#parametrically-randomised-problems-planned">Parametrically randomised problems (planned)</a></li>
-<li><a class="reference internal" href="#absolute-baselines-planned">Absolute baselines (planned)</a></li>
+<li><a class="reference internal" href="#absolute-baselines">Absolute baselines</a><ul>
+<li><a class="reference internal" href="#design">Design</a></li>
+<li><a class="reference internal" href="#cma-es-as-a-baseline">CMA-ES as a baseline</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a></li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
 <li><a class="reference internal" href="#adding-a-problem">Adding a problem</a></li>
@@ -179,16 +183,21 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#when-to-run-which-mode" id="id8">When to run which mode</a></p></li>
 <li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id9">Pitfalls and statistical caveats</a></p></li>
 <li><p><a class="reference internal" href="#parametrically-randomised-problems-planned" id="id10">Parametrically randomised problems (planned)</a></p></li>
-<li><p><a class="reference internal" href="#absolute-baselines-planned" id="id11">Absolute baselines (planned)</a></p></li>
-<li><p><a class="reference internal" href="#self-improvement-loop" id="id12">Self-improvement loop</a></p></li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id13">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#absolute-baselines" id="id11">Absolute baselines</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id14">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id15">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id16">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#design" id="id12">Design</a></p></li>
+<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id13">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id17">See also</a></p></li>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id14">Self-improvement loop</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id15">Extending the harness</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id16">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id17">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id18">Adding a metric</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id19">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -404,27 +413,56 @@ failures remain reproducible; the <em>aggregate</em> score, computed across many
 sampled instances, becomes a meaningful generalisation signal.</p>
 <p>Design details: see <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
 </section>
-<section id="absolute-baselines-planned">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Absolute baselines (planned)</a><a class="headerlink" href="#absolute-baselines-planned" title="Link to this heading">¶</a></h2>
-<p>The harness currently reports <em>Panobbgo strategies vs. Panobbgo strategies</em>.
-To judge Panobbgo in absolute terms we need external reference solvers in the
-same harness:</p>
+<section id="absolute-baselines">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
+<p>The harness runs <em>Panobbgo strategies vs. Panobbgo strategies</em> by default.
+To judge Panobbgo in <strong>absolute</strong> terms, the
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> module plugs three external reference
+solvers into the same <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> interface:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">scipy.optimize.differential_evolution</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scipy.optimize.dual_annealing</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pycma</span></code> (pure CMA-ES)</p></li>
-<li><p>uniform random search (floor)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_Random</span></code> — uniform random search (the <strong>floor</strong>: any serious
+optimizer should beat it most of the time).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_SciPyDE</span></code> — <code class="docutils literal notranslate"><span class="pre">scipy.optimize.differential_evolution</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_SciPyAnneal</span></code> — <code class="docutils literal notranslate"><span class="pre">scipy.optimize.dual_annealing</span></code>.</p></li>
 </ul>
-<p>These establish:</p>
-<ul class="simple">
-<li><p>A <strong>floor</strong> (random search) — anything better is actually optimising.</p></li>
-<li><p>A <strong>ceiling</strong> (tuned DE / CMA-ES) — how far is Panobbgo from well-engineered
-solvers on the same budget?</p></li>
-</ul>
-<p>See the plan document for the integration interface.</p>
+<p>Enable them with the <code class="docutils literal notranslate"><span class="pre">--baselines</span></code> flag on <code class="docutils literal notranslate"><span class="pre">run</span></code> or <code class="docutils literal notranslate"><span class="pre">list</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>list<span class="w"> </span>--standard<span class="w"> </span>--baselines
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--standard<span class="w"> </span>--baselines<span class="w"> </span>--output<span class="w"> </span>standard_with_refs.json
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>score<span class="w"> </span>standard_with_refs.json
+</span></pre></div>
+</div>
+<p>They appear in the results table alongside Panobbgo strategies — the
+composite score still averages over every <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy)</span></code> pair,
+so a fair comparison should either <em>include baselines on both sides</em> of
+a <code class="docutils literal notranslate"><span class="pre">compare</span></code> call or <em>exclude them from both</em>.</p>
+<section id="design">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<p>Baselines are thin adapters that implement the subset of the strategy
+surface the harness actually uses (<code class="docutils literal notranslate"><span class="pre">.config.max_eval</span></code>, <code class="docutils literal notranslate"><span class="pre">.start()</span></code>,
+<code class="docutils literal notranslate"><span class="pre">.best</span></code>, <code class="docutils literal notranslate"><span class="pre">.results.results</span></code>).  They do <strong>not</strong> subclass
+<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> — spinning up the event bus and Dask
+machinery for a single-shot external solver would be pure overhead.</p>
+<p>The shared objective wrapper enforces a <strong>hard evaluation budget</strong>: it
+raises <code class="xref py py-class docutils literal notranslate"><span class="pre">_BudgetExhausted</span></code> once
+<code class="docutils literal notranslate"><span class="pre">max_eval</span></code> evaluations are recorded, giving baselines the same budget
+contract as Panobbgo strategies.  Convergence traces are extracted from
+the wrapper’s log, and the results DataFrame carries the same MultiIndex
+columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
+</section>
+<section id="cma-es-as-a-baseline">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
+<p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
+the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
+<code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
+internal comparison without the extra dependency on <code class="docutils literal notranslate"><span class="pre">pycma</span></code>.  A
+dedicated <code class="docutils literal notranslate"><span class="pre">pycma</span></code> adapter is easy to add if a round-trip against the
+upstream reference becomes valuable.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">panobbgo/harness_baselines.py</span></code> for the full interface and
+<code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> for the guarantees.</p>
+</section>
 </section>
 <section id="self-improvement-loop">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
 <p>The benchmark harness is the <em>measurement substrate</em> for an autonomous
 improvement loop:</p>
 <ol class="arabic simple">
@@ -438,9 +476,9 @@ improvement loop:</p>
 repository.</p>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id13" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -450,7 +488,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -460,7 +498,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -469,11 +507,14 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id17" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies
+(Random, SciPy DE, SciPy dual annealing).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code> — CLI.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — test suite (60+ tests).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — harness test suite (60+ tests).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> — baseline adapter tests.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> — roadmap for the autonomous
 improvement loop.</p></li>
 </ul>

@@ -41,7 +41,7 @@ Quick Navigation
    * - **Interested in research?**
      - Explore :doc:`guide_research` for related work, theoretical properties, and future directions
    * - **Want to measure progress?**
-     - Read :doc:`guide_benchmarking` for the composite score and the self-improvement loop
+     - Read :doc:`guide_benchmarking` for the composite score, external baselines, and the self-improvement loop
 
 Guide Contents
 --------------

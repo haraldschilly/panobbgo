@@ -394,13 +394,16 @@ def _make_full_strategies() -> List[StrategySpec]:
         ],
         analyzers=[(Sensitivity, {"update_interval": 20})],
     )
-    # BIPOP-style: IPOP-CMA-ES with aggressive restart budget for the larger 500-eval budget
+    # True BIPOP-CMA-ES (Hansen 2009): alternates between large-population (IPOP)
+    # and small-population (random small sigma) regimes.  The regime that has
+    # consumed fewer evaluations is selected after every restart, balancing
+    # exploitation and exploration.  This is the BBOB-2009 winning algorithm.
     bipop_cmaes = StrategySpec(
         name="BIPOP_CMAES",
         strategy_class=StrategyRewarding,
         heuristics=[
             (LatinHypercube, {"div": 4}),
-            (CMAES, {"sigma0": 0.3, "ipop_factor": 2.0}),
+            (CMAES, {"sigma0": 0.3, "restart_mode": "bipop"}),
             (NelderMead, {}),
         ],
         analyzers=[

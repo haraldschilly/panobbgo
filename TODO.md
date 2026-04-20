@@ -13,6 +13,41 @@
 
 ## Recent Improvements
 
+### BIPOP-CMA-ES Restart Mode (2026-04-20)
+- [x] **Added BIPOP-CMA-ES restart support to `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
+  - New `restart_mode` parameter: ``"ipop"`` (default, existing) or ``"bipop"`` (new)
+  - BIPOP alternates two restart regimes following Hansen (2009):
+    * **Large regime**: geometric population growth ``λ_l = 2^k · λ_default``
+      (where ``k`` is the number of large-regime selections so far), σ resets to default
+    * **Small regime**: random small population
+      ``λ_s = ⌊λ_default · (½ · λ_l/λ_default)^(U[0,1]²)⌋`` and random small step size
+      ``σ_s = σ_default · 10^(-2·U[0,1])``
+  - Regime selection: after each restart, the regime that has accumulated *fewer*
+    cumulative evaluations is selected next (ties → large)
+  - New properties: `bipop_regime`, `bipop_evals_large`, `bipop_evals_small`
+  - Refactored common restart bookkeeping into shared `_apply_restart()` helper
+  - Reference: N. Hansen (2009). "Benchmarking a BI-Population CMA-ES on the
+    BBOB-2009 Function Testbed." GECCO Workshop on BBOB.
+- [x] **Updated `BIPOP_CMAES` strategy in full benchmark harness** (`panobbgo/harness.py`)
+  - Now uses real BIPOP via `restart_mode="bipop"` (previously was just IPOP with more restarts)
+  - Pairs `CMAES(sigma0=0.3, restart_mode="bipop")` with diverse Restart analyzer (max 10 restarts)
+- [x] **18 new tests** (`tests/test_heuristic_cmaes.py::TestCMAESBIPOP` + integration test)
+  - Parameter validation: default mode is "ipop"; invalid modes raise ValueError
+  - Initial state: large regime, zero evals tracked
+  - Regime alternation: balances cumulative budget within one delta
+  - Large regime: geometric population growth `λ_l = 2^k · λ_default`
+  - Small regime: λ ≥ base, σ ≤ default
+  - Distribution state resets correctly (paths, covariance, eigendecomposition)
+  - Box-clamped emission post-restart, base_lam preserved
+  - IPOP path unchanged when `restart_mode="ipop"` (no BIPOP attribution)
+  - Integration test: BIPOP-CMA-ES on Rastrigin reaches < 20 within 80 evals
+- [x] **Documentation updated**
+  - `doc/source/guide_architecture.rst`: CMAES section now documents IPOP and BIPOP
+    schemes with mathematical formulas and selection rule
+  - `doc/source/guide_usage.rst`: New "Highly multimodal problems with BIPOP-CMA-ES"
+    section with worked example and IPOP-vs-BIPOP guidance; portfolio table updated
+  - `TODO.md`: this entry
+
 ### IPOP-CMA-ES Restart Support (2026-04-19)
 - [x] **Added IPOP restart to `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
   - `on_restart(center, reason)` handler: moves search mean to new center, doubles λ (IPOP)

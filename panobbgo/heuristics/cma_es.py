@@ -14,11 +14,11 @@
 # limitations under the License.
 
 """
-CMA-ES Heuristic (with IPOP restart)
-=====================================
+CMA-ES Heuristic (with IPOP / BIPOP restart)
+=============================================
 
 Covariance Matrix Adaptation Evolution Strategy (CMA-ES) with optional
-IPOP (Increasing Population) restart support.
+IPOP (Increasing Population) or BIPOP (Bi-Population) restart support.
 
 CMA-ES is the gold-standard algorithm for derivative-free optimization of
 continuous, possibly multimodal functions.  It maintains a multivariate
@@ -31,21 +31,35 @@ Key strengths:
 - Excellent at following narrow ridges / valleys (e.g. Rosenbrock)
 - Self-adaptive: no manual step-size tuning required
 
-**IPOP restart** (Hansen & Ostermeier, 2001): when the :class:`~panobbgo.analyzers.restart.Restart`
+**IPOP restart** (Auger & Hansen, 2005): when the :class:`~panobbgo.analyzers.restart.Restart`
 analyzer detects stagnation and fires a ``restart`` event, this heuristic:
 
 1. Resets the search distribution to the new ``center`` provided by the analyzer.
-2. Doubles the population size λ → 2λ (IPOP doubling schedule).
+2. Multiplies the population size λ → ``ipop_factor`` · λ (default doubling).
 3. Resets σ to its initial fraction of the search-space range.
 4. Flushes the pending/stale generation results.
 
-This combination lets CMA-ES escape local optima systematically, and is the
-approach used by competition-winning solvers on the BBOB/COCO benchmark suite.
+**BIPOP restart** (Hansen, 2009): alternates between two restart regimes,
+balancing the cumulative evaluation budget spent in each:
+
+* **Large regime** (IPOP-like): population doubles every time it is selected;
+  ``λ_l = 2^k · λ_default`` where ``k`` is the number of times the large
+  regime has been selected so far.  σ is reset to its default value.
+* **Small regime**: a small population
+  ``λ_s = ⌊λ_default · (½ · λ_l/λ_default)^(U[0,1]²)⌋`` is used together
+  with a tiny random step size ``σ_s = σ_default · 10^(-2·U[0,1])``.
+
+After each restart, the regime that has consumed the *fewer* total
+evaluations is selected next.  This is the strategy that won the BBOB-2009
+benchmark and remains the de-facto gold standard for multimodal black-box
+optimization.
 
 This implementation follows:
-  N. Hansen (2016). "The CMA Evolution Strategy: A Tutorial." arXiv:1604.00772.
-  A. Auger & N. Hansen (2005). "A restart CMA evolution strategy with increasing
-  population size." CEC 2005.
+  - N. Hansen (2016). "The CMA Evolution Strategy: A Tutorial." arXiv:1604.00772.
+  - A. Auger & N. Hansen (2005). "A restart CMA evolution strategy with increasing
+    population size." CEC 2005.
+  - N. Hansen (2009). "Benchmarking a BI-Population CMA-ES on the BBOB-2009
+    Function Testbed." GECCO Workshop on BBOB.
 
 The heuristic works asynchronously inside the panobbgo event loop:
 
@@ -53,7 +67,8 @@ The heuristic works asynchronously inside the panobbgo event loop:
 2. ``on_new_results()``  — collect returned results tagged with our generation ID.
    When at least μ results from the oldest open generation have arrived, perform
    one CMA-ES update step and emit the next generation.
-3. ``on_restart(center, reason)``  — reset distribution to *center* with doubled λ (IPOP).
+3. ``on_restart(center, reason)``  — reset distribution to *center* with the
+   restart regime selected by ``restart_mode`` (``"ipop"`` or ``"bipop"``).
 
 .. codeauthor:: Harald Schilly
 """
@@ -69,16 +84,24 @@ from panobbgo.lib import Point
 
 
 class CMAES(Heuristic):
-    """Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP restart.
+    """Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP / BIPOP restart.
 
     Maintains a multivariate Gaussian search distribution N(m, σ²C) and
     adapts it from the history of evaluated points.  Particularly effective
     for functions with elongated or ill-conditioned level sets (e.g. Rosenbrock).
 
     When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer,
-    the heuristic implements IPOP-CMA-ES: each restart doubles the population
-    size λ → 2λ and resets the search distribution to the new center, enabling
-    systematic escape from local optima on multimodal problems.
+    the heuristic implements either:
+
+    * **IPOP-CMA-ES** (``restart_mode="ipop"``, default): each restart multiplies
+      the population size by ``ipop_factor`` (default 2.0) and resets the search
+      distribution to the new center.  Good for moderately multimodal problems.
+    * **BIPOP-CMA-ES** (``restart_mode="bipop"``): alternates between a *large*
+      regime (geometric population growth from the base λ) and a *small* regime
+      (small λ with a random small σ).  The regime that has consumed *fewer*
+      cumulative evaluations is selected next, balancing exploitation and
+      exploration.  This is the BBOB-2009 winning strategy and the gold standard
+      for highly multimodal problems with limited budget.
 
     Args:
         strategy: The optimization strategy instance.
@@ -86,12 +109,16 @@ class CMAES(Heuristic):
             box half-range.  Defaults to 0.3 (30 % of the search space).
         popsize (int, optional): Override the *base* population size
             ``λ = 4 + floor(3·ln n)``.  Useful for low-budget runs.
-            On IPOP restarts the population is doubled relative to the *current*
-            λ, not this base value.
+            On IPOP restarts the population is multiplied relative to the
+            *current* λ; in BIPOP mode the large-regime population grows from
+            this base value.
         min_results_fraction (float): Fraction of λ that must arrive before
             a CMA-ES update is triggered.  Default 0.5 (= μ).
         ipop_factor (float): Population multiplication factor applied on each
-            restart.  Default 2.0 (standard IPOP doubling).
+            IPOP restart.  Default 2.0 (standard IPOP doubling).  Ignored in
+            BIPOP mode (which always doubles the large regime).
+        restart_mode (str): Restart scheme selector — ``"ipop"`` (default) or
+            ``"bipop"``.
     """
 
     def __init__(
@@ -101,6 +128,7 @@ class CMAES(Heuristic):
         popsize: Optional[int] = None,
         min_results_fraction: float = 0.5,
         ipop_factor: float = 2.0,
+        restart_mode: str = "ipop",
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -108,10 +136,29 @@ class CMAES(Heuristic):
         self._popsize_override = popsize
         self._min_results_fraction = min_results_fraction
         self._ipop_factor = float(ipop_factor)
+        if restart_mode not in ("ipop", "bipop"):
+            raise ValueError(
+                f"restart_mode must be 'ipop' or 'bipop', got {restart_mode!r}"
+            )
+        self._restart_mode = restart_mode
 
         # IPOP restart tracking
         self._restart_count: int = 0
-        self._base_lam: int = 0  # λ at first on_start() — doubles each restart
+        self._base_lam: int = 0  # λ at first on_start() — base for IPOP/BIPOP
+
+        # BIPOP regime tracking (Hansen 2009)
+        # _bipop_large_count: how many times the large regime has been selected
+        #   (drives population growth λ_l = 2^k · λ_default)
+        # _bipop_evals_large / _bipop_evals_small: cumulative evaluations spent
+        #   in each regime — the regime with fewer evals is picked next
+        # _bipop_current_regime: "large" or "small" (the regime *currently* running)
+        # _bipop_regime_eval_anchor: counteval value when the current regime began,
+        #   used to attribute evaluations on regime switch
+        self._bipop_large_count: int = 0
+        self._bipop_evals_large: int = 0
+        self._bipop_evals_small: int = 0
+        self._bipop_current_regime: str = "large"  # first run is always "large"
+        self._bipop_regime_eval_anchor: int = 0
 
         # CMA-ES algorithm state (set in on_start)
         self._m: Optional[np.ndarray] = None
@@ -229,7 +276,18 @@ class CMAES(Heuristic):
         if self._base_lam == 0:
             self._base_lam = lam
 
-        self.logger.info("CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f", n, lam, mu, sigma)
+        # BIPOP: first run counts as the large regime, anchor at 0 evals
+        self._bipop_current_regime = "large"
+        self._bipop_regime_eval_anchor = 0
+
+        self.logger.info(
+            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f mode=%s",
+            n,
+            lam,
+            mu,
+            sigma,
+            self._restart_mode,
+        )
         self._emit_generation()
 
     # ------------------------------------------------------------------
@@ -273,19 +331,21 @@ class CMAES(Heuristic):
                 break
 
     def on_restart(self, center: np.ndarray, reason: str = "") -> None:
-        """Reset CMA-ES to *center* with IPOP population doubling.
+        """Reset CMA-ES to *center* using the configured restart scheme.
 
         Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer
-        when stagnation is detected.  Implements the IPOP restart schedule:
+        when stagnation is detected.  Dispatches to the IPOP or BIPOP
+        sub-routine according to ``restart_mode``.  Both schemes:
 
         - Move the search mean to *center* (a fresh region of the search space).
-        - Double λ (and recompute μ and all adaptation parameters accordingly).
-        - Reset σ to its initial fraction of the search-space range.
+        - Recompute μ and all adaptation parameters for the new λ.
         - Reset evolution paths p_c, p_σ and covariance C to the identity.
         - Flush all stale pending and in-flight generation results.
 
-        The population doubling (IPOP) is the key mechanism from:
-          A. Auger & N. Hansen (2005). CEC 2005.
+        The IPOP scheme (Auger & Hansen, 2005) multiplies λ by ``ipop_factor``
+        and resets σ to its initial fraction.  The BIPOP scheme (Hansen, 2009)
+        alternates between a large regime (geometric λ growth from the base
+        population) and a small regime (small λ + random small σ).
 
         Args:
             center (np.ndarray): New starting mean for the search distribution.
@@ -295,13 +355,112 @@ class CMAES(Heuristic):
             # on_start() has not been called yet — ignore
             return
 
+        if self._restart_mode == "bipop":
+            self._restart_bipop(center, reason)
+        else:
+            self._restart_ipop(center, reason)
+
+    def _restart_ipop(self, center: np.ndarray, reason: str) -> None:
+        """IPOP restart: multiply λ by ``ipop_factor`` and reset σ."""
+        new_lam = int(self._lam * self._ipop_factor)
+        new_sigma = self._sigma0_default()
+        prev_lam = self._lam
+        self._apply_restart(center, new_lam, new_sigma)
+        self.logger.info(
+            "CMA-ES IPOP restart #%d: λ %d→%d  σ=%.4f  center=%s  (%s)",
+            self._restart_count,
+            prev_lam,
+            new_lam,
+            new_sigma,
+            np.array2string(self._m, precision=3, suppress_small=True)  # type: ignore[arg-type]
+            if self._m is not None
+            else "?",
+            reason or "stagnation",
+        )
+
+    def _restart_bipop(self, center: np.ndarray, reason: str) -> None:
+        """BIPOP restart: alternate between large and small regimes (Hansen 2009).
+
+        Attribution rule: evaluations consumed since the previous restart (or
+        start) are credited to the regime that was *running*.  The regime that
+        has accumulated the *fewer* total evaluations is selected next.  Ties
+        are broken by selecting the large regime so that the population grows
+        steadily over a long run (matches the BBOB-2009 reference code).
+        """
+        # 1) Attribute evaluations spent in the regime that is finishing.
+        delta = max(0, self._counteval - self._bipop_regime_eval_anchor)
+        if self._bipop_current_regime == "large":
+            self._bipop_evals_large += delta
+        else:
+            self._bipop_evals_small += delta
+
+        # 2) Pick next regime.  Ties → large (matches reference behaviour).
+        if self._bipop_evals_small < self._bipop_evals_large:
+            next_regime = "small"
+        else:
+            next_regime = "large"
+
+        sigma_default = self._sigma0_default()
+
+        if next_regime == "large":
+            # IPOP-style geometric growth: λ_l = 2^k · λ_default
+            self._bipop_large_count += 1
+            new_lam = int(self._base_lam * (2**self._bipop_large_count))
+            new_sigma = sigma_default
+        else:
+            # Small regime: small population with random small step size.
+            # λ_s = floor(λ_default · (½ · λ_l / λ_default)^(U[0,1]²))
+            # σ_s = σ_default · 10^(-2·U[0,1])
+            cur_large_lam = self._base_lam * (2 ** max(self._bipop_large_count, 1))
+            ratio = 0.5 * cur_large_lam / max(self._base_lam, 1)
+            u_pop = float(np.random.rand())
+            new_lam = int(np.floor(self._base_lam * (ratio ** (u_pop * u_pop))))
+            new_lam = max(new_lam, self._base_lam)  # at least base
+            u_sig = float(np.random.rand())
+            new_sigma = sigma_default * (10.0 ** (-2.0 * u_sig))
+            new_sigma = max(new_sigma, 1e-6)
+
+        prev_lam = self._lam
+        self._apply_restart(center, new_lam, new_sigma)
+        self._bipop_current_regime = next_regime
+        self._bipop_regime_eval_anchor = self._counteval  # reset to 0 below
+
+        self.logger.info(
+            "CMA-ES BIPOP restart #%d (%s): λ %d→%d  σ=%.4f  "
+            "large_evals=%d small_evals=%d  large_count=%d  (%s)",
+            self._restart_count,
+            next_regime,
+            prev_lam,
+            new_lam,
+            new_sigma,
+            self._bipop_evals_large,
+            self._bipop_evals_small,
+            self._bipop_large_count,
+            reason or "stagnation",
+        )
+
+    def _sigma0_default(self) -> float:
+        """Initial step size as a fraction of the mean box half-range."""
+        assert self._ranges is not None
+        sigma = self._sigma0_frac * float(np.mean(self._ranges) / 2.0)
+        return max(sigma, 1e-6)
+
+    def _apply_restart(
+        self, center: np.ndarray, new_lam: int, new_sigma: float
+    ) -> None:
+        """Reset distribution state for *new_lam* and *new_sigma* at *center*.
+
+        Common bookkeeping shared by both IPOP and BIPOP restart paths.
+        Increments :attr:`_restart_count`, recomputes μ and the CMA-ES
+        adaptation constants, resets paths/covariance/eigendecomposition,
+        flushes stale generation tracking, and emits the first generation.
+        """
         self._restart_count += 1
 
-        # IPOP: double the population relative to the *current* λ
-        new_lam = int(self._lam * self._ipop_factor)
-        new_mu = new_lam // 2
+        new_lam = max(new_lam, 4)  # CMA-ES requires λ ≥ 4
+        new_mu = max(new_lam // 2, 1)
 
-        # Recompute recombination weights for new μ
+        # Recombination weights (log-linear, positive)
         raw_w = np.log(new_mu + 0.5) - np.log(np.arange(1, new_mu + 1, dtype=float))
         new_w = raw_w / raw_w.sum()
         new_mu_eff = 1.0 / (new_w**2).sum()
@@ -322,14 +481,8 @@ class CMAES(Heuristic):
             2.0 * (new_mu_eff - 2.0 + 1.0 / new_mu_eff) / ((n + 2.0) ** 2 + new_mu_eff),
         )
 
-        # Reset step size to initial fraction (fresh start)
-        new_sigma = self._sigma0_frac * float(np.mean(self._ranges) / 2.0)
-        new_sigma = max(new_sigma, 1e-6)
-
-        # Clamp center to the box
         new_m = self.problem.project(center)
 
-        # Apply new state
         self._lam = new_lam
         self._mu = new_mu
         self._w = new_w
@@ -354,23 +507,31 @@ class CMAES(Heuristic):
         self._pending.clear()
         self._gen_results.clear()
 
-        self.logger.info(
-            "CMA-ES restart #%d: λ %d→%d  σ=%.4f  center=%s  (%s)",
-            self._restart_count,
-            self._lam // int(self._ipop_factor),
-            new_lam,
-            new_sigma,
-            np.array2string(new_m, precision=3, suppress_small=True),
-            reason or "stagnation",
-        )
-
         # Emit the first generation from the new distribution
         self._emit_generation()
 
     @property
     def restart_count(self) -> int:
-        """Number of IPOP restarts triggered so far."""
+        """Number of restarts triggered so far (IPOP or BIPOP)."""
         return self._restart_count
+
+    @property
+    def bipop_regime(self) -> str:
+        """Current BIPOP regime (``"large"`` or ``"small"``).
+
+        In IPOP mode this stays at ``"large"``.
+        """
+        return self._bipop_current_regime
+
+    @property
+    def bipop_evals_large(self) -> int:
+        """Cumulative evaluations spent in the BIPOP large regime."""
+        return self._bipop_evals_large
+
+    @property
+    def bipop_evals_small(self) -> int:
+        """Cumulative evaluations spent in the BIPOP small regime."""
+        return self._bipop_evals_small
 
     # ------------------------------------------------------------------
     # Core CMA-ES update

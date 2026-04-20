@@ -227,7 +227,7 @@ Implemented Heuristics
 **Population-based (global search):**
 
 - :class:`~panobbgo.heuristics.cma_es.CMAES`: Covariance Matrix Adaptation Evolution Strategy
-  **with IPOP restart support**.
+  **with IPOP and BIPOP restart support**.
   The gold standard for derivative-free optimization of continuous functions.  Maintains a
   multivariate Gaussian search distribution N(m, σ²C) and adapts both the step size σ and
   covariance matrix C online.  Invariant under order-preserving objective transformations and
@@ -235,12 +235,25 @@ Implemented Heuristics
   such as Rosenbrock.  Implemented in pure NumPy with asynchronous generation tracking that
   is compatible with panobbgo's threaded evaluation model.
 
-  When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer, implements
-  **IPOP-CMA-ES** (Increasing Population CMA-ES; Auger & Hansen, CEC 2005): each restart
-  doubles the population size λ → 2λ, resets the covariance to identity, and moves the
-  search mean to a new diverse center.  This enables systematic escape from local optima
-  on multimodal landscapes without losing accumulated result history.  The ``ipop_factor``
-  parameter (default 2.0) controls the per-restart population growth multiplier.
+  When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer, the heuristic
+  supports two restart schemes selected by ``restart_mode``:
+
+  * ``"ipop"`` — **IPOP-CMA-ES** (Increasing Population CMA-ES; Auger & Hansen, CEC 2005):
+    each restart multiplies the population size λ → ``ipop_factor`` · λ (default 2.0),
+    resets the covariance to identity, and moves the search mean to a new diverse center.
+    Good for moderately multimodal problems.
+
+  * ``"bipop"`` — **BIPOP-CMA-ES** (Hansen, GECCO 2009): alternates between two restart
+    regimes — a *large* regime with geometric population growth (``λ_l = 2^k · λ_default``)
+    and a *small* regime with a small population and a random small step size
+    (``σ_s = σ_default · 10^(-2·U[0,1])``).  After each restart, the regime that has
+    consumed *fewer* cumulative evaluations is selected next, balancing exploitation
+    (large regime fits the local geometry) with exploration (small regime probes diverse
+    regions cheaply).  This is the BBOB-2009 winning algorithm and the de-facto gold
+    standard for highly multimodal problems with limited evaluation budget.
+
+  Both schemes preserve the accumulated result history; only the CMA-ES distribution
+  state is reset.
 
 - :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`: Differential Evolution
   mutation/crossover/selection operators run against the accumulated result database.  Excels on

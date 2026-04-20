@@ -124,6 +124,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         problems=args.problems or None,
         strategies=args.strategies or None,
         timeout_per_run=args.timeout,
+        include_baselines=args.baselines,
     )
 
     harness = BenchmarkHarness(config)
@@ -257,7 +258,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     """List available problems and strategies for a given mode."""
     from panobbgo.harness import BenchmarkHarness, HarnessConfig
 
-    config = HarnessConfig(mode=args.mode)
+    config = HarnessConfig(mode=args.mode, include_baselines=args.baselines)
     harness = BenchmarkHarness(config)
 
     problems = harness.get_problems()
@@ -334,6 +335,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restrict to specific strategy names",
     )
     run_p.add_argument(
+        "--baselines",
+        action="store_true",
+        help=(
+            "Include external baseline solvers (Random, SciPy DE, SciPy dual"
+            " annealing) to produce absolute reference numbers alongside the"
+            " Panobbgo strategies.  See panobbgo.harness_baselines."
+        ),
+    )
+    run_p.add_argument(
         "--quiet", "-q", action="store_true", help="Suppress per-run output"
     )
     run_p.set_defaults(func=cmd_run)
@@ -371,6 +381,11 @@ def build_parser() -> argparse.ArgumentParser:
     # ---- list ---------------------------------------------------------------
     list_p = sub.add_parser("list", help="List available problems and strategies")
     _add_mode_group(list_p)
+    list_p.add_argument(
+        "--baselines",
+        action="store_true",
+        help="Also list the external baseline strategies",
+    )
     list_p.set_defaults(func=cmd_list)
 
     return parser

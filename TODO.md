@@ -13,6 +13,43 @@
 
 ## Recent Improvements
 
+### External Baselines for Harness (Self-Improvement Loop Phase 2) (2026-04-20)
+- [x] **New `panobbgo/harness_baselines.py`** — adapter strategies so the harness
+      can judge Panobbgo in *absolute* terms, not just relative to itself.
+  - `RandomSearchStrategy` — uniform random search (composite-score floor).
+  - `SciPyDEStrategy` — wraps `scipy.optimize.differential_evolution`
+    (population-based global optimizer).
+  - `SciPyAnnealStrategy` — wraps `scipy.optimize.dual_annealing`
+    (generalized simulated annealing with L-BFGS-B polish).
+  - `BaselineStrategy` base class: minimal duck-typed surface matching what
+    `BenchmarkHarness._run_single` actually uses (`config.max_eval`, `start()`,
+    `best`, `results.results`) — no `StrategyBase` subclass, no event bus.
+  - Hard evaluation-budget enforcement via `_BudgetExhausted` raised from
+    the objective wrapper: external solvers can never overshoot the harness
+    contract, regardless of their own stopping criteria.
+  - Results DataFrame uses the same MultiIndex columns (`("fx", 0)`,
+    `("who", 0)`, `("x", j)`, …) as Panobbgo strategies, so the harness'
+    convergence extractor and heuristic-count logic work unchanged.
+- [x] **`HarnessConfig.include_baselines` flag** — when True, the three
+      baseline `StrategySpec`s are appended to the mode's strategy list.
+- [x] **`benchmark_harness.py --baselines` CLI flag** on both `run` and `list`.
+- [x] **22 tests in `tests/test_harness_baselines.py`**
+  - Objective wrapper records / stops / projects into box.
+  - Adapter surface (config, add/add_analyzer no-op, abstract `_optimize`,
+    MultiIndex results, populated `best`).
+  - Per-solver budget enforcement and convergence on simple problems.
+  - Harness integration: `include_baselines` append path, filtering,
+    end-to-end smoke with `composite_score` in [0, 1].
+  - Seed reproducibility of the Random baseline.
+- [x] **Documentation updated**
+  - `doc/source/guide_benchmarking.rst`: replaced "Absolute baselines
+    (planned)" with a full shipping section (usage, design, CMA-ES note).
+  - `doc/source/guide.rst`: quick-nav entry mentions baselines.
+  - `AGENTS.md`: "External baselines" subsection and key-files list updated.
+  - This TODO entry.
+- [ ] **Next in the roadmap** — statistical acceptance rule (bootstrap CI in
+      `compare`, Phase 4) and parametric randomization (Phase 3).
+
 ### Benchmark Harness Documentation & Self-Improvement Plan (2026-04-19)
 - [x] **New Sphinx guide** (`doc/source/guide_benchmarking.rst`)
   - Full definition of `composite_score` with math, interpretation table, pitfalls

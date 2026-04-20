@@ -93,11 +93,27 @@ uv run python benchmark_harness.py compare before.json after.json --fail-on-regr
 *   `--standard`: 8 problems × ~6 strategies × 5 reps × 200 evals (~few min) — use before merging
 *   `--full`: 11 problems × ~10 strategies × 10 reps × 500 evals (~1h) — thorough validation
 
+### External baselines
+
+Add ``--baselines`` to include three external reference solvers
+(``Baseline_Random``, ``Baseline_SciPyDE``, ``Baseline_SciPyAnneal``)
+alongside the Panobbgo strategies.  These provide an **absolute** reference
+point (floor + competitive DE/SA) rather than the purely relative
+"Panobbgo vs its previous self" signal.  See
+`panobbgo/harness_baselines.py`.
+
+```bash
+uv run python benchmark_harness.py run --standard --baselines --output standard.json
+uv run python benchmark_harness.py list --standard --baselines
+```
+
 ### Key files
 
 *   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, comparison
-*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands)
+*   `panobbgo/harness_baselines.py` — external reference strategies (Random, SciPy DE, SciPy dual annealing)
+*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands; `--baselines` flag)
 *   `tests/test_harness.py` — comprehensive test suite for the harness itself
+*   `tests/test_harness_baselines.py` — tests for the external baselines adapter
 *   `doc/source/guide_benchmarking.rst` — user-facing guide
 *   `planning/SELF_IMPROVEMENT_LOOP.md` — design for autonomous improvement loop
 

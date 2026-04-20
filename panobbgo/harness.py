@@ -519,6 +519,11 @@ class HarnessConfig:
     problems: Optional[List[str]] = None
     strategies: Optional[List[str]] = None
     timeout_per_run: Optional[float] = 120.0
+    #: If True, append the external baseline strategies (Random, SciPy DE,
+    #: SciPy dual annealing) to the strategy list.  See
+    #: :mod:`panobbgo.harness_baselines` for the adapters and Phase 2 of
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md`` for the motivation.
+    include_baselines: bool = False
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -1085,6 +1090,13 @@ class BenchmarkHarness:
     def get_strategies(self) -> List[StrategySpec]:
         """Return the list of :class:`~panobbgo.benchmark.StrategySpec` objects
         for the configured mode, filtered by ``config.strategies`` if set.
+
+        When :attr:`HarnessConfig.include_baselines` is ``True``, the three
+        external reference solvers from :mod:`panobbgo.harness_baselines`
+        (``Baseline_Random``, ``Baseline_SciPyDE``, ``Baseline_SciPyAnneal``)
+        are appended to the mode's strategy list.  This gives every
+        ``HarnessResult`` an absolute-performance reference, not just the
+        relative "better than previous Panobbgo" signal.
         """
         mode = self.config.mode
         if mode == "quick":
@@ -1095,6 +1107,11 @@ class BenchmarkHarness:
             specs = _make_full_strategies()
         else:
             raise ValueError(f"Unknown mode {mode!r}.")
+
+        if self.config.include_baselines:
+            from panobbgo.harness_baselines import make_baseline_strategies
+
+            specs = specs + make_baseline_strategies()
 
         if self.config.strategies:
             keep = set(self.config.strategies)

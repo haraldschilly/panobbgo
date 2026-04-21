@@ -14,6 +14,48 @@
 ## Recent Improvements
 
 
+### Statistical Acceptance Rule for Self-Improvement Loop Phase 4 (2026-04-21)
+- [x] **New `statistical_accept()` in `panobbgo/harness.py`** — principled
+      accept/reject decision on two `HarnessResult` objects using bootstrap
+      confidence intervals on the composite-score delta.
+  - For each shared `(problem, strategy)` pair, per-run **solve fractions**
+    (the same quantity averaged into `ProblemStrategyResult.score`) are
+    resampled independently on both sides.
+  - Composite CI is built by averaging per-pair deltas at *matching*
+    bootstrap indices — so pair dependencies are preserved, not implicitly
+    decoupled.
+  - Decision rule (`planning/SELF_IMPROVEMENT_LOOP.md` §6.2): accept iff
+    (a) `delta > eps_accept` (default `0.005`), (b) the CI lower bound is
+    `> 0`, and (c) no pair regresses by more than `eps_regress` (default
+    `0.05`).  Returns a `StatisticalDecision` with the verdict, overall
+    CI, worst regressing pair, reasons, and per-pair `PairCI` entries.
+- [x] **New `--statistical` flag on `benchmark_harness.py compare`** plus
+      the knobs `--eps-accept`, `--eps-regress`, `--n-boot`,
+      `--confidence`, `--stat-seed`.  When combined with
+      `--fail-on-regression` the CLI exits `2` on rejection, so this is
+      usable as a CI gate or as the accept/revert signal for an autonomous
+      loop driver.
+- [x] **Machine-readable JSON output** — with `--json --statistical` the
+      payload carries a `statistical` block (verdict, CI, worst pair,
+      per-pair CIs) so an agent can drill into the cause of a rejection.
+- [x] **22 tests in `tests/test_harness_stats.py`** — covers accept /
+      reject paths, noise-only rejection, per-pair regression guard,
+      CI bracketing, reproducibility under the RNG seed, the no-shared-pairs
+      degenerate path, JSON serialisation, and three CLI integration
+      tests (accept, reject-regression, JSON payload shape).
+- [x] **Documentation updated**
+  - `doc/source/guide_benchmarking.rst`: new "Statistical acceptance
+    rule" section with decision-rule walkthrough, flag table, sample JSON
+    payload, and programmatic API pointer.  "Self-improvement loop"
+    section now points at the shipped function.
+  - `doc/source/guide.rst`: quick-nav entry updated.
+  - `AGENTS.md`: "Statistical rigor" subsection now documents
+    `--statistical` and the `statistical_accept()` API; key-files list
+    updated.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: Phase 4 marked shipped; missing-
+    pieces checklist updated.
+  - This TODO entry.
+
 ### BIPOP-CMA-ES Restart Mode (2026-04-20)
 - [x] **Added BIPOP-CMA-ES restart support to `CMAES` heuristic** (`panobbgo/heuristics/cma_es.py`)
   - New `restart_mode` parameter: ``"ipop"`` (default, existing) or ``"bipop"`` (new)

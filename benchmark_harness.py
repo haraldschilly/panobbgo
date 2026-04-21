@@ -194,7 +194,11 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two result files and report improvements/regressions."""
-    from panobbgo.harness import HarnessResult, compare as harness_compare
+    from panobbgo.harness import (
+        HarnessResult,
+        compare as harness_compare,
+        statistical_accept,
+    )
 
     for path in (args.before, args.after):
         if not pathlib.Path(path).exists():
@@ -212,6 +216,19 @@ def cmd_compare(args: argparse.Namespace) -> int:
         label_after=args.after,
     )
     comparison.print_summary()
+
+    decision = None
+    if args.statistical:
+        decision = statistical_accept(
+            before,
+            after,
+            eps_accept=args.eps_accept,
+            eps_regress=args.eps_regress,
+            n_boot=args.n_boot,
+            confidence=args.confidence,
+            seed=args.stat_seed,
+        )
+        decision.print_summary()
 
     if args.json:
         out = {
@@ -236,10 +253,23 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 for p, s, sc in comparison.only_after
             ],
         }
+        if decision is not None:
+            out["statistical"] = decision.to_dict()
         print(json.dumps(out, indent=2))
 
-    # Non-zero exit if candidate is strictly worse (useful for CI gating)
-    if args.fail_on_regression and comparison.delta < -args.eps:
+    # Non-zero exit rules for scripted gating.
+    # --statistical overrides the naive eps check when enabled.
+    if args.statistical and args.fail_on_regression:
+        assert decision is not None
+        if not decision.accept:
+            print(
+                f"\nFAIL: statistical acceptance rejected "
+                f"(Δ={decision.delta:+.4f}, CI=[{decision.ci_low:+.4f},"
+                f" {decision.ci_high:+.4f}])",
+                file=sys.stderr,
+            )
+            return 2
+    elif args.fail_on_regression and comparison.delta < -args.eps:
         print(
             f"\nFAIL: composite score decreased by {comparison.delta:.4f}",
             file=sys.stderr,
@@ -371,10 +401,57 @@ def build_parser() -> argparse.ArgumentParser:
     cmp_p.add_argument(
         "--fail-on-regression",
         action="store_true",
-        help="Exit with code 2 if composite score decreased",
+        help=(
+            "Exit with code 2 if the candidate is worse.  Without"
+            " --statistical the gate uses |delta| > eps; with --statistical"
+            " the bootstrap-CI acceptance rule decides."
+        ),
     )
     cmp_p.add_argument(
         "--json", action="store_true", help="Also print machine-readable JSON diff"
+    )
+    cmp_p.add_argument(
+        "--statistical",
+        action="store_true",
+        help=(
+            "Apply the principled acceptance rule from"
+            " planning/SELF_IMPROVEMENT_LOOP.md §6.2: bootstrap confidence"
+            " interval on the composite delta + per-pair regression guard."
+        ),
+    )
+    cmp_p.add_argument(
+        "--eps-accept",
+        dest="eps_accept",
+        type=float,
+        default=0.005,
+        help="Minimum composite delta for statistical acceptance (default: 0.005)",
+    )
+    cmp_p.add_argument(
+        "--eps-regress",
+        dest="eps_regress",
+        type=float,
+        default=0.05,
+        help="Maximum tolerated per-pair regression (default: 0.05)",
+    )
+    cmp_p.add_argument(
+        "--n-boot",
+        dest="n_boot",
+        type=int,
+        default=10_000,
+        help="Bootstrap resamples for the CI (default: 10000)",
+    )
+    cmp_p.add_argument(
+        "--confidence",
+        type=float,
+        default=0.95,
+        help="Confidence level for the bootstrap CI (default: 0.95)",
+    )
+    cmp_p.add_argument(
+        "--stat-seed",
+        dest="stat_seed",
+        type=int,
+        default=42,
+        help="Base RNG seed for the bootstrap (default: 42)",
     )
     cmp_p.set_defaults(func=cmd_compare)
 

@@ -1035,6 +1035,380 @@ def compare(
 
 
 # ---------------------------------------------------------------------------
+# Statistical acceptance rule (bootstrap CI on composite-score delta)
+# ---------------------------------------------------------------------------
+
+
+def _solve_fractions(psr: ProblemStrategyResult) -> np.ndarray:
+    """Return the per-run solve fractions for a (problem, strategy) pair.
+
+    The solve fraction is the same quantity averaged by
+    :meth:`ProblemStrategyResult.compute_metrics` to produce
+    :attr:`ProblemStrategyResult.score`.  Exposed separately here so the
+    statistical machinery can bootstrap over it.
+    """
+    fractions: List[float] = []
+    budget = max(1, psr.budget)
+    for run in psr.runs:
+        hit = run.first_success_eval
+        if hit is not None:
+            frac = 1.0 - (hit - 1) / budget
+            fractions.append(max(0.0, min(1.0, frac)))
+        else:
+            fractions.append(0.0)
+    return np.asarray(fractions, dtype=np.float64)
+
+
+@dataclass
+class PairCI:
+    """Bootstrap confidence interval for a single ``(problem, strategy)`` pair.
+
+    Args:
+        problem: Problem name.
+        strategy: Strategy name.
+        score_before: Baseline per-pair score (mean solve fraction).
+        score_after: Candidate per-pair score.
+        delta: ``score_after − score_before``.
+        ci_low: Lower bound of the bootstrap CI on the delta.
+        ci_high: Upper bound of the bootstrap CI on the delta.
+        n_before: Number of baseline reps for this pair.
+        n_after: Number of candidate reps for this pair.
+    """
+
+    problem: str
+    strategy: str
+    score_before: float
+    score_after: float
+    delta: float
+    ci_low: float
+    ci_high: float
+    n_before: int
+    n_after: int
+
+
+@dataclass
+class StatisticalDecision:
+    """
+    Result of :func:`statistical_accept` — a principled accept / reject decision
+    on ``after`` vs ``before`` harness results.
+
+    The decision rule follows ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2:
+
+    - **Accept** iff *all* of:
+        - ``delta > eps_accept`` (moved in the right direction beyond noise),
+        - the lower bound of the bootstrap CI on the composite delta is ``> 0``
+          (statistically plausible as a real improvement),
+        - no individual pair regresses by more than ``eps_regress``.
+
+    Args:
+        accept: Final decision — ``True`` to keep the change, ``False`` to
+            revert.
+        delta: Composite score delta (``after − before``).
+        ci_low: Lower bound of the bootstrap CI on the composite delta.
+        ci_high: Upper bound of the bootstrap CI on the composite delta.
+        confidence: Confidence level used (e.g. ``0.95``).
+        n_boot: Number of bootstrap resamples used.
+        eps_accept: Minimum composite delta required for acceptance.
+        eps_regress: Maximum tolerated per-pair regression (as a positive
+            number; the actual threshold on the per-pair delta is
+            ``-eps_regress``).
+        worst_pair_regression: The most negative per-pair delta observed,
+            or ``0.0`` if no pair regressed.
+        worst_pair: ``(problem, strategy)`` tuple identifying the pair in
+            ``worst_pair_regression``, or ``None`` when no regression exists.
+        reasons: Human-readable bullet points explaining the decision.
+        per_pair: Per-pair confidence intervals.
+        seed: Base RNG seed used for the bootstrap (for reproducibility).
+    """
+
+    accept: bool
+    delta: float
+    ci_low: float
+    ci_high: float
+    confidence: float
+    n_boot: int
+    eps_accept: float
+    eps_regress: float
+    worst_pair_regression: float
+    worst_pair: Optional[Tuple[str, str]]
+    reasons: List[str]
+    per_pair: List[PairCI]
+    seed: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialise to a JSON-compatible dictionary."""
+        return {
+            "accept": self.accept,
+            "delta": self.delta,
+            "ci_low": self.ci_low,
+            "ci_high": self.ci_high,
+            "confidence": self.confidence,
+            "n_boot": self.n_boot,
+            "eps_accept": self.eps_accept,
+            "eps_regress": self.eps_regress,
+            "worst_pair_regression": self.worst_pair_regression,
+            "worst_pair": (
+                list(self.worst_pair) if self.worst_pair is not None else None
+            ),
+            "reasons": list(self.reasons),
+            "seed": self.seed,
+            "per_pair": [
+                {
+                    "problem": p.problem,
+                    "strategy": p.strategy,
+                    "score_before": p.score_before,
+                    "score_after": p.score_after,
+                    "delta": p.delta,
+                    "ci_low": p.ci_low,
+                    "ci_high": p.ci_high,
+                    "n_before": p.n_before,
+                    "n_after": p.n_after,
+                }
+                for p in self.per_pair
+            ],
+        }
+
+    def print_summary(self, width: int = 72) -> None:
+        """Print a formatted decision report to stdout."""
+        bar = "=" * width
+        verdict = "ACCEPT" if self.accept else "REJECT"
+        arrow = "▲" if self.delta > 0 else ("▼" if self.delta < 0 else "—")
+        pct = int(self.confidence * 100)
+        print(bar)
+        print(
+            f"  STATISTICAL DECISION: {verdict}  "
+            f"Δ={self.delta:+.4f}  {pct}% CI=[{self.ci_low:+.4f}, {self.ci_high:+.4f}]"
+            f"  {arrow}"
+        )
+        print(
+            f"  eps_accept={self.eps_accept:.4f}  "
+            f"eps_regress={self.eps_regress:.4f}  n_boot={self.n_boot}"
+        )
+        if self.worst_pair is not None:
+            prob, strat = self.worst_pair
+            print(
+                f"  Worst pair regression: {prob} / {strat}  "
+                f"Δ={self.worst_pair_regression:+.4f}"
+            )
+        print(bar)
+        if self.reasons:
+            print("  Reasons:")
+            for r in self.reasons:
+                print(f"    • {r}")
+            print(bar)
+
+
+def statistical_accept(
+    before: HarnessResult,
+    after: HarnessResult,
+    eps_accept: float = 0.005,
+    eps_regress: float = 0.05,
+    n_boot: int = 10_000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> StatisticalDecision:
+    """Principled accept/reject decision for a candidate :class:`HarnessResult`.
+
+    Implements the statistical acceptance rule from
+    ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2.  For every
+    ``(problem, strategy)`` pair present in both results, the per-run solve
+    fractions are bootstrapped to produce a confidence interval on the
+    mean-difference.  The composite delta and its CI are obtained by averaging
+    the per-pair deltas across the *same* bootstrap resample indices, so the
+    composite CI correctly accounts for dependence between pairs that share
+    noise sources.
+
+    The decision is ``accept`` iff **all** of:
+
+    - ``delta > eps_accept`` — moved beyond measurement noise,
+    - ``ci_low > 0`` — statistically plausible as a real improvement,
+    - ``min_i delta_i > -eps_regress`` — no individual pair regresses
+      catastrophically.
+
+    Args:
+        before: Baseline harness result.
+        after: Candidate harness result.
+        eps_accept: Minimum composite delta required for acceptance.
+            Default ``0.005``.
+        eps_regress: Maximum tolerated per-pair regression.  A pair whose
+            delta is below ``-eps_regress`` blocks acceptance.
+            Default ``0.05``.
+        n_boot: Number of bootstrap resamples.  Default ``10_000``.
+        confidence: Confidence level for the bootstrap CI.  Default ``0.95``.
+        seed: Base RNG seed (derived per-pair via SHA-256 for independence).
+            Default ``42``.
+
+    Returns:
+        A populated :class:`StatisticalDecision` describing the verdict and
+        carrying per-pair CIs so an agent can drill into the cause of a
+        regression.
+    """
+    # Index each result by (problem, strategy) to find shared pairs.
+    before_map: Dict[Tuple[str, str], ProblemStrategyResult] = {
+        (psr.problem_name, psr.strategy_name): psr
+        for psr in before.problem_strategy_results
+    }
+    after_map: Dict[Tuple[str, str], ProblemStrategyResult] = {
+        (psr.problem_name, psr.strategy_name): psr
+        for psr in after.problem_strategy_results
+    }
+    shared = sorted(set(before_map) & set(after_map))
+
+    rng = np.random.default_rng(seed)
+
+    per_pair: List[PairCI] = []
+    # Joint bootstrap: for each pair compute a matrix of resampled deltas
+    # (shape: n_boot,).  Composite delta resamples are obtained by averaging
+    # across pairs at matching bootstrap indices.
+    pair_delta_samples: List[np.ndarray] = []
+
+    for key in shared:
+        prob, strat = key
+        b_psr = before_map[key]
+        a_psr = after_map[key]
+        b_frac = _solve_fractions(b_psr)
+        a_frac = _solve_fractions(a_psr)
+
+        if b_frac.size == 0 or a_frac.size == 0:
+            # No reps on one side — skip bootstrap, use point estimate only.
+            point = float(
+                (a_frac.mean() if a_frac.size else 0.0)
+                - (b_frac.mean() if b_frac.size else 0.0)
+            )
+            per_pair.append(
+                PairCI(
+                    problem=prob,
+                    strategy=strat,
+                    score_before=float(b_psr.score),
+                    score_after=float(a_psr.score),
+                    delta=point,
+                    ci_low=point,
+                    ci_high=point,
+                    n_before=int(b_frac.size),
+                    n_after=int(a_frac.size),
+                )
+            )
+            pair_delta_samples.append(np.full(n_boot, point, dtype=np.float64))
+            continue
+
+        nb, na = b_frac.size, a_frac.size
+        idx_b = rng.integers(0, nb, size=(n_boot, nb))
+        idx_a = rng.integers(0, na, size=(n_boot, na))
+        means_b = b_frac[idx_b].mean(axis=1)
+        means_a = a_frac[idx_a].mean(axis=1)
+        deltas = means_a - means_b
+
+        alpha = (1.0 - confidence) / 2.0
+        lo = float(np.quantile(deltas, alpha))
+        hi = float(np.quantile(deltas, 1.0 - alpha))
+        point = float(a_frac.mean() - b_frac.mean())
+
+        per_pair.append(
+            PairCI(
+                problem=prob,
+                strategy=strat,
+                score_before=float(b_psr.score),
+                score_after=float(a_psr.score),
+                delta=point,
+                ci_low=lo,
+                ci_high=hi,
+                n_before=int(nb),
+                n_after=int(na),
+            )
+        )
+        pair_delta_samples.append(deltas)
+
+    # Composite delta distribution: average per-pair deltas at each bootstrap
+    # index.  If there are no shared pairs, fall back to the raw composite
+    # delta with a degenerate CI.
+    if not pair_delta_samples:
+        raw_delta = float(after.composite_score - before.composite_score)
+        ci_low = ci_high = raw_delta
+        composite_deltas = np.array([raw_delta])
+    else:
+        composite_deltas = np.mean(np.vstack(pair_delta_samples), axis=0)
+        alpha = (1.0 - confidence) / 2.0
+        ci_low = float(np.quantile(composite_deltas, alpha))
+        ci_high = float(np.quantile(composite_deltas, 1.0 - alpha))
+
+    # Point estimate of the composite delta: mean of per-pair point deltas
+    # across shared pairs (apples-to-apples).  If no shared pairs, use the raw
+    # composite score delta.
+    if per_pair:
+        delta = float(np.mean([p.delta for p in per_pair]))
+    else:
+        delta = float(after.composite_score - before.composite_score)
+
+    # Worst per-pair regression (most negative delta).  Zero when everything
+    # improved or stayed flat.
+    worst_pair_regression = 0.0
+    worst_pair: Optional[Tuple[str, str]] = None
+    for p in per_pair:
+        if p.delta < worst_pair_regression:
+            worst_pair_regression = p.delta
+            worst_pair = (p.problem, p.strategy)
+
+    # Decision rule.
+    reasons: List[str] = []
+    cond_shared = bool(per_pair)
+    cond_delta = delta > eps_accept
+    cond_ci = ci_low > 0.0
+    cond_regress = worst_pair_regression > -eps_regress
+
+    if not cond_shared:
+        reasons.append(
+            "no (problem, strategy) pairs are shared between before and after"
+            " — cannot form a statistical decision"
+        )
+    if not cond_delta:
+        reasons.append(
+            f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}"
+        )
+    if not cond_ci:
+        reasons.append(
+            f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically "
+            "distinguishable from noise"
+        )
+    if not cond_regress:
+        if worst_pair is not None:
+            prob, strat = worst_pair
+            reasons.append(
+                f"pair {prob} / {strat} regressed by {worst_pair_regression:+.4f}"
+                f" (> eps_regress {eps_regress:.4f})"
+            )
+        else:  # pragma: no cover — defensive; cannot trigger with the rule above
+            reasons.append(
+                f"worst regression {worst_pair_regression:+.4f} exceeds"
+                f" eps_regress {eps_regress:.4f}"
+            )
+
+    accept = cond_shared and cond_delta and cond_ci and cond_regress
+    if accept and not reasons:
+        reasons.append(
+            f"composite delta {delta:+.4f} > eps_accept {eps_accept:.4f},"
+            f" CI lower bound {ci_low:+.4f} > 0,"
+            f" worst pair regression {worst_pair_regression:+.4f}"
+            f" > -{eps_regress:.4f}"
+        )
+
+    return StatisticalDecision(
+        accept=accept,
+        delta=delta,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        confidence=confidence,
+        n_boot=n_boot,
+        eps_accept=eps_accept,
+        eps_regress=eps_regress,
+        worst_pair_regression=worst_pair_regression,
+        worst_pair=worst_pair,
+        reasons=reasons,
+        per_pair=per_pair,
+        seed=seed,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Core harness
 # ---------------------------------------------------------------------------
 

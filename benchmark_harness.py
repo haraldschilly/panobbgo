@@ -210,6 +210,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
         eps=args.eps,
         label_before=args.before,
         label_after=args.after,
+        statistical=args.statistical,
     )
     comparison.print_summary()
 
@@ -236,6 +237,22 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 for p, s, sc in comparison.only_after
             ],
         }
+
+        if comparison.statistical:
+            out["statistical"] = {
+                "accepted": comparison.accepted,
+                "ci_lower": comparison.ci_lower,
+                "ci_upper": comparison.ci_upper,
+                "pair_cis": [
+                    {
+                        "problem": p,
+                        "strategy": s,
+                        "ci_lower": l,
+                        "ci_upper": u
+                    }
+                    for (p, s), (l, u) in comparison.pair_cis.items()
+                ]
+            }
         print(json.dumps(out, indent=2))
 
     # Non-zero exit if candidate is strictly worse (useful for CI gating)
@@ -375,6 +392,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cmp_p.add_argument(
         "--json", action="store_true", help="Also print machine-readable JSON diff"
+    )
+    cmp_p.add_argument(
+        "--statistical",
+        action="store_true",
+        help="Use statistical acceptance rule (Bootstrap CI) for comparison"
     )
     cmp_p.set_defaults(func=cmd_compare)
 

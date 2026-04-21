@@ -40,6 +40,8 @@ Quick Navigation
      - Check :doc:`guide_extending` for adding custom heuristics, analyzers, and problems
    * - **Interested in research?**
      - Explore :doc:`guide_research` for related work, theoretical properties, and future directions
+   * - **Want to measure progress statistically?**
+     - Read :doc:`guide_benchmarking` for composite scores and bootstrap CI comparisons
    * - **Want to measure progress?**
      - Read :doc:`guide_benchmarking` for the composite score, external baselines, and the self-improvement loop
 

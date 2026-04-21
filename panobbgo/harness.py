@@ -918,6 +918,13 @@ class ComparisonResult:
     only_before: List[Tuple[str, str, float]] = field(default_factory=list)
     only_after: List[Tuple[str, str, float]] = field(default_factory=list)
 
+    # Statistical test outputs (if requested)
+    statistical: bool = False
+    ci_lower: Optional[float] = None
+    ci_upper: Optional[float] = None
+    pair_cis: Dict[Tuple[str, str], Tuple[float, float]] = field(default_factory=dict)
+    accepted: Optional[bool] = None
+
     def print_summary(self, width: int = 72) -> None:
         """Print a formatted comparison to stdout."""
         bar = "=" * width
@@ -954,6 +961,22 @@ class ComparisonResult:
                 f"  Only in candidate ({len(self.only_after)}): "
                 + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
             )
+
+        if self.statistical:
+            print(bar)
+            print("  STATISTICAL ACCEPTANCE (95% Bootstrap CI)")
+            if self.ci_lower is not None and self.ci_upper is not None:
+                print(f"  Overall CI:    [{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]")
+            else:
+                print("  Overall CI:    N/A (No matching pairs)")
+            print(f"  Decision:      {'✅ ACCEPT' if self.accepted else '❌ REJECT'}")
+
+            if self.pair_cis:
+                print(f"  Per-pair CIs ({len(self.pair_cis)}):")
+                for key, (ci_l, ci_u) in sorted(self.pair_cis.items()):
+                    p, s = key
+                    print(f"    {p} / {s}: [{ci_l:+.3f}, {ci_u:+.3f}]")
+
         print(bar)
 
 
@@ -963,6 +986,9 @@ def compare(
     eps: float = 0.01,
     label_before: str = "before",
     label_after: str = "after",
+    statistical: bool = False,
+    eps_accept: float = 0.005,
+    eps_regress: float = -0.05,
 ) -> ComparisonResult:
     """
     Compare two :class:`HarnessResult` objects and identify regressions /
@@ -1019,6 +1045,86 @@ def compare(
         else float("inf")
     )
 
+    ci_lower = None
+    ci_upper = None
+    pair_cis = {}
+    accepted = None
+
+    if statistical:
+        # We need the per-run solve fractions for all matched pairs.
+        # This requires matching the problem/strategy results.
+
+        # Helper: Extract all run solve fractions for a PSR
+        def get_fractions(psr):
+            fracs = []
+            for run in psr.runs:
+                if run.first_success_eval is not None:
+                    f = 1.0 - (run.first_success_eval - 1) / max(1, psr.budget)
+                    fracs.append(max(0.0, min(1.0, f)))
+                else:
+                    fracs.append(0.0)
+            return np.array(fracs)
+
+        before_psrs = {(psr.problem_name, psr.strategy_name): psr for psr in before.problem_strategy_results}
+        after_psrs = {(psr.problem_name, psr.strategy_name): psr for psr in after.problem_strategy_results}
+
+        all_diffs = []
+        pair_min_diff = float("inf")
+
+        rng = np.random.default_rng(42)
+        n_resamples = 10000
+        alpha = 0.05
+
+        for key in both_keys:
+            b_psr = before_psrs[key]
+            a_psr = after_psrs[key]
+
+            # Note: We assume len(b_psr.runs) == len(a_psr.runs)
+            b_fracs = get_fractions(b_psr)
+            a_fracs = get_fractions(a_psr)
+
+            # Pad with nan or truncate to match length if they differ, though they shouldn't
+            min_len = min(len(b_fracs), len(a_fracs))
+            b_fracs = b_fracs[:min_len]
+            a_fracs = a_fracs[:min_len]
+
+            diffs = a_fracs - b_fracs
+            all_diffs.extend(diffs)
+
+            # Pair-level bootstrap CI
+            means = []
+            for _ in range(n_resamples):
+                resample = rng.choice(diffs, size=len(diffs), replace=True)
+                means.append(np.mean(resample))
+
+            p_lower = float(np.percentile(means, 100 * (alpha / 2)))
+            p_upper = float(np.percentile(means, 100 * (1 - alpha / 2)))
+            pair_cis[key] = (p_lower, p_upper)
+
+            # We care about the actual mean difference for the acceptance rule minimum
+            pair_mean_diff = float(np.mean(diffs))
+            if pair_mean_diff < pair_min_diff:
+                pair_min_diff = pair_mean_diff
+
+        # Overall bootstrap CI over all paired runs
+        if all_diffs:
+            all_diffs_arr = np.array(all_diffs)
+            means = []
+            for _ in range(n_resamples):
+                resample = rng.choice(all_diffs_arr, size=len(all_diffs_arr), replace=True)
+                means.append(np.mean(resample))
+
+            ci_lower = float(np.percentile(means, 100 * (alpha / 2)))
+            ci_upper = float(np.percentile(means, 100 * (1 - alpha / 2)))
+
+            # Statistical acceptance rule:
+            # 1. Delta > eps_accept
+            # 2. Lower bound of bootstrap 95% CI > 0
+            # 3. No pair regresses more than eps_regress
+            accepted = (delta > eps_accept) and (ci_lower > 0) and (pair_min_diff > eps_regress)
+        else:
+            accepted = False
+
     return ComparisonResult(
         before=label_before,
         after=label_after,
@@ -1031,6 +1137,11 @@ def compare(
         unchanged=unchanged,
         only_before=only_before,
         only_after=only_after,
+        statistical=statistical,
+        ci_lower=ci_lower,
+        ci_upper=ci_upper,
+        pair_cis=pair_cis,
+        accepted=accepted,
     )
 
 

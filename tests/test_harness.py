@@ -886,3 +886,30 @@ class TestCLI:
             ]
         )
         assert ret == 1
+
+
+def test_statistical_compare(tmp_path):
+    from benchmark_harness import main
+    from panobbgo.harness import BenchmarkHarness, HarnessConfig
+
+    def run_and_save(fname: str, seed: int) -> str:
+        config = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            strategies=["RoundRobin_Random"],
+            budget=20,
+            reps=3,
+            seed=seed,
+            timeout_per_run=60.0,
+        )
+        result = BenchmarkHarness(config).run(verbose=False)
+        path = str(tmp_path / fname)
+        result.save(path)
+        return path
+
+    before = run_and_save("before.json", 10)
+    after = run_and_save("after.json", 42)
+
+    # Run compare with statistical flag
+    ret = main(["compare", before, after, "--statistical"])
+    assert ret in (0, 2)

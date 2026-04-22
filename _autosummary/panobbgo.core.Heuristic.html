@@ -150,7 +150,7 @@ and calls them when a corresponding <a class="reference internal" href="../core.
 This is also the way of how information is shared between those threads.</p></li>
 <li><p>The <cite>main purpose</cite> of a heuristic is to emit new search points
 by calling either <a class="reference internal" href="../core.html#panobbgo.core.Heuristic.emit" title="panobbgo.core.Heuristic.emit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">emit()</span></code></a> or returning a list of points.
-The datatype must be <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of
+The datatype must be <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> of
 <a class="reference external" href="http://docs.scipy.org/doc/numpy/reference/arrays.scalars.html">floats</a>.</p></li>
 <li><p>Additionally, the can get hold of other heuristics or anayzers via the strategy instance.</p></li>
 <li><p>The <a class="reference internal" href="../core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a> inside this strategy instance allows them to publish their

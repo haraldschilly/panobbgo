@@ -110,6 +110,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#the-compare-workflow">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></li>
+<li><a class="reference internal" href="#statistical-acceptance-rule">Statistical acceptance rule</a></li>
 <li><a class="reference internal" href="#when-to-run-which-mode">When to run which mode</a></li>
 <li><a class="reference internal" href="#pitfalls-and-statistical-caveats">Pitfalls and statistical caveats</a></li>
 <li><a class="reference internal" href="#parametrically-randomised-problems-planned">Parametrically randomised problems (planned)</a></li>
@@ -180,24 +181,25 @@ self-improvement loop.</p>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#the-compare-workflow" id="id7">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></p></li>
-<li><p><a class="reference internal" href="#when-to-run-which-mode" id="id8">When to run which mode</a></p></li>
-<li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id9">Pitfalls and statistical caveats</a></p></li>
-<li><p><a class="reference internal" href="#parametrically-randomised-problems-planned" id="id10">Parametrically randomised problems (planned)</a></p></li>
-<li><p><a class="reference internal" href="#absolute-baselines" id="id11">Absolute baselines</a></p>
+<li><p><a class="reference internal" href="#statistical-acceptance-rule" id="id8">Statistical acceptance rule</a></p></li>
+<li><p><a class="reference internal" href="#when-to-run-which-mode" id="id9">When to run which mode</a></p></li>
+<li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id10">Pitfalls and statistical caveats</a></p></li>
+<li><p><a class="reference internal" href="#parametrically-randomised-problems-planned" id="id11">Parametrically randomised problems (planned)</a></p></li>
+<li><p><a class="reference internal" href="#absolute-baselines" id="id12">Absolute baselines</a></p>
 <ul>
-<li><p><a class="reference internal" href="#design" id="id12">Design</a></p></li>
-<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id13">CMA-ES as a baseline</a></p></li>
+<li><p><a class="reference internal" href="#design" id="id13">Design</a></p></li>
+<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id14">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#self-improvement-loop" id="id14">Self-improvement loop</a></p></li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id15">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id15">Self-improvement loop</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id16">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id16">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id17">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id18">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id17">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id18">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id19">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id19">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id20">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -361,8 +363,100 @@ base seed produces byte-identical convergence traces. See
 scores worse.  Useful for CI gating and automated accept/revert loops.</p></li>
 </ul>
 </section>
+<section id="statistical-acceptance-rule">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">¶</a></h2>
+<p>The naive <code class="docutils literal notranslate"><span class="pre">|Δ|</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> gate is fast but fragile — at quick-mode sample sizes
+a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
+autonomous self-improvement loop needs), add the <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> flag:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>compare<span class="w"> </span>before.json<span class="w"> </span>after.json<span class="w"> </span><span class="se">\</span>
+</span><span data-line="2"><span class="w">    </span>--statistical<span class="w"> </span>--fail-on-regression
+</span></pre></div>
+</div>
+<p>The statistical rule follows <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §6.2.
+For every <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy)</span></code> pair present on both sides the per-run
+<strong>solve fractions</strong> — the same quantity averaged into the composite score —
+are bootstrap-resampled to produce a confidence interval on the mean
+difference.  A single bootstrap index yields one composite delta (the mean
+of per-pair deltas), and the percentile interval over <code class="docutils literal notranslate"><span class="pre">n_boot</span></code> such
+indices is the composite CI.</p>
+<p>The decision is <strong>accept</strong> iff <em>all</em> of:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Δ</span> <span class="pre">&gt;</span> <span class="pre">eps_accept</span></code> — moved in the right direction beyond noise.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CI_low</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> — the improvement is statistically distinguishable from
+zero at the chosen confidence level.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_i</span> <span class="pre">Δ_i</span> <span class="pre">&gt;</span> <span class="pre">−eps_regress</span></code> — no individual pair crashes, even if the
+composite improved overall.</p></li>
+</ul>
+<p>When <code class="docutils literal notranslate"><span class="pre">--fail-on-regression</span></code> is combined with <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> the exit
+code is <code class="docutils literal notranslate"><span class="pre">2</span></code> whenever the rule rejects (composite was noisy, regressed, or
+a pair blew up).  Every knob has a flag:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--eps-accept</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.005</span></code></p></td>
+<td><p>Minimum composite delta required.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--eps-regress</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.05</span></code></p></td>
+<td><p>Maximum tolerated per-pair regression.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--n-boot</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10000</span></code></p></td>
+<td><p>Bootstrap resamples for the CI.  Fewer = faster, noisier CIs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--confidence</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.95</span></code></p></td>
+<td><p>Confidence level.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--stat-seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">42</span></code></p></td>
+<td><p>RNG seed for reproducible bootstraps.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">--json</span> <span class="pre">--statistical</span></code> the emitted payload carries a
+<code class="docutils literal notranslate"><span class="pre">statistical</span></code> block with the composite verdict, the overall CI, the worst
+regressing pair, and per-pair CIs — everything an agent needs to drill
+into a rejection:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">&quot;statistical&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="3"><span class="w">    </span><span class="nt">&quot;accept&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">&quot;delta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0002</span><span class="p">,</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">&quot;ci_low&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0534</span><span class="p">,</span>
+</span><span data-line="6"><span class="w">    </span><span class="nt">&quot;ci_high&quot;</span><span class="p">:</span><span class="w">  </span><span class="mf">0.0527</span><span class="p">,</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">&quot;worst_pair_regression&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.34</span><span class="p">,</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">&quot;worst_pair&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Rastrigin_2D&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;UCB_Diverse&quot;</span><span class="p">],</span>
+</span><span data-line="9"><span class="w">    </span><span class="nt">&quot;reasons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span data-line="10"><span class="w">      </span><span class="s2">&quot;lower CI bound -0.0534 ≤ 0 — improvement not statistically distinguishable from noise&quot;</span>
+</span><span data-line="11"><span class="w">    </span><span class="p">],</span>
+</span><span data-line="12"><span class="w">    </span><span class="nt">&quot;per_pair&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
+</span><span data-line="13"><span class="w">  </span><span class="p">}</span>
+</span><span data-line="14"><span class="p">}</span>
+</span></pre></div>
+</div>
+<p>The programmatic API is
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness.statistical_accept()</span></code>.  The result is a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">StatisticalDecision</span></code> with the same fields as the
+JSON payload, plus a <code class="docutils literal notranslate"><span class="pre">print_summary()</span></code> method for human-readable output.</p>
+<p>Stability note: the composite-score formula remains a stable contract.
+The statistical rule is a <em>gate</em> on top of that formula — adding it does not
+change the underlying number.</p>
+</section>
 <section id="when-to-run-which-mode">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><strong>During development</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> after each meaningful change.  Fast
 enough to keep you honest without hurting flow.</p></li>
@@ -373,7 +467,7 @@ machine you are not actively using.</p></li>
 </ul>
 </section>
 <section id="pitfalls-and-statistical-caveats">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
 <p>The composite score is <strong>noisy</strong>. Three symptoms to watch for:</p>
 <ol class="arabic simple">
 <li><p><strong>Few reps</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> uses only 3 reps per pair. A delta of <code class="docutils literal notranslate"><span class="pre">±0.02</span></code>
@@ -389,7 +483,7 @@ parametrically randomised battery described below.</p></li>
 before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>
 </section>
 <section id="parametrically-randomised-problems-planned">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">Parametrically randomised problems (planned)</a><a class="headerlink" href="#parametrically-randomised-problems-planned" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Parametrically randomised problems (planned)</a><a class="headerlink" href="#parametrically-randomised-problems-planned" title="Link to this heading">¶</a></h2>
 <p>The current registry (<code class="docutils literal notranslate"><span class="pre">_make_quick_problems</span></code> etc. in
 <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) uses <em>fixed</em> problem instances. This is great for
 A/B reproducibility but vulnerable to over-fitting: an agent that tunes a
@@ -414,7 +508,7 @@ sampled instances, becomes a meaningful generalisation signal.</p>
 <p>Design details: see <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
 </section>
 <section id="absolute-baselines">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
 <p>The harness runs <em>Panobbgo strategies vs. Panobbgo strategies</em> by default.
 To judge Panobbgo in <strong>absolute</strong> terms, the
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> module plugs three external reference
@@ -436,7 +530,7 @@ composite score still averages over every <code class="docutils literal notransl
 so a fair comparison should either <em>include baselines on both sides</em> of
 a <code class="docutils literal notranslate"><span class="pre">compare</span></code> call or <em>exclude them from both</em>.</p>
 <section id="design">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
 <p>Baselines are thin adapters that implement the subset of the strategy
 surface the harness actually uses (<code class="docutils literal notranslate"><span class="pre">.config.max_eval</span></code>, <code class="docutils literal notranslate"><span class="pre">.start()</span></code>,
 <code class="docutils literal notranslate"><span class="pre">.best</span></code>, <code class="docutils literal notranslate"><span class="pre">.results.results</span></code>).  They do <strong>not</strong> subclass
@@ -450,7 +544,7 @@ the wrapper’s log, and the results DataFrame carries the same MultiIndex
 columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
 </section>
 <section id="cma-es-as-a-baseline">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
 <p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
 the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
 <code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
@@ -462,23 +556,25 @@ upstream reference becomes valuable.</p>
 </section>
 </section>
 <section id="self-improvement-loop">
-<h2><a class="toc-backref" href="#id14" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
 <p>The benchmark harness is the <em>measurement substrate</em> for an autonomous
 improvement loop:</p>
 <ol class="arabic simple">
 <li><p>Capture baseline composite score.</p></li>
 <li><p>Propose a change (heuristic tweak, new analyzer, parameter retune).</p></li>
 <li><p>Apply in an isolated branch; run the benchmark.</p></li>
-<li><p>Accept if <code class="docutils literal notranslate"><span class="pre">delta</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> with statistical confidence; revert otherwise.</p></li>
+<li><p>Accept with <code class="xref py py-func docutils literal notranslate"><span class="pre">statistical_accept()</span></code> (or the
+<code class="docutils literal notranslate"><span class="pre">--statistical</span></code> CLI gate) — the bootstrap-CI rule above; revert
+otherwise.</p></li>
 <li><p>Commit and repeat.</p></li>
 </ol>
 <p>Design and phased roadmap: <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> in the
 repository.</p>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -488,7 +584,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -498,7 +594,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -507,7 +603,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies
@@ -515,6 +611,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code> — CLI.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — harness test suite (60+ tests).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> — baseline adapter tests.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_stats.py</span></code> — statistical acceptance rule tests.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> — roadmap for the autonomous
 improvement loop.</p></li>
 </ul>

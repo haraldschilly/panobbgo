@@ -47,8 +47,11 @@ What's missing for a true self-improvement loop:
       CMA-ES via the `CMAES` heuristic (`CMAES_Portfolio` / `IPOP_CMAES`
       strategies), so CMA-ES is present on *both* sides of the comparison
       internally.
-- [ ] Statistically principled accept/reject (only a naive `eps` threshold
-      today).
+- [x] Statistically principled accept/reject — shipped 2026-04-21 as
+      `panobbgo.harness.statistical_accept` and the `--statistical` flag
+      on `benchmark_harness.py compare`.  Bootstrap CI on composite
+      delta + per-pair regression guard (§6.2).  Tests in
+      `tests/test_harness_stats.py`.
 - [ ] A driver that closes the loop: apply change, measure, accept/revert,
       commit.
 - [ ] A change catalog — the space of mutations the loop may try.
@@ -282,12 +285,22 @@ Each phase is independently deliverable and keeps the framework usable.
   byte-identical reproducibility when needed).
 - Extend tests to cover sampler determinism.
 
-### Phase 4 — Statistical acceptance (~3-5 days)
+### Phase 4 — Statistical acceptance (shipped 2026-04-21)
 
-- Add bootstrap CI computation to `compare` output.
-- New CLI flag `compare --statistical` switches the accept rule to the
-  one described in §6.2.
-- Surface per-pair CI in the JSON output.
+- [x] Bootstrap CI on the composite delta via
+      :func:`panobbgo.harness.statistical_accept` (10 000 resamples by
+      default, 95% percentile interval).  Composite CI is built by
+      averaging per-pair bootstrap deltas at matching indices, preserving
+      the dependence structure between pairs.
+- [x] New CLI flag ``compare --statistical`` switches the accept rule to
+      §6.2 (delta > `eps_accept`, CI lower bound > 0, no pair regresses
+      beyond `eps_regress`).
+- [x] Flags: ``--eps-accept``, ``--eps-regress``, ``--n-boot``,
+      ``--confidence``, ``--stat-seed``.
+- [x] JSON payload (``--json``) gets a ``statistical`` block with composite
+      verdict, CI, worst regressing pair, and per-pair CIs.
+- [x] 22 tests in ``tests/test_harness_stats.py`` — accept/reject paths,
+      regression guard, reproducibility, CLI integration.
 
 ### Phase 5 — Loop driver MVP (~1 week)
 

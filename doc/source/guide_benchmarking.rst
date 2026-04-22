@@ -161,6 +161,93 @@ The ``compare`` workflow
   scores worse.  Useful for CI gating and automated accept/revert loops.
 
 
+Statistical acceptance rule
+---------------------------
+
+The naive ``|Δ| > eps`` gate is fast but fragile — at quick-mode sample sizes
+a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
+autonomous self-improvement loop needs), add the ``--statistical`` flag:
+
+.. code-block:: bash
+
+   uv run python benchmark_harness.py compare before.json after.json \
+       --statistical --fail-on-regression
+
+The statistical rule follows ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2.
+For every ``(problem, strategy)`` pair present on both sides the per-run
+**solve fractions** — the same quantity averaged into the composite score —
+are bootstrap-resampled to produce a confidence interval on the mean
+difference.  A single bootstrap index yields one composite delta (the mean
+of per-pair deltas), and the percentile interval over ``n_boot`` such
+indices is the composite CI.
+
+The decision is **accept** iff *all* of:
+
+- ``Δ > eps_accept`` — moved in the right direction beyond noise.
+- ``CI_low > 0`` — the improvement is statistically distinguishable from
+  zero at the chosen confidence level.
+- ``min_i Δ_i > −eps_regress`` — no individual pair crashes, even if the
+  composite improved overall.
+
+When ``--fail-on-regression`` is combined with ``--statistical`` the exit
+code is ``2`` whenever the rule rejects (composite was noisy, regressed, or
+a pair blew up).  Every knob has a flag:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Flag
+     - Default
+     - Meaning
+   * - ``--eps-accept``
+     - ``0.005``
+     - Minimum composite delta required.
+   * - ``--eps-regress``
+     - ``0.05``
+     - Maximum tolerated per-pair regression.
+   * - ``--n-boot``
+     - ``10000``
+     - Bootstrap resamples for the CI.  Fewer = faster, noisier CIs.
+   * - ``--confidence``
+     - ``0.95``
+     - Confidence level.
+   * - ``--stat-seed``
+     - ``42``
+     - RNG seed for reproducible bootstraps.
+
+With ``--json --statistical`` the emitted payload carries a
+``statistical`` block with the composite verdict, the overall CI, the worst
+regressing pair, and per-pair CIs — everything an agent needs to drill
+into a rejection:
+
+.. code-block:: json
+
+   {
+     "statistical": {
+       "accept": false,
+       "delta": -0.0002,
+       "ci_low": -0.0534,
+       "ci_high":  0.0527,
+       "worst_pair_regression": -0.34,
+       "worst_pair": ["Rastrigin_2D", "UCB_Diverse"],
+       "reasons": [
+         "lower CI bound -0.0534 ≤ 0 — improvement not statistically distinguishable from noise"
+       ],
+       "per_pair": [ ... ]
+     }
+   }
+
+The programmatic API is
+:func:`panobbgo.harness.statistical_accept`.  The result is a
+:class:`~panobbgo.harness.StatisticalDecision` with the same fields as the
+JSON payload, plus a ``print_summary()`` method for human-readable output.
+
+Stability note: the composite-score formula remains a stable contract.
+The statistical rule is a *gate* on top of that formula — adding it does not
+change the underlying number.
+
+
 When to run which mode
 ----------------------
 
@@ -284,7 +371,9 @@ improvement loop:
 1. Capture baseline composite score.
 2. Propose a change (heuristic tweak, new analyzer, parameter retune).
 3. Apply in an isolated branch; run the benchmark.
-4. Accept if ``delta > eps`` with statistical confidence; revert otherwise.
+4. Accept with :func:`~panobbgo.harness.statistical_accept` (or the
+   ``--statistical`` CLI gate) — the bootstrap-CI rule above; revert
+   otherwise.
 5. Commit and repeat.
 
 Design and phased roadmap: ``planning/SELF_IMPROVEMENT_LOOP.md`` in the
@@ -331,5 +420,6 @@ See also
 - ``benchmark_harness.py`` — CLI.
 - ``tests/test_harness.py`` — harness test suite (60+ tests).
 - ``tests/test_harness_baselines.py`` — baseline adapter tests.
+- ``tests/test_harness_stats.py`` — statistical acceptance rule tests.
 - ``planning/SELF_IMPROVEMENT_LOOP.md`` — roadmap for the autonomous
   improvement loop.

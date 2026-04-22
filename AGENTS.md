@@ -109,11 +109,12 @@ uv run python benchmark_harness.py list --standard --baselines
 
 ### Key files
 
-*   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, comparison
+*   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, `compare()`, and `statistical_accept()` (bootstrap-CI acceptance rule)
 *   `panobbgo/harness_baselines.py` — external reference strategies (Random, SciPy DE, SciPy dual annealing)
-*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands; `--baselines` flag)
+*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands; `--baselines`, `--statistical` flags)
 *   `tests/test_harness.py` — comprehensive test suite for the harness itself
 *   `tests/test_harness_baselines.py` — tests for the external baselines adapter
+*   `tests/test_harness_stats.py` — tests for the statistical acceptance rule
 *   `doc/source/guide_benchmarking.rst` — user-facing guide
 *   `planning/SELF_IMPROVEMENT_LOOP.md` — design for autonomous improvement loop
 
@@ -147,6 +148,22 @@ The composite score is **noisy** at `--quick` mode (3 reps). A delta of
 *   The composite-score formula itself is a **stable contract**:  do not
     change it without an architectural decision record — historical
     comparisons depend on it.
+
+For principled accept/reject decisions, add `--statistical` to the
+`compare` subcommand:
+
+```bash
+uv run python benchmark_harness.py compare before.json after.json \
+    --statistical --fail-on-regression
+```
+
+This applies the rule from `planning/SELF_IMPROVEMENT_LOOP.md` §6.2 —
+bootstrap a 95% confidence interval on the composite delta, then accept
+iff (a) `delta > eps_accept` (default `0.005`), (b) the CI lower bound is
+`> 0`, and (c) no single `(problem, strategy)` pair regresses by more
+than `eps_regress` (default `0.05`).  Exit code is `2` on rejection when
+combined with `--fail-on-regression`, so this is usable as a CI gate.
+See `panobbgo.harness.statistical_accept` for the programmatic API.
 
 ### Agent self-improvement loop (in progress)
 

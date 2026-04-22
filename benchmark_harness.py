@@ -125,6 +125,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         strategies=args.strategies or None,
         timeout_per_run=args.timeout,
         include_baselines=args.baselines,
+        randomize=args.randomize,
+        randomize_iteration=args.randomize_iteration,
     )
 
     harness = BenchmarkHarness(config)
@@ -288,13 +290,19 @@ def cmd_list(args: argparse.Namespace) -> int:
     """List available problems and strategies for a given mode."""
     from panobbgo.harness import BenchmarkHarness, HarnessConfig
 
-    config = HarnessConfig(mode=args.mode, include_baselines=args.baselines)
+    config = HarnessConfig(
+        mode=args.mode,
+        include_baselines=args.baselines,
+        randomize=args.randomize,
+        randomize_iteration=args.randomize_iteration,
+    )
     harness = BenchmarkHarness(config)
 
     problems = harness.get_problems()
     strategies = harness.get_strategies()
 
-    print(f"\nProblems ({len(problems)}) for mode={args.mode!r}:")
+    label = "randomized" if args.randomize else f"mode={args.mode!r}"
+    print(f"\nProblems ({len(problems)}) for {label}:")
     for p in problems:
         print(
             f"  {p.name}  dim={p.dims}  tol={p.tolerance}  budget={p.max_evaluations}"
@@ -371,6 +379,30 @@ def build_parser() -> argparse.ArgumentParser:
             "Include external baseline solvers (Random, SciPy DE, SciPy dual"
             " annealing) to produce absolute reference numbers alongside the"
             " Panobbgo strategies.  See panobbgo.harness_baselines."
+        ),
+    )
+    run_p.add_argument(
+        "--randomize",
+        action="store_true",
+        help=(
+            "Replace the fixed problem battery with parametrically randomized"
+            " families (Phase 3 of planning/SELF_IMPROVEMENT_LOOP.md).  Each"
+            " repetition draws a fresh translated/rotated/scaled instance."
+            "  Pair with --randomize-iteration to keep before/after runs"
+            " aligned."
+        ),
+    )
+    run_p.add_argument(
+        "--randomize-iteration",
+        dest="randomize_iteration",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "Iteration index mixed into the instance seed (default: 0)."
+            "  Within one iteration, before/after runs see identical"
+            " randomized instances; different iterations draw different"
+            " ones."
         ),
     )
     run_p.add_argument(
@@ -462,6 +494,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--baselines",
         action="store_true",
         help="Also list the external baseline strategies",
+    )
+    list_p.add_argument(
+        "--randomize",
+        action="store_true",
+        help=(
+            "List the randomized problem families instead of the fixed"
+            " battery for the selected mode."
+        ),
+    )
+    list_p.add_argument(
+        "--randomize-iteration",
+        dest="randomize_iteration",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Iteration index for the randomized sampler (default: 0)",
     )
     list_p.set_defaults(func=cmd_list)
 

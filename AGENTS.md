@@ -107,14 +107,37 @@ uv run python benchmark_harness.py run --standard --baselines --output standard.
 uv run python benchmark_harness.py list --standard --baselines
 ```
 
+### Parametrically randomized problems
+
+Add ``--randomize`` to swap the fixed problem battery for a parametric one
+that samples fresh translated / rotated / scaled / noisy instances per
+repetition.  This turns ``composite_score`` into a Monte-Carlo estimate
+of expected performance on a problem family, preventing the
+self-improvement loop from over-fitting to specific instances.  See
+`panobbgo/harness_randomized.py`.
+
+```bash
+uv run python benchmark_harness.py list --randomize
+uv run python benchmark_harness.py run --randomize --randomize-iteration 0 --output rand_before.json
+# Make changes ...
+uv run python benchmark_harness.py run --randomize --randomize-iteration 0 --output rand_after.json
+uv run python benchmark_harness.py compare rand_before.json rand_after.json --statistical
+```
+
+``--randomize-iteration`` pins the iteration index — the same iteration
+reproduces the *same* sampled instances, so ``before`` and ``after`` runs
+line up; different iterations intentionally draw different instances.
+
 ### Key files
 
 *   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, `compare()`, and `statistical_accept()` (bootstrap-CI acceptance rule)
 *   `panobbgo/harness_baselines.py` — external reference strategies (Random, SciPy DE, SciPy dual annealing)
-*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands; `--baselines`, `--statistical` flags)
+*   `panobbgo/harness_randomized.py` — parametrically randomized problem families, transforms, and `RandomizedProblemSpec`
+*   `benchmark_harness.py` — CLI tool (`run`, `score`, `compare`, `list` subcommands; `--baselines`, `--statistical`, `--randomize` flags)
 *   `tests/test_harness.py` — comprehensive test suite for the harness itself
 *   `tests/test_harness_baselines.py` — tests for the external baselines adapter
 *   `tests/test_harness_stats.py` — tests for the statistical acceptance rule
+*   `tests/test_harness_randomized.py` — tests for the parametric randomization layer
 *   `doc/source/guide_benchmarking.rst` — user-facing guide
 *   `planning/SELF_IMPROVEMENT_LOOP.md` — design for autonomous improvement loop
 
@@ -172,11 +195,14 @@ The harness is the measurement substrate for an autonomous
 `planning/SELF_IMPROVEMENT_LOOP.md` for:
 
 *   The parametrically-randomised problem battery (rotations, shifts,
-    conditioning, noise) that prevents over-fitting to fixed instances.
+    conditioning, noise) that prevents over-fitting to fixed instances —
+    **shipped**, see `--randomize` and `panobbgo/harness_randomized.py`.
 *   External absolute baselines (scipy DE, CMA-ES, random search) so the
-    number judges Panobbgo in absolute, not just relative, terms.
-*   Statistical acceptance rules (bootstrap CI on score delta).
-*   Phased rollout from MVP to production loop.
+    number judges Panobbgo in absolute, not just relative, terms —
+    **shipped**, see `--baselines` and `panobbgo/harness_baselines.py`.
+*   Statistical acceptance rules (bootstrap CI on score delta) —
+    **shipped**, see `--statistical` and `panobbgo.harness.statistical_accept`.
+*   Loop driver — **pending** (Phase 5).
 
 ## CI/CD and Testing
 

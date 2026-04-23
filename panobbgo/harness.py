@@ -513,6 +513,15 @@ class HarnessConfig:
             defaults.
         timeout_per_run: Per-run wall-clock timeout in seconds.  Set to
             ``None`` to disable.
+        randomize: If True, replace the fixed problem battery with a
+            parametrically randomized one (Phase 3 of the self-improvement
+            loop).  Each repetition draws a fresh translated / rotated /
+            scaled / noisy instance from a :class:`~panobbgo.harness_randomized.ProblemFamily`.
+            See :mod:`panobbgo.harness_randomized`.
+        randomize_iteration: Iteration index mixed into the instance seed
+            so that ``before`` and ``after`` runs within a single
+            self-improvement iteration see *identical* sampled instances,
+            while different iterations see different ones.
     """
 
     mode: str = "quick"
@@ -527,6 +536,12 @@ class HarnessConfig:
     #: :mod:`panobbgo.harness_baselines` for the adapters and Phase 2 of
     #: ``planning/SELF_IMPROVEMENT_LOOP.md`` for the motivation.
     include_baselines: bool = False
+    #: If True, the problem battery is replaced with randomized families.
+    #: See :mod:`panobbgo.harness_randomized` (Phase 3).
+    randomize: bool = False
+    #: Iteration index for the randomized sampler.  Constant across a
+    #: ``before``/``after`` pair so instances line up.
+    randomize_iteration: int = 0
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -1551,25 +1566,50 @@ class BenchmarkHarness:
     def get_problems(self) -> List[ProblemSpec]:
         """Return the list of :class:`~panobbgo.benchmark.ProblemSpec` objects
         for the configured mode, filtered by ``config.problems`` if set.
+
+        When :attr:`HarnessConfig.randomize` is set, the fixed mode battery
+        is replaced with :class:`~panobbgo.harness_randomized.RandomizedProblemSpec`
+        instances that sample a fresh translated / rotated / scaled / noisy
+        instance per repetition.  See :mod:`panobbgo.harness_randomized`
+        and Phase 3 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
         """
+        # Validate the mode eagerly so that callers get an early error
+        # even when randomize=True (which does not itself look at mode).
         mode = self.config.mode
-        if mode == "quick":
-            specs = _make_quick_problems()
-        elif mode == "standard":
-            specs = _make_standard_problems()
-        elif mode == "full":
-            specs = _make_full_problems()
-        else:
+        if mode not in _MODE_BUDGETS:
             raise ValueError(
                 f"Unknown mode {mode!r}. Use 'quick', 'standard', or 'full'."
             )
+        budget = self.config.effective_budget()
+
+        if self.config.randomize:
+            from panobbgo.harness_randomized import (
+                make_default_families,
+                make_randomized_specs,
+            )
+
+            families = make_default_families()
+            specs: List[ProblemSpec] = list(
+                make_randomized_specs(
+                    families,
+                    iteration_id=self.config.randomize_iteration,
+                    base_seed=self.config.seed,
+                    max_evaluations=budget,
+                )
+            )
+        else:
+            if mode == "quick":
+                specs = _make_quick_problems()
+            elif mode == "standard":
+                specs = _make_standard_problems()
+            else:  # mode == "full" (already validated above)
+                specs = _make_full_problems()
 
         if self.config.problems:
             keep = set(self.config.problems)
             specs = [s for s in specs if s.name in keep]
 
         # Override budget from config
-        budget = self.config.effective_budget()
         for spec in specs:
             spec.max_evaluations = budget
 
@@ -1754,8 +1794,15 @@ class BenchmarkHarness:
         start = time.time()
 
         try:
-            # Create problem and strategy
-            problem = prob_spec.create_problem()
+            # Create problem and strategy.  RandomizedProblemSpec draws a
+            # fresh transformed instance per rep; other specs return a
+            # fixed instance.
+            from panobbgo.harness_randomized import RandomizedProblemSpec
+
+            if isinstance(prob_spec, RandomizedProblemSpec):
+                problem = prob_spec.create_problem_for_rep(rep)
+            else:
+                problem = prob_spec.create_problem()
             strategy = strat_spec.create_strategy(problem)
 
             # Configure evaluation budget and method

@@ -13,6 +13,61 @@
 
 ## Recent Improvements
 
+### Parametrically Randomized Problem Battery (Self-Improvement Loop Phase 3) (2026-04-22)
+- [x] **New `panobbgo/harness_randomized.py`** — Phase 3 of the
+      self-improvement loop: the fixed harness battery is replaced with a
+      parametric one that samples fresh transformed instances per rep,
+      turning `composite_score` into a Monte-Carlo estimate of *expected*
+      performance on a problem family.  Without this, an autonomous
+      improvement loop would over-fit to specific instances.
+  - `TransformedProblem(Problem)` — wraps a base problem with the
+    composition `y = Q · Λ · (x - x*) + y_base_star` plus optional
+    additive Gaussian noise; by construction `f_new(x*) = f_opt` so the
+    existing harness metrics (`func_distance`, `ert`, `composite_score`)
+    work unchanged.
+  - `ProblemFamily` — declarative spec with per-family
+    `supported_transforms` capability flags (`translate`, `rotate`,
+    `scale`, `noise`), `log10_cond_max`, `dim_choices`, and tolerance.
+  - `RandomizedProblemSpec(ProblemSpec)` — bridge between the family and
+    the harness; `create_problem_for_rep(rep)` samples a fresh instance
+    from the family, and records the sampled parameters for ledger
+    output via `last_sampled_params()`.
+  - Haar-uniform orthogonal sampler via QR + Mezzadri sign correction
+    (dependency-free).
+  - Geometric log-uniform diagonal scaling with configurable condition
+    ceiling.
+  - Interior-point translation (default 15% per-side margin) so the
+    optimum never sits on a box boundary.
+  - SHA-256-derived instance seed via
+    `derive_instance_seed(base_seed, iteration_id, family_name, rep)`
+    — within one iteration `before`/`after` runs see identical
+    instances; across iterations they intentionally differ.
+- [x] **Default families**: `Rastrigin_family`, `Ackley_family`,
+      `Rosenbrock_family`, `DeJong_family`.  Schwefel and Griewank are
+      intentionally excluded — rotation would push `y` off their
+      sensible domain.
+- [x] **`HarnessConfig.randomize` + `HarnessConfig.randomize_iteration`**
+      plus `BenchmarkHarness.get_problems()` / `_run_single()` plumbing.
+- [x] **CLI flags** `--randomize` and `--randomize-iteration N` on
+      `benchmark_harness.py run` / `list`.
+- [x] **52 tests in `tests/test_harness_randomized.py`** covering
+      sampling primitives, transform invariants (optimum preservation,
+      orthogonality, condition-number bounds, noise variance), family
+      capability gating, and the before/after reproducibility contract.
+- [x] **Documentation updated**
+  - `doc/source/guide_benchmarking.rst`: replaced the "planned" section
+    with a full shipping section (usage, transform math, default
+    families, reproducibility recipe).
+  - `doc/source/guide.rst`: quick-nav entry mentions parametric
+    randomization.
+  - `AGENTS.md`: new "Parametrically randomized problems" subsection and
+    key-files list updated.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: Phase 3 checklist flipped to
+    shipped; "what's missing" list updated.
+  - This TODO entry.
+- [ ] **Next in the roadmap** — the loop driver `scripts/self_improve.py`
+      (Phase 5) can now build on a randomized battery + statistical
+      acceptance rule + external baselines.
 
 ### Statistical Acceptance Rule for Self-Improvement Loop Phase 4 (2026-04-21)
 - [x] **New `statistical_accept()` in `panobbgo/harness.py`** — principled

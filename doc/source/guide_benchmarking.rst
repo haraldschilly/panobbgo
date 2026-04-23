@@ -277,33 +277,116 @@ Recommended practice: run the same comparison at two different base seeds
 before accepting a ``+0.01`` to ``+0.03`` delta.
 
 
-Parametrically randomised problems (planned)
----------------------------------------------
+Parametrically randomised problems
+----------------------------------
 
-The current registry (``_make_quick_problems`` etc. in
-``panobbgo/harness.py``) uses *fixed* problem instances. This is great for
-A/B reproducibility but vulnerable to over-fitting: an agent that tunes a
-heuristic to the specific Rosenbrock valley at ``(1, 1)`` may regress on the
-next problem it encounters.
+The fixed registry (``_make_quick_problems`` etc. in
+``panobbgo/harness.py``) is great for A/B reproducibility but vulnerable to
+over-fitting: an agent that tunes a heuristic to the specific Rosenbrock
+valley at ``(1, 1)`` may regress on the next problem it encounters.  The
+harness therefore ships a **parametric problem layer** (Phase 3 of the
+self-improvement loop) that samples fresh transformed instances per
+repetition, turning ``composite_score`` into a Monte-Carlo estimate of
+*expected* performance on a problem family.
 
-The roadmap adds a **parametric problem layer** that samples fresh instances
-from a family each harness run:
+Usage
+~~~~~
 
-- **Translation** — shift the optimum ``x*`` to a random point in the box.
-- **Rotation** — for functions separable in the canonical frame (Rastrigin,
-  Ackley), apply a random orthogonal transform so that axis-aligned local
-  search is no longer privileged.
-- **Scaling** — sample ill-conditioning factors (e.g. log-uniform in
-  ``[1, 1e4]``) to stress second-order-aware heuristics.
-- **Noise injection** — additive Gaussian noise on evaluations, mirroring the
-  real noisy-black-box use case.
-- **Dimensionality sampling** — draw ``d`` uniformly from a stated set.
+Add ``--randomize`` to ``run`` or ``list``:
 
-Each harness run will log the per-instance parameters so that individual
-failures remain reproducible; the *aggregate* score, computed across many
-sampled instances, becomes a meaningful generalisation signal.
+.. code-block:: bash
 
-Design details: see ``planning/SELF_IMPROVEMENT_LOOP.md``.
+   uv run python benchmark_harness.py list --randomize
+   uv run python benchmark_harness.py run --randomize --output rand_before.json
+   # Make changes ...
+   uv run python benchmark_harness.py run --randomize --output rand_after.json
+   uv run python benchmark_harness.py compare rand_before.json rand_after.json --statistical
+
+The ``--randomize-iteration`` flag (default ``0``) mixes an iteration
+index into the instance seed.  Within one iteration, ``before`` and
+``after`` runs see **identical** sampled instances (apples-to-apples);
+across iterations the instances intentionally differ, so repeatedly
+"winning" the same iteration is not enough — only sustained wins across
+many iterations are real improvements.
+
+What gets randomised
+~~~~~~~~~~~~~~~~~~~~
+
+For each :class:`~panobbgo.harness_randomized.ProblemFamily`, the sampler
+composes four transforms (filtered by per-family capability flags):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 27 55
+
+   * - Transform
+     - Parameter
+     - Rationale
+   * - Translation
+     - :math:`x^\star \sim U(\text{interior box})`
+     - Kills hard-coded-centre exploitation; optimum lives away from edges.
+   * - Rotation
+     - Haar-random :math:`Q \in O(d)`
+     - Breaks axis-aligned local-search advantage on separable functions.
+   * - Scaling
+     - Diagonal :math:`\Lambda`, :math:`\log_{10}\kappa \sim U[0, c_{\max}]`
+     - Stresses second-order / ill-conditioning heuristics.
+   * - Noise
+     - :math:`\tilde f(x) = f(x) + \sigma \varepsilon`
+     - Matches the noisy-black-box use case.
+
+The composite transform is
+
+.. math::
+
+   \tilde f(x) = f_{\text{base}}\bigl(Q \, \Lambda \, (x - x^\star)
+                                     + y^\star_{\text{base}}\bigr)
+                + \sigma \varepsilon,
+
+and by construction :math:`\tilde f(x^\star) = f_{\text{opt}}` so
+``known_optima`` for the transformed problem is ``{"x": x*, "fx": f_opt}``
+— the existing ``func_distance`` / ``ert`` / ``composite_score`` logic
+works unchanged.
+
+Default families
+~~~~~~~~~~~~~~~~
+
+:func:`panobbgo.harness_randomized.make_default_families` returns four
+families covering the main optimisation challenges:
+
+- ``Rastrigin_family`` — separable, highly multimodal (translate + rotate + scale).
+- ``Ackley_family`` — non-separable, multimodal with a funnel (translate + rotate + scale).
+- ``Rosenbrock_family`` — non-separable, banana valley (translate + scale).
+- ``DeJong_family`` — smooth convex sphere (all transforms; the baseline sanity case).
+
+Schwefel and Griewank are intentionally excluded from the default set —
+Schwefel's optimum sits near the box boundary and Griewank's oscillation
+couples tightly to the coordinate axes, so rotation pushes ``y`` off the
+function's sensible domain.
+
+Reproducibility
+~~~~~~~~~~~~~~~
+
+All randomness flows from a single 32-bit seed derived via SHA-256 from
+``(base_seed, iteration_id, family_name, rep)`` — the same scheme the
+harness already uses for strategy seeds.  A regression flagged by the loop
+is deterministically reproducible from the printed tuple:
+
+.. code-block:: python
+
+   from panobbgo.harness_randomized import (
+       make_default_families, RandomizedProblemSpec
+   )
+   fams = make_default_families()
+   spec = RandomizedProblemSpec(
+       fams[0], iteration_id=5, base_seed=42, max_evaluations=200
+   )
+   prob = spec.create_problem_for_rep(3)
+   params = spec.last_sampled_params()  # dim, translation, rotation_trace, ...
+
+Design details: ``planning/SELF_IMPROVEMENT_LOOP.md`` §4.  Implementation:
+:mod:`panobbgo.harness_randomized`.  Tests:
+``tests/test_harness_randomized.py``.
 
 
 Absolute baselines

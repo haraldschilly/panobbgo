@@ -39,7 +39,13 @@ What exists (as of 2026-04-19):
 
 What's missing for a true self-improvement loop:
 
-- [ ] Parametric randomization — all problem instances are currently fixed.
+- [x] Parametric randomization — shipped 2026-04-22 as
+      `panobbgo/harness_randomized.py` and the `--randomize` CLI flag.
+      Four default families (Rastrigin / Ackley / Rosenbrock / DeJong)
+      with translate + rotate + scale + noise transforms, SHA-256-derived
+      instance seeds, and a `--randomize-iteration` flag that keeps
+      before/after runs aligned within an iteration.  Tests in
+      `tests/test_harness_randomized.py`.
 - [x] External absolute baselines (Random, scipy DE, scipy dual annealing)
       — shipped 2026-04-20 as `panobbgo/harness_baselines.py` and the
       `--baselines` CLI flag; see `tests/test_harness_baselines.py`.
@@ -276,14 +282,33 @@ Each phase is independently deliverable and keeps the framework usable.
       `IPOP_CMAES`, `BIPOP_CMAES`).  Add later if round-tripping against
       the upstream pycma implementation becomes useful.
 
-### Phase 3 — Parametric randomization (~1-2 weeks)
+### Phase 3 — Parametric randomization (shipped 2026-04-22)
 
-- Implement `ProblemFamily` and `ProblemSampler`.
-- Refactor `_make_*_problems` into family-based factories.
-- Add per-family transform capability flags.
-- New mode `--randomized-{quick,standard,full}` (fixed modes stay for
-  byte-identical reproducibility when needed).
-- Extend tests to cover sampler determinism.
+- [x] `ProblemFamily`, `TransformedProblem`, and `RandomizedProblemSpec`
+      in `panobbgo/harness_randomized.py`.
+- [x] Four default families (Rastrigin, Ackley, Rosenbrock, DeJong) with
+      per-family `supported_transforms` capability flags — Schwefel and
+      Griewank intentionally omitted because rotation pushes `y` off
+      their sensible domain.
+- [x] Haar-uniform orthogonal sampler (QR + Mezzadri sign correction),
+      geometric log-uniform scaling with configurable `log10_cond_max`,
+      interior-point translation (per-axis margin), additive Gaussian
+      noise with a per-instance seeded RNG.
+- [x] Transform preserves the optimum by construction:
+      `f_new(x*) = f_base(y_base_star) = f_opt`, so `known_optima`,
+      `func_distance`, `ert`, and `composite_score` work unchanged.
+- [x] SHA-256-derived instance seed tied to
+      `(base_seed, iteration_id, family_name, rep)` via
+      `derive_instance_seed()` — within one iteration, `before` and
+      `after` runs see identical instances; across iterations they
+      intentionally differ.
+- [x] CLI integration: `--randomize` and `--randomize-iteration N` flags
+      on `benchmark_harness.py run` / `list`; fixed modes remain the
+      default for byte-identical reproducibility.
+- [x] 52 tests in `tests/test_harness_randomized.py` covering sampling
+      primitives, transform invariants (optimum preservation,
+      orthogonality, condition-number bounds, noise variance), family
+      capability gating, and the before/after reproducibility contract.
 
 ### Phase 4 — Statistical acceptance (shipped 2026-04-21)
 

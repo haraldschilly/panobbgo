@@ -113,7 +113,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#statistical-acceptance-rule">Statistical acceptance rule</a></li>
 <li><a class="reference internal" href="#when-to-run-which-mode">When to run which mode</a></li>
 <li><a class="reference internal" href="#pitfalls-and-statistical-caveats">Pitfalls and statistical caveats</a></li>
-<li><a class="reference internal" href="#parametrically-randomised-problems-planned">Parametrically randomised problems (planned)</a></li>
+<li><a class="reference internal" href="#parametrically-randomised-problems">Parametrically randomised problems</a><ul>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+<li><a class="reference internal" href="#what-gets-randomised">What gets randomised</a></li>
+<li><a class="reference internal" href="#default-families">Default families</a></li>
+<li><a class="reference internal" href="#id1">Reproducibility</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#absolute-baselines">Absolute baselines</a><ul>
 <li><a class="reference internal" href="#design">Design</a></li>
 <li><a class="reference internal" href="#cma-es-as-a-baseline">CMA-ES as a baseline</a></li>
@@ -168,42 +174,49 @@ we track, what it means, how to compute it, and how it feeds the planned
 self-improvement loop.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#why-a-single-number" id="id1">Why a single number?</a></p></li>
-<li><p><a class="reference internal" href="#definition" id="id2">Definition</a></p></li>
-<li><p><a class="reference internal" href="#interpretation" id="id3">Interpretation</a></p>
+<li><p><a class="reference internal" href="#why-a-single-number" id="id2">Why a single number?</a></p></li>
+<li><p><a class="reference internal" href="#definition" id="id3">Definition</a></p></li>
+<li><p><a class="reference internal" href="#interpretation" id="id4">Interpretation</a></p>
 <ul>
-<li><p><a class="reference internal" href="#also-reported" id="id4">Also reported</a></p></li>
+<li><p><a class="reference internal" href="#also-reported" id="id5">Also reported</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#running-benchmarks" id="id5">Running benchmarks</a></p>
+<li><p><a class="reference internal" href="#running-benchmarks" id="id6">Running benchmarks</a></p>
 <ul>
-<li><p><a class="reference internal" href="#reproducibility" id="id6">Reproducibility</a></p></li>
+<li><p><a class="reference internal" href="#reproducibility" id="id7">Reproducibility</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#the-compare-workflow" id="id7">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></p></li>
-<li><p><a class="reference internal" href="#statistical-acceptance-rule" id="id8">Statistical acceptance rule</a></p></li>
-<li><p><a class="reference internal" href="#when-to-run-which-mode" id="id9">When to run which mode</a></p></li>
-<li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id10">Pitfalls and statistical caveats</a></p></li>
-<li><p><a class="reference internal" href="#parametrically-randomised-problems-planned" id="id11">Parametrically randomised problems (planned)</a></p></li>
-<li><p><a class="reference internal" href="#absolute-baselines" id="id12">Absolute baselines</a></p>
+<li><p><a class="reference internal" href="#the-compare-workflow" id="id8">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a></p></li>
+<li><p><a class="reference internal" href="#statistical-acceptance-rule" id="id9">Statistical acceptance rule</a></p></li>
+<li><p><a class="reference internal" href="#when-to-run-which-mode" id="id10">When to run which mode</a></p></li>
+<li><p><a class="reference internal" href="#pitfalls-and-statistical-caveats" id="id11">Pitfalls and statistical caveats</a></p></li>
+<li><p><a class="reference internal" href="#parametrically-randomised-problems" id="id12">Parametrically randomised problems</a></p>
 <ul>
-<li><p><a class="reference internal" href="#design" id="id13">Design</a></p></li>
-<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id14">CMA-ES as a baseline</a></p></li>
+<li><p><a class="reference internal" href="#usage" id="id13">Usage</a></p></li>
+<li><p><a class="reference internal" href="#what-gets-randomised" id="id14">What gets randomised</a></p></li>
+<li><p><a class="reference internal" href="#default-families" id="id15">Default families</a></p></li>
+<li><p><a class="reference internal" href="#id1" id="id16">Reproducibility</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#self-improvement-loop" id="id15">Self-improvement loop</a></p></li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id16">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#absolute-baselines" id="id17">Absolute baselines</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id17">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id18">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id19">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#design" id="id18">Design</a></p></li>
+<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id19">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id20">See also</a></p></li>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id20">Self-improvement loop</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id21">Extending the harness</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id22">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id23">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id24">Adding a metric</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id25">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Why a single number?</a><a class="headerlink" href="#why-a-single-number" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Why a single number?</a><a class="headerlink" href="#why-a-single-number" title="Link to this heading">¶</a></h2>
 <p>Black-box optimization has no shortage of metrics: success rate, ERT
 (Expected Running Time), best distance to optimum, area under the convergence
 curve, wall-clock time. Each captures a facet, none captures the whole.</p>
@@ -218,7 +231,7 @@ curve, wall-clock time. Each captures a facet, none captures the whole.</p>
 <code class="docutils literal notranslate"><span class="pre">HarnessResult.composite_score</span></code>.</p>
 </section>
 <section id="definition">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Definition</a><a class="headerlink" href="#definition" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Definition</a><a class="headerlink" href="#definition" title="Link to this heading">¶</a></h2>
 <p>For each optimization run we track a <em>convergence trace</em> — the sequence of
 evaluation indices at which the best-so-far value improved. From the trace we
 extract the <strong>first-hit evaluation</strong> <span class="math notranslate nohighlight">\(k^\star\)</span>, defined as the first
@@ -241,7 +254,7 @@ The final <code class="docutils literal notranslate"><span class="pre">composite
 exact implementation.</p>
 </section>
 <section id="interpretation">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Interpretation</a><a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Interpretation</a><a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -273,7 +286,7 @@ exact implementation.</p>
 </table>
 </div>
 <section id="also-reported">
-<h3><a class="toc-backref" href="#id4" role="doc-backlink">Also reported</a><a class="headerlink" href="#also-reported" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Also reported</a><a class="headerlink" href="#also-reported" title="Link to this heading">¶</a></h3>
 <p>Alongside <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> each pair exposes:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code> — fraction of reps hitting tolerance.</p></li>
@@ -286,7 +299,7 @@ it moved.</p>
 </section>
 </section>
 <section id="running-benchmarks">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Running benchmarks</a><a class="headerlink" href="#running-benchmarks" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Running benchmarks</a><a class="headerlink" href="#running-benchmarks" title="Link to this heading">¶</a></h2>
 <p>The CLI lives at the repository root.  Always prefix with <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> so the
 correct environment is used.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Quick — ~30 seconds, 3 problems × 2 strategies × 3 reps, 75 evals each.</span>
@@ -344,7 +357,7 @@ correct environment is used.</p>
 </table>
 </div>
 <section id="reproducibility">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">¶</a></h3>
 <p>Seeds are deterministic: each <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy,</span> <span class="pre">rep)</span></code> triple derives its
 seed via SHA-256 from a base seed (default <code class="docutils literal notranslate"><span class="pre">42</span></code>). Re-running with the same
 base seed produces byte-identical convergence traces. See
@@ -352,7 +365,7 @@ base seed produces byte-identical convergence traces. See
 </section>
 </section>
 <section id="the-compare-workflow">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a><a class="headerlink" href="#the-compare-workflow" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a><a class="headerlink" href="#the-compare-workflow" title="Link to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">compare</span> <span class="pre">before.json</span> <span class="pre">after.json</span></code> reports:</p>
 <ul class="simple">
 <li><p>Composite-score delta and relative percent change.</p></li>
@@ -364,7 +377,7 @@ scores worse.  Useful for CI gating and automated accept/revert loops.</p></li>
 </ul>
 </section>
 <section id="statistical-acceptance-rule">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">¶</a></h2>
 <p>The naive <code class="docutils literal notranslate"><span class="pre">|Δ|</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> gate is fast but fragile — at quick-mode sample sizes
 a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
 autonomous self-improvement loop needs), add the <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> flag:</p>
@@ -456,7 +469,7 @@ The statistical rule is a <em>gate</em> on top of that formula — adding it doe
 change the underlying number.</p>
 </section>
 <section id="when-to-run-which-mode">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><strong>During development</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> after each meaningful change.  Fast
 enough to keep you honest without hurting flow.</p></li>
@@ -467,7 +480,7 @@ machine you are not actively using.</p></li>
 </ul>
 </section>
 <section id="pitfalls-and-statistical-caveats">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
 <p>The composite score is <strong>noisy</strong>. Three symptoms to watch for:</p>
 <ol class="arabic simple">
 <li><p><strong>Few reps</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> uses only 3 reps per pair. A delta of <code class="docutils literal notranslate"><span class="pre">±0.02</span></code>
@@ -482,33 +495,121 @@ parametrically randomised battery described below.</p></li>
 <p>Recommended practice: run the same comparison at two different base seeds
 before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>
 </section>
-<section id="parametrically-randomised-problems-planned">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">Parametrically randomised problems (planned)</a><a class="headerlink" href="#parametrically-randomised-problems-planned" title="Link to this heading">¶</a></h2>
-<p>The current registry (<code class="docutils literal notranslate"><span class="pre">_make_quick_problems</span></code> etc. in
-<code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) uses <em>fixed</em> problem instances. This is great for
-A/B reproducibility but vulnerable to over-fitting: an agent that tunes a
-heuristic to the specific Rosenbrock valley at <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">1)</span></code> may regress on the
-next problem it encounters.</p>
-<p>The roadmap adds a <strong>parametric problem layer</strong> that samples fresh instances
-from a family each harness run:</p>
+<section id="parametrically-randomised-problems">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Parametrically randomised problems</a><a class="headerlink" href="#parametrically-randomised-problems" title="Link to this heading">¶</a></h2>
+<p>The fixed registry (<code class="docutils literal notranslate"><span class="pre">_make_quick_problems</span></code> etc. in
+<code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) is great for A/B reproducibility but vulnerable to
+over-fitting: an agent that tunes a heuristic to the specific Rosenbrock
+valley at <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">1)</span></code> may regress on the next problem it encounters.  The
+harness therefore ships a <strong>parametric problem layer</strong> (Phase 3 of the
+self-improvement loop) that samples fresh transformed instances per
+repetition, turning <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> into a Monte-Carlo estimate of
+<em>expected</em> performance on a problem family.</p>
+<section id="usage">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading">¶</a></h3>
+<p>Add <code class="docutils literal notranslate"><span class="pre">--randomize</span></code> to <code class="docutils literal notranslate"><span class="pre">run</span></code> or <code class="docutils literal notranslate"><span class="pre">list</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>list<span class="w"> </span>--randomize
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--randomize<span class="w"> </span>--output<span class="w"> </span>rand_before.json
+</span><span data-line="3"><span class="c1"># Make changes ...</span>
+</span><span data-line="4">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--randomize<span class="w"> </span>--output<span class="w"> </span>rand_after.json
+</span><span data-line="5">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>compare<span class="w"> </span>rand_before.json<span class="w"> </span>rand_after.json<span class="w"> </span>--statistical
+</span></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--randomize-iteration</span></code> flag (default <code class="docutils literal notranslate"><span class="pre">0</span></code>) mixes an iteration
+index into the instance seed.  Within one iteration, <code class="docutils literal notranslate"><span class="pre">before</span></code> and
+<code class="docutils literal notranslate"><span class="pre">after</span></code> runs see <strong>identical</strong> sampled instances (apples-to-apples);
+across iterations the instances intentionally differ, so repeatedly
+“winning” the same iteration is not enough — only sustained wins across
+many iterations are real improvements.</p>
+</section>
+<section id="what-gets-randomised">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">What gets randomised</a><a class="headerlink" href="#what-gets-randomised" title="Link to this heading">¶</a></h3>
+<p>For each <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemFamily</span></code>, the sampler
+composes four transforms (filtered by per-family capability flags):</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 27.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Transform</p></th>
+<th class="head"><p>Parameter</p></th>
+<th class="head"><p>Rationale</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Translation</p></td>
+<td><p><span class="math notranslate nohighlight">\(x^\star \sim U(\text{interior box})\)</span></p></td>
+<td><p>Kills hard-coded-centre exploitation; optimum lives away from edges.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Rotation</p></td>
+<td><p>Haar-random <span class="math notranslate nohighlight">\(Q \in O(d)\)</span></p></td>
+<td><p>Breaks axis-aligned local-search advantage on separable functions.</p></td>
+</tr>
+<tr class="row-even"><td><p>Scaling</p></td>
+<td><p>Diagonal <span class="math notranslate nohighlight">\(\Lambda\)</span>, <span class="math notranslate nohighlight">\(\log_{10}\kappa \sim U[0, c_{\max}]\)</span></p></td>
+<td><p>Stresses second-order / ill-conditioning heuristics.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Noise</p></td>
+<td><p><span class="math notranslate nohighlight">\(\tilde f(x) = f(x) + \sigma \varepsilon\)</span></p></td>
+<td><p>Matches the noisy-black-box use case.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The composite transform is</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\tilde f(x) = f_{\text{base}}\bigl(Q \, \Lambda \, (x - x^\star)
+                                  + y^\star_{\text{base}}\bigr)
+             + \sigma \varepsilon,\]</div>
+</div>
+<p>and by construction <span class="math notranslate nohighlight">\(\tilde f(x^\star) = f_{\text{opt}}\)</span> so
+<code class="docutils literal notranslate"><span class="pre">known_optima</span></code> for the transformed problem is <code class="docutils literal notranslate"><span class="pre">{&quot;x&quot;:</span> <span class="pre">x*,</span> <span class="pre">&quot;fx&quot;:</span> <span class="pre">f_opt}</span></code>
+— the existing <code class="docutils literal notranslate"><span class="pre">func_distance</span></code> / <code class="docutils literal notranslate"><span class="pre">ert</span></code> / <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> logic
+works unchanged.</p>
+</section>
+<section id="default-families">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Default families</a><a class="headerlink" href="#default-families" title="Link to this heading">¶</a></h3>
+<p><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness_randomized.make_default_families()</span></code> returns four
+families covering the main optimisation challenges:</p>
 <ul class="simple">
-<li><p><strong>Translation</strong> — shift the optimum <code class="docutils literal notranslate"><span class="pre">x*</span></code> to a random point in the box.</p></li>
-<li><p><strong>Rotation</strong> — for functions separable in the canonical frame (Rastrigin,
-Ackley), apply a random orthogonal transform so that axis-aligned local
-search is no longer privileged.</p></li>
-<li><p><strong>Scaling</strong> — sample ill-conditioning factors (e.g. log-uniform in
-<code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">1e4]</span></code>) to stress second-order-aware heuristics.</p></li>
-<li><p><strong>Noise injection</strong> — additive Gaussian noise on evaluations, mirroring the
-real noisy-black-box use case.</p></li>
-<li><p><strong>Dimensionality sampling</strong> — draw <code class="docutils literal notranslate"><span class="pre">d</span></code> uniformly from a stated set.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Rastrigin_family</span></code> — separable, highly multimodal (translate + rotate + scale).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Ackley_family</span></code> — non-separable, multimodal with a funnel (translate + rotate + scale).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Rosenbrock_family</span></code> — non-separable, banana valley (translate + scale).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DeJong_family</span></code> — smooth convex sphere (all transforms; the baseline sanity case).</p></li>
 </ul>
-<p>Each harness run will log the per-instance parameters so that individual
-failures remain reproducible; the <em>aggregate</em> score, computed across many
-sampled instances, becomes a meaningful generalisation signal.</p>
-<p>Design details: see <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
+<p>Schwefel and Griewank are intentionally excluded from the default set —
+Schwefel’s optimum sits near the box boundary and Griewank’s oscillation
+couples tightly to the coordinate axes, so rotation pushes <code class="docutils literal notranslate"><span class="pre">y</span></code> off the
+function’s sensible domain.</p>
+</section>
+<section id="id1">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>All randomness flows from a single 32-bit seed derived via SHA-256 from
+<code class="docutils literal notranslate"><span class="pre">(base_seed,</span> <span class="pre">iteration_id,</span> <span class="pre">family_name,</span> <span class="pre">rep)</span></code> — the same scheme the
+harness already uses for strategy seeds.  A regression flagged by the loop
+is deterministically reproducible from the printed tuple:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.harness_randomized</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">make_default_families</span><span class="p">,</span> <span class="n">RandomizedProblemSpec</span>
+</span><span data-line="3"><span class="p">)</span>
+</span><span data-line="4"><span class="n">fams</span> <span class="o">=</span> <span class="n">make_default_families</span><span class="p">()</span>
+</span><span data-line="5"><span class="n">spec</span> <span class="o">=</span> <span class="n">RandomizedProblemSpec</span><span class="p">(</span>
+</span><span data-line="6">    <span class="n">fams</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">iteration_id</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">base_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">200</span>
+</span><span data-line="7"><span class="p">)</span>
+</span><span data-line="8"><span class="n">prob</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">create_problem_for_rep</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</span><span data-line="9"><span class="n">params</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">last_sampled_params</span><span class="p">()</span>  <span class="c1"># dim, translation, rotation_trace, ...</span>
+</span></pre></div>
+</div>
+<p>Design details: <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §4.  Implementation:
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_randomized</span></code>.  Tests:
+<code class="docutils literal notranslate"><span class="pre">tests/test_harness_randomized.py</span></code>.</p>
+</section>
 </section>
 <section id="absolute-baselines">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
 <p>The harness runs <em>Panobbgo strategies vs. Panobbgo strategies</em> by default.
 To judge Panobbgo in <strong>absolute</strong> terms, the
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> module plugs three external reference
@@ -530,7 +631,7 @@ composite score still averages over every <code class="docutils literal notransl
 so a fair comparison should either <em>include baselines on both sides</em> of
 a <code class="docutils literal notranslate"><span class="pre">compare</span></code> call or <em>exclude them from both</em>.</p>
 <section id="design">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
 <p>Baselines are thin adapters that implement the subset of the strategy
 surface the harness actually uses (<code class="docutils literal notranslate"><span class="pre">.config.max_eval</span></code>, <code class="docutils literal notranslate"><span class="pre">.start()</span></code>,
 <code class="docutils literal notranslate"><span class="pre">.best</span></code>, <code class="docutils literal notranslate"><span class="pre">.results.results</span></code>).  They do <strong>not</strong> subclass
@@ -544,7 +645,7 @@ the wrapper’s log, and the results DataFrame carries the same MultiIndex
 columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
 </section>
 <section id="cma-es-as-a-baseline">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
 <p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
 the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
 <code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
@@ -556,7 +657,7 @@ upstream reference becomes valuable.</p>
 </section>
 </section>
 <section id="self-improvement-loop">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
 <p>The benchmark harness is the <em>measurement substrate</em> for an autonomous
 improvement loop:</p>
 <ol class="arabic simple">
@@ -572,9 +673,9 @@ otherwise.</p></li>
 repository.</p>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -584,7 +685,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -594,7 +695,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -603,7 +704,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

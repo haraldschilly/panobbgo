@@ -522,6 +522,13 @@ class HarnessConfig:
             so that ``before`` and ``after`` runs within a single
             self-improvement iteration see *identical* sampled instances,
             while different iterations see different ones.
+        strategies_override: Explicit list of :class:`StrategySpec` objects
+            to run instead of the mode's default registry.  Used by the
+            self-improvement loop driver to evaluate perturbed copies of the
+            strategy registry without touching global state.  When set,
+            :attr:`strategies` (the name filter) and :attr:`include_baselines`
+            still apply, but no fallback to the built-in mode strategies
+            happens.
     """
 
     mode: str = "quick"
@@ -542,6 +549,12 @@ class HarnessConfig:
     #: Iteration index for the randomized sampler.  Constant across a
     #: ``before``/``after`` pair so instances line up.
     randomize_iteration: int = 0
+    #: Caller-supplied strategy list that overrides the mode's default
+    #: registry.  Used by :mod:`panobbgo.self_improve` so a loop iteration
+    #: can evaluate a mutated copy of the strategy registry without
+    #: monkey-patching the built-in factories.  ``None`` keeps the legacy
+    #: behaviour (factories select based on ``mode``).
+    strategies_override: Optional[List[StrategySpec]] = None
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -749,6 +762,12 @@ class HarnessResult:
             return obj
 
         raw = asdict(self)
+        # ``strategies_override`` carries live class objects that are not
+        # JSON-serialisable.  It is a runtime hook used by the
+        # self-improvement loop driver, not a fact about the run that
+        # should be persisted; strip it before serialising.
+        if isinstance(raw.get("config"), dict):
+            raw["config"].pop("strategies_override", None)
         return _clean(raw)
 
     def save(self, path: str) -> None:
@@ -1625,16 +1644,23 @@ class BenchmarkHarness:
         are appended to the mode's strategy list.  This gives every
         ``HarnessResult`` an absolute-performance reference, not just the
         relative "better than previous Panobbgo" signal.
+
+        When :attr:`HarnessConfig.strategies_override` is set, that list
+        replaces the mode's defaults; the name filter and baseline
+        appender still apply on top of it.
         """
-        mode = self.config.mode
-        if mode == "quick":
-            specs = _make_quick_strategies()
-        elif mode == "standard":
-            specs = _make_standard_strategies()
-        elif mode == "full":
-            specs = _make_full_strategies()
+        if self.config.strategies_override is not None:
+            specs = list(self.config.strategies_override)
         else:
-            raise ValueError(f"Unknown mode {mode!r}.")
+            mode = self.config.mode
+            if mode == "quick":
+                specs = _make_quick_strategies()
+            elif mode == "standard":
+                specs = _make_standard_strategies()
+            elif mode == "full":
+                specs = _make_full_strategies()
+            else:
+                raise ValueError(f"Unknown mode {mode!r}.")
 
         if self.config.include_baselines:
             from panobbgo.harness_baselines import make_baseline_strategies

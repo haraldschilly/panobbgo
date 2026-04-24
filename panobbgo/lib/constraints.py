@@ -30,6 +30,7 @@ class ConstraintHandler:
     """
     Abstract base class for constraint handlers.
     """
+
     def __init__(self, strategy=None, **kwargs):
         """
         Args:
@@ -83,12 +84,12 @@ class ConstraintHandler:
             float: Scalar penalty value (lower is better).
         """
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
 
         cv = result.cv if result.cv is not None else 0.0
         # Default behavior: f(x) + large_penalty * cv
         # Using 1000.0 as default rho if not specified
-        rho = getattr(self, 'rho', 1000.0)
+        rho = getattr(self, "rho", 1000.0)
         return float(result.fx + rho * cv)
 
 
@@ -102,6 +103,7 @@ class DefaultConstraintHandler(ConstraintHandler):
 
     If switching from Infeasible to Feasible, improvement is considered very high.
     """
+
     def __init__(self, strategy=None, rho=100.0, **kwargs):
         """
         Args:
@@ -113,8 +115,8 @@ class DefaultConstraintHandler(ConstraintHandler):
 
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
         if old_best is None:
-             # First point found is treated as a baseline improvement
-             return 1.0
+            # First point found is treated as a baseline improvement
+            return 1.0
 
         old_feasible = old_best.cv == 0
         new_feasible = new_best.cv == 0
@@ -176,6 +178,7 @@ class PenaltyConstraintHandler(ConstraintHandler):
 
     Improvement is defined as reduction in P(x).
     """
+
     def __init__(self, strategy=None, rho=100.0, exponent=1.0, **kwargs):
         """
         Args:
@@ -198,8 +201,8 @@ class PenaltyConstraintHandler(ConstraintHandler):
         cv_old = old_best.cv if old_best.cv is not None else 0.0
         cv_new = new_best.cv if new_best.cv is not None else 0.0
 
-        p_old = old_best.fx + self.rho * (cv_old ** self.exponent)
-        p_new = new_best.fx + self.rho * (cv_new ** self.exponent)
+        p_old = old_best.fx + self.rho * (cv_old**self.exponent)
+        p_new = new_best.fx + self.rho * (cv_new**self.exponent)
 
         return float(max(0.0, p_old - p_new))
 
@@ -210,17 +213,17 @@ class PenaltyConstraintHandler(ConstraintHandler):
         cv_old = old_best.cv if old_best.cv is not None else 0.0
         cv_new = new_result.cv if new_result.cv is not None else 0.0
 
-        p_old = old_best.fx + self.rho * (cv_old ** self.exponent)
-        p_new = new_result.fx + self.rho * (cv_new ** self.exponent)
+        p_old = old_best.fx + self.rho * (cv_old**self.exponent)
+        p_new = new_result.fx + self.rho * (cv_new**self.exponent)
 
         return p_new < p_old
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
 
         cv = result.cv if result.cv is not None else 0.0
-        return float(result.fx + self.rho * (cv ** self.exponent))
+        return float(result.fx + self.rho * (cv**self.exponent))
 
 
 class DynamicPenaltyConstraintHandler(ConstraintHandler):
@@ -232,6 +235,7 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
     Where rho(t) = rho_start * (1 + rate * t)
     and t is the number of evaluations or loops.
     """
+
     def __init__(self, strategy=None, rho_start=10.0, rate=0.01, exponent=2.0, **kwargs):
         super().__init__(strategy, **kwargs)
         self.rho_start = rho_start
@@ -255,8 +259,8 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         cv_old = old_best.cv if old_best.cv is not None else 0.0
         cv_new = new_best.cv if new_best.cv is not None else 0.0
 
-        p_old = old_best.fx + rho * (cv_old ** self.exponent)
-        p_new = new_best.fx + rho * (cv_new ** self.exponent)
+        p_old = old_best.fx + rho * (cv_old**self.exponent)
+        p_new = new_best.fx + rho * (cv_new**self.exponent)
 
         return float(max(0.0, p_old - p_new))
 
@@ -269,18 +273,18 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         cv_old = old_best.cv if old_best.cv is not None else 0.0
         cv_new = new_result.cv if new_result.cv is not None else 0.0
 
-        p_old = old_best.fx + rho * (cv_old ** self.exponent)
-        p_new = new_result.fx + rho * (cv_new ** self.exponent)
+        p_old = old_best.fx + rho * (cv_old**self.exponent)
+        p_new = new_result.fx + rho * (cv_new**self.exponent)
 
         return p_new < p_old
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
 
         rho = self._get_current_rho()
         cv = result.cv if result.cv is not None else 0.0
-        return float(result.fx + rho * (cv ** self.exponent))
+        return float(result.fx + rho * (cv**self.exponent))
 
 
 class AugmentedLagrangianConstraintHandler(ConstraintHandler):
@@ -296,6 +300,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
        lambda_i <- max(0, lambda_i + mu * g_i(x))
        mu <- mu * rate (if violation not decreasing sufficiently)
     """
+
     def __init__(self, strategy=None, rho=10.0, rate=2.0, update_interval=20, **kwargs):
         """
         Args:
@@ -310,7 +315,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         self.update_interval = update_interval
         self.lambdas = None  # Will be initialized on first result
         self.counter = 0
-        self.last_cv_norm = float('inf')
+        self.last_cv_norm = float("inf")
 
         # Logging
         if strategy:
@@ -358,11 +363,11 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # We only increase penalty if we are still infeasible
         if current_cv_norm > 0:
             # Initialize last_cv_norm if it's the first time
-            if self.last_cv_norm == float('inf'):
+            if self.last_cv_norm == float("inf"):
                 self.last_cv_norm = current_cv_norm
             elif current_cv_norm > 0.9 * self.last_cv_norm:
                 self.mu *= self.rate
-                if hasattr(self, 'logger'):
+                if hasattr(self, "logger"):
                     self.logger.info(f"Increasing penalty mu to {self.mu:.2f} (cv: {current_cv_norm:.4f})")
                 self.last_cv_norm = current_cv_norm
             else:
@@ -376,10 +381,12 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             new_lambdas = np.maximum(0, self.lambdas + current_mu * cv)
             self.lambdas = new_lambdas
         else:
-            if hasattr(self, 'logger'):
-                self.logger.warning(f"ALM: Shape mismatch in update_parameters. lambdas {self.lambdas.shape} vs cv {cv.shape}")
+            if hasattr(self, "logger"):
+                self.logger.warning(
+                    f"ALM: Shape mismatch in update_parameters. lambdas {self.lambdas.shape} vs cv {cv.shape}"
+                )
 
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Updated AL params: mu={self.mu:.2f}, lambdas={self.lambdas}")
 
         # Scan history to see if the best point has changed under the new parameters
@@ -430,9 +437,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
                 # Handle cv_vec for list
                 try:
-                    cv_vec_all = np.array(
-                        [r.cv_vec if r.cv_vec is not None else [] for r in results_list]
-                    )
+                    cv_vec_all = np.array([r.cv_vec if r.cv_vec is not None else [] for r in results_list])
                     # If empty lists, might result in (N, 0) or object array
                     if cv_vec_all.dtype == object:
                         cv_vec_all = None
@@ -506,12 +511,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
             # Robust cv_vec extraction
             best_cv_vec = None
-            if (
-                cv_vec_all is not None
-                and cv_vec_all.size > 0
-                and cv_vec_all.ndim >= 2
-                and cv_vec_all.shape[1] > 0
-            ):
+            if cv_vec_all is not None and cv_vec_all.size > 0 and cv_vec_all.ndim >= 2 and cv_vec_all.shape[1] > 0:
                 best_cv_vec = cv_vec_all[min_idx]
 
             best_who = str(who_all[min_idx])
@@ -550,29 +550,31 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
         val = self._calculate_lagrangian(result)
         if val is None:
-            return float('inf')
+            return float("inf")
         return float(val)
 
     def _calculate_lagrangian(self, result: Result):
-        if result is None: return float('inf')
-        if result.cv_vec is None: return result.fx
+        if result is None:
+            return float("inf")
+        if result.cv_vec is None:
+            return result.fx
 
         # Ensure we have lambdas
         if self.lambdas is None:
-             self.lambdas = np.zeros_like(result.cv_vec)
+            self.lambdas = np.zeros_like(result.cv_vec)
 
         # Check shape compatibility
         if result.cv_vec.shape != self.lambdas.shape:
             # If shapes don't match (e.g. 1D vs 2D mismatch or length mismatch), fall back to fx or try to adapt
             if result.cv_vec.size == self.lambdas.size:
-                 # Flatten both if just shape mismatch but same size
-                 cv_vec = result.cv_vec.flatten()
-                 lambdas = self.lambdas.flatten()
+                # Flatten both if just shape mismatch but same size
+                cv_vec = result.cv_vec.flatten()
+                lambdas = self.lambdas.flatten()
             else:
-                 return result.fx
+                return result.fx
         else:
             cv_vec = result.cv_vec
             lambdas = self.lambdas
@@ -583,6 +585,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         penalty_term = (1.0 / (2.0 * self.mu)) * (np.sum(term**2) - np.sum(lambdas**2))
 
         return result.fx + penalty_term
+
 
 class EpsilonConstraintHandler(ConstraintHandler):
     """
@@ -601,6 +604,7 @@ class EpsilonConstraintHandler(ConstraintHandler):
     Decay Schedule:
     epsilon(t) = epsilon_start * (1 - t / cutoff)^cp
     """
+
     def __init__(self, strategy=None, epsilon_start=1.0, cp=5.0, cutoff=100, rho=100.0, **kwargs):
         super().__init__(strategy, **kwargs)
         self.epsilon_start = epsilon_start
@@ -609,7 +613,7 @@ class EpsilonConstraintHandler(ConstraintHandler):
         self.rho = rho
 
     def _get_current_epsilon(self):
-        if not self.strategy or not hasattr(self.strategy, 'results'):
+        if not self.strategy or not hasattr(self.strategy, "results"):
             return self.epsilon_start
 
         # Use len(results) as time t.
@@ -623,13 +627,15 @@ class EpsilonConstraintHandler(ConstraintHandler):
         return self.epsilon_start * ((1.0 - progress) ** self.cp)
 
     def _phi(self, result):
-        if result is None: return float('inf')
+        if result is None:
+            return float("inf")
         cv = result.cv if result.cv is not None else 0.0
         eps = self._get_current_epsilon()
         return max(0.0, cv - eps)
 
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        if old_best is None: return 1.0
+        if old_best is None:
+            return 1.0
 
         phi_old = self._phi(old_best)
         phi_new = self._phi(new_best)
@@ -657,7 +663,8 @@ class EpsilonConstraintHandler(ConstraintHandler):
         return 0.0
 
     def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None: return True
+        if old_best is None:
+            return True
 
         phi_old = self._phi(old_best)
         phi_new = self._phi(new_result)
@@ -678,7 +685,7 @@ class EpsilonConstraintHandler(ConstraintHandler):
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
 
         phi = self._phi(result)
         # P(x) = f(x) + rho * phi(x)
@@ -693,6 +700,7 @@ class FilterConstraintHandler(ConstraintHandler):
     A point is accepted (and considered an improvement) if it is not dominated
     by any point in the current filter.
     """
+
     def __init__(self, strategy=None, **kwargs):
         super().__init__(strategy, **kwargs)
         # Filter is a list of tuples: (fx, cv, result_obj)
@@ -714,7 +722,7 @@ class FilterConstraintHandler(ConstraintHandler):
 
         # Check if dominated by any point in filter
         is_dominated = False
-        for (f_f, f_cv, _) in self.filter:
+        for f_f, f_cv, _ in self.filter:
             # Check if f_point dominates result
             # Dominance: f_f <= fx AND f_cv <= cv AND (f_f < fx OR f_cv < cv)
             if f_f <= fx and f_cv <= cv:
@@ -732,12 +740,12 @@ class FilterConstraintHandler(ConstraintHandler):
         # Not dominated, so add to filter
         # Remove points dominated by this new result
         new_filter = []
-        for (f_f, f_cv, r) in self.filter:
+        for f_f, f_cv, r in self.filter:
             # Check if result dominates f_point
             if fx <= f_f and cv <= f_cv:
-                 if fx < f_f or cv < f_cv:
-                     # f_point is dominated, discard
-                     continue
+                if fx < f_f or cv < f_cv:
+                    # f_point is dominated, discard
+                    continue
             # Keep f_point
             new_filter.append((f_f, f_cv, r))
 
@@ -760,7 +768,7 @@ class FilterConstraintHandler(ConstraintHandler):
         cv = new_best.cv if new_best.cv is not None else 0.0
 
         is_dominated = False
-        for (f_f, f_cv, _) in self.filter:
+        for f_f, f_cv, _ in self.filter:
             if f_f <= fx and f_cv <= cv:
                 if f_f < fx or f_cv < cv:
                     is_dominated = True
@@ -780,7 +788,8 @@ class FilterConstraintHandler(ConstraintHandler):
 
     def is_better(self, old_best: Result, new_result: Result) -> bool:
         # Standard feasibility rules for "Global Best" tracking
-        if old_best is None: return True
+        if old_best is None:
+            return True
 
         cv_old = old_best.cv if old_best.cv is not None else 0.0
         cv_new = new_result.cv if new_result.cv is not None else 0.0

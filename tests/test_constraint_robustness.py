@@ -1,4 +1,3 @@
-
 import pytest
 import numpy as np
 from panobbgo.lib import Problem, Point, Result
@@ -6,6 +5,7 @@ from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.strategies.rewarding import StrategyRewarding
+
 
 class ConstrainedProblem(Problem):
     def __init__(self, dim=2):
@@ -18,10 +18,12 @@ class ConstrainedProblem(Problem):
         # x[0] + x[1] >= 1  =>  1 - x[0] - x[1] <= 0
         return np.array([max(0.0, 1.0 - np.sum(x[:2]))])
 
+
 def test_alm_update_logic():
     """
     Test that Augmented Lagrangian updates use the correct penalty parameter for multiplier updates.
     """
+
     class MockStrategy:
         def __init__(self):
             self.config = MockConfig()
@@ -31,8 +33,10 @@ def test_alm_update_logic():
     class MockConfig:
         def __init__(self):
             self.logging = {}
+
         def get_logger(self, name):
             import logging
+
             return logging.getLogger(name)
 
     strategy = MockStrategy()
@@ -59,6 +63,7 @@ def test_alm_update_logic():
     # lambda_new = max(0, 10.0 + 10.0 * 1.0) = 20.0
     # If it used new mu (20.0), it would be 30.0
     assert np.allclose(handler.lambdas, [20.0])
+
 
 def test_constraint_gradient_dataframe_access():
     """
@@ -100,6 +105,7 @@ def test_constraint_gradient_dataframe_access():
     assert p.x[0] > -1.0
     assert p.x[1] > -1.0
 
+
 def test_feasible_search_integration():
     """
     Test FeasibleSearch integration in a strategy run.
@@ -112,6 +118,7 @@ def test_feasible_search_integration():
     strategy.add(FeasibleSearch)
     # Add Random to ensure we have points
     from panobbgo.heuristics.random import Random
+
     strategy.add(Random)
 
     # Run briefly

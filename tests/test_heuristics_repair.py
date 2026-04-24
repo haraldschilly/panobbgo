@@ -5,32 +5,38 @@ from panobbgo.heuristics.repair import ConstraintRepair
 from panobbgo.lib.classic import RosenbrockConstraint
 from panobbgo.lib import Point, Result
 
+
 class MockStrategy:
     def __init__(self, problem):
         self.problem = problem
         # Mock Config
-        self.config = type('Config', (), {})()
+        self.config = type("Config", (), {})()
         self.config.capacity = 100
-        self.config.get_logger = lambda name: type('Logger', (), {
-            'debug': lambda self, s, *args: None,
-            'info': lambda self, s, *args: None,
-            'warning': lambda self, s, *args: None,
-            'error': lambda self, s, *args: None,
-            'critical': lambda self, s, *args: None
-        })()
+        self.config.get_logger = lambda name: type(
+            "Logger",
+            (),
+            {
+                "debug": lambda self, s, *args: None,
+                "info": lambda self, s, *args: None,
+                "warning": lambda self, s, *args: None,
+                "error": lambda self, s, *args: None,
+                "critical": lambda self, s, *args: None,
+            },
+        )()
 
         # Mock EventBus
-        self.eventbus = type('EventBus', (), {})()
+        self.eventbus = type("EventBus", (), {})()
         self.eventbus.register = lambda target: None
         self.eventbus.publish = lambda key, **kwargs: None
 
         # Mock Constraint Handler
-        self.constraint_handler = type('ConstraintHandler', (), {})()
-        self.constraint_handler.get_penalty_value = lambda r: r.fx + (r.cv or 0)*1000
+        self.constraint_handler = type("ConstraintHandler", (), {})()
+        self.constraint_handler.get_penalty_value = lambda r: r.fx + (r.cv or 0) * 1000
 
     @property
     def results(self):
         return []
+
 
 def test_repair_heuristic_init():
     problem = RosenbrockConstraint(dims=2)
@@ -38,6 +44,7 @@ def test_repair_heuristic_init():
     h = ConstraintRepair(strategy)
     assert h.name == "ConstraintRepair"
     assert h.max_iter == 20
+
 
 def test_repair_heuristic_on_new_best():
     problem = RosenbrockConstraint(dims=2)
@@ -67,6 +74,7 @@ def test_repair_heuristic_on_new_best():
 
     try:
         import scipy
+
         if len(points) > 0:
             p = points[0]
             # Check if new point is "more feasible"
@@ -95,6 +103,7 @@ def test_repair_heuristic_on_new_best():
 
     except ImportError:
         pass
+
 
 def test_repair_heuristic_no_op_if_feasible():
     problem = RosenbrockConstraint(dims=2)

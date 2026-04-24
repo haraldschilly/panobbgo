@@ -8,6 +8,7 @@ from panobbgo.heuristics.nearby import Nearby
 from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.lib.classic import RosenbrockConstraint
 
+
 # --- Test Problem ---
 class ConstrainedSphere(Problem):
     def __init__(self):
@@ -22,6 +23,7 @@ class ConstrainedSphere(Problem):
         # g(x) = 1 - x[0] - x[1] <= 0  => x + y >= 1
         val = 1.0 - x[0] - x[1]
         return np.array([max(0.0, val)])
+
 
 def test_alm_convergence_sphere():
     """
@@ -40,8 +42,8 @@ def test_alm_convergence_sphere():
 
     # Configure convergence analyzer
     strategy.config.stop_on_convergence = True
-    strategy.config.convergence_window_size = 200 # More patience
-    strategy.config.convergence_require_feasibility = True # Wait for feasibility
+    strategy.config.convergence_window_size = 200  # More patience
+    strategy.config.convergence_require_feasibility = True  # Wait for feasibility
 
     # Add heuristics
     strategy.add(Random)
@@ -63,6 +65,7 @@ def test_alm_convergence_sphere():
     # User requested to just check below a larger value like 10 to avoid flakiness.
     assert best.fx < 10.0, f"Did not converge to optimum. fx={best.fx}, x={best.x}"
 
+
 def test_alm_convergence_rosenbrock():
     """
     End-to-end test verifying that StrategyRewarding with AugmentedLagrangianConstraintHandler
@@ -76,7 +79,7 @@ def test_alm_convergence_rosenbrock():
     problem = RosenbrockConstraint(dims=2)
 
     strategy = StrategyRewarding(problem, testing_mode=True)
-    strategy.config.max_eval = 2000 # Harder problem
+    strategy.config.max_eval = 2000  # Harder problem
     strategy.config.constraint_handler = "AugmentedLagrangianConstraintHandler"
     strategy.config.rho = 10.0
     strategy.config.evaluation_method = "threaded"
@@ -99,6 +102,7 @@ def test_alm_convergence_rosenbrock():
 
     # And reasonable objective (not exploding)
     assert best.fx < 100.0, f"Objective too high: {best.fx}"
+
 
 if __name__ == "__main__":
     test_alm_convergence_sphere()

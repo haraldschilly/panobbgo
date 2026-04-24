@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
+# Format and lint the codebase with ruff.
+# CI enforces `ruff format --check` — run this before committing.
 
-FILES="panobbgo*/*.py *.py doc/source/*.py"
-ARGS='--max-line-length=110'
-AUTOPEP="autopep8 -i --aggressive $ARGS"
+set -euo pipefail
 
-pep8 $ARGS $FILES
-
-for DIR in panobbgo panobbgo.lib sketchpad; do
-  find $DIR -name "*.py" -print0 | xargs -0 $AUTOPEP
-done
-
-$AUTOPEP setup*.py fabfile.py
+uv run ruff format .
+uv run ruff check --fix .

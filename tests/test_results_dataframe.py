@@ -1,4 +1,3 @@
-
 import unittest
 import numpy as np
 import pandas as pd
@@ -6,8 +5,8 @@ from panobbgo.core import Results
 from panobbgo.lib import Result, Point, Problem
 from panobbgo.utils import PanobbgoTestCase
 
-class TestResultsDataFrame(PanobbgoTestCase):
 
+class TestResultsDataFrame(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         # Use real Results object attached to the mock strategy
@@ -29,7 +28,7 @@ class TestResultsDataFrame(PanobbgoTestCase):
 
         # 1. Check uniqueness of 'cv' access
         try:
-            cv_col = df['cv']
+            cv_col = df["cv"]
             # Should be a Series or DataFrame with single column if accessed by top level
             # In pandas, if 'cv' is a top level key with only one sub-column '0',
             # df['cv'] returns a DataFrame with that sub-column.
@@ -39,7 +38,7 @@ class TestResultsDataFrame(PanobbgoTestCase):
             self.assertEqual(cv_col.shape[1], 1, "df['cv'] should return exactly one column (the scalar cv)")
 
             # Accessing scalar specifically
-            scalar_val = float(df[('cv', 0)].iloc[0])
+            scalar_val = float(df[("cv", 0)].iloc[0])
             self.assertAlmostEqual(scalar_val, r.cv)
 
         except KeyError:
@@ -47,11 +46,11 @@ class TestResultsDataFrame(PanobbgoTestCase):
 
         # 2. Check access to vector
         try:
-            cv_vec_col = df['cv_vec']
+            cv_vec_col = df["cv_vec"]
             self.assertEqual(cv_vec_col.shape[1], 2, "df['cv_vec'] should return 2 columns")
 
-            val0 = float(df[('cv_vec', 0)].iloc[0])
-            val1 = float(df[('cv_vec', 1)].iloc[0])
+            val0 = float(df[("cv_vec", 0)].iloc[0])
+            val1 = float(df[("cv_vec", 1)].iloc[0])
 
             self.assertEqual(val0, 1.0)
             self.assertEqual(val1, 2.0)
@@ -69,10 +68,10 @@ class TestResultsDataFrame(PanobbgoTestCase):
         df = self.strategy.results.results
 
         # Should have 'cv' (scalar 0) but no 'cv_vec'
-        self.assertIn('cv', df.columns.levels[0])
-        self.assertNotIn('cv_vec', df.columns.levels[0])
+        self.assertIn("cv", df.columns.levels[0])
+        self.assertNotIn("cv_vec", df.columns.levels[0])
 
-        scalar_val = float(df[('cv', 0)].iloc[0])
+        scalar_val = float(df[("cv", 0)].iloc[0])
         self.assertEqual(scalar_val, 0.0)
 
     def test_get_history(self):
@@ -88,28 +87,28 @@ class TestResultsDataFrame(PanobbgoTestCase):
         # 1. Test full history
         h = self.strategy.results.get_history()
 
-        self.assertEqual(len(h['x']), 2)
-        self.assertTrue(np.allclose(h['x'], np.array([[1.0], [2.0]])))
-        self.assertTrue(np.allclose(h['fx'], np.array([10.0, 20.0])))
-        self.assertTrue(np.allclose(h['cv'], np.array([0.1, 0.2])))
-        self.assertTrue(np.allclose(h['cv_vec'], np.array([[0.1], [0.2]])))
-        self.assertTrue(np.array_equal(h['who'], np.array(['t1', 't2'])))
+        self.assertEqual(len(h["x"]), 2)
+        self.assertTrue(np.allclose(h["x"], np.array([[1.0], [2.0]])))
+        self.assertTrue(np.allclose(h["fx"], np.array([10.0, 20.0])))
+        self.assertTrue(np.allclose(h["cv"], np.array([0.1, 0.2])))
+        self.assertTrue(np.allclose(h["cv_vec"], np.array([[0.1], [0.2]])))
+        self.assertTrue(np.array_equal(h["who"], np.array(["t1", "t2"])))
 
         # 2. Test limited history (n=1)
         h_last = self.strategy.results.get_history(n=1)
-        self.assertEqual(len(h_last['x']), 1)
-        self.assertTrue(np.allclose(h_last['x'], np.array([[2.0]])))
-        self.assertTrue(np.allclose(h_last['fx'], np.array([20.0])))
+        self.assertEqual(len(h_last["x"]), 1)
+        self.assertTrue(np.allclose(h_last["x"], np.array([[2.0]])))
+        self.assertTrue(np.allclose(h_last["fx"], np.array([20.0])))
 
     def test_get_history_empty(self):
         """
         Verify get_history on empty results.
         """
         h = self.strategy.results.get_history()
-        self.assertEqual(len(h['x']), 0)
-        self.assertEqual(len(h['fx']), 0)
-        self.assertEqual(len(h['cv']), 0)
-        self.assertEqual(len(h['cv_vec']), 0)
+        self.assertEqual(len(h["x"]), 0)
+        self.assertEqual(len(h["fx"]), 0)
+        self.assertEqual(len(h["cv"]), 0)
+        self.assertEqual(len(h["cv_vec"]), 0)
 
     def test_get_history_no_constraints(self):
         """
@@ -119,9 +118,10 @@ class TestResultsDataFrame(PanobbgoTestCase):
         self.strategy.results.add_results([r])
 
         h = self.strategy.results.get_history()
-        self.assertEqual(len(h['cv_vec']), 1)
-        self.assertEqual(h['cv_vec'].shape[1], 0) # Should be (1, 0)
-        self.assertEqual(h['cv'][0], 0.0)
+        self.assertEqual(len(h["cv_vec"]), 1)
+        self.assertEqual(h["cv_vec"].shape[1], 0)  # Should be (1, 0)
+        self.assertEqual(h["cv"][0], 0.0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

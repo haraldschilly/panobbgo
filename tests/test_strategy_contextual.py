@@ -8,8 +8,10 @@ from panobbgo.lib import Point, Result, Problem
 import time
 import threading
 
+
 class BiasedHeuristic(Heuristic):
     """A heuristic that generates points with specific quality."""
+
     def __init__(self, strategy, name):
         super().__init__(strategy, name=name)
 
@@ -24,10 +26,11 @@ class BiasedHeuristic(Heuristic):
         points = []
         limit = limit or 1
         for _ in range(limit):
-             # Just random points, values determined by MockContextualProblem
-             x = self.problem.random_point()
-             points.append(Point(x, self.name))
+            # Just random points, values determined by MockContextualProblem
+            x = self.problem.random_point()
+            points.append(Point(x, self.name))
         return points
+
 
 class MockContextualProblem(Problem):
     """
@@ -37,6 +40,7 @@ class MockContextualProblem(Problem):
     - Heuristic "EarlyBird": Good early (evals < 100), Bad late.
     - Heuristic "LateBloomer": Bad early, Good late (evals > 100).
     """
+
     def __init__(self, switch_point=100):
         super().__init__([[-10, 10], [-10, 10]])
         self.switch_point = switch_point
@@ -52,7 +56,7 @@ class MockContextualProblem(Problem):
         # Determine phase
         is_early = current_evals <= self.switch_point
 
-        fx = 100.0 # Default bad value
+        fx = 100.0  # Default bad value
 
         if who == "EarlyBird":
             if is_early:
@@ -84,8 +88,8 @@ class MockContextualProblem(Problem):
     def eval(self, x):
         return 0.0
 
-class TestStrategyContextual(PanobbgoTestCase):
 
+class TestStrategyContextual(PanobbgoTestCase):
     @pytest.mark.flaky(retries=3)
     def test_linucb_preference_switch(self):
         """
@@ -128,7 +132,9 @@ class TestStrategyContextual(PanobbgoTestCase):
         count_late_h_late = np.sum(late_selections == "LateBloomer")
 
         print(f"Early Phase (0-{switch_point}): EarlyBird={count_early_h_early}, LateBloomer={count_early_h_late}")
-        print(f"Late Phase ({switch_point}-{max_eval}): EarlyBird={count_late_h_early}, LateBloomer={count_late_h_late}")
+        print(
+            f"Late Phase ({switch_point}-{max_eval}): EarlyBird={count_late_h_early}, LateBloomer={count_late_h_late}"
+        )
 
         # Assertions
         # 1. Early phase: EarlyBird should be preferred
@@ -147,6 +153,7 @@ class TestStrategyContextual(PanobbgoTestCase):
         Verify StrategyLinUCB runs without errors on a standard problem.
         """
         from panobbgo.lib.classic import Rosenbrock
+
         # Fix: use dims=2
         problem = Rosenbrock(dims=2)
         strategy = StrategyLinUCB(problem, max_eval=50)
@@ -154,6 +161,7 @@ class TestStrategyContextual(PanobbgoTestCase):
         strategy.config.stop_on_convergence = False
 
         from panobbgo.heuristics import Random, Center
+
         strategy.add(Random)
         strategy.add(Center)
 

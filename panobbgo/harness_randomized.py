@@ -110,9 +110,7 @@ from panobbgo.lib import Problem
 # ---------------------------------------------------------------------------
 
 
-def derive_instance_seed(
-    base_seed: int, iteration_id: int, family_name: str, rep: int
-) -> int:
+def derive_instance_seed(base_seed: int, iteration_id: int, family_name: str, rep: int) -> int:
     """Derive the 32-bit seed used to sample a family instance.
 
     Uses SHA-256 over a ``|``-separated tuple so the result is stable across
@@ -128,9 +126,7 @@ def derive_instance_seed(
     Returns:
         A non-negative 32-bit integer suitable for ``numpy.random.default_rng``.
     """
-    raw = hashlib.sha256(
-        f"instance|{base_seed}|{iteration_id}|{family_name}|{rep}".encode()
-    ).hexdigest()
+    raw = hashlib.sha256(f"instance|{base_seed}|{iteration_id}|{family_name}|{rep}".encode()).hexdigest()
     return int(raw, 16) % (2**32)
 
 
@@ -200,36 +196,26 @@ class TransformedProblem(Problem):
         dims = x_star_arr.size
 
         if base_problem.dim != dims:
-            raise ValueError(
-                f"base_problem.dim={base_problem.dim} does not match "
-                f"len(x_star)={dims}"
-            )
+            raise ValueError(f"base_problem.dim={base_problem.dim} does not match len(x_star)={dims}")
 
         if y_base_star is None:
             y_base_star_arr = np.zeros(dims, dtype=np.float64)
         else:
             y_base_star_arr = np.asarray(y_base_star, dtype=np.float64)
             if y_base_star_arr.size != dims:
-                raise ValueError(
-                    f"y_base_star has length {y_base_star_arr.size}, "
-                    f"expected {dims}"
-                )
+                raise ValueError(f"y_base_star has length {y_base_star_arr.size}, expected {dims}")
 
         if Q is not None:
             Q_arr = np.asarray(Q, dtype=np.float64)
             if Q_arr.shape != (dims, dims):
-                raise ValueError(
-                    f"Q has shape {Q_arr.shape}, expected ({dims}, {dims})"
-                )
+                raise ValueError(f"Q has shape {Q_arr.shape}, expected ({dims}, {dims})")
         else:
             Q_arr = None
 
         if scale is not None:
             scale_arr = np.asarray(scale, dtype=np.float64)
             if scale_arr.size != dims:
-                raise ValueError(
-                    f"scale has length {scale_arr.size}, expected {dims}"
-                )
+                raise ValueError(f"scale has length {scale_arr.size}, expected {dims}")
         else:
             scale_arr = None
 
@@ -240,9 +226,7 @@ class TransformedProblem(Problem):
         if box is None:
             box_raw = base_problem.box.box
             # Convert to list of tuples (Problem.__init__ expects this).
-            box_list: List[Tuple[float, float]] = [
-                (float(lo), float(hi)) for lo, hi in box_raw
-            ]
+            box_list: List[Tuple[float, float]] = [(float(lo), float(hi)) for lo, hi in box_raw]
         else:
             box_list = [(float(lo), float(hi)) for lo, hi in box]
 
@@ -288,10 +272,7 @@ class TransformedProblem(Problem):
         return None
 
     def __repr__(self) -> str:
-        return (
-            f"TransformedProblem(name={self._transform_name!r}, "
-            f"dim={self.dim}, sigma={self._noise_sigma})"
-        )
+        return f"TransformedProblem(name={self._transform_name!r}, dim={self.dim}, sigma={self._noise_sigma})"
 
 
 # ---------------------------------------------------------------------------
@@ -318,9 +299,7 @@ def sample_orthogonal(rng: np.random.Generator, dim: int) -> np.ndarray:
     return Q
 
 
-def sample_diagonal_scaling(
-    rng: np.random.Generator, dim: int, log10_cond_max: float
-) -> np.ndarray:
+def sample_diagonal_scaling(rng: np.random.Generator, dim: int, log10_cond_max: float) -> np.ndarray:
     """Draw a diagonal scaling vector with a sampled condition number.
 
     The condition number :math:`\\kappa` is drawn so that :math:`\\log_{10}
@@ -332,17 +311,15 @@ def sample_diagonal_scaling(
     if dim < 1:
         raise ValueError(f"dim must be >= 1, got {dim}")
     if log10_cond_max < 0:
-        raise ValueError(
-            f"log10_cond_max must be non-negative, got {log10_cond_max}"
-        )
+        raise ValueError(f"log10_cond_max must be non-negative, got {log10_cond_max}")
     if log10_cond_max == 0 or dim == 1:
         return np.ones(dim, dtype=np.float64)
 
     log10_cond = rng.uniform(0.0, log10_cond_max)
-    cond = 10.0 ** log10_cond
+    cond = 10.0**log10_cond
     # Geometric spacing from 1 to cond across dims.
     exponents = np.linspace(0.0, 1.0, num=dim)
-    scales = cond ** exponents  # range: [1, cond]
+    scales = cond**exponents  # range: [1, cond]
     # Shuffle so the largest scale is not always the first axis.
     rng.shuffle(scales)
     return scales
@@ -366,9 +343,7 @@ def sample_interior_point(
             Must be in ``[0, 0.5)``.
     """
     if not 0.0 <= margin_fraction < 0.5:
-        raise ValueError(
-            f"margin_fraction must be in [0, 0.5), got {margin_fraction}"
-        )
+        raise ValueError(f"margin_fraction must be in [0, 0.5), got {margin_fraction}")
     box = np.asarray(box, dtype=np.float64)
     lo = box[:, 0]
     hi = box[:, 1]
@@ -435,9 +410,7 @@ class ProblemFamily:
     y_base_star: Optional[Sequence[float]] = None
     f_opt: float = 0.0
     dim_choices: Tuple[int, ...] = (2,)
-    supported_transforms: Set[str] = field(
-        default_factory=lambda: {"translate", "rotate", "scale"}
-    )
+    supported_transforms: Set[str] = field(default_factory=lambda: {"translate", "rotate", "scale"})
     tolerance: float = 0.1
     log10_cond_max: float = 2.0
     noise_sigma: float = 0.0
@@ -446,22 +419,16 @@ class ProblemFamily:
     def __post_init__(self) -> None:
         unknown = set(self.supported_transforms) - set(SUPPORTED_TRANSFORMS)
         if unknown:
-            raise ValueError(
-                f"Unknown transforms in family {self.name!r}: {sorted(unknown)}"
-            )
+            raise ValueError(f"Unknown transforms in family {self.name!r}: {sorted(unknown)}")
         if not self.dim_choices:
-            raise ValueError(
-                f"family {self.name!r} has empty dim_choices"
-            )
+            raise ValueError(f"family {self.name!r} has empty dim_choices")
 
     def _build_base(self, dim: int, rng: np.random.Generator) -> Problem:
         if self.base_factory is not None:
             return self.base_factory(dim, rng)
         return self.base_class(dims=dim)
 
-    def sample_instance(
-        self, rng: np.random.Generator
-    ) -> Tuple[TransformedProblem, Dict[str, Any]]:
+    def sample_instance(self, rng: np.random.Generator) -> Tuple[TransformedProblem, Dict[str, Any]]:
         """Draw one transformed instance and its parameter record."""
         # Choose a dimension.
         if len(self.dim_choices) == 1:
@@ -582,15 +549,12 @@ class RandomizedProblemSpec(ProblemSpec):
 
     def create_problem(self) -> Problem:  # type: ignore[override]
         raise RuntimeError(
-            "RandomizedProblemSpec requires a rep index; call "
-            "create_problem_for_rep(rep) instead of create_problem()."
+            "RandomizedProblemSpec requires a rep index; call create_problem_for_rep(rep) instead of create_problem()."
         )
 
     def create_problem_for_rep(self, rep: int) -> TransformedProblem:
         """Sample a fresh instance for the given repetition."""
-        seed = derive_instance_seed(
-            self.base_seed, self.iteration_id, self.family.name, rep
-        )
+        seed = derive_instance_seed(self.base_seed, self.iteration_id, self.family.name, rep)
         rng = np.random.default_rng(seed)
         problem, params = self.family.sample_instance(rng)
         params["seed"] = seed

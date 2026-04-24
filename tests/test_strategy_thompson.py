@@ -7,13 +7,14 @@ from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.heuristics import Center, Random
 from panobbgo.lib import Point, Result, Problem
 
+
 class TestStrategyThompson(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         self.strategy = StrategyThompsonSampling(self.problem, max_eval=100)
         # self.strategy.evaluators is a property, cannot set it.
         # It relies on self.strategy.pending.
-        self.strategy.pending = {} # No pending tasks
+        self.strategy.pending = {}  # No pending tasks
         self.strategy.jobs_per_client = 1
 
     def test_init_heuristics(self):

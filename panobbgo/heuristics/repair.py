@@ -70,7 +70,7 @@ class ConstraintRepair(Heuristic):
 
         # Define projection objective: minimize distance to starting point
         def obj(x):
-            return np.sum((x - x0)**2)
+            return np.sum((x - x0) ** 2)
 
         def jac_obj(x):
             return 2 * (x - x0)
@@ -86,10 +86,7 @@ class ConstraintRepair(Heuristic):
                 return np.array([])
             return -val
 
-        constraints = {
-            'type': 'ineq',
-            'fun': constraint_fun
-        }
+        constraints = {"type": "ineq", "fun": constraint_fun}
 
         # Box bounds
         bounds = self.problem.box.box
@@ -98,14 +95,14 @@ class ConstraintRepair(Heuristic):
             res = minimize(
                 obj,
                 x0,
-                method='SLSQP',
+                method="SLSQP",
                 jac=jac_obj,
                 bounds=bounds,
                 constraints=constraints,
-                options={'maxiter': self.max_iter, 'disp': False}
+                options={"maxiter": self.max_iter, "disp": False},
             )
 
-            if res.success or res.message == 'Iteration limit reached':
+            if res.success or res.message == "Iteration limit reached":
                 # Check if we actually improved feasibility
                 # SLSQP might stop without full feasibility if max_iter reached
                 x_new = self.problem.project(res.x)

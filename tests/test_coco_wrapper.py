@@ -50,15 +50,11 @@ class TestCocoProblemBounds:
 
     def test_lower_bounds(self):
         for i in range(self.problem.dim):
-            assert self.problem.box[i, 0] == pytest.approx(
-                self.coco_problem.lower_bounds[i]
-            )
+            assert self.problem.box[i, 0] == pytest.approx(self.coco_problem.lower_bounds[i])
 
     def test_upper_bounds(self):
         for i in range(self.problem.dim):
-            assert self.problem.box[i, 1] == pytest.approx(
-                self.coco_problem.upper_bounds[i]
-            )
+            assert self.problem.box[i, 1] == pytest.approx(self.coco_problem.upper_bounds[i])
 
 
 class TestCocoProblemEval:

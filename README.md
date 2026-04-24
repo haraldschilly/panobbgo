@@ -54,7 +54,7 @@ Panobbgo requires Python 3.11 or later. Core dependencies include:
 
 For a complete and up-to-date list of dependencies with version requirements, please refer to [pyproject.toml](pyproject.toml).
 
-Development dependencies include pytest, flake8, black, mypy, and others. See the `[project.optional-dependencies]` section in `pyproject.toml`.
+Development dependencies include pytest, ruff, mypy/pyright, and others. See the `[project.optional-dependencies]` section in `pyproject.toml`.
 
 ## Running Tests
 

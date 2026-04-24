@@ -20,6 +20,7 @@ from panobbgo.core import StrategyBase
 import numpy as np
 import threading
 
+
 class StrategyLinUCB(StrategyBase):
     """
     This strategy uses the Linear Upper Confidence Bound (LinUCB) algorithm (disjoint)
@@ -41,7 +42,7 @@ class StrategyLinUCB(StrategyBase):
     def __init__(self, problem, **kwargs):
         self.local_best = None  # Track best internally to avoid event bus race conditions
         # Default alpha increased to 2.0 to encourage exploration
-        self.alpha = kwargs.get('linucb_alpha', 2.0)
+        self.alpha = kwargs.get("linucb_alpha", 2.0)
         self._lock = threading.RLock()
 
         # LinUCB state per heuristic: A (d x d), b (d), theta (d)
@@ -78,7 +79,7 @@ class StrategyLinUCB(StrategyBase):
         feat_progress = min(1.0, n_evals / max_evals)
 
         # 3. Recent Success Rate
-        if not hasattr(self, '_recent_rewards'):
+        if not hasattr(self, "_recent_rewards"):
             self._recent_rewards = []
 
         if self._recent_rewards:
@@ -120,7 +121,7 @@ class StrategyLinUCB(StrategyBase):
             return
 
         # Update recent rewards buffer
-        if not hasattr(self, '_recent_rewards'):
+        if not hasattr(self, "_recent_rewards"):
             self._recent_rewards = []
 
         with self._lock:
@@ -147,7 +148,7 @@ class StrategyLinUCB(StrategyBase):
 
                 # Get context vector from point
                 # It should have been attached in execute()
-                if hasattr(result.point, 'context_vector'):
+                if hasattr(result.point, "context_vector"):
                     x_t = result.point.context_vector
 
                     try:
@@ -165,8 +166,10 @@ class StrategyLinUCB(StrategyBase):
                     h.linucb_A_inv = np.linalg.inv(h.linucb_A)
 
                     # Update stats for logging
-                    if not hasattr(h, 'linucb_count'): h.linucb_count = 0
-                    if not hasattr(h, 'linucb_reward'): h.linucb_reward = 0.0
+                    if not hasattr(h, "linucb_count"):
+                        h.linucb_count = 0
+                    if not hasattr(h, "linucb_reward"):
+                        h.linucb_reward = 0.0
                     h.linucb_count += 1
                     h.linucb_reward += reward_val
 
@@ -179,7 +182,6 @@ class StrategyLinUCB(StrategyBase):
         target = self.jobs_per_client * len(self.evaluators)
 
         if len(self.evaluators.outstanding) < target:
-
             # Calculate context once for this batch
             current_context = self._get_context_vector()
 
@@ -239,12 +241,12 @@ class StrategyLinUCB(StrategyBase):
         max_theta = 0
         best_h_name = ""
         for h in self.heuristics:
-             if hasattr(h, "linucb_A_inv") and hasattr(h, "linucb_b"):
-                 theta = h.linucb_A_inv @ h.linucb_b
-                 norm_theta = np.linalg.norm(theta)
-                 if norm_theta > max_theta:
-                     max_theta = norm_theta
-                     best_h_name = h.name
+            if hasattr(h, "linucb_A_inv") and hasattr(h, "linucb_b"):
+                theta = h.linucb_A_inv @ h.linucb_b
+                norm_theta = np.linalg.norm(theta)
+                if norm_theta > max_theta:
+                    max_theta = norm_theta
+                    best_h_name = h.name
 
         if best_h_name:
             info["max_theta"] = f"{best_h_name} ({max_theta:.2f})"

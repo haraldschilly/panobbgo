@@ -1,9 +1,9 @@
-
 import pytest
 import numpy as np
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.lib import Point, Result, Problem
 from panobbgo.strategies.rewarding import StrategyRewarding
+
 
 class MockProblem(Problem):
     def __init__(self):
@@ -11,11 +11,12 @@ class MockProblem(Problem):
         super().__init__(box)
 
     def eval(self, x):
-        return np.sum(x**2) # Minimize x^2 + y^2
+        return np.sum(x**2)  # Minimize x^2 + y^2
 
     def eval_constraints(self, x):
         # Constraint: x[0] + x[1] - 2 <= 0
         return np.array([x[0] + x[1] - 2])
+
 
 class MockProblemInfeasible(Problem):
     def __init__(self):
@@ -28,6 +29,7 @@ class MockProblemInfeasible(Problem):
     def eval_constraints(self, x):
         # Constraint: 5 - (x[0] + x[1]) <= 0  =>  x+y >= 5
         return np.array([5 - (x[0] + x[1])])
+
 
 def test_gradient_estimation_scalar():
     problem = MockProblemInfeasible()
@@ -61,11 +63,13 @@ def test_gradient_estimation_scalar():
     strategy.results.add_results(results)
 
     # Trigger generation from base_x
-    best = results[0] # (0,0), cv=5
+    best = results[0]  # (0,0), cv=5
 
     emitted = []
+
     def mock_emit(pts):
         emitted.extend(pts)
+
     cg.emit = mock_emit
 
     cg._generate_descent_point(best)
@@ -81,6 +85,7 @@ def test_gradient_estimation_scalar():
     assert direction[0] > 0
     assert direction[1] > 0
     assert abs(direction[0] - direction[1]) < 0.1
+
 
 def test_gradient_estimation_vector():
     # Test LP formulation
@@ -109,8 +114,10 @@ def test_gradient_estimation_vector():
     best = results[0]
 
     emitted = []
+
     def mock_emit(pts):
         emitted.extend(pts)
+
     cg.emit = mock_emit
 
     cg._generate_descent_point(best)
@@ -123,6 +130,7 @@ def test_gradient_estimation_vector():
     # Should also be positive
     assert direction[0] > 0
     assert direction[1] > 0
+
 
 def test_active_sampling():
     problem = MockProblemInfeasible()
@@ -139,8 +147,10 @@ def test_active_sampling():
     strategy.results.add_results([best_res])
 
     emitted = []
+
     def mock_emit(pts):
         emitted.extend(pts)
+
     cg.emit = mock_emit
 
     # This should trigger active sampling because history is insufficient

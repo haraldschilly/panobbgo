@@ -85,11 +85,7 @@ class Restart(Analyzer):
         self._previous_centers: list[np.ndarray] = []
 
     def __start__(self):
-        self._patience = (
-            self._patience_cfg
-            if self._patience_cfg is not None
-            else 5 * self.problem.dim
-        )
+        self._patience = self._patience_cfg if self._patience_cfg is not None else 5 * self.problem.dim
 
     @property
     def restart_count(self) -> int:
@@ -113,9 +109,7 @@ class Restart(Analyzer):
                     self._best_penalty = penalty
                     improved = True
                 else:
-                    rel_improvement = (self._best_penalty - penalty) / max(
-                        abs(self._best_penalty), 1e-12
-                    )
+                    rel_improvement = (self._best_penalty - penalty) / max(abs(self._best_penalty), 1e-12)
                     if rel_improvement > self._improvement_threshold:
                         self._best_penalty = penalty
                         improved = True
@@ -134,10 +128,7 @@ class Restart(Analyzer):
         self._evals_since_improvement = 0
         self._previous_centers.append(center)
 
-        reason = (
-            f"No improvement for {self._patience} evaluations "
-            f"(restart {self._restart_count}/{self._max_restarts})"
-        )
+        reason = f"No improvement for {self._patience} evaluations (restart {self._restart_count}/{self._max_restarts})"
         self.logger.info(f"Restart triggered: {reason}")
         self.eventbus.publish("restart", center=center, reason=reason)
 
@@ -153,9 +144,7 @@ class Restart(Analyzer):
 
         for _ in range(20):  # try 20 random candidates
             candidate = self.problem.random_point()
-            min_dist = min(
-                float(np.linalg.norm(candidate - c)) for c in self._previous_centers
-            )
+            min_dist = min(float(np.linalg.norm(candidate - c)) for c in self._previous_centers)
             if min_dist > best_min_dist:
                 best_min_dist = min_dist
                 best_candidate = candidate

@@ -7,6 +7,7 @@ from panobbgo.lib import Result, Point
 from panobbgo.core import Heuristic
 import numpy as np
 
+
 class DummyHeur(Heuristic):
     def __init__(self, strategy, name):
         super().__init__(strategy, name=name)
@@ -18,13 +19,14 @@ class DummyHeur(Heuristic):
     def get_points(self, limit):
         return [Point(np.array([1.0, 2.0]), self.name)]
 
+
 class TestStrategyRewarding(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_execute_empty_heurs(self, mock_setup):
         strategy = StrategyRewarding(self.problem, parse_args=False)
 
         # Override the property locally for this test
-        with mock.patch.object(StrategyRewarding, 'heuristics', new_callable=mock.PropertyMock) as mock_heuristics:
+        with mock.patch.object(StrategyRewarding, "heuristics", new_callable=mock.PropertyMock) as mock_heuristics:
             mock_heuristics.return_value = []
             points = strategy.execute()
 
@@ -47,7 +49,7 @@ class TestStrategyRewarding(PanobbgoTestCase):
         strategy.add_heuristic(h1)
 
         # Override evaluators for this test to bypass dask/processes
-        with mock.patch.object(StrategyRewarding, 'evaluators', new_callable=mock.PropertyMock) as mock_prop:
+        with mock.patch.object(StrategyRewarding, "evaluators", new_callable=mock.PropertyMock) as mock_prop:
             mock_prop.return_value = mock_evaluators
             points = strategy.execute()
 

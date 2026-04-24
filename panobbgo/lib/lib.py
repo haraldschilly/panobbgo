@@ -25,6 +25,7 @@ This file contains the basic objects to build a problem and to do a single evalu
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
+
 # ATTN: make sure, that this doesn't depend on the config or threading modules.
 #       the serialization and reconstruction won't work!
 import numpy as np
@@ -35,7 +36,6 @@ from typing import Optional, Union, List, Tuple, Any, Sequence
 
 
 class Point:
-
     """
     This contains the x vector for a new point and a
     reference to :attr:`.who` has generated it.
@@ -43,9 +43,7 @@ class Point:
 
     def __init__(self, x: Union[np.ndarray, List[float], Tuple[float, ...]], who: str) -> None:
         if not isinstance(who, str):
-            raise ValueError(
-                'who needs to be a string describing the heuristic, was %s of type %s'
-                % (who, type(who)))
+            raise ValueError("who needs to be a string describing the heuristic, was %s of type %s" % (who, type(who)))
         if not isinstance(x, np.ndarray):
             x = np.array(x, dtype=np.float64)
         self._x: np.ndarray = x
@@ -60,7 +58,7 @@ class Point:
         >>> repr(Point(x, 'doctest'))
         '[1 2] by doctest'
         """
-        return '%s by %s' % (self.x, self.who)
+        return "%s by %s" % (self.x, self.who)
 
     @property
     def x(self) -> np.ndarray:
@@ -90,10 +88,7 @@ class Point:
         return self._x[item]
 
 
-
-
 class Result:
-
     r"""
     This represents one result, wich is a mapping of a :class:`.Point`
     :math:`x \rightarrow f(x)`.
@@ -111,7 +106,7 @@ class Result:
         fx: Optional[float],
         cv_vec: Optional[np.ndarray] = None,
         cv_norm: Optional[Union[int, float, str]] = None,
-        error: float = 0.0
+        error: float = 0.0,
     ) -> None:
         """
         Args:
@@ -176,7 +171,7 @@ class Result:
         """
         if self._cv_vec is None:
             return 0.0
-        return float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm)) # type: ignore
+        return float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm))  # type: ignore
 
     @property
     def pp(self) -> np.ndarray:
@@ -236,10 +231,9 @@ class Result:
         return hash((x_tuple, self._fx, self.who))
 
     def __str__(self) -> str:
-        x = ' '.join(
-            '%11.6f' % _ for _ in self.x) if self.x is not None else None
-        cv = '' if self._cv_vec is None else '\u22DB%8.4f ' % self.cv
-        ret = '{:11.6f} {}@ [{}]'.format(self.fx, cv, x)
+        x = " ".join("%11.6f" % _ for _ in self.x) if self.x is not None else None
+        cv = "" if self._cv_vec is None else "\u22db%8.4f " % self.cv
+        ret = "{:11.6f} {}@ [{}]".format(self.fx, cv, x)
         return ret
 
 
@@ -247,9 +241,17 @@ class BoundingBox:
     """
     The bounding box of the :class:`Problem`
     """
+
     # this follows http://docs.scipy.org/doc/numpy/user/basics.subclassing.html
     # #slightly-more-realistic-example-attribute-added-to-existing-array
-    def __init__(self, box: Union[List[Tuple[float, float]], Sequence[Tuple[float, float]], Tuple[Tuple[float, float], ...], np.ndarray], dx: Optional[np.ndarray] = None, immutable: bool = True) -> None:
+    def __init__(
+        self,
+        box: Union[
+            List[Tuple[float, float]], Sequence[Tuple[float, float]], Tuple[Tuple[float, float], ...], np.ndarray
+        ],
+        dx: Optional[np.ndarray] = None,
+        immutable: bool = True,
+    ) -> None:
         self.box: np.ndarray = np.asarray(box, dtype=np.float64)
         assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
 
@@ -257,17 +259,17 @@ class BoundingBox:
             self.box += dx
 
         self.ranges: np.ndarray = np.ptp(self.box, axis=1)  # type: ignore # self._box[:,1] - self._box[:,0]
-        self.center: np.ndarray = self.box[:, 0] + self.ranges / 2.
+        self.center: np.ndarray = self.box[:, 0] + self.ranges / 2.0
 
         if immutable:
             for arr in [self.box, dx, self.ranges, self.center]:
                 if arr is not None:
                     try:
-                        arr.setflags(write=False) # type: ignore
+                        arr.setflags(write=False)  # type: ignore
                     except AttributeError:
                         pass
 
-    def copy(self, immutable: bool = False) -> 'BoundingBox':
+    def copy(self, immutable: bool = False) -> "BoundingBox":
         return type(self)(self.box.copy(), immutable=immutable)
 
     def __contains__(self, point: Point) -> bool:
@@ -280,7 +282,6 @@ class BoundingBox:
         upper_check = bool(np.all(point.x <= self.box[:, 1]))
         return lower_check and upper_check
 
-
     def __getitem__(self, item: Any) -> Any:
         return self.box.__getitem__(item)
 
@@ -289,7 +290,6 @@ class BoundingBox:
 
 
 class Problem:
-
     """
     this is used to store the objective function,
     information about the problem, etc.
@@ -298,7 +298,7 @@ class Problem:
     def __init__(
         self,
         box: Union[List[Tuple[float, float]], Sequence[Tuple[float, float]], Tuple[Tuple[float, float], ...]],
-        dx: Optional[Union[np.ndarray, List[float], Tuple[float, ...]]] = None
+        dx: Optional[Union[np.ndarray, List[float], Tuple[float, ...]]] = None,
     ) -> None:
         r"""
         :param list box: list of tuples for the bounding box with length n,
@@ -357,10 +357,10 @@ class Problem:
         e.g. :math:`[-1.1, 1]` with box :math:`[(-1,1),(-1,1)]`
         gives :math:`[-1,1]`
         """
-        assert isinstance(point, np.ndarray), 'point must be a numpy ndarray'
+        assert isinstance(point, np.ndarray), "point must be a numpy ndarray"
         return np.minimum(np.maximum(point, self.box[:, 0]), self.box[:, 1])
 
-    def random_point(self, distribution: str = 'uniform') -> np.ndarray:
+    def random_point(self, distribution: str = "uniform") -> np.ndarray:
         """
         Generates a random point inside the given search box.
 
@@ -376,9 +376,9 @@ class Problem:
         Raises:
             ValueError: If an unsupported distribution is specified.
         """
-        if distribution == 'uniform':
+        if distribution == "uniform":
             return self.ranges * np.random.rand(self.dim) + self._box[:, 0]
-        elif distribution == 'normal':
+        elif distribution == "normal":
             # Normally distributed around the center.
             # Std dev is chosen so that 3 std devs cover half the range,
             # meaning ~99.7% of points fall inside the box naturally.
@@ -416,10 +416,10 @@ class Problem:
         return Result(point, fx, cv_vec=cv)
 
     def __repr__(self) -> str:
-        descr = "Problem '{}': {:d} dims, ".format(
-            self.__class__.__name__, self._dim)
+        descr = "Problem '{}': {:d} dims, ".format(self.__class__.__name__, self._dim)
         p = [_ for _ in iter(list(self.__dict__.items())) if not _[0].startswith("_")]
         descr += "params: %s, " % dict(p)
-        descr += "box: [%s]" % ', '.join(
-            '[%.2f %.2f]' % (lower_bound, upper_bound) for lower_bound, upper_bound in self._box)
+        descr += "box: [%s]" % ", ".join(
+            "[%.2f %.2f]" % (lower_bound, upper_bound) for lower_bound, upper_bound in self._box
+        )
         return descr

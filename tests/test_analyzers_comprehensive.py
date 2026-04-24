@@ -20,6 +20,7 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result, BoundingBox
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
+
 class TestAnalyzersComprehensive(PanobbgoTestCase):
     def setUp(self):
         from panobbgo.lib.classic import RosenbrockConstraint
@@ -111,15 +112,15 @@ class TestAnalyzersComprehensive(PanobbgoTestCase):
         best = Best(self.strategy)
 
         # P1: fx=10, cv=0 (Feasible, poor obj)
-        r1 = Result(Point(np.array([0., 0., 0.]), "1"), 10.0, cv_vec=np.array([0.0]))
+        r1 = Result(Point(np.array([0.0, 0.0, 0.0]), "1"), 10.0, cv_vec=np.array([0.0]))
         # P2: fx=5, cv=1 (Infeasible, better obj)
-        r2 = Result(Point(np.array([1., 1., 1.]), "2"), 5.0, cv_vec=np.array([1.0]))
+        r2 = Result(Point(np.array([1.0, 1.0, 1.0]), "2"), 5.0, cv_vec=np.array([1.0]))
         # P3: fx=1, cv=2 (Infeasible, best obj)
-        r3 = Result(Point(np.array([2., 2., 2.]), "3"), 1.0, cv_vec=np.array([2.0]))
+        r3 = Result(Point(np.array([2.0, 2.0, 2.0]), "3"), 1.0, cv_vec=np.array([2.0]))
         # P4: fx=11, cv=0 (Dominated by P1)
-        r4 = Result(Point(np.array([3., 3., 3.]), "4"), 11.0, cv_vec=np.array([0.0]))
+        r4 = Result(Point(np.array([3.0, 3.0, 3.0]), "4"), 11.0, cv_vec=np.array([0.0]))
         # P5: fx=5, cv=2 (Dominated by P2)
-        r5 = Result(Point(np.array([4., 4., 4.]), "5"), 5.0, cv_vec=np.array([2.0]))
+        r5 = Result(Point(np.array([4.0, 4.0, 4.0]), "5"), 5.0, cv_vec=np.array([2.0]))
 
         best.on_new_results([r1, r2, r3, r4, r5])
 
@@ -132,12 +133,12 @@ class TestAnalyzersComprehensive(PanobbgoTestCase):
 
         # Verify that r1, r2, r3 are present
         pf_points = [(r.fx, r.cv) for r in pf]
-        self.assertIn((10.0, 0.0), pf_points) # P1
+        self.assertIn((10.0, 0.0), pf_points)  # P1
         self.assertIn((5.0, 1.0), pf_points)  # P2
         self.assertIn((1.0, 2.0), pf_points)  # P3
 
         # Verify that r4, r5 are NOT present
-        self.assertNotIn((11.0, 0.0), pf_points) # P4
+        self.assertNotIn((11.0, 0.0), pf_points)  # P4
         self.assertNotIn((5.0, 2.0), pf_points)  # P5
 
         self.assertEqual(len(pf), 3)
@@ -145,6 +146,7 @@ class TestAnalyzersComprehensive(PanobbgoTestCase):
     def test_best_empty_results(self):
         """Test with empty result list."""
         from panobbgo.analyzers.best import Best
+
         best = Best(self.strategy)
         best.on_new_results([])
         self.assertIsNone(best.best)
@@ -194,7 +196,7 @@ class TestAnalyzersComprehensive(PanobbgoTestCase):
         # Map x1
         key1 = grid._grid_mapping(x1)
         self.assertIn(key1, grid._grid)
-        self.assertEqual(len(grid._grid[key1]), 2) # r1 and r2 should be here
+        self.assertEqual(len(grid._grid[key1]), 2)  # r1 and r2 should be here
         self.assertIn(r1, grid._grid[key1])
         self.assertIn(r2, grid._grid[key1])
 

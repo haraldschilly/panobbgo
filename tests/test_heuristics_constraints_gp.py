@@ -31,7 +31,6 @@ from panobbgo.lib.constraints import PenaltyConstraintHandler
 
 
 class TestGaussianProcessConstraints(PanobbgoTestCase):
-
     def test_gp_uses_eic_default(self):
         """
         Test that GP heuristic uses EIC (raw fx + constraint model) by default
@@ -55,12 +54,9 @@ class TestGaussianProcessConstraints(PanobbgoTestCase):
         # 2. Infeasible point: fx=0.0, cv=1.0. Penalty = 0.0 + 100*1 = 100.0
         from panobbgo.lib import Point, Result
 
-        r1 = Result(Point(np.array([1.0, 1.0], dtype=float), "init"), 10.0,
-                    cv_vec=np.array([0.0]))
-        r2 = Result(Point(np.array([0.0, 0.0], dtype=float), "init"), 0.0,
-                    cv_vec=np.array([1.0]))
-        r3 = Result(Point(np.array([0.5, 0.5], dtype=float), "init"), 5.0,
-                    cv_vec=np.array([0.5]))
+        r1 = Result(Point(np.array([1.0, 1.0], dtype=float), "init"), 10.0, cv_vec=np.array([0.0]))
+        r2 = Result(Point(np.array([0.0, 0.0], dtype=float), "init"), 0.0, cv_vec=np.array([1.0]))
+        r3 = Result(Point(np.array([0.5, 0.5], dtype=float), "init"), 5.0, cv_vec=np.array([0.5]))
 
         # Feed results to GP
         gp.on_new_results([r1, r2, r3])
@@ -83,7 +79,7 @@ class TestGaussianProcessConstraints(PanobbgoTestCase):
         Test that GP falls back to coupled behavior (or just normal EI)
         if no constraints are observed (all cv=0).
         """
-        problem = RosenbrockConstraint(dims=2) # Constrained problem
+        problem = RosenbrockConstraint(dims=2)  # Constrained problem
         strategy = StrategyRewarding(problem, testing_mode=True)
         handler = PenaltyConstraintHandler(strategy, rho=100.0)
         strategy.constraint_handler = handler
@@ -93,6 +89,7 @@ class TestGaussianProcessConstraints(PanobbgoTestCase):
 
         # Only feasible points
         from panobbgo.lib import Point, Result
+
         r1 = Result(Point(np.array([1.0, 1.0]), "init"), 10.0, cv_vec=np.array([0.0]))
         r2 = Result(Point(np.array([1.0, 1.0]), "init"), 5.0, cv_vec=np.array([0.0]))
         r3 = Result(Point(np.array([1.0, 1.0]), "init"), 2.0, cv_vec=np.array([0.0]))
@@ -123,6 +120,7 @@ class TestGaussianProcessConstraints(PanobbgoTestCase):
         gp.__start__()
 
         from panobbgo.lib import Point, Result
+
         r1 = Result(Point(np.array([1.0, 1.0]), "init"), 10.0, cv_vec=np.array([0.0]))
         # Infeasible: fx=0, cv=1 -> Penalty=100
         r2 = Result(Point(np.array([0.0, 0.0]), "init"), 0.0, cv_vec=np.array([1.0]))
@@ -148,8 +146,8 @@ class TestGaussianProcessConstraints(PanobbgoTestCase):
 
         # Logic simulation
         c_pred = np.array([0.5])  # Shape (1,)
-        c_std = np.array([0.0])   # Shape (1,)
-        prob_feas = np.array([0.0]) # Shape (1,)
+        c_std = np.array([0.0])  # Shape (1,)
+        prob_feas = np.array([0.0])  # Shape (1,)
 
         # Ensure arrays for indexing safety (as implemented in fix)
         c_std = np.atleast_1d(c_std)

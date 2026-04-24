@@ -41,4 +41,11 @@ from .thompson import StrategyThompsonSampling
 from .contextual import StrategyLinUCB
 from .phased import StrategyPhased
 
-__all__ = ["StrategyRewarding", "StrategyRoundRobin", "StrategyUCB", "StrategyThompsonSampling", "StrategyLinUCB", "StrategyPhased"]
+__all__ = [
+    "StrategyRewarding",
+    "StrategyRoundRobin",
+    "StrategyUCB",
+    "StrategyThompsonSampling",
+    "StrategyLinUCB",
+    "StrategyPhased",
+]

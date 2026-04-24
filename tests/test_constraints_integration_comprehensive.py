@@ -82,18 +82,14 @@ def test_rosenbrock_constraint_handlers(HandlerClass, kwargs):
     assert best is not None
 
     # Check feasibility with relaxed tolerance
-    assert best.cv < 1.0, (
-        f"Failed to find feasible solution with {HandlerClass.__name__}, cv={best.cv}"
-    )
+    assert best.cv < 1.0, f"Failed to find feasible solution with {HandlerClass.__name__}, cv={best.cv}"
 
     # Check objective value (should be reasonable)
     # Unconstrained min is -50. Constrained min is > -50.
     # We check if it found something reasonably low.
     # Note: If CV is high, FX might be very low (unconstrained).
     if best.cv < 0.1:
-        assert best.fx < 50.0, (
-            f"Poor solution with {HandlerClass.__name__}, fx={best.fx}"
-        )
+        assert best.fx < 50.0, f"Poor solution with {HandlerClass.__name__}, fx={best.fx}"
 
 
 def test_simionescu_alm():
@@ -122,9 +118,7 @@ def test_simionescu_alm():
     assert best.cv < 0.2, f"Simionescu: Failed to satisfy constraints. CV={best.cv}"
     # Optimal value is -0.072625
     if best.cv < 1e-3:
-        assert best.fx < -0.04, (
-            f"Simionescu: Failed to converge to optimum. fx={best.fx}"
-        )
+        assert best.fx < -0.04, f"Simionescu: Failed to converge to optimum. fx={best.fx}"
 
 
 def test_mishra_bird_comparison():
@@ -172,9 +166,7 @@ def test_rosenbrock_abs_constraint_dynamic_penalty():
     strategy = StrategyRewarding(problem, testing_mode=True)
     strategy.config.max_eval = 1000
 
-    handler = DynamicPenaltyConstraintHandler(
-        strategy=strategy, rho_start=1.0, rate=0.01
-    )
+    handler = DynamicPenaltyConstraintHandler(strategy=strategy, rho_start=1.0, rate=0.01)
     strategy.constraint_handler = handler
 
     strategy.add(Random)
@@ -210,9 +202,7 @@ def test_constraint_gradient_effectiveness():
     print(f"With CG + FS: best cv={s.best.cv}, fx={s.best.fx}")
 
     # Expect reasonable feasibility
-    assert s.best.cv < 1.0, (
-        "Strategy with ConstraintGradient failed to find near-feasible point"
-    )
+    assert s.best.cv < 1.0, "Strategy with ConstraintGradient failed to find near-feasible point"
 
 
 def test_gp_eic_effectiveness():
@@ -234,13 +224,9 @@ def test_gp_eic_effectiveness():
     print(f"GP EIC Best: fx={strategy.best.fx}, cv={strategy.best.cv}")
 
     # GP should be able to find a decent solution with 200 evals
-    assert strategy.best.cv < 0.1, (
-        f"GP with EIC failed feasibility. CV={strategy.best.cv}"
-    )
+    assert strategy.best.cv < 0.1, f"GP with EIC failed feasibility. CV={strategy.best.cv}"
 
     # Unconstrained min is -50. Constrained is higher.
     if strategy.best.cv < 1e-3:
         # Should be reasonably good
-        assert strategy.best.fx < 100.0, (
-            f"GP with EIC found poor solution. fx={strategy.best.fx}"
-        )
+        assert strategy.best.fx < 100.0, f"GP with EIC found poor solution. fx={strategy.best.fx}"

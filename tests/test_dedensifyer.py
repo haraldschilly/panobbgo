@@ -12,6 +12,7 @@ from panobbgo.lib import Point, Result
 class TestDedensifyer(PanobbgoTestCase):
     def setUp(self):
         from panobbgo.lib.classic import RosenbrockConstraint
+
         self.problem = RosenbrockConstraint(2)
         self.strategy = self.init_strategy()
 
@@ -88,8 +89,8 @@ class TestDedensifyer(PanobbgoTestCase):
         p2 = self.problem.box[:, 1] - 0.1
         key0_p2 = dedens.gridkey(p2, 0)
         key1_p2 = dedens.gridkey(p2, 1)
-        assert key0_p2 == (0, 0) # Still in the big box
-        assert key1_p2 == (1, 1) # In the top-right quadrant
+        assert key0_p2 == (0, 0)  # Still in the big box
+        assert key1_p2 == (1, 1)  # In the top-right quadrant
 
     def test_dedensifyer_multiple_points(self):
         from panobbgo.analyzers.dedensifyer import Dedensifyer
@@ -98,11 +99,11 @@ class TestDedensifyer(PanobbgoTestCase):
         dedens.__start__()
 
         # Two points in same grid cell at depth 1
-        p1 = Point(self.problem.box[:, 0] + 0.1, "test") # Bottom-left
-        p2 = Point(self.problem.box[:, 0] + 0.2, "test") # Bottom-left, close to p1
+        p1 = Point(self.problem.box[:, 0] + 0.1, "test")  # Bottom-left
+        p2 = Point(self.problem.box[:, 0] + 0.2, "test")  # Bottom-left, close to p1
 
         res1 = Result(p1, 10.0)
-        res2 = Result(p2, 5.0) # Better fx
+        res2 = Result(p2, 5.0)  # Better fx
 
         dedens.register(res1)
         dedens.register(res2)

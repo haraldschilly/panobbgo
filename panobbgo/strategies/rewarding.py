@@ -76,9 +76,7 @@ class StrategyRewarding(StrategyBase):
         fx_delta, reward = 0.0, 0.0
         # fx_delta = np.log1p(self.best.fx - r.fx) # log1p ok?
 
-        improvement = self.constraint_handler.calculate_improvement(
-            self.last_best, best
-        )
+        improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
         fx_delta = 1.0 - np.exp(-1.0 * improvement)  # saturates to 1
         fx_delta = 0.0 if fx_delta <= 0 else fx_delta
         # if self.fx_delta_last == None: self.fx_delta_last = fx_delta
@@ -89,9 +87,7 @@ class StrategyRewarding(StrategyBase):
 
     def on_new_best(self, best):
         reward = self.reward(best)
-        self.logger.info(
-            "\u2318 %s | \u0394 %.7f %s" % (best, reward, best.who)
-        )
+        self.logger.info("\u2318 %s | \u0394 %.7f %s" % (best, reward, best.who))
         self.last_best = best
 
     def _get_status_info(self):
@@ -101,9 +97,9 @@ class StrategyRewarding(StrategyBase):
         max_perf = 0
         best_h_name = ""
         for h in self.heuristics:
-             if hasattr(h, "performance") and h.performance > max_perf:
-                 max_perf = h.performance
-                 best_h_name = h.name
+            if hasattr(h, "performance") and h.performance > max_perf:
+                max_perf = h.performance
+                best_h_name = h.name
 
         if best_h_name:
             info["best_heuristic"] = f"{best_h_name} (perf={max_perf:.2f})"
@@ -134,9 +130,7 @@ class StrategyRewarding(StrategyBase):
         # We want to reward if r.fx is close to last_best.fx
         # Note: last_best is better, so r.fx >= last_best.fx
         diff = abs(r.fx - last_best.fx)
-        denom = (
-            abs(last_best.fx) if abs(last_best.fx) > 1e-9 else 1.0
-        )
+        denom = abs(last_best.fx) if abs(last_best.fx) > 1e-9 else 1.0
         rel_diff = diff / denom
 
         # If relative difference is too big (>10%), no reward.

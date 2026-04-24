@@ -62,7 +62,7 @@ class ConstraintGradient(Heuristic):
         """
         self.current_best = best
         self.clear_output()
-        self._waiting_for_samples = False # Reset flag for new best
+        self._waiting_for_samples = False  # Reset flag for new best
 
         # Try to generate points regardless of feasibility
         self._generate_descent_point(best)
@@ -81,7 +81,7 @@ class ConstraintGradient(Heuristic):
         # But we don't want to spam descent points every time a result comes in.
         # So primarily act if we were waiting.
         if self._waiting_for_samples:
-             self._generate_descent_point(self.current_best)
+            self._generate_descent_point(self.current_best)
 
     def _generate_descent_point(self, best):
         """
@@ -207,7 +207,7 @@ class ConstraintGradient(Heuristic):
         Generate random perturbations around x to creating neighbors.
         """
         if self._waiting_for_samples:
-             return
+            return
 
         candidates = []
         # Generate a few more than needed to be safe
@@ -222,7 +222,7 @@ class ConstraintGradient(Heuristic):
             new_x = self.problem.project(x + step)
             # Ensure it is distinct from x
             if np.linalg.norm(new_x - x) > 1e-9:
-                 candidates.append(new_x)
+                candidates.append(new_x)
 
         if candidates:
             self.emit(candidates)
@@ -242,9 +242,9 @@ class ConstraintGradient(Heuristic):
         gradient, residuals, _, _ = np.linalg.lstsq(X_centered, y_centered, rcond=None)
 
         if residuals.size > 0 and residuals[0] > 1.0:
-             # Only log if we have enough points (overdetermined) and error is high
-             if X_centered.shape[0] > X_centered.shape[1]:
-                 self.logger.debug(f"Gradient estimation high residual: {residuals[0]}")
+            # Only log if we have enough points (overdetermined) and error is high
+            if X_centered.shape[0] > X_centered.shape[1]:
+                self.logger.debug(f"Gradient estimation high residual: {residuals[0]}")
 
         return gradient
 
@@ -254,7 +254,7 @@ class ConstraintGradient(Heuristic):
         Only applicable if best.cv > 0.
         """
         if best.cv <= 1e-9:
-             return
+            return
 
         X_centered = neighbors_X - x
         gradient = self._estimate_gradient(X_centered, neighbors_cv, best.cv)
@@ -303,7 +303,7 @@ class ConstraintGradient(Heuristic):
             c[:dim] = grad_fx
             c[dim] = 0.0
         else:
-            c[dim] = 1.0 # Minimize gamma
+            c[dim] = 1.0  # Minimize gamma
 
         if is_feasible:
             # Constraints: grad_cv_i^T * d <= -best.cv_vec_i
@@ -322,10 +322,10 @@ class ConstraintGradient(Heuristic):
         bounds = []
         for i in range(dim):
             bounds.append((-delta[i], delta[i]))
-        bounds.append(bounds_gamma) # Gamma
+        bounds.append(bounds_gamma)  # Gamma
 
         # Solve LP
-        res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+        res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
 
         if res.success:
             d = res.x[:dim]
@@ -334,11 +334,11 @@ class ConstraintGradient(Heuristic):
                 self._emit_candidates(x, d, is_vector=True)
                 return True
             else:
-                 self.logger.debug("LP returned zero step")
-                 return False
+                self.logger.debug("LP returned zero step")
+                return False
         else:
-             self.logger.debug(f"LP failed: {res.message}")
-             return False
+            self.logger.debug(f"LP failed: {res.message}")
+            return False
 
     def _emit_candidates(self, x, direction, is_vector=False):
         """

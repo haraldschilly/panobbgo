@@ -35,11 +35,13 @@ from panobbgo.strategies.rewarding import StrategyRewarding
 
 import threading
 
+
 class MockBiasedProblem(Problem):
     """
     A mock problem that returns specific values based on the heuristic that
     generated the point. This allows us to deterministically test learning behavior.
     """
+
     def __init__(self, dim=2):
         super().__init__([(-5, 5)] * dim)
         self.call_count = 0
@@ -65,7 +67,8 @@ class MockBiasedProblem(Problem):
             fx = 50.0
 
         # Create result (no constraints for simplicity)
-        return Result(point, fx, cv_vec=np.array([0.0])) # Adding cv_vec to prevent shape issues
+        return Result(point, fx, cv_vec=np.array([0.0]))  # Adding cv_vec to prevent shape issues
+
 
 class GoodHeuristic(Heuristic):
     def __init__(self, strategy):
@@ -79,6 +82,7 @@ class GoodHeuristic(Heuristic):
         # Emit more points when results come back to keep the loop going
         # In a real heuristic, we'd base this on something, but here just spam
         self.emit(np.array([0.0, 0.0]))
+
 
 class BadHeuristic(Heuristic):
     def __init__(self, strategy):
@@ -100,9 +104,9 @@ def test_strategy_thompson_learning():
     # Use threaded evaluation for speed and simplicity
     strategy = StrategyThompsonSampling(
         problem,
-        max_eval=50, # Enough to see learning
+        max_eval=50,  # Enough to see learning
         evaluation_method="threaded",
-        testing_mode=True
+        testing_mode=True,
     )
 
     strategy.add(GoodHeuristic)
@@ -117,12 +121,12 @@ def test_strategy_thompson_learning():
     print(f"BadHeuristic: alpha={getattr(bad_h, 'ts_alpha', 'N/A')}, beta={getattr(bad_h, 'ts_beta', 'N/A')}")
 
     # Verify GoodHeuristic learned (alpha should increase)
-    assert hasattr(good_h, 'ts_alpha')
+    assert hasattr(good_h, "ts_alpha")
     assert good_h.ts_alpha > 1.0, "GoodHeuristic alpha should increase due to successes"
 
     # Verify BadHeuristic learned (beta should increase)
     # This assertion fails in the buggy implementation because beta is never updated for failures!
-    assert hasattr(bad_h, 'ts_beta')
+    assert hasattr(bad_h, "ts_beta")
     assert bad_h.ts_beta > 1.0, "BadHeuristic beta should increase due to failures"
 
     # Ideally, BadHeuristic beta should be significantly higher than alpha
@@ -135,12 +139,7 @@ def test_strategy_ucb_learning():
     BadHeuristic should have high count and low/zero reward.
     """
     problem = MockBiasedProblem(dim=2)
-    strategy = StrategyUCB(
-        problem,
-        max_eval=50,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyUCB(problem, max_eval=50, evaluation_method="threaded", testing_mode=True)
 
     strategy.add(GoodHeuristic)
     strategy.add(BadHeuristic)
@@ -150,8 +149,12 @@ def test_strategy_ucb_learning():
     good_h = strategy.heuristic("GoodHeuristic")
     bad_h = strategy.heuristic("BadHeuristic")
 
-    print(f"GoodHeuristic: count={getattr(good_h, 'ucb_count', 'N/A')}, reward={getattr(good_h, 'ucb_total_reward', 'N/A')}")
-    print(f"BadHeuristic: count={getattr(bad_h, 'ucb_count', 'N/A')}, reward={getattr(bad_h, 'ucb_total_reward', 'N/A')}")
+    print(
+        f"GoodHeuristic: count={getattr(good_h, 'ucb_count', 'N/A')}, reward={getattr(good_h, 'ucb_total_reward', 'N/A')}"
+    )
+    print(
+        f"BadHeuristic: count={getattr(bad_h, 'ucb_count', 'N/A')}, reward={getattr(bad_h, 'ucb_total_reward', 'N/A')}"
+    )
 
     # GoodHeuristic should have reward
     assert good_h.ucb_total_reward > 0.0
@@ -182,13 +185,13 @@ def test_strategy_rewarding_discount():
     # discount=0.5 -> perf halves every time
     strategy = StrategyRewarding(
         problem,
-        max_eval=20, # Short run
+        max_eval=20,  # Short run
         discount=0.5,
         evaluation_method="threaded",
-        testing_mode=True
+        testing_mode=True,
     )
 
-    strategy.add(BadHeuristic) # Only add bad heuristic so it keeps getting selected but never rewarded
+    strategy.add(BadHeuristic)  # Only add bad heuristic so it keeps getting selected but never rewarded
 
     strategy.start()
 

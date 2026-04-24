@@ -4,6 +4,7 @@ import time
 from unittest.mock import Mock, MagicMock
 from panobbgo.heuristics.nelder_mead import NelderMead
 
+
 class TestNelderMeadRobustness(unittest.TestCase):
     def setUp(self):
         self.strategy = Mock()
@@ -52,5 +53,6 @@ class TestNelderMeadRobustness(unittest.TestCase):
         # Assert thread is dead
         self.assertFalse(t.is_alive(), "NelderMead.on_start did not stop when _stopped=True")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

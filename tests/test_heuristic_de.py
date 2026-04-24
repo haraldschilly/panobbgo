@@ -8,17 +8,26 @@ from panobbgo.lib.constraints import DefaultConstraintHandler
 import numpy as np
 from queue import Queue
 
+
 class MockConfig:
     def get_logger(self, name):
         return MockLogger()
+
     @property
     def capacity(self):
         return 100
 
+
 class MockLogger:
-    def info(self, msg): pass
-    def debug(self, msg): pass
-    def warning(self, msg): pass
+    def info(self, msg):
+        pass
+
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
 
 class MockStrategy:
     def __init__(self, problem=None):
@@ -29,8 +38,8 @@ class MockStrategy:
         self.best = None
         self.constraint_handler = DefaultConstraintHandler(self)
 
-class TestDifferentialEvolution(PanobbgoTestCase):
 
+class TestDifferentialEvolution(PanobbgoTestCase):
     def test_de_initialization(self):
         problem = Rosenbrock(dim=2)
         strategy = MockStrategy(problem)
@@ -60,7 +69,7 @@ class TestDifferentialEvolution(PanobbgoTestCase):
         results = []
         for req_id in list(de.pending_trials.keys()):
             # Create dummy result with correct ID
-            x = np.array([0., 0.])
+            x = np.array([0.0, 0.0])
             who = f"{de.name}:{req_id}"
             p = Point(x, who)
             r = Result(p, 100.0)
@@ -84,9 +93,9 @@ class TestDifferentialEvolution(PanobbgoTestCase):
 
         # Initialize population manually to skip random part
         for i in range(4):
-            x = np.ones(2) * i # [0,0], [1,1], [2,2], [3,3]
+            x = np.ones(2) * i  # [0,0], [1,1], [2,2], [3,3]
             p = Point(x, de.name)
-            r = Result(p, float(i*10))
+            r = Result(p, float(i * 10))
             de.population[i] = r
             de.active_indices.append(i)
         de.pop_size = 4
@@ -111,6 +120,7 @@ class TestDifferentialEvolution(PanobbgoTestCase):
         # Should have emitted new trial
         new_points = de.get_points(limit=1)
         self.assertEqual(len(new_points), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

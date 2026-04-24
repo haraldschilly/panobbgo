@@ -6,6 +6,7 @@ from panobbgo.heuristics.lbfgsb import LBFGSB
 from unittest import mock
 import numpy as np
 
+
 class TestLBFGSBRobustness(unittest.TestCase):
     def setUp(self):
         self.strategy = Mock()
@@ -52,14 +53,14 @@ class TestLBFGSBRobustness(unittest.TestCase):
         self.heuristic.lbfgsb = Mock()
         self.heuristic.__stop__()
 
-        if hasattr(self.heuristic, 'lbfgsb') and isinstance(self.heuristic.lbfgsb, Mock):
+        if hasattr(self.heuristic, "lbfgsb") and isinstance(self.heuristic.lbfgsb, Mock):
             pass
 
     def test_start_subprocess_exception(self):
         strategy = mock.MagicMock()
         lbfgsb = LBFGSB(strategy)
 
-        with mock.patch('multiprocessing.get_context', side_effect=Exception("Test Error")):
+        with mock.patch("multiprocessing.get_context", side_effect=Exception("Test Error")):
             with self.assertRaises(RuntimeError):
                 lbfgsb.__start__()
 
@@ -71,9 +72,9 @@ class TestLBFGSBRobustness(unittest.TestCase):
         bounds = [(-5.0, 5.0), (-5.0, 5.0)]
         dims = 2
 
-        pipe_mock.recv.return_value = 1.0 # return something for f()
+        pipe_mock.recv.return_value = 1.0  # return something for f()
 
-        with mock.patch('scipy.optimize.fmin_l_bfgs_b') as fmin_mock:
+        with mock.patch("scipy.optimize.fmin_l_bfgs_b") as fmin_mock:
             fmin_mock.return_value = "Test Solution"
             LBFGSB.worker(pipe_mock, output_mock, dims, bounds)
 
@@ -82,7 +83,7 @@ class TestLBFGSBRobustness(unittest.TestCase):
 
             # check x0
             np.testing.assert_array_equal(args[1], np.array([0.0, 0.0]))
-            self.assertEqual(kwargs['bounds'], bounds)
+            self.assertEqual(kwargs["bounds"], bounds)
 
             # call objective func
             f = args[0]
@@ -109,5 +110,6 @@ class TestLBFGSBRobustness(unittest.TestCase):
 
         lbfgsb.logger.error.assert_called_once()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

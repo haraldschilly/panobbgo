@@ -5,6 +5,7 @@ import numpy as np
 from panobbgo.storage import SQLiteStorage
 from panobbgo.lib import Result, Point
 
+
 @pytest.fixture
 def storage_uri():
     uri = "test_storage.db"
@@ -12,10 +13,12 @@ def storage_uri():
     if os.path.exists(uri):
         os.unlink(uri)
 
+
 def test_sqlite_storage_init(storage_uri):
     storage = SQLiteStorage(storage_uri)
     assert os.path.exists(storage_uri)
     assert storage.count() == 0
+
 
 def test_sqlite_storage_save_load(storage_uri):
     storage = SQLiteStorage(storage_uri)
@@ -47,6 +50,7 @@ def test_sqlite_storage_save_load(storage_uri):
     assert l2.who == r2.who
     assert l2.cv_vec is None
     assert l2.error == r2.error
+
 
 def test_sqlite_storage_clear(storage_uri):
     storage = SQLiteStorage(storage_uri)

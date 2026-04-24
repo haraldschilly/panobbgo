@@ -5,6 +5,7 @@ import time
 
 from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
 
+
 class TestQuadraticWLSModel(unittest.TestCase):
     def test_subprocess_loop(self):
         pipe_mock = mock.MagicMock()
@@ -31,7 +32,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
-        with mock.patch('panobbgo.core.HeuristicSubprocess.problem', new_callable=mock.PropertyMock) as prop_mock:
+        with mock.patch("panobbgo.core.HeuristicSubprocess.problem", new_callable=mock.PropertyMock) as prop_mock:
             prop_mock.return_value = strategy_mock.problem
             wls_model = QuadraticWlsModel(strategy_mock)
             wls_model.pipe = mock.MagicMock()
@@ -45,13 +46,10 @@ class TestQuadraticWLSModel(unittest.TestCase):
                     self.x = x
                     self.fx = fx
 
-            best_box_mock.results = [
-                ResultMock(np.array([1.0, 1.0]), 2.0),
-                ResultMock(np.array([2.0, 2.0]), 8.0)
-            ]
+            best_box_mock.results = [ResultMock(np.array([1.0, 1.0]), 2.0), ResultMock(np.array([2.0, 2.0]), 8.0)]
             best_box_mock.best = best_box_mock.results[0]
 
-            with mock.patch.object(wls_model, 'emit') as emit_mock:
+            with mock.patch.object(wls_model, "emit") as emit_mock:
                 wls_model.on_new_best_box(best_box_mock)
 
                 wls_model.pipe.send.assert_called_once()
@@ -62,7 +60,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
-        with mock.patch('panobbgo.core.HeuristicSubprocess.problem', new_callable=mock.PropertyMock) as prop_mock:
+        with mock.patch("panobbgo.core.HeuristicSubprocess.problem", new_callable=mock.PropertyMock) as prop_mock:
             prop_mock.return_value = strategy_mock.problem
             wls_model = QuadraticWlsModel(strategy_mock)
             wls_model.pipe = mock.MagicMock()
@@ -75,13 +73,10 @@ class TestQuadraticWLSModel(unittest.TestCase):
                     self.x = x
                     self.fx = fx
 
-            best_box_mock.results = [
-                ResultMock(np.array([1.0, 1.0]), 2.0),
-                ResultMock(np.array([2.0, 2.0]), 8.0)
-            ]
+            best_box_mock.results = [ResultMock(np.array([1.0, 1.0]), 2.0), ResultMock(np.array([2.0, 2.0]), 8.0)]
             best_box_mock.best = best_box_mock.results[0]
 
-            with mock.patch.object(wls_model.logger, 'warning') as warn_mock:
+            with mock.patch.object(wls_model.logger, "warning") as warn_mock:
                 wls_model.on_new_best_box(best_box_mock)
                 warn_mock.assert_called_once()
 
@@ -90,7 +85,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
-        with mock.patch('panobbgo.core.HeuristicSubprocess.problem', new_callable=mock.PropertyMock) as prop_mock:
+        with mock.patch("panobbgo.core.HeuristicSubprocess.problem", new_callable=mock.PropertyMock) as prop_mock:
             prop_mock.return_value = strategy_mock.problem
             wls_model = QuadraticWlsModel(strategy_mock)
             wls_model.pipe = mock.MagicMock()
@@ -108,16 +103,17 @@ class TestQuadraticWLSModel(unittest.TestCase):
             ]
             best_box_mock.best = best_box_mock.results[0]
 
-            with mock.patch.object(wls_model.logger, 'error') as err_mock:
+            with mock.patch.object(wls_model.logger, "error") as err_mock:
                 wls_model.on_new_best_box(best_box_mock)
                 err_mock.assert_called_once()
+
     def test_subprocess_loop_exception(self):
         pipe_mock = mock.MagicMock()
 
         pipe_mock.poll.side_effect = [True, False, EOFError()]
         pipe_mock.recv.side_effect = Exception("Test Exception")
 
-        with mock.patch('traceback.print_exc') as tb_mock:
+        with mock.patch("traceback.print_exc") as tb_mock:
             QuadraticWlsModel.subprocess(pipe_mock)
             tb_mock.assert_called_once()
             pipe_mock.send.assert_called_with(None)
@@ -127,7 +123,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
-        with mock.patch('panobbgo.core.HeuristicSubprocess.problem', new_callable=mock.PropertyMock) as prop_mock:
+        with mock.patch("panobbgo.core.HeuristicSubprocess.problem", new_callable=mock.PropertyMock) as prop_mock:
             prop_mock.return_value = strategy_mock.problem
             wls_model = QuadraticWlsModel(strategy_mock)
             wls_model.pipe = mock.MagicMock()
@@ -146,6 +142,6 @@ class TestQuadraticWLSModel(unittest.TestCase):
             ]
             best_box_mock.best = best_box_mock.results[0]
 
-            with mock.patch.object(wls_model.logger, 'warning') as warn_mock:
+            with mock.patch.object(wls_model.logger, "warning") as warn_mock:
                 wls_model.on_new_best_box(best_box_mock)
                 warn_mock.assert_called_once()

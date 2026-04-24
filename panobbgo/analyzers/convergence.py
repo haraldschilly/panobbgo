@@ -46,11 +46,13 @@ class Convergence(Analyzer):
         self.logger = self.config.get_logger("CONVG")
 
         # Configuration with fallbacks
-        self.window_size = int(window_size or getattr(self.config, 'convergence_window_size', 50))
-        self.min_evaluations = int(min_evaluations or getattr(self.config, 'convergence_min_evaluations', self.window_size))
-        self.threshold = float(threshold or getattr(self.config, 'convergence_threshold', 1e-6))
-        self.mode = mode or getattr(self.config, 'convergence_mode', 'std')
-        self.require_feasibility = getattr(self.config, 'convergence_require_feasibility', False)
+        self.window_size = int(window_size or getattr(self.config, "convergence_window_size", 50))
+        self.min_evaluations = int(
+            min_evaluations or getattr(self.config, "convergence_min_evaluations", self.window_size)
+        )
+        self.threshold = float(threshold or getattr(self.config, "convergence_threshold", 1e-6))
+        self.mode = mode or getattr(self.config, "convergence_mode", "std")
+        self.require_feasibility = getattr(self.config, "convergence_require_feasibility", False)
 
         self.history = deque(maxlen=self.window_size)
         self.cv_history = deque(maxlen=self.window_size)
@@ -87,7 +89,7 @@ class Convergence(Analyzer):
         # We can estimate total evals by strategy results count, or just by history length if we assume
         # history started filling from 0. But history is capped.
         # Strategy results length is better.
-        if hasattr(self.strategy, 'results') and self.strategy.results is not None:
+        if hasattr(self.strategy, "results") and self.strategy.results is not None:
             try:
                 if len(self.strategy.results) < self.min_evaluations:
                     return
@@ -121,17 +123,17 @@ class Convergence(Analyzer):
         if any(v is None for v in values):
             return
 
-        if self.mode == 'std':
+        if self.mode == "std":
             self._check_std_convergence(values)
-        elif self.mode == 'improv':
+        elif self.mode == "improv":
             self._check_improv_convergence(values)
-        elif self.mode == 'slope':
+        elif self.mode == "slope":
             self._check_slope_convergence(values)
 
     def _check_std_convergence(self, values):
         # Suppress warnings for edge cases
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
             std = np.std(values)
 
         if std < self.threshold:
@@ -179,11 +181,11 @@ class Convergence(Analyzer):
         # But best so far is monotonic, so it can't fluctuate. It is a step function.
 
         if abs(norm_slope) < self.threshold:
-             self._trigger_convergence(f"Slope {norm_slope:.2e} < {self.threshold:.2e}")
+            self._trigger_convergence(f"Slope {norm_slope:.2e} < {self.threshold:.2e}")
 
     def _trigger_convergence(self, reason):
         self._converged = True
         self.logger.info(f"Converged! {reason}")
 
         # We publish the event. Strategies or other listeners can decide to stop.
-        self.eventbus.publish("converged", reason=reason, stats={'best_fx': self.history[-1]})
+        self.eventbus.publish("converged", reason=reason, stats={"best_fx": self.history[-1]})

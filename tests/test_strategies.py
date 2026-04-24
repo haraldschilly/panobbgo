@@ -40,9 +40,7 @@ class StrategiesTests(PanobbgoTestCase):
     def setUp(self):
         self.problem = Rosenbrock(3)
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_round_robin(self, my_setup_cluster):
         rr = StrategyRoundRobin(self.problem, size=20)
         rr.add(LatinHypercube, div=3)
@@ -50,9 +48,7 @@ class StrategiesTests(PanobbgoTestCase):
         # rr.start()
         # print rr._heuristics
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_rewarding(self, my_setup_cluster):
         from panobbgo.strategies.rewarding import StrategyRewarding
 
@@ -70,7 +66,7 @@ class StrategiesTests(PanobbgoTestCase):
 
         # Check that heuristics have performance initialized
         for h in rwd.heuristics:
-            assert hasattr(h, 'performance')
+            assert hasattr(h, "performance")
             assert h.performance == 1.0
 
         # Test discount method
@@ -100,9 +96,7 @@ class StrategiesTests(PanobbgoTestCase):
         rwd.on_new_best(result2)  # Should call reward internally and update last_best
         assert rwd.last_best == result2
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_rewarding_near_best(self, my_setup_cluster):
         from panobbgo.strategies.rewarding import StrategyRewarding
 
@@ -141,7 +135,7 @@ class StrategiesTests(PanobbgoTestCase):
         # StrategyRewarding checks fx directly from result.
 
         # We want x to be far.
-        ranges = self.problem.ranges # Rosenbrock [-5, 10] usually?
+        ranges = self.problem.ranges  # Rosenbrock [-5, 10] usually?
         # Let's check ranges. Rosenbrock default box is usually large.
 
         near_point = Point(np.array([-1.0, -1.0, -1.0]), h_random.name)
@@ -157,9 +151,7 @@ class StrategiesTests(PanobbgoTestCase):
         # Check reward
         assert h_random.performance > initial_perf
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_ucb_initialization(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         assert ucb is not None
@@ -174,9 +166,7 @@ class StrategiesTests(PanobbgoTestCase):
             assert h.ucb_count == 0
             assert h.ucb_total_reward == 0.0
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_ucb_execution(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         ucb.add(Random)
@@ -211,9 +201,7 @@ class StrategiesTests(PanobbgoTestCase):
         for h in ucb.heuristics:
             assert h.ucb_count > 0
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_ucb_reward(self, my_setup_cluster):
         ucb = StrategyUCB(self.problem)
         ucb.add(Random)
@@ -253,12 +241,6 @@ class StrategiesTests(PanobbgoTestCase):
         assert abs(h_random.ucb_total_reward - (1.0 + expected_reward)) < 1e-6
 
 
-
-
-
-
-
-
 class TestEvaluationModes(PanobbgoTestCase):
     """Test different evaluation modes."""
 
@@ -275,9 +257,9 @@ class TestEvaluationModes(PanobbgoTestCase):
         # Re-setup cluster with threaded mode
         strategy._setup_threaded_evaluation(self.problem)
 
-        assert hasattr(strategy, '_thread_pool'), "Should have thread pool"
-        assert hasattr(strategy, '_futures'), "Should have futures dict"
-        assert hasattr(strategy, '_n_processes'), "Should have process count"
+        assert hasattr(strategy, "_thread_pool"), "Should have thread pool"
+        assert hasattr(strategy, "_futures"), "Should have futures dict"
+        assert hasattr(strategy, "_n_processes"), "Should have process count"
         assert strategy._n_processes > 0, "Should have at least 1 thread"
 
         # Cleanup
@@ -328,8 +310,8 @@ class TestEvaluationModes(PanobbgoTestCase):
         strategy._setup_threaded_evaluation(self.problem)
 
         evaluators = strategy.evaluators
-        assert hasattr(evaluators, 'outstanding'), "Evaluators should have outstanding property"
-        assert hasattr(evaluators, '__len__'), "Evaluators should be measurable"
+        assert hasattr(evaluators, "outstanding"), "Evaluators should have outstanding property"
+        assert hasattr(evaluators, "__len__"), "Evaluators should be measurable"
 
         # Check it returns something reasonable
         assert len(evaluators) > 0, "Should have at least 1 evaluator"
@@ -344,9 +326,7 @@ class TestStrategyBase(PanobbgoTestCase):
     def setUp(self):
         self.problem = Rosenbrock(2)
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_panobbgo_logger_initialization(self, my_setup_cluster):
         """Test that panobbgo_logger is initialized."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -354,12 +334,10 @@ class TestStrategyBase(PanobbgoTestCase):
 
         strategy = StrategyRoundRobin(self.problem, parse_args=False)
 
-        assert hasattr(strategy, 'panobbgo_logger'), "Should have panobbgo_logger"
+        assert hasattr(strategy, "panobbgo_logger"), "Should have panobbgo_logger"
         assert isinstance(strategy.panobbgo_logger, PanobbgoLogger), "Should be PanobbgoLogger instance"
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_results_database(self, my_setup_cluster):
         """Test Results database is properly initialized."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -367,13 +345,11 @@ class TestStrategyBase(PanobbgoTestCase):
 
         strategy = StrategyRoundRobin(self.problem, parse_args=False)
 
-        assert hasattr(strategy, 'results'), "Should have results"
+        assert hasattr(strategy, "results"), "Should have results"
         assert isinstance(strategy.results, Results), "Should be Results instance"
         assert len(strategy.results) == 0, "Results should start empty"
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_eventbus_initialization(self, my_setup_cluster):
         """Test EventBus is properly initialized."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -381,12 +357,10 @@ class TestStrategyBase(PanobbgoTestCase):
 
         strategy = StrategyRoundRobin(self.problem, parse_args=False)
 
-        assert hasattr(strategy, 'eventbus'), "Should have eventbus"
+        assert hasattr(strategy, "eventbus"), "Should have eventbus"
         assert isinstance(strategy.eventbus, EventBus), "Should be EventBus instance"
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_best_property(self, my_setup_cluster):
         """Test best property returns None when no results."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -403,9 +377,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
     def setUp(self):
         self.problem = Rosenbrock(2)
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_validation_success_with_heuristics(self, my_setup_cluster):
         """Test that validation passes when setup is correct."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -430,9 +402,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
         except ValueError:
             self.fail("validate_setup() raised ValueError unexpectedly")
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_validation_fails_without_heuristics(self, my_setup_cluster):
         """Test that validation fails when no heuristics are added."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -448,9 +418,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
         self.assertIn("You must add at least one heuristic", error_msg)
         self.assertIn("strategy.add(Random)", error_msg)
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_validation_fails_with_inactive_heuristics(self, my_setup_cluster):
         """Test that validation fails when all heuristics are inactive."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin
@@ -573,11 +541,11 @@ class TestFrameworkValidation(PanobbgoTestCase):
 
         errors = base._validate_config()
         num_errors = len(errors)
-        self.assertGreaterEqual(num_errors, 3, f"Expected at least 3 errors, got {num_errors}: {errors}")  # Should have at least 3 errors
+        self.assertGreaterEqual(
+            num_errors, 3, f"Expected at least 3 errors, got {num_errors}: {errors}"
+        )  # Should have at least 3 errors
 
-    @mock.patch(
-        "panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster
-    )
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster", new_callable=get_my_setup_cluster)
     def test_start_fails_validation(self, my_setup_cluster):
         """Test that start() fails when validation fails."""
         from panobbgo.strategies.round_robin import StrategyRoundRobin

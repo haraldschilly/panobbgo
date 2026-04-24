@@ -66,9 +66,7 @@ def _make_run(
 
     convergence: List[ConvergencePoint] = []
     if first_hit is not None:
-        convergence.append(
-            ConvergencePoint(eval_idx=first_hit, fx=0.05, func_distance=0.05)
-        )
+        convergence.append(ConvergencePoint(eval_idx=first_hit, fx=0.05, func_distance=0.05))
 
     return RunRecord(
         problem_name="Fake",
@@ -127,12 +125,8 @@ class TestRunRecord:
             tolerance=0.1,
             success=True,
             convergence=[
-                ConvergencePoint(
-                    eval_idx=20, fx=0.5, func_distance=0.5
-                ),  # still too far
-                ConvergencePoint(
-                    eval_idx=50, fx=0.05, func_distance=0.05
-                ),  # within tol
+                ConvergencePoint(eval_idx=20, fx=0.5, func_distance=0.5),  # still too far
+                ConvergencePoint(eval_idx=50, fx=0.05, func_distance=0.05),  # within tol
             ],
             heuristic_counts={},
             duration=0.1,
@@ -327,9 +321,7 @@ class TestSerialization:
         assert len(loaded.problem_strategy_results) == 1
         psr = loaded.problem_strategy_results[0]
         assert psr.problem_name == "Fake"
-        assert psr.score == pytest.approx(
-            result.problem_strategy_results[0].score, rel=1e-6
-        )
+        assert psr.score == pytest.approx(result.problem_strategy_results[0].score, rel=1e-6)
         assert len(psr.runs) == 1
         assert psr.runs[0].success is True
 
@@ -406,18 +398,28 @@ class TestCompare:
         def _psr(prob: str, strat: str, score: float) -> ProblemStrategyResult:
             run = _make_run(score > 0, first_hit=1 if score > 0 else None, budget=100)
             return ProblemStrategyResult(
-                problem_name=prob, problem_dim=2, strategy_name=strat,
-                f_opt=0.0, tolerance=0.1, budget=100, runs=[run], score=score,
+                problem_name=prob,
+                problem_dim=2,
+                strategy_name=strat,
+                f_opt=0.0,
+                tolerance=0.1,
+                budget=100,
+                runs=[run],
+                score=score,
             )
 
         before = HarnessResult(
-            config=HarnessConfig(mode="quick"), timestamp="", total_runs=2,
+            config=HarnessConfig(mode="quick"),
+            timestamp="",
+            total_runs=2,
             total_duration=0.0,
             problem_strategy_results=[_psr("P1", "S1", 0.5), _psr("P2", "S1", 0.4)],
             composite_score=0.45,
         )
         after = HarnessResult(
-            config=HarnessConfig(mode="quick"), timestamp="", total_runs=2,
+            config=HarnessConfig(mode="quick"),
+            timestamp="",
+            total_runs=2,
             total_duration=0.0,
             problem_strategy_results=[_psr("P1", "S1", 0.5), _psr("P3", "S1", 0.6)],
             composite_score=0.55,
@@ -555,39 +557,29 @@ class TestBuildConvergenceFromArrays:
         assert trace == []
 
     def test_monotone_decrease(self):
-        trace = BenchmarkHarness._build_convergence_from_arrays(
-            np.array([10.0, 7.0, 3.0, 1.0]), f_opt=0.0
-        )
+        trace = BenchmarkHarness._build_convergence_from_arrays(np.array([10.0, 7.0, 3.0, 1.0]), f_opt=0.0)
         assert len(trace) == 4
         assert trace[0].eval_idx == 1
         assert trace[0].fx == pytest.approx(10.0)
         assert trace[-1].fx == pytest.approx(1.0)
 
     def test_no_improvements_after_first(self):
-        trace = BenchmarkHarness._build_convergence_from_arrays(
-            np.array([5.0, 8.0, 12.0]), f_opt=0.0
-        )
+        trace = BenchmarkHarness._build_convergence_from_arrays(np.array([5.0, 8.0, 12.0]), f_opt=0.0)
         # Only the first value is an "improvement" from inf
         assert len(trace) == 1
         assert trace[0].fx == pytest.approx(5.0)
 
     def test_func_distance_computed(self):
-        trace = BenchmarkHarness._build_convergence_from_arrays(
-            np.array([2.5]), f_opt=1.0
-        )
+        trace = BenchmarkHarness._build_convergence_from_arrays(np.array([2.5]), f_opt=1.0)
         assert trace[0].func_distance == pytest.approx(1.5)
 
     def test_nan_skipped(self):
-        trace = BenchmarkHarness._build_convergence_from_arrays(
-            np.array([float("nan"), 3.0]), f_opt=0.0
-        )
+        trace = BenchmarkHarness._build_convergence_from_arrays(np.array([float("nan"), 3.0]), f_opt=0.0)
         assert len(trace) == 1
         assert trace[0].eval_idx == 2
 
     def test_eval_idx_correct(self):
-        trace = BenchmarkHarness._build_convergence_from_arrays(
-            np.array([10.0, 10.0, 10.0, 5.0, 10.0, 2.0]), f_opt=0.0
-        )
+        trace = BenchmarkHarness._build_convergence_from_arrays(np.array([10.0, 10.0, 10.0, 5.0, 10.0, 2.0]), f_opt=0.0)
         # Improvements at positions 0 (first), 3, 5 → eval_idx 1, 4, 6
         assert trace[0].eval_idx == 1
         assert trace[1].eval_idx == 4

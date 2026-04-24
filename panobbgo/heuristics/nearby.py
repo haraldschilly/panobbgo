@@ -65,9 +65,7 @@ class Nearby(Heuristic):
         axes: str = "one",
         sensitivity_scale: float = 1.0,
     ):
-        Heuristic.__init__(
-            self, strategy, cap=cap, name="Nearby %.3f/%s" % (radius, axes)
-        )
+        Heuristic.__init__(self, strategy, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
         self.radius = radius
         self.new = new
         self.axes = axes

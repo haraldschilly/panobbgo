@@ -74,14 +74,8 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
                     x0 = msg["x0"]
                     # Run optimization
                     try:
-                        options = {'maxiter': max_iter}
-                        res = minimize(
-                            objective_function,
-                            x0,
-                            method=method,
-                            bounds=bounds,
-                            options=options
-                        )
+                        options = {"maxiter": max_iter}
+                        res = minimize(objective_function, x0, method=method, bounds=bounds, options=options)
                         # Notify parent we are done
                         pipe.send({"type": "done", "success": res.success, "message": res.message})
                     except StopIteration:

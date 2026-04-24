@@ -7,15 +7,16 @@ import pytest
 from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result, BoundingBox, Problem
 
+
 class MockConstraintHandler:
     def get_penalty_value(self, result):
         if result is None or result.fx is None:
-            return float('inf')
+            return float("inf")
         cv = result.cv if result.cv is not None else 0.0
         return result.fx + 100.0 * cv
 
-class LocalPenaltySearchTest(PanobbgoTestCase):
 
+class LocalPenaltySearchTest(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         self.strategy.constraint_handler = MockConstraintHandler()
@@ -25,12 +26,14 @@ class LocalPenaltySearchTest(PanobbgoTestCase):
 
     def test_initialization(self):
         from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
+
         h = LocalPenaltySearch(self.strategy)
         assert h is not None
         assert h.name == "LocalPenaltySearch"
 
     def test_start_stop(self):
         from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
+
         h = LocalPenaltySearch(self.strategy)
         h.__start__()
         time.sleep(0.5)

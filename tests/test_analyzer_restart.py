@@ -190,6 +190,7 @@ def test_restart_ignore_none_fx():
     r.on_new_results([r2])
     assert r.restart_count == 1
 
+
 def test_restart_with_constraint_handler():
     problem = FlatProblem(dim=2)
     strategy = _make_strategy(problem)

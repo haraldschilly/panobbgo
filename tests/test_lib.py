@@ -53,8 +53,7 @@ class Lib(unittest.TestCase):
 
     @expected_failure(
         Exception,
-        "who needs to be a string describing the heuristic, "
-        "was 0 of type <class 'int'>",
+        "who needs to be a string describing the heuristic, was 0 of type <class 'int'>",
     )
     def test_point_who(self):
         x = np.array([5, -2.2, 0, 1.1])
@@ -68,7 +67,7 @@ class Lib(unittest.TestCase):
     def test_problem(self):
         rbrk = Rosenbrock(4)
         assert rbrk.dim == 4
-        p = Point([1.0]*4, "nose")
+        p = Point([1.0] * 4, "nose")
         assert rbrk(p).fx == 0.0
         assert np.allclose(
             rbrk.project(np.array([22, 0, -33, 2], dtype=np.float64)),
@@ -91,18 +90,18 @@ class Lib(unittest.TestCase):
         assert np.all(rbrk.box[:, 1] >= rp)
 
         # Test random_point uniform explicitly
-        rp_uniform = rbrk.random_point(distribution='uniform')
+        rp_uniform = rbrk.random_point(distribution="uniform")
         assert np.all(rbrk.box[:, 0] <= rp_uniform)
         assert np.all(rbrk.box[:, 1] >= rp_uniform)
 
         # Test random_point normal
-        rp_normal = rbrk.random_point(distribution='normal')
+        rp_normal = rbrk.random_point(distribution="normal")
         assert np.all(rbrk.box[:, 0] <= rp_normal)
         assert np.all(rbrk.box[:, 1] >= rp_normal)
 
         # Test unsupported distribution
         with pytest.raises(ValueError, match="Unsupported distribution: 'invalid_dist'"):
-            rbrk.random_point(distribution='invalid_dist')
+            rbrk.random_point(distribution="invalid_dist")
 
         r = repr(rbrk)  # ordering of dict is arbitrary, hence this:
         assert "Problem 'Rosenbrock': 2 dims, params: " in r

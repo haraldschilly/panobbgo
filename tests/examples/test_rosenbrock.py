@@ -50,7 +50,7 @@ def test_rosenbrock_manual_optimization():
     problem = Rosenbrock(optimum=OPTIMUM, box=BOX)
 
     # Evaluate some random points and track best
-    best_fx = float('inf')
+    best_fx = float("inf")
     best_x = None
 
     for i in range(50):
@@ -63,7 +63,7 @@ def test_rosenbrock_manual_optimization():
             best_x = x.copy()
 
     print(f"Best found after 50 random evaluations: f(x) = {best_fx:.4f} at x = {best_x}")
-    assert best_fx < float('inf'), "Should find at least one finite result"
+    assert best_fx < float("inf"), "Should find at least one finite result"
 
 
 def test_rosenbrock_full_optimization():
@@ -79,9 +79,9 @@ def test_rosenbrock_full_optimization():
     """
     problem = Rosenbrock(optimum=OPTIMUM, box=BOX)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Rosenbrock Optimization Test")
-    print("="*60)
+    print("=" * 60)
     print(f"Box: {problem.box[:]}")
     print(f"Target optimum: {OPTIMUM}")
     print()
@@ -101,12 +101,12 @@ def test_rosenbrock_full_optimization():
 
     print(f"Max evaluations: {strategy.config.max_eval}")
     print("Heuristics: Random, LatinHypercube, Nearby (x2), NelderMead")
-    print("-"*60)
+    print("-" * 60)
 
     # Run optimization
     strategy.start()
 
-    print("-"*60)
+    print("-" * 60)
 
     # Validate results - framework should find SOME solution
     assert strategy.best is not None, "Should find a solution"
@@ -152,6 +152,6 @@ if __name__ == "__main__":
     print()
     test_rosenbrock_full_optimization()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All tests completed!")
-    print("="*60)
+    print("=" * 60)

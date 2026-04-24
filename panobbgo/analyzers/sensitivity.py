@@ -49,9 +49,7 @@ class Sensitivity(Analyzer):
     - ``new_sensitivity(importance=ndarray)``: Array of shape ``(dim,)``, values in ``[0, 1]``.
     """
 
-    def __init__(
-        self, strategy, min_samples=None, update_interval=50, method="spearman"
-    ):
+    def __init__(self, strategy, min_samples=None, update_interval=50, method="spearman"):
         super().__init__(strategy)
         self.logger = self.config.get_logger("SENSI")
 
@@ -67,9 +65,7 @@ class Sensitivity(Analyzer):
 
     def __start__(self):
         dim = self.problem.dim
-        self._min_samples = (
-            self._min_samples_cfg if self._min_samples_cfg is not None else 10 * dim
-        )
+        self._min_samples = self._min_samples_cfg if self._min_samples_cfg is not None else 10 * dim
 
     @property
     def importance(self) -> np.ndarray | None:

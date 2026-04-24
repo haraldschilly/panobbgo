@@ -140,6 +140,7 @@ def test_default_min_samples():
     # Default min_samples = 10 * dim = 20
     assert s._min_samples == 20
 
+
 def test_sensitivity_ignore_missing_data():
     problem = DimZeroProblem()
     strategy = _make_strategy(problem)
@@ -156,6 +157,7 @@ def test_sensitivity_ignore_missing_data():
     # Only the valid result is parsed.
     assert s._X is not None
     assert len(s._X) == 1
+
 
 def test_sensitivity_with_constraint_handler():
     problem = DimZeroProblem()
@@ -174,6 +176,7 @@ def test_sensitivity_with_constraint_handler():
 
     s.on_new_results([r1, r2])
     assert s.importance is not None
+
 
 def test_sensitivity_partial_correlation_1d():
     problem = DimZeroProblem(dim=1)

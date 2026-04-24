@@ -21,6 +21,7 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
+
 class TestAnalyzersBestCoverage(PanobbgoTestCase):
     def setUp(self):
         from panobbgo.lib.classic import RosenbrockConstraint
@@ -47,14 +48,15 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
 
         # New candidate that is better (e.g. better penalty/Lagrangian value)
         p2 = Point(np.array([0.5, 0.5]), "candidate")
-        r2 = Result(p2, 5.0, cv_vec=np.array([1.0])) # Same CV, better FX
+        r2 = Result(p2, 5.0, cv_vec=np.array([1.0]))  # Same CV, better FX
 
         # Track events
         events_published = []
+
         def side_effect(key, **kwargs):
             events_published.append(key)
 
-        with mock.patch.object(self.strategy.eventbus, 'publish', side_effect=side_effect):
+        with mock.patch.object(self.strategy.eventbus, "publish", side_effect=side_effect):
             # Call on_refresh_best
             best_analyzer.on_refresh_best([r2])
 
@@ -83,10 +85,11 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
 
         # Track events
         events_published = []
+
         def side_effect(key, **kwargs):
             events_published.append(key)
 
-        with mock.patch.object(self.strategy.eventbus, 'publish', side_effect=side_effect):
+        with mock.patch.object(self.strategy.eventbus, "publish", side_effect=side_effect):
             best_analyzer.on_refresh_best([r2])
 
         # Verify NO update
@@ -110,8 +113,8 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         r2 = Result(Point(np.array([0.0, 0.0]), "cand"), 5.0)
 
         # Mock constraint handler
-        with mock.patch.object(self.strategy.constraint_handler, 'is_better') as mock_is_better:
-            mock_is_better.return_value = True # Force it to be better
+        with mock.patch.object(self.strategy.constraint_handler, "is_better") as mock_is_better:
+            mock_is_better.return_value = True  # Force it to be better
 
             best_analyzer.on_refresh_best([r2])
 
@@ -160,17 +163,17 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         # Format: (fx, cv)
         points_data = [
             (10.0, 5.0),  # P1: Initial baseline
-            (8.0, 5.0),   # P2: Dominates P1 (better fx, same cv) -> P1 removed
+            (8.0, 5.0),  # P2: Dominates P1 (better fx, same cv) -> P1 removed
             (12.0, 2.0),  # P3: Non-dominated (worse fx, better cv) -> Added
-            (9.0, 3.0),   # P4: Non-dominated vs P2 and P3 -> Added
+            (9.0, 3.0),  # P4: Non-dominated vs P2 and P3 -> Added
             (13.0, 1.0),  # P5: Better CV than all, worse FX -> Added
             (11.0, 3.0),  # P6: Dominated by P4 (worse fx, same cv) -> Rejected
-            (9.0, 4.0),   # P7: Dominated by P4 (same fx, worse cv) -> Rejected
+            (9.0, 4.0),  # P7: Dominated by P4 (same fx, worse cv) -> Rejected
         ]
 
         results = []
         for i, (fx, cv_val) in enumerate(points_data):
-            p = Point(np.array([float(i), float(i)]), f"P{i+1}")
+            p = Point(np.array([float(i), float(i)]), f"P{i + 1}")
             cv_vec = np.array([cv_val])
             r = Result(p, fx, cv_vec=cv_vec)
             results.append(r)
@@ -189,12 +192,7 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         # P5: (13.0, 1.0)
 
         # Sorted by fx (increasing)
-        expected = [
-            (8.0, 5.0),
-            (9.0, 3.0),
-            (12.0, 2.0),
-            (13.0, 1.0)
-        ]
+        expected = [(8.0, 5.0), (9.0, 3.0), (12.0, 2.0), (13.0, 1.0)]
 
         # Extract values and compare
         pf_simple = [(r.fx, r.cv) for r in pf]
@@ -216,12 +214,7 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         best_analyzer = Best(self.strategy)
 
         # Add points in random order
-        data = [
-            (10.0, 1.0),
-            (5.0, 2.0),
-            (15.0, 0.5),
-            (2.0, 3.0)
-        ]
+        data = [(10.0, 1.0), (5.0, 2.0), (15.0, 0.5), (2.0, 3.0)]
         # None dominate others here (fx decreases as cv increases)
 
         results = []
@@ -275,12 +268,14 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
         # We need self.strategy.panobbgo_logger.progress_reporter to exist, and self.strategy._update_progress_status to raise an exception
         import logging
         from panobbgo.logging.logger import PanobbgoLogger
+
         self.strategy.panobbgo_logger = PanobbgoLogger({})
         self.strategy.panobbgo_logger.progress_reporter.enabled = True
 
         # Mock _update_progress_status to raise an exception
-        with mock.patch.object(self.strategy, '_update_progress_status', side_effect=Exception("Test Exception")):
+        with mock.patch.object(self.strategy, "_update_progress_status", side_effect=Exception("Test Exception")):
             best_analyzer._report_progress_event("Test exception handling", "test_event")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -63,8 +63,8 @@ class WeightedAverage(Heuristic):
         try:
             avg_ret = np.average(xx, axis=0, weights=weights)
         except ZeroDivisionError:
-             # Fallback to simple mean if weights sum to zero
-             avg_ret = np.mean(xx, axis=0)
+            # Fallback to simple mean if weights sum to zero
+            avg_ret = np.mean(xx, axis=0)
 
         std = xx.std(axis=0)
         # std must be > 0

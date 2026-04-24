@@ -146,14 +146,16 @@ def test_optimization_statistical_significance():
 
     # We want to show opt_bests is stochastically smaller than random_bests
     # Use Mann-Whitney U test (one-sided)
-    stat, p_value = stats.mannwhitneyu(opt_bests, random_bests, alternative='less')
+    stat, p_value = stats.mannwhitneyu(opt_bests, random_bests, alternative="less")
 
     print(f"Mann-Whitney U statistic: {stat}, p-value: {p_value}")
 
     # Check for statistical significance (alpha = 0.35 for small sample size of a highly variable search space, or log warning)
     # The Mann-Whitney U test can be quite conservative with small samples.
     if p_value >= 0.35:
-        print(f"WARNING: StrategyRewarding is not statistically significantly better than Random baseline. p-value: {p_value}")
+        print(
+            f"WARNING: StrategyRewarding is not statistically significantly better than Random baseline. p-value: {p_value}"
+        )
     assert p_value < 1.0, "Test failed completely"
 
 

@@ -101,9 +101,7 @@ class StrategyPhased(StrategyBase):
                 raise ValueError(f"Phase {i} missing 'strategy' key")
             strat = phase["strategy"]
             if not isinstance(strat, tuple) or len(strat) != 2:
-                raise ValueError(
-                    f"Phase {i} 'strategy' must be a (StrategyClass, kwargs_dict) tuple"
-                )
+                raise ValueError(f"Phase {i} 'strategy' must be a (StrategyClass, kwargs_dict) tuple")
 
             # Validate heuristics
             if "heuristics" not in phase:
@@ -113,9 +111,7 @@ class StrategyPhased(StrategyBase):
                 raise ValueError(f"Phase {i} 'heuristics' must be a non-empty list")
             for j, h in enumerate(heurs):
                 if not isinstance(h, tuple) or len(h) != 2:
-                    raise ValueError(
-                        f"Phase {i} heuristic {j} must be a (HeuristicClass, kwargs_dict) tuple"
-                    )
+                    raise ValueError(f"Phase {i} heuristic {j} must be a (HeuristicClass, kwargs_dict) tuple")
 
             # Validate pct
             is_last = i == len(phases) - 1
@@ -126,16 +122,12 @@ class StrategyPhased(StrategyBase):
                     raise ValueError(f"Phase {i} pct must be in (0, 100], got {pct}")
                 total_pct += pct
             elif not is_last:
-                raise ValueError(
-                    f"Phase {i} must have 'pct' (only the last phase may omit it)"
-                )
+                raise ValueError(f"Phase {i} must have 'pct' (only the last phase may omit it)")
 
             configs.append({"pct": pct, "strategy": strat, "heuristics": heurs})
 
         if total_pct >= 100:
-            raise ValueError(
-                f"Sum of explicit pct values must be < 100, got {total_pct}"
-            )
+            raise ValueError(f"Sum of explicit pct values must be < 100, got {total_pct}")
 
         # Fill in last phase pct if missing
         if configs[-1]["pct"] is None:
@@ -166,11 +158,13 @@ class StrategyPhased(StrategyBase):
                 phase_names.add(h.name)
 
             self._phase_heuristic_names.append(phase_names)
-            self._phase_strategy_info.append({
-                "cls": strat_cls,
-                "kwargs": strat_kwargs,
-                "state": {},
-            })
+            self._phase_strategy_info.append(
+                {
+                    "cls": strat_cls,
+                    "kwargs": strat_kwargs,
+                    "state": {},
+                }
+            )
 
         # Now call the base start() which registers heuristics, analyzers, etc.
         StrategyBase.start(self)
@@ -184,8 +178,7 @@ class StrategyPhased(StrategyBase):
         """Check if we should advance to the next phase."""
         n_results = len(self.results)
         while (
-            self._current_phase < len(self._phase_cutoffs) - 1
-            and n_results >= self._phase_cutoffs[self._current_phase]
+            self._current_phase < len(self._phase_cutoffs) - 1 and n_results >= self._phase_cutoffs[self._current_phase]
         ):
             old_phase = self._current_phase
             self._current_phase += 1
@@ -283,9 +276,7 @@ class StrategyPhased(StrategyBase):
         if self.last_best is None:
             reward = 1.0
         else:
-            improvement = self.constraint_handler.calculate_improvement(
-                self.last_best, best
-            )
+            improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
             reward = 1.0 - np.exp(-1.0 * improvement)
 
         try:
@@ -303,10 +294,7 @@ class StrategyPhased(StrategyBase):
             if hasattr(h, "ts_total_reward"):
                 h.ts_total_reward += reward
 
-        self.logger.info(
-            "\u2318 %s | \u0394 %.7f %s (Phased/%s)"
-            % (best, reward, best.who, strat_cls.__name__)
-        )
+        self.logger.info("\u2318 %s | \u0394 %.7f %s (Phased/%s)" % (best, reward, best.who, strat_cls.__name__))
         self.last_best = best
 
     def on_new_results(self, results):
@@ -431,9 +419,7 @@ class StrategyPhased(StrategyBase):
                     score = float("inf")
                 else:
                     avg = h.ucb_total_reward / h.ucb_count
-                    exploration = c * np.sqrt(
-                        np.log(max(1, self.total_selections)) / h.ucb_count
-                    )
+                    exploration = c * np.sqrt(np.log(max(1, self.total_selections)) / h.ucb_count)
                     score = avg + exploration
                 scores.append((score, h))
             scores.sort(key=lambda x: x[0], reverse=True)
@@ -495,9 +481,7 @@ class StrategyPhased(StrategyBase):
 
         info = self._phase_strategy_info[self._current_phase]
         recent = info["state"].get("recent_rewards", [])
-        feat_success = (
-            sum(1 for r in recent if r > 0) / len(recent) if recent else 0.0
-        )
+        feat_success = sum(1 for r in recent if r > 0) / len(recent) if recent else 0.0
         context = np.array([1.0, feat_progress, feat_success])
 
         def until(points, target):

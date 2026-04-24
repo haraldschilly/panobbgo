@@ -221,9 +221,7 @@ class ClaudeHeuristic(Heuristic):
             if count == 0:
                 continue
             try:
-                samples = np.random.multivariate_normal(
-                    comp["mean"], comp["cov"], size=int(count)
-                )
+                samples = np.random.multivariate_normal(comp["mean"], comp["cov"], size=int(count))
             except np.linalg.LinAlgError:
                 # Fallback to isotropic sampling at mean
                 self.logger.debug("Singular covariance, falling back to isotropic")

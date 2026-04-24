@@ -25,6 +25,7 @@ from panobbgo.lib import Result
 @dataclass
 class ProgressContext:
     """Context information for progress symbol selection."""
+
     is_global_best: bool = False
     is_significant_improvement: bool = False
     is_improvement: bool = False
@@ -66,25 +67,25 @@ class ProgressReporter:
 
         # Symbol sets
         self.symbols = {
-            'major_improvement': '🎉',
-            'significant_improvement': '🎊',
-            'improvement': '⭐',
-            'new_learning': '🆕',
-            'normal': '.',
-            'warning': '⚠️',
-            'failed': '❌',
-            'fatal': '💀'
+            "major_improvement": "🎉",
+            "significant_improvement": "🎊",
+            "improvement": "⭐",
+            "new_learning": "🆕",
+            "normal": ".",
+            "warning": "⚠️",
+            "failed": "❌",
+            "fatal": "💀",
         }
 
         self.plain_symbols = {
-            'major_improvement': '!',
-            'significant_improvement': '+',
-            'improvement': '*',
-            'new_learning': 'L',
-            'normal': '.',
-            'warning': 'W',
-            'failed': 'X',
-            'fatal': 'F'
+            "major_improvement": "!",
+            "significant_improvement": "+",
+            "improvement": "*",
+            "new_learning": "L",
+            "normal": ".",
+            "warning": "W",
+            "failed": "X",
+            "fatal": "F",
         }
 
     def _get_symbol_set(self) -> Dict[str, str]:
@@ -141,7 +142,7 @@ class ProgressReporter:
                 console=self.console,
                 refresh_per_second=4,
                 screen=False,  # Don't use alternate screen - keep in terminal history
-                auto_refresh=True
+                auto_refresh=True,
             )
             self.live.start()
 
@@ -168,21 +169,21 @@ class ProgressReporter:
         symbols = self._get_symbol_set()
 
         # Check for failure (assuming Result has a failed attribute, if not fallback to fx check)
-        failed = getattr(result, 'failed', False)
+        failed = getattr(result, "failed", False)
         if context.evaluation_failed or (result.fx is None and not failed):
-            return symbols['failed']
+            return symbols["failed"]
         elif context.has_warnings:
-            return symbols['warning']
+            return symbols["warning"]
         elif context.is_global_best:
-            return symbols['major_improvement']
+            return symbols["major_improvement"]
         elif context.is_significant_improvement:
-            return symbols['significant_improvement']
+            return symbols["significant_improvement"]
         elif context.is_improvement:
-            return symbols['improvement']
+            return symbols["improvement"]
         elif context.new_region_created or context.analyzer_learned:
-            return symbols['new_learning']
+            return symbols["new_learning"]
         else:
-            return symbols['normal']
+            return symbols["normal"]
 
     def report_evaluation(self, result: Result, context: Optional[ProgressContext] = None):
         """
@@ -220,12 +221,16 @@ class ProgressReporter:
                 self._print_fallback_status()
                 self._fallback_line_position = 0
 
-
-
-    def update_status(self, budget_pct: float, eta_seconds: int,
-                     convergence: float, best_value: float,
-                     current_evals: int, max_evals: int,
-                     extra_fields: Optional[Dict[str, Any]] = None):
+    def update_status(
+        self,
+        budget_pct: float,
+        eta_seconds: int,
+        convergence: float,
+        best_value: float,
+        current_evals: int,
+        max_evals: int,
+        extra_fields: Optional[Dict[str, Any]] = None,
+    ):
         """
         Update status line with complete information.
 
@@ -386,7 +391,4 @@ class ErrorReporter:
 
     def get_summary(self) -> Dict[str, int]:
         """Get error/warning summary."""
-        return {
-            'errors': self.error_count,
-            'warnings': self.warning_count
-        }
+        return {"errors": self.error_count, "warnings": self.warning_count}

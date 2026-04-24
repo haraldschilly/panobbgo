@@ -93,20 +93,20 @@ class FeasibleSearch(Heuristic):
         # If we have a feasible point and an infeasible point,
         # search on the line between them to find the feasibility boundary!
         if self.best_feasible is not None:
-             x_feasible = self.best_feasible.x
-             diff_vec = x_feasible - x_infeasible
+            x_feasible = self.best_feasible.x
+            diff_vec = x_feasible - x_infeasible
 
-             # Generate points on the segment between infeasible (x_infeasible) and feasible (x_feasible)
-             # x_new = x_infeasible + alpha * (x_feasible - x_infeasible), where alpha in (0, 1]
-             # Using Beta distribution biases sampling toward the feasible side
-             # Beta(2, 1) gives higher probability near alpha=1 (feasible side)
-             # This helps find the boundary more efficiently than uniform sampling
+            # Generate points on the segment between infeasible (x_infeasible) and feasible (x_feasible)
+            # x_new = x_infeasible + alpha * (x_feasible - x_infeasible), where alpha in (0, 1]
+            # Using Beta distribution biases sampling toward the feasible side
+            # Beta(2, 1) gives higher probability near alpha=1 (feasible side)
+            # This helps find the boundary more efficiently than uniform sampling
 
-             for _ in range(self.samples):
-                 # Beta(2, 1) distribution: more samples near the feasible point
-                 alpha = np.random.beta(2, 1)
-                 candidate_x = x_infeasible + alpha * diff_vec
-                 points.append(candidate_x)
+            for _ in range(self.samples):
+                # Beta(2, 1) distribution: more samples near the feasible point
+                alpha = np.random.beta(2, 1)
+                candidate_x = x_infeasible + alpha * diff_vec
+                points.append(candidate_x)
 
         else:
             # Fallback to random search if no feasible point known

@@ -42,12 +42,7 @@ def test_rosenbrock_unconstrained_rewarding():
     Test StrategyRewarding on unconstrained Rosenbrock (d=2).
     """
     problem = Rosenbrock(dims=2)
-    strategy = StrategyRewarding(
-        problem,
-        max_eval=200,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyRewarding(problem, max_eval=200, evaluation_method="threaded", testing_mode=True)
     strategy.config.stop_on_convergence = False
 
     # Add a mix of heuristics
@@ -70,12 +65,7 @@ def test_rastrigin_unconstrained_roundrobin():
     Rastrigin is multimodal, so RoundRobin with global search (LHS/Random) helps.
     """
     problem = Rastrigin(dims=2)
-    strategy = StrategyRoundRobin(
-        problem,
-        max_eval=200,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyRoundRobin(problem, max_eval=200, evaluation_method="threaded", testing_mode=True)
     strategy.config.stop_on_convergence = False
 
     strategy.add(Random)
@@ -97,12 +87,7 @@ def test_high_dim_rosenbrock():
     Verifies scalability and that it doesn't crash.
     """
     problem = Rosenbrock(dims=10)
-    strategy = StrategyRoundRobin(
-        problem,
-        max_eval=500,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyRoundRobin(problem, max_eval=500, evaluation_method="threaded", testing_mode=True)
     strategy.config.stop_on_convergence = False
 
     strategy.add(Random)
@@ -111,6 +96,6 @@ def test_high_dim_rosenbrock():
     strategy.start()
 
     assert strategy.best is not None
-    assert strategy.best.fx < float('inf')
+    assert strategy.best.fx < float("inf")
     # Just check it ran and produced a valid result
     assert len(strategy.results) >= 500

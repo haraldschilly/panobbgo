@@ -14,6 +14,7 @@ tests/test_logging.py, including:
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from panobbgo.logging import PanobbgoLogger
@@ -74,7 +75,7 @@ def demo_logging():
                 convergence=min(100, progress_pct),
                 best_value=0.01,
                 current_evals=i + 1,
-                max_evals=len(evaluations)
+                max_evals=len(evaluations),
             )
 
         time.sleep(0.3)  # Visual delay

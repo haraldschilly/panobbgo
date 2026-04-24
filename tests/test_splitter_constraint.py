@@ -4,6 +4,7 @@ from panobbgo.analyzers.splitter import Splitter
 from panobbgo.lib.constraints import DefaultConstraintHandler
 import numpy as np
 
+
 class SimpleConstrainedProblem(Problem):
     def __init__(self):
         # Pass a list of tuples for box. Length 1.
@@ -18,6 +19,7 @@ class SimpleConstrainedProblem(Problem):
         if x[0] < 0:
             return np.array([abs(x[0])])
         return np.array([0.0])
+
 
 def test_splitter_respects_constraints():
     problem = SimpleConstrainedProblem()
@@ -61,6 +63,7 @@ def test_splitter_respects_constraints():
     else:
         print("PASS: Splitter Box selected feasible point as best.")
         assert True
+
 
 if __name__ == "__main__":
     test_splitter_respects_constraints()

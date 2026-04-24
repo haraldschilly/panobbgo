@@ -48,7 +48,6 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-benchmark>=4.0",
     "flake8>=7.3",
-    "black>=26.0",
     "ruff>=0.14.13",
     "mypy>=1.19",
     "pyright>=1.1.408",
@@ -64,6 +63,9 @@ include = ["panobbgo*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
 
 [tool.pyright]
 include = ["panobbgo"]

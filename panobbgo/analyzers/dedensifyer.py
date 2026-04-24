@@ -66,7 +66,7 @@ class Dedensifyer(Analyzer):
         # We use a hierarchical decomposition where each depth k divides the space
         # into 2^k segments per dimension (or cell size scales by 1/2^k).
         for depth in range(self.max_depth):
-             self.box_dims[depth] = self.problem.ranges / (2.0 ** depth)
+            self.box_dims[depth] = self.problem.ranges / (2.0**depth)
 
     def gridkey(self, x, depth):
         # Calculate grid coordinates for point x at given depth.

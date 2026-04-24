@@ -7,6 +7,7 @@ from panobbgo.core import StrategyBase, Results, EventBus, Event, Module, StopHe
 from panobbgo.lib import Point, Result
 from panobbgo.lib.classic import Rosenbrock
 
+
 class TestCoreStrategyBase(PanobbgoTestCase):
     def test_validate_config(self):
         strategy = StrategyBase(self.problem, parse_args=False)
@@ -48,6 +49,7 @@ class TestCoreStrategyBase(PanobbgoTestCase):
         strategy.config.smooth = 0.5
         strategy.config.evaluation_method = "threaded"
 
+
 class TestCoreResults(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_load_from_storage(self, mock_setup):
@@ -76,7 +78,7 @@ class TestCoreResults(PanobbgoTestCase):
 
         # Empty
         hist = results.get_history()
-        assert len(hist['x']) == 0
+        assert len(hist["x"]) == 0
 
         # Add data
         res1 = Result(Point(np.array([1.0, 2.0]), "test"), 5.0, cv_vec=np.array([0.1]))
@@ -84,13 +86,13 @@ class TestCoreResults(PanobbgoTestCase):
         results.add_results([res1, res2])
 
         hist = results.get_history()
-        assert len(hist['x']) == 2
-        assert np.array_equal(hist['x'][0], [1.0, 2.0])
-        assert np.array_equal(hist['cv_vec'][0], [0.1])
+        assert len(hist["x"]) == 2
+        assert np.array_equal(hist["x"][0], [1.0, 2.0])
+        assert np.array_equal(hist["cv_vec"][0], [0.1])
 
         hist = results.get_history(n=1)
-        assert len(hist['x']) == 1
-        assert np.array_equal(hist['x'][0], [3.0, 4.0])
+        assert len(hist["x"]) == 1
+        assert np.array_equal(hist["x"][0], [3.0, 4.0])
 
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_flush_buffer_edge_cases(self, mock_setup):
@@ -108,6 +110,7 @@ class TestCoreResults(PanobbgoTestCase):
         results._flush_buffer()
         assert results._results_df is not None
 
+
 class TestCoreEventBus(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_publish_no_subscribers(self, mock_setup):
@@ -117,7 +120,10 @@ class TestCoreEventBus(PanobbgoTestCase):
         # Should not crash
         eb.publish("unknown_event")
         eb.publish("unknown_event", event=Event())
+
+
 from unittest import mock
+
 
 def test_on_converged_stops_strategy():
     problem = mock.Mock()
@@ -126,6 +132,7 @@ def test_on_converged_stops_strategy():
     assert not strategy._stop_requested
     strategy.on_converged("Test Reason", {"stats": True})
     assert strategy._stop_requested
+
 
 def test_on_converged_does_not_stop_if_configured():
     problem = mock.Mock()
@@ -136,34 +143,38 @@ def test_on_converged_does_not_stop_if_configured():
     strategy.on_converged("Test Reason", {"stats": True})
     assert not strategy._stop_requested
 
+
 def test_results_setter_exception():
     import pandas as pd
     from unittest import mock
     from panobbgo.core import StrategyBase, Results
+
     problem = mock.Mock()
     strategy = StrategyBase(problem, parse_args=False)
     results = Results(strategy)
 
     # Create a DataFrame missing 'fx' in level 1, with a proper multi-index so xs doesn't fail on index check
-    midx = pd.MultiIndex.from_tuples([('other', 0)], names=['prop', 'dim'])
+    midx = pd.MultiIndex.from_tuples([("other", 0)], names=["prop", "dim"])
     df = pd.DataFrame([[1]], columns=midx)
 
     # It should catch KeyError and set _best_fx to inf
     results.results = df
-    assert results._best_fx == float('inf')
+    assert results._best_fx == float("inf")
+
 
 def test_add_results_exception():
     from unittest import mock
     from panobbgo.core import StrategyBase, Results
     from panobbgo.lib import Result, Point
     import pandas as pd
+
     problem = mock.Mock()
     strategy = StrategyBase(problem, parse_args=False)
     results = Results(strategy)
-    results.backend = None # Disable storage backend so it doesn't fail on save() mock json
+    results.backend = None  # Disable storage backend so it doesn't fail on save() mock json
 
     # Create a dummy DataFrame so len(self.results) > 0 check passes
-    midx = pd.MultiIndex.from_tuples([('fx', 0)], names=['prop', 'dim'])
+    midx = pd.MultiIndex.from_tuples([("fx", 0)], names=["prop", "dim"])
     df = pd.DataFrame([[1]], columns=midx)
 
     # Set the dummy df first
@@ -174,16 +185,19 @@ def test_add_results_exception():
     # it will hit the try/except block at line 218 in core.py
 
     import numpy as np
+
     mock_res = Result(Point(np.array([1.0]), "test"), fx=1.0)
 
-    with mock.patch.object(pd.DataFrame, 'xs', side_effect=Exception("Test exception")):
+    with mock.patch.object(pd.DataFrame, "xs", side_effect=Exception("Test exception")):
         # Calling add_results should silently catch the exception
         results.add_results([mock_res])
+
 
 def test_check_dependencies_failure():
     from unittest import mock
     from panobbgo.core import StrategyBase, Module
     import pytest
+
     problem = mock.Mock()
     strategy = StrategyBase(problem, parse_args=False)
 
@@ -191,11 +205,14 @@ def test_check_dependencies_failure():
     mock_mod1 = mock.Mock()
     mock_mod1.check_dependencies.return_value = False
     mock_mod1._depends_on = []
+
     # Make sure we use a class type for __class__ to avoid TypeError in set()
-    class MockClass: pass
+    class MockClass:
+        pass
+
     mock_mod1.__class__ = MockClass
 
-    strategy._analyzers = {'mock1': mock_mod1}
+    strategy._analyzers = {"mock1": mock_mod1}
 
     with pytest.raises(Exception, match="does not satisfy dependencies. #1"):
         strategy.check_dependencies()
@@ -207,9 +224,9 @@ def test_check_dependencies_failure():
     mock_mod2 = mock.Mock()
     mock_mod2.check_dependencies.return_value = True
     mock_mod2._depends_on = [DummyClass]
-    mock_mod2.__class__ = MockClass # Same dummy class so it's added to available modules
+    mock_mod2.__class__ = MockClass  # Same dummy class so it's added to available modules
 
-    strategy._analyzers = {'mock2': mock_mod2}
+    strategy._analyzers = {"mock2": mock_mod2}
 
     with pytest.raises(Exception, match="depends on.*but missing"):
         strategy.check_dependencies()

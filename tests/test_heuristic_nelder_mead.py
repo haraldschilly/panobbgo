@@ -6,6 +6,7 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.heuristics.nelder_mead import NelderMead
 from panobbgo.lib import Result, Point
 
+
 class TestHeuristicNelderMead(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_on_start_loop_timeout(self, mock_setup):
@@ -14,10 +15,12 @@ class TestHeuristicNelderMead(PanobbgoTestCase):
         # Test the loop exits properly when stopped
         def delayed_stop():
             import time
+
             time.sleep(0.2)
             nm._stopped = True
 
         import threading
+
         t = threading.Thread(target=delayed_stop)
         t.start()
 
@@ -46,8 +49,9 @@ class TestHeuristicNelderMead(PanobbgoTestCase):
         def fake_emit(point):
             nm._stopped = True
 
-        with mock.patch.object(nm, 'emit', side_effect=fake_emit):
+        with mock.patch.object(nm, "emit", side_effect=fake_emit):
             nm.on_start()
+
 
 class TestHeuristicNelderMeadRobustness(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
@@ -57,10 +61,12 @@ class TestHeuristicNelderMeadRobustness(PanobbgoTestCase):
         # Test the loop exits properly when stopped
         def delayed_stop():
             import time
+
             time.sleep(0.2)
             nm._stopped = True
 
         import threading
+
         t = threading.Thread(target=delayed_stop)
         t.start()
 
@@ -89,5 +95,5 @@ class TestHeuristicNelderMeadRobustness(PanobbgoTestCase):
         def fake_emit(point):
             nm._stopped = True
 
-        with mock.patch.object(nm, 'emit', side_effect=fake_emit):
+        with mock.patch.object(nm, "emit", side_effect=fake_emit):
             nm.on_start()

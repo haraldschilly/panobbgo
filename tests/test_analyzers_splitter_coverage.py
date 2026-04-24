@@ -3,9 +3,11 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.analyzers.splitter import Splitter
 
+
 class TestSplitterCoverage(PanobbgoTestCase):
     def setUp(self):
         from panobbgo.lib.classic import RosenbrockConstraint
+
         self.problem = RosenbrockConstraint(2)
         self.strategy = self.init_strategy()
 
@@ -86,7 +88,7 @@ class TestSplitterCoverage(PanobbgoTestCase):
 
         # create points to trigger a split natively and exercise on_new_split logic
         for i in range(int(splitter.limit) + 1):
-            r = Result(Point(self.problem.center + np.random.randn(2)*0.01, f"p{i}"), 10.0 - float(i)/100.0)
+            r = Result(Point(self.problem.center + np.random.randn(2) * 0.01, f"p{i}"), 10.0 - float(i) / 100.0)
             splitter.on_new_results([r])
 
         # self.assertIsNotNone(splitter.best_box)
@@ -151,14 +153,14 @@ class TestSplitterCoverage(PanobbgoTestCase):
         # Test get_all_boxes logic when there's depth
         # add points to force a split
         for i in range(int(splitter.limit) + 1):
-            r = Result(Point(self.problem.center + np.random.randn(2)*0.01, f"p{i}"), 10.0)
+            r = Result(Point(self.problem.center + np.random.randn(2) * 0.01, f"p{i}"), 10.0)
             splitter.on_new_results([r])
 
         r_new = Result(Point(self.problem.center, "p_new"), 1.0)
         splitter.on_new_results([r_new])
 
         boxes = splitter.get_all_boxes(r_new)
-        self.assertTrue(len(boxes) > 1) # root + at least one child
+        self.assertTrue(len(boxes) > 1)  # root + at least one child
         self.assertEqual(boxes[0], splitter.root)
 
     def test_splitter_on_new_split_update_branches(self):

@@ -185,9 +185,7 @@ class TestCMAES(PanobbgoTestCase):
             cma.on_new_results(results)
 
         final_dist = np.linalg.norm(cma._m - optimum)
-        assert final_dist < initial_dist, (
-            f"Mean did not converge: {initial_dist:.4f} -> {final_dist:.4f}"
-        )
+        assert final_dist < initial_dist, f"Mean did not converge: {initial_dist:.4f} -> {final_dist:.4f}"
 
     def test_sigma_decreases_near_optimum(self):
         """Step size should decrease after CMA-ES has converged close to optimum."""
@@ -305,8 +303,7 @@ class TestCMAES(PanobbgoTestCase):
         cma1.on_start()
         cma2.on_start()
         assert cma2._sigma > cma1._sigma, (
-            f"sigma with sigma0=0.8 ({cma2._sigma:.4f}) should exceed "
-            f"sigma with sigma0=0.1 ({cma1._sigma:.4f})"
+            f"sigma with sigma0=0.8 ({cma2._sigma:.4f}) should exceed sigma with sigma0=0.1 ({cma1._sigma:.4f})"
         )
 
     def test_exportable_from_package(self):
@@ -344,9 +341,7 @@ def test_cmaes_integration_rosenbrock():
 
     # On Rosenbrock 2D the global minimum is 0 at (1,1).
     # 150 evaluations should reliably reach fx < 5 with CMA-ES in the mix.
-    assert best_fx < 5.0, (
-        f"CMA-ES + NelderMead should find near-optimum; got {best_fx:.4f}"
-    )
+    assert best_fx < 5.0, f"CMA-ES + NelderMead should find near-optimum; got {best_fx:.4f}"
 
 
 # ---------------------------------------------------------------------------
@@ -666,17 +661,13 @@ def test_ipop_cmaes_integration_rastrigin():
         strategy.add(LatinHypercube, div=4)
         strategy.add(CMAES, sigma0=0.3, ipop_factor=2.0)
         strategy.add(NelderMead)
-        restart_analyzer = Restart(
-            strategy, patience=15, restart_strategy="diverse", max_restarts=2
-        )
+        restart_analyzer = Restart(strategy, patience=15, restart_strategy="diverse", max_restarts=2)
         strategy.add_analyzer(restart_analyzer)
         strategy.start()
         best_fx = strategy.best.fx if strategy.best else float("inf")
 
     # With IPOP + 60 evals the strategy should reach below the trivial random baseline
-    assert best_fx < 20.0, (
-        f"IPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"
-    )
+    assert best_fx < 20.0, f"IPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"
 
 
 @pytest.mark.flaky(retries=3)
@@ -806,9 +797,7 @@ class TestCMAESBIPOP(PanobbgoTestCase):
         diff = abs(cma.bipop_evals_large - cma.bipop_evals_small)
         total = cma.bipop_evals_large + cma.bipop_evals_small
         assert total == 6 * 20, f"Total evals tracked mismatch: {total}"
-        assert diff <= 20, (
-            f"BIPOP regimes not balanced: large={cma.bipop_evals_large}, small={cma.bipop_evals_small}"
-        )
+        assert diff <= 20, f"BIPOP regimes not balanced: large={cma.bipop_evals_large}, small={cma.bipop_evals_small}"
 
     def test_bipop_large_regime_geometric_growth(self):
         """Each large-regime selection should double λ from the base."""
@@ -825,9 +814,7 @@ class TestCMAESBIPOP(PanobbgoTestCase):
             cma._bipop_evals_small = 10**6  # ensure small >> large
             cma.on_restart(self.problem.random_point(), f"force large {k}")
             # _bipop_large_count incremented; new λ_l = base * 2^k
-            assert cma._lam == base * (2**k), (
-                f"Large regime λ wrong at k={k}: got {cma._lam}, expected {base * 2**k}"
-            )
+            assert cma._lam == base * (2**k), f"Large regime λ wrong at k={k}: got {cma._lam}, expected {base * 2**k}"
             assert cma.bipop_regime == "large"
 
     def test_bipop_small_regime_uses_small_population_and_sigma(self):
@@ -966,13 +953,9 @@ def test_bipop_cmaes_integration_rastrigin():
         strategy.add(LatinHypercube, div=4)
         strategy.add(CMAES, sigma0=0.3, restart_mode="bipop")
         strategy.add(NelderMead)
-        restart_analyzer = Restart(
-            strategy, patience=12, restart_strategy="diverse", max_restarts=4
-        )
+        restart_analyzer = Restart(strategy, patience=12, restart_strategy="diverse", max_restarts=4)
         strategy.add_analyzer(restart_analyzer)
         strategy.start()
         best_fx = strategy.best.fx if strategy.best else float("inf")
 
-    assert best_fx < 20.0, (
-        f"BIPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"
-    )
+    assert best_fx < 20.0, f"BIPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"

@@ -86,31 +86,26 @@ class Results:
       In the meantime, this is a pandas DataFrame.
     """
 
-    def __init__(self, strategy: 'StrategyBase') -> None:
+    def __init__(self, strategy: "StrategyBase") -> None:
         self.logger = strategy.config.get_logger("RSLTS")
-        self.strategy: 'StrategyBase' = strategy
-        self.eventbus: 'EventBus' = strategy.eventbus
-        self.problem: 'Problem' = strategy.problem
-        self._results_df: Optional['DataFrame'] = None
-        self._unmerged_dfs: List['DataFrame'] = []
-        self._buffer: List['Result'] = []
-        self._best_fx: float = float('inf')
+        self.strategy: "StrategyBase" = strategy
+        self.eventbus: "EventBus" = strategy.eventbus
+        self.problem: "Problem" = strategy.problem
+        self._results_df: Optional["DataFrame"] = None
+        self._unmerged_dfs: List["DataFrame"] = []
+        self._buffer: List["Result"] = []
+        self._best_fx: float = float("inf")
         self._last_nb: int = 0  # for logging
         self._cached_min_fx: float = np.inf
         self._lock: RLock = RLock()
 
         # Initialize storage backend if configured
         self.backend: Any = None
-        if (
-            hasattr(strategy.config, "storage_backend")
-            and strategy.config.storage_backend == "sqlite"
-        ):
+        if hasattr(strategy.config, "storage_backend") and strategy.config.storage_backend == "sqlite":
             from .storage import SQLiteStorage
 
             self.backend = SQLiteStorage(strategy.config.storage_uri)
-            self.logger.info(
-                f"Using SQLite storage backend: {strategy.config.storage_uri}"
-            )
+            self.logger.info(f"Using SQLite storage backend: {strategy.config.storage_uri}")
 
     def load_from_storage(self) -> int:
         """
@@ -125,7 +120,7 @@ class Results:
         return 0
 
     @property
-    def results(self) -> Optional['DataFrame']:
+    def results(self) -> Optional["DataFrame"]:
         with self._lock:
             self._flush_buffer()
             if self._unmerged_dfs:
@@ -140,7 +135,7 @@ class Results:
             return self._results_df
 
     @results.setter
-    def results(self, value: Optional['DataFrame']) -> None:
+    def results(self, value: Optional["DataFrame"]) -> None:
         with self._lock:
             self._results_df = value
             self._unmerged_dfs = []
@@ -148,11 +143,11 @@ class Results:
             # Update best_fx from new results
             if value is not None and not value.empty:
                 try:
-                    self._best_fx = float(value.xs(0, level=1, axis=1)['fx'].min())
+                    self._best_fx = float(value.xs(0, level=1, axis=1)["fx"].min())
                 except (KeyError, ValueError):
-                    self._best_fx = float('inf')
+                    self._best_fx = float("inf")
             else:
-                self._best_fx = float('inf')
+                self._best_fx = float("inf")
 
     def _flush_buffer(self) -> None:
         """
@@ -169,9 +164,7 @@ class Results:
                 cv_vec = r.cv_vec
                 len_cv_vec = 0 if cv_vec is None else np.atleast_1d(cv_vec).size
                 midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
-                midx = MultiIndex.from_tuples(
-                    midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)]
-                )
+                midx = MultiIndex.from_tuples(midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)])
                 self._results_df = DataFrame(columns=midx)
 
             # Build data with explicit types to avoid mixed-type array issues
@@ -214,7 +207,9 @@ class Results:
             data_dict[("who", 0)] = who_data
             data_dict[("error", 0)] = error_data
 
-            results_new = DataFrame(data_dict, columns=self._results_df.columns if self._results_df is not None else midx)
+            results_new = DataFrame(
+                data_dict, columns=self._results_df.columns if self._results_df is not None else midx
+            )
 
             if self._results_df is None and not self._unmerged_dfs:
                 self._results_df = results_new
@@ -223,7 +218,7 @@ class Results:
 
             self._buffer = []
 
-    def add_results(self, new_results: List['Result'], save_to_storage: bool = True) -> None:
+    def add_results(self, new_results: List["Result"], save_to_storage: bool = True) -> None:
         """
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
@@ -246,10 +241,10 @@ class Results:
                 # Collect fx values without triggering concat
                 fx_values = []
                 if self._results_df is not None and not self._results_df.empty:
-                    fx_values.extend(self._results_df.xs(0, level=1, axis=1)['fx'].dropna().tolist())
+                    fx_values.extend(self._results_df.xs(0, level=1, axis=1)["fx"].dropna().tolist())
                 for df in self._unmerged_dfs:
                     if not df.empty:
-                        fx_values.extend(df.xs(0, level=1, axis=1)['fx'].dropna().tolist())
+                        fx_values.extend(df.xs(0, level=1, axis=1)["fx"].dropna().tolist())
                 for r in self._buffer:
                     if r.fx is not None:
                         fx_values.append(float(r.fx))
@@ -259,7 +254,7 @@ class Results:
                     if fx_values:
                         self._cached_min_fx = float(min(fx_values))
 
-                progress_stats['current_best_fx'] = self._cached_min_fx
+                progress_stats["current_best_fx"] = self._cached_min_fx
 
                 # Only compute other stats if we have enough data
                 if len(fx_values) > 1:
@@ -267,10 +262,10 @@ class Results:
                         sorted_fx = sorted(fx_values)
                         threshold_idx = int(len(sorted_fx) * 0.1)
                         if threshold_idx > 0:
-                            progress_stats['threshold'] = sorted_fx[threshold_idx]
+                            progress_stats["threshold"] = sorted_fx[threshold_idx]
 
                     # min of history excluding last element (general improvement baseline)
-                    progress_stats['prev_best'] = float(min(fx_values[:-1]))
+                    progress_stats["prev_best"] = float(min(fx_values[:-1]))
             except Exception:
                 pass
 
@@ -288,7 +283,12 @@ class Results:
                 # Calculate min of new results efficiently
                 new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
                 if new_min is not None:
-                    if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx) or new_min < self._cached_min_fx:
+                    if (
+                        self._cached_min_fx is None
+                        or np.isinf(self._cached_min_fx)
+                        or np.isnan(self._cached_min_fx)
+                        or new_min < self._cached_min_fx
+                    ):
                         self._cached_min_fx = float(new_min)
             except Exception:
                 pass
@@ -309,7 +309,7 @@ class Results:
         if self.results is not None:
             self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
 
-    def __iadd__(self, results: List['Result']) -> 'Results':
+    def __iadd__(self, results: List["Result"]) -> "Results":
         self.add_results(results)
         return self
 
@@ -378,7 +378,7 @@ class Results:
             "error": error,
         }
 
-    def _report_evaluation_progress(self, result: 'Result', stats: Optional[Dict[str, float]] = None) -> None:
+    def _report_evaluation_progress(self, result: "Result", stats: Optional[Dict[str, float]] = None) -> None:
         """
         Report progress for a single evaluation result.
 
@@ -387,7 +387,7 @@ class Results:
             stats: Optional dictionary of pre-calculated statistics
         """
         # Get strategy's logger for progress reporting
-        if not hasattr(self.strategy, 'panobbgo_logger'):
+        if not hasattr(self.strategy, "panobbgo_logger"):
             return  # No logger configured, skip progress reporting
 
         progress_reporter = self.strategy.panobbgo_logger.progress_reporter
@@ -400,22 +400,22 @@ class Results:
             try:
                 # Check if this is a new global best
                 # Use pre-calculated stats if available (more efficient)
-                if stats and 'current_best_fx' in stats:
-                    if result.fx < stats['current_best_fx']:
+                if stats and "current_best_fx" in stats:
+                    if result.fx < stats["current_best_fx"]:
                         context.is_global_best = True
-                elif self._best_fx < float('inf') and result.fx <= self._best_fx:
+                elif self._best_fx < float("inf") and result.fx <= self._best_fx:
                     # Fallback to cached _best_fx (updated in add_results)
                     context.is_global_best = True
 
                 # Check for significant improvement (top 10% of results)
                 # Use pre-calculated threshold if available
-                if stats and 'threshold' in stats:
-                    if result.fx < stats['threshold']:
+                if stats and "threshold" in stats:
+                    if result.fx < stats["threshold"]:
                         context.is_significant_improvement = True
                 elif self._results_df is not None and len(self._results_df) > 10:
                     # Use _results_df directly to avoid flushing buffer
                     # Apply astype(float) to avoid string comparison bug
-                    fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
+                    fx_series = self._results_df.xs(0, level=1, axis=1)["fx"]
                     sorted_fx = sorted([float(x) for x in fx_series.astype(float).dropna()])
                     threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
                     if threshold_idx > 0:
@@ -424,13 +424,13 @@ class Results:
                             context.is_significant_improvement = True
 
                 # Check for general improvement over previous results
-                if stats and 'prev_best' in stats:
-                    if result.fx < stats['prev_best']:
+                if stats and "prev_best" in stats:
+                    if result.fx < stats["prev_best"]:
                         context.is_improvement = True
                 elif self._results_df is not None and len(self._results_df) > 1:
                     # Use _results_df directly to avoid flushing buffer
                     # Apply astype(float) to avoid string comparison bug
-                    fx_series = self._results_df.xs(0, level=1, axis=1)['fx']
+                    fx_series = self._results_df.xs(0, level=1, axis=1)["fx"]
                     prev_best = min([float(x) for x in fx_series.astype(float).dropna()])
                     if result.fx < prev_best:
                         context.is_improvement = True
@@ -456,14 +456,14 @@ class Module:
     :class:`.Heuristic` and :class:`.Analyzer`.
     """
 
-    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None) -> None:
+    def __init__(self, strategy: "StrategyBase", name: Optional[str] = None) -> None:
         """
         :param StrategyBase strategy:
         :param str name:
         @type strategy: StrategyBase
         """
         name = name if name else self.__class__.__name__
-        self._strategy: 'StrategyBase' = strategy
+        self._strategy: "StrategyBase" = strategy
         self.config = strategy.config
         self._name: str = name
         self._threads: List[Any] = []
@@ -488,24 +488,22 @@ class Module:
         return self._name
 
     @property
-    def strategy(self) -> 'StrategyBase':
+    def strategy(self) -> "StrategyBase":
         return self._strategy
 
-
-
     @property
-    def eventbus(self) -> 'EventBus':
+    def eventbus(self) -> "EventBus":
         return self._strategy.eventbus
 
     @property
-    def problem(self) -> 'Problem':
+    def problem(self) -> "Problem":
         return self._strategy.problem
 
     @property
     def results(self) -> Any:
         return self._strategy.results
 
-    def check_dependencies(self, analyzers: List['Analyzer'], heuristics: List['Heuristic']) -> bool:
+    def check_dependencies(self, analyzers: List["Analyzer"], heuristics: List["Heuristic"]) -> bool:
         """
         This method is called by the core initialization to assess,
         if the dependencies for the given module are met.
@@ -535,7 +533,7 @@ class Module:
 
         # First, ensure all event queues have at least one termination event
         # to unblock any threads waiting on get(block=True)
-        if hasattr(self, 'eventbus_events'):
+        if hasattr(self, "eventbus_events"):
             for _, q in self.eventbus_events.items():
                 try:
                     # Create a dummy termination event if not already stopped
@@ -607,7 +605,7 @@ class Heuristic(Module):
        or to queue up tasks for itself.
     """
 
-    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None, cap: Optional[int] = None) -> None:
+    def __init__(self, strategy: "StrategyBase", name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Module.__init__(self, strategy, name)
         self.config = strategy.config
         self.logger = self.config.get_logger("HEUR")
@@ -627,7 +625,7 @@ class Heuristic(Module):
             q.queue.clear()  # Queue
             q.not_full.notify()  # to wakeup "put()"
 
-    def emit(self, points: Union[np.ndarray, List[np.ndarray], 'Point', List['Point'], List[Any]]) -> None:
+    def emit(self, points: Union[np.ndarray, List[np.ndarray], "Point", List["Point"], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.
         Args:
@@ -655,7 +653,7 @@ class Heuristic(Module):
             self.logger.debug(f"Failed to emit point from {self.name}: {repr(e)}")
             pass
 
-    def get_points(self, limit: Optional[int] = None) -> List['Point']:
+    def get_points(self, limit: Optional[int] = None) -> List["Point"]:
         """
         this drains the output Queue until ``limit``
         elements are removed or the Queue is empty.
@@ -691,7 +689,7 @@ class HeuristicSubprocess(Heuristic):
     communication scheme.
     """
 
-    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None, cap: Optional[int] = None) -> None:
+    def __init__(self, strategy: "StrategyBase", name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Heuristic.__init__(self, strategy, name=name, cap=cap)
 
         # Use 'spawn' context to avoid DeprecationWarning: use of fork() may lead to deadlocks
@@ -727,7 +725,7 @@ class Analyzer(Module):
     Abstract parent class for all types of analyzers.
     """
 
-    def __init__(self, strategy: 'StrategyBase', name: Optional[str] = None) -> None:
+    def __init__(self, strategy: "StrategyBase", name: Optional[str] = None) -> None:
         Module.__init__(self, strategy, name)
 
 
@@ -783,6 +781,7 @@ class EventBus:
 
         :param Module target:
         """
+
         # important: this decouples the dispatcher's thread from the actual
         # target
         def run(key, target, drain=False):
@@ -818,10 +817,7 @@ class EventBus:
                         if terminate:
                             raise StopHeuristic("%s terminated" % target.name)
                     except StopHeuristic as e:
-                        self.logger.debug(
-                            "'%s/on_%s' %s -> unsubscribing."
-                            % (target.name, key, str(e))
-                        )
+                        self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, str(e)))
                         self.unsubscribe(key, target)
                         return
 
@@ -846,10 +842,7 @@ class EventBus:
                             if event.terminate:
                                 raise StopHeuristic("%s terminated" % target.name)
                         except StopHeuristic as e:
-                            self.logger.debug(
-                                "'%s/on_%s' %s -> unsubscribing."
-                                % (target.name, key, str(e))
-                            )
+                            self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, str(e)))
                             self.unsubscribe(key, target)
                             return
                     except Exception as e:
@@ -863,9 +856,7 @@ class EventBus:
                                 if e is not None:
                                     raise e
                         else:  # just issue a critical warning
-                            self.logger.critical(
-                                "Exception: %s in %s: %s" % (key, target, e)
-                            )
+                            self.logger.critical("Exception: %s in %s: %s" % (key, target, e))
                         return
 
         target.eventbus_events = {}
@@ -999,10 +990,10 @@ class StrategyBase:
         self.config = config = Config(parse_args, testing_mode=testing_mode)
 
         # Handle configuration overrides from kwargs
-        if 'max_evaluations' in kwargs:
-            self.config.max_eval = kwargs.pop('max_evaluations')
-        if 'max_eval' in kwargs:
-             self.config.max_eval = kwargs.pop('max_eval')
+        if "max_evaluations" in kwargs:
+            self.config.max_eval = kwargs.pop("max_evaluations")
+        if "max_eval" in kwargs:
+            self.config.max_eval = kwargs.pop("max_eval")
 
         # Apply remaining kwargs to config if they match existing config attributes
         for k, v in kwargs.items():
@@ -1048,27 +1039,17 @@ class StrategyBase:
         handler_name = getattr(config, "constraint_handler", "DefaultConstraintHandler")
 
         if handler_name == "PenaltyConstraintHandler":
-            self.constraint_handler = PenaltyConstraintHandler(
-                strategy=self, rho=rho, exponent=exponent
-            )
+            self.constraint_handler = PenaltyConstraintHandler(strategy=self, rho=rho, exponent=exponent)
         elif handler_name == "DynamicPenaltyConstraintHandler":
             self.constraint_handler = DynamicPenaltyConstraintHandler(
                 strategy=self, rho_start=rho, rate=rate, exponent=exponent
             )
         elif handler_name == "AugmentedLagrangianConstraintHandler":
-            self.constraint_handler = AugmentedLagrangianConstraintHandler(
-                strategy=self, rho=rho, rate=rate
-            )
+            self.constraint_handler = AugmentedLagrangianConstraintHandler(strategy=self, rho=rho, rate=rate)
         elif handler_name == "EpsilonConstraintHandler":
-            epsilon_start = (
-                float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
-            )
-            epsilon_cp = (
-                float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
-            )
-            epsilon_cutoff = (
-                int(config.epsilon_cutoff) if hasattr(config, "epsilon_cutoff") else 100
-            )
+            epsilon_start = float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
+            epsilon_cp = float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
+            epsilon_cutoff = int(config.epsilon_cutoff) if hasattr(config, "epsilon_cutoff") else 100
 
             self.constraint_handler = EpsilonConstraintHandler(
                 strategy=self,
@@ -1080,18 +1061,16 @@ class StrategyBase:
         elif handler_name == "FilterConstraintHandler":
             self.constraint_handler = FilterConstraintHandler(strategy=self)
         else:
-            self.constraint_handler = DefaultConstraintHandler(
-                strategy=self, rho=rho
-            )
+            self.constraint_handler = DefaultConstraintHandler(strategy=self, rho=rho)
 
         self.eventbus = EventBus(config)
         self.eventbus.register(self.constraint_handler)
         self.results = Results(self)
 
         # Initialize new logging system
-        self.panobbgo_logger = PanobbgoLogger(cast(dict[str, Any], config.logging) if hasattr(config, 'logging') else {})
-
-
+        self.panobbgo_logger = PanobbgoLogger(
+            cast(dict[str, Any], config.logging) if hasattr(config, "logging") else {}
+        )
 
     def __enter__(self):
         """
@@ -1250,9 +1229,7 @@ class StrategyBase:
             # implicit (just list of respective classes)
             for mod_class in module._depends_on:
                 if mod_class not in all_mods:
-                    raise Exception(
-                        "%s depends on %s, but missing." % (module, mod_class)
-                    )
+                    raise Exception("%s depends on %s, but missing." % (module, mod_class))
 
     def validate_setup(self):
         """
@@ -1276,7 +1253,7 @@ class StrategyBase:
             )
 
         # Check for required analyzers
-        required_analyzers = ['Best', 'Grid', 'Splitter', 'Convergence']
+        required_analyzers = ["Best", "Grid", "Splitter", "Convergence"]
         missing_analyzers = []
         for analyzer_name in required_analyzers:
             if analyzer_name not in self._analyzers:
@@ -1336,7 +1313,7 @@ class StrategyBase:
             errors.append(f"smooth must be a valid float, got {self.config.smooth}")
 
         # Check evaluation method
-        valid_methods = ['threaded', 'processes', 'dask']
+        valid_methods = ["threaded", "processes", "dask"]
         if self.config.evaluation_method not in valid_methods:
             errors.append(f"evaluation_method must be one of {valid_methods}, got '{self.config.evaluation_method}'")
 
@@ -1368,9 +1345,7 @@ class StrategyBase:
         elif self.config.evaluation_method == "threaded":
             self._setup_threaded_evaluation(problem)
         else:
-            raise ValueError(
-                f"Unknown evaluation method: {self.config.evaluation_method}"
-            )
+            raise ValueError(f"Unknown evaluation method: {self.config.evaluation_method}")
 
     def _setup_dask_cluster(self, problem):
         """
@@ -1381,10 +1356,7 @@ class StrategyBase:
 
         if self.config.dask_cluster_type == "local":
             # Create a local cluster
-            self.logger.info(
-                "Setting up local Dask cluster with %d workers"
-                % self.config.dask_n_workers
-            )
+            self.logger.info("Setting up local Dask cluster with %d workers" % self.config.dask_n_workers)
             self._cluster = LocalCluster(
                 n_workers=int(self.config.dask_n_workers),
                 threads_per_worker=int(self.config.dask_threads_per_worker),
@@ -1395,24 +1367,15 @@ class StrategyBase:
             self._client = Client(self._cluster)
         else:
             # Connect to remote cluster
-            self.logger.info(
-                "Connecting to remote Dask cluster at %s"
-                % self.config.dask_scheduler_address
-            )
+            self.logger.info("Connecting to remote Dask cluster at %s" % self.config.dask_scheduler_address)
             self._client = Client(self.config.dask_scheduler_address)
 
         # Scatter the problem to all workers
         self._problem_future = self._client.scatter(problem, broadcast=True)
 
-        self.logger.info(
-            "Dask cluster ready with %d workers"
-            % len(self._client.scheduler_info()["workers"])
-        )
+        self.logger.info("Dask cluster ready with %d workers" % len(self._client.scheduler_info()["workers"]))
         if self.config.dask_cluster_type == "local":
-            self.logger.info(
-                "Dashboard available at: http://localhost%s"
-                % self.config.dask_dashboard_address
-            )
+            self.logger.info("Dashboard available at: http://localhost%s" % self.config.dask_dashboard_address)
 
     def _setup_process_evaluation(self, problem):
         """
@@ -1423,13 +1386,9 @@ class StrategyBase:
 
         # Determine number of processes (default to number of CPU cores)
         self._n_processes = (
-            self.config.dask_n_workers
-            if hasattr(self.config, "dask_n_workers")
-            else multiprocessing.cpu_count()
+            self.config.dask_n_workers if hasattr(self.config, "dask_n_workers") else multiprocessing.cpu_count()
         )
-        self.logger.info(
-            "Setting up process evaluation with %d subprocesses" % self._n_processes
-        )
+        self.logger.info("Setting up process evaluation with %d subprocesses" % self._n_processes)
 
         # Create a temporary file to store the problem for subprocesses
         self._problem_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
@@ -1462,18 +1421,14 @@ class StrategyBase:
 
         # Determine number of threads
         self._n_processes = (
-            self.config.dask_n_workers
-            if hasattr(self.config, "dask_n_workers")
-            else multiprocessing.cpu_count()
+            self.config.dask_n_workers if hasattr(self.config, "dask_n_workers") else multiprocessing.cpu_count()
         )
 
         # Create thread pool
         self._thread_pool = ThreadPoolExecutor(max_workers=int(self._n_processes))
         self._futures = {}  # Track pending futures
 
-        self.logger.info(
-            "Threaded evaluation ready with %d threads" % self._n_processes
-        )
+        self.logger.info("Threaded evaluation ready with %d threads" % self._n_processes)
 
     @property
     def best(self):
@@ -1577,9 +1532,7 @@ class StrategyBase:
             elif self.config.evaluation_method == "threaded":
                 self._run_threaded_evaluation(points)
 
-            self.jobs_per_client = max(
-                1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task))
-            )
+            self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -1727,10 +1680,7 @@ with open('{result_file.name}', 'wb') as f:
                     self.new_finished.append(task_id)
                     self.finished.append(task_id)
                 else:
-                    self.logger.error(
-                        "Subprocess evaluation failed with return code: %d"
-                        % process.returncode
-                    )
+                    self.logger.error("Subprocess evaluation failed with return code: %d" % process.returncode)
             except subprocess.TimeoutExpired:
                 process.kill()
                 self.logger.error("Subprocess evaluation timed out")
@@ -1769,7 +1719,7 @@ with open('{result_file.name}', 'wb') as f:
                 self._futures[task_id] = future
                 self.pending[task_id] = future
                 # Store start time for walltime calculation
-                if not hasattr(self, '_task_start_times'):
+                if not hasattr(self, "_task_start_times"):
                     self._task_start_times = {}
                 self._task_start_times[task_id] = time_module.time()
 
@@ -1786,7 +1736,7 @@ with open('{result_file.name}', 'wb') as f:
                 self.finished.append(task_id)
 
                 # Record wall time
-                if hasattr(self, '_task_start_times') and task_id in self._task_start_times:
+                if hasattr(self, "_task_start_times") and task_id in self._task_start_times:
                     self.tasks_walltimes[task_id] = time_module.time() - self._task_start_times[task_id]
                     self._task_start_times.pop(task_id)
 
@@ -1813,7 +1763,7 @@ with open('{result_file.name}', 'wb') as f:
         Args:
             force (bool): If True, force an update regardless of throttling.
         """
-        if not hasattr(self, 'panobbgo_logger'):
+        if not hasattr(self, "panobbgo_logger"):
             return
 
         progress_reporter = self.panobbgo_logger.progress_reporter
@@ -1837,7 +1787,7 @@ with open('{result_file.name}', 'wb') as f:
         budget_pct = (current_evals / max_evals) * 100 if max_evals > 0 else 0
 
         # Calculate ETA
-        if hasattr(self, '_start') and self._start is not None:
+        if hasattr(self, "_start") and self._start is not None:
             elapsed_time = time_module.time() - self._start
             if current_evals > 0:
                 avg_time_per_eval = elapsed_time / current_evals
@@ -1850,19 +1800,19 @@ with open('{result_file.name}', 'wb') as f:
 
         # Get convergence estimate (simplified: distance to best known)
         convergence = 0.0
-        if hasattr(self, 'best') and self.best is not None:
+        if hasattr(self, "best") and self.best is not None:
             # Simple convergence measure: could be improved
             convergence = min(100.0, (current_evals / max_evals) * 100)
 
         # Get best function value
         best_value = None
-        if hasattr(self, 'best') and self.best is not None:
+        if hasattr(self, "best") and self.best is not None:
             best_value = self.best.fx
 
         # Get strategy-specific information (for bandit strategies)
         extra_fields = {}
-        if hasattr(self, '_get_status_info'):
-            extra_fields = getattr(self, '_get_status_info')()
+        if hasattr(self, "_get_status_info"):
+            extra_fields = getattr(self, "_get_status_info")()
 
         # Update status
         progress_reporter.update_status(
@@ -1872,7 +1822,7 @@ with open('{result_file.name}', 'wb') as f:
             best_value=float(best_value) if best_value is not None else 0.0,
             current_evals=current_evals,
             max_evals=max_evals,
-            extra_fields=extra_fields
+            extra_fields=extra_fields,
         )
 
     def _collect_points_safely(self, target, selector, until=None):
@@ -1919,9 +1869,7 @@ with open('{result_file.name}', 'wb') as f:
         """
         Overwrite this method when you extend this base strategy.
         """
-        raise Exception(
-            "You need to extend the class StrategyBase and overwrite this execute method."
-        )
+        raise Exception("You need to extend the class StrategyBase and overwrite this execute method.")
 
     def _cleanup(self):
         """
@@ -1958,15 +1906,12 @@ with open('{result_file.name}', 'wb') as f:
                 self._thread_pool.shutdown(wait=False)
 
         # Finalize progress reporting
-        if hasattr(self, 'panobbgo_logger'):
+        if hasattr(self, "panobbgo_logger"):
             self.panobbgo_logger.progress_reporter.finalize()
 
-        duration = self._end - self._start if hasattr(self, '_start') else 0.0
-        loops = self.loops if hasattr(self, 'loops') else 0
-        self.logger.info(
-            "Strategy '%s' finished after %.3f [s] and %d loops."
-            % (self._name, duration, loops)
-        )
+        duration = self._end - self._start if hasattr(self, "_start") else 0.0
+        loops = self.loops if hasattr(self, "loops") else 0
+        self.logger.info("Strategy '%s' finished after %.3f [s] and %d loops." % (self._name, duration, loops))
 
         self.info()
         self.results.info()
@@ -1979,13 +1924,11 @@ with open('{result_file.name}', 'wb') as f:
         if hasattr(self, "_cluster"):
             self._cluster.close()
 
-
-
     def on_converged(self, reason, stats):
         """
         Called when the Convergence analyzer detects convergence.
         """
-        stop_on_conv = getattr(self.config, 'stop_on_convergence', True)
+        stop_on_conv = getattr(self.config, "stop_on_convergence", True)
         if stop_on_conv:
             self.logger.info(f"Convergence detected: {reason}. Stopping strategy.")
             self._stop_requested = True

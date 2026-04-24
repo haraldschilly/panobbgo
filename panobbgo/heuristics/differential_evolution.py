@@ -35,6 +35,7 @@ class DifferentialEvolution(Heuristic):
         F (float): Differential weight [0, 2]. Default 0.8.
         NP (int): Population size. Default 20.
     """
+
     def __init__(self, strategy, CR=0.9, F=0.8, NP=20):
         super().__init__(strategy, name="DifferentialEvolution")
         self.CR = CR
@@ -50,7 +51,8 @@ class DifferentialEvolution(Heuristic):
         self.pending_trials = {}
 
     def _emit_trial(self, x, target_idx):
-        if self._stopped: return
+        if self._stopped:
+            return
         try:
             # Project to bounds
             x = self.problem.project(x)
@@ -129,7 +131,7 @@ class DifferentialEvolution(Heuristic):
                                 # However, active_trials is a local snapshot.
                                 # Re-check:
                                 if i in self.pending_trials.values():
-                                    active_trials.add(i) # just in case
+                                    active_trials.add(i)  # just in case
 
             except Exception as e:
                 self.logger.debug(f"Error in DE on_new_results: {e}")

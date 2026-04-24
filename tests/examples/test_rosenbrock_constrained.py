@@ -127,7 +127,7 @@ def test_constrained_rosenbrock_manual():
     """
     problem = RosenbrockLinearConstraint(optimum=OPTIMUM, box=BOX)
 
-    best_fx = float('inf')
+    best_fx = float("inf")
     best_x = None
     feasible_count = 0
 
@@ -148,7 +148,7 @@ def test_constrained_rosenbrock_manual():
     print(f"Best feasible: f(x) = {best_fx:.4f} at x = {best_x}")
 
     assert feasible_count > 0, "Should find some feasible points"
-    assert best_fx < float('inf'), "Should find a finite feasible solution"
+    assert best_fx < float("inf"), "Should find a finite feasible solution"
 
     # Best should be near the constraint boundary (y ≈ -x)
     if best_x is not None:
@@ -165,9 +165,9 @@ def test_constrained_rosenbrock_full_optimization():
     """
     problem = RosenbrockLinearConstraint(optimum=OPTIMUM, box=BOX)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Constrained Rosenbrock Optimization Test")
-    print("="*60)
+    print("=" * 60)
     print(f"Unconstrained optimum: {OPTIMUM} (infeasible)")
     print(f"Constraint: x + y ≤ 0 (feasible below line y = -x)")
     print(f"Box: {problem.box[:]}")
@@ -188,12 +188,12 @@ def test_constrained_rosenbrock_full_optimization():
 
     print(f"Max evaluations: {strategy.config.max_eval}")
     print("Heuristics: Random, LatinHypercube, Nearby (x2), NelderMead")
-    print("-"*60)
+    print("-" * 60)
 
     # Run optimization
     strategy.start()
 
-    print("-"*60)
+    print("-" * 60)
 
     # Validate results
     assert strategy.best is not None, "Should find a solution"
@@ -203,7 +203,9 @@ def test_constrained_rosenbrock_full_optimization():
 
     if strategy.best.cv is not None:
         print(f"Constraint violation: {strategy.best.cv}")
-        is_feasible = strategy.best.cv == 0 or (hasattr(strategy.best.cv, '__iter__') and all(c <= 1e-6 for c in strategy.best.cv))
+        is_feasible = strategy.best.cv == 0 or (
+            hasattr(strategy.best.cv, "__iter__") and all(c <= 1e-6 for c in strategy.best.cv)
+        )
     else:
         is_feasible = False
 
@@ -233,6 +235,6 @@ if __name__ == "__main__":
     print()
     test_constrained_rosenbrock_full_optimization()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All tests completed!")
-    print("="*60)
+    print("=" * 60)

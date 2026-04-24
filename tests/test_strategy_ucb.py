@@ -13,6 +13,7 @@ import threading
 
 class BiasedHeuristic(Heuristic):
     """A heuristic that generates points with specific quality."""
+
     def __init__(self, strategy, name, quality_mean, quality_std=0.1):
         super().__init__(strategy, name=name)
         self.quality_mean = quality_mean
@@ -29,9 +30,9 @@ class BiasedHeuristic(Heuristic):
         points = []
         limit = limit or 1
         for _ in range(limit):
-             # Just random points
-             x = self.problem.random_point()
-             points.append(Point(x, self.name))
+            # Just random points
+            x = self.problem.random_point()
+            points.append(Point(x, self.name))
         return points
 
 
@@ -59,11 +60,11 @@ class MockBiasedProblem(Problem):
 
         cv_vec = None
         if self.heuristic_cv_map:
-             if who in self.heuristic_cv_map:
-                 cv_mean = self.heuristic_cv_map[who]
-                 cv_vec = np.array([cv_mean])
-             else:
-                 cv_vec = np.array([0.0])
+            if who in self.heuristic_cv_map:
+                cv_mean = self.heuristic_cv_map[who]
+                cv_vec = np.array([cv_mean])
+            else:
+                cv_vec = np.array([0.0])
 
         time.sleep(0.001)
         return Result(point, fx, cv_vec=cv_vec)
@@ -73,12 +74,8 @@ class MockBiasedProblem(Problem):
 
 
 class TestStrategyUCB(PanobbgoTestCase):
-
     def setUp(self):
-        self.quality_map = {
-            "GoodHeuristic": 0.0,
-            "BadHeuristic": 10.0
-        }
+        self.quality_map = {"GoodHeuristic": 0.0, "BadHeuristic": 10.0}
         self.problem = MockBiasedProblem(self.quality_map)
 
     def test_ucb_preference(self):
@@ -116,7 +113,7 @@ class TestStrategyUCB(PanobbgoTestCase):
 
         heurs = []
         for i in range(5):
-            h = BiasedHeuristic(strategy, f"H{i}", 10.0) # All equally bad
+            h = BiasedHeuristic(strategy, f"H{i}", 10.0)  # All equally bad
             strategy.add_heuristic(h)
             heurs.append(h)
 
@@ -129,14 +126,8 @@ class TestStrategyUCB(PanobbgoTestCase):
         """
         Test that UCB prefers feasible solutions over infeasible ones.
         """
-        quality_map = {
-            "H_Feasible": 10.0,
-            "H_Infeasible": 0.0
-        }
-        cv_map = {
-            "H_Feasible": 0.0,
-            "H_Infeasible": 1.0
-        }
+        quality_map = {"H_Feasible": 10.0, "H_Infeasible": 0.0}
+        cv_map = {"H_Feasible": 0.0, "H_Infeasible": 1.0}
 
         problem = MockBiasedProblem(quality_map, cv_map)
 
@@ -157,7 +148,9 @@ class TestStrategyUCB(PanobbgoTestCase):
         total = count_feas + count_infeas
         assert total > 0
 
-        assert count_feas > count_infeas, f"UCB failed to prefer Feasible heuristic: Feas={count_feas}, Infeas={count_infeas}"
+        assert count_feas > count_infeas, (
+            f"UCB failed to prefer Feasible heuristic: Feas={count_feas}, Infeas={count_infeas}"
+        )
         assert count_feas / total > 0.55
 
     def test_ucb_edge_cases(self):
@@ -176,7 +169,9 @@ class TestStrategyUCB(PanobbgoTestCase):
         class BadHeuristic(Heuristic):
             def __init__(self, strat):
                 super().__init__(strat, name="MissingStats")
-            def on_start(self): pass
+
+            def on_start(self):
+                pass
 
         # Manually bypassing add_heuristic which adds the stats
         h_missing = BadHeuristic(strategy)
@@ -204,7 +199,7 @@ class TestStrategyUCB(PanobbgoTestCase):
         # Just calling execute to see if it handles the invalid c and uses default 1.414
         # We need to make sure evaluators outstanding < target
         strategy.jobs_per_client = 1
-        with mock.patch.object(StrategyUCB, 'evaluators', new_callable=mock.PropertyMock) as mock_evaluators:
+        with mock.patch.object(StrategyUCB, "evaluators", new_callable=mock.PropertyMock) as mock_evaluators:
             mock_evaluators.return_value.outstanding = []
             mock_evaluators.return_value.__len__ = mock.Mock(return_value=1)
             # Call execute safely to return 1 point
@@ -213,8 +208,8 @@ class TestStrategyUCB(PanobbgoTestCase):
 
         # 5. execute() when heuristic missing stats during execute
         bh = BadHeuristic(strategy)
-        strategy._heuristics[bh.name] = bh # This one has no ucb_count
-        with mock.patch.object(StrategyUCB, 'evaluators', new_callable=mock.PropertyMock) as mock_evaluators:
+        strategy._heuristics[bh.name] = bh  # This one has no ucb_count
+        with mock.patch.object(StrategyUCB, "evaluators", new_callable=mock.PropertyMock) as mock_evaluators:
             mock_evaluators.return_value.outstanding = []
             mock_evaluators.return_value.__len__ = mock.Mock(return_value=1)
             pts = strategy.execute()
@@ -222,7 +217,7 @@ class TestStrategyUCB(PanobbgoTestCase):
 
         # 6. execution when no heuristics
         strategy._heuristics = {}
-        with mock.patch.object(StrategyUCB, 'evaluators', new_callable=mock.PropertyMock) as mock_evaluators:
+        with mock.patch.object(StrategyUCB, "evaluators", new_callable=mock.PropertyMock) as mock_evaluators:
             mock_evaluators.return_value.outstanding = []
             mock_evaluators.return_value.__len__ = mock.Mock(return_value=1)
             pts = strategy.execute()

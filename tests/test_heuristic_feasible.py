@@ -6,6 +6,7 @@ from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.lib import Point, Result, BoundingBox, Problem
 from panobbgo.config import Config
 
+
 class MockProblem(Problem):
     def __init__(self, dim=2):
         box = [(-5.0, 5.0)] * dim
@@ -19,6 +20,7 @@ class MockProblem(Problem):
         cv = max(0.0, 1.0 - x[0])
         return Result(Point(x, "eval"), fx, cv_vec=np.array([cv]))
 
+
 @mock.patch("panobbgo.core.StrategyBase")
 def test_feasible_search_initialization(StrategyBaseMock):
     problem = MockProblem()
@@ -29,6 +31,7 @@ def test_feasible_search_initialization(StrategyBaseMock):
     h = FeasibleSearch(strategy)
     assert h.name == "FeasibleSearch"
     assert h.radius == 0.1
+
 
 @mock.patch("panobbgo.core.StrategyBase")
 def test_feasible_search_generates_points_when_infeasible(StrategyBaseMock):
@@ -58,6 +61,7 @@ def test_feasible_search_generates_points_when_infeasible(StrategyBaseMock):
         assert Point(p.x, "test") in problem.box
         assert not np.allclose(p.x, infeasible_point.x)
 
+
 @mock.patch("panobbgo.core.StrategyBase")
 def test_feasible_search_idle_when_feasible(StrategyBaseMock):
     problem = MockProblem()
@@ -78,6 +82,7 @@ def test_feasible_search_idle_when_feasible(StrategyBaseMock):
     # Should NOT generate points (based on current implementation logic)
     points = h.get_points(10)
     assert len(points) == 0
+
 
 @mock.patch("panobbgo.core.StrategyBase")
 def test_feasible_search_boundary_search(StrategyBaseMock):

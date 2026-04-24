@@ -11,8 +11,10 @@ import time
 from typing import Dict, Any
 
 from benchmarks.problems import (
-    generate_benchmark_battery, SUCCESS_CRITERIA,
-    calculate_solution_quality, benchmark_result_to_dict
+    generate_benchmark_battery,
+    SUCCESS_CRITERIA,
+    calculate_solution_quality,
+    benchmark_result_to_dict,
 )
 from benchmarks.strategies import BENCHMARK_STRATEGIES, get_benchmark_strategies
 from panobbgo.lib.lib import Point
@@ -24,13 +26,12 @@ class BenchmarkRunner:
     def __init__(self, max_evaluations: int = 1000):
         self.max_evaluations = max_evaluations
 
-    def run_optimization(self, strategy, problem, global_optimum: np.ndarray,
-                        global_minimum: float) -> Dict[str, Any]:
+    def run_optimization(self, strategy, problem, global_optimum: np.ndarray, global_minimum: float) -> Dict[str, Any]:
         """Run optimization using strategy and return results."""
         start_time = time.time()
 
         # Track best solution found
-        best_fx = float('inf')
+        best_fx = float("inf")
         best_x = None
         evaluations = 0
 
@@ -48,9 +49,11 @@ class BenchmarkRunner:
         consecutive_empty_loops = 0
         max_consecutive_empty = 5
 
-        while (evaluations < self.max_evaluations and
-               loop_count < max_loops and
-               consecutive_empty_loops < max_consecutive_empty):
+        while (
+            evaluations < self.max_evaluations
+            and loop_count < max_loops
+            and consecutive_empty_loops < max_consecutive_empty
+        ):
             loop_count += 1
 
             try:
@@ -78,16 +81,16 @@ class BenchmarkRunner:
                 who = result.who
                 if who not in heuristic_stats:
                     heuristic_stats[who] = {
-                        'count': 0,
-                        'improvements': 0,
-                        'best_improvement': 0.0,
+                        "count": 0,
+                        "improvements": 0,
+                        "best_improvement": 0.0,
                     }
-                heuristic_stats[who]['count'] += 1
+                heuristic_stats[who]["count"] += 1
 
                 if result.fx < best_fx:
                     # Calculate improvement from previous best
                     # For first solution, improvement is relative to infinity (recorded as result.fx)
-                    if best_fx == float('inf'):
+                    if best_fx == float("inf"):
                         improvement = result.fx  # First solution found
                     else:
                         improvement = best_fx - result.fx  # Actual improvement
@@ -95,17 +98,14 @@ class BenchmarkRunner:
                     best_fx = result.fx
                     best_x = point.x.copy()
 
-                    heuristic_stats[who]['improvements'] += 1
-                    heuristic_stats[who]['best_improvement'] = max(
-                        heuristic_stats[who]['best_improvement'], improvement
+                    heuristic_stats[who]["improvements"] += 1
+                    heuristic_stats[who]["best_improvement"] = max(
+                        heuristic_stats[who]["best_improvement"], improvement
                     )
 
-                    convergence_trace.append({
-                        'eval': evaluations,
-                        'fx': best_fx,
-                        'who': who,
-                        'improvement': improvement
-                    })
+                    convergence_trace.append(
+                        {"eval": evaluations, "fx": best_fx, "who": who, "improvement": improvement}
+                    )
 
                 if evaluations >= self.max_evaluations:
                     break
@@ -119,30 +119,28 @@ class BenchmarkRunner:
         elapsed_time = time.time() - start_time
 
         # Calculate solution quality
-        if best_x is not None and best_fx != float('inf'):
-            quality = calculate_solution_quality(
-                best_x, best_fx, global_optimum, global_minimum
-            )
+        if best_x is not None and best_fx != float("inf"):
+            quality = calculate_solution_quality(best_x, best_fx, global_optimum, global_minimum)
         else:
             # No solution found
             quality = {
-                'param_distance': float('inf'),
-                'func_distance': float('inf'),
-                'relative_error': float('inf'),
-                'found_fx': float('inf'),
-                'true_fx': global_minimum
+                "param_distance": float("inf"),
+                "func_distance": float("inf"),
+                "relative_error": float("inf"),
+                "found_fx": float("inf"),
+                "true_fx": global_minimum,
             }
             best_x = np.zeros_like(global_optimum) if global_optimum is not None else np.array([0.0])
-            best_fx = float('inf')
+            best_fx = float("inf")
 
         return {
-            'best_x': best_x,
-            'best_fx': best_fx,
-            'evaluations': evaluations,
-            'time': elapsed_time,
-            'quality': quality,
-            'heuristic_stats': heuristic_stats,
-            'convergence_trace': convergence_trace
+            "best_x": best_x,
+            "best_fx": best_fx,
+            "evaluations": evaluations,
+            "time": elapsed_time,
+            "quality": quality,
+            "heuristic_stats": heuristic_stats,
+            "convergence_trace": convergence_trace,
         }
 
 
@@ -162,7 +160,7 @@ def test_basic_benchmark(benchmark):
 
     def run_random_search():
         """Simple random search benchmark."""
-        best_fx = float('inf')
+        best_fx = float("inf")
         best_x = None
         evaluations = 0
 
@@ -178,11 +176,11 @@ def test_basic_benchmark(benchmark):
                 best_x = x_array.copy()
 
         return {
-            'best_x': best_x,
-            'best_fx': best_fx,
-            'evaluations': evaluations,
-            'time': 0.1,  # dummy for now
-            'quality': {'func_distance': abs(best_fx - case.global_minimum)}
+            "best_x": best_x,
+            "best_fx": best_fx,
+            "evaluations": evaluations,
+            "time": 0.1,  # dummy for now
+            "quality": {"func_distance": abs(best_fx - case.global_minimum)},
         }
 
     # Run benchmark
@@ -190,9 +188,9 @@ def test_basic_benchmark(benchmark):
     optimization_result = result  # benchmark returns the function result directly
 
     # Basic checks
-    assert optimization_result['evaluations'] == 100
-    assert optimization_result['best_fx'] < float('inf')
-    assert optimization_result['best_fx'] >= 0  # DeJong minimum is 0
+    assert optimization_result["evaluations"] == 100
+    assert optimization_result["best_fx"] < float("inf")
+    assert optimization_result["best_fx"] >= 0  # DeJong minimum is 0
 
     print(f"Benchmark completed: {optimization_result['evaluations']} evaluations")
     print(f"Best solution: f(x) = {optimization_result['best_fx']:.6f}")
@@ -216,30 +214,28 @@ def test_heuristic_tracking(benchmark):
         strategy = strategy_config.create_strategy(problem)
         # Use a local runner with default max_evaluations
         local_runner = BenchmarkRunner(max_evaluations=1000)
-        return local_runner.run_optimization(
-            strategy, problem, case.global_optimum, case.global_minimum
-        )
+        return local_runner.run_optimization(strategy, problem, case.global_optimum, case.global_minimum)
 
     result = benchmark(run_benchmark)
 
     # Check that heuristic stats are present
-    assert 'heuristic_stats' in result
-    assert 'convergence_trace' in result
+    assert "heuristic_stats" in result
+    assert "convergence_trace" in result
 
-    stats = result['heuristic_stats']
+    stats = result["heuristic_stats"]
     # Check that we have stats for multiple heuristics
     assert len(stats) > 0
 
-    total_evals = sum(s['count'] for s in stats.values())
-    assert total_evals == result['evaluations']
+    total_evals = sum(s["count"] for s in stats.values())
+    assert total_evals == result["evaluations"]
 
     # Check convergence trace
-    trace = result['convergence_trace']
-    if result['best_fx'] < float('inf'):
+    trace = result["convergence_trace"]
+    if result["best_fx"] < float("inf"):
         assert len(trace) > 0
         last_trace = trace[-1]
-        assert last_trace['fx'] == result['best_fx']
-        assert last_trace['eval'] <= result['evaluations']
+        assert last_trace["fx"] == result["best_fx"]
+        assert last_trace["eval"] <= result["evaluations"]
 
     print("\nHeuristic Performance:")
     for name, s in stats.items():
@@ -248,19 +244,22 @@ def test_heuristic_tracking(benchmark):
 
 # Focused benchmarks for specific scenarios
 
-@pytest.mark.parametrize("problem_name,dimension", [
-    ("DeJong", 2),
-    ("DeJong", 5), # 5D is in generated battery, 10 is not currently
-    ("Rosenbrock", 2),
-    ("Rastrigin", 2),
-])
+
+@pytest.mark.parametrize(
+    "problem_name,dimension",
+    [
+        ("DeJong", 2),
+        ("DeJong", 5),  # 5D is in generated battery, 10 is not currently
+        ("Rosenbrock", 2),
+        ("Rastrigin", 2),
+    ],
+)
 def test_dimension_scaling_benchmark(benchmark, problem_name, dimension):
     """Test how strategies scale with problem dimension."""
 
     # Find matching benchmark case
     cases = generate_benchmark_battery()
-    case = next(c for c in cases
-               if c.problem_name == problem_name and c.dimension == dimension)
+    case = next(c for c in cases if c.problem_name == problem_name and c.dimension == dimension)
 
     problem = case.create_problem()
     # Find bandit_basic strategy config
@@ -268,31 +267,31 @@ def test_dimension_scaling_benchmark(benchmark, problem_name, dimension):
 
     def run_benchmark():
         strategy = strategy_config.create_strategy(problem)
-        return runner.run_optimization(
-            strategy, problem, case.global_optimum, case.global_minimum
-        )
+        return runner.run_optimization(strategy, problem, case.global_optimum, case.global_minimum)
 
     optimization_result = benchmark(run_benchmark)
 
     # Should find a reasonable solution
-    assert optimization_result['best_fx'] < 100.0, f"Should find reasonable solution for {problem_name} in {dimension}D"
+    assert optimization_result["best_fx"] < 100.0, f"Should find reasonable solution for {problem_name} in {dimension}D"
 
 
-@pytest.mark.parametrize("strategy_name,success_name", [
-    ("round_robin_random", "very_lenient_5000"), # Random search is very inefficient on Rosenbrock
-    ("bandit_basic", "lenient_1000"), # Relaxed for CI stability
-    ("bandit_large_pool", "lenient_1000"),
-    ("bandit_ucb", "lenient_1000"),
-    ("bandit_thompson", "lenient_1000"),
-    ("bandit_linucb", "lenient_1000"),
-])
+@pytest.mark.parametrize(
+    "strategy_name,success_name",
+    [
+        ("round_robin_random", "very_lenient_5000"),  # Random search is very inefficient on Rosenbrock
+        ("bandit_basic", "lenient_1000"),  # Relaxed for CI stability
+        ("bandit_large_pool", "lenient_1000"),
+        ("bandit_ucb", "lenient_1000"),
+        ("bandit_thompson", "lenient_1000"),
+        ("bandit_linucb", "lenient_1000"),
+    ],
+)
 def test_strategy_comparison_benchmark(benchmark, strategy_name, success_name):
     """Compare different strategies on the same problem."""
 
     # Use DeJong 2D as standard test problem (Easier than Rosenbrock for basic heuristics)
     cases = generate_benchmark_battery()
-    case = next(c for c in cases
-               if c.problem_name == "DeJong" and c.dimension == 2)
+    case = next(c for c in cases if c.problem_name == "DeJong" and c.dimension == 2)
 
     problem = case.create_problem()
 
@@ -304,14 +303,12 @@ def test_strategy_comparison_benchmark(benchmark, strategy_name, success_name):
 
     def run_benchmark():
         strategy = strategy_config.create_strategy(problem)
-        return runner.run_optimization(
-            strategy, problem, case.global_optimum, case.global_minimum
-        )
+        return runner.run_optimization(strategy, problem, case.global_optimum, case.global_minimum)
 
     optimization_result = benchmark(run_benchmark)
-    quality = optimization_result['quality']
+    quality = optimization_result["quality"]
 
-    success = criteria.is_successful(quality['func_distance'], optimization_result['evaluations'])
+    success = criteria.is_successful(quality["func_distance"], optimization_result["evaluations"])
 
     # For moderate criteria, most strategies should succeed on Rosenbrock
     if success_name == "moderate_500":
@@ -321,7 +318,7 @@ def test_strategy_comparison_benchmark(benchmark, strategy_name, success_name):
         # assert success, f"{strategy_name} should succeed on Rosenbrock with {success_name}"
         # We assert for now, if flaky we can adjust
 
-    if strategy_name != "bandit_linucb": # LinUCB proved weak in previous manual benchmark, skipping assert for it
+    if strategy_name != "bandit_linucb":  # LinUCB proved weak in previous manual benchmark, skipping assert for it
         assert success, f"{strategy_name} should succeed on Rosenbrock with {success_name}"
 
 
@@ -337,12 +334,13 @@ def test_simple_benchmark_structure():
         case = next(c for c in cases if c.problem_name == "DeJong" and c.dimension == 2)
         problem = case.create_problem()
 
-        best_fx = float('inf')
+        best_fx = float("inf")
         best_x = None
         evaluations = 0
 
         # Simple random search
         from panobbgo.lib import Point
+
         for i in range(50):  # Just 50 evaluations
             x_array = problem.random_point()
             point = Point(x_array, f"eval_{i}")
@@ -354,21 +352,22 @@ def test_simple_benchmark_structure():
                 best_x = x_array.copy()
 
         from benchmarks.problems import calculate_solution_quality
+
         quality = calculate_solution_quality(best_x, best_fx, case.global_optimum, case.global_minimum)
 
         return {
-            'best_x': best_x,
-            'best_fx': best_fx,
-            'evaluations': evaluations,
-            'time': 0.1,  # dummy
-            'quality': quality
+            "best_x": best_x,
+            "best_fx": best_fx,
+            "evaluations": evaluations,
+            "time": 0.1,  # dummy
+            "quality": quality,
         }
 
     # Test the benchmark structure
     result = simple_optimization()
-    assert result['evaluations'] == 50
-    assert result['best_fx'] < float('inf')
-    assert 'quality' in result
+    assert result["evaluations"] == 50
+    assert result["best_fx"] < float("inf")
+    assert "quality" in result
     print(f"Simple benchmark completed: {result['evaluations']} evaluations, best f(x) = {result['best_fx']:.6f}")
 
 
@@ -387,9 +386,7 @@ if __name__ == "__main__":
         strategy_config = BENCHMARK_STRATEGIES[0]  # First strategy
         strategy = strategy_config.create_strategy(problem)
 
-        result = runner.run_optimization(
-            strategy, problem, case.global_optimum, case.global_minimum
-        )
+        result = runner.run_optimization(strategy, problem, case.global_optimum, case.global_minimum)
 
         print(f"Problem: {case.problem_name} {case.dimension}D")
         print(f"Strategy: {strategy_config.name}")

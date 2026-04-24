@@ -86,6 +86,8 @@ class TestGridAnalyzer(PanobbgoTestCase):
 
         self.assertEqual(grid_analyzer.in_same_grid(p), [])
 
+
 if __name__ == "__main__":
     import unittest
+
     unittest.main()

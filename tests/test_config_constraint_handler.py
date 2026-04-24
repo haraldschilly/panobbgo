@@ -10,12 +10,14 @@ from panobbgo.lib.constraints import (
 from panobbgo.utils import PanobbgoTestCase
 import pytest
 
+
 class TestConstraintHandlerConfiguration(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         self.problem = Rosenbrock(dims=2)
         # Reset config pollution from singleton
         from panobbgo.config import Config
+
         config = Config(testing_mode=True)
         config.constraint_handler = "DefaultConstraintHandler"
 
@@ -27,10 +29,7 @@ class TestConstraintHandlerConfiguration(PanobbgoTestCase):
     def test_augmented_lagrangian_handler(self):
         """Test configuring AugmentedLagrangianConstraintHandler via kwargs."""
         strategy = StrategyRewarding(
-            self.problem,
-            testing_mode=True,
-            constraint_handler="AugmentedLagrangianConstraintHandler",
-            rho=5.0
+            self.problem, testing_mode=True, constraint_handler="AugmentedLagrangianConstraintHandler", rho=5.0
         )
         assert isinstance(strategy.constraint_handler, AugmentedLagrangianConstraintHandler)
         assert strategy.constraint_handler.mu == 5.0
@@ -42,7 +41,7 @@ class TestConstraintHandlerConfiguration(PanobbgoTestCase):
             testing_mode=True,
             constraint_handler="PenaltyConstraintHandler",
             rho=10.0,
-            constraint_exponent=2
+            constraint_exponent=2,
         )
         assert isinstance(strategy.constraint_handler, PenaltyConstraintHandler)
         assert strategy.constraint_handler.rho == 10.0
@@ -54,7 +53,7 @@ class TestConstraintHandlerConfiguration(PanobbgoTestCase):
             self.problem,
             testing_mode=True,
             constraint_handler="DynamicPenaltyConstraintHandler",
-            dynamic_penalty_rate=0.05
+            dynamic_penalty_rate=0.05,
         )
         assert isinstance(strategy.constraint_handler, DynamicPenaltyConstraintHandler)
         assert strategy.constraint_handler.rate == 0.05

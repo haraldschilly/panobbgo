@@ -8,8 +8,12 @@ Tests for the benchmark system.
 import numpy as np
 import pytest
 from panobbgo.benchmark import (
-    ProblemSpec, StrategySpec, BenchmarkSuite, BenchmarkRun,
-    create_standard_problems, create_standard_strategies
+    ProblemSpec,
+    StrategySpec,
+    BenchmarkSuite,
+    BenchmarkRun,
+    create_standard_problems,
+    create_standard_strategies,
 )
 from panobbgo.lib.classic import Rosenbrock
 from panobbgo.lib import Result, Point
@@ -24,8 +28,8 @@ class TestProblemSpec:
             name="test_rosenbrock",
             problem_class=Rosenbrock,
             dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
-            tolerance=1e-6
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
+            tolerance=1e-6,
         )
 
         problem = spec.create_problem()
@@ -38,8 +42,8 @@ class TestProblemSpec:
             name="test_rosenbrock",
             problem_class=Rosenbrock,
             dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
-            tolerance=1e-3  # More reasonable tolerance for optimization
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
+            tolerance=1e-3,  # More reasonable tolerance for optimization
         )
 
         # Create a result very close to optimum
@@ -47,12 +51,12 @@ class TestProblemSpec:
             point=Point([1.0001, 1.0001], "test"),
             fx=1.01e-6,  # Actual Rosenbrock value at this point
             cv_vec=None,
-            error=0.0
+            error=0.0,
         )
 
         validation = spec.validate_result(result)
-        assert validation['success'] == True
-        assert validation['distance'] < spec.tolerance
+        assert validation["success"] == True
+        assert validation["distance"] < spec.tolerance
 
     def test_validate_result_failure(self):
         """Test failed validation."""
@@ -60,21 +64,16 @@ class TestProblemSpec:
             name="test_rosenbrock",
             problem_class=Rosenbrock,
             dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
-            tolerance=1e-6
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
+            tolerance=1e-6,
         )
 
         # Create a result far from optimum
-        result = Result(
-            point=Point([2.0, 2.0], "test"),
-            fx=400.0,
-            cv_vec=None,
-            error=0.0
-        )
+        result = Result(point=Point([2.0, 2.0], "test"), fx=400.0, cv_vec=None, error=0.0)
 
         validation = spec.validate_result(result)
-        assert validation['success'] == False
-        assert validation['distance'] > spec.tolerance
+        assert validation["success"] == False
+        assert validation["distance"] > spec.tolerance
 
 
 class TestBenchmarkSuite:
@@ -85,16 +84,14 @@ class TestBenchmarkSuite:
         suite = BenchmarkSuite("test_suite")
 
         problem_spec = ProblemSpec(
-            name="test_problem",
-            problem_class=Rosenbrock,
-            dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}]
+            name="test_problem", problem_class=Rosenbrock, dims=2, known_optima=[{"x": [1.0, 1.0], "fx": 0.0}]
         )
 
         # Mock strategy spec (we can't easily create real ones in tests)
         class MockStrategySpec:
             def __init__(self):
                 self.name = "mock_strategy"
+
             def create_strategy(self, problem):
                 return None
 
@@ -112,10 +109,7 @@ class TestBenchmarkSuite:
 
         # Create mock run
         problem_spec = ProblemSpec(
-            name="test_problem",
-            problem_class=Rosenbrock,
-            dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}]
+            name="test_problem", problem_class=Rosenbrock, dims=2, known_optima=[{"x": [1.0, 1.0], "fx": 0.0}]
         )
 
         class MockStrategySpec:
@@ -131,22 +125,23 @@ class TestBenchmarkSuite:
             run_id=0,
             start_time=0.0,
             end_time=1.0,
-            best_result=Result(
-                point=Point([1.0, 1.0], "test"),
-                fx=0.0,
-                cv_vec=None,
-                error=0.0
-            ),
-            validation={'success': True, 'distance': 0.0, 'param_distance': 0.0,
-                       'func_distance': 0.0, 'tolerance': 1e-6, 'closest_optimum': {'x': [1.0, 1.0], 'fx': 0.0}}
+            best_result=Result(point=Point([1.0, 1.0], "test"), fx=0.0, cv_vec=None, error=0.0),
+            validation={
+                "success": True,
+                "distance": 0.0,
+                "param_distance": 0.0,
+                "func_distance": 0.0,
+                "tolerance": 1e-6,
+                "closest_optimum": {"x": [1.0, 1.0], "fx": 0.0},
+            },
         )
 
         suite.runs = [successful_run]
 
         df = suite.get_summary_dataframe()
         assert len(df) == 1
-        assert df.iloc[0]['success'] == True
-        assert df.iloc[0]['best_fx'] == 0.0
+        assert df.iloc[0]["success"] == True
+        assert df.iloc[0]["best_fx"] == 0.0
 
 
 class TestStandardProblems:
@@ -207,9 +202,9 @@ class TestBenchmarkIntegration:
             name="Rosenbrock_2D_Integration",
             problem_class=Rosenbrock,
             dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
             tolerance=1e-1,  # Relaxed tolerance for integration test
-            max_evaluations=20  # Very few evaluations for fast test
+            max_evaluations=20,  # Very few evaluations for fast test
         )
         suite.add_problem(problem_spec)
 
@@ -219,8 +214,8 @@ class TestBenchmarkIntegration:
             strategy_class=StrategyRoundRobin,
             heuristics=[
                 (Random, {}),
-                (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 2}),
-            ]
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 2}),
+            ],
         )
         suite.add_strategy(strategy_spec)
 
@@ -242,8 +237,10 @@ class TestBenchmarkIntegration:
         # The run should have either succeeded or failed gracefully
         assert run.best_result is not None or run.error is not None
 
-        print(f"Integration test completed: {len(run.all_results)} evaluations, "
-              f"best fx = {run.best_result.fx if run.best_result else 'N/A'}")
+        print(
+            f"Integration test completed: {len(run.all_results)} evaluations, "
+            f"best fx = {run.best_result.fx if run.best_result else 'N/A'}"
+        )
 
     def test_benchmark_result_summary(self):
         """Test that benchmark results can be summarized."""
@@ -258,8 +255,8 @@ class TestBenchmarkIntegration:
             name="test_problem",
             problem_class=Rosenbrock,
             dims=2,
-            known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
-            tolerance=1e-3
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
+            tolerance=1e-3,
         )
 
         # Mock strategy spec
@@ -276,21 +273,16 @@ class TestBenchmarkIntegration:
             run_id=0,
             start_time=0.0,
             end_time=1.0,
-            best_result=Result(
-                point=Point([1.0, 1.0], "test"),
-                fx=0.0,
-                cv_vec=None,
-                error=0.0
-            ),
+            best_result=Result(point=Point([1.0, 1.0], "test"), fx=0.0, cv_vec=None, error=0.0),
             all_results=[],
             validation={
-                'success': True,
-                'distance': 0.0,
-                'closest_optimum': {'x': [1.0, 1.0], 'fx': 0.0},
-                'param_distance': 0.0,
-                'func_distance': 0.0,
-                'tolerance': 1e-3
-            }
+                "success": True,
+                "distance": 0.0,
+                "closest_optimum": {"x": [1.0, 1.0], "fx": 0.0},
+                "param_distance": 0.0,
+                "func_distance": 0.0,
+                "tolerance": 1e-3,
+            },
         )
 
         suite.runs = [successful_run]
@@ -298,8 +290,8 @@ class TestBenchmarkIntegration:
         # Test summary generation
         df = suite.get_summary_dataframe()
         assert len(df) == 1
-        assert df.iloc[0]['success'] == True
-        assert df.iloc[0]['best_fx'] == 0.0
+        assert df.iloc[0]["success"] == True
+        assert df.iloc[0]["best_fx"] == 0.0
 
         # Test summary printing (should not crash)
         suite.print_summary()

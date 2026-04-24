@@ -9,7 +9,23 @@ Tests core framework components working together.
 import time
 import numpy as np
 import pytest
-from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang, Schwefel, DixonPrice, Zakharov, RosenbrockModified, RotatedEllipse, RotatedEllipse2, Ripple1, Ripple25, Salomon, Sargan
+from panobbgo.lib.classic import (
+    Rosenbrock,
+    Rastrigin,
+    Ackley,
+    Griewank,
+    StyblinskiTang,
+    Schwefel,
+    DixonPrice,
+    Zakharov,
+    RosenbrockModified,
+    RotatedEllipse,
+    RotatedEllipse2,
+    Ripple1,
+    Ripple25,
+    Salomon,
+    Sargan,
+)
 from panobbgo.lib import Point, Result
 
 
@@ -35,9 +51,7 @@ def test_framework_basic_functionality():
     random_result = problem(random_point)
     print(f"Random point {random_point.x} -> f(x) = {random_result.fx}")
     assert random_point in problem.box, "Random point should be within bounds"
-    assert isinstance(random_result.fx, (int, float)), (
-        "Function value should be numeric"
-    )
+    assert isinstance(random_result.fx, (int, float)), "Function value should be numeric"
 
     # Test basic point generation (simplified)
     test_points = [Point(problem.random_point(), "manual") for _ in range(3)]
@@ -166,7 +180,7 @@ def test_dixon_price_function():
     # From solving: (x1-1)^2 + 2*(2*x2^2 - x1)^2 = 0
     # Set x1 = 1, then 2*x2^2 - 1 = 0 => x2^2 = 0.5 => x2 = ±√0.5
     # Using positive root: x_opt = [1.0, √0.5]
-    x_opt = [1.0, (0.5)**0.5]
+    x_opt = [1.0, (0.5) ** 0.5]
     global_min_point = Point(x_opt, "global_min")
     result = problem(global_min_point)
     print(f"Dixon & Price at approx global minimum {global_min_point.x} -> f(x) = {result.fx}")
@@ -181,8 +195,8 @@ def test_dixon_price_function():
     # Test higher dimension - for D=3, the minimum satisfies the recursive relationship
     problem_3d = DixonPrice(3)
     # For D=3: x1=1, x2=√0.5, x3=√(x2/2) = √(√0.5 / 2)
-    x2 = (0.5)**0.5
-    x3 = ((0.5)**0.5 / 2)**0.5
+    x2 = (0.5) ** 0.5
+    x3 = ((0.5) ** 0.5 / 2) ** 0.5
     x_opt_3d = [1.0, x2, x3]
     point_3d = Point(x_opt_3d, "3d_global_min")
     result_3d = problem_3d(point_3d)
@@ -394,6 +408,7 @@ def test_dask_evaluation_integration(dask_cluster):
     # Set up dask cluster
     strategy._cluster = dask_cluster
     from dask.distributed import Client
+
     strategy._client = Client(strategy._cluster)
 
     # Scatter the problem to all workers
@@ -431,24 +446,14 @@ def test_constrained_problem_integration():
     feasible_result = problem(feasible_point)
     infeasible_result = problem(infeasible_point)
 
-    print(
-        f"Feasible point {feasible_point.x}: f(x)={feasible_result.fx}, cv={feasible_result.cv_vec}"
-    )
-    print(
-        f"Infeasible point {infeasible_point.x}: f(x)={infeasible_result.fx}, cv={infeasible_result.cv_vec}"
-    )
+    print(f"Feasible point {feasible_point.x}: f(x)={feasible_result.fx}, cv={feasible_result.cv_vec}")
+    print(f"Infeasible point {infeasible_point.x}: f(x)={infeasible_result.fx}, cv={infeasible_result.cv_vec}")
 
-    assert feasible_result.cv_vec is not None, (
-        "Feasible point should have constraint values"
-    )
-    assert infeasible_result.cv_vec is not None, (
-        "Infeasible point should have constraint values"
-    )
+    assert feasible_result.cv_vec is not None, "Feasible point should have constraint values"
+    assert infeasible_result.cv_vec is not None, "Infeasible point should have constraint values"
 
     # Check that constraints are evaluated
-    assert isinstance(
-        feasible_result.cv_vec, (list, tuple, type(feasible_result.cv_vec))
-    ), "CV should be array-like"
+    assert isinstance(feasible_result.cv_vec, (list, tuple, type(feasible_result.cv_vec))), "CV should be array-like"
     assert len(feasible_result.cv_vec) > 0, "Should have constraint values"
 
     print("✅ Constrained problem integration test passed!")
@@ -474,9 +479,7 @@ def test_noisy_problem_integration():
         print(f"Noisy evaluation {i + 1}: f(x)={result.fx}")
 
     # Check that results are numeric (even if noise level is low)
-    assert all(isinstance(fx, (int, float)) for fx in results), (
-        "All results should be numeric"
-    )
+    assert all(isinstance(fx, (int, float)) for fx in results), "All results should be numeric"
 
     # The stochastic problem should at least be defined and work
     print("✅ Noisy problem integration test passed!")
@@ -555,9 +558,7 @@ def test_large_scale_optimization():
 
         # Progress reporting every 100 evaluations
         if points_evaluated % 100 == 0:
-            print(
-                f"Evaluations: {points_evaluated}, Best f(x): {best_fx:.4f} at {best_x}"
-            )
+            print(f"Evaluations: {points_evaluated}, Best f(x): {best_fx:.4f} at {best_x}")
 
     end_time = time.time()
 
@@ -568,13 +569,9 @@ def test_large_scale_optimization():
     print(f"Time elapsed: {end_time - start_time:.2f} seconds")
     print(f"Evaluations per second: {points_evaluated / (end_time - start_time):.1f}")
     # Validate results
-    assert points_evaluated == target_evaluations, (
-        f"Should run exactly {target_evaluations} evaluations"
-    )
+    assert points_evaluated == target_evaluations, f"Should run exactly {target_evaluations} evaluations"
     assert best_x is not None, "Should find a best solution"
-    assert best_fx < 5.0, (
-        f"Should find a reasonably good solution on noisy multimodal function, got {best_fx}"
-    )
+    assert best_fx < 5.0, f"Should find a reasonably good solution on noisy multimodal function, got {best_fx}"
     # For multimodal functions like Rastrigin, we just check that we found a finite solution within bounds
     assert all(problem.box[0][0] <= coord <= problem.box[0][1] for coord in best_x), (
         f"Best solution should be within bounds, got {best_x}"
@@ -587,6 +584,7 @@ def test_large_scale_optimization():
 # ============================================================================
 # COMPREHENSIVE INTEGRATION TESTS - Strategy + Multiple Heuristics
 # ============================================================================
+
 
 def setup_strategy_with_heuristics(strategy_class, problem, heuristics_config, max_evaluations=100):
     """
@@ -616,9 +614,6 @@ def setup_strategy_with_heuristics(strategy_class, problem, heuristics_config, m
     return strategy
 
 
-
-
-
 def test_manual_optimization_execution():
     """
     Test manual optimization execution to validate that point evaluation works.
@@ -637,7 +632,7 @@ def test_manual_optimization_execution():
 
     # Generate and evaluate points manually
     results = []
-    best_fx = float('inf')
+    best_fx = float("inf")
     best_x = None
 
     # Evaluate 10 points manually
@@ -660,7 +655,7 @@ def test_manual_optimization_execution():
     # Validate results
     assert len(results) == 10, "Should have evaluated 10 points"
     assert best_x is not None, "Should have found a best point"
-    assert best_fx < float('inf'), "Should have a finite best value"
+    assert best_fx < float("inf"), "Should have a finite best value"
 
     # Validate all results are within bounds
     for result in results:
@@ -670,14 +665,10 @@ def test_manual_optimization_execution():
 
     # Validate we got a finite numeric result (not infinite or NaN)
     assert isinstance(best_fx, (int, float)), f"Best value should be numeric, got {type(best_fx)}"
-    assert best_fx < float('inf'), f"Should have finite best value, got f(x) = {best_fx}"
+    assert best_fx < float("inf"), f"Should have finite best value, got f(x) = {best_fx}"
     assert best_fx == best_fx, f"Best value should not be NaN, got f(x) = {best_fx}"  # NaN != NaN
 
     print(f"✅ Manual optimization execution test passed! Best f(x) = {best_fx:.4f} at x = {best_x}")
-
-
-
-
 
 
 def test_minimal_optimization_works():
@@ -690,13 +681,15 @@ def test_minimal_optimization_works():
     from panobbgo.lib.classic import Rosenbrock
 
     from panobbgo.config import Config
-    Config._instance = None # reset to make sure
+
+    Config._instance = None  # reset to make sure
     problem = Rosenbrock(dims=2)
     strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.ui_show = False
 
     # Add a simple heuristic
     from panobbgo.heuristics import Random
+
     strategy.add(Random)
 
     # Test that strategy is properly initialized
@@ -706,8 +699,6 @@ def test_minimal_optimization_works():
     assert strategy.config is not None
 
     print("✅ Basic optimization setup works without crashing")
-
-
 
 
 def test_random_heuristic_point_generation():
@@ -758,7 +749,8 @@ def test_pandas_compatibility():
 
     # Create a minimal strategy for testing Results
     from panobbgo.config import Config
-    Config._instance = None # reset to make sure
+
+    Config._instance = None  # reset to make sure
     problem = Rosenbrock(dims=2)
     strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.max_eval = 100
@@ -770,9 +762,9 @@ def test_pandas_compatibility():
     # Create some sample results
     test_results = []
     for i in range(5):
-        x = np.array([float(i), float(i+1)])
+        x = np.array([float(i), float(i + 1)])
         point = Point(x, f"test_{i}")
-        result = Result(point=point, fx=float(i*i), cv_vec=None, error=0.0)
+        result = Result(point=point, fx=float(i * i), cv_vec=None, error=0.0)
         test_results.append(result)
 
     # Test adding results to database (this uses the fixed concat operation)
@@ -785,9 +777,9 @@ def test_pandas_compatibility():
     # Test adding more results (tests concat again)
     additional_results = []
     for i in range(3):
-        x = np.array([float(i+10), float(i+11)])
+        x = np.array([float(i + 10), float(i + 11)])
         point = Point(x, f"additional_{i}")
-        result = Result(point=point, fx=float((i+10)*(i+10)), cv_vec=None, error=0.0)
+        result = Result(point=point, fx=float((i + 10) * (i + 10)), cv_vec=None, error=0.0)
         additional_results.append(result)
 
     results_db.add_results(additional_results)
@@ -796,7 +788,7 @@ def test_pandas_compatibility():
     assert len(results_db.results) == 8, f"Should have 8 results after adding more, got {len(results_db.results)}"
 
     # Test that DataFrame has expected columns
-    expected_cols = ['x', 'fx', 'cv', 'who', 'error']
+    expected_cols = ["x", "fx", "cv", "who", "error"]
     for col in expected_cols:
         assert col in results_db.results.columns.get_level_values(0), f"DataFrame should have column {col}"
 
@@ -842,11 +834,11 @@ def test_full_optimization_execution():
 
     # Validate all results have required attributes
     for i, result in enumerate(results):
-        assert hasattr(result, 'fx'), f"Result {i} should have function value"
-        assert hasattr(result, 'x'), f"Result {i} should have point coordinates"
-        assert hasattr(result, 'who'), f"Result {i} should have heuristic source"
+        assert hasattr(result, "fx"), f"Result {i} should have function value"
+        assert hasattr(result, "x"), f"Result {i} should have point coordinates"
+        assert hasattr(result, "who"), f"Result {i} should have heuristic source"
         assert isinstance(result.fx, (int, float)), f"Result {i} function value should be numeric"
-        assert result.who.startswith('evaluation_'), f"Result {i} source should be evaluation, got {result.who}"
+        assert result.who.startswith("evaluation_"), f"Result {i} source should be evaluation, got {result.who}"
 
         # Validate point is within bounds
         for j, coord in enumerate(result.x):
@@ -855,17 +847,16 @@ def test_full_optimization_execution():
 
     # Validate best result is finite and numeric (not arbitrary threshold that causes flakiness)
     assert isinstance(best_result.fx, (int, float)), f"Best value should be numeric, got {type(best_result.fx)}"
-    assert best_result.fx < float('inf'), f"Should have finite best value, got f(x) = {best_result.fx}"
+    assert best_result.fx < float("inf"), f"Should have finite best value, got f(x) = {best_result.fx}"
     assert best_result.fx == best_result.fx, f"Best value should not be NaN, got f(x) = {best_result.fx}"  # NaN != NaN
 
     # Validate that best result is actually in results
-    best_in_results = any(
-        np.allclose(result.x, best_result.x) and result.fx == best_result.fx
-        for result in results
-    )
+    best_in_results = any(np.allclose(result.x, best_result.x) and result.fx == best_result.fx for result in results)
     assert best_in_results, "Best result should be one of the evaluated results"
 
-    print(f"✅ Full optimization execution test passed! Evaluated exactly {len(results)} points, best f(x) = {best_result.fx:.4f} at x = {best_result.x}")
+    print(
+        f"✅ Full optimization execution test passed! Evaluated exactly {len(results)} points, best f(x) = {best_result.fx:.4f} at x = {best_result.x}"
+    )
 
 
 # NOTE: Strategy-based integration tests removed due to threading/event system
@@ -890,6 +881,4 @@ if __name__ == "__main__":
     test_full_optimization_execution()
     test_pandas_compatibility()
 
-    print(
-        "\n🎉 All integration tests passed! Panobbgo framework is working comprehensively."
-    )
+    print("\n🎉 All integration tests passed! Panobbgo framework is working comprehensively.")

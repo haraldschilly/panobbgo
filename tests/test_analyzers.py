@@ -89,7 +89,7 @@ class AnalyzersUtils(PanobbgoTestCase):
         # Create some test results with different objective values
         results = []
         for i in range(5):
-            x = np.array([float(i), float(i+1)])
+            x = np.array([float(i), float(i + 1)])
             point = Point(x, f"test_{i}")
             # Make objective values decrease
             fx = 10.0 - i
@@ -114,7 +114,7 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         results = []
         for i in range(3):
-            x = np.array([float(i), float(i+1)])
+            x = np.array([float(i), float(i + 1)])
             point = Point(x, f"test_{i}")
 
             # First result is feasible (cv=0), others have constraint violations
@@ -186,7 +186,7 @@ class AnalyzersUtils(PanobbgoTestCase):
         # Test with infeasible results only
         results_infeasible = []
         for i in range(3):
-            x = np.array([float(i), float(i+1)])
+            x = np.array([float(i), float(i + 1)])
             point = Point(x, f"infeasible_{i}")
             cv_vec = np.array([1.0, 0.0])  # Infeasible
             result = Result(point, float(i), cv_vec=cv_vec)
@@ -278,27 +278,27 @@ class AnalyzersUtils(PanobbgoTestCase):
         assert conv is not None
         assert conv.window_size == 50  # default
         assert conv.threshold == 1e-6  # default
-        assert conv.mode == 'std'  # default
+        assert conv.mode == "std"  # default
         assert len(conv.history) == 0
         assert conv._converged is False
 
         # Test custom parameters
-        conv_custom = Convergence(self.strategy, window_size=20, threshold=1e-4, mode='improv')
+        conv_custom = Convergence(self.strategy, window_size=20, threshold=1e-4, mode="improv")
         assert conv_custom.window_size == 20
         assert conv_custom.threshold == 1e-4
-        assert conv_custom.mode == 'improv'
+        assert conv_custom.mode == "improv"
 
     def test_convergence_std_mode(self):
         """Test convergence detection in standard deviation mode."""
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock
 
-        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='std')
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode="std")
 
         self.strategy.results = [mock.Mock()] * 5
 
         # Mock strategy.best to return consistent values
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0
             mock_best.fx = 1.0
 
@@ -315,13 +315,13 @@ class AnalyzersUtils(PanobbgoTestCase):
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock
 
-        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='improv')
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode="improv")
 
         # Mock strategy.results to bypass the minimum evaluation check
         self.strategy.results = [mock.Mock()] * 5
 
         # Add values that have a relative improvement < 0.01
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0
             values = [1.0, 0.999, 0.998, 0.997, 0.996]
             for val in values:
@@ -331,9 +331,9 @@ class AnalyzersUtils(PanobbgoTestCase):
             assert conv._converged
 
         # Test start == 0 case
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='improv')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="improv")
         self.strategy.results = [mock.Mock()] * 3
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0
             for val in [0.0, -0.05, -0.05]:
                 mock_best.fx = val
@@ -345,11 +345,11 @@ class AnalyzersUtils(PanobbgoTestCase):
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock
 
-        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode='slope')
+        conv = Convergence(self.strategy, window_size=5, threshold=0.01, mode="slope")
         self.strategy.results = [mock.Mock()] * 5
 
         # Add values that follow a relatively flat line
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0
             values = [1.0, 0.999, 0.998, 0.997, 0.996]
             for val in values:
@@ -359,9 +359,9 @@ class AnalyzersUtils(PanobbgoTestCase):
             assert conv._converged
 
         # Test start == 0 case
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='slope')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="slope")
         self.strategy.results = [mock.Mock()] * 3
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0
             for val in [0.0, 0.0, 0.0]:
                 mock_best.fx = val
@@ -373,7 +373,7 @@ class AnalyzersUtils(PanobbgoTestCase):
         from panobbgo.analyzers.convergence import Convergence
         from collections import deque
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='std')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="std")
         conv.history = deque([1.0, 1.0, 1.0], maxlen=3)
 
         # Should not be converged initially
@@ -393,16 +393,17 @@ class AnalyzersUtils(PanobbgoTestCase):
         conv = Convergence(self.strategy, window_size=5, threshold=0.01)
 
         # Test with no strategy.best (should return early)
-        with mock.patch.object(self.strategy, 'best', None):
+        with mock.patch.object(self.strategy, "best", None):
             conv.on_new_results([mock.Mock()])
             assert len(conv.history) == 0
 
         # Test already converged (should not check again)
         conv._converged = True
         from collections import deque
+
         conv.history = deque([1.0, 1.0, 1.0, 1.0, 1.0], maxlen=5)
 
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
@@ -416,7 +417,7 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         # Test minimum evaluations skip
         conv.min_evaluations = 10
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.fx = 1.0
             mock_best.cv = 0.0
             for i in range(5):
@@ -432,9 +433,9 @@ class AnalyzersUtils(PanobbgoTestCase):
         conv.require_feasibility = True
         conv.history.clear()
         conv.cv_history.clear()
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.fx = 1.0
-            mock_best.cv = 1.0 # Infeasible
+            mock_best.cv = 1.0  # Infeasible
             for i in range(5):
                 conv.on_new_results([mock.Mock()])
             # Shouldn't converge due to being infeasible
@@ -444,9 +445,9 @@ class AnalyzersUtils(PanobbgoTestCase):
         conv.require_feasibility = False
         conv.history.clear()
         conv.cv_history.clear()
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.fx = 1.0
-            cv_values = [5.0, 4.0, 3.0, 2.0, 1.0] # Decreasing CV
+            cv_values = [5.0, 4.0, 3.0, 2.0, 1.0]  # Decreasing CV
             for cv in cv_values:
                 mock_best.cv = cv
                 conv.on_new_results([mock.Mock()])
@@ -456,7 +457,7 @@ class AnalyzersUtils(PanobbgoTestCase):
         # Test None in history values skipping convergence
         conv.history.clear()
         conv.cv_history.clear()
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.fx = None
             mock_best.cv = 0.0
             # Manually push None values to history because on_new_results skips them
@@ -472,28 +473,28 @@ class AnalyzersUtils(PanobbgoTestCase):
         import unittest.mock as mock
         from collections import deque
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='improv')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="improv")
 
         # Bypass len(strategy.results) check by mocking strategy.results
         self.strategy.results = [mock.Mock()] * 50
 
         # Test 1: Improvement > threshold -> should not converge
         conv.history = deque([10.0, 5.0, 1.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
         # Test 2: Improvement < threshold -> should converge
         # Threshold is 0.1, so improvement must be < 10%
         conv.history = deque([1.0, 0.99, 0.99], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
         # Test 3: abs(start) < 1e-9 fallback logic
         conv._converged = False
         conv.history = deque([0.0, 0.0, 0.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
@@ -503,33 +504,33 @@ class AnalyzersUtils(PanobbgoTestCase):
         import unittest.mock as mock
         from collections import deque
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='slope')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="slope")
         self.strategy.results = [mock.Mock()] * 50
 
         # Test 1: Steep slope -> should not converge
         conv.history = deque([10.0, 5.0, 0.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
         # Test 2: Flat slope -> should converge
         conv.history = deque([1.0, 0.99, 0.99], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
         # Test 3: Flat slope at zero -> should converge
         conv._converged = False
         conv.history = deque([0.0, 0.0, 0.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
         # Test 4: Exception in polyfit -> should not raise and return early
         conv._converged = False
         # np.polyfit fails cleanly typically on type errors, but we can mock it
-        with mock.patch('numpy.polyfit', side_effect=Exception("polyfit error")):
-            with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch("numpy.polyfit", side_effect=Exception("polyfit error")):
+            with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
                 conv._check_convergence()
                 mock_trigger.assert_not_called()
 
@@ -543,22 +544,22 @@ class AnalyzersUtils(PanobbgoTestCase):
         self.strategy.config = mock.MagicMock()
         self.strategy.config.convergence_require_feasibility = True
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='std')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="std")
         self.strategy.results = [mock.Mock()] * 50
 
         # Test 1: Infeasible best -> should not converge despite flat history
         conv.history = deque([1.0, 1.0, 1.0], maxlen=3)
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 10.0  # highly infeasible
-            with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+            with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
                 conv._check_convergence()
                 mock_trigger.assert_not_called()
 
         # Test 2: Feasible best -> should converge because history is flat
         conv.history = deque([1.0, 1.0, 1.0], maxlen=3)
-        with mock.patch.object(self.strategy, 'best') as mock_best:
+        with mock.patch.object(self.strategy, "best") as mock_best:
             mock_best.cv = 0.0  # feasible
-            with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+            with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
                 conv._check_convergence()
                 mock_trigger.assert_called_once()
 
@@ -572,19 +573,19 @@ class AnalyzersUtils(PanobbgoTestCase):
         self.strategy.config = mock.MagicMock()
         self.strategy.config.convergence_require_feasibility = False
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='std')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="std")
         self.strategy.results = [mock.Mock()] * 50
-        conv.history = deque([1.0, 1.0, 1.0], maxlen=3) # Flat fx history would otherwise converge
+        conv.history = deque([1.0, 1.0, 1.0], maxlen=3)  # Flat fx history would otherwise converge
 
         # Test 1: CV is improving significantly -> should NOT converge
         conv.cv_history = deque([10.0, 5.0, 1.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
         # Test 2: CV is not improving significantly -> should converge
         conv.cv_history = deque([10.0, 9.9, 9.9], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
@@ -595,28 +596,28 @@ class AnalyzersUtils(PanobbgoTestCase):
         from collections import deque
 
         # Create convergence analyzer with min_evaluations = 100
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, min_evaluations=100, mode='std')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, min_evaluations=100, mode="std")
 
         # History is flat, would otherwise converge
         conv.history = deque([1.0, 1.0, 1.0], maxlen=3)
 
         # Test 1: results length < min_evaluations -> should not converge
         self.strategy.results = [mock.Mock()] * 50
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
 
         # Test 2: TypeError when calling len(strategy.results) -> handled gracefully
         self.strategy.results = mock.Mock()
         self.strategy.results.__len__ = mock.Mock(side_effect=TypeError)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
         # Test 3: results length >= min_evaluations -> should converge
         conv._converged = False
         self.strategy.results = [mock.Mock()] * 150
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
@@ -626,28 +627,30 @@ class AnalyzersUtils(PanobbgoTestCase):
         import unittest.mock as mock
         from collections import deque
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='std')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="std")
         self.strategy.results = [mock.Mock()] * 50
 
         conv.history = deque([1.0, None, 1.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
+
     def test_convergence_slope_mode_exception(self):
         """Test convergence slope mode exception handling."""
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock
         from collections import deque
 
-        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode='slope')
+        conv = Convergence(self.strategy, window_size=3, threshold=0.1, mode="slope")
         self.strategy.results = [mock.Mock()] * 50
 
         # Create values that will cause polyfit to raise an exception
         # For example, inf or nan
-        conv.history = deque([1.0, float('inf'), 1.0], maxlen=3)
-        with mock.patch.object(conv, '_trigger_convergence') as mock_trigger:
+        conv.history = deque([1.0, float("inf"), 1.0], maxlen=3)
+        with mock.patch.object(conv, "_trigger_convergence") as mock_trigger:
             conv._check_convergence()
             mock_trigger.assert_not_called()
+
 
 if __name__ == "__main__":
     import unittest

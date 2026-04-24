@@ -24,24 +24,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Type, Dict, Any, Tuple
 
-from panobbgo.lib.classic import (
-    RosenbrockConstraint, Simionescu, MishraBird, PressureVessel
-)
-from panobbgo.heuristics import (
-    Random, LatinHypercube, NelderMead, ConstraintGradient, LocalPenaltySearch
-)
+from panobbgo.lib.classic import RosenbrockConstraint, Simionescu, MishraBird, PressureVessel
+from panobbgo.heuristics import Random, LatinHypercube, NelderMead, ConstraintGradient, LocalPenaltySearch
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
     AugmentedLagrangianConstraintHandler,
-    FilterConstraintHandler
+    FilterConstraintHandler,
 )
 
 # Configuration
 OUTPUT_DIR = "benchmarks/results_constrained"
 EVALUATIONS = 300  # Number of evaluations per run
-REPETITIONS = 5    # Number of repetitions per problem/strategy pair
+REPETITIONS = 5  # Number of repetitions per problem/strategy pair
 SEED = 42
 
 PROBLEMS = [
@@ -58,6 +54,7 @@ HANDLERS = [
     ("Filter", "FilterConstraintHandler"),
 ]
 
+
 def setup_heuristics(strategy):
     """Adds a standard set of heuristics to the strategy."""
     strategy.add(Random)
@@ -67,8 +64,8 @@ def setup_heuristics(strategy):
     strategy.add(ConstraintGradient)
     strategy.add(LocalPenaltySearch)
 
-def run_experiment(problem_class, problem_kwargs, problem_name,
-                   handler_name, handler_class_str, repetition):
+
+def run_experiment(problem_class, problem_kwargs, problem_name, handler_name, handler_class_str, repetition):
     """Runs a single experiment."""
 
     # Initialize problem
@@ -77,10 +74,7 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
     # Initialize strategy with specific constraint handler
     # We pass handler name as string to config, StrategyBase will instantiate it
     strategy = StrategyRewarding(
-        problem,
-        max_eval=EVALUATIONS,
-        evaluation_method="threaded",
-        constraint_handler=handler_class_str
+        problem, max_eval=EVALUATIONS, evaluation_method="threaded", constraint_handler=handler_class_str
     )
 
     # Add heuristics
@@ -99,19 +93,19 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
     # Collect results
     # We want the convergence trace (best fx vs evaluations)
     history = strategy.results.get_history()
-    fx = history['fx']
-    cv = history['cv'] # This is the norm of positive violations
+    fx = history["fx"]
+    cv = history["cv"]  # This is the norm of positive violations
 
     # Calculate best-feasible-so-far trace
     best_feasible_trace = []
-    current_best_feasible = float('inf')
+    current_best_feasible = float("inf")
 
     # Also track best-infeasible (min cv) if no feasible point found yet
     min_cv_trace = []
-    current_min_cv = float('inf')
+    current_min_cv = float("inf")
 
-    final_cv = float('inf')
-    final_fx = float('inf')
+    final_cv = float("inf")
+    final_fx = float("inf")
 
     for i in range(len(fx)):
         val = fx[i]
@@ -125,14 +119,14 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
             current_min_cv = viol
 
         # For plotting: use best feasible if available, else use a large value + min_cv
-        if current_best_feasible < float('inf'):
+        if current_best_feasible < float("inf"):
             best_feasible_trace.append(current_best_feasible)
         else:
             # If no feasible point, plot something indicating violation magnitude
             # Using a large offset + CV to show progress towards feasibility
             best_feasible_trace.append(1e5 + current_min_cv)
 
-    if current_best_feasible < float('inf'):
+    if current_best_feasible < float("inf"):
         final_fx = current_best_feasible
         final_cv = 0.0
     else:
@@ -143,8 +137,8 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
             final_cv = cv[idx]
             final_fx = fx[idx]
         else:
-            final_cv = float('inf')
-            final_fx = float('inf')
+            final_cv = float("inf")
+            final_fx = float("inf")
 
     return {
         "problem": problem_name,
@@ -154,8 +148,9 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
         "final_fx": final_fx,
         "final_cv": final_cv,
         "duration": duration,
-        "trace": best_feasible_trace
+        "trace": best_feasible_trace,
     }
+
 
 def main():
     if not os.path.exists(OUTPUT_DIR):
@@ -182,13 +177,12 @@ def main():
             final_cvs = []
 
             for rep in range(REPETITIONS):
-                res = run_experiment(prob_cls, prob_kwargs, prob_name,
-                                     handler_name, handler_class_str, rep)
+                res = run_experiment(prob_cls, prob_kwargs, prob_name, handler_name, handler_class_str, rep)
                 if res:
                     all_results.append(res)
-                    traces.append(res['trace'])
-                    final_fxs.append(res['final_fx'])
-                    final_cvs.append(res['final_cv'])
+                    traces.append(res["trace"])
+                    final_fxs.append(res["final_fx"])
+                    final_cvs.append(res["final_cv"])
 
             if traces:
                 # Pad traces to same length if necessary
@@ -224,10 +218,11 @@ def main():
         plt.close()
 
     # Save summary CSV
-    df = pd.DataFrame([{k: v for k, v in r.items() if k != 'trace'} for r in all_results])
+    df = pd.DataFrame([{k: v for k, v in r.items() if k != "trace"} for r in all_results])
     csv_path = os.path.join(OUTPUT_DIR, "constrained_summary.csv")
     df.to_csv(csv_path, index=False)
     print(f"\nBenchmark complete. Summary saved to {csv_path}")
+
 
 if __name__ == "__main__":
     main()

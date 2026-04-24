@@ -53,6 +53,7 @@ def _make_strategy(dim=4):
 # Basic construction
 # ---------------------------------------------------------------------------
 
+
 def test_nearby_default_no_sensitivity():
     """Nearby starts with no sensitivity data (importance=None)."""
     strategy, _ = _make_strategy()
@@ -86,6 +87,7 @@ def test_nearby_on_new_sensitivity_stores_importance():
 # ---------------------------------------------------------------------------
 # _perturbation_weights
 # ---------------------------------------------------------------------------
+
 
 def test_perturbation_weights_normalised_mean():
     """Perturbation weights should have mean == 1 to preserve overall magnitude."""
@@ -131,6 +133,7 @@ def test_perturbation_weights_all_zero_importance():
 # ---------------------------------------------------------------------------
 # on_new_best with sensitivity — axes="all"
 # ---------------------------------------------------------------------------
+
 
 def test_on_new_best_all_axes_no_sensitivity_in_box():
     """Without sensitivity, generated points should stay inside the box."""
@@ -190,14 +193,13 @@ def test_on_new_best_all_axes_sensitivity_biases_important_dims():
 
     mean_disp = displacements.mean(axis=0)
     # Important dim 0 should have much larger mean displacement than dim 1
-    assert mean_disp[0] > mean_disp[1] * 3, (
-        f"Expected dim 0 displacement >> dim 1, got {mean_disp}"
-    )
+    assert mean_disp[0] > mean_disp[1] * 3, f"Expected dim 0 displacement >> dim 1, got {mean_disp}"
 
 
 # ---------------------------------------------------------------------------
 # on_new_best with sensitivity — axes="one"
 # ---------------------------------------------------------------------------
+
 
 def test_on_new_best_one_axis_sensitivity_biases_axis_selection():
     """
@@ -233,6 +235,7 @@ def test_on_new_best_one_axis_sensitivity_biases_axis_selection():
 # on_restart
 # ---------------------------------------------------------------------------
 
+
 def test_on_restart_with_sensitivity_in_box():
     """on_restart with sensitivity should keep points in box."""
     strategy, problem = _make_strategy(dim=4)
@@ -261,6 +264,7 @@ def test_on_restart_none_center_no_crash():
 # ---------------------------------------------------------------------------
 # Sensitivity updates are idempotent
 # ---------------------------------------------------------------------------
+
 
 def test_sensitivity_update_updates_weights():
     """Updating sensitivity mid-run should immediately affect new perturbations."""
@@ -291,6 +295,7 @@ def test_sensitivity_update_updates_weights():
 # StrategySpec analyzers support in benchmark
 # ---------------------------------------------------------------------------
 
+
 def test_strategy_spec_analyzers_field():
     """StrategySpec.analyzers defaults to empty list and is used by create_strategy."""
     from panobbgo.benchmark import StrategySpec
@@ -310,9 +315,7 @@ def test_strategy_spec_analyzers_field():
 
     # Sensitivity should be registered as an extra analyzer
     analyzer_names = [a.name for a in strategy.analyzers]
-    assert "Sensitivity" in analyzer_names, (
-        f"Expected 'Sensitivity' in {analyzer_names}"
-    )
+    assert "Sensitivity" in analyzer_names, f"Expected 'Sensitivity' in {analyzer_names}"
 
 
 def test_strategy_spec_no_analyzers_default():

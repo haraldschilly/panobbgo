@@ -37,6 +37,7 @@ class ProblemSpec:
     """
     Specification for a benchmark problem including known optima and validation parameters.
     """
+
     name: str
     problem_class: type
     dims: int
@@ -49,8 +50,8 @@ class ProblemSpec:
         """Create an instance of the problem."""
         # Some problems (like Himmelblau) don't take dims parameter
         kwargs = self.problem_kwargs.copy()
-        if self.problem_class.__name__ not in ['Himmelblau']:  # Add other fixed-dim problems here
-            kwargs['dims'] = self.dims
+        if self.problem_class.__name__ not in ["Himmelblau"]:  # Add other fixed-dim problems here
+            kwargs["dims"] = self.dims
         return self.problem_class(**kwargs)
 
     def validate_result(self, result: Result) -> Dict[str, Any]:
@@ -62,20 +63,20 @@ class ProblemSpec:
         """
         if result.x is None or result.fx is None:
             return {
-                'success': False,
-                'distance': float('inf'),
-                'closest_optimum': None,
-                'param_distance': float('inf'),
-                'func_distance': float('inf'),
-                'tolerance': self.tolerance
+                "success": False,
+                "distance": float("inf"),
+                "closest_optimum": None,
+                "param_distance": float("inf"),
+                "func_distance": float("inf"),
+                "tolerance": self.tolerance,
             }
 
-        best_distance = float('inf')
+        best_distance = float("inf")
         best_optimum = None
 
         for optimum in self.known_optima:
-            opt_x = np.array(optimum['x'])
-            opt_fx = optimum['fx']
+            opt_x = np.array(optimum["x"])
+            opt_fx = optimum["fx"]
 
             # Calculate distance in parameter space
             param_distance = np.linalg.norm(result.x - opt_x)
@@ -97,12 +98,12 @@ class ProblemSpec:
         assert best_optimum is not None
 
         return {
-            'success': success,
-            'distance': best_distance,
-            'closest_optimum': best_optimum,
-            'param_distance': np.linalg.norm(result.x - np.array(best_optimum['x'])),
-            'func_distance': abs(result.fx - best_optimum['fx']),
-            'tolerance': self.tolerance
+            "success": success,
+            "distance": best_distance,
+            "closest_optimum": best_optimum,
+            "param_distance": np.linalg.norm(result.x - np.array(best_optimum["x"])),
+            "func_distance": abs(result.fx - best_optimum["fx"]),
+            "tolerance": self.tolerance,
         }
 
 
@@ -154,6 +155,7 @@ class BenchmarkRun:
     """
     Results from a single benchmark run.
     """
+
     problem_spec: ProblemSpec
     strategy_spec: StrategySpec
     run_id: int
@@ -172,7 +174,7 @@ class BenchmarkRun:
     @property
     def success(self) -> bool:
         """Whether the run successfully found the optimum."""
-        return self.validation is not None and self.validation.get('success', False)
+        return self.validation is not None and self.validation.get("success", False)
 
 
 class BenchmarkSuite:
@@ -194,8 +196,14 @@ class BenchmarkSuite:
         """Add a strategy specification to the suite."""
         self.strategy_specs.append(strategy_spec)
 
-    def run_single(self, problem_spec: ProblemSpec, strategy_spec: StrategySpec,
-                   max_evaluations: Optional[int] = None, run_id: int = 0, timeout: Optional[float] = None) -> BenchmarkRun:
+    def run_single(
+        self,
+        problem_spec: ProblemSpec,
+        strategy_spec: StrategySpec,
+        max_evaluations: Optional[int] = None,
+        run_id: int = 0,
+        timeout: Optional[float] = None,
+    ) -> BenchmarkRun:
         """
         Run a single benchmark experiment.
         """
@@ -218,6 +226,7 @@ class BenchmarkSuite:
             # Run optimization with timeout
             if timeout is not None:
                 import signal
+
                 def timeout_handler(signum, frame):
                     raise TimeoutError(f"Strategy execution timed out after {timeout} seconds")
 
@@ -234,9 +243,9 @@ class BenchmarkSuite:
             # Extract results
             best_result = strategy.best
             all_results = []
-            if hasattr(strategy, 'results') and strategy.results is not None:
+            if hasattr(strategy, "results") and strategy.results is not None:
                 # Get all results from the results database
-                if hasattr(strategy.results, 'results') and strategy.results.results is not None:
+                if hasattr(strategy.results, "results") and strategy.results.results is not None:
                     all_results = list(strategy.results.results.itertuples(index=False))
 
             # Validate result
@@ -254,7 +263,7 @@ class BenchmarkSuite:
                 end_time=end_time,
                 best_result=best_result,
                 all_results=all_results,
-                validation=validation
+                validation=validation,
             )
 
         except Exception as e:
@@ -265,12 +274,14 @@ class BenchmarkSuite:
                 run_id=run_id,
                 start_time=start_time,
                 end_time=end_time,
-                error=str(e)
+                error=str(e),
             )
 
         return benchmark_run
 
-    def run_all(self, repetitions: int = 1, max_evaluations: Optional[int] = None, timeout: Optional[float] = 60.0) -> List[BenchmarkRun]:
+    def run_all(
+        self, repetitions: int = 1, max_evaluations: Optional[int] = None, timeout: Optional[float] = 60.0
+    ) -> List[BenchmarkRun]:
         """
         Run all combinations of problems and strategies.
         """
@@ -307,25 +318,31 @@ class BenchmarkSuite:
         """
         Get a summary DataFrame of all benchmark runs.
         """
-        return pd.DataFrame([
-            {
-                'problem': run.problem_spec.name,
-                'strategy': run.strategy_spec.name,
-                'run_id': run.run_id,
-                'duration': run.duration,
-                'success': run.success,
-                'error': run.error,
-                'best_fx': run.best_result.fx if run.best_result else None,
-                'evaluations': len(run.all_results),
-                **({
-                    'distance': run.validation['distance'],
-                    'param_distance': run.validation['param_distance'],
-                    'func_distance': run.validation['func_distance'],
-                    'tolerance': run.validation['tolerance'],
-                } if run.validation else {})
-            }
-            for run in self.runs
-        ])
+        return pd.DataFrame(
+            [
+                {
+                    "problem": run.problem_spec.name,
+                    "strategy": run.strategy_spec.name,
+                    "run_id": run.run_id,
+                    "duration": run.duration,
+                    "success": run.success,
+                    "error": run.error,
+                    "best_fx": run.best_result.fx if run.best_result else None,
+                    "evaluations": len(run.all_results),
+                    **(
+                        {
+                            "distance": run.validation["distance"],
+                            "param_distance": run.validation["param_distance"],
+                            "func_distance": run.validation["func_distance"],
+                            "tolerance": run.validation["tolerance"],
+                        }
+                        if run.validation
+                        else {}
+                    ),
+                }
+                for run in self.runs
+            ]
+        )
 
     def print_summary(self):
         """
@@ -337,36 +354,33 @@ class BenchmarkSuite:
 
         df = self.get_summary_dataframe()
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"BENCHMARK SUMMARY: {self.name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Total runs: {len(self.runs)}")
         print(f"Successful runs: {df['success'].sum()}")
         print(".1f")
         print(f"Failed runs: {df['error'].notna().sum()}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Group by problem and strategy
-        agg_dict = {
-            'success': ['count', 'mean'],
-            'duration': ['mean', 'std']
-        }
+        agg_dict = {"success": ["count", "mean"], "duration": ["mean", "std"]}
 
         # Only include columns that exist
-        if 'best_fx' in df.columns:
-            agg_dict['best_fx'] = ['mean', 'std']
-        if 'distance' in df.columns:
-            agg_dict['distance'] = ['mean', 'std']
+        if "best_fx" in df.columns:
+            agg_dict["best_fx"] = ["mean", "std"]
+        if "distance" in df.columns:
+            agg_dict["distance"] = ["mean", "std"]
 
-        grouped = df.groupby(['problem', 'strategy']).agg(agg_dict).round(4)
+        grouped = df.groupby(["problem", "strategy"]).agg(agg_dict).round(4)
 
         print("\nResults by Problem and Strategy:")
         print(grouped.to_string())
 
         # Overall statistics
-        if not df.empty and 'success' in df.columns and bool(df['success'].any()):
+        if not df.empty and "success" in df.columns and bool(df["success"].any()):
             print("\nOverall Statistics (Successful Runs):")
-            successful = df[df['success']]
+            successful = df[df["success"]]
             print(f"Mean duration: {successful['duration'].mean():.2f}s")
             print(f"Mean function value: {successful['best_fx'].mean():.6f}")
             print(f"Mean distance to optimum: {successful['distance'].mean():.6f}")
@@ -377,99 +391,112 @@ def create_standard_problems() -> List[ProblemSpec]:
     """
     Create a set of standard benchmark problems with known optima.
     """
-    from panobbgo.lib.classic import (
-        Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang,
-        Schwefel, Himmelblau
-    )
+    from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley, Griewank, StyblinskiTang, Schwefel, Himmelblau
 
     problems = []
 
     # Rosenbrock function - minimum at (1, 1, ..., 1) with f(x) = 0
-    problems.append(ProblemSpec(
-        name="Rosenbrock_2D",
-        problem_class=Rosenbrock,
-        dims=2,
-        known_optima=[{'x': [1.0, 1.0], 'fx': 0.0}],
-        tolerance=1.0,  # Very lenient tolerance - Rosenbrock is challenging
-        max_evaluations=100  # Reduced for faster benchmarking
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Rosenbrock_2D",
+            problem_class=Rosenbrock,
+            dims=2,
+            known_optima=[{"x": [1.0, 1.0], "fx": 0.0}],
+            tolerance=1.0,  # Very lenient tolerance - Rosenbrock is challenging
+            max_evaluations=100,  # Reduced for faster benchmarking
+        )
+    )
 
-    problems.append(ProblemSpec(
-        name="Rosenbrock_5D",
-        problem_class=Rosenbrock,
-        dims=5,
-        known_optima=[{'x': [1.0] * 5, 'fx': 0.0}],
-        tolerance=1e-1,  # Relaxed tolerance for higher dimensions
-        max_evaluations=300  # More evaluations for harder problem
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Rosenbrock_5D",
+            problem_class=Rosenbrock,
+            dims=5,
+            known_optima=[{"x": [1.0] * 5, "fx": 0.0}],
+            tolerance=1e-1,  # Relaxed tolerance for higher dimensions
+            max_evaluations=300,  # More evaluations for harder problem
+        )
+    )
 
     # Rastrigin function - minimum at (0, 0, ..., 0) with f(x) = 0
-    problems.append(ProblemSpec(
-        name="Rastrigin_2D",
-        problem_class=Rastrigin,
-        dims=2,
-        known_optima=[{'x': [0.0, 0.0], 'fx': 0.0}],
-        tolerance=1e-3,  # Relaxed tolerance for multimodal function
-        max_evaluations=150  # Reasonable budget for multimodal optimization
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Rastrigin_2D",
+            problem_class=Rastrigin,
+            dims=2,
+            known_optima=[{"x": [0.0, 0.0], "fx": 0.0}],
+            tolerance=1e-3,  # Relaxed tolerance for multimodal function
+            max_evaluations=150,  # Reasonable budget for multimodal optimization
+        )
+    )
 
     # Ackley function - minimum at (0, 0, ..., 0) with f(x) = 0
-    problems.append(ProblemSpec(
-        name="Ackley_2D",
-        problem_class=Ackley,
-        dims=2,
-        known_optima=[{'x': [0.0, 0.0], 'fx': 0.0}],
-        tolerance=1e-2,  # Relaxed tolerance
-        max_evaluations=100
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Ackley_2D",
+            problem_class=Ackley,
+            dims=2,
+            known_optima=[{"x": [0.0, 0.0], "fx": 0.0}],
+            tolerance=1e-2,  # Relaxed tolerance
+            max_evaluations=100,
+        )
+    )
 
     # Griewank function - minimum at (0, 0, ..., 0) with f(x) = 0
-    problems.append(ProblemSpec(
-        name="Griewank_2D",
-        problem_class=Griewank,
-        dims=2,
-        known_optima=[{'x': [0.0, 0.0], 'fx': 0.0}],
-        tolerance=1e-3,  # Relaxed tolerance
-        max_evaluations=100
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Griewank_2D",
+            problem_class=Griewank,
+            dims=2,
+            known_optima=[{"x": [0.0, 0.0], "fx": 0.0}],
+            tolerance=1e-3,  # Relaxed tolerance
+            max_evaluations=100,
+        )
+    )
 
     # Himmelblau function - multiple minima, we'll use the global one
-    problems.append(ProblemSpec(
-        name="Himmelblau",
-        problem_class=Himmelblau,
-        dims=2,
-        known_optima=[
-            {'x': [3.0, 2.0], 'fx': 0.0},  # One of the global minima
-            {'x': [-2.805118, 3.131312], 'fx': 0.0},
-            {'x': [-3.779310, -3.283186], 'fx': 0.0},
-            {'x': [3.584428, -1.848126], 'fx': 0.0}
-        ],
-        tolerance=1e-3,  # Relaxed tolerance for multimodal function
-        max_evaluations=100
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Himmelblau",
+            problem_class=Himmelblau,
+            dims=2,
+            known_optima=[
+                {"x": [3.0, 2.0], "fx": 0.0},  # One of the global minima
+                {"x": [-2.805118, 3.131312], "fx": 0.0},
+                {"x": [-3.779310, -3.283186], "fx": 0.0},
+                {"x": [3.584428, -1.848126], "fx": 0.0},
+            ],
+            tolerance=1e-3,  # Relaxed tolerance for multimodal function
+            max_evaluations=100,
+        )
+    )
 
     # Styblinski-Tang function - minimum at approximately (-2.903534, -2.903534, ...)
     styblinski_min_x = -2.903534
     styblinski_min_fx = -39.16617 * 2  # For 2D
-    problems.append(ProblemSpec(
-        name="StyblinskiTang_2D",
-        problem_class=StyblinskiTang,
-        dims=2,
-        known_optima=[{'x': [styblinski_min_x, styblinski_min_x], 'fx': styblinski_min_fx}],
-        tolerance=1e-1,  # Very relaxed tolerance for this function
-        max_evaluations=200
-    ))
+    problems.append(
+        ProblemSpec(
+            name="StyblinskiTang_2D",
+            problem_class=StyblinskiTang,
+            dims=2,
+            known_optima=[{"x": [styblinski_min_x, styblinski_min_x], "fx": styblinski_min_fx}],
+            tolerance=1e-1,  # Very relaxed tolerance for this function
+            max_evaluations=200,
+        )
+    )
 
     # Schwefel function - minimum at approximately (420.9687, 420.9687, ...)
     schwefel_min_x = 420.9687
-    problems.append(ProblemSpec(
-        name="Schwefel_2D",
-        problem_class=Schwefel,
-        dims=2,
-        known_optima=[{'x': [schwefel_min_x, schwefel_min_x], 'fx': 0.0}],
-        tolerance=1e-2,  # Relaxed tolerance
-        max_evaluations=250
-    ))
+    problems.append(
+        ProblemSpec(
+            name="Schwefel_2D",
+            problem_class=Schwefel,
+            dims=2,
+            known_optima=[{"x": [schwefel_min_x, schwefel_min_x], "fx": 0.0}],
+            tolerance=1e-2,  # Relaxed tolerance
+            max_evaluations=250,
+        )
+    )
 
     return problems
 
@@ -479,69 +506,76 @@ def create_standard_strategies() -> List[StrategySpec]:
     Create a set of standard strategy configurations for benchmarking.
     """
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin, StrategyUCB
-    from panobbgo.heuristics import (
-        Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead,
-        Center
-    )
+    from panobbgo.heuristics import Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead, Center
 
     strategies = []
 
     # Strategy with diverse heuristics
-    strategies.append(StrategySpec(
-        name="Rewarding_Diverse",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (Random, {}),
-            (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 3}),
-            (Center, {}),
-            (NelderMead, {}),
-        ]
-    ))
+    strategies.append(
+        StrategySpec(
+            name="Rewarding_Diverse",
+            strategy_class=StrategyRewarding,
+            heuristics=[
+                (Random, {}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (Center, {}),
+                (NelderMead, {}),
+            ],
+        )
+    )
 
     # Strategy focused on local search
-    strategies.append(StrategySpec(
-        name="Rewarding_Local",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (Nearby, {'radius': 0.01, 'axes': 'all', 'new': 5}),
-            (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 3}),
-            (NelderMead, {}),
-            (Center, {}),
-        ]
-    ))
+    strategies.append(
+        StrategySpec(
+            name="Rewarding_Local",
+            strategy_class=StrategyRewarding,
+            heuristics=[
+                (Nearby, {"radius": 0.01, "axes": "all", "new": 5}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (NelderMead, {}),
+                (Center, {}),
+            ],
+        )
+    )
 
     # Strategy with global search focus
-    strategies.append(StrategySpec(
-        name="Rewarding_Global",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (Random, {}),
-            (LatinHypercube, {'div': 5}),
-            (Extremal, {}),
-            (Zero, {}),
-        ]
-    ))
+    strategies.append(
+        StrategySpec(
+            name="Rewarding_Global",
+            strategy_class=StrategyRewarding,
+            heuristics=[
+                (Random, {}),
+                (LatinHypercube, {"div": 5}),
+                (Extremal, {}),
+                (Zero, {}),
+            ],
+        )
+    )
 
     # Round-robin strategy
-    strategies.append(StrategySpec(
-        name="RoundRobin_Basic",
-        strategy_class=StrategyRoundRobin,
-        heuristics=[
-            (Random, {}),
-            (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 3}),
-            (NelderMead, {}),
-        ]
-    ))
+    strategies.append(
+        StrategySpec(
+            name="RoundRobin_Basic",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[
+                (Random, {}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (NelderMead, {}),
+            ],
+        )
+    )
 
     # UCB strategy
-    strategies.append(StrategySpec(
-        name="UCB_Basic",
-        strategy_class=StrategyUCB,
-        heuristics=[
-            (Random, {}),
-            (Nearby, {'radius': 0.1, 'axes': 'all', 'new': 3}),
-            (NelderMead, {}),
-        ]
-    ))
+    strategies.append(
+        StrategySpec(
+            name="UCB_Basic",
+            strategy_class=StrategyUCB,
+            heuristics=[
+                (Random, {}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (NelderMead, {}),
+            ],
+        )
+    )
 
     return strategies

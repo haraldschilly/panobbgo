@@ -5,10 +5,11 @@ from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
     DynamicPenaltyConstraintHandler,
-    AugmentedLagrangianConstraintHandler
+    AugmentedLagrangianConstraintHandler,
 )
 
 # --- Mocks and Helpers ---
+
 
 class MockConfig:
     def __init__(self, **kwargs):
@@ -18,7 +19,9 @@ class MockConfig:
 
     def get_logger(self, name):
         import logging
+
         return logging.getLogger(name)
+
 
 class MockStrategy:
     def __init__(self, problem, config=None):
@@ -39,7 +42,9 @@ class MockStrategy:
                 current_best = r
         self.best = current_best
 
+
 # --- Test Problem ---
+
 
 class ConstrainedSphere(Problem):
     """
@@ -53,6 +58,7 @@ class ConstrainedSphere(Problem):
     Global min should be at (0.5, 0.5), fx = 0.5.
     (0,0) is infeasible (g(0,0) = 1 > 0).
     """
+
     def __init__(self):
         # Problem expects a list of tuples for box, not (dim, BoundingBox)
         # It initializes BoundingBox internally
@@ -67,7 +73,9 @@ class ConstrainedSphere(Problem):
         # Return positive value for violation
         return np.array([max(0.0, val)])
 
+
 # --- Tests ---
+
 
 def test_default_constraint_handler():
     # Lexicographic: Feasible < Infeasible
@@ -129,11 +137,12 @@ def test_penalty_constraint_handler():
     # r3: fx=0.1, cv=0.5 -> P = 0.1 + 10*0.5 = 5.1
     r3 = Result(Point(np.array([0.1, 0.1]), "test"), 0.1, cv_vec=np.array([0.5]))
 
-    assert handler.is_better(r1, r2) == True # 0.5 < 10
-    assert handler.is_better(r1, r3) == True # 5.1 < 10
-    assert handler.is_better(r3, r2) == True # 0.5 < 5.1
+    assert handler.is_better(r1, r2) == True  # 0.5 < 10
+    assert handler.is_better(r1, r3) == True  # 5.1 < 10
+    assert handler.is_better(r3, r2) == True  # 0.5 < 5.1
 
     assert handler.calculate_improvement(r1, r3) == pytest.approx(4.9)
+
 
 def test_augmented_lagrangian_handler_updates():
     problem = ConstrainedSphere()
@@ -146,8 +155,8 @@ def test_augmented_lagrangian_handler_updates():
     assert handler.lambdas is None
 
     # 1. Add some results
-    r1 = Result(Point(np.array([0.0, 0.0]), "test"), 0.0, cv_vec=np.array([1.0])) # Infeasible
-    strategy.best = r1 # Assume this is best so far (only point)
+    r1 = Result(Point(np.array([0.0, 0.0]), "test"), 0.0, cv_vec=np.array([1.0]))  # Infeasible
+    strategy.best = r1  # Assume this is best so far (only point)
     strategy.results.append(r1)
 
     handler.on_new_results([r1])
@@ -211,13 +220,13 @@ def test_augmented_lagrangian_improvement():
     # term = max(0, 1 + 1*1) = 2
     # penalty = 0.5 * (4 - 1) = 1.5
     # L = 1.5
-    r1 = Result(Point(np.array([0,0]), "t"), 0.0, cv_vec=np.array([1.0]))
+    r1 = Result(Point(np.array([0, 0]), "t"), 0.0, cv_vec=np.array([1.0]))
 
     # Point 2: f=0.5, g=0
     # term = max(0, 1 + 1*0) = 1
     # penalty = 0.5 * (1 - 1) = 0
     # L = 0.5
-    r2 = Result(Point(np.array([0.5,0.5]), "t"), 0.5, cv_vec=np.array([0.0]))
+    r2 = Result(Point(np.array([0.5, 0.5]), "t"), 0.5, cv_vec=np.array([0.0]))
 
-    assert handler.is_better(r1, r2) == True # 0.5 < 1.5
+    assert handler.is_better(r1, r2) == True  # 0.5 < 1.5
     assert handler.calculate_improvement(r1, r2) == pytest.approx(1.0)

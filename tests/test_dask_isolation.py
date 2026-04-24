@@ -3,9 +3,11 @@ from panobbgo.lib.classic import Rosenbrock
 from panobbgo.core import StrategyBase
 from dask.distributed import Client
 
+
 class DummyStrategy(StrategyBase):
     def execute(self):
         return []
+
 
 def get_dask_worker_processes():
     """Returns a list of all currently running dask worker processes."""
@@ -16,11 +18,12 @@ def get_dask_worker_processes():
         try:
             cmdline = p.cmdline()
             # Dask workers usually have 'dask' or 'worker' in their command line
-            if any('worker' in arg for arg in cmdline) or any('dask' in arg for arg in cmdline):
+            if any("worker" in arg for arg in cmdline) or any("dask" in arg for arg in cmdline):
                 dask_workers.append(p)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
     return dask_workers
+
 
 def test_dask_cluster_isolation_and_cleanup(dask_cluster):
     """
@@ -41,7 +44,7 @@ def test_dask_cluster_isolation_and_cleanup(dask_cluster):
     strategy._client = Client(strategy._cluster)
 
     # Assert that dask workers are actually running
-    workers_running = len(strategy._client.scheduler_info()['workers'])
+    workers_running = len(strategy._client.scheduler_info()["workers"])
     assert workers_running > 0, "Dask workers should be running"
 
     # We scatter something to ensure work has happened

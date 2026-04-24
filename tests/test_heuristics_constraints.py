@@ -20,8 +20,8 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
-class HeuristicConstraintsTests(PanobbgoTestCase):
 
+class HeuristicConstraintsTests(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         # Ensure strategy has a constraint handler
@@ -95,8 +95,9 @@ class HeuristicConstraintsTests(PanobbgoTestCase):
         # With current implementation (sort by fx), it will pick r1 (fx=0.0).
         # With fix, it should pick r2.
 
-        assert best_res.x[0] == 1.0 and best_res.x[1] == 1.0, \
+        assert best_res.x[0] == 1.0 and best_res.x[1] == 1.0, (
             f"Expected best result to be r2 (feasible), but got {best_res.x} with fx={best_res.fx}, cv={best_res.cv}"
+        )
 
     def test_weighted_average_constraints(self):
         from panobbgo.heuristics.weighted_average import WeightedAverage
@@ -125,8 +126,8 @@ class HeuristicConstraintsTests(PanobbgoTestCase):
         box = MockBox([r1, r2, r3])
 
         # Mock Splitter behavior
-        self.strategy._analyzers = {'Splitter': None} # Just to ensure we can access it
-        self.strategy.analyzer = lambda name: type('MockSplitter', (), {'get_leaf': lambda self, x: box})()
+        self.strategy._analyzers = {"Splitter": None}  # Just to ensure we can access it
+        self.strategy.analyzer = lambda name: type("MockSplitter", (), {"get_leaf": lambda self, x: box})()
 
         # If we trigger on_new_best with r2 (feasible)
         # wa calculates weights based on (result.fx - best.fx)

@@ -12,14 +12,24 @@ from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.strategies.contextual import StrategyLinUCB
 from panobbgo.heuristics import (
-    Random, Nearby, Zero, LatinHypercube, Extremal, NelderMead, LBFGSB,
-    QuadraticWlsModel, Center, WeightedAverage, GaussianProcessHeuristic
+    Random,
+    Nearby,
+    Zero,
+    LatinHypercube,
+    Extremal,
+    NelderMead,
+    LBFGSB,
+    QuadraticWlsModel,
+    Center,
+    WeightedAverage,
+    GaussianProcessHeuristic,
 )
 
 
 @dataclass
 class BenchmarkStrategy:
     """Represents a strategy configuration for benchmarking."""
+
     name: str
     strategy_class: type
     heuristics: List[Any]
@@ -57,138 +67,130 @@ BENCHMARK_STRATEGIES = [
         strategy_class=StrategyRoundRobin,
         heuristics=[Random],
         config_overrides={},
-        description="Round-robin with single Random heuristic (baseline)"
+        description="Round-robin with single Random heuristic (baseline)",
     ),
-
     # Single heuristic variants
     BenchmarkStrategy(
         name="round_robin_nearby",
         strategy_class=StrategyRoundRobin,
         heuristics=[Nearby],
         config_overrides={},
-        description="Round-robin with single Nearby heuristic"
+        description="Round-robin with single Nearby heuristic",
     ),
-
     BenchmarkStrategy(
         name="round_robin_latin",
         strategy_class=StrategyRoundRobin,
-        heuristics=[(LatinHypercube, {'div': 10})],
+        heuristics=[(LatinHypercube, {"div": 10})],
         config_overrides={},
-        description="Round-robin with single LatinHypercube heuristic"
+        description="Round-robin with single LatinHypercube heuristic",
     ),
-
     BenchmarkStrategy(
         name="round_robin_nelder",
         strategy_class=StrategyRoundRobin,
         heuristics=[NelderMead],
         config_overrides={},
-        description="Round-robin with single NelderMead heuristic"
+        description="Round-robin with single NelderMead heuristic",
     ),
-
     # Multi-heuristic round-robin
     BenchmarkStrategy(
         name="round_robin_multi",
         strategy_class=StrategyRoundRobin,
         heuristics=[Random, Nearby, Extremal, Center],
         config_overrides={},
-        description="Round-robin with multiple basic heuristics"
+        description="Round-robin with multiple basic heuristics",
     ),
-
     # Bandit strategies with different configurations
     BenchmarkStrategy(
         name="bandit_basic",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, Extremal, Center],
         config_overrides={},
-        description="Basic bandit with 4 heuristics (default parameters)"
+        description="Basic bandit with 4 heuristics (default parameters)",
     ),
-
     BenchmarkStrategy(
         name="bandit_expensive",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, Extremal, NelderMead, LBFGSB],
         config_overrides={},
-        description="Bandit with expensive heuristics (NelderMead, LBFGSB)"
+        description="Bandit with expensive heuristics (NelderMead, LBFGSB)",
     ),
-
     BenchmarkStrategy(
         name="bandit_model_based",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, QuadraticWlsModel, GaussianProcessHeuristic],
         config_overrides={},
-        description="Bandit with model-based heuristics"
+        description="Bandit with model-based heuristics",
     ),
-
     # Bandit with different discount factors
     BenchmarkStrategy(
         name="bandit_high_discount",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, Extremal, Center],
-        config_overrides={'discount': 0.99},
-        description="Bandit with high discount factor (slower forgetting)"
+        config_overrides={"discount": 0.99},
+        description="Bandit with high discount factor (slower forgetting)",
     ),
-
     BenchmarkStrategy(
         name="bandit_low_discount",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, Extremal, Center],
-        config_overrides={'discount': 0.8},
-        description="Bandit with low discount factor (faster forgetting)"
+        config_overrides={"discount": 0.8},
+        description="Bandit with low discount factor (faster forgetting)",
     ),
-
     # Large heuristic pools
     BenchmarkStrategy(
         name="bandit_large_pool",
         strategy_class=StrategyRewarding,
         heuristics=[
-            Random, Nearby, Zero, (LatinHypercube, {'div': 10}), Extremal,
-            Center, WeightedAverage, NelderMead, QuadraticWlsModel
+            Random,
+            Nearby,
+            Zero,
+            (LatinHypercube, {"div": 10}),
+            Extremal,
+            Center,
+            WeightedAverage,
+            NelderMead,
+            QuadraticWlsModel,
         ],
         config_overrides={},
-        description="Bandit with large pool of 9 diverse heuristics"
+        description="Bandit with large pool of 9 diverse heuristics",
     ),
-
     # Specialized configurations
     BenchmarkStrategy(
         name="bandit_unimodal",
         strategy_class=StrategyRewarding,
         heuristics=[Random, Nearby, NelderMead, LBFGSB, QuadraticWlsModel],
         config_overrides={},
-        description="Bandit optimized for unimodal problems"
+        description="Bandit optimized for unimodal problems",
     ),
-
     BenchmarkStrategy(
         name="bandit_multimodal",
         strategy_class=StrategyRewarding,
-        heuristics=[Random, Extremal, (LatinHypercube, {'div': 10}), WeightedAverage],
+        heuristics=[Random, Extremal, (LatinHypercube, {"div": 10}), WeightedAverage],
         config_overrides={},
-        description="Bandit optimized for multimodal problems"
+        description="Bandit optimized for multimodal problems",
     ),
-
     # New bandit strategies
     BenchmarkStrategy(
         name="bandit_ucb",
         strategy_class=StrategyUCB,
         heuristics=[Random, Nearby, Extremal, Center],
         config_overrides={},
-        description="UCB1 bandit strategy"
+        description="UCB1 bandit strategy",
     ),
-
     BenchmarkStrategy(
         name="bandit_thompson",
         strategy_class=StrategyThompsonSampling,
         heuristics=[Random, Nearby, Extremal, Center],
         config_overrides={},
-        description="Thompson Sampling bandit strategy"
+        description="Thompson Sampling bandit strategy",
     ),
-
     BenchmarkStrategy(
         name="bandit_linucb",
         strategy_class=StrategyLinUCB,
         heuristics=[Random, Nearby, Extremal, Center],
         config_overrides={},
-        description="LinUCB contextual bandit strategy"
-    )
+        description="LinUCB contextual bandit strategy",
+    ),
 ]
 
 
@@ -211,5 +213,5 @@ def create_strategy_comparison_matrix() -> Dict[str, List[str]]:
         "medium_problems": ["round_robin_multi", "bandit_basic", "bandit_expensive"],
         "hard_problems": ["bandit_large_pool", "bandit_model_based", "bandit_unimodal", "bandit_multimodal"],
         "high_dimensional": ["round_robin_random", "bandit_basic", "bandit_high_discount"],
-        "shifted_problems": ["round_robin_nearby", "bandit_basic", "bandit_low_discount"]
+        "shifted_problems": ["round_robin_nearby", "bandit_basic", "bandit_low_discount"],
     }

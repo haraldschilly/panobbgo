@@ -17,27 +17,22 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from panobbgo.benchmark import (
-    BenchmarkSuite, create_standard_problems, create_standard_strategies
-)
+from panobbgo.benchmark import BenchmarkSuite, create_standard_problems, create_standard_strategies
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run Panobbgo benchmarks")
-    parser.add_argument("--problems", nargs="+",
-                       help="Specific problems to run (default: all standard problems)")
-    parser.add_argument("--strategies", nargs="+",
-                       help="Specific strategies to run (default: all standard strategies)")
-    parser.add_argument("--repetitions", type=int, default=3,
-                       help="Number of repetitions per problem-strategy combination")
-    parser.add_argument("--max-evaluations", type=int,
-                       help="Maximum evaluations per run (overrides problem defaults)")
-    parser.add_argument("--output-dir", type=str, default="benchmark_results",
-                       help="Directory to save results")
-    parser.add_argument("--output-format", choices=["csv", "json", "both"], default="both",
-                       help="Output format for results")
-    parser.add_argument("--quick", action="store_true",
-                       help="Run quick benchmark with reduced evaluations")
+    parser.add_argument("--problems", nargs="+", help="Specific problems to run (default: all standard problems)")
+    parser.add_argument("--strategies", nargs="+", help="Specific strategies to run (default: all standard strategies)")
+    parser.add_argument(
+        "--repetitions", type=int, default=3, help="Number of repetitions per problem-strategy combination"
+    )
+    parser.add_argument("--max-evaluations", type=int, help="Maximum evaluations per run (overrides problem defaults)")
+    parser.add_argument("--output-dir", type=str, default="benchmark_results", help="Directory to save results")
+    parser.add_argument(
+        "--output-format", choices=["csv", "json", "both"], default="both", help="Output format for results"
+    )
+    parser.add_argument("--quick", action="store_true", help="Run quick benchmark with reduced evaluations")
 
     args = parser.parse_args()
 
@@ -120,30 +115,32 @@ def main():
         results_data = []
         for run in runs:
             run_data = {
-                'problem': run.problem_spec.name,
-                'strategy': run.strategy_spec.name,
-                'run_id': run.run_id,
-                'duration': run.duration,
-                'success': run.success,
-                'error': run.error,
+                "problem": run.problem_spec.name,
+                "strategy": run.strategy_spec.name,
+                "run_id": run.run_id,
+                "duration": run.duration,
+                "success": run.success,
+                "error": run.error,
             }
 
             if run.best_result:
-                run_data.update({
-                    'best_fx': run.best_result.fx,
-                    'best_x': list(run.best_result.x) if run.best_result.x is not None else None,
-                })
+                run_data.update(
+                    {
+                        "best_fx": run.best_result.fx,
+                        "best_x": list(run.best_result.x) if run.best_result.x is not None else None,
+                    }
+                )
 
             if run.validation:
-                run_data['validation'] = run.validation
+                run_data["validation"] = run.validation
 
             results_data.append(run_data)
 
         # Convert numpy types to Python types for JSON serialization
         def convert_numpy_types(obj):
-            if hasattr(obj, 'item'):  # numpy scalar
+            if hasattr(obj, "item"):  # numpy scalar
                 return obj.item()
-            elif hasattr(obj, 'tolist'):  # numpy array
+            elif hasattr(obj, "tolist"):  # numpy array
                 return obj.tolist()
             elif isinstance(obj, dict):
                 return {k: convert_numpy_types(v) for k, v in obj.items()}
@@ -154,7 +151,7 @@ def main():
 
         serializable_data = [convert_numpy_types(run_data) for run_data in results_data]
 
-        with open(json_path, 'w') as f:
+        with open(json_path, "w") as f:
             json.dump(serializable_data, f, indent=2)
 
         print(f"💾 Detailed results saved to: {json_path}")

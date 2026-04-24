@@ -72,6 +72,7 @@ def test_pressure_vessel_design_alm():
     if best.cv < 1.0:
         assert best.fx < 100000.0, f"Solution not optimal enough: fx={best.fx} (target ~6060)"
 
+
 def test_pressure_vessel_design_dynamic_penalty():
     """
     Test the Pressure Vessel Design problem using Dynamic Penalty.
@@ -99,6 +100,7 @@ def test_pressure_vessel_design_dynamic_penalty():
     assert best.cv < 5.0
     if best.cv < 1.0:
         assert best.fx < 100000.0
+
 
 if __name__ == "__main__":
     test_pressure_vessel_design_alm()

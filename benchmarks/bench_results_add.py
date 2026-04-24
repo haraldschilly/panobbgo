@@ -1,10 +1,10 @@
-
 import time
 import numpy as np
 import pandas as pd
 from panobbgo.core import Results, StrategyBase
 from panobbgo.lib import Result, Point, Problem
 from panobbgo.config import Config
+
 
 class MockStrategy:
     def __init__(self):
@@ -14,17 +14,21 @@ class MockStrategy:
         self.panobbgo_logger = MockLogger()
         self.results = None
 
+
 class MockEventBus:
     def publish(self, key, **kwargs):
         pass
+
 
 class MockLogger:
     def __init__(self):
         self.progress_reporter = MockProgressReporter()
 
+
 class MockProgressReporter:
     def report_evaluation(self, result, context):
         pass
+
 
 def run_benchmark():
     strategy = MockStrategy()
@@ -51,7 +55,7 @@ def run_benchmark():
         # descending fx to trigger updates? Or random?
         # If result.fx < current_best_fx, it does extra work (logging context)
         # But the cost is mainly in finding current_best_fx
-        fx = -float(i) # improving
+        fx = -float(i)  # improving
         r = Result(Point(np.array([float(i)]), "new"), fx, cv_vec=np.array([0.0]))
         new_results.append(r)
 
@@ -67,6 +71,7 @@ def run_benchmark():
     end_time = time.time()
 
     print(f"Time to add {n_new} results with {n_existing} existing results: {end_time - start_time:.4f} seconds")
+
 
 if __name__ == "__main__":
     run_benchmark()

@@ -6,6 +6,7 @@ from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.lib import Problem, Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
+
 class TestConstraintGradientEstimation(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
@@ -27,7 +28,7 @@ class TestConstraintGradientEstimation(PanobbgoTestCase):
 
         # Current best point at origin (simplifies centered coordinates)
         best_x = np.array([0.0, 0.0])
-        best_val = np.dot(true_gradient, best_x) + intercept # = 5.0
+        best_val = np.dot(true_gradient, best_x) + intercept  # = 5.0
 
         # Generate some random points around best
         np.random.seed(42)
@@ -38,7 +39,7 @@ class TestConstraintGradientEstimation(PanobbgoTestCase):
         y_vals = np.dot(X, true_gradient) + intercept
 
         # Center points relative to best_x
-        X_centered = X - best_x # X itself since best_x is 0
+        X_centered = X - best_x  # X itself since best_x is 0
 
         # Estimate gradient
         estimated_gradient = self.heuristic._estimate_gradient(X_centered, y_vals, best_val)
@@ -58,7 +59,7 @@ class TestConstraintGradientEstimation(PanobbgoTestCase):
         true_gradient_at_zero = np.array([2.0, -3.0])
 
         best_x = np.array([0.0, 0.0])
-        best_val = 0.0 # f(0) = 0
+        best_val = 0.0  # f(0) = 0
 
         # Generate points very close to 0 to approximate linearity
         n_points = 10
@@ -92,7 +93,7 @@ class TestConstraintGradientEstimation(PanobbgoTestCase):
         noise = np.random.randn(n_points) * 0.1
         y_vals = np.dot(X, true_gradient) + intercept + noise
 
-        X_centered = X # best is 0
+        X_centered = X  # best is 0
 
         estimated_gradient = self.heuristic._estimate_gradient(X_centered, y_vals, best_val)
 

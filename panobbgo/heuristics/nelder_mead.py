@@ -21,6 +21,7 @@ import numpy as np
 import time
 from functools import cmp_to_key
 
+
 class NelderMead(Heuristic):
     r"""
     This heuristic is inspired by the

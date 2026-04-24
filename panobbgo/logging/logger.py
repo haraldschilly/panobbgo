@@ -21,12 +21,12 @@ class ComponentLogger:
     Provides component-specific enable/disable and level control.
     """
 
-    def __init__(self, name: str, parent_logger: 'PanobbgoLogger'):
+    def __init__(self, name: str, parent_logger: "PanobbgoLogger"):
         self.name = name
         self.parent = parent_logger
         self._enabled = False
         self._level = logging.WARNING
-        self._logger = logging.getLogger(f'panobbgo.{name}')
+        self._logger = logging.getLogger(f"panobbgo.{name}")
 
     @property
     def enabled(self) -> bool:
@@ -102,15 +102,13 @@ class PanobbgoLogger:
     def _setup_default_logging(self):
         """Set up basic Python logging configuration."""
         # Remove any existing handlers
-        root_logger = logging.getLogger('panobbgo')
+        root_logger = logging.getLogger("panobbgo")
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
 
         # Add console handler
         handler = logging.StreamHandler(sys.stderr)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         root_logger.addHandler(handler)
         root_logger.setLevel(logging.WARNING)  # Default to quiet
@@ -119,28 +117,28 @@ class PanobbgoLogger:
         """Load logging configuration."""
         # Default configuration
         defaults = {
-            'default_level': 'WARNING',
-            'enabled_components': [],
-            'progress_enabled': True,
-            'progress_symbols': True,
-            'status_line_enabled': True,
-            'status_update_frequency': 5,
-            'always_show_errors': True,
-            'always_show_warnings': True,
+            "default_level": "WARNING",
+            "enabled_components": [],
+            "progress_enabled": True,
+            "progress_symbols": True,
+            "status_line_enabled": True,
+            "status_update_frequency": 5,
+            "always_show_errors": True,
+            "always_show_warnings": True,
         }
 
         # Merge with provided config
         self.config = {**defaults, **self.config}
 
         # Apply configuration
-        self.progress_reporter.enabled = self.config['progress_enabled']
-        self.progress_reporter.use_symbols = self.config['progress_symbols']
-        self.progress_reporter.status_enabled = self.config['status_line_enabled']
-        self.progress_reporter.update_frequency = self.config['status_update_frequency']
+        self.progress_reporter.enabled = self.config["progress_enabled"]
+        self.progress_reporter.use_symbols = self.config["progress_symbols"]
+        self.progress_reporter.status_enabled = self.config["status_line_enabled"]
+        self.progress_reporter.update_frequency = self.config["status_update_frequency"]
 
         # Enable specified components
-        for component in self.config['enabled_components']:
-            level = self.config.get(f'{component}_level', 'INFO')
+        for component in self.config["enabled_components"]:
+            level = self.config.get(f"{component}_level", "INFO")
             self.enable_component(component, level)
 
     def get_logger(self, component_name: str) -> ComponentLogger:
@@ -154,12 +152,10 @@ class PanobbgoLogger:
             ComponentLogger instance
         """
         if component_name not in self.component_loggers:
-            self.component_loggers[component_name] = ComponentLogger(
-                component_name, self
-            )
+            self.component_loggers[component_name] = ComponentLogger(component_name, self)
         return self.component_loggers[component_name]
 
-    def enable_component(self, component: str, level: str = 'INFO'):
+    def enable_component(self, component: str, level: str = "INFO"):
         """
         Enable logging for a specific component.
 
@@ -214,10 +210,10 @@ class PanobbgoLogger:
             components: List of component names to enable. If None, enables common ones.
         """
         if components is None:
-            components = ['strategy', 'results', 'splitter']
+            components = ["strategy", "results", "splitter"]
 
         for component in components:
-            self.enable_component(component, 'INFO')
+            self.enable_component(component, "INFO")
 
         self.enable_progress_reporting()
         self.enable_status_line()

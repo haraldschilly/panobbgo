@@ -31,7 +31,6 @@ from typing import Sequence, Tuple, Optional, Any
 
 
 class Rosenbrock(Problem):
-
     r"""
     Rosenbrock function with parameter ``par1`` and configurable optimum location.
 
@@ -75,7 +74,14 @@ class Rosenbrock(Problem):
     >>> problem = Rosenbrock(optimum=[24, -12], box=[(-100, 100), (-100, 100)])
     """
 
-    def __init__(self, dims: Optional[int] = None, par1: float = 100, optimum: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+    def __init__(
+        self,
+        dims: Optional[int] = None,
+        par1: float = 100,
+        optimum: Any = None,
+        box: Optional[Sequence[Tuple[float, float]]] = None,
+        **kwargs: Any,
+    ):
         # Handle optimum parameter
         if optimum is None:
             optimum = 1.0  # Standard Rosenbrock optimum
@@ -83,8 +89,8 @@ class Rosenbrock(Problem):
         optimum = np.atleast_1d(np.asarray(optimum, dtype=np.float64))
 
         # Handle 'dim' alias in kwargs
-        if dims is None and 'dim' in kwargs:
-            dims = kwargs.pop('dim')
+        if dims is None and "dim" in kwargs:
+            dims = kwargs.pop("dim")
 
         # Infer or validate dims
         if dims is None:
@@ -116,7 +122,6 @@ class Rosenbrock(Problem):
 
 
 class RosenbrockConstraint(Problem):
-
     r"""
     Constrained Rosenbrock function with configurable optimum location.
 
@@ -152,7 +157,15 @@ class RosenbrockConstraint(Problem):
     they apply relative to the optimum location.
     """
 
-    def __init__(self, dims: Optional[int] = None, par1: float = 100, par2: float = 0.25, optimum: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+    def __init__(
+        self,
+        dims: Optional[int] = None,
+        par1: float = 100,
+        par2: float = 0.25,
+        optimum: Any = None,
+        box: Optional[Sequence[Tuple[float, float]]] = None,
+        **kwargs: Any,
+    ):
         # Handle optimum parameter
         if optimum is None:
             optimum = 1.0  # Standard Rosenbrock optimum
@@ -189,13 +202,12 @@ class RosenbrockConstraint(Problem):
 
     def eval_constraints(self, x):
         y = x - self._shift
-        cv = - (y[1:] - y[:-1]) ** 2.0 + self.par2
+        cv = -((y[1:] - y[:-1]) ** 2.0) + self.par2
         pos = -y.copy()  # note the -
         return np.concatenate([cv, pos])
 
 
 class RosenbrockAbs(Problem):
-
     r"""
     Absolute Rosenbrock function.
 
@@ -212,12 +224,10 @@ class RosenbrockAbs(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return np.sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
-                      np.abs(1 - x[:-1]))
+        return np.sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + np.abs(1 - x[:-1]))
 
 
 class RosenbrockAbsConstraint(Problem):
-
     r"""
     Absolute Rosenbrock function.
 
@@ -237,17 +247,15 @@ class RosenbrockAbsConstraint(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) +
-                   np.abs(1 - x[:-1]))
+        return sum(self.par1 * np.abs(x[1:] - np.abs(x[:-1])) + np.abs(1 - x[:-1]))
 
     def eval_constraints(self, x):
-        cv = - np.abs(x[1:] - x[:-1]) + self.par2
+        cv = -np.abs(x[1:] - x[:-1]) + self.par2
         pos = -x.copy()  # note the -
         return np.concatenate([cv, pos])
 
 
 class RosenbrockStochastic(Problem):
-
     r"""
     Stochastic variant of Rosenbrock function.
 
@@ -259,7 +267,7 @@ class RosenbrockStochastic(Problem):
     vector in :math:`\left[0, 1\right)^{n-1}`.
     """
 
-    def __init__(self, dims: int, par1: float = 100, jitter: float = .1, **kwargs: Any):
+    def __init__(self, dims: int, par1: float = 100, jitter: float = 0.1, **kwargs: Any):
         box = [(-5.0, 5.0)] * dims
         box[0] = (-1, 2)  # for cornercases + testing
         self.par1 = par1
@@ -268,13 +276,11 @@ class RosenbrockStochastic(Problem):
 
     def eval(self, x):
         eps = self.jitter * np.random.rand(self.dim - 1)
-        ret = sum(
-            self.par1 * eps * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+        ret = sum(self.par1 * eps * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
         return ret
 
 
 class Himmelblau(Problem):
-
     r"""
     Himmelblau [HB]_ testproblem.
 
@@ -288,11 +294,10 @@ class Himmelblau(Problem):
 
     def eval(self, x):
         x, y = x[0], x[1]
-        return (x ** 2 + y - 11) ** 2 + (x + y ** 2 - 7) ** 2
+        return (x**2 + y - 11) ** 2 + (x + y**2 - 7) ** 2
 
 
 class Rastrigin(Problem):
-
     r"""
     Rastrigin
 
@@ -302,7 +307,14 @@ class Rastrigin(Problem):
 
     """
 
-    def __init__(self, dims: int, par1: float = 10, offset: float = 0, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+    def __init__(
+        self,
+        dims: int,
+        par1: float = 10,
+        offset: float = 0,
+        box: Optional[Sequence[Tuple[float, float]]] = None,
+        **kwargs: Any,
+    ):
         box = box or [(-2.0, 2.0)] * dims
         self.offset = offset
         self.par1 = par1
@@ -310,12 +322,10 @@ class Rastrigin(Problem):
 
     def eval(self, x):
         x = x - self.offset
-        return self.par1 * self.dim + \
-            np.sum(x ** 2 - self.par1 * np.cos(2 * np.pi * x))
+        return self.par1 * self.dim + np.sum(x**2 - self.par1 * np.cos(2 * np.pi * x))
 
 
 class Ackley(Problem):
-
     r"""
     Ackley function.
 
@@ -346,7 +356,6 @@ class Ackley(Problem):
 
 
 class Griewank(Problem):
-
     r"""
     Griewank function.
 
@@ -376,12 +385,11 @@ class Griewank(Problem):
     def eval(self, x):
         n = self.dim
         sum_term = np.sum(x**2) / 4000
-        prod_term = np.prod(np.cos(x / np.sqrt(np.arange(1, n+1))))
+        prod_term = np.prod(np.cos(x / np.sqrt(np.arange(1, n + 1))))
         return 1 + sum_term - prod_term
 
 
 class StyblinskiTang(Problem):
-
     r"""
     Styblinski-Tang function.
 
@@ -412,7 +420,6 @@ class StyblinskiTang(Problem):
 
 
 class Schwefel(Problem):
-
     r"""
     Schwefel function.
 
@@ -445,7 +452,6 @@ class Schwefel(Problem):
 
 
 class DixonPrice(Problem):
-
     r"""
     Dixon & Price function.
 
@@ -481,12 +487,11 @@ class DixonPrice(Problem):
 
         result = (x[0] - 1.0) ** 2
         for i in range(1, self.dim):
-            result += (i + 1) * (2 * x[i]**2 - x[i-1]) ** 2
+            result += (i + 1) * (2 * x[i] ** 2 - x[i - 1]) ** 2
         return result
 
 
 class Zakharov(Problem):
-
     r"""
     Zakharov function.
 
@@ -519,7 +524,7 @@ class Zakharov(Problem):
     def eval(self, x):
         n = self.dim
         # Calculate the weighted sum: sum_{i=1}^n i * x_i
-        weighted_sum = np.sum((np.arange(1, n+1)) * x)
+        weighted_sum = np.sum((np.arange(1, n + 1)) * x)
 
         # Quadratic term
         quad_term = np.sum(x**2)
@@ -533,7 +538,6 @@ class Zakharov(Problem):
 
 
 class Salomon(Problem):
-
     r"""
     Salomon function.
 
@@ -565,7 +569,6 @@ class Salomon(Problem):
 
 
 class Sargan(Problem):
-
     r"""
     Sargan function.
 
@@ -601,7 +604,6 @@ class Sargan(Problem):
 
 
 class RosenbrockModified(Problem):
-
     r"""
     Rosenbrock Modified function.
 
@@ -632,12 +634,10 @@ class RosenbrockModified(Problem):
 
     def eval(self, x):
         x1, x2 = x[0], x[1]
-        return (74 + 100 * (x2 - x1**2)**2 + (1 - x1)**2
-                - 400 * np.exp(-((x1 + 1)**2 + (x2 + 1)**2) / 0.1))
+        return 74 + 100 * (x2 - x1**2) ** 2 + (1 - x1) ** 2 - 400 * np.exp(-((x1 + 1) ** 2 + (x2 + 1) ** 2) / 0.1)
 
 
 class RotatedEllipse(Problem):
-
     r"""
     Rotated Ellipse function.
 
@@ -668,11 +668,10 @@ class RotatedEllipse(Problem):
 
     def eval(self, x):
         x1, x2 = x[0], x[1]
-        return 7*x1**2 - 6*np.sqrt(3)*x1*x2 + 13*x2**2
+        return 7 * x1**2 - 6 * np.sqrt(3) * x1 * x2 + 13 * x2**2
 
 
 class RotatedEllipse2(Problem):
-
     r"""
     Rotated Ellipse 2 function.
 
@@ -703,11 +702,10 @@ class RotatedEllipse2(Problem):
 
     def eval(self, x):
         x1, x2 = x[0], x[1]
-        return x1**2 - x1*x2 + x2**2
+        return x1**2 - x1 * x2 + x2**2
 
 
 class Ripple1(Problem):
-
     r"""
     Ripple 1 function.
 
@@ -740,15 +738,14 @@ class Ripple1(Problem):
         result = 0.0
         for i in range(2):
             xi = x[i]
-            exp_term = np.exp(-2*np.log(2) * ((xi - 0.1)/0.8)**2)
-            sin_term = np.sin(5*np.pi*xi)**6
-            cos_term = 0.1 * np.cos(500*np.pi*xi)**2
+            exp_term = np.exp(-2 * np.log(2) * ((xi - 0.1) / 0.8) ** 2)
+            sin_term = np.sin(5 * np.pi * xi) ** 6
+            cos_term = 0.1 * np.cos(500 * np.pi * xi) ** 2
             result += -exp_term * (sin_term + cos_term)
         return result
 
 
 class Ripple25(Problem):
-
     r"""
     Ripple 25 function.
 
@@ -781,14 +778,13 @@ class Ripple25(Problem):
         result = 0.0
         for i in range(2):
             xi = x[i]
-            exp_term = np.exp(-2*np.log(2) * ((xi - 0.1)/0.8)**2)
-            sin_term = np.sin(5*np.pi*xi)**6
+            exp_term = np.exp(-2 * np.log(2) * ((xi - 0.1) / 0.8) ** 2)
+            sin_term = np.sin(5 * np.pi * xi) ** 6
             result += -exp_term * sin_term
         return result
 
 
 class Shekel(Problem):
-
     r"""
     Shekel Function [SH]_.
 
@@ -822,7 +818,15 @@ class Shekel(Problem):
     .. [SH] https://en.wikipedia.org/wiki/Shekel_function
     """
 
-    def __init__(self, dims: int, m: int = 10, a: Any = None, c: Any = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+    def __init__(
+        self,
+        dims: int,
+        m: int = 10,
+        a: Any = None,
+        c: Any = None,
+        box: Optional[Sequence[Tuple[float, float]]] = None,
+        **kwargs: Any,
+    ):
         box = box or [(-2.0, 2.0)] * dims
         Problem.__init__(self, box, **kwargs)
         self.m = m
@@ -831,13 +835,14 @@ class Shekel(Problem):
             a = np.empty((dims, m), dtype=float)
             phi = np.linspace(0, 2 * np.pi, num=dims, endpoint=False)
             for i in range(m):
-                a[:, i] = np.sin(phi * ((1. + i) / m))
+                a[:, i] = np.sin(phi * ((1.0 + i) / m))
 
         assert a.shape == (dims, m)
 
         if c is None:
             from itertools import cycle
-            cc = cycle([.1, .2, .2, .4, .4, .6, .3, .7, .5, .5])
+
+            cc = cycle([0.1, 0.2, 0.2, 0.4, 0.4, 0.6, 0.3, 0.7, 0.5, 0.5])
             c = [next(cc) for _ in range(m)]
 
         assert len(c) == m
@@ -849,11 +854,11 @@ class Shekel(Problem):
         def denom(i):
             d = x - self.a[:, i]
             return self.c[i] + d.dot(d)
-        return - np.sum([1. / denom(i) for i in range(self.m)])
+
+        return -np.sum([1.0 / denom(i) for i in range(self.m)])
 
 
 class DeJong(Problem):
-
     r"""
     De Jong function:
 
@@ -874,7 +879,6 @@ class DeJong(Problem):
 
 
 class Quadruple(Problem):
-
     r"""
     Quadruple Function [QuadF]_
 
@@ -891,11 +895,10 @@ class Quadruple(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return self.c * np.sum((x / 4.) ** 4)
+        return self.c * np.sum((x / 4.0) ** 4)
 
 
 class Powell(Problem):
-
     r"""
     Powell singular function [UncTest]_
 
@@ -911,15 +914,11 @@ class Powell(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        f = (x[0] + 10 * x[1]) ** 2 + \
-            5 * (x[2] - x[3]) ** 2 + \
-            ((x[1] - 2 * x[2]) ** 2) ** 2 +\
-            10 * (x[0] - x[3]) ** 2
+        f = (x[0] + 10 * x[1]) ** 2 + 5 * (x[2] - x[3]) ** 2 + ((x[1] - 2 * x[2]) ** 2) ** 2 + 10 * (x[0] - x[3]) ** 2
         return f
 
 
 class Trigonometric(Problem):
-
     r"""
     Trigonometric function [UncTest]_
 
@@ -943,11 +942,10 @@ class Trigonometric(Problem):
         sum_cos_x = np.sum(cos_x)
         tmp = self.indices * (1 - cos_x) - np.sin(x)
         fi = n - sum_cos_x + n * tmp
-        return np.sum(fi ** 2)
+        return np.sum(fi**2)
 
 
 class SumDifferentPower(Problem):
-
     r"""
     Sum of different power function [CompStudy]_
 
@@ -965,7 +963,6 @@ class SumDifferentPower(Problem):
 
 
 class Step(Problem):
-
     r"""
     Step function [CompStudy]_
 
@@ -983,7 +980,6 @@ class Step(Problem):
 
 
 class Box(Problem):
-
     r"""
     Box function [UncTest]_
 
@@ -1005,17 +1001,15 @@ class Box(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        ret = 0.
+        ret = 0.0
         for i in range(1, self.m + 1):
-            ti = i / 10.
-            tmp = np.exp(ti * x[0]) - np.exp(-ti * x[1]) - \
-                x[2] * (np.exp(-ti) - np.exp(-10 * ti))
-            ret += tmp ** 2
+            ti = i / 10.0
+            tmp = np.exp(ti * x[0]) - np.exp(-ti * x[1]) - x[2] * (np.exp(-ti) - np.exp(-10 * ti))
+            ret += tmp**2
         return ret
 
 
 class Wood(Problem):
-
     r"""
     Wood function [UncTest]_
 
@@ -1032,13 +1026,17 @@ class Wood(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return 10 * (x[1] - x[0] ** 2) + (1 - x[0]) ** 2 + \
-            90 * (x[3] - x[2] ** 2) + (1 - x[2]) ** 2 + \
-            10 * (x[1] + x[3] - 2) ** 2 + 10 * (x[1] - x[3])
+        return (
+            10 * (x[1] - x[0] ** 2)
+            + (1 - x[0]) ** 2
+            + 90 * (x[3] - x[2] ** 2)
+            + (1 - x[2]) ** 2
+            + 10 * (x[1] + x[3] - 2) ** 2
+            + 10 * (x[1] - x[3])
+        )
 
 
 class HelicalValley(Problem):
-
     r"""
     Helical valley function [UncTest]_
 
@@ -1065,7 +1063,7 @@ class HelicalValley(Problem):
 
     @staticmethod
     def _theta(x0, x1):
-        ret = 1. / (2 * np.pi) * np.arctan(x1 / x0)
+        ret = 1.0 / (2 * np.pi) * np.arctan(x1 / x0)
         if x0 < 0:
             ret += 0.5
         return ret
@@ -1074,11 +1072,10 @@ class HelicalValley(Problem):
         f0 = 10 * (x[2] - 10 * self._theta(x[0], x[1]))
         f1 = 10 * (np.sqrt(x[0] ** 2 + x[1] ** 2) - 1)
         f2 = x[2]
-        return f0 ** 2 + f1 ** 2 + f2 ** 2
+        return f0**2 + f1**2 + f2**2
 
 
 class Beale(Problem):
-
     r"""
     Beale function [UncTest]_
 
@@ -1100,11 +1097,10 @@ class Beale(Problem):
     def eval(self, x):
         y = [1.5, 2.25, 2.625]
         v = [y[i] - x[0] * (1 - x[1] ** (i + 1)) for i in range(3)]
-        return sum(_ ** 2 for _ in v)
+        return sum(_**2 for _ in v)
 
 
 class NesterovQuadratic(Problem):
-
     r"""
     Nesterov's Quadratic Function [NQuad]_
 
@@ -1113,7 +1109,15 @@ class NesterovQuadratic(Problem):
             F(x) = \frac{1}{2} \lVert A x - b \rVert_2^2 + \lVert x \rVert_1
     """
 
-    def __init__(self, dim: Optional[int] = None, box: Optional[Sequence[Tuple[float, float]]] = None, A: Any = None, b: Any = None, nonsmooth: bool = True, **kwargs: Any):
+    def __init__(
+        self,
+        dim: Optional[int] = None,
+        box: Optional[Sequence[Tuple[float, float]]] = None,
+        A: Any = None,
+        b: Any = None,
+        nonsmooth: bool = True,
+        **kwargs: Any,
+    ):
         r"""
         :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
         """
@@ -1132,14 +1136,13 @@ class NesterovQuadratic(Problem):
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        ret = .5 * ((self.A.dot(x) - self.b) ** 2).sum()
+        ret = 0.5 * ((self.A.dot(x) - self.b) ** 2).sum()
         if self.nonsmooth:
             ret += np.abs(x).sum()
         return ret
 
 
 class Arwhead(Problem):
-
     r"""
     ARWHEAD test problem [Conn]_
 
@@ -1158,7 +1161,6 @@ class Arwhead(Problem):
 
 
 class Branin(Problem):
-
     r"""
     BRANIN test problem [branin]_
 
@@ -1168,14 +1170,16 @@ class Branin(Problem):
         a = 1,\,b = 5.1 ⁄ (4 π^2),\, c = 5 ⁄ π,\, r = 6,\, s = 10 and t = 1 ⁄ (8π)
     """
 
-    def __init__(self,
-            a: float = 1,
-            b: float = 5.1 / (4 * np.pi**2),
-            c: float = 5 / np.pi,
-            r: float = 6,
-            s: float = 10,
-            t: float = 1,
-            **kwargs: Any):
+    def __init__(
+        self,
+        a: float = 1,
+        b: float = 5.1 / (4 * np.pi**2),
+        c: float = 5 / np.pi,
+        r: float = 6,
+        s: float = 10,
+        t: float = 1,
+        **kwargs: Any,
+    ):
         box = [(-5.0, 10.0), (0.0, 15.0)]
         self.a = a
         self.b = b
@@ -1187,8 +1191,8 @@ class Branin(Problem):
 
     def eval(self, x):
         x1, x2 = x
-        term1 = self.a * (x2 - self.b*x1**2 + self.c*x1 - self.r)**2
-        term2 = self.s*(1-self.t)*np.cos(x1)
+        term1 = self.a * (x2 - self.b * x1**2 + self.c * x1 - self.r) ** 2
+        term2 = self.s * (1 - self.t) * np.cos(x1)
         y = term1 + term2 + self.s
         return y
 
@@ -1201,17 +1205,16 @@ class GoldsteinPrice(Problem):
         f(x,y) = \left(1+\left(x+y+1\right)^{2}\left(19-14x+3x^{2}-14y+6xy+3y^{2}\right)\right)
                  \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
     """
+
     def __init__(self, **kwargs: Any):
         box = [(-2.0, 2.0), (-2.0, 2.0)]
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
         x1, x2 = x
-        a = 1+(x1+x2+1)**2*(19-14*x1+3*x1**2-14*x2+6*x1*x2+3*x2**2)
-        b = 30+(2*x1-3*x2)**2*(18-32*x1+12*x1**2+48*x2-36*x1*x2+27*x2**2)
-        return a*b
-
-
+        a = 1 + (x1 + x2 + 1) ** 2 * (19 - 14 * x1 + 3 * x1**2 - 14 * x2 + 6 * x1 * x2 + 3 * x2**2)
+        b = 30 + (2 * x1 - 3 * x2) ** 2 * (18 - 32 * x1 + 12 * x1**2 + 48 * x2 - 36 * x1 * x2 + 27 * x2**2)
+        return a * b
 
 
 class Simionescu(Problem):
@@ -1220,6 +1223,7 @@ class Simionescu(Problem):
     f(x,y) = 0.1 * xy
     subject to: x^2 + y^2 <= (1 + 0.2 cos(8 atan(x/y)))^2
     """
+
     def __init__(self, **kwargs: Any):
         # Box is typically [-1.25, 1.25]
         super().__init__([(-1.25, 1.25), (-1.25, 1.25)], **kwargs)
@@ -1230,7 +1234,7 @@ class Simionescu(Problem):
     def eval_constraints(self, x):
         # Constraint: x^2 + y^2 <= (r_T)^2
         # g(x) = x^2 + y^2 - (1 + 0.2 cos(8 theta))^2 <= 0
-        r_sq = x[0]**2 + x[1]**2
+        r_sq = x[0] ** 2 + x[1] ** 2
 
         # Handle atan2 for theta
         theta = np.arctan2(x[1], x[0])
@@ -1248,20 +1252,21 @@ class MishraBird(Problem):
     f(x,y) = sin(y)e^((1-cos(x))^2) + cos(x)e^((1-sin(y))^2) + (x-y)^2
     s.t. (x+5)^2 + (y+5)^2 < 25
     """
+
     def __init__(self, **kwargs: Any):
         super().__init__([(-10.0, 0.0), (-6.5, 0.0)], **kwargs)
         # Optimum approx -106.7645 at (-3.1302468, -1.5821422)
 
     def eval(self, x):
         X, Y = x[0], x[1]
-        term1 = np.sin(Y) * np.exp((1 - np.cos(X))**2)
-        term2 = np.cos(X) * np.exp((1 - np.sin(Y))**2)
-        term3 = (X - Y)**2
+        term1 = np.sin(Y) * np.exp((1 - np.cos(X)) ** 2)
+        term2 = np.cos(X) * np.exp((1 - np.sin(Y)) ** 2)
+        term3 = (X - Y) ** 2
         return term1 + term2 + term3
 
     def eval_constraints(self, x):
         # (x+5)^2 + (y+5)^2 - 25 <= 0
-        val = (x[0] + 5)**2 + (x[1] + 5)**2 - 25
+        val = (x[0] + 5) ** 2 + (x[1] + 5) ** 2 - 25
         return np.array([val])
 
 
@@ -1284,13 +1289,14 @@ class PressureVessel(Problem):
 
     Best known solution: f(x) approx 6059.7143
     """
+
     def __init__(self, **kwargs: Any):
         # Continuous version bounds
         box = [
-            (0.0, 99.0),    # x1
-            (0.0, 99.0),    # x2
+            (0.0, 99.0),  # x1
+            (0.0, 99.0),  # x2
             (10.0, 200.0),  # x3
-            (10.0, 200.0)   # x4
+            (10.0, 200.0),  # x4
         ]
         super().__init__(box, **kwargs)
 
@@ -1303,13 +1309,8 @@ class PressureVessel(Problem):
 
         g1 = -x1 + 0.0193 * x3
         g2 = -x2 + 0.00954 * x3
-        g3 = -np.pi * x3**2 * x4 - (4/3) * np.pi * x3**3 + 1296000
+        g3 = -np.pi * x3**2 * x4 - (4 / 3) * np.pi * x3**3 + 1296000
         g4 = x4 - 240
 
         # Normalize constraints to O(1) for better optimizer performance
-        return np.array([
-            g1,
-            g2,
-            g3 / 1296000.0,
-            g4 / 240.0
-        ])
+        return np.array([g1, g2, g3 / 1296000.0, g4 / 240.0])

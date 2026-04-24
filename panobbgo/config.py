@@ -45,11 +45,11 @@ import logging
 
 class Config:
     # Singleton instance
-    _instance: Optional['Config'] = None
+    _instance: Optional["Config"] = None
     # Class variable to track if config info has been logged
     _config_logged: bool = False
 
-    def __new__(cls, parse_args: bool = False, testing_mode: bool = False) -> 'Config':
+    def __new__(cls, parse_args: bool = False, testing_mode: bool = False) -> "Config":
         """Singleton pattern implementation."""
         if cls._instance is None:
             cls._instance = super(Config, cls).__new__(cls)
@@ -113,9 +113,7 @@ class Config:
 
         parser.add_argument("--version", action="version", version=__version__)
 
-        parser.add_argument(
-            "--max", dest="max_eval", help="maximum number of evaluations", type=int
-        )
+        parser.add_argument("--max", dest="max_eval", help="maximum number of evaluations", type=int)
 
         parser.add_argument(
             "--smooth",
@@ -137,8 +135,6 @@ class Config:
             dest="verbosity",
             help="verbosity level: -v, -vv, or -vvv",
         )
-
-
 
         parser.add_argument(
             "--lf",
@@ -185,8 +181,6 @@ class Config:
             cfgp.set("core", "discount", "0.95")
             cfgp.set("core", "smooth", "0.5")
 
-
-
             with open(self.config_fn, "w") as configfile:
                 cfgp.write(configfile)
 
@@ -216,7 +210,6 @@ class Config:
             if args.capacity:
                 cfgp.set("heuristic", "capacity", str(args.capacity))
 
-
         # some generic function
         def getself(section: str, key: str) -> str:
             return cfgp.get(section, key)
@@ -234,7 +227,13 @@ class Config:
         from panobbgo import __version__
 
         # Helper function to get config value (YAML takes precedence over INI)
-        def get_config(yaml_path: Optional[str], ini_section: Optional[str], ini_key: Optional[str], default: Any = None, type_cast: Callable[[Any], Any] = str) -> Any:
+        def get_config(
+            yaml_path: Optional[str],
+            ini_section: Optional[str],
+            ini_key: Optional[str],
+            default: Any = None,
+            type_cast: Callable[[Any], Any] = str,
+        ) -> Any:
             """Get config value from YAML first, then INI, then default"""
             # Check YAML first
             if yaml_path and self.yaml_config:
@@ -263,42 +262,25 @@ class Config:
 
         # specific data
         self.loglevel = get_config("core.loglevel", "core", "loglevel", 40, int)
-        self.show_interval = get_config(
-            "core.show_interval", "core", "show_interval", 1.0, float
-        )
+        self.show_interval = get_config("core.show_interval", "core", "show_interval", 1.0, float)
         self.max_eval = get_config("core.max_eval", "core", "max_eval", 1000, int)
         self.discount = get_config("core.discount", "core", "discount", 0.95, float)
         self.smooth = get_config("core.smooth", "core", "smooth", 0.5, float)
-        self.capacity = get_config(
-            "heuristic.capacity", "heuristic", "capacity", 20, int
-        )
-        self.stop_on_convergence = get_config(
-            "core.stop_on_convergence", "core", "stop_on_convergence", True, bool
-        )
-
+        self.capacity = get_config("heuristic.capacity", "heuristic", "capacity", 20, int)
+        self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", True, bool)
 
         # Evaluation method configuration (YAML only)
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)
-        self.evaluation_method = get_config(
-            "evaluation.method", None, None, "threaded", str
-        )
+        self.evaluation_method = get_config("evaluation.method", None, None, "threaded", str)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
-        self.dask_cluster_type = get_config(
-            "dask.cluster_type", None, None, "local", str
-        )
+        self.dask_cluster_type = get_config("dask.cluster_type", None, None, "local", str)
         self.dask_n_workers = get_config("dask.local.n_workers", None, None, 2, int)
-        self.dask_threads_per_worker = get_config(
-            "dask.local.threads_per_worker", None, None, 1, int
-        )
-        self.dask_memory_limit = get_config(
-            "dask.local.memory_limit", None, None, "2GB", str
-        )
-        
+        self.dask_threads_per_worker = get_config("dask.local.threads_per_worker", None, None, 1, int)
+        self.dask_memory_limit = get_config("dask.local.memory_limit", None, None, "2GB", str)
+
         default_dashboard = ":0" if self.testing_mode else ":8787"
-        self.dask_dashboard_address = get_config(
-            "dask.local.dashboard_address", None, None, default_dashboard, str
-        )
+        self.dask_dashboard_address = get_config("dask.local.dashboard_address", None, None, default_dashboard, str)
         self.dask_scheduler_address = get_config(
             "dask.remote.scheduler_address", None, None, "tcp://localhost:8786", str
         )

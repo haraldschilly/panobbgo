@@ -25,12 +25,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Type, Dict, Any, Tuple
 
-from panobbgo.lib.classic import (
-    Rosenbrock, Rastrigin, Griewank, RosenbrockConstraint
-)
-from panobbgo.heuristics import (
-    Random, LatinHypercube, NelderMead, LBFGSB, ConstraintGradient
-)
+from panobbgo.lib.classic import Rosenbrock, Rastrigin, Griewank, RosenbrockConstraint
+from panobbgo.heuristics import Random, LatinHypercube, NelderMead, LBFGSB, ConstraintGradient
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.strategies.ucb import StrategyUCB
@@ -40,7 +36,7 @@ from panobbgo.strategies.contextual import StrategyLinUCB
 # Configuration
 OUTPUT_DIR = "benchmarks/results_bandits"
 EVALUATIONS = 500  # Number of evaluations per run
-REPETITIONS = 5    # Number of repetitions per problem/strategy pair
+REPETITIONS = 5  # Number of repetitions per problem/strategy pair
 SEED = 42
 
 PROBLEMS = [
@@ -58,6 +54,7 @@ STRATEGIES = [
     (StrategyLinUCB, "LinUCB"),
 ]
 
+
 def setup_heuristics(strategy, problem_type):
     """Adds a standard set of heuristics to the strategy."""
     # Basic exploration
@@ -69,11 +66,11 @@ def setup_heuristics(strategy, problem_type):
     strategy.add(LBFGSB)
 
     # Constraint specific (only if constrained)
-    if issubclass(problem_type, RosenbrockConstraint): # Simple check
-         strategy.add(ConstraintGradient)
+    if issubclass(problem_type, RosenbrockConstraint):  # Simple check
+        strategy.add(ConstraintGradient)
 
-def run_experiment(problem_class, problem_kwargs, problem_name,
-                   strategy_class, strategy_name, repetition):
+
+def run_experiment(problem_class, problem_kwargs, problem_name, strategy_class, strategy_name, repetition):
     """Runs a single experiment."""
 
     # Initialize problem
@@ -99,12 +96,12 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
     # Collect results
     # We want the convergence trace (best fx vs evaluations)
     history = strategy.results.get_history()
-    fx = history['fx']
-    cv = history['cv']
+    fx = history["fx"]
+    cv = history["cv"]
 
     # Calculate best-so-far trace
     best_fx_trace = []
-    current_best = float('inf')
+    current_best = float("inf")
 
     # Simple best-so-far logic (ignoring constraints for simple plot, or handling them)
     # For constrained problems, we should prioritize feasibility
@@ -129,8 +126,9 @@ def run_experiment(problem_class, problem_kwargs, problem_name,
         "evaluations": len(fx),
         "final_best": current_best,
         "duration": duration,
-        "trace": best_fx_trace
+        "trace": best_fx_trace,
     }
+
 
 def main():
     if not os.path.exists(OUTPUT_DIR):
@@ -156,12 +154,11 @@ def main():
             final_bests = []
 
             for rep in range(REPETITIONS):
-                res = run_experiment(prob_cls, prob_kwargs, prob_name,
-                                     strat_cls, strat_name, rep)
+                res = run_experiment(prob_cls, prob_kwargs, prob_name, strat_cls, strat_name, rep)
                 if res:
                     all_results.append(res)
-                    traces.append(res['trace'])
-                    final_bests.append(res['final_best'])
+                    traces.append(res["trace"])
+                    final_bests.append(res["final_best"])
 
             if traces:
                 # Pad traces to same length if necessary
@@ -181,7 +178,7 @@ def main():
         plt.title(f"Convergence on {prob_name}")
         plt.xlabel("Evaluations")
         plt.ylabel("Best Value (Penalized)")
-        plt.yscale("symlog") # Good for values that might cross zero or have large range
+        plt.yscale("symlog")  # Good for values that might cross zero or have large range
         plt.legend()
         plt.grid(True, which="both", ls="-", alpha=0.5)
 
@@ -191,10 +188,11 @@ def main():
         plt.close()
 
     # Save summary CSV
-    df = pd.DataFrame([{k: v for k, v in r.items() if k != 'trace'} for r in all_results])
+    df = pd.DataFrame([{k: v for k, v in r.items() if k != "trace"} for r in all_results])
     csv_path = os.path.join(OUTPUT_DIR, "benchmark_summary.csv")
     df.to_csv(csv_path, index=False)
     print(f"\nBenchmark complete. Summary saved to {csv_path}")
+
 
 if __name__ == "__main__":
     main()

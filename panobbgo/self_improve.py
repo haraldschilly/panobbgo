@@ -248,9 +248,7 @@ class MutationCatalog:
         """Return ``[(rule, hits), …]`` for rules with ≥1 target in ``specs``."""
         out: List[Tuple[MutationRule, List[Tuple[int, str, int, Any]]]] = []
         for rule in self.rules:
-            hits = _find_targets(
-                specs, rule.strategy_pattern, rule.class_name, rule.param_name
-            )
+            hits = _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
             if hits:
                 out.append((rule, hits))
         return out
@@ -280,8 +278,7 @@ class MutationCatalog:
 
         new_value = self._mutate_value(rule, old_value, rng)
         rationale = (
-            f"{rule.kind} on {rule.class_name}.{rule.param_name} in "
-            f"{strategy_name}: {old_value!r} -> {new_value!r}"
+            f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: {old_value!r} -> {new_value!r}"
         )
 
         return MutationProposal(
@@ -295,17 +292,13 @@ class MutationCatalog:
         )
 
     @staticmethod
-    def _mutate_value(
-        rule: MutationRule, old: Any, rng: np.random.Generator
-    ) -> Any:
+    def _mutate_value(rule: MutationRule, old: Any, rng: np.random.Generator) -> Any:
         lo, hi = rule.bounds
         if rule.kind == "log_uniform_perturb":
             if float(old) <= 0.0:
-                raise ValueError(
-                    f"log_uniform_perturb requires positive value, got {old!r}"
-                )
+                raise ValueError(f"log_uniform_perturb requires positive value, got {old!r}")
             exponent = float(rng.uniform(-rule.log_step, rule.log_step))
-            candidate = float(old) * (10.0 ** exponent)
+            candidate = float(old) * (10.0**exponent)
             return float(min(hi, max(lo, candidate)))
         if rule.kind == "integer_add":
             delta = int(rng.choice(np.asarray(rule.delta_choices)))
@@ -422,17 +415,13 @@ def apply_mutation(
                 break
         if not hit:
             for cls, kw in new_analyzers:
-                if (
-                    cls.__name__ == proposal.class_name
-                    and proposal.param_name in kw
-                ):
+                if cls.__name__ == proposal.class_name and proposal.param_name in kw:
                     kw[proposal.param_name] = proposal.new_value
                     hit = True
                     break
         if not hit:
             raise ValueError(
-                f"proposal target {proposal.class_name}.{proposal.param_name}"
-                f" not found in strategy {spec.name!r}"
+                f"proposal target {proposal.class_name}.{proposal.param_name} not found in strategy {spec.name!r}"
             )
 
         applied = True
@@ -447,10 +436,7 @@ def apply_mutation(
         )
 
     if not applied:
-        raise ValueError(
-            f"proposal refers to strategy {proposal.strategy_name!r}"
-            f" which is not in the input spec list"
-        )
+        raise ValueError(f"proposal refers to strategy {proposal.strategy_name!r} which is not in the input spec list")
     return out
 
 
@@ -576,9 +562,7 @@ class LoopIterationRecord:
             "ci_low": self.ci_low,
             "ci_high": self.ci_high,
             "worst_pair_regression": self.worst_pair_regression,
-            "worst_pair": (
-                list(self.worst_pair) if self.worst_pair is not None else None
-            ),
+            "worst_pair": (list(self.worst_pair) if self.worst_pair is not None else None),
             "reasons": list(self.reasons),
             "base_seed": self.base_seed,
             "randomize_iteration": self.randomize_iteration,
@@ -650,9 +634,7 @@ class SelfImprover:
 
             proposal = self.catalog.sample(rng, current)
             if proposal is None:
-                rec = self._skip_record(
-                    iteration, start, "no applicable mutations for current specs"
-                )
+                rec = self._skip_record(iteration, start, "no applicable mutations for current specs")
                 records.append(rec)
                 ledger.write(rec)
                 if verbose:
@@ -662,9 +644,7 @@ class SelfImprover:
             candidate = apply_mutation(current, proposal)
 
             baseline_result = self._measure(current, iteration, "baseline", verbose)
-            candidate_result = self._measure(
-                candidate, iteration, "candidate", verbose
-            )
+            candidate_result = self._measure(candidate, iteration, "candidate", verbose)
 
             decision = statistical_accept(
                 baseline_result,
@@ -688,11 +668,7 @@ class SelfImprover:
                 ci_low=float(decision.ci_low),
                 ci_high=float(decision.ci_high),
                 worst_pair_regression=float(decision.worst_pair_regression),
-                worst_pair=(
-                    tuple(decision.worst_pair)
-                    if decision.worst_pair is not None
-                    else None
-                ),
+                worst_pair=(tuple(decision.worst_pair) if decision.worst_pair is not None else None),
                 reasons=list(decision.reasons),
                 base_seed=self.config.base_seed,
                 randomize_iteration=iteration,
@@ -715,9 +691,7 @@ class SelfImprover:
     def _load_seed_strategies(self) -> List[StrategySpec]:
         if self._seed_strategies is not None:
             return list(self._seed_strategies)
-        cfg = HarnessConfig(
-            mode=self.config.mode, strategies=self.config.strategy_names
-        )
+        cfg = HarnessConfig(mode=self.config.mode, strategies=self.config.strategy_names)
         return self._harness_factory(cfg).get_strategies()
 
     def _measure(
@@ -732,9 +706,7 @@ class SelfImprover:
             print(f"[self_improve] iter={iteration} measuring {label}")
         return self._harness_factory(hc).run(verbose=False)
 
-    def _skip_record(
-        self, iteration: int, start: float, reason: str
-    ) -> LoopIterationRecord:
+    def _skip_record(self, iteration: int, start: float, reason: str) -> LoopIterationRecord:
         return LoopIterationRecord(
             iteration=iteration,
             timestamp=datetime.now(tz=timezone.utc).isoformat(),

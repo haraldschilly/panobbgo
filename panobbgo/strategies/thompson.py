@@ -46,8 +46,8 @@ class StrategyThompsonSampling(StrategyBase):
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
         # Initialize Thompson Sampling statistics
-        h.ts_counts = 0        # Number of points generated (Attempts)
-        h.ts_total_reward = 0.0 # Accumulated reward (Successes)
+        h.ts_counts = 0  # Number of points generated (Attempts)
+        h.ts_total_reward = 0.0  # Accumulated reward (Successes)
 
         # Initialize derived parameters for logging/debugging
         h.ts_alpha = 1.0
@@ -98,9 +98,7 @@ class StrategyThompsonSampling(StrategyBase):
                 h.ts_alpha = alpha
                 h.ts_beta = beta
 
-                self.logger.info(
-                    f"Updated {h.name}: reward={reward:.4f} -> Beta({alpha:.2f}, {beta:.2f})"
-                )
+                self.logger.info(f"Updated {h.name}: reward={reward:.4f} -> Beta({alpha:.2f}, {beta:.2f})")
             else:
                 self.logger.warning(f"Heuristic {h.name} missing ts_total_reward")
         except KeyError:
@@ -115,12 +113,12 @@ class StrategyThompsonSampling(StrategyBase):
         max_alpha = 0
         best_h_name = ""
         for h in self.heuristics:
-             if hasattr(h, "ts_alpha") and h.ts_alpha > max_alpha:
-                 max_alpha = h.ts_alpha
-                 best_h_name = h.name
+            if hasattr(h, "ts_alpha") and h.ts_alpha > max_alpha:
+                max_alpha = h.ts_alpha
+                best_h_name = h.name
 
         if best_h_name:
-            info["best_heuristic"] = f"{best_h_name} (\u03B1={max_alpha:.1f})"
+            info["best_heuristic"] = f"{best_h_name} (\u03b1={max_alpha:.1f})"
         return info
 
     def execute(self):

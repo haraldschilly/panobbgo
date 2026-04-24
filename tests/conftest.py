@@ -1,6 +1,7 @@
 import pytest
 from dask.distributed import LocalCluster, Client
 
+
 @pytest.fixture
 def dask_cluster():
     """
@@ -9,12 +10,7 @@ def dask_cluster():
     """
     # Start a clean cluster
     # Use different dashboard port to avoid conflicts
-    cluster = LocalCluster(
-        n_workers=2,
-        threads_per_worker=1,
-        dashboard_address=":0",
-        silence_logs=True
-    )
+    cluster = LocalCluster(n_workers=2, threads_per_worker=1, dashboard_address=":0", silence_logs=True)
 
     # Optional client if tests need it directly
     client = Client(cluster)
@@ -29,6 +25,7 @@ def dask_cluster():
     # Ensure all workers are actually terminated
     # Dask cleanup can sometimes be asynchronous/lazy
     import time
+
     time.sleep(0.5)
 
 
@@ -65,9 +62,10 @@ def real_strategy():
 
     def _strategy_factory(strategy_class, problem, **kwargs):
         from panobbgo.config import Config
+
         Config._instance = None
-        kwargs.setdefault('parse_args', False)
-        kwargs.setdefault('testing_mode', True)
+        kwargs.setdefault("parse_args", False)
+        kwargs.setdefault("testing_mode", True)
 
         strategy = strategy_class(problem, **kwargs)
         strategy.config.ui_show = False

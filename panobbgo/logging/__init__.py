@@ -10,4 +10,4 @@ Flexible, component-based logging system with progress reporting.
 from .logger import PanobbgoLogger, ComponentLogger
 from .progress import ProgressReporter, ErrorReporter
 
-__all__ = ['PanobbgoLogger', 'ComponentLogger', 'ProgressReporter', 'ErrorReporter']
+__all__ = ["PanobbgoLogger", "ComponentLogger", "ProgressReporter", "ErrorReporter"]

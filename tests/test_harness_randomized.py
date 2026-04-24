@@ -106,7 +106,7 @@ class TestSampleDiagonalScaling:
         for _ in range(20):
             s = sample_diagonal_scaling(rng, 5, log10_max)
             cond = s.max() / s.min()
-            assert cond <= 10.0 ** log10_max + 1e-9
+            assert cond <= 10.0**log10_max + 1e-9
             assert cond >= 1.0 - 1e-9
 
     def test_negative_log10_raises(self):
@@ -223,9 +223,7 @@ class TestTransformedProblem:
         x_star = np.array([0.9, -0.4, 0.1, 0.55])
         Q = sample_orthogonal(rng, 4)
         scale = sample_diagonal_scaling(rng, 4, 1.5)
-        tp = TransformedProblem(
-            base_problem=base, x_star=x_star, Q=Q, scale=scale
-        )
+        tp = TransformedProblem(base_problem=base, x_star=x_star, Q=Q, scale=scale)
         assert tp.eval(x_star) == pytest.approx(0.0, abs=1e-12)
 
     def test_noise_has_right_scale(self):
@@ -246,12 +244,8 @@ class TestTransformedProblem:
 
     def test_noise_reproducible_from_seed(self):
         base = DeJong(dims=2)
-        t1 = TransformedProblem(
-            base, x_star=np.zeros(2), noise_sigma=0.5, noise_seed=7
-        )
-        t2 = TransformedProblem(
-            base, x_star=np.zeros(2), noise_sigma=0.5, noise_seed=7
-        )
+        t1 = TransformedProblem(base, x_star=np.zeros(2), noise_sigma=0.5, noise_seed=7)
+        t2 = TransformedProblem(base, x_star=np.zeros(2), noise_sigma=0.5, noise_seed=7)
         for _ in range(10):
             x = np.array([0.2, 0.3])
             assert t1.eval(x) == t2.eval(x)
@@ -261,20 +255,14 @@ class TestTransformedProblem:
         with pytest.raises(ValueError):
             TransformedProblem(base_problem=base, x_star=np.zeros(3))
         with pytest.raises(ValueError):
-            TransformedProblem(
-                base_problem=base, x_star=np.zeros(2), Q=np.eye(3)
-            )
+            TransformedProblem(base_problem=base, x_star=np.zeros(2), Q=np.eye(3))
         with pytest.raises(ValueError):
-            TransformedProblem(
-                base_problem=base, x_star=np.zeros(2), scale=np.ones(3)
-            )
+            TransformedProblem(base_problem=base, x_star=np.zeros(2), scale=np.ones(3))
 
     def test_negative_noise_raises(self):
         base = DeJong(dims=2)
         with pytest.raises(ValueError):
-            TransformedProblem(
-                base_problem=base, x_star=np.zeros(2), noise_sigma=-0.1
-            )
+            TransformedProblem(base_problem=base, x_star=np.zeros(2), noise_sigma=-0.1)
 
     def test_constraints_are_none(self):
         base = DeJong(dims=2)
@@ -283,9 +271,7 @@ class TestTransformedProblem:
 
     def test_repr_contains_name(self):
         base = DeJong(dims=2)
-        tp = TransformedProblem(
-            base_problem=base, x_star=np.zeros(2), name="MyFamily"
-        )
+        tp = TransformedProblem(base_problem=base, x_star=np.zeros(2), name="MyFamily")
         assert "MyFamily" in repr(tp)
 
 
@@ -378,9 +364,7 @@ class TestProblemFamily:
 class TestRandomizedProblemSpec:
     def test_create_problem_raises_requires_rep(self):
         fam = make_default_families()[0]
-        spec = RandomizedProblemSpec(
-            family=fam, iteration_id=0, base_seed=42, max_evaluations=100
-        )
+        spec = RandomizedProblemSpec(family=fam, iteration_id=0, base_seed=42, max_evaluations=100)
         with pytest.raises(RuntimeError):
             spec.create_problem()
 
@@ -406,18 +390,14 @@ class TestRandomizedProblemSpec:
 
     def test_different_reps_different_instances(self):
         fam = make_default_families()[0]
-        spec = RandomizedProblemSpec(
-            fam, iteration_id=0, base_seed=42, max_evaluations=100
-        )
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
         p0 = spec.create_problem_for_rep(0)
         p1 = spec.create_problem_for_rep(1)
         assert not np.allclose(p0.optimum, p1.optimum)
 
     def test_last_sampled_params(self):
         fam = make_default_families()[0]
-        spec = RandomizedProblemSpec(
-            fam, iteration_id=0, base_seed=42, max_evaluations=100
-        )
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
         assert spec.last_sampled_params() is None
         spec.create_problem_for_rep(2)
         params = spec.last_sampled_params()
@@ -429,9 +409,7 @@ class TestRandomizedProblemSpec:
 
     def test_spec_known_optima_carries_f_opt(self):
         fam = make_default_families()[0]
-        spec = RandomizedProblemSpec(
-            fam, iteration_id=0, base_seed=42, max_evaluations=123
-        )
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=123)
         assert spec.known_optima[0]["fx"] == pytest.approx(fam.f_opt)
         assert spec.tolerance == fam.tolerance
         assert spec.max_evaluations == 123
@@ -441,9 +419,7 @@ class TestRandomizedProblemSpec:
 class TestMakeRandomizedSpecs:
     def test_returns_one_per_family(self):
         fams = make_default_families()
-        specs = make_randomized_specs(
-            fams, iteration_id=0, base_seed=42, max_evaluations=75
-        )
+        specs = make_randomized_specs(fams, iteration_id=0, base_seed=42, max_evaluations=75)
         assert len(specs) == len(fams)
         assert all(isinstance(s, RandomizedProblemSpec) for s in specs)
         assert [s.family.name for s in specs] == [f.name for f in fams]
@@ -509,12 +485,8 @@ class TestHarnessRandomize:
         """The central reproducibility contract: same iteration → same
         instances → comparable before/after scores."""
         fams = make_default_families()
-        spec_a = RandomizedProblemSpec(
-            fams[0], iteration_id=7, base_seed=42, max_evaluations=100
-        )
-        spec_b = RandomizedProblemSpec(
-            fams[0], iteration_id=7, base_seed=42, max_evaluations=100
-        )
+        spec_a = RandomizedProblemSpec(fams[0], iteration_id=7, base_seed=42, max_evaluations=100)
+        spec_b = RandomizedProblemSpec(fams[0], iteration_id=7, base_seed=42, max_evaluations=100)
         for rep in range(3):
             p_a = spec_a.create_problem_for_rep(rep)
             p_b = spec_b.create_problem_for_rep(rep)

@@ -175,11 +175,7 @@ def cmd_score(args: argparse.Namespace) -> int:
                     "score": psr.score,
                     "success_rate": psr.success_rate,
                     "ert": psr.ert if psr.ert < float("inf") else None,
-                    "best_func_distance": (
-                        psr.best_func_distance
-                        if psr.best_func_distance < float("inf")
-                        else None
-                    ),
+                    "best_func_distance": (psr.best_func_distance if psr.best_func_distance < float("inf") else None),
                 }
                 for psr in result.problem_strategy_results
             ],
@@ -238,22 +234,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
             "score_after": comparison.score_after,
             "delta": comparison.delta,
             "relative_delta_pct": comparison.relative_delta,
-            "improved": [
-                {"problem": p, "strategy": s, "before": b, "after": a}
-                for p, s, b, a in comparison.improved
-            ],
-            "degraded": [
-                {"problem": p, "strategy": s, "before": b, "after": a}
-                for p, s, b, a in comparison.degraded
-            ],
-            "only_before": [
-                {"problem": p, "strategy": s, "score": sc}
-                for p, s, sc in comparison.only_before
-            ],
-            "only_after": [
-                {"problem": p, "strategy": s, "score": sc}
-                for p, s, sc in comparison.only_after
-            ],
+            "improved": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.improved],
+            "degraded": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.degraded],
+            "only_before": [{"problem": p, "strategy": s, "score": sc} for p, s, sc in comparison.only_before],
+            "only_after": [{"problem": p, "strategy": s, "score": sc} for p, s, sc in comparison.only_after],
         }
         if decision is not None:
             out["statistical"] = decision.to_dict()
@@ -304,9 +288,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     label = "randomized" if args.randomize else f"mode={args.mode!r}"
     print(f"\nProblems ({len(problems)}) for {label}:")
     for p in problems:
-        print(
-            f"  {p.name}  dim={p.dims}  tol={p.tolerance}  budget={p.max_evaluations}"
-        )
+        print(f"  {p.name}  dim={p.dims}  tol={p.tolerance}  budget={p.max_evaluations}")
 
     print(f"\nStrategies ({len(strategies)}) for mode={args.mode!r}:")
     for s in strategies:
@@ -341,18 +323,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="Output JSON file (default: harness_<mode>_<timestamp>.json)",
     )
-    run_p.add_argument(
-        "--budget", type=int, metavar="N", help="Override evaluations per run"
-    )
+    run_p.add_argument("--budget", type=int, metavar="N", help="Override evaluations per run")
     run_p.add_argument(
         "--reps",
         type=int,
         metavar="N",
         help="Override repetitions per (problem, strategy)",
     )
-    run_p.add_argument(
-        "--seed", type=int, default=42, help="Base random seed (default: 42)"
-    )
+    run_p.add_argument("--seed", type=int, default=42, help="Base random seed (default: 42)")
     run_p.add_argument(
         "--timeout",
         type=float,
@@ -405,24 +383,18 @@ def build_parser() -> argparse.ArgumentParser:
             " ones."
         ),
     )
-    run_p.add_argument(
-        "--quiet", "-q", action="store_true", help="Suppress per-run output"
-    )
+    run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-run output")
     run_p.set_defaults(func=cmd_run)
 
     # ---- score --------------------------------------------------------------
     score_p = sub.add_parser("score", help="Print score summary for a result file")
     score_p.add_argument("result_file", metavar="FILE", help="JSON result file")
-    score_p.add_argument(
-        "--json", action="store_true", help="Also print machine-readable JSON summary"
-    )
+    score_p.add_argument("--json", action="store_true", help="Also print machine-readable JSON summary")
     score_p.set_defaults(func=cmd_score)
 
     # ---- compare ------------------------------------------------------------
     cmp_p = sub.add_parser("compare", help="Compare two result files")
-    cmp_p.add_argument(
-        "before", metavar="BEFORE_FILE", help="Baseline JSON result file"
-    )
+    cmp_p.add_argument("before", metavar="BEFORE_FILE", help="Baseline JSON result file")
     cmp_p.add_argument("after", metavar="AFTER_FILE", help="Candidate JSON result file")
     cmp_p.add_argument(
         "--eps",
@@ -439,9 +411,7 @@ def build_parser() -> argparse.ArgumentParser:
             " the bootstrap-CI acceptance rule decides."
         ),
     )
-    cmp_p.add_argument(
-        "--json", action="store_true", help="Also print machine-readable JSON diff"
-    )
+    cmp_p.add_argument("--json", action="store_true", help="Also print machine-readable JSON diff")
     cmp_p.add_argument(
         "--statistical",
         action="store_true",
@@ -498,10 +468,7 @@ def build_parser() -> argparse.ArgumentParser:
     list_p.add_argument(
         "--randomize",
         action="store_true",
-        help=(
-            "List the randomized problem families instead of the fixed"
-            " battery for the selected mode."
-        ),
+        help=("List the randomized problem families instead of the fixed battery for the selected mode."),
     )
     list_p.add_argument(
         "--randomize-iteration",

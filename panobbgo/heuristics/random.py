@@ -42,11 +42,11 @@ class Random(Heuristic):
         try:
             splitter = self.strategy.analyzer("Splitter")
             # If no specific leaf is set, start with the root leaf
-            if self.leaf is None and hasattr(splitter, 'root'):
-                 self.leaf = splitter.root
-                 self.first_split.set()
+            if self.leaf is None and hasattr(splitter, "root"):
+                self.leaf = splitter.root
+                self.first_split.set()
         except Exception:
-             pass
+            pass
 
         # Wait for splitter to initialize, but with timeout to avoid hanging
         split_available = self.first_split.wait(timeout=5.0)  # 5 second timeout

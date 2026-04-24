@@ -68,55 +68,66 @@ class TestStrategyPhasedValidation(PanobbgoTestCase):
     def test_single_phase_rejected(self):
         problem = TrackingProblem()
         with pytest.raises(ValueError, match="at least 2 phases"):
-            StrategyPhased(problem, phases=[
-                {"pct": 100, "strategy": (StrategyRoundRobin, {}),
-                 "heuristics": [(SimpleHeuristic, {})]},
-            ])
+            StrategyPhased(
+                problem,
+                phases=[
+                    {"pct": 100, "strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                ],
+            )
 
     def test_missing_strategy_rejected(self):
         problem = TrackingProblem()
         with pytest.raises(ValueError, match="missing 'strategy'"):
-            StrategyPhased(problem, phases=[
-                {"pct": 50, "heuristics": [(SimpleHeuristic, {})]},
-                {"heuristics": [(SimpleHeuristic, {})]},
-            ])
+            StrategyPhased(
+                problem,
+                phases=[
+                    {"pct": 50, "heuristics": [(SimpleHeuristic, {})]},
+                    {"heuristics": [(SimpleHeuristic, {})]},
+                ],
+            )
 
     def test_missing_heuristics_rejected(self):
         problem = TrackingProblem()
         with pytest.raises(ValueError, match="missing 'heuristics'"):
-            StrategyPhased(problem, phases=[
-                {"pct": 50, "strategy": (StrategyRoundRobin, {})},
-                {"strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
-            ])
+            StrategyPhased(
+                problem,
+                phases=[
+                    {"pct": 50, "strategy": (StrategyRoundRobin, {})},
+                    {"strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                ],
+            )
 
     def test_pct_over_100_rejected(self):
         problem = TrackingProblem()
         with pytest.raises(ValueError, match="< 100"):
-            StrategyPhased(problem, phases=[
-                {"pct": 60, "strategy": (StrategyRoundRobin, {}),
-                 "heuristics": [(SimpleHeuristic, {})]},
-                {"pct": 50, "strategy": (StrategyRoundRobin, {}),
-                 "heuristics": [(SimpleHeuristic, {})]},
-            ])
+            StrategyPhased(
+                problem,
+                phases=[
+                    {"pct": 60, "strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                    {"pct": 50, "strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                ],
+            )
 
     def test_missing_pct_non_last_rejected(self):
         problem = TrackingProblem()
         with pytest.raises(ValueError, match="must have 'pct'"):
-            StrategyPhased(problem, phases=[
-                {"strategy": (StrategyRoundRobin, {}),
-                 "heuristics": [(SimpleHeuristic, {})]},
-                {"strategy": (StrategyRoundRobin, {}),
-                 "heuristics": [(SimpleHeuristic, {})]},
-            ])
+            StrategyPhased(
+                problem,
+                phases=[
+                    {"strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                    {"strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                ],
+            )
 
     def test_last_phase_pct_inferred(self):
         problem = TrackingProblem()
-        strategy = StrategyPhased(problem, phases=[
-            {"pct": 30, "strategy": (StrategyRoundRobin, {}),
-             "heuristics": [(SimpleHeuristic, {})]},
-            {"strategy": (StrategyRoundRobin, {}),
-             "heuristics": [(SimpleHeuristic, {})]},
-        ])
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {"pct": 30, "strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+                {"strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {})]},
+            ],
+        )
         assert strategy._phase_configs[-1]["pct"] == 70.0
 
 
@@ -127,17 +138,21 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         """Test basic two-phase execution with round-robin in both phases."""
         problem = TrackingProblem()
 
-        strategy = StrategyPhased(problem, phases=[
-            {
-                "pct": 50,
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Phase1"})],
-            },
-            {
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Phase2"})],
-            },
-        ], parse_args=False)
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 50,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Phase1"})],
+                },
+                {
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Phase2"})],
+                },
+            ],
+            parse_args=False,
+        )
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = 100
 
@@ -154,17 +169,21 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         """Test that phase transition actually occurs at the right time."""
         problem = TrackingProblem()
 
-        strategy = StrategyPhased(problem, phases=[
-            {
-                "pct": 25,
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Early"})],
-            },
-            {
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Late"})],
-            },
-        ], parse_args=False)
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 25,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Early"})],
+                },
+                {
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Late"})],
+                },
+            ],
+            parse_args=False,
+        )
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = 200
 
@@ -175,30 +194,32 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         count_early = problem.call_counts.get("H_Early", 0)
         count_late = problem.call_counts.get("H_Late", 0)
 
-        assert count_late > count_early, (
-            f"Phase 2 heuristic should dominate: early={count_early}, late={count_late}"
-        )
+        assert count_late > count_early, f"Phase 2 heuristic should dominate: early={count_early}, late={count_late}"
 
     def test_three_phases(self):
         """Test three-phase setup with different strategies."""
         problem = TrackingProblem()
 
-        strategy = StrategyPhased(problem, phases=[
-            {
-                "pct": 25,
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Explore"})],
-            },
-            {
-                "pct": 25,
-                "strategy": (StrategyRewarding, {}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_Reward"})],
-            },
-            {
-                "strategy": (StrategyUCB, {}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_UCB"})],
-            },
-        ], parse_args=False)
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 25,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Explore"})],
+                },
+                {
+                    "pct": 25,
+                    "strategy": (StrategyRewarding, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Reward"})],
+                },
+                {
+                    "strategy": (StrategyUCB, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_UCB"})],
+                },
+            ],
+            parse_args=False,
+        )
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = 200
 
@@ -213,17 +234,21 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         """Test mixing round-robin exploration with UCB exploitation."""
         problem = TrackingProblem()
 
-        strategy = StrategyPhased(problem, phases=[
-            {
-                "pct": 30,
-                "strategy": (StrategyRoundRobin, {"size": 5}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_RR"})],
-            },
-            {
-                "strategy": (StrategyThompsonSampling, {}),
-                "heuristics": [(SimpleHeuristic, {"name": "H_TS"})],
-            },
-        ], parse_args=False)
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 30,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_RR"})],
+                },
+                {
+                    "strategy": (StrategyThompsonSampling, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_TS"})],
+                },
+            ],
+            parse_args=False,
+        )
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = 100
 
@@ -236,17 +261,21 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         """Test that status info reports phase correctly."""
         problem = TrackingProblem()
 
-        strategy = StrategyPhased(problem, phases=[
-            {
-                "pct": 50,
-                "strategy": (StrategyRoundRobin, {}),
-                "heuristics": [(SimpleHeuristic, {"name": "H1"})],
-            },
-            {
-                "strategy": (StrategyRewarding, {}),
-                "heuristics": [(SimpleHeuristic, {"name": "H2"})],
-            },
-        ], parse_args=False)
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 50,
+                    "strategy": (StrategyRoundRobin, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H1"})],
+                },
+                {
+                    "strategy": (StrategyRewarding, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H2"})],
+                },
+            ],
+            parse_args=False,
+        )
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = 50
 

@@ -5,23 +5,26 @@ from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.core import StrategyBase, Results, EventBus
 from unittest.mock import MagicMock
 
+
 class ConstrainedSphere(Problem):
     """
     Minimize (x-center)^2 s.t. x <= bound
     Optimum at boundary if center > bound.
     Returns signed constraint values (negative = satisfied).
     """
+
     def __init__(self, dim=2, center=2.0, bound=1.0):
         super().__init__([(-5, 5)] * dim)
         self.target = np.full(dim, center)
         self.bound = bound
 
     def eval(self, x):
-        return np.sum((x - self.target)**2)
+        return np.sum((x - self.target) ** 2)
 
     def eval_constraints(self, x):
         # x_i <= bound  =>  x_i - bound <= 0
         return x - self.bound
+
 
 def test_constraint_gradient_feasible_direction():
     """
@@ -29,17 +32,17 @@ def test_constraint_gradient_feasible_direction():
     when starting from a feasible point but unconstrained gradient points to infeasible region.
     """
     dim = 2
-    problem = ConstrainedSphere(dim=dim, center=2.0, bound=1.0) # Opt at [1,1], constrained by x<=1
+    problem = ConstrainedSphere(dim=dim, center=2.0, bound=1.0)  # Opt at [1,1], constrained by x<=1
 
     # Mock strategy
     strategy = MagicMock(spec=StrategyBase)
     strategy.problem = problem
     strategy.config = MagicMock()
-    strategy.config.capacity = 100 # Set valid capacity
+    strategy.config.capacity = 100  # Set valid capacity
     strategy.config.get_logger = MagicMock()
-    strategy.eventbus = MagicMock(spec=EventBus) # Set eventbus BEFORE Results init
-    strategy.results = Results(strategy) # Use real Results to handle history
-    strategy.best = None # Not used directly by heuristic, passed in on_new_best
+    strategy.eventbus = MagicMock(spec=EventBus)  # Set eventbus BEFORE Results init
+    strategy.results = Results(strategy)  # Use real Results to handle history
+    strategy.best = None  # Not used directly by heuristic, passed in on_new_best
 
     heuristic = ConstraintGradient(strategy, samples=1)
 
@@ -52,13 +55,7 @@ def test_constraint_gradient_feasible_direction():
     # cv = x - 1. Grad is 1.
 
     # Add points
-    points = [
-        [0.0, 0.0],
-        [0.01, 0.0],
-        [0.0, 0.01],
-        [-0.01, 0.0],
-        [0.0, -0.01]
-    ]
+    points = [[0.0, 0.0], [0.01, 0.0], [0.0, 0.01], [-0.01, 0.0], [0.0, -0.01]]
 
     results = []
     for p_arr in points:
@@ -128,11 +125,11 @@ def test_constraint_gradient_infeasible_repair():
 
     # History around [2,2]
     points = [
-        [2.0, 2.0], # Infeasible, cv=[1,1]
+        [2.0, 2.0],  # Infeasible, cv=[1,1]
         [2.01, 2.0],
         [2.0, 2.01],
         [1.99, 2.0],
-        [2.0, 1.99]
+        [2.0, 1.99],
     ]
 
     results = []
@@ -142,7 +139,7 @@ def test_constraint_gradient_infeasible_repair():
         results.append(r)
         strategy.results.add_results([r])
 
-    best = results[0] # [2,2]
+    best = results[0]  # [2,2]
 
     # Gradient of cv (x-1) is 1.
     # We want to reduce cv. Descent direction should be [-1, -1].
@@ -166,6 +163,7 @@ def test_constraint_gradient_infeasible_repair():
         diff = cand.x - best.x
         assert np.all(diff < 0)
 
+
 def test_constraint_gradient_fallback_scalar():
     """
     Test fallback to scalar CV if vector info missing.
@@ -184,13 +182,7 @@ def test_constraint_gradient_fallback_scalar():
     heuristic = ConstraintGradient(strategy, samples=1)
 
     # Add points with missing cv_vec (simulated by modifying results)
-    points = [
-        [2.0, 2.0],
-        [2.01, 2.0],
-        [2.0, 2.01],
-        [1.99, 2.0],
-        [2.0, 1.99]
-    ]
+    points = [[2.0, 2.0], [2.01, 2.0], [2.0, 2.01], [1.99, 2.0], [2.0, 1.99]]
 
     results = []
     for p_arr in points:
@@ -217,18 +209,19 @@ def test_constraint_gradient_fallback_scalar():
         X = np.array(points)
         # cv = norm([1,1]) approx 1.414 for [2,2]
         # gradient of scalar cv (distance to region) points to region.
-        cv = np.linalg.norm(X - 1.0, axis=1) # simplified
+        cv = np.linalg.norm(X - 1.0, axis=1)  # simplified
         return {
             "x": X,
-            "fx": np.zeros(len(X)), # irrelevant
+            "fx": np.zeros(len(X)),  # irrelevant
             "cv": cv,
-            "cv_vec": None # MISSING VECTOR INFO
+            "cv_vec": None,  # MISSING VECTOR INFO
         }
 
     strategy.results.get_history = mock_get_history
 
     # Set best.cv > 0 manually
     best = results[0]
+
     # We need to monkeypatch 'cv' property or create a mock Result
     # Result.cv is a property.
     # We can create a dummy object with attributes

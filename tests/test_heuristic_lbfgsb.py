@@ -5,6 +5,7 @@ import numpy as np
 from panobbgo.utils import PanobbgoTestCase
 from panobbgo.heuristics.lbfgsb import LBFGSB
 
+
 class TestHeuristicLBFGSB(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
     def test_start_and_stop(self, mock_setup):
@@ -25,8 +26,8 @@ class TestHeuristicLBFGSB(PanobbgoTestCase):
         lbfgsb.__start__()
 
         # Mock is_alive to return True even after join to force kill()
-        with mock.patch.object(lbfgsb.lbfgsb, 'is_alive', side_effect=[True, True, True, False]):
-            with mock.patch.object(lbfgsb.lbfgsb, 'kill') as mock_kill:
+        with mock.patch.object(lbfgsb.lbfgsb, "is_alive", side_effect=[True, True, True, False]):
+            with mock.patch.object(lbfgsb.lbfgsb, "kill") as mock_kill:
                 lbfgsb.__stop__()
                 mock_kill.assert_called_once()
 
@@ -43,10 +44,11 @@ class TestHeuristicLBFGSB(PanobbgoTestCase):
             lbfgsb._stopped = True
             return True
 
-        with mock.patch.object(lbfgsb.p1, 'poll', side_effect=fake_poll):
+        with mock.patch.object(lbfgsb.p1, "poll", side_effect=fake_poll):
             lbfgsb.on_start()
 
         lbfgsb.__stop__()
+
 
 class TestHeuristicLBFGSBRobustness(PanobbgoTestCase):
     @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
@@ -68,8 +70,8 @@ class TestHeuristicLBFGSBRobustness(PanobbgoTestCase):
         lbfgsb.__start__()
 
         # Mock is_alive to return True even after join to force kill()
-        with mock.patch.object(lbfgsb.lbfgsb, 'is_alive', side_effect=[True, True, True, False]):
-            with mock.patch.object(lbfgsb.lbfgsb, 'kill') as mock_kill:
+        with mock.patch.object(lbfgsb.lbfgsb, "is_alive", side_effect=[True, True, True, False]):
+            with mock.patch.object(lbfgsb.lbfgsb, "kill") as mock_kill:
                 lbfgsb.__stop__()
                 mock_kill.assert_called_once()
 
@@ -86,10 +88,11 @@ class TestHeuristicLBFGSBRobustness(PanobbgoTestCase):
             lbfgsb._stopped = True
             return True
 
-        with mock.patch.object(lbfgsb.p1, 'poll', side_effect=fake_poll):
+        with mock.patch.object(lbfgsb.p1, "poll", side_effect=fake_poll):
             lbfgsb.on_start()
 
         lbfgsb.__stop__()
+
 
 class TestHeuristicLBFGSBExtra(PanobbgoTestCase):
     def test_on_new_results(self):
@@ -125,7 +128,7 @@ class TestHeuristicLBFGSBExtra(PanobbgoTestCase):
         lbfgsb.out1.poll.return_value = True
         lbfgsb.out1.recv.return_value = "Test Output"
         lbfgsb.p1 = mock.MagicMock()
-        lbfgsb.p1.poll.side_effect = EOFError() # exit loop after first pass
+        lbfgsb.p1.poll.side_effect = EOFError()  # exit loop after first pass
         lbfgsb._stopped = False
         lbfgsb.logger = mock.MagicMock()
 

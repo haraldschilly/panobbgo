@@ -99,9 +99,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
                 # optimize predict with x \in bounds
 
-                sol, _, _ = fmin_l_bfgs_b(
-                    predict, np.zeros(dim), bounds=bounds, approx_grad=True
-                )
+                sol, _, _ = fmin_l_bfgs_b(predict, np.zeros(dim), bounds=bounds, approx_grad=True)
 
                 pipe.send(sol)
             except EOFError:

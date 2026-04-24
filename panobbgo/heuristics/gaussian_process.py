@@ -284,9 +284,7 @@ class GaussianProcessHeuristic(Heuristic):
         try:
             # Use Matern kernel with some white noise for stability
             # ConstantKernel scales the Matern
-            kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(
-                noise_level=1e-5
-            )
+            kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(noise_level=1e-5)
 
             self.gp_model = GaussianProcessRegressor(
                 kernel=kernel,

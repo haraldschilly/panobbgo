@@ -112,9 +112,7 @@ class SQLiteStorage(StorageBackend):
         data = []
         for r in results:
             x_json = json.dumps(r.x.tolist()) if r.x is not None else "[]"
-            cv_vec_json = (
-                json.dumps(r.cv_vec.tolist()) if r.cv_vec is not None else "[]"
-            )
+            cv_vec_json = json.dumps(r.cv_vec.tolist()) if r.cv_vec is not None else "[]"
             # Use current time if timestamp not explicitly available, though Result has _time but it's private-ish?
             # Result has _time attribute.
             timestamp = getattr(r, "_time", time.time())
@@ -149,9 +147,7 @@ class SQLiteStorage(StorageBackend):
                 return []
             # We don't need transaction for read, but it's fine.
             # Using cursor directly.
-            cursor = self._conn.execute(
-                "SELECT x, fx, cv_vec, who, error, timestamp FROM results ORDER BY id ASC"
-            )
+            cursor = self._conn.execute("SELECT x, fx, cv_vec, who, error, timestamp FROM results ORDER BY id ASC")
             try:
                 for row in cursor:
                     x_json, fx, cv_vec_json, who, error, timestamp = row
@@ -172,7 +168,7 @@ class SQLiteStorage(StorageBackend):
                     # Ideally restore timestamp too, but Result doesn't expose it in init.
                     # We can manually set it if needed, but it's internal.
                     if hasattr(result, "_time"):
-                         result._time = timestamp
+                        result._time = timestamp
 
                     results.append(result)
             finally:

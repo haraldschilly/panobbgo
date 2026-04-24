@@ -233,9 +233,7 @@ def _make_full_problems() -> List[ProblemSpec]:
             name="DixonPrice_5D",
             problem_class=DixonPrice,
             dims=5,
-            known_optima=[
-                {"x": [2 ** (-(2**i - 2) / 2**i) for i in range(1, 6)], "fx": 0.0}
-            ],
+            known_optima=[{"x": [2 ** (-(2**i - 2) / 2**i) for i in range(1, 6)], "fx": 0.0}],
             tolerance=0.5,
             max_evaluations=500,
         ),
@@ -778,9 +776,7 @@ class HarnessResult:
         """
         import pathlib
 
-        pathlib.Path(path).write_text(
-            json.dumps(self.to_dict(), indent=2), encoding="utf-8"
-        )
+        pathlib.Path(path).write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
     @classmethod
     def load(cls, path: str) -> "HarnessResult":
@@ -800,13 +796,7 @@ class HarnessResult:
     @classmethod
     def _from_dict(cls, data: Dict[str, Any]) -> "HarnessResult":
         config_data = data["config"]
-        config = HarnessConfig(
-            **{
-                k: v
-                for k, v in config_data.items()
-                if k in HarnessConfig.__dataclass_fields__
-            }
-        )
+        config = HarnessConfig(**{k: v for k, v in config_data.items() if k in HarnessConfig.__dataclass_fields__})
 
         psr_list = []
         for psr_data in data.get("problem_strategy_results", []):
@@ -823,9 +813,7 @@ class HarnessResult:
                     evaluations_used=r["evaluations_used"],
                     best_fx=r["best_fx"],
                     f_opt=r["f_opt"],
-                    func_distance=r["func_distance"]
-                    if r["func_distance"] is not None
-                    else float("inf"),
+                    func_distance=r["func_distance"] if r["func_distance"] is not None else float("inf"),
                     tolerance=r["tolerance"],
                     success=r["success"],
                     convergence=conv,
@@ -844,14 +832,10 @@ class HarnessResult:
                 budget=psr_data["budget"],
                 runs=runs,
                 success_rate=psr_data.get("success_rate", 0.0),
-                ert=psr_data["ert"]
-                if psr_data.get("ert") is not None
-                else float("inf"),
+                ert=psr_data["ert"] if psr_data.get("ert") is not None else float("inf"),
                 score=psr_data.get("score", 0.0),
                 best_func_distance=(
-                    psr_data["best_func_distance"]
-                    if psr_data.get("best_func_distance") is not None
-                    else float("inf")
+                    psr_data["best_func_distance"] if psr_data.get("best_func_distance") is not None else float("inf")
                 ),
                 median_func_distance=(
                     psr_data["median_func_distance"]
@@ -891,28 +875,19 @@ class HarnessResult:
         print(bar)
 
         # Header
-        print(
-            f"  {'Problem':<22} {'Strategy':<22} {'Score':>6} "
-            f"{'SR':>5} {'ERT':>7} {'BestDist':>10}"
-        )
+        print(f"  {'Problem':<22} {'Strategy':<22} {'Score':>6} {'SR':>5} {'ERT':>7} {'BestDist':>10}")
         print("-" * width)
 
         for psr in self.problem_strategy_results:
             ert_str = f"{psr.ert:7.1f}" if psr.ert < float("inf") else "    inf"
-            dist_str = (
-                f"{psr.best_func_distance:10.4f}"
-                if psr.best_func_distance < float("inf")
-                else "       inf"
-            )
+            dist_str = f"{psr.best_func_distance:10.4f}" if psr.best_func_distance < float("inf") else "       inf"
             print(
                 f"  {psr.problem_name:<22} {psr.strategy_name:<22}"
                 f" {psr.score:6.3f} {psr.success_rate:5.2f} {ert_str} {dist_str}"
             )
 
         print(bar)
-        print(
-            f"  Total runs: {self.total_runs}  |  Wall time: {self.total_duration:.1f}s"
-        )
+        print(f"  Total runs: {self.total_runs}  |  Wall time: {self.total_duration:.1f}s")
         print(bar)
 
 
@@ -981,10 +956,7 @@ class ComparisonResult:
             for prob, strat, b, a in self.degraded:
                 print(f"    {prob} / {strat}: {b:.3f} → {a:.3f} ({a - b:.3f})")
         if self.unchanged:
-            print(
-                f"  Unchanged ({len(self.unchanged)}): "
-                + ", ".join(f"{p}/{s}" for p, s, _, _ in self.unchanged)
-            )
+            print(f"  Unchanged ({len(self.unchanged)}): " + ", ".join(f"{p}/{s}" for p, s, _, _ in self.unchanged))
         if self.only_before:
             print(
                 f"  Only in baseline ({len(self.only_before)}): "
@@ -992,8 +964,7 @@ class ComparisonResult:
             )
         if self.only_after:
             print(
-                f"  Only in candidate ({len(self.only_after)}): "
-                + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
+                f"  Only in candidate ({len(self.only_after)}): " + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
             )
 
         if self.statistical:
@@ -1040,12 +1011,10 @@ def compare(
     """
     # Index results by (problem, strategy)
     before_map: Dict[Tuple[str, str], float] = {
-        (psr.problem_name, psr.strategy_name): psr.score
-        for psr in before.problem_strategy_results
+        (psr.problem_name, psr.strategy_name): psr.score for psr in before.problem_strategy_results
     }
     after_map: Dict[Tuple[str, str], float] = {
-        (psr.problem_name, psr.strategy_name): psr.score
-        for psr in after.problem_strategy_results
+        (psr.problem_name, psr.strategy_name): psr.score for psr in after.problem_strategy_results
     }
 
     improved = []
@@ -1073,11 +1042,7 @@ def compare(
     only_after = [(p, s, after_map[(p, s)]) for p, s in oa_keys]
 
     delta = after.composite_score - before.composite_score
-    rel_delta = (
-        (delta / before.composite_score * 100.0)
-        if before.composite_score > 0
-        else float("inf")
-    )
+    rel_delta = (delta / before.composite_score * 100.0) if before.composite_score > 0 else float("inf")
 
     ci_lower = None
     ci_upper = None
@@ -1292,9 +1257,7 @@ class StatisticalDecision:
             "eps_accept": self.eps_accept,
             "eps_regress": self.eps_regress,
             "worst_pair_regression": self.worst_pair_regression,
-            "worst_pair": (
-                list(self.worst_pair) if self.worst_pair is not None else None
-            ),
+            "worst_pair": (list(self.worst_pair) if self.worst_pair is not None else None),
             "reasons": list(self.reasons),
             "seed": self.seed,
             "per_pair": [
@@ -1325,16 +1288,10 @@ class StatisticalDecision:
             f"Δ={self.delta:+.4f}  {pct}% CI=[{self.ci_low:+.4f}, {self.ci_high:+.4f}]"
             f"  {arrow}"
         )
-        print(
-            f"  eps_accept={self.eps_accept:.4f}  "
-            f"eps_regress={self.eps_regress:.4f}  n_boot={self.n_boot}"
-        )
+        print(f"  eps_accept={self.eps_accept:.4f}  eps_regress={self.eps_regress:.4f}  n_boot={self.n_boot}")
         if self.worst_pair is not None:
             prob, strat = self.worst_pair
-            print(
-                f"  Worst pair regression: {prob} / {strat}  "
-                f"Δ={self.worst_pair_regression:+.4f}"
-            )
+            print(f"  Worst pair regression: {prob} / {strat}  Δ={self.worst_pair_regression:+.4f}")
         print(bar)
         if self.reasons:
             print("  Reasons:")
@@ -1390,12 +1347,10 @@ def statistical_accept(
     """
     # Index each result by (problem, strategy) to find shared pairs.
     before_map: Dict[Tuple[str, str], ProblemStrategyResult] = {
-        (psr.problem_name, psr.strategy_name): psr
-        for psr in before.problem_strategy_results
+        (psr.problem_name, psr.strategy_name): psr for psr in before.problem_strategy_results
     }
     after_map: Dict[Tuple[str, str], ProblemStrategyResult] = {
-        (psr.problem_name, psr.strategy_name): psr
-        for psr in after.problem_strategy_results
+        (psr.problem_name, psr.strategy_name): psr for psr in after.problem_strategy_results
     }
     shared = sorted(set(before_map) & set(after_map))
 
@@ -1416,10 +1371,7 @@ def statistical_accept(
 
         if b_frac.size == 0 or a_frac.size == 0:
             # No reps on one side — skip bootstrap, use point estimate only.
-            point = float(
-                (a_frac.mean() if a_frac.size else 0.0)
-                - (b_frac.mean() if b_frac.size else 0.0)
-            )
+            point = float((a_frac.mean() if a_frac.size else 0.0) - (b_frac.mean() if b_frac.size else 0.0))
             per_pair.append(
                 PairCI(
                     problem=prob,
@@ -1502,30 +1454,20 @@ def statistical_accept(
 
     if not cond_shared:
         reasons.append(
-            "no (problem, strategy) pairs are shared between before and after"
-            " — cannot form a statistical decision"
+            "no (problem, strategy) pairs are shared between before and after — cannot form a statistical decision"
         )
     if not cond_delta:
-        reasons.append(
-            f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}"
-        )
+        reasons.append(f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}")
     if not cond_ci:
-        reasons.append(
-            f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically "
-            "distinguishable from noise"
-        )
+        reasons.append(f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise")
     if not cond_regress:
         if worst_pair is not None:
             prob, strat = worst_pair
             reasons.append(
-                f"pair {prob} / {strat} regressed by {worst_pair_regression:+.4f}"
-                f" (> eps_regress {eps_regress:.4f})"
+                f"pair {prob} / {strat} regressed by {worst_pair_regression:+.4f} (> eps_regress {eps_regress:.4f})"
             )
         else:  # pragma: no cover — defensive; cannot trigger with the rule above
-            reasons.append(
-                f"worst regression {worst_pair_regression:+.4f} exceeds"
-                f" eps_regress {eps_regress:.4f}"
-            )
+            reasons.append(f"worst regression {worst_pair_regression:+.4f} exceeds eps_regress {eps_regress:.4f}")
 
     accept = cond_shared and cond_delta and cond_ci and cond_regress
     if accept and not reasons:
@@ -1596,9 +1538,7 @@ class BenchmarkHarness:
         # even when randomize=True (which does not itself look at mode).
         mode = self.config.mode
         if mode not in _MODE_BUDGETS:
-            raise ValueError(
-                f"Unknown mode {mode!r}. Use 'quick', 'standard', or 'full'."
-            )
+            raise ValueError(f"Unknown mode {mode!r}. Use 'quick', 'standard', or 'full'.")
         budget = self.config.effective_budget()
 
         if self.config.randomize:
@@ -1718,9 +1658,7 @@ class BenchmarkHarness:
                 )
 
                 for rep in range(reps):
-                    seed = self._derive_seed(
-                        config.seed, prob_spec.name, strat_spec.name, rep
-                    )
+                    seed = self._derive_seed(config.seed, prob_spec.name, strat_spec.name, rep)
                     if verbose:
                         run_counter += 1
                         print(
@@ -1734,9 +1672,7 @@ class BenchmarkHarness:
                     psr.runs.append(record)
 
                     if verbose:
-                        status = (
-                            "OK" if record.error is None else f"ERR:{record.error[:30]}"
-                        )
+                        status = "OK" if record.error is None else f"ERR:{record.error[:30]}"
                         suc = "✓" if record.success else "✗"
                         print(
                             f"{suc} fx={record.best_fx:.4g}"
@@ -1866,11 +1802,7 @@ class BenchmarkHarness:
 
             # Best result
             best_result = strategy.best
-            best_fx_raw = (
-                best_result.fx
-                if best_result is not None and best_result.fx is not None
-                else float("inf")
-            )
+            best_fx_raw = best_result.fx if best_result is not None and best_result.fx is not None else float("inf")
             best_fx = float(best_fx_raw)
             func_distance = abs(best_fx - f_opt)
             success = func_distance <= tolerance
@@ -1972,9 +1904,7 @@ class BenchmarkHarness:
             return np.array([], dtype=object)
 
     @staticmethod
-    def _build_convergence_from_arrays(
-        fx_values: Any, f_opt: float
-    ) -> List[ConvergencePoint]:
+    def _build_convergence_from_arrays(fx_values: Any, f_opt: float) -> List[ConvergencePoint]:
         """Build a convergence trace from an ordered array of function values.
 
         Records an improvement event every time the running minimum decreases.
@@ -2030,9 +1960,7 @@ class BenchmarkHarness:
 
     # Keep backward-compatible static methods for external callers / tests
     @staticmethod
-    def _extract_convergence(
-        all_results: List[Any], f_opt: float
-    ) -> List[ConvergencePoint]:
+    def _extract_convergence(all_results: List[Any], f_opt: float) -> List[ConvergencePoint]:
         """Build a convergence trace from itertuples NamedTuples.
 
         .. deprecated::
@@ -2138,9 +2066,7 @@ def run_standard(seed: int = 42, verbose: bool = True) -> HarnessResult:
         seed: Base random seed.
         verbose: Print progress.
     """
-    return BenchmarkHarness(HarnessConfig(mode="standard", seed=seed)).run(
-        verbose=verbose
-    )
+    return BenchmarkHarness(HarnessConfig(mode="standard", seed=seed)).run(verbose=verbose)
 
 
 def compute_ert(

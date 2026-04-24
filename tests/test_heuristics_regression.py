@@ -30,10 +30,17 @@ from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
 from panobbgo.lib.constraints import DefaultConstraintHandler
 from functools import cmp_to_key
 
+
 class MockLogger:
-    def info(self, msg): pass
-    def debug(self, msg): pass
-    def warning(self, msg): pass
+    def info(self, msg):
+        pass
+
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
 
 class MockConfig:
     def __init__(self):
@@ -43,13 +50,16 @@ class MockConfig:
     def get_logger(self, name):
         return MockLogger()
 
+
 class MockProblem:
     def __init__(self):
         self.ranges = np.array([10.0])
         self.dim = 1
-        self.box = type('Box', (), {'box': [(0, 10)]})()
+        self.box = type("Box", (), {"box": [(0, 10)]})()
+
     def project(self, x):
         return x
+
 
 class MockStrategy:
     def __init__(self):
@@ -62,15 +72,18 @@ class MockStrategy:
 
     def analyzer(self, name):
         class AnalyzerProxy:
-            def __init__(self, strat): self.strat = strat
+            def __init__(self, strat):
+                self.strat = strat
+
             def get_leaf(self, x):
-                if 'Splitter' in self.strat.analyzers:
-                    return self.strat.analyzers['Splitter'].get_leaf(x)
+                if "Splitter" in self.strat.analyzers:
+                    return self.strat.analyzers["Splitter"].get_leaf(x)
                 return None
+
         return AnalyzerProxy(self)
 
-class TestHeuristicRegressions:
 
+class TestHeuristicRegressions:
     def test_weighted_average_negative_diff_crash(self):
         """
         Verify WeightedAverage does not crash when an infeasible point has
@@ -96,8 +109,10 @@ class TestHeuristicRegressions:
 
         # Setup mock splitter
         class MockSplitter:
-            def get_leaf(self, x): return box
-        strategy.analyzers['Splitter'] = MockSplitter()
+            def get_leaf(self, x):
+                return box
+
+        strategy.analyzers["Splitter"] = MockSplitter()
 
         wa = WeightedAverage(strategy)
         wa.__start__()
@@ -153,8 +168,8 @@ class TestHeuristicRegressions:
         """
         # Logic simulation
         c_pred = np.array(0.5)  # 0-d array
-        c_std = np.array(0.0)   # 0-d array
-        prob_feas = np.array(0.0) # 0-d array
+        c_std = np.array(0.0)  # 0-d array
+        prob_feas = np.array(0.0)  # 0-d array
 
         # Fix application: use atleast_1d
         c_std_arr = np.atleast_1d(c_std)
@@ -170,7 +185,7 @@ class TestHeuristicRegressions:
             pytest.fail(f"Scalar indexing failed despite fix: {e}")
 
         # Verify value
-        assert prob_feas_arr[0] == 0.0 # 0.5 > 1e-6, so 0.0
+        assert prob_feas_arr[0] == 0.0  # 0.5 > 1e-6, so 0.0
 
 
 def test_quadratic_wls_subprocess():
@@ -181,7 +196,7 @@ def test_quadratic_wls_subprocess():
     parent_conn, child_conn = multiprocessing.Pipe()
 
     # We will run the subprocess in a separate Python process to avoid blocking
-    ctx = multiprocessing.get_context('spawn') # Avoid fork warning
+    ctx = multiprocessing.get_context("spawn")  # Avoid fork warning
     p = ctx.Process(target=QuadraticWlsModel.subprocess, args=(child_conn,))
     p.start()
 

@@ -7,8 +7,8 @@ from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.lib import Point, Result, Problem
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
-class TestConstraintGradient(PanobbgoTestCase):
 
+class TestConstraintGradient(PanobbgoTestCase):
     def setUp(self):
         super().setUp()
         self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
@@ -22,7 +22,7 @@ class TestConstraintGradient(PanobbgoTestCase):
 
     def test_on_new_best_feasible(self):
         """Should trigger active sampling if best is feasible but history is insufficient"""
-        best = Result(Point(np.zeros(2), "test"), 0.0, cv_vec=None) # cv=0
+        best = Result(Point(np.zeros(2), "test"), 0.0, cv_vec=None)  # cv=0
         self.heuristic.on_new_best(best)
 
         points = self.heuristic.get_points()
@@ -44,11 +44,14 @@ class TestConstraintGradient(PanobbgoTestCase):
         CV = x[0] + x[1] + 1.0 (Linear)
         Gradient should be [1, 1]. Descent direction [-1, -1].
         """
+
         # Override problem to have symmetric bounds around 0
         class SimpleProblem(Problem):
-             def __init__(self):
-                 super().__init__([(-5, 5), (-5, 5)])
-             def eval(self, x): return 0.0
+            def __init__(self):
+                super().__init__([(-5, 5), (-5, 5)])
+
+            def eval(self, x):
+                return 0.0
 
         self.problem = SimpleProblem()
         self.strategy.problem = self.problem
@@ -61,7 +64,8 @@ class TestConstraintGradient(PanobbgoTestCase):
         # Create a grid of points
         for x1 in np.linspace(-0.1, 0.1, 5):
             for x2 in np.linspace(-0.1, 0.1, 5):
-                if x1 == 0 and x2 == 0: continue # Skip center
+                if x1 == 0 and x2 == 0:
+                    continue  # Skip center
                 x = np.array([x1, x2])
                 cv_val = np.sum(x) + 1.0
                 r = Result(Point(x, "hist"), 0.0, cv_vec=np.array([cv_val]))
@@ -92,11 +96,14 @@ class TestConstraintGradient(PanobbgoTestCase):
         """
         Test ConstraintGradient with a mock Results object (mimicking production)
         """
+
         # Override problem
         class SimpleProblem(Problem):
-             def __init__(self):
-                 super().__init__([(-5, 5), (-5, 5)])
-             def eval(self, x): return 0.0
+            def __init__(self):
+                super().__init__([(-5, 5), (-5, 5)])
+
+            def eval(self, x):
+                return 0.0
 
         self.problem = SimpleProblem()
         self.strategy.problem = self.problem
@@ -110,20 +117,22 @@ class TestConstraintGradient(PanobbgoTestCase):
                 cv_list = []
                 for x1 in np.linspace(-0.1, 0.1, 5):
                     for x2 in np.linspace(-0.1, 0.1, 5):
-                        if x1 == 0 and x2 == 0: continue
+                        if x1 == 0 and x2 == 0:
+                            continue
                         x = np.array([x1, x2])
                         x_list.append(x)
                         cv_list.append(np.sum(x) + 1.0)
 
                 return {
-                    'x': np.array(x_list),
-                    'cv': np.array(cv_list),
-                    'fx': np.zeros(len(x_list)), # Not used
-                    'cv_vec': np.array(cv_list).reshape(-1, 1), # Not used
-                    'who': np.array(["hist"] * len(x_list))
+                    "x": np.array(x_list),
+                    "cv": np.array(cv_list),
+                    "fx": np.zeros(len(x_list)),  # Not used
+                    "cv_vec": np.array(cv_list).reshape(-1, 1),  # Not used
+                    "who": np.array(["hist"] * len(x_list)),
                 }
 
-            def __len__(self): return 24
+            def __len__(self):
+                return 24
 
         self.strategy.results = MockResults()
 
@@ -144,10 +153,13 @@ class TestConstraintGradient(PanobbgoTestCase):
         """
         Test that multiple points are generated when samples > 1.
         """
+
         class SimpleProblem(Problem):
-             def __init__(self):
-                 super().__init__([(-5, 5), (-5, 5)])
-             def eval(self, x): return 0.0
+            def __init__(self):
+                super().__init__([(-5, 5), (-5, 5)])
+
+            def eval(self, x):
+                return 0.0
 
         self.problem = SimpleProblem()
         self.strategy.problem = self.problem
@@ -156,7 +168,8 @@ class TestConstraintGradient(PanobbgoTestCase):
         history = []
         for x1 in np.linspace(-0.1, 0.1, 5):
             for x2 in np.linspace(-0.1, 0.1, 5):
-                if x1 == 0 and x2 == 0: continue
+                if x1 == 0 and x2 == 0:
+                    continue
                 x = np.array([x1, x2])
                 cv_val = np.sum(x) + 1.0
                 r = Result(Point(x, "hist"), 0.0, cv_vec=np.array([cv_val]))

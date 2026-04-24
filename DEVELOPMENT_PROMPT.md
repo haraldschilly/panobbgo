@@ -539,7 +539,7 @@ When you're called to work on panobbgo:
 
 ### Python Best Practices
 
-- **PEP 8** compliance (use `black` for formatting)
+- **PEP 8** compliance (use `uv run ruff format` for formatting)
 - **Type hints** for all new functions
 - **Docstrings** for all public API
 - **No print statements** (use `self.logger.info/debug`)

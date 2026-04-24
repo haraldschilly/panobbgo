@@ -54,9 +54,7 @@ def _run(first_hit: Optional[int], budget: int = 100) -> RunRecord:
     success = first_hit is not None
     convergence: List[ConvergencePoint] = []
     if first_hit is not None:
-        convergence.append(
-            ConvergencePoint(eval_idx=first_hit, fx=0.05, func_distance=0.05)
-        )
+        convergence.append(ConvergencePoint(eval_idx=first_hit, fx=0.05, func_distance=0.05))
     return RunRecord(
         problem_name="P",
         problem_dim=2,
@@ -184,9 +182,7 @@ class TestStatisticalAcceptAcceptPath:
                 _psr("P2", "S2", [20, 20, 20, 20, 20]),
             ]
         )
-        d = statistical_accept(
-            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=0
-        )
+        d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=0)
         assert d.accept is True
         assert d.delta > 0.8
         assert d.ci_low > 0.0
@@ -199,9 +195,7 @@ class TestStatisticalAcceptAcceptPath:
         before = _harness_result([_psr("P", "S", [50] * 10)])
         # 50 → 40 at budget=100 means fraction rises from 0.51 to 0.61 → +0.10.
         after = _harness_result([_psr("P", "S", [40] * 10)])
-        d = statistical_accept(
-            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=2000, seed=1
-        )
+        d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.05, n_boot=2000, seed=1)
         assert d.accept is True
         assert d.delta == pytest.approx(0.10, abs=0.01)
         # Zero variance within each side → CI collapses to a point estimate.
@@ -218,9 +212,7 @@ class TestStatisticalAcceptRejectPaths:
         """Identical distributions — CI straddles zero, so reject."""
         before = _harness_result([_psr("P", "S", [30, 50, 70, 90, 10])])
         after = _harness_result([_psr("P", "S", [10, 30, 50, 70, 90])])
-        d = statistical_accept(
-            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=2000, seed=2
-        )
+        d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.05, n_boot=2000, seed=2)
         # The point delta may even be 0.0 here; either way the CI should
         # bracket zero and the decision should be reject.
         assert d.accept is False
@@ -230,9 +222,7 @@ class TestStatisticalAcceptRejectPaths:
         """Composite dropped → reject."""
         before = _harness_result([_psr("P", "S", [10, 10, 10, 10, 10])])
         after = _harness_result([_psr("P", "S", [None, None, None, None, None])])
-        d = statistical_accept(
-            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=3
-        )
+        d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=3)
         assert d.accept is False
         assert d.delta < 0.0
 
@@ -253,9 +243,7 @@ class TestStatisticalAcceptRejectPaths:
                 _psr("P2", "S2", [None, None, None, None, None]),  # 1.0 → 0.0
             ]
         )
-        d = statistical_accept(
-            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=4
-        )
+        d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.05, n_boot=1000, seed=4)
         # Composite delta is 0.0 on average, and one pair regressed by 1.0.
         assert d.accept is False
         assert d.worst_pair_regression == pytest.approx(-1.0)
@@ -269,9 +257,7 @@ class TestStatisticalAcceptRejectPaths:
         # after: all solve at 49 → score 0.52 → delta = +0.01
         before = _harness_result([_psr("P", "S", [50] * 10)])
         after = _harness_result([_psr("P", "S", [49] * 10)])
-        d = statistical_accept(
-            before, after, eps_accept=0.05, eps_regress=0.05, n_boot=1000, seed=5
-        )
+        d = statistical_accept(before, after, eps_accept=0.05, eps_regress=0.05, n_boot=1000, seed=5)
         assert d.accept is False
         assert d.delta > 0.0
         assert any("eps_accept" in r for r in d.reasons)
@@ -476,9 +462,7 @@ class TestCompareCLIStatistical:
         self._write_result(before, [_psr("P", "S", [50, 50, 50])])
         self._write_result(after, [_psr("P", "S", [20, 20, 20])])
 
-        ret = main(
-            ["compare", before, after, "--statistical", "--n-boot", "200", "--json"]
-        )
+        ret = main(["compare", before, after, "--statistical", "--n-boot", "200", "--json"])
         assert ret == 0
         out = capsys.readouterr().out
         # The cmd_compare prints the ASCII summary/decision, then the JSON

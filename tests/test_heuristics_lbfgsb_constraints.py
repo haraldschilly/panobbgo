@@ -5,6 +5,7 @@ from panobbgo.heuristics.lbfgsb import LBFGSB
 from panobbgo.lib import Result, Point
 import numpy as np
 
+
 class TestLBFGSBConstraints(unittest.TestCase):
     def setUp(self):
         self.strategy = Mock()
@@ -27,7 +28,7 @@ class TestLBFGSBConstraints(unittest.TestCase):
         """Test that on_new_results sends penalty value to pipe, not just fx."""
 
         # Create a result
-        point = Point(np.array([1.0, 2.0]), "LBFGSB") # Must match heuristic name
+        point = Point(np.array([1.0, 2.0]), "LBFGSB")  # Must match heuristic name
         # Force heuristic name to match what we put in point
         self.heuristic._name = "LBFGSB"
 

@@ -56,18 +56,6 @@ class Best(Analyzer):
         self._pareto = None
         self._pareto_front = []  # this is a heapq, sorted by result.fx
 
-
-
-
-
-
-
-
-
-
-
-
-
     @property
     def best(self):
         """
@@ -152,27 +140,17 @@ class Best(Analyzer):
         self._pareto_front = new_front
         if pf_old != new_front:
             if len(self.pareto_front) > 2:
-                self.logger.debug(
-                    "pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front]
-                )
+                self.logger.debug("pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front])
             self.eventbus.publish("new_pareto_front", front=new_front)
 
     def on_new_results(self, results):
         for r in results:
-            if (
-                (self._min is None)
-                or (r.fx < self._min.fx)
-                or (r.fx == self._min.fx and r.cv < self._min.cv)
-            ):
+            if (self._min is None) or (r.fx < self._min.fx) or (r.fx == self._min.fx and r.cv < self._min.cv):
                 # self.logger.info(u"\u2318 %s by %s" %(r, r.who))
                 self._min = r
                 self.eventbus.publish("new_min", min=r)
 
-            if (
-                (self._cv is None)
-                or (r.cv < self._cv.cv)
-                or (r.cv == self._cv.cv and r.fx < self._cv.fx)
-            ):
+            if (self._cv is None) or (r.cv < self._cv.cv) or (r.cv == self._cv.cv and r.fx < self._cv.fx):
                 self._cv = r
                 self.eventbus.publish("new_cv", cv=r)
 
@@ -180,7 +158,7 @@ class Best(Analyzer):
             is_better = False
             if self._pareto is None:
                 is_better = True
-            elif hasattr(self.strategy, 'constraint_handler') and self.strategy.constraint_handler:
+            elif hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
                 is_better = self.strategy.constraint_handler.is_better(self._pareto, r)
             else:
                 # Fallback to default lexicographic behavior
@@ -221,10 +199,7 @@ class Best(Analyzer):
             is_better = False
             if self._pareto is None:
                 is_better = True
-            elif (
-                hasattr(self.strategy, "constraint_handler")
-                and self.strategy.constraint_handler
-            ):
+            elif hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
                 is_better = self.strategy.constraint_handler.is_better(self._pareto, r)
             else:
                 # Fallback to default lexicographic behavior
@@ -234,9 +209,7 @@ class Best(Analyzer):
                     is_better = True
 
             if is_better:
-                self.logger.info(
-                    f"Updated best point due to criteria change: {r.fx} (cv={r.cv})"
-                )
+                self.logger.info(f"Updated best point due to criteria change: {r.fx} (cv={r.cv})")
                 self._pareto = r
                 self.eventbus.publish("new_pareto", pareto=r)
                 self.eventbus.publish("new_best", best=r)
@@ -251,15 +224,13 @@ class Best(Analyzer):
         self.logger.info(message)
 
         # Get progress reporter from strategy and trigger status update
-        if hasattr(self.strategy, 'panobbgo_logger') and self.strategy.panobbgo_logger:
+        if hasattr(self.strategy, "panobbgo_logger") and self.strategy.panobbgo_logger:
             progress_reporter = self.strategy.panobbgo_logger.progress_reporter
             if progress_reporter and progress_reporter.enabled:
                 # Trigger a status update on the strategy (this will refresh the progress display)
-                if hasattr(self.strategy, '_update_progress_status'):
+                if hasattr(self.strategy, "_update_progress_status"):
                     try:
                         self.strategy._update_progress_status()
                     except Exception:
                         # If status update fails, just continue
                         pass
-
-

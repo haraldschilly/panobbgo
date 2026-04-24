@@ -41,12 +41,8 @@ class ColoredFormatter(logging.Formatter):
     }
 
     def __init__(self):
-        msg = (
-            "%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s"
-        )
-        msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace(
-            "$BOLD", ColoredFormatter.BOLD_SEQ
-        )
+        msg = "%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s"
+        msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
         logging.Formatter.__init__(self, fmt=msg)
 
     @staticmethod
@@ -219,11 +215,11 @@ class memoize:
         key_args = []
 
         for arg in args[1:]:
-             if isinstance(arg, np.ndarray):
-                 # Convert to bytes for hashing (efficient)
-                 key_args.append(arg.tobytes())
-             else:
-                 key_args.append(arg)
+            if isinstance(arg, np.ndarray):
+                # Convert to bytes for hashing (efficient)
+                key_args.append(arg.tobytes())
+            else:
+                key_args.append(arg)
 
         key = (self.func, tuple(key_args), frozenset(list(kw.items())))
 
@@ -283,10 +279,7 @@ def expected_failure(exptn, msg=None):
                 if msg is not None:
                     assert str(ex) == msg, "message: '%s'" % str(ex)
             else:
-                raise AssertionError(
-                    "No Exception '%s' raised in '%s'"
-                    % (exptn.__name__, testfn.__name__)
-                )
+                raise AssertionError("No Exception '%s' raised in '%s'" % (exptn.__name__, testfn.__name__))
 
         return inner
 

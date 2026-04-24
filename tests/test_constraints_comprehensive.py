@@ -13,6 +13,7 @@ from panobbgo.heuristics.feasible_search import FeasibleSearch
 from panobbgo.heuristics.random import Random
 from panobbgo.strategies.rewarding import StrategyRewarding
 
+
 # Mock Config
 class MockConfig:
     def __init__(self):
@@ -27,6 +28,7 @@ class MockConfig:
 
     def get_logger(self, name):
         return logging.getLogger(name)
+
 
 # Mock Strategy
 class MockStrategy(StrategyBase):
@@ -48,9 +50,15 @@ class MockStrategy(StrategyBase):
     def best(self, value):
         self._best = value
 
-    def start(self): pass
-    def stop(self): pass
-    def execute(self): return []
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def execute(self):
+        return []
+
 
 def test_alm_updates():
     """
@@ -97,7 +105,7 @@ def test_constraint_gradient_fallback():
     heuristic.__start__()
 
     # Mock history
-    center = np.array([0.0, 0.0]) # Infeasible
+    center = np.array([0.0, 0.0])  # Infeasible
     r_center = Result(Point(center, "init"), problem.eval(center), cv_vec=problem.eval_constraints(center))
     strategy.results.add_results([r_center])
     strategy.best = r_center
@@ -147,10 +155,7 @@ def test_heuristic_integration():
     problem = RosenbrockConstraint(dims=2)
     # Setup strategy with mocked config to control parameters via kwargs if needed
     strategy = StrategyRewarding(
-        problem,
-        max_eval=20,
-        constraint_handler="AugmentedLagrangianConstraintHandler",
-        rho=10.0
+        problem, max_eval=20, constraint_handler="AugmentedLagrangianConstraintHandler", rho=10.0
     )
 
     # Add heuristics (Random is needed to start!)

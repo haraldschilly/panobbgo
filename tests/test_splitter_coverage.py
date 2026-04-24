@@ -4,6 +4,7 @@ from panobbgo.analyzers.splitter import Splitter
 from panobbgo.lib import Problem, Point, Result, BoundingBox
 from unittest import mock
 
+
 class MockStrategy:
     def __init__(self, problem):
         self.problem = problem
@@ -13,17 +14,22 @@ class MockStrategy:
         self.eventbus = mock.MagicMock()
         self.constraint_handler = mock.MagicMock()
 
+
 class MockProblem(Problem):
     def __init__(self, dim):
         super().__init__([(-5, 5)] * dim)
+
     def eval(self, x):
         return np.sum(x**2)
+
     def eval_constraints(self, x):
         return [0.0]
+
 
 def make_result(x, fx, cv=0.0):
     r = Result(Point(np.array(x), "who"), fx=fx, cv_vec=np.array([cv]), error=0.0)
     return r
+
 
 def test_splitter_get_box():
     problem = MockProblem(dim=2)
@@ -33,10 +39,11 @@ def test_splitter_get_box():
 
     r1 = make_result([-1.0, -1.0], 10.0)
     splitter.limit = 1
-    splitter.root.add_result(r1) # it will split automatically
+    splitter.root.add_result(r1)  # it will split automatically
 
     box = splitter.get_box(r1.x)
     assert box.leaf
+
 
 def test_splitter_best_box_updates_identical_points():
     problem = MockProblem(dim=2)
@@ -44,6 +51,7 @@ def test_splitter_best_box_updates_identical_points():
 
     def is_better_mock(best, new):
         return new.fx < best.fx
+
     strategy.constraint_handler.is_better.side_effect = is_better_mock
 
     splitter = Splitter(strategy)
@@ -63,12 +71,14 @@ def test_splitter_best_box_updates_identical_points():
 
     splitter.on_new_split(splitter.root, [b1, b2], 0)
 
+
 def test_splitter_best_box_updates_identical_points_same_fx_different_cv():
     problem = MockProblem(dim=2)
     strategy = MockStrategy(problem)
 
     def is_better_mock(best, new):
         return new.fx < best.fx
+
     strategy.constraint_handler.is_better.side_effect = is_better_mock
 
     splitter = Splitter(strategy)
@@ -91,12 +101,14 @@ def test_splitter_best_box_updates_identical_points_same_fx_different_cv():
     # new_box.best.cv == self.best_box.best.cv is FALSE. So it will NOT update to b2. Which is correct, it will stay b1.
     assert splitter.best_box == b1
 
+
 def test_splitter_best_box_updates_identical_points_same_fx_same_cv():
     problem = MockProblem(dim=2)
     strategy = MockStrategy(problem)
 
     def is_better_mock(best, new):
         return new.fx < best.fx
+
     strategy.constraint_handler.is_better.side_effect = is_better_mock
 
     splitter = Splitter(strategy)
@@ -144,6 +156,7 @@ def test_splitter_box_split_dim():
     assert len(splitter.root.children) == 2
     assert splitter.root.split_dim == 0
 
+
 def test_splitter_box_add_result_recursive():
     problem = MockProblem(dim=2)
     strategy = MockStrategy(problem)
@@ -170,6 +183,7 @@ def test_splitter_box_add_result_recursive():
     assert leaf is not splitter.root
     assert leaf.contains(r2.x)
 
+
 def test_splitter_get_leaf_wait():
     problem = MockProblem(dim=2)
     strategy = MockStrategy(problem)
@@ -190,13 +204,14 @@ def test_splitter_get_leaf_wait():
     t = threading.Thread(target=wait_for_leaf)
     t.start()
 
-    time.sleep(0.1) # let the thread block
+    time.sleep(0.1)  # let the thread block
 
     # Now simulate new result coming in
     splitter.on_new_results([r1])
 
     t.join(timeout=1.0)
     assert not t.is_alive()
+
 
 def test_splitter_properties():
     problem = MockProblem(dim=2)

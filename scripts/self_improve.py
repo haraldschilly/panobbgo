@@ -77,12 +77,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default="quick",
         help="Harness mode per iteration (default: quick)",
     )
-    run_p.add_argument(
-        "--reps", type=int, default=None, help="Override reps per (problem, strategy)"
-    )
-    run_p.add_argument(
-        "--budget", type=int, default=None, help="Override evaluation budget per run"
-    )
+    run_p.add_argument("--reps", type=int, default=None, help="Override reps per (problem, strategy)")
+    run_p.add_argument("--budget", type=int, default=None, help="Override evaluation budget per run")
     run_p.add_argument(
         "--base-seed",
         dest="base_seed",
@@ -164,9 +160,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="SECS",
         help="Per-run timeout in seconds (default: 120)",
     )
-    run_p.add_argument(
-        "--quiet", "-q", action="store_true", help="Suppress per-iteration output"
-    )
+    run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
     sum_p = sub.add_parser("summary", help="Summarise a JSONL ledger file")
@@ -208,11 +202,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     n_skips = sum(1 for r in records if r.proposal is None)
     n_total = len(records)
     print()
-    print(
-        f"[self_improve] completed: {n_total} iter, "
-        f"{n_accepts} accept, {n_skips} skip, "
-        f"ledger={cfg.ledger_path}"
-    )
+    print(f"[self_improve] completed: {n_total} iter, {n_accepts} accept, {n_skips} skip, ledger={cfg.ledger_path}")
     return 0
 
 

@@ -3,9 +3,11 @@ from panobbgo.utils import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.analyzers.dedensifyer import Dedensifyer, Box
 
+
 class TestDedensifyerCoverage(PanobbgoTestCase):
     def setUp(self):
         from panobbgo.lib.classic import RosenbrockConstraint
+
         self.problem = RosenbrockConstraint(2)
         self.strategy = self.init_strategy()
 

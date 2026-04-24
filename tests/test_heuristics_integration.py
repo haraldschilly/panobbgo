@@ -24,6 +24,7 @@ from panobbgo.lib.constraints import (
     PenaltyConstraintHandler,
 )
 
+
 def test_nelder_mead_integration():
     """
     Test NelderMead heuristic integration.
@@ -44,7 +45,7 @@ def test_nelder_mead_integration():
 
     # Verify that NelderMead actually generated points
     history = strategy.results.get_history()
-    who = history['who']
+    who = history["who"]
     # who is array of objects/strings
     nm_count = np.sum([1 for w in who if "Nelder Mead" in str(w)])
 
@@ -61,6 +62,7 @@ def test_nelder_mead_integration():
     # Check if NelderMead contributed
     # Note: In short runs, Random might find good points too.
     # We mainly want to ensure no crash and potential contribution.
+
 
 def test_lbfgsb_integration():
     """
@@ -79,7 +81,7 @@ def test_lbfgsb_integration():
     strategy.start()
 
     history = strategy.results.get_history()
-    who = history['who']
+    who = history["who"]
     lbfgs_count = np.sum([1 for w in who if "LBFGS" in str(w)])
 
     print(f"LBFGSB points: {lbfgs_count}")
@@ -89,6 +91,7 @@ def test_lbfgsb_integration():
     print(f"Best fx: {best.fx}")
     # LBFGSB should be very efficient on smooth functions like Rosenbrock
     assert best.fx < 1.0, f"LBFGSB failed to converge, best fx={best.fx}"
+
 
 def test_lbfgsb_constrained_integration():
     """
@@ -112,7 +115,7 @@ def test_lbfgsb_constrained_integration():
     strategy.start()
 
     history = strategy.results.get_history()
-    who = history['who']
+    who = history["who"]
     lbfgs_count = np.sum([1 for w in who if "LBFGS" in str(w)])
 
     print(f"LBFGSB points: {lbfgs_count}")

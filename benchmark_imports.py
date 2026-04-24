@@ -5,6 +5,7 @@ from panobbgo.lib import Result, Point
 from panobbgo.config import Config
 from unittest.mock import MagicMock
 
+
 def benchmark():
     class MockStrategy:
         def __init__(self):
@@ -35,6 +36,7 @@ def benchmark():
     end_time = time.perf_counter()
 
     print(f"Time taken for {n_iters} batches of {n_points_per_iter} points: {end_time - start_time:.4f} seconds")
+
 
 if __name__ == "__main__":
     benchmark()

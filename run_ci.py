@@ -29,7 +29,7 @@ def load_workflow_configs():
 
     for yaml_file in yaml_files:
         try:
-            with open(yaml_file, 'r') as f:
+            with open(yaml_file, "r") as f:
                 config = yaml.safe_load(f)
                 configs[yaml_file.stem] = config
                 print(f"Loaded workflow: {yaml_file.name}")
@@ -44,29 +44,36 @@ def extract_run_commands(workflow_config):
     """Extract run commands from workflow jobs, excluding setup steps."""
     commands = {}
 
-    for job_name, job_config in workflow_config.get('jobs', {}).items():
+    for job_name, job_config in workflow_config.get("jobs", {}).items():
         job_commands = []
 
         # Get the steps for this job
-        steps = job_config.get('steps', [])
+        steps = job_config.get("steps", [])
 
         for step in steps:
             # Skip setup steps that aren't relevant locally
-            step_name = step.get('name', '').lower()
-            if any(skip in step_name for skip in [
-                'set up python', 'install uv', 'checkout',
-                'upload coverage', 'install dependencies', 'setup uv path',
-                'cache uv'
-            ]):
+            step_name = step.get("name", "").lower()
+            if any(
+                skip in step_name
+                for skip in [
+                    "set up python",
+                    "install uv",
+                    "checkout",
+                    "upload coverage",
+                    "install dependencies",
+                    "setup uv path",
+                    "cache uv",
+                ]
+            ):
                 continue
 
             # Extract run commands
-            if 'run' in step:
-                run_content = step['run']
+            if "run" in step:
+                run_content = step["run"]
                 # Split multi-line run commands
-                if '\n' in run_content:
+                if "\n" in run_content:
                     # Handle multi-line commands (YAML block scalar)
-                    job_commands.extend([cmd.strip() for cmd in run_content.split('\n') if cmd.strip()])
+                    job_commands.extend([cmd.strip() for cmd in run_content.split("\n") if cmd.strip()])
                 else:
                     job_commands.append(run_content.strip())
 
@@ -83,8 +90,9 @@ def run_command(command, job_name, step_name=None):
     print("-" * 50)
 
     try:
-        result = subprocess.run(command, shell=True, check=True, text=True,
-                              capture_output=False)  # Let output stream to console
+        result = subprocess.run(
+            command, shell=True, check=True, text=True, capture_output=False
+        )  # Let output stream to console
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Command failed with exit code {e.returncode}")
@@ -94,14 +102,14 @@ def run_command(command, job_name, step_name=None):
 def run_ci_jobs(commands):
     """Run all CI jobs in appropriate order."""
     # Define job execution order (dependencies matter) - extract base names
-    job_order = ['lint', 'typecheck', 'format', 'test']
+    job_order = ["lint", "typecheck", "format", "test"]
 
     failed_jobs = []
 
     # Create mapping from base job names to full job names
     job_mapping = {}
     for full_job_name in commands.keys():
-        base_job_name = full_job_name.split(':')[-1]  # Get the part after the last colon
+        base_job_name = full_job_name.split(":")[-1]  # Get the part after the last colon
         job_mapping[base_job_name] = full_job_name
 
     for base_job_name in job_order:
@@ -115,7 +123,7 @@ def run_ci_jobs(commands):
 
         job_failed = False
         for i, cmd in enumerate(job_commands):
-            step_name = f"step {i+1}" if len(job_commands) > 1 else None
+            step_name = f"step {i + 1}" if len(job_commands) > 1 else None
             if not run_command(cmd, full_job_name, step_name):
                 job_failed = True
                 break

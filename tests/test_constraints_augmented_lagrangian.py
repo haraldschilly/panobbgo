@@ -18,6 +18,7 @@ from panobbgo.lib import Result, Point
 import numpy as np
 import pytest
 
+
 class MockStrategy:
     def __init__(self, best=None):
         self.best = best
@@ -26,14 +27,22 @@ class MockStrategy:
         self.eventbus = None
         self.problem = None
 
+
 class MockConfig:
     def get_logger(self, name):
         return MockLogger()
 
+
 class MockLogger:
-    def info(self, msg): pass
-    def debug(self, msg): pass
-    def warning(self, msg): pass
+    def info(self, msg):
+        pass
+
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
 
 class MockEventBus:
     def __init__(self):
@@ -42,12 +51,14 @@ class MockEventBus:
     def publish(self, key, **kwargs):
         self.published.append((key, kwargs))
 
+
 class MockResults:
     def __init__(self):
         self.history = {}
 
     def get_history(self, n=None):
         return self.history
+
 
 def test_augmented_lagrangian_initialization():
     handler = AugmentedLagrangianConstraintHandler(rho=10.0, rate=2.0, update_interval=5)
@@ -56,10 +67,11 @@ def test_augmented_lagrangian_initialization():
     assert handler.update_interval == 5
     assert handler.lambdas is None
 
+
 def test_augmented_lagrangian_calculation():
     handler = AugmentedLagrangianConstraintHandler(rho=2.0)
     # Initialize lambdas
-    handler.lambdas = np.array([1.0]) # lambda for one constraint
+    handler.lambdas = np.array([1.0])  # lambda for one constraint
 
     # Case 1: Feasible point (cv_vec <= 0, technically cv_vec is violations so it should be 0 if satisfied?)
     # Wait, in Panobbgo, cv_vec contains constraint values.
@@ -91,6 +103,7 @@ def test_augmented_lagrangian_calculation():
     L = handler._calculate_lagrangian(res_inf)
     assert abs(L - 12.0) < 1e-6
 
+
 def test_augmented_lagrangian_update_parameters():
     strategy = MockStrategy()
     handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=2.0, rate=2.0, update_interval=2)
@@ -103,8 +116,8 @@ def test_augmented_lagrangian_update_parameters():
     # Trigger update (simulating new results)
     # Calling on_new_results twice to trigger update (update_interval=2)
     results = [Result(None, 11.0, cv_vec=np.array([1.0]))]
-    handler.on_new_results(results) # counter = 1
-    handler.on_new_results(results) # counter = 2 -> update
+    handler.on_new_results(results)  # counter = 1
+    handler.on_new_results(results)  # counter = 2 -> update
 
     # Update logic:
     # 1. Check if mu needs increase.
@@ -151,6 +164,7 @@ def test_augmented_lagrangian_improvement():
     imp = handler.calculate_improvement(old, new)
     assert abs(imp - 2.0) < 1e-6
 
+
 def test_is_better():
     handler = AugmentedLagrangianConstraintHandler(rho=2.0)
     handler.lambdas = np.array([1.0])
@@ -164,10 +178,11 @@ def test_is_better():
     assert handler.is_better(r1, r2)
     assert not handler.is_better(r2, r1)
 
+
 def test_scan_history_for_new_best():
     strategy = MockStrategy()
     strategy.eventbus = MockEventBus()
-    strategy.problem = type('obj', (object,), {'dim': 1})
+    strategy.problem = type("obj", (object,), {"dim": 1})
 
     # Mock Results with get_history
     results_mock = MockResults()
@@ -193,13 +208,7 @@ def test_scan_history_for_new_best():
     cv_vec = np.array([[1.0], [0.0]])
     who = np.array(["p1", "p2"])
 
-    results_mock.history = {
-        'x': x,
-        'fx': fx,
-        'cv_vec': cv_vec,
-        'who': who,
-        'error': np.zeros(2)
-    }
+    results_mock.history = {"x": x, "fx": fx, "cv_vec": cv_vec, "who": who, "error": np.zeros(2)}
 
     strategy.results = results_mock
 
@@ -214,8 +223,8 @@ def test_scan_history_for_new_best():
     # Expect event published
     assert len(strategy.eventbus.published) == 1
     key, kwargs = strategy.eventbus.published[0]
-    assert key == 'refresh_best'
-    candidates = kwargs['candidates']
+    assert key == "refresh_best"
+    candidates = kwargs["candidates"]
     assert len(candidates) == 1
     best = candidates[0]
 

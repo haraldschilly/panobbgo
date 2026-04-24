@@ -96,14 +96,10 @@ class Splitter(Analyzer):
             else:
                 leafs_at_depth = list([l for l in self.leafs if l.depth == d])
                 if len(leafs_at_depth) > 0:
-                    self.big_by_depth[d] = max(
-                        leafs_at_depth, key=lambda l: l.log_volume
-                    )
+                    self.big_by_depth[d] = max(leafs_at_depth, key=lambda l: l.log_volume)
 
             if self.big_by_depth[d] is not old_big_by_depth:
-                self.eventbus.publish(
-                    "new_biggest_by_depth", depth=d, box=self.big_by_depth[d]
-                )
+                self.eventbus.publish("new_biggest_by_depth", depth=d, box=self.big_by_depth[d])
 
     def on_new_biggest_leaf(self, box):
         self.logger.debug("biggest leaf at depth %d -> %s" % (box.depth, box))
@@ -168,7 +164,7 @@ class Splitter(Analyzer):
 
         # If the best box was the one being split, we prefer to point to the child
         # that contains the best point now.
-        best_box_was_parent = (self.best_box is box)
+        best_box_was_parent = self.best_box is box
 
         for new_box in children:
             if self.best_box is None:
@@ -183,13 +179,8 @@ class Splitter(Analyzer):
                 continue
 
             is_better = False
-            if (
-                hasattr(self.strategy, "constraint_handler")
-                and self.strategy.constraint_handler
-            ):
-                is_better = self.strategy.constraint_handler.is_better(
-                    self.best_box.best, new_box.best
-                )
+            if hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
+                is_better = self.strategy.constraint_handler.is_better(self.best_box.best, new_box.best)
             else:
                 is_better = new_box.fx < self.best_box.fx
 
@@ -210,13 +201,13 @@ class Splitter(Analyzer):
                 # So we just need to find WHICH child contains it.
 
                 # Simple check: if fx matches (and cv matches)
-                if new_box.best == self.best_box.best: # Result.__eq__ checks fx
-                     # Ideally check identity
-                     if new_box.best is self.best_box.best:
-                         self.best_box = new_box
-                     # Or check if cv also matches
-                     elif new_box.best.cv == self.best_box.best.cv:
-                         self.best_box = new_box
+                if new_box.best == self.best_box.best:  # Result.__eq__ checks fx
+                    # Ideally check identity
+                    if new_box.best is self.best_box.best:
+                        self.best_box = new_box
+                    # Or check if cv also matches
+                    elif new_box.best.cv == self.best_box.best.cv:
+                        self.best_box = new_box
         self.eventbus.publish("new_best_box", best_box=self.best_box)
 
     def on_refresh_best(self, candidates):
@@ -233,13 +224,8 @@ class Splitter(Analyzer):
             current_best = box.results[0]
             for res in box.results[1:]:
                 is_better = False
-                if (
-                    hasattr(self.strategy, "constraint_handler")
-                    and self.strategy.constraint_handler
-                ):
-                    is_better = self.strategy.constraint_handler.is_better(
-                        current_best, res
-                    )
+                if hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
+                    is_better = self.strategy.constraint_handler.is_better(current_best, res)
                 else:
                     is_better = res.fx < current_best.fx
 
@@ -258,13 +244,8 @@ class Splitter(Analyzer):
                 continue
 
             is_better = False
-            if (
-                hasattr(self.strategy, "constraint_handler")
-                and self.strategy.constraint_handler
-            ):
-                is_better = self.strategy.constraint_handler.is_better(
-                    new_best_box.best, box.best
-                )
+            if hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
+                is_better = self.strategy.constraint_handler.is_better(new_best_box.best, box.best)
             else:
                 is_better = box.fx < new_best_box.fx
 
@@ -321,7 +302,7 @@ class Splitter(Analyzer):
         @memoize
         def __ranges(self):
             # If self.box is a BoundingBox (custom object), get the underlying array
-            box_array = self.box.box if hasattr(self.box, 'box') else self.box
+            box_array = self.box.box if hasattr(self.box, "box") else self.box
             return np.ptp(box_array, axis=1)  # self.box[:,1] - self.box[:,0]
 
         @property
@@ -331,11 +312,12 @@ class Splitter(Analyzer):
             i.e. upper - lower bound.
             """
             from typing import Any, cast
+
             return cast(Any, self).__ranges()
 
         @memoize
         def __log_volume(self):
-            with np.errstate(divide='ignore'):
+            with np.errstate(divide="ignore"):
                 return np.sum(np.log(self.ranges))
 
         @property
@@ -344,6 +326,7 @@ class Splitter(Analyzer):
             Returns the `logarithmic` volume of this box.
             """
             from typing import Any, cast
+
             return cast(Any, self).__log_volume()
 
         @memoize
@@ -360,6 +343,7 @@ class Splitter(Analyzer):
               Currently, the exponential of :attr:`.log_volume`
             """
             from typing import Any, cast
+
             return cast(Any, self).__volume()
 
         def _register_result(self, result):
@@ -375,13 +359,8 @@ class Splitter(Analyzer):
             # new best result in box? (for best fx value, too)
             if self.best is not None:
                 is_better = False
-                if (
-                    hasattr(self.splitter.strategy, "constraint_handler")
-                    and self.splitter.strategy.constraint_handler
-                ):
-                    is_better = self.splitter.strategy.constraint_handler.is_better(
-                        self.best, result
-                    )
+                if hasattr(self.splitter.strategy, "constraint_handler") and self.splitter.strategy.constraint_handler:
+                    is_better = self.splitter.strategy.constraint_handler.is_better(self.best, result)
                 else:
                     if result.fx is None or self.best.fx is None:
                         is_better = False
@@ -439,9 +418,7 @@ class Splitter(Analyzer):
                 # dim = np.argmax(np.std(scaled_coords, axis=0))
                 dim = np.argmax(self.ranges)
             # self.logger.debug("dim: %d" % dim)
-            assert dim >= 0 and dim < self.dim, (
-                "dimension along where to split is %d" % dim
-            )
+            assert dim >= 0 and dim < self.dim, "dimension along where to split is %d" % dim
             b1 = Splitter.Box(self, self.splitter, self.box.copy())
             b2 = Splitter.Box(self, self.splitter, self.box.copy())
             self.split_dim = dim
@@ -457,9 +434,7 @@ class Splitter(Analyzer):
                 for r in self.results:
                     if c.contains(r.x):
                         c._register_result(r)
-            self.splitter.eventbus.publish(
-                "new_split", box=self, children=self.children, dim=dim
-            )
+            self.splitter.eventbus.publish("new_split", box=self, children=self.children, dim=dim)
 
         def contains(self, point):
             """

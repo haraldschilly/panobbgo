@@ -28,8 +28,8 @@ class StrategyUCB(StrategyBase):
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
         # Initialize UCB statistics
-        h.ucb_count = 0        # Number of points generated (Selections)
-        h.ucb_total_reward = 0.0 # Accumulated reward
+        h.ucb_count = 0  # Number of points generated (Selections)
+        h.ucb_total_reward = 0.0  # Accumulated reward
 
     def reward(self, best):
         """
@@ -87,7 +87,7 @@ class StrategyUCB(StrategyBase):
             # Default to sqrt(2) approx 1.414
             c_val = getattr(self.config, "ucb_c", 1.414)
             try:
-                c = float(c_val) # type: ignore
+                c = float(c_val)  # type: ignore
             except (ValueError, TypeError):
                 c = 1.414
 
@@ -114,9 +114,7 @@ class StrategyUCB(StrategyBase):
                         # Q_t(a) = Average Reward
                         average_reward = h.ucb_total_reward / h.ucb_count
                         # UCB1 exploration term
-                        exploration_term = c * np.sqrt(
-                            np.log(max(1, self.total_selections)) / h.ucb_count
-                        )
+                        exploration_term = c * np.sqrt(np.log(max(1, self.total_selections)) / h.ucb_count)
                         score = average_reward + exploration_term
                     scores.append((score, h))
 

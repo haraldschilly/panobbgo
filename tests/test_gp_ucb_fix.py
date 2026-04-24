@@ -162,17 +162,13 @@ class TestHarnessStrategyRegistry:
         from panobbgo.harness import _make_standard_strategies
 
         names = [s.name for s in _make_standard_strategies()]
-        assert "BayesOpt_GP" in names, (
-            "BayesOpt_GP must be registered in standard harness strategies"
-        )
+        assert "BayesOpt_GP" in names, "BayesOpt_GP must be registered in standard harness strategies"
 
     def test_bayesopt_enhanced_in_full_strategies(self):
         from panobbgo.harness import _make_full_strategies
 
         names = [s.name for s in _make_full_strategies()]
-        assert "BayesOpt_Enhanced" in names, (
-            "BayesOpt_Enhanced must be registered in full harness strategies"
-        )
+        assert "BayesOpt_Enhanced" in names, "BayesOpt_Enhanced must be registered in full harness strategies"
 
     def test_quick_strategies_unchanged(self):
         """Quick mode should still have exactly two strategies (no GP overhead)."""
@@ -190,9 +186,7 @@ class TestHarnessStrategyRegistry:
         specs = {s.name: s for s in _make_standard_strategies()}
         bayes = specs["BayesOpt_GP"]
         heuristic_classes = [h for h, _ in bayes.heuristics]
-        assert GaussianProcessHeuristic in heuristic_classes, (
-            "BayesOpt_GP must include GaussianProcessHeuristic"
-        )
+        assert GaussianProcessHeuristic in heuristic_classes, "BayesOpt_GP must include GaussianProcessHeuristic"
 
     def test_bayesopt_enhanced_uses_gp_and_de(self):
         from panobbgo.harness import _make_full_strategies
@@ -210,9 +204,7 @@ class TestHarnessStrategyRegistry:
 
         quick_names = {s.name for s in _make_quick_strategies()}
         standard_names = {s.name for s in _make_standard_strategies()}
-        assert quick_names.issubset(standard_names), (
-            "All quick strategies should be present in standard mode"
-        )
+        assert quick_names.issubset(standard_names), "All quick strategies should be present in standard mode"
 
     def test_full_contains_all_standard_strategies(self):
         """Full mode must include all standard strategies."""
@@ -220,6 +212,4 @@ class TestHarnessStrategyRegistry:
 
         std_names = {s.name for s in _make_standard_strategies()}
         full_names = {s.name for s in _make_full_strategies()}
-        assert std_names.issubset(full_names), (
-            "All standard strategies should be present in full mode"
-        )
+        assert std_names.issubset(full_names), "All standard strategies should be present in full mode"

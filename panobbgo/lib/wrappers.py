@@ -35,11 +35,7 @@ class ProblemWrapper(Problem):
 
     def __init__(self, problem: Problem, box: list[tuple[float, float]] | None = None):
         self._wrapped = problem
-        wrapper_box = (
-            box
-            if box is not None
-            else [(float(lo), float(hi)) for lo, hi in problem.box]
-        )
+        wrapper_box = box if box is not None else [(float(lo), float(hi)) for lo, hi in problem.box]
         super().__init__(box=wrapper_box)
 
     @property

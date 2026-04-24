@@ -137,9 +137,7 @@ class CMAES(Heuristic):
         self._min_results_fraction = min_results_fraction
         self._ipop_factor = float(ipop_factor)
         if restart_mode not in ("ipop", "bipop"):
-            raise ValueError(
-                f"restart_mode must be 'ipop' or 'bipop', got {restart_mode!r}"
-            )
+            raise ValueError(f"restart_mode must be 'ipop' or 'bipop', got {restart_mode!r}")
         self._restart_mode = restart_mode
 
         # IPOP restart tracking
@@ -214,9 +212,7 @@ class CMAES(Heuristic):
 
         # Step-size control
         c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
-        d_sigma = (
-            1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0) + c_sigma
-        )
+        d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0) + c_sigma
 
         # Covariance matrix control
         c_c = (4.0 + mu_eff / n) / (n + 4.0 + 2.0 * mu_eff / n)
@@ -426,8 +422,7 @@ class CMAES(Heuristic):
         self._bipop_regime_eval_anchor = self._counteval  # reset to 0 below
 
         self.logger.info(
-            "CMA-ES BIPOP restart #%d (%s): λ %d→%d  σ=%.4f  "
-            "large_evals=%d small_evals=%d  large_count=%d  (%s)",
+            "CMA-ES BIPOP restart #%d (%s): λ %d→%d  σ=%.4f  large_evals=%d small_evals=%d  large_count=%d  (%s)",
             self._restart_count,
             next_regime,
             prev_lam,
@@ -445,9 +440,7 @@ class CMAES(Heuristic):
         sigma = self._sigma0_frac * float(np.mean(self._ranges) / 2.0)
         return max(sigma, 1e-6)
 
-    def _apply_restart(
-        self, center: np.ndarray, new_lam: int, new_sigma: float
-    ) -> None:
+    def _apply_restart(self, center: np.ndarray, new_lam: int, new_sigma: float) -> None:
         """Reset distribution state for *new_lam* and *new_sigma* at *center*.
 
         Common bookkeeping shared by both IPOP and BIPOP restart paths.
@@ -469,11 +462,7 @@ class CMAES(Heuristic):
 
         # Recompute adaptation constants for new population size
         new_c_sigma = (new_mu_eff + 2.0) / (n + new_mu_eff + 5.0)
-        new_d_sigma = (
-            1.0
-            + 2.0 * max(0.0, np.sqrt((new_mu_eff - 1.0) / (n + 1.0)) - 1.0)
-            + new_c_sigma
-        )
+        new_d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((new_mu_eff - 1.0) / (n + 1.0)) - 1.0) + new_c_sigma
         new_c_c = (4.0 + new_mu_eff / n) / (n + 4.0 + 2.0 * new_mu_eff / n)
         new_c_1 = 2.0 / ((n + 1.3) ** 2 + new_mu_eff)
         new_c_mu = min(
@@ -593,9 +582,7 @@ class CMAES(Heuristic):
         actual_mu = len(selected)
         if actual_mu < len(w_full):
             # Re-normalise weights for the actual number of survivors
-            raw = np.log(actual_mu + 0.5) - np.log(
-                np.arange(1, actual_mu + 1, dtype=float)
-            )
+            raw = np.log(actual_mu + 0.5) - np.log(np.arange(1, actual_mu + 1, dtype=float))
             w = raw / raw.sum()
             mu_eff = 1.0 / (w**2).sum()
         else:
@@ -623,9 +610,7 @@ class CMAES(Heuristic):
         h_sigma = norm_p_sigma / (expected * self._chi_n) < 1.4 + 2.0 / (n + 1.0)
 
         # --- Covariance path update ---
-        p_c = (1.0 - self._c_c) * p_c + h_sigma * np.sqrt(
-            self._c_c * (2.0 - self._c_c) * mu_eff
-        ) * y_w
+        p_c = (1.0 - self._c_c) * p_c + h_sigma * np.sqrt(self._c_c * (2.0 - self._c_c) * mu_eff) * y_w
 
         # --- Covariance matrix update ---
         # Rank-μ term
@@ -635,16 +620,10 @@ class CMAES(Heuristic):
         # Correction for h_sigma = 0
         delta_h = (1.0 - h_sigma) * self._c_c * (2.0 - self._c_c)
 
-        C = (
-            (1.0 - self._c_1 - self._c_mu) * C
-            + self._c_1 * (np.outer(p_c, p_c) + delta_h * C)
-            + self._c_mu * rank_mu
-        )
+        C = (1.0 - self._c_1 - self._c_mu) * C + self._c_1 * (np.outer(p_c, p_c) + delta_h * C) + self._c_mu * rank_mu
 
         # --- Step-size update (cumulative path length control) ---
-        self._sigma *= float(
-            np.exp((self._c_sigma / self._d_sigma) * (norm_p_sigma / self._chi_n - 1.0))
-        )
+        self._sigma *= float(np.exp((self._c_sigma / self._d_sigma) * (norm_p_sigma / self._chi_n - 1.0)))
 
         # Clamp step size
         max_sigma = float(np.mean(ranges))

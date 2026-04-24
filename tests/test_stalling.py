@@ -7,6 +7,7 @@ from panobbgo.lib.classic import Rosenbrock
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import Random
 
+
 def test_stalling_repro():
     problem = Rosenbrock(dims=2)
     strategy = StrategyRewarding(problem, parse_args=False)
@@ -22,6 +23,7 @@ def test_stalling_repro():
 
     print(f"Finished with {len(strategy.results)} results in {strategy.loops} loops.")
     assert len(strategy.results) >= 20
+
 
 if __name__ == "__main__":
     test_stalling_repro()

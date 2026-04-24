@@ -21,10 +21,10 @@ from panobbgo.lib import Point, Result
 
 
 class HeuristicTests(PanobbgoTestCase):
-
     def setUp(self):
         super().setUp()
         from panobbgo.lib.constraints import DefaultConstraintHandler
+
         self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy)
 
     def test_random(self):
@@ -205,7 +205,7 @@ class HeuristicTests(PanobbgoTestCase):
         gp.__start__()
 
         # Mock GP model for testing acquisition functions
-        with mock.patch('sklearn.gaussian_process.GaussianProcessRegressor') as mock_gp:
+        with mock.patch("sklearn.gaussian_process.GaussianProcessRegressor") as mock_gp:
             mock_gp_instance = mock.Mock()
             mock_gp_instance.predict.return_value = (np.array([1.0]), np.array([0.5]))
             mock_gp.return_value = mock_gp_instance
@@ -303,6 +303,7 @@ class HeuristicTests(PanobbgoTestCase):
         new_point_x_legacy = nm.nelder_mead(base)
         assert new_point_x_legacy is not None
         assert new_point_x_legacy.shape == (dim,)
+
     def test_feasible_search(self):
         """Test FeasibleSearch heuristic functionality."""
         from panobbgo.heuristics.feasible_search import FeasibleSearch
@@ -321,8 +322,8 @@ class HeuristicTests(PanobbgoTestCase):
         points = fs.get_points(10)
         assert len(points) > 0
         for p in points:
-             # Just check they are generated, simple random perturbation
-             assert p in self.problem.box
+            # Just check they are generated, simple random perturbation
+            assert p in self.problem.box
 
         # Case 2: Feasible point found via on_new_results
         feasible_point = Result(Point(np.array([1.0, 1.0]), "test"), 0.0, cv_vec=np.array([0.0]))
@@ -348,6 +349,7 @@ class HeuristicTests(PanobbgoTestCase):
         # implementation says pass if best.cv == 0
         points_empty = fs.get_points(10)
         assert len(points_empty) == 0
+
     def test_constraint_gradient(self):
         """Test ConstraintGradient heuristic."""
         from panobbgo.heuristics.constraint_gradient import ConstraintGradient
@@ -368,18 +370,19 @@ class HeuristicTests(PanobbgoTestCase):
 
         # Override problem with a 2D one
         from panobbgo.lib.classic import Rosenbrock
+
         self.strategy.problem = Rosenbrock(dims=2)
         # Re-initialize heuristic to pick up new problem from strategy
         cg = ConstraintGradient(self.strategy)
         cg.__start__()
 
-        r1 = Result(Point(np.array([0.0, 0.0]), "t1"), 0.0, cv_vec=np.array([0.0])) # cv=0
-        r2 = Result(Point(np.array([1.0, 0.0]), "t2"), 0.0, cv_vec=np.array([1.0])) # cv=1
-        r3 = Result(Point(np.array([0.0, 1.0]), "t3"), 0.0, cv_vec=np.array([1.0])) # cv=1
+        r1 = Result(Point(np.array([0.0, 0.0]), "t1"), 0.0, cv_vec=np.array([0.0]))  # cv=0
+        r2 = Result(Point(np.array([1.0, 0.0]), "t2"), 0.0, cv_vec=np.array([1.0]))  # cv=1
+        r3 = Result(Point(np.array([0.0, 1.0]), "t3"), 0.0, cv_vec=np.array([1.0]))  # cv=1
 
         self.strategy.results = [r1, r2, r3]
 
-        best = Result(Point(np.array([0.5, 0.5]), "best"), 0.0, cv_vec=np.array([1.0])) # cv=1.0 (Wait, 0.5+0.5=1)
+        best = Result(Point(np.array([0.5, 0.5]), "best"), 0.0, cv_vec=np.array([1.0]))  # cv=1.0 (Wait, 0.5+0.5=1)
 
         # Trigger
         cg.on_new_best(best)

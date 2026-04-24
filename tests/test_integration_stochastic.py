@@ -25,17 +25,13 @@ from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import Random, Nearby
 from panobbgo.lib.classic import RosenbrockStochastic
 
+
 def test_rosenbrock_stochastic():
     """
     Test optimization of a noisy Rosenbrock function.
     """
     problem = RosenbrockStochastic(dims=2, jitter=0.1)
-    strategy = StrategyRewarding(
-        problem,
-        max_eval=300,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyRewarding(problem, max_eval=300, evaluation_method="threaded", testing_mode=True)
     strategy.config.stop_on_convergence = False
 
     strategy.add(Random)
@@ -61,19 +57,14 @@ def test_stochastic_robustness():
     problem = RosenbrockStochastic(dims=2, jitter=0.5)
 
     # Run a short optimization
-    strategy = StrategyRewarding(
-        problem,
-        max_eval=50,
-        evaluation_method="threaded",
-        testing_mode=True
-    )
+    strategy = StrategyRewarding(problem, max_eval=50, evaluation_method="threaded", testing_mode=True)
 
     strategy.add(Random)
 
     strategy.start()
 
     assert strategy.best is not None
-    assert strategy.best.fx < float('inf')
+    assert strategy.best.fx < float("inf")
 
     # Check if results show variance for nearby points (difficult to assert directly without re-evaluating same point)
     # But we can check that we have results

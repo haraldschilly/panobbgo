@@ -6,6 +6,7 @@ from panobbgo.core import StrategyBase, Result, Point
 from panobbgo.lib import Problem, BoundingBox
 from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
 
+
 class MockProblem(Problem):
     def __init__(self, dim=2):
         box_list = [(-5.0, 5.0) for _ in range(dim)]
@@ -18,6 +19,7 @@ class MockProblem(Problem):
         x = point.x
         return Result(point, self.eval(x), cv_vec=None)
 
+
 class MockStrategy(StrategyBase):
     def __init__(self):
         problem = MockProblem()
@@ -27,10 +29,12 @@ class MockStrategy(StrategyBase):
     def execute(self):
         return []
 
+
 class MockBestBox:
     def __init__(self, results, best):
         self.results = results
         self.best = best
+
 
 class TestQuadraticWlsIntegration(unittest.TestCase):
     def test_wls_subprocess_communication(self):
@@ -45,8 +49,8 @@ class TestQuadraticWlsIntegration(unittest.TestCase):
         # Create dummy results to simulate a "best box"
         results = []
         dim = 2
-        np.random.seed(42) # Deterministic
-        for i in range(20): # Need enough points for WLS
+        np.random.seed(42)  # Deterministic
+        for i in range(20):  # Need enough points for WLS
             x = np.random.uniform(-5, 5, dim)
             p = Point(x, "init")
             r = Result(p, np.sum(x**2), cv_vec=None)

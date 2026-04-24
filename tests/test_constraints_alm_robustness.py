@@ -23,6 +23,7 @@ import numpy as np
 import time
 import unittest
 
+
 class TestALMRobustness(PanobbgoTestCase):
     def setUp(self):
         # We need a strategy with ALM handler
@@ -31,9 +32,7 @@ class TestALMRobustness(PanobbgoTestCase):
         self.strategy = StrategyRewarding(self.problem, max_evaluations=100)
 
         # Configure ALM
-        self.alm = AugmentedLagrangianConstraintHandler(
-            self.strategy, rho=1.0, rate=2.0, update_interval=2
-        )
+        self.alm = AugmentedLagrangianConstraintHandler(self.strategy, rho=1.0, rate=2.0, update_interval=2)
         self.strategy.constraint_handler = self.alm
 
         # Register components
@@ -44,7 +43,7 @@ class TestALMRobustness(PanobbgoTestCase):
         self.strategy.add_analyzer(self.best_analyzer)
 
     def tearDown(self):
-        if hasattr(self, 'strategy'):
+        if hasattr(self, "strategy"):
             self.strategy._cleanup()
 
     def test_best_updates_on_param_change(self):
@@ -57,16 +56,16 @@ class TestALMRobustness(PanobbgoTestCase):
 
         # Point A: fx=10, cv=0 (Feasible)
         pA = Point(np.array([1.0, 1.0]), "testA")
-        rA = Result(pA, fx=10.0, cv_vec=np.array([-0.1, -0.1])) # Feasible
+        rA = Result(pA, fx=10.0, cv_vec=np.array([-0.1, -0.1]))  # Feasible
 
         # Point B: fx=0, cv=1 (Infeasible)
         pB = Point(np.array([-1.0, -1.0]), "testB")
-        rB = Result(pB, fx=0.0, cv_vec=np.array([1.0, 0.0])) # Infeasible
+        rB = Result(pB, fx=0.0, cv_vec=np.array([1.0, 0.0]))  # Infeasible
 
         # Add results to strategy
         # Best analyzer will process them.
         self.strategy.results.add_results([rA])
-        time.sleep(0.1) # Wait for threads
+        time.sleep(0.1)  # Wait for threads
 
         self.strategy.results.add_results([rB])
         time.sleep(0.1)
@@ -111,6 +110,7 @@ class TestALMRobustness(PanobbgoTestCase):
 
         # With mu=0.1, L(B)=0.05 < L(A)=10. So B should be best.
         self.assertEqual(self.best_analyzer.best.who, "testB", "Point B should be best with low penalty")
+
 
 if __name__ == "__main__":
     unittest.main()

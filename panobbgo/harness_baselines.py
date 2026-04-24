@@ -121,9 +121,7 @@ class _EvaluationLog:
             self.best_x = x_copy
 
 
-def _make_objective(
-    problem: Problem, log: _EvaluationLog
-) -> Callable[[np.ndarray], float]:
+def _make_objective(problem: Problem, log: _EvaluationLog) -> Callable[[np.ndarray], float]:
     """Return a scalar objective that projects into the box, evaluates the
     problem, logs the result, and enforces the evaluation budget."""
 

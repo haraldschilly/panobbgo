@@ -140,5 +140,6 @@ def test_augmented_lagrangian_integration():
     if alm_handler.lambdas is not None:
         print(f"Final Lambdas: {alm_handler.lambdas}")
 
+
 if __name__ == "__main__":
     test_augmented_lagrangian_integration()

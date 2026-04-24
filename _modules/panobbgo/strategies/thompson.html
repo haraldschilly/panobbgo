@@ -184,8 +184,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="46">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
 </span><span data-line="47">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
 </span><span data-line="48">        <span class="c1"># Initialize Thompson Sampling statistics</span>
-</span><span data-line="49">        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>        <span class="c1"># Number of points generated (Attempts)</span>
-</span><span data-line="50">        <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="c1"># Accumulated reward (Successes)</span>
+</span><span data-line="49">        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Number of points generated (Attempts)</span>
+</span><span data-line="50">        <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Accumulated reward (Successes)</span>
 </span><span data-line="51">
 </span><span data-line="52">        <span class="c1"># Initialize derived parameters for logging/debugging</span>
 </span><span data-line="53">        <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">=</span> <span class="mf">1.0</span>
@@ -242,92 +242,90 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="98">                <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
 </span><span data-line="99">                <span class="n">h</span><span class="o">.</span><span class="n">ts_beta</span> <span class="o">=</span> <span class="n">beta</span>
 </span><span data-line="100">
-</span><span data-line="101">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="102">                    <span class="sa">f</span><span class="s2">&quot;Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; Beta(</span><span class="si">{</span><span class="n">alpha</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">beta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span>
-</span><span data-line="103">                <span class="p">)</span>
-</span><span data-line="104">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="105">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ts_total_reward&quot;</span><span class="p">)</span>
-</span><span data-line="106">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="107">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic &#39;</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">&#39; not found in strategy.&quot;</span><span class="p">)</span>
-</span><span data-line="108">
-</span><span data-line="109">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Thompson)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
+</span><span data-line="101">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; Beta(</span><span class="si">{</span><span class="n">alpha</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">beta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="102">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="103">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ts_total_reward&quot;</span><span class="p">)</span>
+</span><span data-line="104">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+</span><span data-line="105">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic &#39;</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">&#39; not found in strategy.&quot;</span><span class="p">)</span>
+</span><span data-line="106">
+</span><span data-line="107">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Thompson)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
 
-</span><span data-line="110">
-</span><span data-line="111">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="112"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
-</span><span data-line="113">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="114">        <span class="c1"># Report max alpha (best heuristic confidence)</span>
-</span><span data-line="115">        <span class="n">max_alpha</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="116">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-</span><span data-line="117">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
-</span><span data-line="118">             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_alpha&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">&gt;</span> <span class="n">max_alpha</span><span class="p">:</span>
-</span><span data-line="119">                 <span class="n">max_alpha</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span>
-</span><span data-line="120">                 <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
-</span><span data-line="121">
-</span><span data-line="122">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
-</span><span data-line="123">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;best_heuristic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="se">\u03B1</span><span class="s2">=</span><span class="si">{</span><span class="n">max_alpha</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)&quot;</span>
-</span><span data-line="124">        <span class="k">return</span> <span class="n">info</span>
-</span><span data-line="125">
+</span><span data-line="108">
+</span><span data-line="109">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="110"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
+</span><span data-line="111">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="112">        <span class="c1"># Report max alpha (best heuristic confidence)</span>
+</span><span data-line="113">        <span class="n">max_alpha</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="114">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="115">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
+</span><span data-line="116">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_alpha&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">&gt;</span> <span class="n">max_alpha</span><span class="p">:</span>
+</span><span data-line="117">                <span class="n">max_alpha</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span>
+</span><span data-line="118">                <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
+</span><span data-line="119">
+</span><span data-line="120">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
+</span><span data-line="121">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;best_heuristic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="se">\u03b1</span><span class="s2">=</span><span class="si">{</span><span class="n">max_alpha</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="122">        <span class="k">return</span> <span class="n">info</span>
+</span><span data-line="123">
 <div class="viewcode-block" id="StrategyThompsonSampling.execute">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyThompsonSampling.execute">[docs]</a>
-</span><span data-line="126">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="127">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="128">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+</span><span data-line="124">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="125">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="126">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
+</span><span data-line="127">
+</span><span data-line="128">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="129">
-</span><span data-line="130">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="131">
-</span><span data-line="132">            <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-</span><span data-line="133">                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
-</span><span data-line="134">
-</span><span data-line="135">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
-</span><span data-line="136">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
-</span><span data-line="137">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="138">                    <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="139">
-</span><span data-line="140">                <span class="c1"># Sample from Beta for all heuristics</span>
-</span><span data-line="141">                <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="142">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
-</span><span data-line="143">                    <span class="c1"># Ensure initialization</span>
-</span><span data-line="144">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_counts&quot;</span><span class="p">):</span>
-</span><span data-line="145">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="146">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="147">
-</span><span data-line="148">                    <span class="c1"># Calculate parameters dynamically</span>
-</span><span data-line="149">                    <span class="c1"># alpha = 1 + successes</span>
-</span><span data-line="150">                    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span>
-</span><span data-line="151">                    <span class="c1"># beta = 1 + failures = 1 + (attempts - successes)</span>
-</span><span data-line="152">                    <span class="n">beta</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">-</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span><span class="p">)</span>
-</span><span data-line="153">
-</span><span data-line="154">                    <span class="c1"># Store for inspection</span>
-</span><span data-line="155">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
-</span><span data-line="156">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_beta</span> <span class="o">=</span> <span class="n">beta</span>
-</span><span data-line="157">
-</span><span data-line="158">                    <span class="c1"># Sample theta</span>
-</span><span data-line="159">                    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
-</span><span data-line="160">                    <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">theta</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
-</span><span data-line="161">
-</span><span data-line="162">                <span class="c1"># Sort by sampled value (highest first)</span>
-</span><span data-line="163">                <span class="n">samples</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="164">
-</span><span data-line="165">                <span class="k">for</span> <span class="n">theta</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
-</span><span data-line="166">                    <span class="c1"># Request points from the selected heuristic</span>
-</span><span data-line="167">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="168">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
-</span><span data-line="169">                        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
-</span><span data-line="170">                        <span class="c1"># Update selection stats (attempts)</span>
-</span><span data-line="171">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">+=</span> <span class="n">count</span>
-</span><span data-line="172">                        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">count</span>
-</span><span data-line="173">
-</span><span data-line="174">                        <span class="c1"># Note: We update attempts immediately.</span>
-</span><span data-line="175">                        <span class="c1"># This increases beta (failures) until reward comes back.</span>
-</span><span data-line="176">                        <span class="c1"># This naturally handles exploration/exploitation balance in async setting.</span>
-</span><span data-line="177">                        <span class="k">return</span> <span class="n">new_points</span>
+</span><span data-line="130">            <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+</span><span data-line="131">                <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
+</span><span data-line="132">
+</span><span data-line="133">            <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
+</span><span data-line="134">                <span class="n">heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="135">                <span class="k">if</span> <span class="ow">not</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="136">                    <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="137">
+</span><span data-line="138">                <span class="c1"># Sample from Beta for all heuristics</span>
+</span><span data-line="139">                <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="140">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
+</span><span data-line="141">                    <span class="c1"># Ensure initialization</span>
+</span><span data-line="142">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_counts&quot;</span><span class="p">):</span>
+</span><span data-line="143">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="144">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="145">
+</span><span data-line="146">                    <span class="c1"># Calculate parameters dynamically</span>
+</span><span data-line="147">                    <span class="c1"># alpha = 1 + successes</span>
+</span><span data-line="148">                    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span>
+</span><span data-line="149">                    <span class="c1"># beta = 1 + failures = 1 + (attempts - successes)</span>
+</span><span data-line="150">                    <span class="n">beta</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">-</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span><span class="p">)</span>
+</span><span data-line="151">
+</span><span data-line="152">                    <span class="c1"># Store for inspection</span>
+</span><span data-line="153">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+</span><span data-line="154">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_beta</span> <span class="o">=</span> <span class="n">beta</span>
+</span><span data-line="155">
+</span><span data-line="156">                    <span class="c1"># Sample theta</span>
+</span><span data-line="157">                    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+</span><span data-line="158">                    <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">theta</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
+</span><span data-line="159">
+</span><span data-line="160">                <span class="c1"># Sort by sampled value (highest first)</span>
+</span><span data-line="161">                <span class="n">samples</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="162">
+</span><span data-line="163">                <span class="k">for</span> <span class="n">theta</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+</span><span data-line="164">                    <span class="c1"># Request points from the selected heuristic</span>
+</span><span data-line="165">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="166">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="167">                        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+</span><span data-line="168">                        <span class="c1"># Update selection stats (attempts)</span>
+</span><span data-line="169">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">+=</span> <span class="n">count</span>
+</span><span data-line="170">                        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">+=</span> <span class="n">count</span>
+</span><span data-line="171">
+</span><span data-line="172">                        <span class="c1"># Note: We update attempts immediately.</span>
+</span><span data-line="173">                        <span class="c1"># This increases beta (failures) until reward comes back.</span>
+</span><span data-line="174">                        <span class="c1"># This naturally handles exploration/exploitation balance in async setting.</span>
+</span><span data-line="175">                        <span class="k">return</span> <span class="n">new_points</span>
+</span><span data-line="176">
+</span><span data-line="177">                <span class="k">return</span> <span class="p">[]</span>
 </span><span data-line="178">
-</span><span data-line="179">                <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="179">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
 </span><span data-line="180">
-</span><span data-line="181">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
-</span><span data-line="182">
-</span><span data-line="183">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="181">        <span class="k">return</span> <span class="n">points</span></div>
 </div>
 
 </span></pre></div>

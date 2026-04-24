@@ -183,11 +183,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="42">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="43">            <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span>
 </span><span data-line="44">            <span class="c1"># If no specific leaf is set, start with the root leaf</span>
-</span><span data-line="45">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s1">&#39;root&#39;</span><span class="p">):</span>
-</span><span data-line="46">                 <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">root</span>
-</span><span data-line="47">                 <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</span><span data-line="45">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s2">&quot;root&quot;</span><span class="p">):</span>
+</span><span data-line="46">                <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">root</span>
+</span><span data-line="47">                <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 </span><span data-line="48">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="49">             <span class="k">pass</span>
+</span><span data-line="49">            <span class="k">pass</span>
 </span><span data-line="50">
 </span><span data-line="51">        <span class="c1"># Wait for splitter to initialize, but with timeout to avoid hanging</span>
 </span><span data-line="52">        <span class="n">split_available</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_split</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>  <span class="c1"># 5 second timeout</span>

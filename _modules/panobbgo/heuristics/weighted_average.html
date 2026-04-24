@@ -204,8 +204,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="63">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="64">            <span class="n">avg_ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
 </span><span data-line="65">        <span class="k">except</span> <span class="ne">ZeroDivisionError</span><span class="p">:</span>
-</span><span data-line="66">             <span class="c1"># Fallback to simple mean if weights sum to zero</span>
-</span><span data-line="67">             <span class="n">avg_ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="66">            <span class="c1"># Fallback to simple mean if weights sum to zero</span>
+</span><span data-line="67">            <span class="n">avg_ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </span><span data-line="68">
 </span><span data-line="69">        <span class="n">std</span> <span class="o">=</span> <span class="n">xx</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </span><span data-line="70">        <span class="c1"># std must be &gt; 0</span>

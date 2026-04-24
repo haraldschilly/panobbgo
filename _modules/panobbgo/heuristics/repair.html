@@ -209,7 +209,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="70">
 </span><span data-line="71">        <span class="c1"># Define projection objective: minimize distance to starting point</span>
 </span><span data-line="72">        <span class="k">def</span><span class="w"> </span><span class="nf">obj</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="73">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="73">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
 </span><span data-line="74">
 </span><span data-line="75">        <span class="k">def</span><span class="w"> </span><span class="nf">jac_obj</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
 </span><span data-line="76">            <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span>
@@ -225,42 +225,39 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="86">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
 </span><span data-line="87">            <span class="k">return</span> <span class="o">-</span><span class="n">val</span>
 </span><span data-line="88">
-</span><span data-line="89">        <span class="n">constraints</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="90">            <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;ineq&#39;</span><span class="p">,</span>
-</span><span data-line="91">            <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="n">constraint_fun</span>
-</span><span data-line="92">        <span class="p">}</span>
+</span><span data-line="89">        <span class="n">constraints</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span> <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">constraint_fun</span><span class="p">}</span>
+</span><span data-line="90">
+</span><span data-line="91">        <span class="c1"># Box bounds</span>
+</span><span data-line="92">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span>
 </span><span data-line="93">
-</span><span data-line="94">        <span class="c1"># Box bounds</span>
-</span><span data-line="95">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span>
-</span><span data-line="96">
-</span><span data-line="97">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="98">            <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-</span><span data-line="99">                <span class="n">obj</span><span class="p">,</span>
-</span><span data-line="100">                <span class="n">x0</span><span class="p">,</span>
-</span><span data-line="101">                <span class="n">method</span><span class="o">=</span><span class="s1">&#39;SLSQP&#39;</span><span class="p">,</span>
-</span><span data-line="102">                <span class="n">jac</span><span class="o">=</span><span class="n">jac_obj</span><span class="p">,</span>
-</span><span data-line="103">                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
-</span><span data-line="104">                <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
-</span><span data-line="105">                <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;maxiter&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span> <span class="s1">&#39;disp&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
-</span><span data-line="106">            <span class="p">)</span>
-</span><span data-line="107">
-</span><span data-line="108">            <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">or</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s1">&#39;Iteration limit reached&#39;</span><span class="p">:</span>
-</span><span data-line="109">                <span class="c1"># Check if we actually improved feasibility</span>
-</span><span data-line="110">                <span class="c1"># SLSQP might stop without full feasibility if max_iter reached</span>
-</span><span data-line="111">                <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="94">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="95">            <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+</span><span data-line="96">                <span class="n">obj</span><span class="p">,</span>
+</span><span data-line="97">                <span class="n">x0</span><span class="p">,</span>
+</span><span data-line="98">                <span class="n">method</span><span class="o">=</span><span class="s2">&quot;SLSQP&quot;</span><span class="p">,</span>
+</span><span data-line="99">                <span class="n">jac</span><span class="o">=</span><span class="n">jac_obj</span><span class="p">,</span>
+</span><span data-line="100">                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+</span><span data-line="101">                <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
+</span><span data-line="102">                <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;maxiter&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span> <span class="s2">&quot;disp&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+</span><span data-line="103">            <span class="p">)</span>
+</span><span data-line="104">
+</span><span data-line="105">            <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">or</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s2">&quot;Iteration limit reached&quot;</span><span class="p">:</span>
+</span><span data-line="106">                <span class="c1"># Check if we actually improved feasibility</span>
+</span><span data-line="107">                <span class="c1"># SLSQP might stop without full feasibility if max_iter reached</span>
+</span><span data-line="108">                <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="109">
+</span><span data-line="110">                <span class="c1"># We emit the point. The Strategy will evaluate it.</span>
+</span><span data-line="111">                <span class="c1"># If it&#39;s feasible, great. If it&#39;s just &quot;more feasible&quot;, also good.</span>
 </span><span data-line="112">
-</span><span data-line="113">                <span class="c1"># We emit the point. The Strategy will evaluate it.</span>
-</span><span data-line="114">                <span class="c1"># If it&#39;s feasible, great. If it&#39;s just &quot;more feasible&quot;, also good.</span>
-</span><span data-line="115">
-</span><span data-line="116">                <span class="c1"># Check distance to avoid emitting same point</span>
-</span><span data-line="117">                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_new</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
-</span><span data-line="118">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
-</span><span data-line="119">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Emitted repaired point (success=</span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-</span><span data-line="120">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="121">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Repair failed: </span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="122">
-</span><span data-line="123">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="124">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exception during repair: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span data-line="113">                <span class="c1"># Check distance to avoid emitting same point</span>
+</span><span data-line="114">                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_new</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+</span><span data-line="115">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
+</span><span data-line="116">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Emitted repaired point (success=</span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="117">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="118">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Repair failed: </span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="119">
+</span><span data-line="120">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="121">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exception during repair: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

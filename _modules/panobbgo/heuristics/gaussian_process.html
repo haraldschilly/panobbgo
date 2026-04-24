@@ -426,222 +426,220 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="284">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="285">            <span class="c1"># Use Matern kernel with some white noise for stability</span>
 </span><span data-line="286">            <span class="c1"># ConstantKernel scales the Matern</span>
-</span><span data-line="287">            <span class="n">kernel</span> <span class="o">=</span> <span class="n">ConstantKernel</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">Matern</span><span class="p">(</span><span class="n">nu</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span> <span class="o">+</span> <span class="n">WhiteKernel</span><span class="p">(</span>
-</span><span data-line="288">                <span class="n">noise_level</span><span class="o">=</span><span class="mf">1e-5</span>
-</span><span data-line="289">            <span class="p">)</span>
-</span><span data-line="290">
-</span><span data-line="291">            <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span> <span class="o">=</span> <span class="n">GaussianProcessRegressor</span><span class="p">(</span>
-</span><span data-line="292">                <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
-</span><span data-line="293">                <span class="n">alpha</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
-</span><span data-line="294">                <span class="n">normalize_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="295">                <span class="n">n_restarts_optimizer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span data-line="296">            <span class="p">)</span>
-</span><span data-line="297">
-</span><span data-line="298">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="299">                <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
-</span><span data-line="300">                    <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="n">ConvergenceWarning</span><span class="p">)</span>
-</span><span data-line="301">                    <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span>
-</span><span data-line="302">
-</span><span data-line="303">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_eic</span> <span class="ow">and</span> <span class="n">fit_constraint</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_cv_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="304">                        <span class="c1"># Fit constraint model</span>
-</span><span data-line="305">                        <span class="c1"># CV is non-negative.</span>
-</span><span data-line="306">                        <span class="c1"># Modeling log(cv + epsilon) might be better for scaling?</span>
-</span><span data-line="307">                        <span class="c1"># Or just cv. Let&#39;s stick to cv for simplicity first.</span>
-</span><span data-line="308">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="o">=</span> <span class="n">GaussianProcessRegressor</span><span class="p">(</span>
-</span><span data-line="309">                            <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>  <span class="c1"># Reuse kernel structure</span>
-</span><span data-line="310">                            <span class="n">alpha</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
-</span><span data-line="311">                            <span class="n">normalize_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="312">                            <span class="n">n_restarts_optimizer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span data-line="313">                        <span class="p">)</span>
-</span><span data-line="314">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_cv_train</span><span class="p">)</span>
-</span><span data-line="315">                    <span class="k">else</span><span class="p">:</span>
-</span><span data-line="316">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="317">
-</span><span data-line="318">                <span class="n">n_points</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">)</span>
-</span><span data-line="319">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;GP model fitted with </span><span class="si">%d</span><span class="s2"> points&quot;</span> <span class="o">%</span> <span class="n">n_points</span><span class="p">)</span>
-</span><span data-line="320">
-</span><span data-line="321">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="322">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during GP model fitting: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="323">            <span class="k">raise</span>
-</span><span data-line="324">
-</span><span data-line="325">    <span class="k">def</span><span class="w"> </span><span class="nf">_acquire_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">):</span>
-</span><span data-line="326"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="327"><span class="sd">        Generate candidate points using the acquisition function.</span>
-</span><span data-line="328">
-</span><span data-line="329"><span class="sd">        Args:</span>
-</span><span data-line="330"><span class="sd">            n_candidates: Number of candidate points to generate</span>
-</span><span data-line="331">
-</span><span data-line="332"><span class="sd">        Returns:</span>
-</span><span data-line="333"><span class="sd">            Array of candidate points</span>
-</span><span data-line="334"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="335">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="336">
-</span><span data-line="337">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">):</span>
-</span><span data-line="338">            <span class="c1"># Optimize acquisition function with multiple random starts</span>
-</span><span data-line="339">            <span class="n">candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimize_acquisition</span><span class="p">()</span>
-</span><span data-line="340">            <span class="k">if</span> <span class="n">candidate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="341">                <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+</span><span data-line="287">            <span class="n">kernel</span> <span class="o">=</span> <span class="n">ConstantKernel</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">Matern</span><span class="p">(</span><span class="n">nu</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span> <span class="o">+</span> <span class="n">WhiteKernel</span><span class="p">(</span><span class="n">noise_level</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+</span><span data-line="288">
+</span><span data-line="289">            <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span> <span class="o">=</span> <span class="n">GaussianProcessRegressor</span><span class="p">(</span>
+</span><span data-line="290">                <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
+</span><span data-line="291">                <span class="n">alpha</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+</span><span data-line="292">                <span class="n">normalize_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="293">                <span class="n">n_restarts_optimizer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span data-line="294">            <span class="p">)</span>
+</span><span data-line="295">
+</span><span data-line="296">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="297">                <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+</span><span data-line="298">                    <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="n">ConvergenceWarning</span><span class="p">)</span>
+</span><span data-line="299">                    <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span>
+</span><span data-line="300">
+</span><span data-line="301">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_eic</span> <span class="ow">and</span> <span class="n">fit_constraint</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_cv_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="302">                        <span class="c1"># Fit constraint model</span>
+</span><span data-line="303">                        <span class="c1"># CV is non-negative.</span>
+</span><span data-line="304">                        <span class="c1"># Modeling log(cv + epsilon) might be better for scaling?</span>
+</span><span data-line="305">                        <span class="c1"># Or just cv. Let&#39;s stick to cv for simplicity first.</span>
+</span><span data-line="306">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="o">=</span> <span class="n">GaussianProcessRegressor</span><span class="p">(</span>
+</span><span data-line="307">                            <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>  <span class="c1"># Reuse kernel structure</span>
+</span><span data-line="308">                            <span class="n">alpha</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+</span><span data-line="309">                            <span class="n">normalize_y</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="310">                            <span class="n">n_restarts_optimizer</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span data-line="311">                        <span class="p">)</span>
+</span><span data-line="312">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_cv_train</span><span class="p">)</span>
+</span><span data-line="313">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="314">                        <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="315">
+</span><span data-line="316">                <span class="n">n_points</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">)</span>
+</span><span data-line="317">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;GP model fitted with </span><span class="si">%d</span><span class="s2"> points&quot;</span> <span class="o">%</span> <span class="n">n_points</span><span class="p">)</span>
+</span><span data-line="318">
+</span><span data-line="319">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="320">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during GP model fitting: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="321">            <span class="k">raise</span>
+</span><span data-line="322">
+</span><span data-line="323">    <span class="k">def</span><span class="w"> </span><span class="nf">_acquire_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">):</span>
+</span><span data-line="324"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="325"><span class="sd">        Generate candidate points using the acquisition function.</span>
+</span><span data-line="326">
+</span><span data-line="327"><span class="sd">        Args:</span>
+</span><span data-line="328"><span class="sd">            n_candidates: Number of candidate points to generate</span>
+</span><span data-line="329">
+</span><span data-line="330"><span class="sd">        Returns:</span>
+</span><span data-line="331"><span class="sd">            Array of candidate points</span>
+</span><span data-line="332"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="333">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="334">
+</span><span data-line="335">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">):</span>
+</span><span data-line="336">            <span class="c1"># Optimize acquisition function with multiple random starts</span>
+</span><span data-line="337">            <span class="n">candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimize_acquisition</span><span class="p">()</span>
+</span><span data-line="338">            <span class="k">if</span> <span class="n">candidate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="339">                <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+</span><span data-line="340">
+</span><span data-line="341">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
 </span><span data-line="342">
-</span><span data-line="343">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
-</span><span data-line="344">
-</span><span data-line="345">    <span class="k">def</span><span class="w"> </span><span class="nf">_optimize_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="346"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="347"><span class="sd">        Optimize the acquisition function to find the next candidate point.</span>
-</span><span data-line="348">
-</span><span data-line="349"><span class="sd">        Returns:</span>
-</span><span data-line="350"><span class="sd">            Best candidate point found, or None if optimization fails</span>
-</span><span data-line="351"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="352">
-</span><span data-line="353">        <span class="k">def</span><span class="w"> </span><span class="nf">acquisition</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="354"><span class="w">            </span><span class="sd">&quot;&quot;&quot;Evaluate acquisition function at point x.&quot;&quot;&quot;</span>
-</span><span data-line="355">            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="356">            <span class="c1"># Negative for minimization</span>
-</span><span data-line="357">            <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_acquisition</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="358">
-</span><span data-line="359">        <span class="c1"># Generate random starting points</span>
-</span><span data-line="360">        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">)</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="361">        <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="362">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_restarts</span><span class="p">):</span>
-</span><span data-line="363">            <span class="n">s</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low_val</span><span class="p">,</span> <span class="n">high_val</span><span class="p">)</span> <span class="k">for</span> <span class="n">low_val</span><span class="p">,</span> <span class="n">high_val</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">]</span>
-</span><span data-line="364">            <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-</span><span data-line="365">            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
-</span><span data-line="366">
-</span><span data-line="367">        <span class="c1"># Also try current best point as start</span>
-</span><span data-line="368">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="369">            <span class="n">best_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">))</span>
-</span><span data-line="370">            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">[</span><span class="n">best_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-</span><span data-line="371">
-</span><span data-line="372">            <span class="c1"># Ensure best_y is finite</span>
-</span><span data-line="373">            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="374">                <span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span>
-</span><span data-line="375">
-</span><span data-line="376">        <span class="n">best_candidate</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="377">        <span class="n">best_acq_value</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
-</span><span data-line="378">
-</span><span data-line="379">        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
-</span><span data-line="380">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="381">                <span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-</span><span data-line="382">                    <span class="n">acquisition</span><span class="p">,</span>
-</span><span data-line="383">                    <span class="n">start</span><span class="p">,</span>
-</span><span data-line="384">                    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
-</span><span data-line="385">                    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span>
-</span><span data-line="386">                    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;maxiter&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
-</span><span data-line="387">                <span class="p">)</span>
-</span><span data-line="388">
-</span><span data-line="389">                <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-</span><span data-line="390">                    <span class="n">acq_value</span> <span class="o">=</span> <span class="o">-</span><span class="n">result</span><span class="o">.</span><span class="n">fun</span>  <span class="c1"># Convert back from negative</span>
-</span><span data-line="391">                    <span class="k">if</span> <span class="n">acq_value</span> <span class="o">&gt;</span> <span class="n">best_acq_value</span><span class="p">:</span>
-</span><span data-line="392">                        <span class="n">best_acq_value</span> <span class="o">=</span> <span class="n">acq_value</span>
-</span><span data-line="393">                        <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
-</span><span data-line="394">
-</span><span data-line="395">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="396">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Acquisition optimization failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="397">                <span class="k">continue</span>
+</span><span data-line="343">    <span class="k">def</span><span class="w"> </span><span class="nf">_optimize_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="344"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="345"><span class="sd">        Optimize the acquisition function to find the next candidate point.</span>
+</span><span data-line="346">
+</span><span data-line="347"><span class="sd">        Returns:</span>
+</span><span data-line="348"><span class="sd">            Best candidate point found, or None if optimization fails</span>
+</span><span data-line="349"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="350">
+</span><span data-line="351">        <span class="k">def</span><span class="w"> </span><span class="nf">acquisition</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="352"><span class="w">            </span><span class="sd">&quot;&quot;&quot;Evaluate acquisition function at point x.&quot;&quot;&quot;</span>
+</span><span data-line="353">            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="354">            <span class="c1"># Negative for minimization</span>
+</span><span data-line="355">            <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_acquisition</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="356">
+</span><span data-line="357">        <span class="c1"># Generate random starting points</span>
+</span><span data-line="358">        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">)</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="359">        <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="360">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_restarts</span><span class="p">):</span>
+</span><span data-line="361">            <span class="n">s</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low_val</span><span class="p">,</span> <span class="n">high_val</span><span class="p">)</span> <span class="k">for</span> <span class="n">low_val</span><span class="p">,</span> <span class="n">high_val</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">]</span>
+</span><span data-line="362">            <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+</span><span data-line="363">            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+</span><span data-line="364">
+</span><span data-line="365">        <span class="c1"># Also try current best point as start</span>
+</span><span data-line="366">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_train</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="367">            <span class="n">best_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">))</span>
+</span><span data-line="368">            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X_train</span><span class="p">[</span><span class="n">best_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+</span><span data-line="369">
+</span><span data-line="370">            <span class="c1"># Ensure best_y is finite</span>
+</span><span data-line="371">            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="372">                <span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_train</span><span class="p">)</span>
+</span><span data-line="373">
+</span><span data-line="374">        <span class="n">best_candidate</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="375">        <span class="n">best_acq_value</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+</span><span data-line="376">
+</span><span data-line="377">        <span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
+</span><span data-line="378">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="379">                <span class="n">result</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+</span><span data-line="380">                    <span class="n">acquisition</span><span class="p">,</span>
+</span><span data-line="381">                    <span class="n">start</span><span class="p">,</span>
+</span><span data-line="382">                    <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+</span><span data-line="383">                    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span>
+</span><span data-line="384">                    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;maxiter&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
+</span><span data-line="385">                <span class="p">)</span>
+</span><span data-line="386">
+</span><span data-line="387">                <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+</span><span data-line="388">                    <span class="n">acq_value</span> <span class="o">=</span> <span class="o">-</span><span class="n">result</span><span class="o">.</span><span class="n">fun</span>  <span class="c1"># Convert back from negative</span>
+</span><span data-line="389">                    <span class="k">if</span> <span class="n">acq_value</span> <span class="o">&gt;</span> <span class="n">best_acq_value</span><span class="p">:</span>
+</span><span data-line="390">                        <span class="n">best_acq_value</span> <span class="o">=</span> <span class="n">acq_value</span>
+</span><span data-line="391">                        <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x</span>
+</span><span data-line="392">
+</span><span data-line="393">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="394">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Acquisition optimization failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="395">                <span class="k">continue</span>
+</span><span data-line="396">
+</span><span data-line="397">        <span class="k">return</span> <span class="n">best_candidate</span>
 </span><span data-line="398">
-</span><span data-line="399">        <span class="k">return</span> <span class="n">best_candidate</span>
-</span><span data-line="400">
-</span><span data-line="401">    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
-</span><span data-line="402"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="403"><span class="sd">        Evaluate the acquisition function at given points.</span>
-</span><span data-line="404">
-</span><span data-line="405"><span class="sd">        Args:</span>
-</span><span data-line="406"><span class="sd">            X: Points to evaluate (n_points, n_features)</span>
-</span><span data-line="407">
-</span><span data-line="408"><span class="sd">        Returns:</span>
-</span><span data-line="409"><span class="sd">            Acquisition function values at each point</span>
-</span><span data-line="410"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="411">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="412">            <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">1</span>
-</span><span data-line="413">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
-</span><span data-line="414">
-</span><span data-line="415">        <span class="c1"># Get GP predictions and uncertainties</span>
-</span><span data-line="416">        <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">return_std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="417">
-</span><span data-line="418">        <span class="c1"># Calculate base acquisition (EI/UCB/PI)</span>
-</span><span data-line="419">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">EI</span><span class="p">:</span>
-</span><span data-line="420">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expected_improvement</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="421">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">UCB</span><span class="p">:</span>
-</span><span data-line="422">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_confidence_bound</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="423">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">PI</span><span class="p">:</span>
-</span><span data-line="424">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_probability_of_improvement</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="425">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="426">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown acquisition function: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="427">
-</span><span data-line="428">        <span class="c1"># Apply EIC if enabled and constraint model exists</span>
-</span><span data-line="429">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="430">            <span class="c1"># Predict constraint violation</span>
-</span><span data-line="431">            <span class="c1"># We modeled cv. Feasible region is cv &lt;= 0.</span>
-</span><span data-line="432">            <span class="n">c_pred</span><span class="p">,</span> <span class="n">c_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">return_std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="433">
-</span><span data-line="434">            <span class="c1"># Probability of Feasibility: P(cv &lt;= 0)</span>
-</span><span data-line="435">            <span class="c1"># cv ~ N(c_pred, c_std^2)</span>
-</span><span data-line="436">            <span class="c1"># P(cv &lt;= 0) = CDF((0 - c_pred) / c_std)</span>
-</span><span data-line="437">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-</span><span data-line="438">                <span class="n">z_feas</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">-</span> <span class="n">c_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">c_std</span>
-</span><span data-line="439">                <span class="n">prob_feas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z_feas</span><span class="p">)</span>
-</span><span data-line="440">
-</span><span data-line="441">                <span class="c1"># Handle deterministic cases (zero variance)</span>
-</span><span data-line="442">                <span class="c1"># Ensure arrays for indexing safety</span>
-</span><span data-line="443">                <span class="n">c_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">c_std</span><span class="p">)</span>
-</span><span data-line="444">                <span class="n">c_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">c_pred</span><span class="p">)</span>
-</span><span data-line="445">                <span class="n">prob_feas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">prob_feas</span><span class="p">)</span>
-</span><span data-line="446">
-</span><span data-line="447">                <span class="n">mask_det</span> <span class="o">=</span> <span class="n">c_std</span> <span class="o">==</span> <span class="mi">0</span>
-</span><span data-line="448">                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask_det</span><span class="p">):</span>
-</span><span data-line="449">                    <span class="n">prob_feas</span><span class="p">[</span><span class="n">mask_det</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c_pred</span><span class="p">[</span><span class="n">mask_det</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="399">    <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_acquisition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+</span><span data-line="400"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="401"><span class="sd">        Evaluate the acquisition function at given points.</span>
+</span><span data-line="402">
+</span><span data-line="403"><span class="sd">        Args:</span>
+</span><span data-line="404"><span class="sd">            X: Points to evaluate (n_points, n_features)</span>
+</span><span data-line="405">
+</span><span data-line="406"><span class="sd">        Returns:</span>
+</span><span data-line="407"><span class="sd">            Acquisition function values at each point</span>
+</span><span data-line="408"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="409">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="410">            <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">1</span>
+</span><span data-line="411">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+</span><span data-line="412">
+</span><span data-line="413">        <span class="c1"># Get GP predictions and uncertainties</span>
+</span><span data-line="414">        <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">return_std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="415">
+</span><span data-line="416">        <span class="c1"># Calculate base acquisition (EI/UCB/PI)</span>
+</span><span data-line="417">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">EI</span><span class="p">:</span>
+</span><span data-line="418">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expected_improvement</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="419">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">UCB</span><span class="p">:</span>
+</span><span data-line="420">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upper_confidence_bound</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="421">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span> <span class="o">==</span> <span class="n">AcquisitionFunction</span><span class="o">.</span><span class="n">PI</span><span class="p">:</span>
+</span><span data-line="422">            <span class="n">acq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_probability_of_improvement</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="423">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="424">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown acquisition function: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">acquisition_func</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="425">
+</span><span data-line="426">        <span class="c1"># Apply EIC if enabled and constraint model exists</span>
+</span><span data-line="427">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="428">            <span class="c1"># Predict constraint violation</span>
+</span><span data-line="429">            <span class="c1"># We modeled cv. Feasible region is cv &lt;= 0.</span>
+</span><span data-line="430">            <span class="n">c_pred</span><span class="p">,</span> <span class="n">c_std</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gp_constraint</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">return_std</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="431">
+</span><span data-line="432">            <span class="c1"># Probability of Feasibility: P(cv &lt;= 0)</span>
+</span><span data-line="433">            <span class="c1"># cv ~ N(c_pred, c_std^2)</span>
+</span><span data-line="434">            <span class="c1"># P(cv &lt;= 0) = CDF((0 - c_pred) / c_std)</span>
+</span><span data-line="435">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+</span><span data-line="436">                <span class="n">z_feas</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">-</span> <span class="n">c_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">c_std</span>
+</span><span data-line="437">                <span class="n">prob_feas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z_feas</span><span class="p">)</span>
+</span><span data-line="438">
+</span><span data-line="439">                <span class="c1"># Handle deterministic cases (zero variance)</span>
+</span><span data-line="440">                <span class="c1"># Ensure arrays for indexing safety</span>
+</span><span data-line="441">                <span class="n">c_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">c_std</span><span class="p">)</span>
+</span><span data-line="442">                <span class="n">c_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">c_pred</span><span class="p">)</span>
+</span><span data-line="443">                <span class="n">prob_feas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">prob_feas</span><span class="p">)</span>
+</span><span data-line="444">
+</span><span data-line="445">                <span class="n">mask_det</span> <span class="o">=</span> <span class="n">c_std</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span data-line="446">                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask_det</span><span class="p">):</span>
+</span><span data-line="447">                    <span class="n">prob_feas</span><span class="p">[</span><span class="n">mask_det</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c_pred</span><span class="p">[</span><span class="n">mask_det</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="448">
+</span><span data-line="449">            <span class="n">acq</span> <span class="o">*=</span> <span class="n">prob_feas</span>
 </span><span data-line="450">
-</span><span data-line="451">            <span class="n">acq</span> <span class="o">*=</span> <span class="n">prob_feas</span>
+</span><span data-line="451">        <span class="k">return</span> <span class="n">acq</span>
 </span><span data-line="452">
-</span><span data-line="453">        <span class="k">return</span> <span class="n">acq</span>
-</span><span data-line="454">
-</span><span data-line="455">    <span class="k">def</span><span class="w"> </span><span class="nf">_expected_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
-</span><span data-line="456"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="457"><span class="sd">        Expected Improvement acquisition function.</span>
-</span><span data-line="458">
-</span><span data-line="459"><span class="sd">        EI(x) = (μ(x) - f*) * Φ(Z) + σ(x) * φ(Z)</span>
-</span><span data-line="460"><span class="sd">        where Z = (μ(x) - f*) / σ(x)</span>
-</span><span data-line="461"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="462">        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
-</span><span data-line="463">        <span class="n">y_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="464">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-</span><span data-line="465">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
-</span><span data-line="466">            <span class="n">ei</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">+</span> <span class="n">y_std</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_pdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
-</span><span data-line="467">            <span class="n">ei</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
-</span><span data-line="468">            <span class="k">return</span> <span class="n">ei</span>
-</span><span data-line="469">
-</span><span data-line="470">    <span class="k">def</span><span class="w"> </span><span class="nf">_upper_confidence_bound</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
-</span><span data-line="471"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Lower Confidence Bound (LCB) acquisition function for minimization.</span>
-</span><span data-line="472">
-</span><span data-line="473"><span class="sd">        LCB(x) = μ(x) - κ·σ(x).  The outer acquisition maximiser negates this</span>
-</span><span data-line="474"><span class="sd">        result, so returning the *negative* LCB here makes the outer code</span>
-</span><span data-line="475"><span class="sd">        minimise the LCB — equivalent to searching for low-mean, high-uncertainty</span>
-</span><span data-line="476"><span class="sd">        regions, which is the correct behaviour for minimisation problems.</span>
-</span><span data-line="477"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="478">        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">y_pred</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="479">
-</span><span data-line="480">    <span class="k">def</span><span class="w"> </span><span class="nf">_probability_of_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
-</span><span data-line="481"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="482"><span class="sd">        Probability of Improvement acquisition function.</span>
-</span><span data-line="483">
-</span><span data-line="484"><span class="sd">        PI(x) = Φ((f* - μ(x)) / σ(x))</span>
-</span><span data-line="485"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="486">        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
-</span><span data-line="487">        <span class="n">y_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_std</span><span class="p">)</span>
-</span><span data-line="488">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
-</span><span data-line="489">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
-</span><span data-line="490">            <span class="n">pi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
-</span><span data-line="491">            <span class="n">pi</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
-</span><span data-line="492">            <span class="k">return</span> <span class="n">pi</span>
-</span><span data-line="493">
-</span><span data-line="494">    <span class="nd">@staticmethod</span>
-</span><span data-line="495">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="496"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal probability density function.&quot;&quot;&quot;</span>
-</span><span data-line="497">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
-</span><span data-line="498">
-</span><span data-line="499">    <span class="nd">@staticmethod</span>
-</span><span data-line="500">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="501"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal cumulative distribution function.&quot;&quot;&quot;</span>
-</span><span data-line="502">        <span class="k">return</span> <span class="n">ndtr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</span><span data-line="453">    <span class="k">def</span><span class="w"> </span><span class="nf">_expected_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
+</span><span data-line="454"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="455"><span class="sd">        Expected Improvement acquisition function.</span>
+</span><span data-line="456">
+</span><span data-line="457"><span class="sd">        EI(x) = (μ(x) - f*) * Φ(Z) + σ(x) * φ(Z)</span>
+</span><span data-line="458"><span class="sd">        where Z = (μ(x) - f*) / σ(x)</span>
+</span><span data-line="459"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="460">        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
+</span><span data-line="461">        <span class="n">y_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="462">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+</span><span data-line="463">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
+</span><span data-line="464">            <span class="n">ei</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">+</span> <span class="n">y_std</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_pdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span data-line="465">            <span class="n">ei</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
+</span><span data-line="466">            <span class="k">return</span> <span class="n">ei</span>
+</span><span data-line="467">
+</span><span data-line="468">    <span class="k">def</span><span class="w"> </span><span class="nf">_upper_confidence_bound</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
+</span><span data-line="469"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Lower Confidence Bound (LCB) acquisition function for minimization.</span>
+</span><span data-line="470">
+</span><span data-line="471"><span class="sd">        LCB(x) = μ(x) - κ·σ(x).  The outer acquisition maximiser negates this</span>
+</span><span data-line="472"><span class="sd">        result, so returning the *negative* LCB here makes the outer code</span>
+</span><span data-line="473"><span class="sd">        minimise the LCB — equivalent to searching for low-mean, high-uncertainty</span>
+</span><span data-line="474"><span class="sd">        regions, which is the correct behaviour for minimisation problems.</span>
+</span><span data-line="475"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="476">        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">y_pred</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="477">
+</span><span data-line="478">    <span class="k">def</span><span class="w"> </span><span class="nf">_probability_of_improvement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">y_std</span><span class="p">):</span>
+</span><span data-line="479"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="480"><span class="sd">        Probability of Improvement acquisition function.</span>
+</span><span data-line="481">
+</span><span data-line="482"><span class="sd">        PI(x) = Φ((f* - μ(x)) / σ(x))</span>
+</span><span data-line="483"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="484">        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
+</span><span data-line="485">        <span class="n">y_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">y_std</span><span class="p">)</span>
+</span><span data-line="486">        <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+</span><span data-line="487">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">best_y</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">/</span> <span class="n">y_std</span>
+</span><span data-line="488">            <span class="n">pi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm_cdf</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+</span><span data-line="489">            <span class="n">pi</span><span class="p">[</span><span class="n">y_std</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Handle zero variance</span>
+</span><span data-line="490">            <span class="k">return</span> <span class="n">pi</span>
+</span><span data-line="491">
+</span><span data-line="492">    <span class="nd">@staticmethod</span>
+</span><span data-line="493">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="494"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal probability density function.&quot;&quot;&quot;</span>
+</span><span data-line="495">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+</span><span data-line="496">
+</span><span data-line="497">    <span class="nd">@staticmethod</span>
+</span><span data-line="498">    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="499"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Standard normal cumulative distribution function.&quot;&quot;&quot;</span>
+</span><span data-line="500">        <span class="k">return</span> <span class="n">ndtr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

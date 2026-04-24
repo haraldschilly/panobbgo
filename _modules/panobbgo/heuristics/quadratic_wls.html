@@ -237,51 +237,49 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="99">
 </span><span data-line="100">                <span class="c1"># optimize predict with x \in bounds</span>
 </span><span data-line="101">
-</span><span data-line="102">                <span class="n">sol</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fmin_l_bfgs_b</span><span class="p">(</span>
-</span><span data-line="103">                    <span class="n">predict</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">approx_grad</span><span class="o">=</span><span class="kc">True</span>
-</span><span data-line="104">                <span class="p">)</span>
-</span><span data-line="105">
-</span><span data-line="106">                <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
-</span><span data-line="107">            <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
-</span><span data-line="108">                <span class="k">break</span>
-</span><span data-line="109">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="110">                <span class="c1"># Log the error to stderr so it&#39;s visible in tests/logs</span>
-</span><span data-line="111">                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
-</span><span data-line="112">                <span class="c1"># Send None to indicate failure and prevent parent from hanging indefinitely</span>
-</span><span data-line="113">                <span class="k">try</span><span class="p">:</span>
-</span><span data-line="114">                    <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-</span><span data-line="115">                <span class="k">except</span><span class="p">:</span>
-</span><span data-line="116">                    <span class="k">pass</span></div>
+</span><span data-line="102">                <span class="n">sol</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fmin_l_bfgs_b</span><span class="p">(</span><span class="n">predict</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">approx_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="103">
+</span><span data-line="104">                <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
+</span><span data-line="105">            <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+</span><span data-line="106">                <span class="k">break</span>
+</span><span data-line="107">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="108">                <span class="c1"># Log the error to stderr so it&#39;s visible in tests/logs</span>
+</span><span data-line="109">                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+</span><span data-line="110">                <span class="c1"># Send None to indicate failure and prevent parent from hanging indefinitely</span>
+</span><span data-line="111">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="112">                    <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+</span><span data-line="113">                <span class="k">except</span><span class="p">:</span>
+</span><span data-line="114">                    <span class="k">pass</span></div>
 
-</span><span data-line="117">
+</span><span data-line="115">
 <div class="viewcode-block" id="QuadraticWlsModel.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box">[docs]</a>
-</span><span data-line="118">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="119">        <span class="c1"># self.logger.info(&quot;&quot;)</span>
-</span><span data-line="120">        <span class="c1"># self.logger.debug(&quot;best_box.best: %s&quot; % best_box.best)</span>
-</span><span data-line="121">        <span class="n">pointarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[[</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">best_box</span><span class="o">.</span><span class="n">results</span><span class="p">]]</span>
-</span><span data-line="122">        <span class="c1"># self.logger.debug(&quot;pointarray: \n%s&quot; % pointarray)</span>
-</span><span data-line="123">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
-</span><span data-line="124">        <span class="n">fx_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">get_val</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">best_box</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
-</span><span data-line="125">
-</span><span data-line="126">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="127">            <span class="c1"># Send bounds as list of tuples for scipy compatibility</span>
-</span><span data-line="128">            <span class="c1"># self.problem.box is a BoundingBox object which might not be fully compatible</span>
-</span><span data-line="129">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="130">            <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">pointarray</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">best_box</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">fx_vals</span><span class="p">))</span>
-</span><span data-line="131">
-</span><span data-line="132">            <span class="c1"># Use poll with timeout to prevent hanging if subprocess crashes/hangs</span>
-</span><span data-line="133">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">10.0</span><span class="p">):</span>
-</span><span data-line="134">                <span class="n">sol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="135">                <span class="k">if</span> <span class="n">sol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="136">                    <span class="c1"># print &#39;solution:&#39;, sol</span>
-</span><span data-line="137">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
-</span><span data-line="138">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="139">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;QuadraticWlsModel subprocess returned None (error occurred).&quot;</span><span class="p">)</span>
-</span><span data-line="140">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="141">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;QuadraticWlsModel subprocess timed out waiting for solution.&quot;</span><span class="p">)</span>
-</span><span data-line="142">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="143">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error communicating with QuadraticWlsModel subprocess: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span data-line="116">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
+</span><span data-line="117">        <span class="c1"># self.logger.info(&quot;&quot;)</span>
+</span><span data-line="118">        <span class="c1"># self.logger.debug(&quot;best_box.best: %s&quot; % best_box.best)</span>
+</span><span data-line="119">        <span class="n">pointarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[[</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">best_box</span><span class="o">.</span><span class="n">results</span><span class="p">]]</span>
+</span><span data-line="120">        <span class="c1"># self.logger.debug(&quot;pointarray: \n%s&quot; % pointarray)</span>
+</span><span data-line="121">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
+</span><span data-line="122">        <span class="n">fx_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">get_val</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">best_box</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
+</span><span data-line="123">
+</span><span data-line="124">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="125">            <span class="c1"># Send bounds as list of tuples for scipy compatibility</span>
+</span><span data-line="126">            <span class="c1"># self.problem.box is a BoundingBox object which might not be fully compatible</span>
+</span><span data-line="127">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="128">            <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">pointarray</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">best_box</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">fx_vals</span><span class="p">))</span>
+</span><span data-line="129">
+</span><span data-line="130">            <span class="c1"># Use poll with timeout to prevent hanging if subprocess crashes/hangs</span>
+</span><span data-line="131">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">10.0</span><span class="p">):</span>
+</span><span data-line="132">                <span class="n">sol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="133">                <span class="k">if</span> <span class="n">sol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="134">                    <span class="c1"># print &#39;solution:&#39;, sol</span>
+</span><span data-line="135">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
+</span><span data-line="136">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="137">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;QuadraticWlsModel subprocess returned None (error occurred).&quot;</span><span class="p">)</span>
+</span><span data-line="138">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="139">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;QuadraticWlsModel subprocess timed out waiting for solution.&quot;</span><span class="p">)</span>
+</span><span data-line="140">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="141">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error communicating with QuadraticWlsModel subprocess: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

@@ -58,10 +58,20 @@ What's missing for a true self-improvement loop:
       on `benchmark_harness.py compare`.  Bootstrap CI on composite
       delta + per-pair regression guard (§6.2).  Tests in
       `tests/test_harness_stats.py`.
-- [ ] A driver that closes the loop: apply change, measure, accept/revert,
-      commit.
-- [ ] A change catalog — the space of mutations the loop may try.
-- [ ] Persistence of the running "ladder" of best composite scores over time.
+- [x] Anti-cherry-pick guard (§6.3) — shipped 2026-04-26 as
+      `LoopConfig.guard_interval` / `guard_eps_ladder` /
+      `guard_iteration_offset`.  Periodic ladder re-validation on a
+      fresh seed; rollback on drift.
+- [x] A driver that closes the loop: apply change, measure,
+      accept/revert — shipped 2026-04-23 as
+      `panobbgo.self_improve.SelfImprover` and `scripts/self_improve.py`.
+- [x] A change catalog — `panobbgo.self_improve.MutationCatalog` and
+      `default_catalog()` cover hyperparameter retunes from §7.1.
+- [x] Persistence of the running "ladder" of best composite scores
+      over time — `LadderEntry` + JSONL ledger
+      (`planning/self_improve_ledger.jsonl`).  Each entry stores its
+      ``last_validated_score``, refreshed every time the guard
+      re-measures it.
 
 ## 3. Architecture of the loop
 
@@ -205,13 +215,32 @@ deltas.
 
 - **Reject** otherwise. Revert the commit.
 
-### 6.3 Anti-cherry-pick guard
+### 6.3 Anti-cherry-pick guard (shipped 2026-04-26)
 
-Every Kth iteration (default `K = 10`), re-measure the accepted ladder on
-a *fresh* random seed. If the ladder drops more than `ε_ladder` (default
-`0.02`) on that re-measurement, roll back to the last iteration whose
-fresh-seed score is still within tolerance. This catches over-fitting to
-the particular stream of sampled problems.
+- [x] Implemented as `LoopConfig.guard_interval` /
+      `guard_eps_ladder` / `guard_iteration_offset` in
+      :mod:`panobbgo.self_improve`.  Every Kth iteration the loop
+      re-measures the top of the accepted ladder on a *fresh*
+      randomized seed (``iteration_id = iteration +
+      guard_iteration_offset``).  If the re-measure drops more than
+      ``guard_eps_ladder`` below the entry's stored
+      ``last_validated_score``, the entry is popped and the next one
+      down is re-measured; popping continues until a stable entry is
+      found or the seed strategies are reached (the seed is the
+      trusted fallback and is never popped).
+- [x] CLI: `--guard-interval`, `--guard-eps-ladder`,
+      `--guard-iteration-offset` on `scripts/self_improve.py run`.
+- [x] Ledger: emits a `LoopGuardRecord` (record_type=`"guard"`)
+      alongside iteration records so audits can replay both signals.
+- [x] Defaults: ``guard_interval=0`` (disabled) for backward
+      compatibility; bump to ``5`` or ``10`` for unattended runs.
+      ``guard_eps_ladder=0.02`` matches the plan; the offset of
+      ``1_000_000`` keeps the guard's instance stream independent from
+      the regular iteration stream so a mutation cannot accidentally
+      tune itself to the seeds the guard would reuse.
+- [x] Tests: `tests/test_self_improve.py::TestAntiCherryPickGuard`
+      covers cadence, no-op-when-stable, rollback-on-drift,
+      offset-iteration-id usage, and seed-not-popped invariants.
 
 ## 7. Change catalog
 
@@ -327,18 +356,34 @@ Each phase is independently deliverable and keeps the framework usable.
 - [x] 22 tests in ``tests/test_harness_stats.py`` — accept/reject paths,
       regression guard, reproducibility, CLI integration.
 
-### Phase 5 — Loop driver MVP (~1 week)
+### Phase 5 — Loop driver MVP (shipped 2026-04-23)
 
-- `scripts/self_improve.py` implementing §3.
-- Start with a **hyperparameter-only** mutation space (§7, item 1).
-- Runs for N iterations on a dedicated branch, writes the ledger.
-- Produces a human-readable report at the end.
+- [x] `scripts/self_improve.py` implementing §3, backed by
+      :mod:`panobbgo.self_improve`.
+- [x] Hyperparameter-only mutation space (§7, item 1) via
+      :func:`default_catalog`.
+- [x] Runs for N iterations on the current spec list (in-memory),
+      writes the JSONL ledger.
+- [x] Produces a human-readable summary via
+      `scripts/self_improve.py summary`.
+- [x] Anti-cherry-pick guard (§6.3) — shipped 2026-04-26 (see §2 and
+      §6.3).
+- [x] Tests: `tests/test_self_improve.py` (40 tests covering rules,
+      catalog, mutation application, config validation, end-to-end
+      loop with a fake harness, anti-cherry-pick guard, and ledger
+      round-trip).
 
 ### Phase 6 — Production loop (ongoing)
 
-- Broaden the mutation space.
-- Connect the loop to CI (nightly run on a dedicated runner).
-- Publish the ladder in the docs.
+- [x] Anti-cherry-pick guard (§6.3) — shipped 2026-04-26.
+- [ ] Broaden the mutation space (strategy portfolio composition,
+      analyzer add/drop — §7 items 2–3).
+- [ ] Adaptive mutation sampler (§10): bias future samples toward
+      rules with positive accept history.
+- [ ] Stratified dimension sampling (§10) for cross-iteration score
+      stability.
+- [ ] Connect the loop to CI (nightly run on a dedicated runner).
+- [ ] Publish the ladder in the docs.
 
 ## 10. Open questions
 
@@ -372,3 +417,51 @@ After Phase 5, the framework is "self-improving" when:
   ladder.
 
 That is the target.
+
+## 12. Next iteration ideas
+
+Lightweight "next ticket" notes for follow-up agents.
+
+### 12.1 Adaptive mutation sampler (§10 productivity)
+
+The current :class:`MutationCatalog` samples uniformly from the
+applicable rules.  After several iterations the loop has direct
+evidence about which rules tend to produce accepts.  A simple
+Beta-Bernoulli or UCB scheme over rules — keyed by ``(class_name,
+param_name, rule_kind)`` — would bias future samples toward rules
+with positive accept history while still exploring unfamiliar ones.
+
+Suggested implementation sketch:
+
+- Track ``(n_attempts, n_accepts)`` per rule key, persisted across
+  loop runs by the ledger reader.
+- Sample via Thompson sampling on a Beta(1+n_accepts,
+  1+n_attempts-n_accepts) prior, or UCB1 on the accept rate.
+- Cold-start: zero history → uniform sampling, identical to today.
+
+### 12.2 Stratified dimension sampling (§10 stability)
+
+When a :class:`ProblemFamily` declares ``dim_choices = (2, 5, 10)``,
+the current sampler draws one dim per instance.  Across iterations
+this dilutes the composite score with a different mix of dims each
+time, so cross-iteration deltas pick up dim-mix noise.  Stratify by
+running ``ceil(reps / k)`` reps per dim and averaging — same compute,
+much lower noise.
+
+### 12.3 Strategy portfolio composition (§7.2)
+
+Today's mutations only retune existing kwargs.  Adding a heuristic to
+or removing one from a strategy is the next-most-impactful mutation
+class and is fully expressible inside :class:`StrategySpec`.  Needs:
+
+- A ``StructuralMutationRule`` subclass capable of
+  ``add_heuristic`` / ``drop_heuristic`` ops.
+- A safety check that the resulting strategy still has at least one
+  point-emitting heuristic.
+
+### 12.4 Hold-out validation set
+
+Maintain a small fixed validation set of randomized instances drawn
+from a separate ``base_seed``.  Use it (read-only) to spot-check the
+ladder once at the end of a loop run.  Cheaper than the periodic
+guard but complements it.

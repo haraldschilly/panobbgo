@@ -311,6 +311,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
         Nearby,
         NelderMead,
         LatinHypercube,
+        Sobol,
         GaussianProcessHeuristic,
         CMAES,
     )
@@ -333,6 +334,22 @@ def _make_standard_strategies() -> List[StrategySpec]:
         strategy_class=StrategyRewarding,
         heuristics=[
             (LatinHypercube, {"div": 4}),
+            (GaussianProcessHeuristic, {"n_restarts": 5}),
+            (Nearby, {"radius": 0.05, "axes": "all", "new": 3}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+    # Sobol' counterpart of BayesOpt_GP: low-discrepancy quasi-random initial design
+    # plus the same GP / Nearby / NelderMead ensemble.  Sobol' samples the search
+    # box more uniformly than LatinHypercube at the same evaluation count, giving
+    # the GP surrogate a higher-quality "first look" at the landscape.  See
+    # ``panobbgo.heuristics.sobol`` for references.
+    bayes_sobol = StrategySpec(
+        name="BayesOpt_Sobol",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (Sobol, {"n": 16, "scramble": True}),
             (GaussianProcessHeuristic, {"n_restarts": 5}),
             (Nearby, {"radius": 0.05, "axes": "all", "new": 3}),
             (NelderMead, {}),
@@ -368,7 +385,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
             (Sensitivity, {"update_interval": 20}),
         ],
     )
-    return quick + [ucb, bayes_gp, cmaes_portfolio, ipop_cmaes]
+    return quick + [ucb, bayes_gp, bayes_sobol, cmaes_portfolio, ipop_cmaes]
 
 
 def _make_full_strategies() -> List[StrategySpec]:

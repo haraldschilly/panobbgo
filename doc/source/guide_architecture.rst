@@ -200,6 +200,9 @@ Implemented Heuristics
 **Space-filling:**
 
 - :class:`~panobbgo.heuristics.latin_hypercube.LatinHypercube`: Stratified sampling with parameter ``div``
+- :class:`~panobbgo.heuristics.sobol.Sobol`: Low-discrepancy Sobol' quasi-random
+  sequence with parameter ``n`` (powers of two preferred); Owen-scrambled by
+  default so different reps see independent point sets
 - :class:`~panobbgo.heuristics.extremal.Extremal`: Samples from box boundaries
 - :class:`~panobbgo.heuristics.random.Random`: Uniform sampling in best leaf box
 

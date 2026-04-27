@@ -29,6 +29,7 @@ from .zero import Zero
 from .random import Random
 from .extremal import Extremal
 from .latin_hypercube import LatinHypercube
+from .sobol import Sobol
 from .nearby import Nearby
 from .weighted_average import WeightedAverage
 from .nelder_mead import NelderMead
@@ -49,6 +50,7 @@ __all__ = [
     "Random",
     "Extremal",
     "LatinHypercube",
+    "Sobol",
     "Nearby",
     "WeightedAverage",
     "NelderMead",

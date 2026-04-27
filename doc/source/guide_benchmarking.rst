@@ -128,7 +128,7 @@ Three preset modes trade cost against statistical power:
      - ~30 s
    * - ``standard``
      - 8
-     - ~6
+     - ~7
      - 5
      - 200
      - few minutes

@@ -418,50 +418,109 @@ After Phase 5, the framework is "self-improving" when:
 
 That is the target.
 
-## 12. Next iteration ideas
+## 12. Iteration log
 
-Lightweight "next ticket" notes for follow-up agents.
+This section records direct algorithmic improvements applied to Panobbgo
+*outside* of the autonomous loop, so the human-in-the-loop history stays
+greppable.  Each entry should reference the PR / commit that landed it,
+the rationale, and a measured-impact number when available.
 
-### 12.1 Adaptive mutation sampler (§10 productivity)
+### 2026-04-27 — Sobol' quasi-random initial design (`Sobol` heuristic)
 
-The current :class:`MutationCatalog` samples uniformly from the
-applicable rules.  After several iterations the loop has direct
-evidence about which rules tend to produce accepts.  A simple
-Beta-Bernoulli or UCB scheme over rules — keyed by ``(class_name,
-param_name, rule_kind)`` — would bias future samples toward rules
-with positive accept history while still exploring unfamiliar ones.
+* **What** — `panobbgo/heuristics/sobol.py` adds a low-discrepancy
+  quasi-random (Sobol') sampler as a one-shot space-filling heuristic;
+  registered alongside `LatinHypercube`, `Random`, etc.  A new
+  `BayesOpt_Sobol` strategy in the standard harness pairs it with the GP
+  surrogate, `Nearby`, and `NelderMead`.  The mutation catalog
+  (`panobbgo.self_improve.default_catalog`) gains a rule that nudges
+  `Sobol.n` in 4-step increments inside `[4, 64]` so the loop driver can
+  also tune it.
+* **Why** — every modern Bayesian-optimization library (BoTorch, TuRBO,
+  scikit-optimize, GPyOpt) defaults to Sobol' for the initial design
+  precisely because lower discrepancy → better surrogate fits at low
+  sample counts.  Panobbgo only had Latin Hypercube before.
+* **Impact** — measured head-to-head over 5 reps × 7 standard problems at
+  budget 200, mean per-pair score `BayesOpt_Sobol = 0.314` vs
+  `BayesOpt_GP = 0.191` (`+0.123`).  Sobol' wins on 5 / 7 problems
+  (DeJong, Rosenbrock_2D, Ackley, StyblinskiTang, Griewank tied with
+  smaller best-distance), loses on 2 (Rastrigin, Rosenbrock_5D).
+* **Tests** — `tests/test_heuristic_sobol.py` (16 tests).
+
+### 2026-04-26 — Anti-cherry-pick guard + tests for the loop driver
+
+* **What** — `panobbgo/self_improve.py` gains
+  `LoopConfig.guard_interval`, `guard_eps_ladder`, and
+  `guard_iteration_offset` plus the `LadderEntry` and `LoopGuardRecord`
+  data structures.  Every `guard_interval` iterations the loop
+  re-measures the top of the accepted ladder on a *fresh*
+  `randomize_iteration` (`iteration + guard_iteration_offset`) and rolls
+  the ladder back when the composite has drifted more than
+  `guard_eps_ladder` below the entry's stored `last_validated_score`.
+  The seed entry is the trusted fallback and is never popped.  Exposed
+  via `--guard-interval` / `--guard-eps-ladder` /
+  `--guard-iteration-offset` on `scripts/self_improve.py run` and the
+  `summary` subcommand reports rollbacks.
+* **Why** — closes §6.3 ("Anti-cherry-pick guard") of this plan.  Even
+  with the parametrically randomized battery, a sequence of "lucky"
+  instance draws can inflate per-iteration after-scores enough to clear
+  the bootstrap CI even when the underlying mutation does not
+  generalise.  The guard validates the ladder against an independent
+  instance stream so silent overfitting cannot accumulate.
+* **Tests** — `tests/test_self_improve.py` (40 tests, new) — also fills
+  the test gap left by Phase 5 (the loop driver shipped without
+  coverage).  Covers `MutationRule` validation, catalog sampling, the
+  `apply_mutation` immutability contract, end-to-end runs against a
+  faked harness, the guard's cadence / no-rollback / drift-rollback /
+  offset-id / seed-not-popped invariants, and ledger round-trip.
+* **Defaults** — `guard_interval = 0` keeps existing CLI invocations
+  byte-identical.  `5` or `10` is the suggested setting for unattended
+  multi-hour runs.
+
+### Next iteration ideas
+
+Lightweight "next ticket" notes for follow-up agents — graduate them to
+a dated entry above when shipped.
+
+#### Adaptive mutation sampler (§10 productivity)
+
+The current `MutationCatalog` samples uniformly from the applicable
+rules.  After several iterations the loop has direct evidence about
+which rules tend to produce accepts.  A simple Beta-Bernoulli or UCB
+scheme over rules — keyed by `(class_name, param_name, rule_kind)` —
+would bias future samples toward rules with positive accept history
+while still exploring unfamiliar ones.
 
 Suggested implementation sketch:
 
-- Track ``(n_attempts, n_accepts)`` per rule key, persisted across
-  loop runs by the ledger reader.
+- Track `(n_attempts, n_accepts)` per rule key, persisted across loop
+  runs by the ledger reader.
 - Sample via Thompson sampling on a Beta(1+n_accepts,
   1+n_attempts-n_accepts) prior, or UCB1 on the accept rate.
 - Cold-start: zero history → uniform sampling, identical to today.
 
-### 12.2 Stratified dimension sampling (§10 stability)
+#### Stratified dimension sampling (§10 stability)
 
-When a :class:`ProblemFamily` declares ``dim_choices = (2, 5, 10)``,
-the current sampler draws one dim per instance.  Across iterations
-this dilutes the composite score with a different mix of dims each
-time, so cross-iteration deltas pick up dim-mix noise.  Stratify by
-running ``ceil(reps / k)`` reps per dim and averaging — same compute,
-much lower noise.
+When a `ProblemFamily` declares `dim_choices = (2, 5, 10)`, the current
+sampler draws one dim per instance.  Across iterations this dilutes the
+composite score with a different mix of dims each time, so
+cross-iteration deltas pick up dim-mix noise.  Stratify by running
+`ceil(reps / k)` reps per dim and averaging — same compute, much
+lower noise.
 
-### 12.3 Strategy portfolio composition (§7.2)
+#### Strategy portfolio composition (§7.2)
 
 Today's mutations only retune existing kwargs.  Adding a heuristic to
 or removing one from a strategy is the next-most-impactful mutation
-class and is fully expressible inside :class:`StrategySpec`.  Needs:
+class and is fully expressible inside `StrategySpec`.  Needs:
 
-- A ``StructuralMutationRule`` subclass capable of
-  ``add_heuristic`` / ``drop_heuristic`` ops.
+- A `StructuralMutationRule` subclass capable of `add_heuristic` /
+  `drop_heuristic` ops.
 - A safety check that the resulting strategy still has at least one
   point-emitting heuristic.
 
-### 12.4 Hold-out validation set
+#### Hold-out validation set
 
 Maintain a small fixed validation set of randomized instances drawn
-from a separate ``base_seed``.  Use it (read-only) to spot-check the
+from a separate `base_seed`.  Use it (read-only) to spot-check the
 ladder once at the end of a loop run.  Cheaper than the periodic
 guard but complements it.

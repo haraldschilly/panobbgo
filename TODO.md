@@ -1,5 +1,47 @@
 # TODO
 
+## Recent Improvements (continued)
+
+### Sobol' Quasi-Random Initial Design Heuristic (2026-04-27)
+- [x] **New `panobbgo/heuristics/sobol.py`** — `Sobol` heuristic, a one-shot
+      low-discrepancy quasi-random sampler that produces space-filling initial
+      designs.
+  - Backed by `scipy.stats.qmc.Sobol` (no new dependency).
+  - Owen-scrambled by default — different seeds produce statistically
+    independent point sets so per-rep variance is meaningful, while the
+    low-discrepancy property is preserved within each draw.
+  - Uses ``random_base2`` when ``n`` is a power of two for the sharpest
+    balance properties; falls back to ``random(n)`` otherwise.
+  - Pure standalone heuristic following the `LatinHypercube` pattern; no
+    event-system hooks needed.
+- [x] **`BayesOpt_Sobol` strategy** added to standard harness mode pairing
+      ``Sobol(n=16, scramble=True)`` with ``GaussianProcessHeuristic``,
+      ``Nearby``, ``NelderMead`` — head-to-head with the existing
+      ``BayesOpt_GP`` (which uses ``LatinHypercube``).
+- [x] **Mutation rule for Sobol.n** added to the self-improvement loop's
+      ``default_catalog()`` (4-step increments inside ``[4, 64]``) so the
+      loop driver can also tune the parameter.
+- [x] **Measured impact** (standard mode, 5 reps × 7 problems, budget 200):
+      mean per-pair score ``BayesOpt_Sobol = 0.314`` vs
+      ``BayesOpt_GP = 0.191`` (``+0.123``); wins on 5 / 7 problems, ties on
+      Griewank with smaller best-distance.
+- [x] **16 tests in `tests/test_heuristic_sobol.py`** — construction
+      validation, scaling/sampling primitives, low-discrepancy proxy vs
+      uniform sampling, scramble-determinism vs seed-reproducibility,
+      ``on_start`` emit path, higher-dimensional problems, registration
+      check.
+- [x] **Documentation updated**
+  - `doc/source/heuristics.rst`: ``Sobol`` listed alongside ``LatinHypercube``.
+  - `doc/source/guide_architecture.rst`: Sobol added to the "Space-filling"
+    heuristic group.
+  - `doc/source/guide_usage.rst`: portfolio table now mentions Sobol; new
+    "Bayesian optimization with Sobol' initial design" worked example.
+  - `doc/source/guide_benchmarking.rst`: standard-mode strategy count
+    bumped from 6 to 7 in the modes table.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §12 iteration log entry.
+  - `AGENTS.md`: heuristics list updated.
+  - This TODO entry.
+
 ## Setup & Modernization (Completed)
 - [x] Restructure repository: Move `panobbgo.lib` to `panobbgo/lib`.
 - [x] Modernize `setup.py` / Create `pyproject.toml`.

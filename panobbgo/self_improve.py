@@ -337,6 +337,7 @@ def default_catalog() -> MutationCatalog:
     * ``CMAES.sigma0`` — CMA-ES initial step-size fraction.
     * ``Sensitivity.update_interval`` — importance-recomputation cadence.
     * ``LatinHypercube.div`` — initial-sample coarseness.
+    * ``Sobol.n`` — Sobol' initial-design sample count (powers of two).
     * ``Restart.max_restarts`` — restart budget.
 
     Bounds are chosen so a single accept keeps the value in a sensible
@@ -378,6 +379,18 @@ def default_catalog() -> MutationCatalog:
                 kind="integer_add",
                 bounds=(2, 8),
                 delta_choices=(-1, 1),
+                probability=0.5,
+            ),
+            # Sobol' is a power-of-two-friendly low-discrepancy sequence; we
+            # double / halve the sample count to stay on 2^k boundaries while
+            # respecting the 4..64 envelope.
+            MutationRule(
+                strategy_pattern="",
+                class_name="Sobol",
+                param_name="n",
+                kind="integer_add",
+                bounds=(4, 64),
+                delta_choices=(-8, -4, 4, 8),
                 probability=0.5,
             ),
             MutationRule(

@@ -631,8 +631,9 @@ pockets of promising solutions.</p>
 <td><p>Always include one</p></td>
 </tr>
 <tr class="row-odd"><td><p>Space-filling</p></td>
-<td><p>LatinHypercube</p></td>
-<td><p>High-dimensional problems (dim &gt; 5)</p></td>
+<td><p>LatinHypercube, Sobol</p></td>
+<td><p>High-dimensional problems (dim &gt; 5); prefer <code class="docutils literal notranslate"><span class="pre">Sobol</span></code> for Bayesian
+optimization initial designs (lower discrepancy than LHS)</p></td>
 </tr>
 <tr class="row-even"><td><p>Exploration</p></td>
 <td><p>Random, Extremal</p></td>
@@ -682,6 +683,27 @@ objective; Expected Improvement (EI) acquisition balances exploration and exploi
 </span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>                          <span class="c1"># Fallback exploration</span>
 </span></pre></div>
 </div>
+<p><strong>Bayesian optimization with Sobol’ initial design:</strong></p>
+<p>Sobol’ is a low-discrepancy quasi-random sequence; the first <code class="docutils literal notranslate"><span class="pre">2^k</span></code> samples cover
+the unit hypercube more uniformly than i.i.d. uniform or Latin Hypercube samples
+of the same size.  Modern BO libraries (BoTorch, TuRBO, scikit-optimize) use Sobol’
+as their default initial-design generator.  In Panobbgo this is the
+<code class="docutils literal notranslate"><span class="pre">BayesOpt_Sobol</span></code> strategy in the standard harness mode.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">Sobol</span><span class="p">,</span> <span class="n">NelderMead</span><span class="p">,</span> <span class="n">Nearby</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Sobol</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>     <span class="c1"># 16 Sobol&#39; points; Owen scrambling</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GaussianProcessHeuristic</span><span class="p">,</span>        <span class="c1"># GP + EI acquisition</span>
+</span><span data-line="6">    <span class="n">n_restarts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">xi</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</span><span data-line="8"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>             <span class="c1"># Local refinement around best</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>                      <span class="c1"># Simplex polish</span>
+</span></pre></div>
+</div>
+<p><strong>Tip:</strong> Pick <code class="docutils literal notranslate"><span class="pre">n</span></code> as a power of two (<code class="docutils literal notranslate"><span class="pre">8,</span> <span class="pre">16,</span> <span class="pre">32,</span> <span class="pre">64</span></code>) — Sobol’s balance
+properties are strongest at those counts.  Owen scrambling preserves the
+low-discrepancy guarantees within a draw while randomizing across reps so
+the harness can compute meaningful repetition statistics.</p>
 <p><strong>Low-dimensional (dim ≤ 5):</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>

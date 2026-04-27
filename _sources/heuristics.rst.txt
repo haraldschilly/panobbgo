@@ -7,6 +7,7 @@ Point generation algorithms (heuristics):
 - **Zero**: Generates the zero vector point.
 - **Random**: Uniform random sampling within the best leaf box.
 - **LatinHypercube**: Stratified sampling (Space-filling).
+- **Sobol**: Low-discrepancy quasi-random sequence (Sobol') for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count, scrambled for per-rep variance.
 - **Extremal**: Samples from the boundaries of the search space.
 - **Nearby**: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).
 - **WeightedAverage**: Averages points in the best region.

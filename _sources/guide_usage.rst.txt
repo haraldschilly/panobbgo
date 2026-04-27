@@ -455,8 +455,9 @@ A good portfolio balances exploration and exploitation:
      - Center, Zero
      - Always include one
    * - Space-filling
-     - LatinHypercube
-     - High-dimensional problems (dim > 5)
+     - LatinHypercube, Sobol
+     - High-dimensional problems (dim > 5); prefer ``Sobol`` for Bayesian
+       optimization initial designs (lower discrepancy than LHS)
    * - Exploration
      - Random, Extremal
      - Always include Random
@@ -498,6 +499,31 @@ objective; Expected Improvement (EI) acquisition balances exploration and exploi
        xi=0.01)                                  # EI exploration parameter
    strategy.add(NelderMead)                      # Local refinement
    strategy.add(Random)                          # Fallback exploration
+
+**Bayesian optimization with Sobol' initial design:**
+
+Sobol' is a low-discrepancy quasi-random sequence; the first ``2^k`` samples cover
+the unit hypercube more uniformly than i.i.d. uniform or Latin Hypercube samples
+of the same size.  Modern BO libraries (BoTorch, TuRBO, scikit-optimize) use Sobol'
+as their default initial-design generator.  In Panobbgo this is the
+``BayesOpt_Sobol`` strategy in the standard harness mode.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import GaussianProcessHeuristic, Sobol, NelderMead, Nearby
+
+   strategy = StrategyRewarding(problem, max_evaluations=200)
+   strategy.add(Sobol, n=16, scramble=True)     # 16 Sobol' points; Owen scrambling
+   strategy.add(GaussianProcessHeuristic,        # GP + EI acquisition
+       n_restarts=5,
+       xi=0.01)
+   strategy.add(Nearby, radius=0.05)             # Local refinement around best
+   strategy.add(NelderMead)                      # Simplex polish
+
+**Tip:** Pick ``n`` as a power of two (``8, 16, 32, 64``) — Sobol's balance
+properties are strongest at those counts.  Owen scrambling preserves the
+low-discrepancy guarantees within a draw while randomizing across reps so
+the harness can compute meaningful repetition statistics.
 
 **Low-dimensional (dim ≤ 5):**
 

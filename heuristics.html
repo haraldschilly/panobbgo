@@ -203,6 +203,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Sobol"><code class="docutils literal notranslate"><span class="pre">Sobol</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Sobol.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage"><code class="docutils literal notranslate"><span class="pre">WeightedAverage</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage.check_dependencies"><code class="docutils literal notranslate">check_dependencies()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.WeightedAverage.on_new_best"><code class="docutils literal notranslate">on_new_best()</span></code></a></li>
@@ -250,6 +254,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Zero</strong>: Generates the zero vector point.</p></li>
 <li><p><strong>Random</strong>: Uniform random sampling within the best leaf box.</p></li>
 <li><p><strong>LatinHypercube</strong>: Stratified sampling (Space-filling).</p></li>
+<li><p><strong>Sobol</strong>: Low-discrepancy quasi-random sequence (Sobol’) for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count, scrambled for per-rep variance.</p></li>
 <li><p><strong>Extremal</strong>: Samples from the boundaries of the search space.</p></li>
 <li><p><strong>Nearby</strong>: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).</p></li>
 <li><p><strong>WeightedAverage</strong>: Averages points in the best region.</p></li>
@@ -1067,6 +1072,61 @@ leaf around the best point</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Sobol">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Sobol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scramble</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/sobol.html#Sobol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Sobol" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Emit <code class="docutils literal notranslate"><span class="pre">n</span></code> Sobol’-sequence points scaled to the problem’s bounding box.</p>
+<p>Sobol’ is a low-discrepancy quasi-random sequence: the first <code class="docutils literal notranslate"><span class="pre">2^k</span></code>
+points cover the unit hypercube with much better uniformity than the
+same number of i.i.d. uniform samples.  By default the sequence is
+<em>scrambled</em> (Owen-style) so that across reps we still get statistical
+independence — without that, every run would produce the same points
+and there would be no per-rep variance to average over.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – The owning <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a>.</p></li>
+<li><p><strong>n</strong> – Number of points to emit.  Sobol’ uniformity is best at powers
+of two (<code class="docutils literal notranslate"><span class="pre">2^k</span></code>); the heuristic accepts any positive integer
+and warns when <code class="docutils literal notranslate"><span class="pre">n</span></code> is not a power of two.  Default <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p></li>
+<li><p><strong>scramble</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), apply Owen scrambling so different
+seeds produce statistically independent point sets while
+preserving the low-discrepancy property within each set.</p></li>
+<li><p><strong>seed</strong> – Optional seed for reproducibility.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses
+<code class="docutils literal notranslate"><span class="pre">numpy.random</span></code>’s global state, which the harness seeds via
+<code class="docutils literal notranslate"><span class="pre">np.random.seed</span></code>.</p></li>
+<li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Heuristic is “one-shot”: after emitting <code class="docutils literal notranslate"><span class="pre">n</span></code> points it stops.
+That matches the role of an initial-design heuristic feeding a
+downstream local/model-based optimizer.</p></li>
+<li><p>The output queue capacity is set to <code class="docutils literal notranslate"><span class="pre">n</span></code> so all points are
+enqueued at once; the strategy pulls them as evaluation budget
+allows.</p></li>
+<li><p>Re-uses <code class="xref py py-func docutils literal notranslate"><span class="pre">scipy.stats.qmc.Sobol()</span></code>; no new dependency.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Sobol.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/sobol.html#Sobol.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Sobol.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Generate and emit the full Sobol’ batch once.</p>
+</dd></dl>
 
 </dd></dl>
 

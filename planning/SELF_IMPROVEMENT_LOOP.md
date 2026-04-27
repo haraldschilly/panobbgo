@@ -372,3 +372,47 @@ After Phase 5, the framework is "self-improving" when:
   ladder.
 
 That is the target.
+
+## 12. Iteration log
+
+This section records direct algorithmic improvements applied to Panobbgo
+*outside* of the autonomous loop, so the human-in-the-loop history stays
+greppable.  Each entry should reference the PR / commit that landed it,
+the rationale, and a measured-impact number when available.
+
+### 2026-04-27 — Sobol' quasi-random initial design (`Sobol` heuristic)
+
+* **What** — `panobbgo/heuristics/sobol.py` adds a low-discrepancy
+  quasi-random (Sobol') sampler as a one-shot space-filling heuristic;
+  registered alongside `LatinHypercube`, `Random`, etc.  A new
+  `BayesOpt_Sobol` strategy in the standard harness pairs it with the GP
+  surrogate, `Nearby`, and `NelderMead`.  The mutation catalog
+  (`panobbgo.self_improve.default_catalog`) gains a rule that nudges
+  `Sobol.n` in 4-step increments inside `[4, 64]` so the loop driver can
+  also tune it.
+* **Why** — every modern Bayesian-optimization library (BoTorch, TuRBO,
+  scikit-optimize, GPyOpt) defaults to Sobol' for the initial design
+  precisely because lower discrepancy → better surrogate fits at low
+  sample counts.  Panobbgo only had Latin Hypercube before.
+* **Impact** — measured head-to-head over 5 reps × 7 standard problems at
+  budget 200, mean per-pair score `BayesOpt_Sobol = 0.314` vs
+  `BayesOpt_GP = 0.191` (`+0.123`).  Sobol' wins on 5 / 7 problems
+  (DeJong, Rosenbrock_2D, Ackley, StyblinskiTang, Griewank tied with
+  smaller best-distance), loses on 2 (Rastrigin, Rosenbrock_5D).
+* **Tests** — `tests/test_heuristic_sobol.py` (16 tests).
+
+### Talk idea for the next iteration
+
+* **§6.3 anti-cherry-pick guard** — every Kth iteration the loop should
+  re-measure the *accepted* spec list against a fresh `randomize_iteration`
+  and roll back the ladder if the score drops by more than `eps_ladder`.
+  The hooks are all in place (`statistical_accept`, `randomize_iteration`,
+  ledger persistence); what's missing is the bookkeeping inside
+  `SelfImprover.run()` plus a `--guard-every` CLI flag.  Without this guard,
+  a long-running loop can drift in the direction of the particular stream
+  of sampled instances and silently overfit.
+* **Tests for `panobbgo/self_improve.py`** — Phase 5 shipped 805 lines
+  with no test coverage.  Mutation sampling, `apply_mutation`, the ledger
+  writer, and the accept/reject path on a fake harness are all unit-
+  testable without running real benchmarks.  This is a prerequisite for
+  using the loop unattended.

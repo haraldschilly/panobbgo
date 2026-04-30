@@ -55,6 +55,59 @@
 
 ## Recent Improvements
 
+### Anti-Cherry-Pick Guard for Self-Improvement Loop (Phase 6.3) (2026-04-26)
+- [x] **New `LoopConfig.guard_interval` / `guard_eps_ladder` /
+      `guard_iteration_offset`** in `panobbgo/self_improve.py` —
+      implements §6.3 of `planning/SELF_IMPROVEMENT_LOOP.md`.  Every
+      ``guard_interval`` iterations the loop re-measures the top of
+      the accepted ladder on a *fresh* randomized seed and rolls back
+      if the composite drifts more than ``guard_eps_ladder`` below the
+      stored ``last_validated_score``.  The seed entry is the trusted
+      fallback and is never popped.
+  - **Why this matters.**  Even with the parametrically randomized
+    battery, a sequence of "lucky" instance draws can inflate
+    per-iteration ``after`` scores enough to clear the bootstrap CI.
+    The guard catches this drift by validating the ladder against an
+    independent instance stream (``randomize_iteration = iteration +
+    guard_iteration_offset``).
+  - **Disabled by default** (``guard_interval = 0``) for backward
+    compatibility; bump to ``5`` or ``10`` for unattended runs.
+- [x] **New `LadderEntry` and `LoopGuardRecord` types** —
+      `LadderEntry` snapshots ``(iteration, specs,
+      last_validated_score, proposal)``; `LoopGuardRecord` records the
+      outcome of one guard check and is written to the same JSONL
+      ledger with ``record_type = "guard"``.  `LoopIterationRecord`
+      gains ``record_type = "iteration"`` for symmetry.
+- [x] **CLI flags** `--guard-interval`, `--guard-eps-ladder`,
+      `--guard-iteration-offset` on `scripts/self_improve.py run`;
+      `summary` now distinguishes iteration and guard records and
+      prints rollback details.
+- [x] **40 tests in `tests/test_self_improve.py`** — comprehensive
+      coverage of `MutationRule` validation, `MutationCatalog` sampling
+      (log-uniform / integer-add / float-uniform), `apply_mutation`
+      immutability, `LoopConfig` validation, end-to-end
+      `SelfImprover` runs with a faked harness (zero iterations, skip,
+      accept, reject, STOP sentinel), the new guard
+      (cadence, no-rollback when stable, rollback on drift, offset
+      iteration id, seed not popped), ledger round-trip, and dataclass
+      serialisation.  Phase 5 shipped without tests; this PR fills
+      that gap as well.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §6.3 marked shipped, §2
+    "what's missing" list updated, Phase 5 / Phase 6 checklists
+    refreshed, new §12 "Next iteration ideas" with Adaptive Mutation
+    Sampler, Stratified Dimension Sampling, Strategy Portfolio
+    Composition, and Hold-out Validation Set as carry-over tickets.
+  - `doc/source/guide_benchmarking.rst`: new "Anti-cherry-pick guard
+    (§6.3)" subsection with algorithm, programmatic example, and
+    safety-rail rationale.
+  - `doc/source/guide.rst`: quick-nav entry mentions the loop driver
+    and guard.
+  - `AGENTS.md`: self-improvement loop subsection now lists the loop
+    driver (shipped) and the guard (shipped) with run-the-loop bash
+    examples.
+  - This TODO entry.
+
 ### Parametrically Randomized Problem Battery (Self-Improvement Loop Phase 3) (2026-04-22)
 - [x] **New `panobbgo/harness_randomized.py`** — Phase 3 of the
       self-improvement loop: the fixed harness battery is replaced with a

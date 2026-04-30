@@ -202,7 +202,29 @@ The harness is the measurement substrate for an autonomous
     **shipped**, see `--baselines` and `panobbgo/harness_baselines.py`.
 *   Statistical acceptance rules (bootstrap CI on score delta) —
     **shipped**, see `--statistical` and `panobbgo.harness.statistical_accept`.
-*   Loop driver — **pending** (Phase 5).
+*   Loop driver — **shipped** (Phase 5), see `panobbgo/self_improve.py`
+    and `scripts/self_improve.py` (`run` / `summary` subcommands).
+*   Anti-cherry-pick guard — **shipped** (Phase 6.3), see
+    `LoopConfig.guard_interval` / `guard_eps_ladder` /
+    `guard_iteration_offset` and the `--guard-interval`,
+    `--guard-eps-ladder`, `--guard-iteration-offset` CLI flags.  The
+    guard periodically re-measures the top of the accepted ladder on
+    a fresh randomized seed and rolls back if the composite drifts
+    below tolerance, catching instance cherry-picking.
+
+Run the loop:
+
+```bash
+# 5 quick iterations
+uv run python scripts/self_improve.py run --iterations 5
+
+# Long run with the anti-cherry-pick guard every 10 iterations
+uv run python scripts/self_improve.py run --iterations 100 \
+    --mode standard --guard-interval 10 --guard-eps-ladder 0.02
+
+# Inspect the ledger
+uv run python scripts/self_improve.py summary
+```
 
 ## CI/CD and Testing
 

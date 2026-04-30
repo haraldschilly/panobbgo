@@ -160,6 +160,27 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="SECS",
         help="Per-run timeout in seconds (default: 120)",
     )
+    run_p.add_argument(
+        "--guard-interval",
+        dest="guard_interval",
+        type=int,
+        default=0,
+        help=("Run the anti-cherry-pick guard every N iterations (0 = disabled, default; typical values are 5 or 10)"),
+    )
+    run_p.add_argument(
+        "--guard-eps-ladder",
+        dest="guard_eps_ladder",
+        type=float,
+        default=0.02,
+        help="Tolerance for ladder drift detected by the guard (default: 0.02)",
+    )
+    run_p.add_argument(
+        "--guard-iteration-offset",
+        dest="guard_iteration_offset",
+        type=int,
+        default=1_000_000,
+        help="Iteration-id offset for the guard's fresh seed (default: 1_000_000)",
+    )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -195,6 +216,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         stop_sentinel_path=args.stop_sentinel,
         timeout_per_run=args.timeout,
         randomize=args.randomize,
+        guard_interval=args.guard_interval,
+        guard_eps_ladder=args.guard_eps_ladder,
+        guard_iteration_offset=args.guard_iteration_offset,
     )
     records = SelfImprover(cfg).run(verbose=not args.quiet)
 
@@ -219,16 +243,22 @@ def _cmd_summary(args: argparse.Namespace) -> int:
         print(f"(empty ledger: {path})")
         return 0
 
-    n = len(records)
-    accepted = [r for r in records if r.get("accepted")]
-    skipped = [r for r in records if r.get("proposal") is None]
-    decided = [r for r in records if r.get("proposal") is not None]
+    iter_records = [r for r in records if r.get("record_type", "iteration") == "iteration"]
+    guard_records = [r for r in records if r.get("record_type") == "guard"]
+    n = len(iter_records)
+    accepted = [r for r in iter_records if r.get("accepted")]
+    skipped = [r for r in iter_records if r.get("proposal") is None]
+    decided = [r for r in iter_records if r.get("proposal") is not None]
     accept_rate = (len(accepted) / len(decided)) if decided else 0.0
     best_delta = max((r.get("delta", 0.0) for r in decided), default=0.0)
+    rolled_back = [r for r in guard_records if r.get("rolled_back")]
 
     print(f"Ledger:        {path}")
     print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)})")
     print(f"Accepts:       {len(accepted)}  ({accept_rate:.1%} of decided)")
+    if guard_records:
+        total_pops = sum(int(r.get("pops", 0)) for r in guard_records)
+        print(f"Guards:        {len(guard_records)}  (rollbacks={len(rolled_back)}, total pops={total_pops})")
     if decided:
         print(f"Best Δ seen:   {best_delta:+.4f}")
 
@@ -241,6 +271,16 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"{p.get('strategy_name')}/{p.get('class_name')}."
                 f"{p.get('param_name')}: "
                 f"{p.get('old_value')!r} -> {p.get('new_value')!r}"
+            )
+
+    if rolled_back:
+        print("Guard rollbacks:")
+        for r in rolled_back:
+            print(
+                f"  iter={r.get('iteration')}  pops={r.get('pops')}  "
+                f"score={r.get('guard_score'):.4f} vs stored "
+                f"{r.get('pre_guard_top_score'):.4f}; "
+                f"new top iter={r.get('rolled_back_to_iteration')}"
             )
     return 0
 

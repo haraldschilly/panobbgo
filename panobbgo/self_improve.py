@@ -58,6 +58,21 @@ The mutation sampler uses its own seeded RNG
 A loop of ``N`` iterations is fully replayable from
 ``(base_seed, mutation_seed, stat_seed)``.
 
+Anti-cherry-pick guard (§6.3)
+-----------------------------
+
+Even with a randomized battery, a sequence of "lucky" instance draws can
+inflate per-iteration ``after`` scores enough to clear the bootstrap CI.
+The guard mitigates this by periodically re-measuring the **top of the
+accepted ladder** on a *fresh* iteration seed (``iteration +
+guard_iteration_offset``).  If the re-measured composite drops more than
+``guard_eps_ladder`` below the score that originally got it accepted, the
+loop pops that ladder entry and retries with the previous one — until a
+stable entry is found or the seed strategies are reached.  Set
+``LoopConfig.guard_interval`` to a positive integer (typically ``5`` or
+``10``) to enable; ``0`` (default) disables the guard so existing
+configurations behave identically.
+
 Safety rails (§8 in the plan)
 -----------------------------
 
@@ -72,6 +87,8 @@ Safety rails (§8 in the plan)
 * **Bounded perturbations** — every mutation rule declares ``bounds`` so
   the search cannot run away (e.g., ``Nearby.radius`` stays in
   ``[0.005, 0.5]``).
+* **Anti-cherry-pick** — the periodic guard described above catches
+  drifts caused by accidental instance cherry-picking.
 
 See also
 --------
@@ -88,7 +105,7 @@ from __future__ import annotations
 import json
 import pathlib
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -496,6 +513,24 @@ class LoopConfig:
         randomize: If ``True`` (default), the randomized problem battery
             is used so instances vary by iteration.  Set to ``False`` to
             run against the fixed modes (useful for debugging).
+        guard_interval: How often (in completed iterations) to run the
+            anti-cherry-pick guard from §6.3 of the plan.  ``0`` (default)
+            disables the guard.  A positive value, typically ``5`` or
+            ``10``, instructs the loop to re-measure the top of the
+            accepted ladder on a *fresh* seed every ``guard_interval``
+            iterations and roll the ladder back if the re-measurement
+            drops more than :attr:`guard_eps_ladder` below the score that
+            originally got the entry accepted.
+        guard_eps_ladder: Tolerance for ladder drift detected by the
+            guard.  If the re-measured composite is lower than the
+            stored ``last_validated_score`` by more than this amount,
+            the entry is rolled back.  Default ``0.02`` follows the plan.
+        guard_iteration_offset: Offset added to the regular iteration id
+            when deriving the guard's randomized seed.  Picking a large
+            constant (default ``1_000_000``) keeps the guard's instance
+            stream independent from the regular iteration stream so a
+            mutation cannot accidentally tune itself to the guard's
+            seeds.
     """
 
     iterations: int = 5
@@ -514,12 +549,19 @@ class LoopConfig:
     stop_sentinel_path: str = "STOP_SELF_IMPROVE"
     timeout_per_run: Optional[float] = 120.0
     randomize: bool = True
+    guard_interval: int = 0
+    guard_eps_ladder: float = 0.02
+    guard_iteration_offset: int = 1_000_000
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
             raise ValueError(f"iterations must be >= 0, got {self.iterations}")
         if self.mode not in {"quick", "standard", "full"}:
             raise ValueError(f"Unknown mode {self.mode!r}")
+        if self.guard_interval < 0:
+            raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
+        if self.guard_eps_ladder < 0:
+            raise ValueError(f"guard_eps_ladder must be >= 0, got {self.guard_eps_ladder}")
 
     def harness_config(
         self,
@@ -561,9 +603,11 @@ class LoopIterationRecord:
     randomize_iteration: int = 0
     mode: str = "quick"
     reason_skipped: Optional[str] = None
+    record_type: str = "iteration"
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
+            "record_type": self.record_type,
             "iteration": self.iteration,
             "timestamp": self.timestamp,
             "duration_seconds": self.duration_seconds,
@@ -583,6 +627,112 @@ class LoopIterationRecord:
             "reason_skipped": self.reason_skipped,
         }
         return d
+
+
+@dataclass
+class LadderEntry:
+    """An entry in the accepted-mutation ladder maintained by :class:`SelfImprover`.
+
+    The ladder is the running record of strategy spec lists the loop has
+    promoted.  Entry ``-1`` is the seed (the spec list the loop started
+    with); subsequent entries record each accepted mutation.  The
+    anti-cherry-pick guard from §6.3 of the plan operates on this list:
+    it re-measures the top entry on a fresh randomized seed and pops it
+    if the score has drifted below :attr:`last_validated_score` by more
+    than :attr:`LoopConfig.guard_eps_ladder`.
+
+    Attributes:
+        iteration: Iteration index that produced this entry, or ``-1``
+            for the seed.
+        specs: The :class:`StrategySpec` list snapshot.
+        last_validated_score: The composite score most recently observed
+            for this entry.  Refreshed each time the guard validates the
+            entry, so it tracks the *current* expected performance, not
+            just the historical one.
+        proposal: The mutation that produced this entry, or ``None`` for
+            the seed.  Used for ledger output.
+    """
+
+    iteration: int
+    specs: List[StrategySpec]
+    last_validated_score: float
+    proposal: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class LoopGuardRecord:
+    """One ledger line — outcome of a single anti-cherry-pick guard check.
+
+    The guard is invoked every :attr:`LoopConfig.guard_interval`
+    iterations.  It re-measures the top of the ladder on a *fresh* seed
+    (``iteration + LoopConfig.guard_iteration_offset``) and rolls the
+    ladder back if the re-measured score has drifted too far below the
+    stored :attr:`LadderEntry.last_validated_score`.
+
+    Attributes:
+        iteration: Iteration index after which the guard ran (the
+            iteration that *triggered* it).
+        timestamp: ISO-8601 UTC timestamp.
+        duration_seconds: Wall-clock cost of the guard, including any
+            re-measurements performed during rollback.
+        guard_score: Re-measured composite score for the top entry of
+            the ladder before any rollback.
+        pre_guard_top_score: ``last_validated_score`` of the top entry
+            before the guard ran.
+        pre_guard_top_iteration: ``iteration`` of the top entry before
+            the guard ran (``-1`` for the seed).
+        rolled_back: Whether the guard popped at least one ladder entry.
+        rolled_back_to_iteration: Iteration index of the new top after
+            rollback (``-1`` for the seed), or ``None`` if no rollback
+            happened.
+        pops: Number of ladder entries popped during rollback.
+        ladder_size_before: Length of the ladder before the guard.
+        ladder_size_after: Length of the ladder after the guard.
+        guard_iteration_id: ``randomize_iteration`` used by the harness
+            for the guard re-measurement (i.e. the "fresh" seed).
+        reasons: Human-readable bullet points.
+        base_seed: Loop's base seed (for ledger search).
+        mode: Harness mode used for the guard.
+        record_type: Always ``"guard"``; lets ledger consumers
+            distinguish guard records from regular iteration records.
+    """
+
+    iteration: int
+    timestamp: str
+    duration_seconds: float
+    guard_score: float
+    pre_guard_top_score: float
+    pre_guard_top_iteration: int
+    rolled_back: bool
+    rolled_back_to_iteration: Optional[int]
+    pops: int
+    ladder_size_before: int
+    ladder_size_after: int
+    guard_iteration_id: int
+    reasons: List[str] = field(default_factory=list)
+    base_seed: int = 42
+    mode: str = "quick"
+    record_type: str = "guard"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "record_type": self.record_type,
+            "iteration": self.iteration,
+            "timestamp": self.timestamp,
+            "duration_seconds": self.duration_seconds,
+            "guard_score": self.guard_score,
+            "pre_guard_top_score": self.pre_guard_top_score,
+            "pre_guard_top_iteration": self.pre_guard_top_iteration,
+            "rolled_back": self.rolled_back,
+            "rolled_back_to_iteration": self.rolled_back_to_iteration,
+            "pops": self.pops,
+            "ladder_size_before": self.ladder_size_before,
+            "ladder_size_after": self.ladder_size_after,
+            "guard_iteration_id": self.guard_iteration_id,
+            "reasons": list(self.reasons),
+            "base_seed": self.base_seed,
+            "mode": self.mode,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -628,10 +778,34 @@ class SelfImprover:
     # ------------------------------------------------------------------
 
     def run(self, verbose: bool = False) -> List[LoopIterationRecord]:
-        """Run the loop and return the per-iteration records."""
+        """Run the loop and return the per-iteration records.
+
+        Guard records (:class:`LoopGuardRecord`) are written to the
+        ledger alongside iteration records but are not returned here —
+        the contract of :meth:`run` is unchanged for backward
+        compatibility.  Use :meth:`run_with_guard_records` when both
+        are wanted in-process, or read the ledger to recover them.
+        """
+        records, _ = self._run_internal(verbose=verbose)
+        return records
+
+    def run_with_guard_records(self, verbose: bool = False) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord]]:
+        """Run the loop and return ``(iteration_records, guard_records)``.
+
+        The two lists are returned separately so existing callers of
+        :meth:`run` keep their type contract.  Both lists are also
+        persisted to the ledger.
+        """
+        return self._run_internal(verbose=verbose)
+
+    def _run_internal(self, verbose: bool = False) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord]]:
         current = self._load_seed_strategies()
         rng = np.random.default_rng(self.config.mutation_seed)
         records: List[LoopIterationRecord] = []
+        guard_records: List[LoopGuardRecord] = []
+        ladder: List[LadderEntry] = [
+            LadderEntry(iteration=-1, specs=list(current), last_validated_score=float("nan"), proposal=None)
+        ]
         ledger = _LedgerWriter(self.config.ledger_path)
 
         for iteration in range(self.config.iterations):
@@ -652,6 +826,15 @@ class SelfImprover:
                 ledger.write(rec)
                 if verbose:
                     self._print_iteration(rec)
+                # Guard still runs on skip iterations — it validates the
+                # ladder, which is independent of whether this iteration
+                # produced a proposal.
+                if self._guard_due(iteration):
+                    guard_record = self._run_guard(ladder, iteration, verbose)
+                    guard_records.append(guard_record)
+                    ledger.write(guard_record)
+                    if guard_record.rolled_back:
+                        current = list(ladder[-1].specs)
                 continue
 
             candidate = apply_mutation(current, proposal)
@@ -681,7 +864,11 @@ class SelfImprover:
                 ci_low=float(decision.ci_low),
                 ci_high=float(decision.ci_high),
                 worst_pair_regression=float(decision.worst_pair_regression),
-                worst_pair=(tuple(decision.worst_pair) if decision.worst_pair is not None else None),
+                worst_pair=(
+                    (str(decision.worst_pair[0]), str(decision.worst_pair[1]))
+                    if decision.worst_pair is not None
+                    else None
+                ),
                 reasons=list(decision.reasons),
                 base_seed=self.config.base_seed,
                 randomize_iteration=iteration,
@@ -692,10 +879,34 @@ class SelfImprover:
             if verbose:
                 self._print_iteration(rec)
 
+            # Refresh the seed entry's validated score the first time we
+            # measure with it so the guard has a baseline to compare
+            # against (the seed itself never gets accepted, but it can
+            # still be the rollback target).
+            if np.isnan(ladder[0].last_validated_score):
+                ladder[0].last_validated_score = float(baseline_result.composite_score)
+
             if decision.accept:
                 current = candidate
+                ladder.append(
+                    LadderEntry(
+                        iteration=iteration,
+                        specs=list(candidate),
+                        last_validated_score=float(candidate_result.composite_score),
+                        proposal=proposal.to_dict(),
+                    )
+                )
 
-        return records
+            # Anti-cherry-pick guard (§6.3 of the plan).  Run after the
+            # iteration so a freshly accepted entry can be challenged.
+            if self._guard_due(iteration):
+                guard_record = self._run_guard(ladder, iteration, verbose)
+                guard_records.append(guard_record)
+                ledger.write(guard_record)
+                if guard_record.rolled_back:
+                    current = list(ladder[-1].specs)
+
+        return records, guard_records
 
     # ------------------------------------------------------------------
     # Helpers
@@ -745,6 +956,135 @@ class SelfImprover:
             return False
         return pathlib.Path(self.config.stop_sentinel_path).exists()
 
+    def _guard_due(self, iteration: int) -> bool:
+        """Return True if the guard should run after this iteration."""
+        if self.config.guard_interval <= 0:
+            return False
+        # Run on every multiple of guard_interval (1-indexed): after
+        # iteration 0 if interval == 1, after iteration K-1 if K > 1, etc.
+        return ((iteration + 1) % self.config.guard_interval) == 0
+
+    def _guard_iteration_id(self, iteration: int) -> int:
+        """Translate a regular iteration index into the guard's seed.
+
+        We add a large offset rather than reuse the regular iteration
+        stream so the guard's instances are independent — this prevents
+        a mutation from accidentally tuning itself to the seeds the
+        guard would reuse.
+        """
+        return int(iteration) + int(self.config.guard_iteration_offset)
+
+    def _run_guard(
+        self,
+        ladder: List["LadderEntry"],
+        iteration: int,
+        verbose: bool,
+    ) -> "LoopGuardRecord":
+        """Re-measure the top of the ladder on a fresh seed; roll back if drifted.
+
+        Implements §6.3 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  The
+        method is deliberately simple: it walks down the ladder one
+        entry at a time, re-measuring each on the same fresh
+        ``randomize_iteration`` seed, and stops at the first entry whose
+        score is within :attr:`LoopConfig.guard_eps_ladder` of its
+        stored ``last_validated_score``.  If the seed entry is reached,
+        no further pops happen — the seed strategies are by definition
+        the safe fallback.
+        """
+        start = time.time()
+        guard_iter_id = self._guard_iteration_id(iteration)
+        size_before = len(ladder)
+        reasons: List[str] = []
+
+        # Re-measure the current top.
+        top = ladder[-1]
+        top_result = self._measure(top.specs, guard_iter_id, "guard", verbose)
+        guard_score = float(top_result.composite_score)
+        pre_guard_top_score = float(top.last_validated_score)
+        pre_guard_top_iteration = int(top.iteration)
+
+        # Within tolerance?  Refresh the validated score and return.
+        if not self._guard_drifted(guard_score, pre_guard_top_score):
+            top.last_validated_score = guard_score
+            reasons.append(
+                f"guard re-measure score {guard_score:.4f} within tolerance of "
+                f"{pre_guard_top_score:.4f} (eps_ladder={self.config.guard_eps_ladder:.4f})"
+            )
+            return LoopGuardRecord(
+                iteration=iteration,
+                timestamp=datetime.now(tz=timezone.utc).isoformat(),
+                duration_seconds=time.time() - start,
+                guard_score=guard_score,
+                pre_guard_top_score=pre_guard_top_score,
+                pre_guard_top_iteration=pre_guard_top_iteration,
+                rolled_back=False,
+                rolled_back_to_iteration=None,
+                pops=0,
+                ladder_size_before=size_before,
+                ladder_size_after=len(ladder),
+                guard_iteration_id=guard_iter_id,
+                reasons=reasons,
+                base_seed=self.config.base_seed,
+                mode=self.config.mode,
+            )
+
+        # Drift detected — pop and walk down the ladder.
+        reasons.append(
+            f"guard re-measure score {guard_score:.4f} dropped > eps_ladder "
+            f"({self.config.guard_eps_ladder:.4f}) below stored {pre_guard_top_score:.4f}"
+            f" — rolling back from iter {pre_guard_top_iteration}"
+        )
+        pops = 0
+        # Always keep the seed entry (index 0).  Pop while drift persists.
+        while len(ladder) > 1:
+            ladder.pop()
+            pops += 1
+            new_top = ladder[-1]
+            if new_top.iteration < 0 or np.isnan(new_top.last_validated_score):
+                # Reached the seed (or an entry without a stored score)
+                # — accept it without re-measurement; it is by definition
+                # the trusted fallback.
+                reasons.append(f"reached seed/anchor entry (iter={new_top.iteration}); stopping rollback")
+                break
+            new_result = self._measure(new_top.specs, guard_iter_id, "guard-rollback", verbose)
+            new_score = float(new_result.composite_score)
+            if not self._guard_drifted(new_score, float(new_top.last_validated_score)):
+                new_top.last_validated_score = new_score
+                reasons.append(
+                    f"rollback target iter={new_top.iteration} stable: "
+                    f"score {new_score:.4f} vs stored {new_top.last_validated_score:.4f}"
+                )
+                break
+            reasons.append(
+                f"rollback candidate iter={new_top.iteration} also drifted "
+                f"({new_score:.4f} vs {new_top.last_validated_score:.4f}); continuing"
+            )
+
+        return LoopGuardRecord(
+            iteration=iteration,
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            duration_seconds=time.time() - start,
+            guard_score=guard_score,
+            pre_guard_top_score=pre_guard_top_score,
+            pre_guard_top_iteration=pre_guard_top_iteration,
+            rolled_back=True,
+            rolled_back_to_iteration=int(ladder[-1].iteration),
+            pops=pops,
+            ladder_size_before=size_before,
+            ladder_size_after=len(ladder),
+            guard_iteration_id=guard_iter_id,
+            reasons=reasons,
+            base_seed=self.config.base_seed,
+            mode=self.config.mode,
+        )
+
+    def _guard_drifted(self, guard_score: float, stored_score: float) -> bool:
+        """Return True if ``guard_score`` is more than ``eps_ladder`` below stored."""
+        if np.isnan(stored_score):
+            # Nothing to compare against — treat as not drifted.
+            return False
+        return guard_score < stored_score - self.config.guard_eps_ladder
+
     @staticmethod
     def _print_iteration(rec: LoopIterationRecord) -> None:
         if rec.proposal is None:
@@ -766,7 +1106,11 @@ class SelfImprover:
 
 
 class _LedgerWriter:
-    """Append-only JSONL ledger.  Creates parent directories on demand."""
+    """Append-only JSONL ledger.  Creates parent directories on demand.
+
+    Writes both :class:`LoopIterationRecord` and :class:`LoopGuardRecord`
+    instances; the ``record_type`` field distinguishes them on read.
+    """
 
     def __init__(self, path: str) -> None:
         self.path = pathlib.Path(path)
@@ -774,7 +1118,7 @@ class _LedgerWriter:
         if str(parent) and not parent.exists():
             parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, record: LoopIterationRecord) -> None:
+    def write(self, record: Any) -> None:
         line = json.dumps(record.to_dict(), default=_json_default)
         with self.path.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -813,6 +1157,8 @@ __all__ = [
     "apply_mutation",
     "LoopConfig",
     "LoopIterationRecord",
+    "LoopGuardRecord",
+    "LadderEntry",
     "SelfImprover",
     "load_ledger",
 ]

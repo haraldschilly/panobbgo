@@ -125,7 +125,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#cma-es-as-a-baseline">CMA-ES as a baseline</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a></li>
+<li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a><ul>
+<li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
 <li><a class="reference internal" href="#adding-a-problem">Adding a problem</a></li>
 <li><a class="reference internal" href="#adding-a-strategy">Adding a strategy</a></li>
@@ -204,15 +207,19 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id19">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#self-improvement-loop" id="id20">Self-improvement loop</a></p></li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id21">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id20">Self-improvement loop</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id22">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id23">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id24">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id21">Anti-cherry-pick guard (§6.3)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id25">See also</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id22">Extending the harness</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id23">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id24">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id25">Adding a metric</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id26">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -671,11 +678,70 @@ otherwise.</p></li>
 </ol>
 <p>Design and phased roadmap: <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> in the
 repository.</p>
+<p>The MVP driver is shipped as <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.self_improve</span></code> plus the
+<code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span></code> CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># 5 quick iterations, randomized battery, ledger at the default path</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">5</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Long unattended run with the anti-cherry-pick guard every 10 iters</span>
+</span><span data-line="5">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--mode<span class="w"> </span>standard<span class="w"> </span><span class="se">\</span>
+</span><span data-line="6"><span class="w">    </span>--iterations<span class="w"> </span><span class="m">100</span><span class="w"> </span>--guard-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span>--guard-eps-ladder<span class="w"> </span><span class="m">0</span>.02
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Pretty-print a previous ledger (counts accepts, guards, rollbacks)</span>
+</span><span data-line="9">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>summary
+</span></pre></div>
+</div>
+<section id="anti-cherry-pick-guard-6-3">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Anti-cherry-pick guard (§6.3)</a><a class="headerlink" href="#anti-cherry-pick-guard-6-3" title="Link to this heading">¶</a></h3>
+<p>Even with the parametrically randomized battery, a sequence of “lucky”
+instance draws can inflate per-iteration <code class="docutils literal notranslate"><span class="pre">after</span></code> scores enough to
+clear the bootstrap CI.  The <strong>anti-cherry-pick guard</strong> mitigates this
+by periodically re-measuring the <em>top of the accepted ladder</em> on a
+fresh randomized seed and rolling the ladder back if the score has
+drifted.</p>
+<p>Algorithm:</p>
+<ol class="arabic simple">
+<li><p>Maintain a ladder of accepted spec lists: an entry stores the
+iteration that produced it, the spec snapshot, and the
+<code class="docutils literal notranslate"><span class="pre">last_validated_score</span></code> (the composite that originally got it
+promoted, refreshed every time the guard validates the entry).</p></li>
+<li><p>Every <code class="xref py py-attr docutils literal notranslate"><span class="pre">guard_interval</span></code>
+iterations, re-measure the top entry on
+<code class="docutils literal notranslate"><span class="pre">randomize_iteration</span> <span class="pre">=</span> <span class="pre">iteration</span> <span class="pre">+</span> <span class="pre">guard_iteration_offset</span></code> (a
+large offset, <code class="docutils literal notranslate"><span class="pre">1_000_000</span></code> by default, keeps the guard’s instance
+stream independent from the regular iteration stream).</p></li>
+<li><p>If the re-measured composite is below the stored
+<code class="docutils literal notranslate"><span class="pre">last_validated_score</span></code> by more than
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">guard_eps_ladder</span></code>, pop the
+entry and re-measure the next one down — repeat until a stable
+entry is found or the seed is reached.  The seed entry is <strong>never</strong>
+popped: it is the trusted fallback by definition.</p></li>
+<li><p>Each guard check writes a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">LoopGuardRecord</span></code> to the ledger
+(<code class="docutils literal notranslate"><span class="pre">record_type</span> <span class="pre">=</span> <span class="pre">&quot;guard&quot;</span></code>) so audits can replay both signals.</p></li>
+</ol>
+<p>The guard is <strong>disabled by default</strong> (<code class="docutils literal notranslate"><span class="pre">guard_interval</span> <span class="pre">=</span> <span class="pre">0</span></code>) for
+backward compatibility.  Bump it to <code class="docutils literal notranslate"><span class="pre">5</span></code> or <code class="docutils literal notranslate"><span class="pre">10</span></code> for unattended
+multi-hour runs where instance cherry-picking is the dominant
+risk.</p>
+<p>Programmatic use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoopConfig</span><span class="p">,</span> <span class="n">SelfImprover</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">cfg</span> <span class="o">=</span> <span class="n">LoopConfig</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">iterations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">guard_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">guard_eps_ladder</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
+</span><span data-line="8"><span class="p">)</span>
+</span><span data-line="9"><span class="n">iter_records</span><span class="p">,</span> <span class="n">guard_records</span> <span class="o">=</span> <span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span><span class="o">.</span><span class="n">run_with_guard_records</span><span class="p">()</span>
+</span></pre></div>
+</div>
+</section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id21" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -685,7 +751,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -695,7 +761,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -704,7 +770,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id25" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

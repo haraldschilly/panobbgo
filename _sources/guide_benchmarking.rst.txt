@@ -462,6 +462,71 @@ improvement loop:
 Design and phased roadmap: ``planning/SELF_IMPROVEMENT_LOOP.md`` in the
 repository.
 
+The MVP driver is shipped as :mod:`panobbgo.self_improve` plus the
+``scripts/self_improve.py`` CLI:
+
+.. code-block:: bash
+
+   # 5 quick iterations, randomized battery, ledger at the default path
+   uv run python scripts/self_improve.py run --iterations 5
+
+   # Long unattended run with the anti-cherry-pick guard every 10 iters
+   uv run python scripts/self_improve.py run --mode standard \
+       --iterations 100 --guard-interval 10 --guard-eps-ladder 0.02
+
+   # Pretty-print a previous ledger (counts accepts, guards, rollbacks)
+   uv run python scripts/self_improve.py summary
+
+Anti-cherry-pick guard (§6.3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Even with the parametrically randomized battery, a sequence of "lucky"
+instance draws can inflate per-iteration ``after`` scores enough to
+clear the bootstrap CI.  The **anti-cherry-pick guard** mitigates this
+by periodically re-measuring the *top of the accepted ladder* on a
+fresh randomized seed and rolling the ladder back if the score has
+drifted.
+
+Algorithm:
+
+1. Maintain a ladder of accepted spec lists: an entry stores the
+   iteration that produced it, the spec snapshot, and the
+   ``last_validated_score`` (the composite that originally got it
+   promoted, refreshed every time the guard validates the entry).
+2. Every :attr:`~panobbgo.self_improve.LoopConfig.guard_interval`
+   iterations, re-measure the top entry on
+   ``randomize_iteration = iteration + guard_iteration_offset`` (a
+   large offset, ``1_000_000`` by default, keeps the guard's instance
+   stream independent from the regular iteration stream).
+3. If the re-measured composite is below the stored
+   ``last_validated_score`` by more than
+   :attr:`~panobbgo.self_improve.LoopConfig.guard_eps_ladder`, pop the
+   entry and re-measure the next one down — repeat until a stable
+   entry is found or the seed is reached.  The seed entry is **never**
+   popped: it is the trusted fallback by definition.
+4. Each guard check writes a
+   :class:`~panobbgo.self_improve.LoopGuardRecord` to the ledger
+   (``record_type = "guard"``) so audits can replay both signals.
+
+The guard is **disabled by default** (``guard_interval = 0``) for
+backward compatibility.  Bump it to ``5`` or ``10`` for unattended
+multi-hour runs where instance cherry-picking is the dominant
+risk.
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover
+
+   cfg = LoopConfig(
+       iterations=50,
+       mode="standard",
+       guard_interval=10,
+       guard_eps_ladder=0.02,
+   )
+   iter_records, guard_records = SelfImprover(cfg).run_with_guard_records()
+
 
 Extending the harness
 ---------------------

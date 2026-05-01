@@ -127,6 +127,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a><ul>
 <li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
+<li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
@@ -210,16 +211,17 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#self-improvement-loop" id="id20">Self-improvement loop</a></p>
 <ul>
 <li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id21">Anti-cherry-pick guard (§6.3)</a></p></li>
+<li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id22">Adaptive mutation sampler (§10)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id22">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id23">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id23">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id24">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id25">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id24">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id25">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id26">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id26">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id27">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -737,11 +739,79 @@ risk.</p>
 </span></pre></div>
 </div>
 </section>
+<section id="adaptive-mutation-sampler-10">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
+<p>By default the loop draws mutation rules uniformly at random from the
+applicable ones in <code class="xref py py-func docutils literal notranslate"><span class="pre">default_catalog()</span></code>.  In
+practice some rules (e.g. <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code>, <code class="docutils literal notranslate"><span class="pre">CMAES.sigma0</span></code>) tend to
+produce accepts much more often than others, and uniform sampling
+wastes iterations on rules that never help.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">LoopConfig.adaptive_sampling</span></code> is enabled, the loop substitutes
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AdaptiveMutationSampler</span></code> — a
+<strong>Thompson-sampling bandit</strong> over per-rule Beta posteriors:</p>
+<ol class="arabic simple">
+<li><p>For each mutation rule we maintain an accept/attempt counter
+<code class="docutils literal notranslate"><span class="pre">(n_accepts,</span> <span class="pre">n_attempts)</span></code>.  Skip iterations don’t count.</p></li>
+<li><p>On every <code class="docutils literal notranslate"><span class="pre">sample()</span></code> call the sampler draws one variate from
+<code class="docutils literal notranslate"><span class="pre">Beta(prior_alpha</span> <span class="pre">+</span> <span class="pre">n_accepts,</span> <span class="pre">prior_beta</span> <span class="pre">+</span> <span class="pre">n_attempts</span> <span class="pre">-</span>
+<span class="pre">n_accepts)</span></code> per <em>applicable</em> rule.</p></li>
+<li><p>The arg-max of those variates wins — Thompson’s
+exploration/exploitation rule.</p></li>
+<li><p>After the iteration, the loop calls <code class="docutils literal notranslate"><span class="pre">record_outcome(accepted)</span></code>
+which updates the chosen rule’s counters.</p></li>
+</ol>
+<p>Cold-start equivalence to uniform.  With the default symmetric prior
+<span class="math notranslate nohighlight">\(\\mathrm{Beta}(1, 1)\)</span>, every posterior is <span class="math notranslate nohighlight">\(\\mathrm{U}(0,
+1)\)</span> and the arg-max of i.i.d. uniforms is itself uniform — so the very
+first sample is statistically indistinguishable from
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">sample()</span></code>.  Flipping the
+flag on a fresh ledger is therefore safe; behaviour diverges from
+uniform only as evidence accumulates.</p>
+<p>Resuming a long run.  Setting
+<code class="docutils literal notranslate"><span class="pre">LoopConfig.adaptive_prime_from_ledger</span> <span class="pre">=</span> <span class="pre">True</span></code> replays accept
+history from any existing JSONL ledger before the first iteration.
+Useful when restarting a multi-hour loop after a crash or a manual
+stop — the bandit resumes with all the meta-knowledge of which rules
+have worked so far.</p>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Adaptive sampler with the default symmetric prior, primed from any</span>
+</span><span data-line="2"><span class="c1"># ledger sitting at the default path</span>
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prime-from-ledger
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Greedier prior for shorter exploratory loops</span>
+</span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="8"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prior-alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--adaptive-prior-beta<span class="w"> </span><span class="m">0</span>.5
+</span></pre></div>
+</div>
+<p>Programmatic use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoopConfig</span><span class="p">,</span> <span class="n">SelfImprover</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">cfg</span> <span class="o">=</span> <span class="n">LoopConfig</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">adaptive_sampling</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">adaptive_prior_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">adaptive_prior_beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">adaptive_prime_from_ledger</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># learn from prior runs</span>
+</span><span data-line="10">    <span class="n">guard_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span data-line="11"><span class="p">)</span>
+</span><span data-line="12"><span class="n">improver</span> <span class="o">=</span> <span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+</span><span data-line="13"><span class="n">improver</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="c1"># Inspect the bandit afterwards.</span>
+</span><span data-line="16"><span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">improver</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">stats_snapshot</span><span class="p">():</span>
+</span><span data-line="17">    <span class="nb">print</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">rule_key</span><span class="p">,</span> <span class="n">stats</span><span class="o">.</span><span class="n">n_accepts</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">stats</span><span class="o">.</span><span class="n">n_attempts</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>The sampler is <strong>off by default</strong> (<code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span> <span class="pre">=</span> <span class="pre">False</span></code>) for
+backward compatibility.</p>
+</section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -751,7 +821,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -761,7 +831,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -770,7 +840,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id26" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

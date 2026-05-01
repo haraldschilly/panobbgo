@@ -58,6 +58,20 @@ The mutation sampler uses its own seeded RNG
 A loop of ``N`` iterations is fully replayable from
 ``(base_seed, mutation_seed, stat_seed)``.
 
+Adaptive mutation sampler (§10)
+-------------------------------
+
+By default the loop draws mutations uniformly from the applicable rules
+of the catalog.  When ``LoopConfig.adaptive_sampling = True``, the loop
+substitutes :class:`AdaptiveMutationSampler` — a Thompson-sampling
+bandit over per-rule Beta posteriors that biases future iterations
+toward rules with positive accept history while still exploring
+under-tried rules.  Cold-start (no history, default symmetric prior) is
+statistically identical to uniform sampling, so flipping the flag is
+safe on a fresh ledger.  Set
+``LoopConfig.adaptive_prime_from_ledger = True`` to seed the bandit's
+history from a prior JSONL ledger when resuming a long run.
+
 Anti-cherry-pick guard (§6.3)
 -----------------------------
 
@@ -328,6 +342,242 @@ class MutationCatalog:
         raise ValueError(f"Unknown mutation kind: {rule.kind!r}")
 
 
+# ---------------------------------------------------------------------------
+# Adaptive (Thompson-sampling) mutation sampler
+# ---------------------------------------------------------------------------
+
+
+# Identifier used to bucket accept/attempt history.  Keeping it a small tuple
+# of native strings keeps stats reproducible across processes and trivially
+# JSON-serialisable.  ``(class_name, param_name, rule_kind)`` is what every
+# ledger record exposes via ``MutationProposal.to_dict()``, so the sampler's
+# history can be replayed from a prior run without ambiguity.
+RuleKey = Tuple[str, str, str]
+
+
+@dataclass
+class MutationRuleStats:
+    """Per-rule accept/attempt history maintained by :class:`AdaptiveMutationSampler`.
+
+    Attributes:
+        rule_key: ``(class_name, param_name, rule_kind)`` identifying the
+            mutation type.  Two :class:`MutationRule` instances that
+            differ only in ``strategy_pattern`` *share* one stats bucket
+            — they are conceptually the same dial and the bandit treats
+            them as one arm.
+        n_attempts: Number of times :meth:`AdaptiveMutationSampler.sample`
+            picked a rule with this key *and* the iteration produced a
+            decision (accept or reject).  Skip records do not count.
+        n_accepts: Number of those attempts that the loop accepted.
+    """
+
+    rule_key: RuleKey
+    n_attempts: int = 0
+    n_accepts: int = 0
+
+    @property
+    def accept_rate(self) -> float:
+        """Empirical accept rate, or 0.0 with no attempts."""
+        if self.n_attempts == 0:
+            return 0.0
+        return self.n_accepts / self.n_attempts
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "class_name": self.rule_key[0],
+            "param_name": self.rule_key[1],
+            "rule_kind": self.rule_key[2],
+            "n_attempts": int(self.n_attempts),
+            "n_accepts": int(self.n_accepts),
+            "accept_rate": float(self.accept_rate),
+        }
+
+
+def _proposal_rule_key(class_name: str, param_name: str, rule_kind: str) -> RuleKey:
+    return (str(class_name), str(param_name), str(rule_kind))
+
+
+class AdaptiveMutationSampler:
+    """Thompson-sampling wrapper over :class:`MutationCatalog`.
+
+    Closes the *Adaptive mutation sampler* item from §10 of
+    ``planning/SELF_IMPROVEMENT_LOOP.md``.  Each mutation rule is treated as
+    one arm of a Bernoulli bandit whose reward is "this iteration was
+    accepted".  Per-rule history is summarised by a Beta posterior::
+
+        Beta(prior_alpha + n_accepts, prior_beta + n_attempts - n_accepts)
+
+    On every :meth:`sample` call the sampler draws one variate from each
+    applicable rule's posterior and picks the arg-max — the canonical
+    Thompson-sampling rule.  Within the chosen rule, the concrete hit
+    (which strategy spec / which slot) is selected uniformly, exactly as
+    :meth:`MutationCatalog.sample` does today.
+
+    The accept history is updated by :meth:`record_outcome`, which the
+    :class:`SelfImprover` invokes after every iteration's
+    statistical-acceptance decision (skip iterations are no-ops).  The
+    sampler can also be primed from a prior JSONL ledger via
+    :meth:`prime_from_ledger`, so the loop carries learning across
+    restarts of the driver.
+
+    Cold-start equivalence to uniform sampling.  With the defaults
+    ``prior_alpha = prior_beta = 1`` and zero history, every Beta
+    posterior is :math:`\\mathrm{U}(0, 1)`.  The arg-max of i.i.d.
+    uniforms is itself uniform — so the very first sample is statistically
+    indistinguishable from :meth:`MutationCatalog.sample`.
+
+    Args:
+        catalog: The underlying :class:`MutationCatalog`.  The adaptive
+            sampler does not modify it; it only re-weights how rules are
+            selected.
+        prior_alpha: Pseudo-count of "successes" in the Beta prior.  Larger
+            values flatten the posterior and slow learning; smaller values
+            (e.g. ``0.5``) make the sampler greedier earlier.  Must be > 0.
+        prior_beta: Pseudo-count of "failures" in the Beta prior.  Same
+            shape as ``prior_alpha``; defaults to a symmetric ``Beta(1, 1)``.
+            Must be > 0.
+
+    Raises:
+        ValueError: If either prior is non-positive.
+    """
+
+    def __init__(
+        self,
+        catalog: MutationCatalog,
+        prior_alpha: float = 1.0,
+        prior_beta: float = 1.0,
+    ) -> None:
+        if prior_alpha <= 0 or prior_beta <= 0:
+            raise ValueError(f"prior_alpha and prior_beta must be > 0, got {prior_alpha!r}, {prior_beta!r}")
+        self.catalog = catalog
+        self.prior_alpha = float(prior_alpha)
+        self.prior_beta = float(prior_beta)
+        self._stats: Dict[RuleKey, MutationRuleStats] = {}
+        self._last_rule_key: Optional[RuleKey] = None
+
+    @staticmethod
+    def _rule_key(rule: MutationRule) -> RuleKey:
+        return _proposal_rule_key(rule.class_name, rule.param_name, rule.kind)
+
+    def get_stats(self, rule: MutationRule) -> MutationRuleStats:
+        """Return (creating if needed) the stats bucket for ``rule``."""
+        key = self._rule_key(rule)
+        if key not in self._stats:
+            self._stats[key] = MutationRuleStats(rule_key=key)
+        return self._stats[key]
+
+    def stats_snapshot(self) -> List[MutationRuleStats]:
+        """Return all rule stats sorted by key (stable across calls)."""
+        return [self._stats[k] for k in sorted(self._stats.keys())]
+
+    @property
+    def last_rule_key(self) -> Optional[RuleKey]:
+        """Rule key of the most recent :meth:`sample` call, or ``None``."""
+        return self._last_rule_key
+
+    def sample(
+        self,
+        rng: np.random.Generator,
+        specs: Sequence[StrategySpec],
+    ) -> Optional[MutationProposal]:
+        """Draw one applicable mutation, biased by Beta posteriors.
+
+        Returns ``None`` iff no rule matches ``specs`` — same contract as
+        :meth:`MutationCatalog.sample`.  When that happens,
+        :attr:`last_rule_key` is reset to ``None`` so a subsequent
+        :meth:`record_outcome` is a safe no-op.
+        """
+        applicable = self.catalog.applicable_rules(specs)
+        if not applicable:
+            self._last_rule_key = None
+            return None
+
+        # Thompson: one Beta draw per applicable rule, pick the arg-max.
+        n = len(applicable)
+        sampled = np.empty(n, dtype=np.float64)
+        for i, (rule, _) in enumerate(applicable):
+            stats = self.get_stats(rule)
+            alpha = self.prior_alpha + stats.n_accepts
+            beta_param = self.prior_beta + (stats.n_attempts - stats.n_accepts)
+            sampled[i] = float(rng.beta(alpha, beta_param))
+        chosen_idx = int(np.argmax(sampled))
+        rule, hits = applicable[chosen_idx]
+
+        hit_idx = int(rng.integers(0, len(hits)))
+        si, _, _, old_value = hits[hit_idx]
+        strategy_name = specs[si].name
+        new_value = MutationCatalog._mutate_value(rule, old_value, rng)
+
+        chosen_stats = self.get_stats(rule)
+        alpha_eff = self.prior_alpha + chosen_stats.n_accepts
+        beta_eff = self.prior_beta + (chosen_stats.n_attempts - chosen_stats.n_accepts)
+        rationale = (
+            f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: "
+            f"{old_value!r} -> {new_value!r} "
+            f"[Thompson Beta({alpha_eff:.1f}, {beta_eff:.1f}); draw={sampled[chosen_idx]:.3f}; "
+            f"history {chosen_stats.n_accepts}/{chosen_stats.n_attempts}]"
+        )
+        self._last_rule_key = self._rule_key(rule)
+        return MutationProposal(
+            strategy_name=strategy_name,
+            class_name=rule.class_name,
+            param_name=rule.param_name,
+            old_value=_to_plain(old_value),
+            new_value=_to_plain(new_value),
+            rule_kind=rule.kind,
+            rationale=rationale,
+        )
+
+    def record_outcome(self, accepted: bool) -> None:
+        """Update the bandit with the most recent iteration's verdict.
+
+        No-op when :attr:`last_rule_key` is ``None`` — i.e. when the
+        previous iteration was a skip or :meth:`sample` was never called
+        — so the driver can call this unconditionally on every
+        iteration.
+        """
+        if self._last_rule_key is None:
+            return
+        stats = self._stats.setdefault(
+            self._last_rule_key,
+            MutationRuleStats(rule_key=self._last_rule_key),
+        )
+        stats.n_attempts += 1
+        if accepted:
+            stats.n_accepts += 1
+        self._last_rule_key = None
+
+    def prime_from_ledger(self, ledger_path: str) -> int:
+        """Seed the bandit's history from a prior JSONL ledger.
+
+        Replays every iteration record with a non-null proposal: each
+        contributes ``n_attempts += 1`` and, if accepted, also ``n_accepts
+        += 1``.  Skip records and guard records are ignored.  Returns the
+        number of records consumed.
+
+        Useful for resuming a long unattended loop run without losing
+        the meta-knowledge of which mutation rules tend to succeed.
+        """
+        consumed = 0
+        for rec in load_ledger(ledger_path):
+            if rec.get("record_type", "iteration") != "iteration":
+                continue
+            proposal = rec.get("proposal")
+            if proposal is None:
+                continue
+            key = _proposal_rule_key(
+                proposal.get("class_name", ""),
+                proposal.get("param_name", ""),
+                proposal.get("rule_kind", ""),
+            )
+            stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
+            stats.n_attempts += 1
+            if rec.get("accepted"):
+                stats.n_accepts += 1
+            consumed += 1
+        return consumed
+
+
 def default_catalog() -> MutationCatalog:
     """Return the built-in hyperparameter mutation catalog.
 
@@ -531,6 +781,23 @@ class LoopConfig:
             stream independent from the regular iteration stream so a
             mutation cannot accidentally tune itself to the guard's
             seeds.
+        adaptive_sampling: If ``True``, the loop replaces uniform
+            mutation sampling with :class:`AdaptiveMutationSampler` —
+            Thompson sampling over a Beta posterior per rule.  Defaults
+            to ``False`` so existing CLI invocations behave identically.
+            With this flag, the loop biases future iterations toward
+            rules that have produced accepts in the past while still
+            exploring less-tried rules.
+        adaptive_prior_alpha: Pseudo-count of "successes" in the Beta
+            prior used by the adaptive sampler.  Has no effect unless
+            :attr:`adaptive_sampling` is ``True``.
+        adaptive_prior_beta: Pseudo-count of "failures" in the Beta
+            prior; symmetric default ``1.0`` ⇒ Beta(1, 1) ≡ U(0, 1) so
+            cold-start behaviour matches uniform sampling.
+        adaptive_prime_from_ledger: When ``True``, the adaptive sampler
+            seeds its bandit history from any existing
+            :attr:`ledger_path` before the first iteration.  Useful when
+            resuming a long unattended run.
     """
 
     iterations: int = 5
@@ -552,6 +819,10 @@ class LoopConfig:
     guard_interval: int = 0
     guard_eps_ladder: float = 0.02
     guard_iteration_offset: int = 1_000_000
+    adaptive_sampling: bool = False
+    adaptive_prior_alpha: float = 1.0
+    adaptive_prior_beta: float = 1.0
+    adaptive_prime_from_ledger: bool = False
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -562,6 +833,10 @@ class LoopConfig:
             raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
         if self.guard_eps_ladder < 0:
             raise ValueError(f"guard_eps_ladder must be >= 0, got {self.guard_eps_ladder}")
+        if self.adaptive_prior_alpha <= 0:
+            raise ValueError(f"adaptive_prior_alpha must be > 0, got {self.adaptive_prior_alpha}")
+        if self.adaptive_prior_beta <= 0:
+            raise ValueError(f"adaptive_prior_beta must be > 0, got {self.adaptive_prior_beta}")
 
     def harness_config(
         self,
@@ -764,12 +1039,28 @@ class SelfImprover:
         config: Optional[LoopConfig] = None,
         catalog: Optional[MutationCatalog] = None,
         seed_strategies: Optional[Sequence[StrategySpec]] = None,
+        sampler: Optional[AdaptiveMutationSampler] = None,
     ) -> None:
         self.config = config or LoopConfig()
         self.catalog = catalog or default_catalog()
         self._seed_strategies: Optional[List[StrategySpec]] = (
             list(seed_strategies) if seed_strategies is not None else None
         )
+        # The adaptive sampler is constructed lazily when requested.  An
+        # explicit instance always wins so tests / callers can pass a
+        # pre-primed sampler.
+        if sampler is not None:
+            self.sampler: Optional[AdaptiveMutationSampler] = sampler
+        elif self.config.adaptive_sampling:
+            self.sampler = AdaptiveMutationSampler(
+                self.catalog,
+                prior_alpha=self.config.adaptive_prior_alpha,
+                prior_beta=self.config.adaptive_prior_beta,
+            )
+            if self.config.adaptive_prime_from_ledger:
+                self.sampler.prime_from_ledger(self.config.ledger_path)
+        else:
+            self.sampler = None
         # Late-bound so tests can swap a fake harness in.
         self._harness_factory = BenchmarkHarness
 
@@ -819,7 +1110,7 @@ class SelfImprover:
 
             start = time.time()
 
-            proposal = self.catalog.sample(rng, current)
+            proposal = self._sample_proposal(rng, current)
             if proposal is None:
                 rec = self._skip_record(iteration, start, "no applicable mutations for current specs")
                 records.append(rec)
@@ -886,6 +1177,12 @@ class SelfImprover:
             if np.isnan(ladder[0].last_validated_score):
                 ladder[0].last_validated_score = float(baseline_result.composite_score)
 
+            # Update the adaptive bandit *before* swapping the ladder so
+            # the rule key recorded by `_sample_proposal` still matches
+            # this iteration's outcome.  Uniform-sampler runs do nothing.
+            if self.sampler is not None:
+                self.sampler.record_outcome(bool(decision.accept))
+
             if decision.accept:
                 current = candidate
                 ladder.append(
@@ -911,6 +1208,21 @@ class SelfImprover:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _sample_proposal(
+        self,
+        rng: np.random.Generator,
+        specs: List[StrategySpec],
+    ) -> Optional[MutationProposal]:
+        """Delegate to the adaptive sampler if configured, else the catalog.
+
+        Centralising the call site lets :meth:`_run_internal` stay
+        agnostic to which sampler is in use, and ensures the bandit's
+        ``last_rule_key`` is set the same way an explicit caller would.
+        """
+        if self.sampler is not None:
+            return self.sampler.sample(rng, specs)
+        return self.catalog.sample(rng, specs)
 
     def _load_seed_strategies(self) -> List[StrategySpec]:
         if self._seed_strategies is not None:
@@ -1153,6 +1465,9 @@ __all__ = [
     "MutationRule",
     "MutationProposal",
     "MutationCatalog",
+    "MutationRuleStats",
+    "AdaptiveMutationSampler",
+    "RuleKey",
     "default_catalog",
     "apply_mutation",
     "LoopConfig",

@@ -37,6 +37,16 @@ Two subcommands:
 
         uv run python scripts/self_improve.py summary
 
+``--adaptive``
+    Enable Thompson-sampling adaptive mutation sampler (§10 of the
+    plan).  The loop maintains a Beta posterior per rule and biases
+    future samples toward rules with positive accept history.  Cold-start
+    equivalent to uniform sampling.  Add ``--adaptive-prime-from-ledger``
+    to seed history from a prior ledger when resuming a long run::
+
+        uv run python scripts/self_improve.py run --iterations 50 \\
+            --adaptive --adaptive-prime-from-ledger
+
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
 exits and the ledger is preserved.
@@ -181,6 +191,38 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1_000_000,
         help="Iteration-id offset for the guard's fresh seed (default: 1_000_000)",
     )
+    run_p.add_argument(
+        "--adaptive",
+        dest="adaptive_sampling",
+        action="store_true",
+        help=(
+            "Enable Thompson-sampling adaptive mutation sampler (§10): "
+            "the loop biases future iterations toward rules with positive accept history. "
+            "Cold-start equivalent to uniform sampling."
+        ),
+    )
+    run_p.set_defaults(adaptive_sampling=False)
+    run_p.add_argument(
+        "--adaptive-prior-alpha",
+        dest="adaptive_prior_alpha",
+        type=float,
+        default=1.0,
+        help="Beta prior alpha for the adaptive sampler (default: 1.0)",
+    )
+    run_p.add_argument(
+        "--adaptive-prior-beta",
+        dest="adaptive_prior_beta",
+        type=float,
+        default=1.0,
+        help="Beta prior beta for the adaptive sampler (default: 1.0)",
+    )
+    run_p.add_argument(
+        "--adaptive-prime-from-ledger",
+        dest="adaptive_prime_from_ledger",
+        action="store_true",
+        help="Seed adaptive sampler history from the existing ledger before running",
+    )
+    run_p.set_defaults(adaptive_prime_from_ledger=False)
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -219,14 +261,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
         guard_interval=args.guard_interval,
         guard_eps_ladder=args.guard_eps_ladder,
         guard_iteration_offset=args.guard_iteration_offset,
+        adaptive_sampling=args.adaptive_sampling,
+        adaptive_prior_alpha=args.adaptive_prior_alpha,
+        adaptive_prior_beta=args.adaptive_prior_beta,
+        adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
     )
-    records = SelfImprover(cfg).run(verbose=not args.quiet)
+    improver = SelfImprover(cfg)
+    records = improver.run(verbose=not args.quiet)
 
     n_accepts = sum(1 for r in records if r.accepted)
     n_skips = sum(1 for r in records if r.proposal is None)
     n_total = len(records)
     print()
     print(f"[self_improve] completed: {n_total} iter, {n_accepts} accept, {n_skips} skip, ledger={cfg.ledger_path}")
+    if improver.sampler is not None:
+        snap = improver.sampler.stats_snapshot()
+        if snap:
+            print("[self_improve] adaptive sampler stats (class.param[kind] -> n_accepts/n_attempts):")
+            for s in snap:
+                cls, param, kind = s.rule_key
+                print(f"  {cls}.{param}[{kind}] -> {s.n_accepts}/{s.n_attempts} ({s.accept_rate:.0%})")
     return 0
 
 

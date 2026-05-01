@@ -53,6 +53,7 @@ from panobbgo.harness import (
     RunRecord,
 )
 from panobbgo.self_improve import (
+    AdaptiveMutationSampler,
     LadderEntry,
     LoopConfig,
     LoopGuardRecord,
@@ -60,6 +61,7 @@ from panobbgo.self_improve import (
     MutationCatalog,
     MutationProposal,
     MutationRule,
+    MutationRuleStats,
     SelfImprover,
     apply_mutation,
     default_catalog,
@@ -972,3 +974,397 @@ class TestLadderEntry:
         assert e.iteration == -1
         assert np.isnan(e.last_validated_score)
         assert e.proposal is None
+
+
+# ===========================================================================
+# AdaptiveMutationSampler (Thompson sampling)
+# ===========================================================================
+
+
+def _two_rule_catalog() -> MutationCatalog:
+    """Two rules pointing at independent kwargs in :func:`_make_specs`."""
+    return MutationCatalog(
+        [
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicA",
+                param_name="radius",
+                kind="log_uniform_perturb",
+                bounds=(0.005, 0.5),
+            ),
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicB",
+                param_name="sigma0",
+                kind="log_uniform_perturb",
+                bounds=(0.05, 1.0),
+            ),
+        ]
+    )
+
+
+class TestAdaptiveMutationSampler:
+    def test_invalid_priors_raise(self):
+        cat = _two_rule_catalog()
+        with pytest.raises(ValueError, match="prior_alpha and prior_beta"):
+            AdaptiveMutationSampler(cat, prior_alpha=0.0)
+        with pytest.raises(ValueError, match="prior_alpha and prior_beta"):
+            AdaptiveMutationSampler(cat, prior_beta=-1.0)
+
+    def test_cold_start_returns_proposals(self):
+        """A fresh sampler must successfully produce proposals."""
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        rng = np.random.default_rng(0)
+        for _ in range(5):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            assert prop.class_name in {"_DummyHeuristicA", "_DummyHeuristicB"}
+
+    def test_returns_none_when_no_applicable_rules(self):
+        cat = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="DoesNotExist",
+                    param_name="x",
+                    kind="float_uniform",
+                    bounds=(0.0, 1.0),
+                ),
+            ]
+        )
+        samp = AdaptiveMutationSampler(cat)
+        rng = np.random.default_rng(0)
+        assert samp.sample(rng, _make_specs()) is None
+        # ``last_rule_key`` is reset so a stray record_outcome is a no-op.
+        assert samp.last_rule_key is None
+        samp.record_outcome(True)  # must not raise
+        assert samp.stats_snapshot() == []
+
+    def test_record_outcome_increments_stats(self):
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        rng = np.random.default_rng(0)
+        for _ in range(10):
+            samp.sample(rng, _make_specs())
+            samp.record_outcome(True)
+        total_attempts = sum(s.n_attempts for s in samp.stats_snapshot())
+        total_accepts = sum(s.n_accepts for s in samp.stats_snapshot())
+        assert total_attempts == 10
+        assert total_accepts == 10
+
+    def test_record_outcome_no_op_after_none_sample(self):
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        # Without a prior sample(), record is a no-op.
+        samp.record_outcome(True)
+        assert samp.stats_snapshot() == []
+
+    def test_thompson_biases_toward_winning_rule(self):
+        """If one rule always accepts and the other always rejects,
+        post-training samples must heavily favor the winning rule.
+
+        This is the headline guarantee of Thompson sampling: the bandit
+        must concentrate probability on the empirically better arm.
+        """
+        cat = _two_rule_catalog()
+        samp = AdaptiveMutationSampler(cat)
+        rng = np.random.default_rng(123)
+
+        # Train: A accepts, B rejects.
+        for _ in range(50):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(prop.class_name == "_DummyHeuristicA")
+
+        # Now count picks over a fresh sampling phase (record_outcome
+        # disabled so stats freeze).
+        counts = {"_DummyHeuristicA": 0, "_DummyHeuristicB": 0}
+        for _ in range(500):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            counts[prop.class_name] += 1
+            # Reset last_rule_key without recording.
+            samp._last_rule_key = None
+
+        assert counts["_DummyHeuristicA"] > 4 * counts["_DummyHeuristicB"], (
+            f"Thompson should heavily favor the winning rule, got {counts}"
+        )
+
+    def test_uniform_prior_matches_uniform_sampler_distribution(self):
+        """Beta(1, 1) cold-start must distribute over rules ~uniformly.
+
+        Statistical, not deterministic: the difference between the two
+        counts should be small relative to the total over many draws.
+        """
+        cat = _two_rule_catalog()
+        samp = AdaptiveMutationSampler(cat, prior_alpha=1.0, prior_beta=1.0)
+        rng = np.random.default_rng(7)
+
+        counts = {"_DummyHeuristicA": 0, "_DummyHeuristicB": 0}
+        for _ in range(1000):
+            prop = samp.sample(rng, _make_specs())
+            counts[prop.class_name] += 1
+            # Don't record any outcomes — keep posterior at the prior.
+            samp._last_rule_key = None
+
+        # Both buckets should be roughly equal under U(0, 1) arg-max.
+        # Tolerance ±10% generous against rng quirks.
+        a, b = counts["_DummyHeuristicA"], counts["_DummyHeuristicB"]
+        ratio = a / (a + b)
+        assert 0.4 <= ratio <= 0.6, f"Expected near-uniform split, got {counts}"
+
+    def test_stats_snapshot_is_sorted(self):
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            samp.sample(rng, _make_specs())
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        keys = [s.rule_key for s in snap]
+        assert keys == sorted(keys)
+
+    def test_rule_stats_to_dict_round_trip(self):
+        s = MutationRuleStats(rule_key=("Foo", "bar", "log_uniform_perturb"), n_attempts=4, n_accepts=1)
+        d = s.to_dict()
+        assert d["class_name"] == "Foo"
+        assert d["accept_rate"] == pytest.approx(0.25)
+        # JSON serialisable.
+        assert json.loads(json.dumps(d))
+
+    def test_accept_rate_zero_when_no_attempts(self):
+        s = MutationRuleStats(rule_key=("A", "b", "kind"))
+        assert s.accept_rate == 0.0
+
+    def test_prime_from_ledger_replays_history(self, tmp_path):
+        """Iteration records must be replayed; guards / skips ignored."""
+        ledger = tmp_path / "old.jsonl"
+        # Two iteration records (one accept), one skip, one guard.
+        records = [
+            {
+                "record_type": "iteration",
+                "iteration": 0,
+                "proposal": {
+                    "class_name": "_DummyHeuristicA",
+                    "param_name": "radius",
+                    "rule_kind": "log_uniform_perturb",
+                },
+                "accepted": True,
+            },
+            {
+                "record_type": "iteration",
+                "iteration": 1,
+                "proposal": {
+                    "class_name": "_DummyHeuristicA",
+                    "param_name": "radius",
+                    "rule_kind": "log_uniform_perturb",
+                },
+                "accepted": False,
+            },
+            {
+                "record_type": "iteration",
+                "iteration": 2,
+                "proposal": None,
+                "accepted": False,
+            },
+            {
+                "record_type": "guard",
+                "iteration": 2,
+                "rolled_back": False,
+            },
+        ]
+        ledger.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_ledger(str(ledger))
+        # Only the two iteration records with non-null proposals count.
+        assert consumed == 2
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 1
+        assert snap[0].rule_key == ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+
+    def test_prime_from_ledger_missing_file_returns_zero(self, tmp_path):
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_ledger(str(tmp_path / "nope.jsonl"))
+        assert consumed == 0
+        assert samp.stats_snapshot() == []
+
+    def test_proposal_rationale_includes_thompson_marker(self):
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        rng = np.random.default_rng(0)
+        prop = samp.sample(rng, _make_specs())
+        assert prop is not None
+        assert "Thompson" in prop.rationale
+
+
+# ===========================================================================
+# SelfImprover wired with the adaptive sampler
+# ===========================================================================
+
+
+class TestSelfImproverAdaptive:
+    def _accept_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicA",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+            ]
+        )
+
+    def test_adaptive_off_by_default(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is None
+
+    def test_adaptive_creates_sampler(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert isinstance(si.sampler, AdaptiveMutationSampler)
+        assert si.sampler.prior_alpha == 1.0
+        assert si.sampler.prior_beta == 1.0
+
+    def test_adaptive_propagates_priors(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prior_alpha=2.5,
+            adaptive_prior_beta=0.5,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is not None
+        assert si.sampler.prior_alpha == 2.5
+        assert si.sampler.prior_beta == 0.5
+
+    def test_adaptive_prime_from_ledger(self, tmp_path):
+        ledger = tmp_path / "ledger.jsonl"
+        # Pre-populate ledger with one accepted iteration on the catalog rule.
+        ledger.write_text(
+            json.dumps(
+                {
+                    "record_type": "iteration",
+                    "proposal": {
+                        "class_name": "_DummyHeuristicA",
+                        "param_name": "radius",
+                        "rule_kind": "log_uniform_perturb",
+                    },
+                    "accepted": True,
+                }
+            )
+            + "\n"
+        )
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(ledger),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prime_from_ledger=True,
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+    def test_adaptive_sampler_records_outcomes(self, tmp_path):
+        """One iteration with adaptive sampling must update the sampler stats."""
+        # Each call returns 0.3 then 0.8 — so the candidate is much better.
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.3 if n % 2 == 0 else 0.8
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert records[0].accepted is True
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+    def test_adaptive_sampler_records_rejects(self, tmp_path):
+        """Reject paths must increment n_attempts but not n_accepts."""
+
+        # Constant score — no improvement so iteration rejects.
+        def score_fn(config: HarnessConfig) -> float:
+            return 0.5
+
+        cfg = LoopConfig(
+            iterations=2,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        si.run()
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 0
+
+    def test_explicit_sampler_overrides_config(self, tmp_path):
+        """Passing ``sampler=`` must take priority over ``adaptive_sampling``."""
+        cat = self._accept_catalog()
+        explicit = AdaptiveMutationSampler(cat, prior_alpha=4.0, prior_beta=4.0)
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=False,  # explicit sampler should still win
+        )
+        si = SelfImprover(cfg, catalog=cat, sampler=explicit, seed_strategies=_make_specs())
+        assert si.sampler is explicit
+        assert si.sampler.prior_alpha == 4.0
+
+
+class TestLoopConfigAdaptive:
+    def test_invalid_prior_alpha_raises(self):
+        with pytest.raises(ValueError, match="adaptive_prior_alpha"):
+            LoopConfig(adaptive_prior_alpha=0.0)
+
+    def test_invalid_prior_beta_raises(self):
+        with pytest.raises(ValueError, match="adaptive_prior_beta"):
+            LoopConfig(adaptive_prior_beta=-1.0)
+
+    def test_defaults(self):
+        cfg = LoopConfig()
+        assert cfg.adaptive_sampling is False
+        assert cfg.adaptive_prior_alpha == 1.0
+        assert cfg.adaptive_prior_beta == 1.0
+        assert cfg.adaptive_prime_from_ledger is False

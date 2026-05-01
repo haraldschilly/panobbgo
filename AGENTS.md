@@ -211,6 +211,15 @@ The harness is the measurement substrate for an autonomous
     guard periodically re-measures the top of the accepted ladder on
     a fresh randomized seed and rolls back if the composite drifts
     below tolerance, catching instance cherry-picking.
+*   Adaptive mutation sampler (Thompson sampling) — **shipped** (§10),
+    see `panobbgo.self_improve.AdaptiveMutationSampler` and the
+    `--adaptive`, `--adaptive-prior-alpha`, `--adaptive-prior-beta`,
+    `--adaptive-prime-from-ledger` CLI flags.  The sampler treats each
+    mutation rule as a Bernoulli arm with reward = "iteration was
+    accepted" and biases future samples toward rules with positive
+    accept history while still exploring under-tried rules.
+    Cold-start (Beta(1, 1) prior) is statistically identical to uniform
+    sampling.
 
 Run the loop:
 
@@ -221,6 +230,10 @@ uv run python scripts/self_improve.py run --iterations 5
 # Long run with the anti-cherry-pick guard every 10 iterations
 uv run python scripts/self_improve.py run --iterations 100 \
     --mode standard --guard-interval 10 --guard-eps-ladder 0.02
+
+# Adaptive (Thompson-sampling) mutation sampler primed from a prior ledger
+uv run python scripts/self_improve.py run --iterations 100 \
+    --adaptive --adaptive-prime-from-ledger
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

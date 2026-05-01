@@ -376,10 +376,17 @@ Each phase is independently deliverable and keeps the framework usable.
 ### Phase 6 — Production loop (ongoing)
 
 - [x] Anti-cherry-pick guard (§6.3) — shipped 2026-04-26.
+- [x] Adaptive mutation sampler (§10) — shipped 2026-05-01 as
+      :class:`panobbgo.self_improve.AdaptiveMutationSampler` plus the
+      ``LoopConfig.adaptive_sampling`` / ``adaptive_prior_alpha`` /
+      ``adaptive_prior_beta`` / ``adaptive_prime_from_ledger`` knobs and
+      the ``--adaptive`` family of CLI flags.  Thompson sampling on
+      per-rule Beta posteriors; cold-start (Beta(1,1)) is statistically
+      identical to uniform sampling, so flipping the flag is safe on a
+      fresh ledger.  History can be primed from a prior JSONL ledger
+      when resuming a long run.
 - [ ] Broaden the mutation space (strategy portfolio composition,
       analyzer add/drop — §7 items 2–3).
-- [ ] Adaptive mutation sampler (§10): bias future samples toward
-      rules with positive accept history.
 - [ ] Stratified dimension sampling (§10) for cross-iteration score
       stability.
 - [ ] Connect the loop to CI (nightly run on a dedicated runner).
@@ -394,7 +401,11 @@ Each phase is independently deliverable and keeps the framework usable.
 - **What if the accept rate is too low?** Most proposed mutations will be
   no-ops or regressions. This is normal; the loop needs patience or a
   smarter proposer (a simple Bayesian optimiser over the hyperparameter
-  space is a natural upgrade).
+  space is a natural upgrade).  A first-order improvement shipped
+  2026-05-01: :class:`AdaptiveMutationSampler` (Thompson sampling over
+  per-rule Beta posteriors), enabled by ``LoopConfig.adaptive_sampling``.
+  This biases future iterations toward rules with positive accept
+  history while still exploring under-tried rules.
 - **Composite score stability across dimension sampling.** If we sample
   `d ∈ {2, 5, 10}` we need to *stratify* (same mix of dimensions on both
   sides of the comparison) or the score will be dominated by whichever
@@ -424,6 +435,46 @@ This section records direct algorithmic improvements applied to Panobbgo
 *outside* of the autonomous loop, so the human-in-the-loop history stays
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
+
+### 2026-05-01 — Adaptive mutation sampler (Thompson sampling)
+
+* **What** — `panobbgo/self_improve.py` gains
+  `AdaptiveMutationSampler` plus `MutationRuleStats` and the public
+  `RuleKey` alias.  Each :class:`MutationRule` becomes one arm of a
+  Bernoulli bandit whose reward is "this iteration was accepted".  On
+  every `sample()` call the sampler draws one variate per applicable
+  rule from `Beta(prior_alpha + n_accepts, prior_beta + n_attempts -
+  n_accepts)` and picks the arg-max — the canonical Thompson rule.
+  Inside the chosen rule, hits are still selected uniformly (which
+  spec / which slot), exactly as the catalog's uniform sampler does.
+  History is primed from a prior JSONL ledger via
+  `prime_from_ledger`, so the loop carries learning across restarts.
+  `LoopConfig` gains `adaptive_sampling`, `adaptive_prior_alpha`,
+  `adaptive_prior_beta`, `adaptive_prime_from_ledger`; the
+  `scripts/self_improve.py` CLI gains the `--adaptive` family of
+  flags.  After each iteration's accept/reject decision, the driver
+  calls `sampler.record_outcome()` so future samples are biased
+  toward rules with positive accept history.
+* **Why** — closes the §10 "Adaptive mutation sampler" item.  The
+  uniform catalog sampler shipped in Phase 5 wastes iterations on
+  rules that never produce accepts.  Thompson sampling concentrates
+  probability mass on empirically winning rules while still exploring
+  unfamiliar ones — the canonical fix for the *productivity* gap of
+  multi-armed bandit problems.  Cold-start equivalence to uniform
+  (Beta(1, 1) ≡ U(0, 1), and arg-max of i.i.d. uniforms is uniform)
+  makes the upgrade strictly safe: flipping the flag on a fresh
+  ledger reproduces the prior behaviour distributionally, then
+  diverges as evidence accumulates.
+* **Defaults** — `adaptive_sampling = False` keeps existing CLI
+  invocations byte-identical.  `adaptive_prior_alpha = adaptive_prior_beta
+  = 1.0` is the symmetric uninformed prior; lower priors (e.g. `0.5`)
+  make the sampler greedier earlier at the cost of more variance.
+* **Tests** — `tests/test_self_improve.py` (23 new tests, total 63):
+  invalid priors, cold-start equivalence to uniform sampling,
+  arg-max behaviour after biased training, record-outcome
+  correctness, ledger priming, integration with `SelfImprover`
+  including the `sampler=` override and the `adaptive_prime_from_ledger`
+  flag.
 
 ### 2026-04-27 — Sobol' quasi-random initial design (`Sobol` heuristic)
 
@@ -481,22 +532,17 @@ the rationale, and a measured-impact number when available.
 Lightweight "next ticket" notes for follow-up agents — graduate them to
 a dated entry above when shipped.
 
-#### Adaptive mutation sampler (§10 productivity)
+#### Contextual / hierarchical bandit over mutation rules
 
-The current `MutationCatalog` samples uniformly from the applicable
-rules.  After several iterations the loop has direct evidence about
-which rules tend to produce accepts.  A simple Beta-Bernoulli or UCB
-scheme over rules — keyed by `(class_name, param_name, rule_kind)` —
-would bias future samples toward rules with positive accept history
-while still exploring unfamiliar ones.
-
-Suggested implementation sketch:
-
-- Track `(n_attempts, n_accepts)` per rule key, persisted across loop
-  runs by the ledger reader.
-- Sample via Thompson sampling on a Beta(1+n_accepts,
-  1+n_attempts-n_accepts) prior, or UCB1 on the accept rate.
-- Cold-start: zero history → uniform sampling, identical to today.
+The Thompson sampler shipped 2026-05-01 treats every rule as an
+independent arm.  A natural upgrade is to share strength across
+rules that target the same heuristic class (one `Heuristic`-level
+posterior) or the same kind (`log_uniform_perturb` posteriors borrow
+strength across all classes).  Particularly valuable when the
+catalog grows beyond a handful of rules and per-rule data is sparse.
+Implementation: replace the flat `Dict[RuleKey, Stats]` with a
+hierarchical Beta-Binomial or Dirichlet-Multinomial prior; expose
+the grouping policy via the catalog itself.
 
 #### Stratified dimension sampling (§10 stability)
 

@@ -2,6 +2,66 @@
 
 ## Recent Improvements (continued)
 
+### Adaptive Mutation Sampler (Thompson Sampling) for Self-Improvement Loop (2026-05-01)
+- [x] **New `panobbgo.self_improve.AdaptiveMutationSampler`** — Thompson-
+      sampling bandit over per-rule Beta posteriors; closes the §10
+      "Adaptive mutation sampler" item in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  Each
+      :class:`MutationRule` becomes one arm whose reward is "iteration was
+      accepted"; on `sample()` the sampler draws one variate from
+      ``Beta(prior_alpha + n_accepts, prior_beta + n_attempts -
+      n_accepts)`` per applicable rule and picks the arg-max.  Inside the
+      chosen rule, hits are still selected uniformly (which spec / which
+      slot), exactly like the catalog's uniform sampler.
+  - **Why it matters.** The uniform catalog sampler shipped in Phase 5
+    wastes iterations on rules that never produce accepts.  Thompson
+    sampling concentrates probability on empirically winning rules
+    while still exploring under-tried rules — the standard fix for the
+    productivity gap of multi-armed bandit problems.  Cold-start
+    equivalence to uniform (Beta(1, 1) ≡ U(0, 1), arg-max of i.i.d.
+    uniforms is uniform) makes the upgrade strictly safe.
+  - **History persistence.** `prime_from_ledger(path)` replays
+    iteration records from a prior JSONL ledger so the bandit resumes
+    with all the meta-knowledge of which rules have worked so far —
+    directly supports unattended multi-hour loops.
+- [x] **`MutationRuleStats` dataclass + public `RuleKey` alias** —
+      JSON-serialisable per-rule accept/attempt history bucketed by
+      ``(class_name, param_name, rule_kind)``.
+- [x] **`LoopConfig` knobs** — `adaptive_sampling`,
+      `adaptive_prior_alpha`, `adaptive_prior_beta`,
+      `adaptive_prime_from_ledger`; all default to off / symmetric prior
+      so existing CLI invocations behave identically.  Negative or zero
+      priors raise at validation time.
+- [x] **`SelfImprover` integration** — accepts an explicit `sampler=`
+      keyword for tests; otherwise constructs the sampler from
+      `LoopConfig` when `adaptive_sampling=True`.  After each iteration's
+      accept/reject decision, the driver calls
+      ``sampler.record_outcome()`` so future samples are biased toward
+      winning rules.
+- [x] **CLI flags** `--adaptive`, `--adaptive-prior-alpha`,
+      `--adaptive-prior-beta`, `--adaptive-prime-from-ledger` on
+      `scripts/self_improve.py run`; the run summary prints per-rule
+      accept rates when the sampler is enabled.
+- [x] **23 new tests in `tests/test_self_improve.py`** (total 63):
+      invalid priors, cold-start uniform behaviour, arg-max bias toward
+      winning rules after biased training, record-outcome correctness
+      including no-op after `None` sample / skip iterations, ledger
+      priming (with guards / skips correctly ignored), `MutationRuleStats`
+      round-trip, `SelfImprover` integration with the `sampler=`
+      override, the `adaptive_prime_from_ledger` flag, and
+      `LoopConfig` validation.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §6 Phase-6 checklist marked
+    shipped; new §12 dated entry under iteration log;
+    "Next iteration ideas" reduced and gains a hierarchical-bandit
+    follow-up ticket.
+  - `doc/source/guide_benchmarking.rst`: new "Adaptive mutation sampler
+    (§10)" subsection with algorithm, CLI examples, programmatic
+    example, cold-start equivalence proof sketch.
+  - `AGENTS.md`: self-improvement loop subsection lists the adaptive
+    sampler with run-the-loop bash example.
+  - This TODO entry.
+
 ### Sobol' Quasi-Random Initial Design Heuristic (2026-04-27)
 - [x] **New `panobbgo/heuristics/sobol.py`** — `Sobol` heuristic, a one-shot
       low-discrepancy quasi-random sampler that produces space-filling initial

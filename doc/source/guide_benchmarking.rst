@@ -527,6 +527,82 @@ Programmatic use:
    )
    iter_records, guard_records = SelfImprover(cfg).run_with_guard_records()
 
+Adaptive mutation sampler (§10)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default the loop draws mutation rules uniformly at random from the
+applicable ones in :func:`~panobbgo.self_improve.default_catalog`.  In
+practice some rules (e.g. ``Nearby.radius``, ``CMAES.sigma0``) tend to
+produce accepts much more often than others, and uniform sampling
+wastes iterations on rules that never help.
+
+When ``LoopConfig.adaptive_sampling`` is enabled, the loop substitutes
+:class:`~panobbgo.self_improve.AdaptiveMutationSampler` — a
+**Thompson-sampling bandit** over per-rule Beta posteriors:
+
+1. For each mutation rule we maintain an accept/attempt counter
+   ``(n_accepts, n_attempts)``.  Skip iterations don't count.
+2. On every ``sample()`` call the sampler draws one variate from
+   ``Beta(prior_alpha + n_accepts, prior_beta + n_attempts -
+   n_accepts)`` per *applicable* rule.
+3. The arg-max of those variates wins — Thompson's
+   exploration/exploitation rule.
+4. After the iteration, the loop calls ``record_outcome(accepted)``
+   which updates the chosen rule's counters.
+
+Cold-start equivalence to uniform.  With the default symmetric prior
+:math:`\\mathrm{Beta}(1, 1)`, every posterior is :math:`\\mathrm{U}(0,
+1)` and the arg-max of i.i.d. uniforms is itself uniform — so the very
+first sample is statistically indistinguishable from
+:meth:`~panobbgo.self_improve.MutationCatalog.sample`.  Flipping the
+flag on a fresh ledger is therefore safe; behaviour diverges from
+uniform only as evidence accumulates.
+
+Resuming a long run.  Setting
+``LoopConfig.adaptive_prime_from_ledger = True`` replays accept
+history from any existing JSONL ledger before the first iteration.
+Useful when restarting a multi-hour loop after a crash or a manual
+stop — the bandit resumes with all the meta-knowledge of which rules
+have worked so far.
+
+CLI:
+
+.. code-block:: bash
+
+   # Adaptive sampler with the default symmetric prior, primed from any
+   # ledger sitting at the default path
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --adaptive --adaptive-prime-from-ledger
+
+   # Greedier prior for shorter exploratory loops
+   uv run python scripts/self_improve.py run --iterations 20 \
+       --adaptive --adaptive-prior-alpha 0.5 --adaptive-prior-beta 0.5
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover
+
+   cfg = LoopConfig(
+       iterations=100,
+       mode="standard",
+       adaptive_sampling=True,
+       adaptive_prior_alpha=1.0,
+       adaptive_prior_beta=1.0,
+       adaptive_prime_from_ledger=True,  # learn from prior runs
+       guard_interval=10,
+   )
+   improver = SelfImprover(cfg)
+   improver.run()
+
+   # Inspect the bandit afterwards.
+   for stats in improver.sampler.stats_snapshot():
+       print(stats.rule_key, stats.n_accepts, "/", stats.n_attempts)
+
+The sampler is **off by default** (``adaptive_sampling = False``) for
+backward compatibility.
+
 
 Extending the harness
 ---------------------

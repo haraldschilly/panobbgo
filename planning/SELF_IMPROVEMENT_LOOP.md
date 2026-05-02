@@ -110,7 +110,7 @@ Given a base problem `P` (e.g. Rastrigin), each harness run samples a
 | Rotation      | random orthogonal `Q ∈ O(d)`             | breaks axis-aligned local search advantage |
 | Scaling       | diagonal `Λ`, `log₁₀ cond ∼ U[0, 4]`     | stresses second-order / ill-conditioning   |
 | Noise         | `f̃(x) = f(x) + σ·ε`, `σ ∈ {0, 1e-3, 1e-2}` | matches noisy black-box use case           |
-| Dimension     | `d ∼ choice({2, 5, 10})`                 | prevents per-dim overfit                   |
+| Dimension     | cyclic stratification over `dim_choices` (rep `i` → `dim_choices[i % k]`) | prevents per-dim overfit *and* dim-mix variance — see §10 |
 | Box shift     | box translated with optimum              | the optimum is not at a corner             |
 
 Not every problem supports every transform (Schwefel's optimum is
@@ -387,8 +387,18 @@ Each phase is independently deliverable and keeps the framework usable.
       when resuming a long run.
 - [ ] Broaden the mutation space (strategy portfolio composition,
       analyzer add/drop — §7 items 2–3).
-- [ ] Stratified dimension sampling (§10) for cross-iteration score
-      stability.
+- [x] Stratified dimension sampling (§10) for cross-iteration score
+      stability — shipped 2026-05-02 as
+      :attr:`panobbgo.harness_randomized.ProblemFamily.stratify_dims`
+      (default ``True``) and
+      :meth:`ProblemFamily.stratified_dim_for_rep`.
+      :class:`RandomizedProblemSpec.create_problem_for_rep` now assigns
+      dims cyclically by ``rep`` (rep ``i`` → ``dim_choices[i % k]``)
+      so any contiguous block of ``k`` reps covers every dim exactly
+      once.  Single-dim families are unaffected.  Tests in
+      ``tests/test_harness_randomized.py::TestStratifiedDims`` /
+      ``TestStratifiedSampleInstance`` /
+      ``TestStratifiedRandomizedSpec``.
 - [ ] Connect the loop to CI (nightly run on a dedicated runner).
 - [ ] Publish the ladder in the docs.
 
@@ -409,7 +419,11 @@ Each phase is independently deliverable and keeps the framework usable.
 - **Composite score stability across dimension sampling.** If we sample
   `d ∈ {2, 5, 10}` we need to *stratify* (same mix of dimensions on both
   sides of the comparison) or the score will be dominated by whichever
-  dimension happened to be sampled more.
+  dimension happened to be sampled more.  **Resolved 2026-05-02** via
+  :attr:`panobbgo.harness_randomized.ProblemFamily.stratify_dims` —
+  multi-dim families now assign dims cyclically by ``rep`` so any
+  contiguous block of ``len(dim_choices)`` reps covers every declared
+  dim exactly once.  See the §12 entry below.
 - **Coordination with `simplify`, `review`, `security-review`.** The loop
   should not run alongside a human PR — race conditions on the branch
   would be ugly. A simple lockfile suffices.
@@ -435,6 +449,54 @@ This section records direct algorithmic improvements applied to Panobbgo
 *outside* of the autonomous loop, so the human-in-the-loop history stays
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
+
+### 2026-05-02 — Stratified dimension sampling for multi-dim families
+
+* **What** — `panobbgo/harness_randomized.py`:
+  :class:`ProblemFamily` gains a ``stratify_dims: bool = True`` field and
+  a :meth:`stratified_dim_for_rep` helper that returns
+  ``dim_choices[rep % k]``.  :meth:`ProblemFamily.sample_instance` now
+  accepts an optional ``dim`` override so callers can pin the dim
+  without consuming the rng's ``choice`` slot.
+  :meth:`RandomizedProblemSpec.create_problem_for_rep` calls
+  ``stratified_dim_for_rep(rep)`` for multi-dim families with
+  ``stratify_dims=True`` (the default) and falls back to the rng's
+  ``choice`` otherwise.  ``last_sampled_params()`` now reports a
+  ``stratified_dim: bool`` flag for ledger introspection.
+* **Why** — closes the §10 *Composite score stability across dimension
+  sampling* item.  Without stratification, a multi-dim family with
+  ``dim_choices = (2, 5, 10)`` and 5 reps could draw, say, three
+  ``dim=2`` instances on iteration 5 and three ``dim=10`` instances on
+  iteration 6.  Higher-dim instances are systematically harder, so a
+  per-iteration composite delta picks up dim-mix noise on top of the
+  signal of the underlying mutation, polluting the bootstrap CI on
+  which §6.2 acceptance depends.  Cyclic stratification (rep ``i`` →
+  ``dim_choices[i % k]``) makes any contiguous block of ``k`` reps
+  cover every declared dim exactly once, eliminating that noise source
+  by construction without changing the per-iteration eval count.
+* **Impact** — purely a measurement-noise improvement: the default
+  battery of families all use ``dim_choices=(2,)`` (single dim), so
+  this change is a no-op for the byte-level reproducibility of the
+  current standard mode.  The benefit materialises when users (or the
+  loop) declare multi-dim families — e.g. via
+  ``HarnessConfig.extra_families`` — at which point the cross-iteration
+  variance of the composite drops by roughly ``Var(dim_mix)`` (the
+  fraction of total variance attributable to which dim was sampled,
+  typically a substantial slice for hard families like Rosenbrock).
+* **Backwards compatibility** — strictly safe.  Single-dim families
+  (the entire default battery) are unaffected because the cyclic
+  schedule degenerates to a constant.  The public :class:`ProblemFamily`
+  signature gains a new keyword-only field with a default; existing
+  ``ProblemFamily(...)`` callers keep working byte-identically.  The
+  ``stratify_dims=False`` path preserves the previous behaviour for
+  anyone who needs it (e.g. for replicating an old ledger).
+* **Tests** — `tests/test_harness_randomized.py` (16 new tests, total
+  68): cyclic schedule correctness, balance over a complete cycle,
+  imbalance bound on partial cycles, single-dim no-op, dim-override
+  validation, rng-stream invariance proof (override does not consume
+  the choice slot), end-to-end :class:`RandomizedProblemSpec` round
+  trip, ``last_sampled_params`` flag round trip, and the contract that
+  default families remain unchanged.
 
 ### 2026-05-01 — Adaptive mutation sampler (Thompson sampling)
 
@@ -544,14 +606,18 @@ Implementation: replace the flat `Dict[RuleKey, Stats]` with a
 hierarchical Beta-Binomial or Dirichlet-Multinomial prior; expose
 the grouping policy via the catalog itself.
 
-#### Stratified dimension sampling (§10 stability)
+#### Multi-dim default battery (now that stratification is shipped)
 
-When a `ProblemFamily` declares `dim_choices = (2, 5, 10)`, the current
-sampler draws one dim per instance.  Across iterations this dilutes the
-composite score with a different mix of dims each time, so
-cross-iteration deltas pick up dim-mix noise.  Stratify by running
-`ceil(reps / k)` reps per dim and averaging — same compute, much
-lower noise.
+Stratified dimension sampling shipped 2026-05-02.  The default battery
+in :func:`panobbgo.harness_randomized.make_default_families` still uses
+``dim_choices=(2,)`` everywhere because expanding it would shift the
+historical composite score baseline.  A natural follow-up is to add a
+``make_default_families_multidim()`` factory (or a `--dim-mix` CLI
+flag) that ships ``dim_choices=(2, 5, 10)`` for Rastrigin / Ackley /
+DeJong, exposing the new stratification and giving the loop a richer
+generalisation signal.  Needs an architectural decision record because
+the resulting composite is not directly comparable to the existing
+ladder.
 
 #### Strategy portfolio composition (§7.2)
 

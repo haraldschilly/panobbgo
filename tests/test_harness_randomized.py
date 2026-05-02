@@ -497,3 +497,209 @@ class TestHarnessRandomize:
         for fam in make_default_families():
             for t in fam.supported_transforms:
                 assert t in SUPPORTED_TRANSFORMS
+
+
+# ===========================================================================
+# 6. Stratified dimension sampling (§10 of SELF_IMPROVEMENT_LOOP.md)
+# ===========================================================================
+
+
+class TestStratifiedDims:
+    """``stratify_dims=True`` (the default) gives a balanced cyclic schedule.
+
+    Without stratification, multi-dim families inject dim-mix sampling
+    noise into cross-iteration deltas: a "lucky" iteration that happens to
+    draw extra reps at the easier dim looks better than a "lucky" iteration
+    that draws extra reps at the harder dim, even if the underlying optimizer
+    is unchanged.  Cyclic stratification (rep ``i`` gets ``dim_choices[i %
+    k]``) makes any contiguous block of ``k`` reps cover every declared dim
+    exactly once.
+    """
+
+    def test_default_is_stratified(self):
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        assert fam.stratify_dims is True
+
+    def test_stratified_dim_for_rep_cycles(self):
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        # Rep 0..2 covers every dim once; rep 3 wraps around to dim_choices[0].
+        assert fam.stratified_dim_for_rep(0) == 2
+        assert fam.stratified_dim_for_rep(1) == 3
+        assert fam.stratified_dim_for_rep(2) == 5
+        assert fam.stratified_dim_for_rep(3) == 2
+        assert fam.stratified_dim_for_rep(7) == 3
+
+    def test_stratified_dim_single_choice_constant(self):
+        fam = ProblemFamily(name="single", base_class=DeJong, dim_choices=(4,))
+        for rep in range(8):
+            assert fam.stratified_dim_for_rep(rep) == 4
+
+    def test_negative_rep_raises(self):
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3))
+        with pytest.raises(ValueError):
+            fam.stratified_dim_for_rep(-1)
+
+    def test_balanced_distribution_over_block(self):
+        # A contiguous block of k*N reps covers every dim N times.
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        block_size = 12  # 4 cycles
+        from collections import Counter
+
+        counts = Counter(fam.stratified_dim_for_rep(rep) for rep in range(block_size))
+        assert counts[2] == 4
+        assert counts[3] == 4
+        assert counts[5] == 4
+
+    def test_partial_block_imbalance_at_most_one(self):
+        # If reps is not a multiple of k, the imbalance is at most 1.
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        from collections import Counter
+
+        counts = Counter(fam.stratified_dim_for_rep(rep) for rep in range(7))
+        assert max(counts.values()) - min(counts.values()) <= 1
+
+
+class TestStratifiedSampleInstance:
+    """``ProblemFamily.sample_instance`` accepts a ``dim`` override."""
+
+    def test_dim_override_honoured(self):
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        rng = np.random.default_rng(0)
+        prob, params = fam.sample_instance(rng, dim=5)
+        assert prob.dim == 5
+        assert params["dim"] == 5
+
+    def test_dim_override_must_be_in_choices(self):
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3))
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="not in dim_choices"):
+            fam.sample_instance(rng, dim=4)
+
+    def test_no_override_uses_random_choice(self):
+        # With dim=None and multiple choices, the rng draws the dim.  Two
+        # different rngs with different streams yield (potentially) different
+        # dims; we just check that some dim from the choices is selected.
+        fam = ProblemFamily(name="multidim", base_class=DeJong, dim_choices=(2, 3, 5))
+        from collections import Counter
+
+        seen = Counter()
+        for s in range(40):
+            rng = np.random.default_rng(s)
+            _, params = fam.sample_instance(rng, dim=None)
+            seen[params["dim"]] += 1
+        # Every dim chosen at least once over 40 draws (probability ~ 1).
+        assert set(seen) == {2, 3, 5}
+
+    def test_override_does_not_consume_rng_for_dim_choice(self):
+        # When dim is provided, rng.choice(dim_choices) is not called, so the
+        # *remaining* sequence of random draws (translation, rotation, …)
+        # matches what you'd get from a fresh rng of the same seed when the
+        # family is single-dim.  Concretely: the first translation sample
+        # under (dim=2 override, dim_choices=(2, 3)) equals the translation
+        # sample under (dim_choices=(2,)) at the same seed.
+        fam_multi = ProblemFamily(
+            name="multi",
+            base_class=DeJong,
+            dim_choices=(2, 3),
+            supported_transforms={"translate"},
+        )
+        fam_single = ProblemFamily(
+            name="single",
+            base_class=DeJong,
+            dim_choices=(2,),
+            supported_transforms={"translate"},
+        )
+        rng_a = np.random.default_rng(42)
+        rng_b = np.random.default_rng(42)
+        _, params_a = fam_multi.sample_instance(rng_a, dim=2)
+        _, params_b = fam_single.sample_instance(rng_b, dim=None)
+        np.testing.assert_allclose(params_a["translation"], params_b["translation"])
+
+
+class TestStratifiedRandomizedSpec:
+    """End-to-end: ``RandomizedProblemSpec`` honours stratified scheduling."""
+
+    def _multi_family(self, stratify=True):
+        return ProblemFamily(
+            name="multi_dejong",
+            base_class=DeJong,
+            dim_choices=(2, 3, 5),
+            supported_transforms={"translate"},
+            stratify_dims=stratify,
+        )
+
+    def test_stratified_spec_assigns_dim_by_rep(self):
+        fam = self._multi_family(stratify=True)
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
+        for rep, expected_dim in enumerate([2, 3, 5, 2, 3, 5]):
+            problem = spec.create_problem_for_rep(rep)
+            assert problem.dim == expected_dim
+            params = spec.last_sampled_params()
+            assert params is not None
+            assert params["dim"] == expected_dim
+            assert params["stratified_dim"] is True
+
+    def test_unstratified_spec_draws_from_rng(self):
+        # When stratify_dims is off, the dim is drawn from the rng (so it may
+        # repeat across consecutive reps) and the param flag is False.
+        fam = self._multi_family(stratify=False)
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
+        dims_seen = []
+        for rep in range(20):
+            problem = spec.create_problem_for_rep(rep)
+            dims_seen.append(problem.dim)
+            params = spec.last_sampled_params()
+            assert params is not None
+            assert params["stratified_dim"] is False
+        # Every dim is drawn at least once over 20 reps (probability ~ 1).
+        assert set(dims_seen) == {2, 3, 5}
+
+    def test_stratified_balanced_over_block(self):
+        # A contiguous block of k reps covers every dim once.
+        fam = self._multi_family(stratify=True)
+        spec = RandomizedProblemSpec(fam, iteration_id=11, base_seed=42, max_evaluations=100)
+        from collections import Counter
+
+        counts = Counter(spec.create_problem_for_rep(rep).dim for rep in range(9))
+        assert counts == Counter({2: 3, 3: 3, 5: 3})
+
+    def test_stratified_reproducible_across_specs(self):
+        # The before/after contract still holds: identical iteration_id +
+        # rep gives identical instances.
+        fam = self._multi_family(stratify=True)
+        s1 = RandomizedProblemSpec(fam, iteration_id=5, base_seed=42, max_evaluations=100)
+        s2 = RandomizedProblemSpec(fam, iteration_id=5, base_seed=42, max_evaluations=100)
+        for rep in range(6):
+            p1 = s1.create_problem_for_rep(rep)
+            p2 = s2.create_problem_for_rep(rep)
+            assert p1.dim == p2.dim
+            np.testing.assert_allclose(p1.optimum, p2.optimum)
+
+    def test_single_dim_unaffected_by_flag(self):
+        # When the family has only one dim, stratify_dims is a no-op:
+        # every rep has the same dim and the flag is reported False because
+        # stratification is bypassed for trivial single-dim families.
+        fam = ProblemFamily(
+            name="single",
+            base_class=DeJong,
+            dim_choices=(3,),
+            supported_transforms={"translate"},
+            stratify_dims=True,
+        )
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
+        for rep in range(4):
+            problem = spec.create_problem_for_rep(rep)
+            assert problem.dim == 3
+            params = spec.last_sampled_params()
+            assert params is not None
+            # No stratification scheduling for trivial single-dim families.
+            assert params["stratified_dim"] is False
+
+    def test_default_families_unchanged(self):
+        # All default families ship with single dim, so stratification is a
+        # no-op and the behaviour is identical to before this feature.
+        for fam in make_default_families():
+            assert len(fam.dim_choices) == 1
+            spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=42, max_evaluations=100)
+            problem = spec.create_problem_for_rep(0)
+            assert problem.dim == fam.dim_choices[0]

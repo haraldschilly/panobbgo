@@ -393,6 +393,16 @@ class ProblemFamily:
         dim_choices: Dimensions the sampler may draw from.  Using a single
             dimension gives a stratified battery; a multi-element tuple
             samples a dimension per instance.
+        stratify_dims: When ``True`` (default) and ``len(dim_choices) > 1``,
+            :class:`RandomizedProblemSpec` assigns dims **cyclically** by
+            ``rep`` (rep ``i`` gets ``dim_choices[i % k]``) so any
+            contiguous block of ``k`` reps covers every dim exactly once.
+            This eliminates dim-mix variance across iterations of the
+            self-improvement loop — see §10 of
+            ``planning/SELF_IMPROVEMENT_LOOP.md``.  When ``False``, the
+            dim is drawn uniformly from ``dim_choices`` per instance,
+            which dilutes cross-iteration deltas with sampling noise.
+            Single-dim families are unaffected by this flag.
         supported_transforms: Subset of :data:`SUPPORTED_TRANSFORMS`.
         tolerance: Success tolerance for ``func_distance`` in the harness.
         log10_cond_max: Ceiling on :math:`\\log_{10} \\kappa` when
@@ -410,6 +420,7 @@ class ProblemFamily:
     y_base_star: Optional[Sequence[float]] = None
     f_opt: float = 0.0
     dim_choices: Tuple[int, ...] = (2,)
+    stratify_dims: bool = True
     supported_transforms: Set[str] = field(default_factory=lambda: {"translate", "rotate", "scale"})
     tolerance: float = 0.1
     log10_cond_max: float = 2.0
@@ -428,10 +439,47 @@ class ProblemFamily:
             return self.base_factory(dim, rng)
         return self.base_class(dims=dim)
 
-    def sample_instance(self, rng: np.random.Generator) -> Tuple[TransformedProblem, Dict[str, Any]]:
-        """Draw one transformed instance and its parameter record."""
+    def stratified_dim_for_rep(self, rep: int) -> int:
+        """Return the dim assigned to rep ``rep`` under cyclic stratification.
+
+        Cycles through :attr:`dim_choices` so that any contiguous block of
+        ``len(dim_choices)`` reps covers every declared dimension exactly
+        once.  When ``len(dim_choices) == 1`` the result is the constant
+        family dim.  See §10 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+        Args:
+            rep: Non-negative repetition index.
+
+        Returns:
+            The assigned dim as a Python ``int``.
+        """
+        if rep < 0:
+            raise ValueError(f"rep must be non-negative, got {rep}")
+        return int(self.dim_choices[rep % len(self.dim_choices)])
+
+    def sample_instance(
+        self,
+        rng: np.random.Generator,
+        dim: Optional[int] = None,
+    ) -> Tuple[TransformedProblem, Dict[str, Any]]:
+        """Draw one transformed instance and its parameter record.
+
+        Args:
+            rng: Numpy generator used for *all* random choices in this
+                instance (translation, rotation, scaling, noise seed).
+            dim: Optional dimension override.  When ``None`` (default),
+                the dim is drawn from :attr:`dim_choices` (constant for
+                single-dim families, uniform draw for multi-dim).
+                Stratified callers (e.g. :class:`RandomizedProblemSpec`)
+                pass an explicit dim so the rng is not consumed by the
+                dim choice and the stratified schedule is honoured.
+        """
         # Choose a dimension.
-        if len(self.dim_choices) == 1:
+        if dim is not None:
+            dim = int(dim)
+            if dim not in self.dim_choices:
+                raise ValueError(f"family {self.name!r}: dim={dim} is not in dim_choices={self.dim_choices}")
+        elif len(self.dim_choices) == 1:
             dim = int(self.dim_choices[0])
         else:
             dim = int(rng.choice(self.dim_choices))
@@ -553,12 +601,23 @@ class RandomizedProblemSpec(ProblemSpec):
         )
 
     def create_problem_for_rep(self, rep: int) -> TransformedProblem:
-        """Sample a fresh instance for the given repetition."""
+        """Sample a fresh instance for the given repetition.
+
+        For multi-dim families with :attr:`ProblemFamily.stratify_dims`
+        enabled, the dim is assigned cyclically by ``rep`` so any
+        contiguous block of ``len(dim_choices)`` reps covers every
+        declared dim exactly once.  Single-dim families are unaffected.
+        """
         seed = derive_instance_seed(self.base_seed, self.iteration_id, self.family.name, rep)
         rng = np.random.default_rng(seed)
-        problem, params = self.family.sample_instance(rng)
+        if self.family.stratify_dims and len(self.family.dim_choices) > 1:
+            dim_override: Optional[int] = self.family.stratified_dim_for_rep(rep)
+        else:
+            dim_override = None
+        problem, params = self.family.sample_instance(rng, dim=dim_override)
         params["seed"] = seed
         params["rep"] = rep
+        params["stratified_dim"] = dim_override is not None
         self._last_sampled_params = params
         return problem
 

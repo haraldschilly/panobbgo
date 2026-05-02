@@ -2,6 +2,58 @@
 
 ## Recent Improvements (continued)
 
+### Stratified Dimension Sampling for Multi-Dim Families (2026-05-02)
+- [x] **`panobbgo.harness_randomized.ProblemFamily.stratify_dims`** —
+      new bool field (default ``True``) that enables cyclic dim
+      stratification for multi-dim families.  Closes the §10 "Composite
+      score stability across dimension sampling" open question in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.
+- [x] **`ProblemFamily.stratified_dim_for_rep(rep)`** — returns
+      ``dim_choices[rep % len(dim_choices)]``, so any contiguous block
+      of ``k`` reps covers every declared dim exactly once.
+- [x] **`ProblemFamily.sample_instance(rng, dim=None)`** — now accepts
+      an optional dim override.  Stratified callers pin the dim
+      explicitly, so the rng's ``choice`` slot is not consumed and the
+      remaining stream (translation, rotation, scaling, noise seed)
+      stays comparable to a single-dim family at the same seed.
+- [x] **`RandomizedProblemSpec.create_problem_for_rep(rep)`** — calls
+      ``stratified_dim_for_rep(rep)`` for multi-dim families with
+      ``stratify_dims=True`` and falls back to the rng draw otherwise.
+      ``last_sampled_params()`` now exposes a ``stratified_dim: bool``
+      flag for ledger introspection.
+- [x] **Why it matters.** Without stratification, a family with
+      ``dim_choices = (2, 5, 10)`` and 5 reps could draw three ``dim=2``
+      instances on iteration 5 and three ``dim=10`` instances on
+      iteration 6.  Higher-dim instances are systematically harder, so
+      a per-iteration composite delta picks up dim-mix noise on top of
+      the actual signal of the underlying mutation, polluting the
+      bootstrap CI in :func:`panobbgo.harness.statistical_accept`.
+      Cyclic stratification eliminates that noise source by construction
+      without changing the per-iteration eval count.
+- [x] **Backwards compatibility.** The entire default battery from
+      :func:`make_default_families` uses ``dim_choices=(2,)``, so
+      stratification is a no-op for byte-level reproducibility of the
+      current standard mode.  ``stratify_dims=False`` recovers the
+      legacy uniform-draw behaviour for users replicating an old ledger.
+- [x] **16 new tests in `tests/test_harness_randomized.py`** (total 68):
+      cyclic schedule correctness, balance over a complete cycle,
+      imbalance bound on partial cycles, single-dim no-op, dim-override
+      validation, rng-stream invariance proof (override does not consume
+      the choice slot), end-to-end :class:`RandomizedProblemSpec` round
+      trip, ``last_sampled_params`` flag round trip, and the contract
+      that default families remain unchanged.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §10 stability item resolved;
+    Phase 6 checklist updated; new §12 dated entry under iteration log;
+    stratification clause added to the §4.1 transforms table; Next
+    iteration ideas now lists a "multi-dim default battery" follow-up.
+  - `doc/source/guide_benchmarking.rst`: new "Stratified dimension
+    sampling" subsection with the cyclic schedule example and the
+    ``stratify_dims=False`` escape hatch.
+  - `AGENTS.md`: stratification clause in the parametric battery
+    section.
+  - This TODO entry.
+
 ### Adaptive Mutation Sampler (Thompson Sampling) for Self-Improvement Loop (2026-05-01)
 - [x] **New `panobbgo.self_improve.AdaptiveMutationSampler`** — Thompson-
       sampling bandit over per-rule Beta posteriors; closes the §10

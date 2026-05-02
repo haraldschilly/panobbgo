@@ -128,6 +128,16 @@ uv run python benchmark_harness.py compare rand_before.json rand_after.json --st
 reproduces the *same* sampled instances, so ``before`` and ``after`` runs
 line up; different iterations intentionally draw different instances.
 
+Multi-dim families (``dim_choices`` with more than one element) ship with
+``stratify_dims=True`` by default, so the dim assigned to rep ``i`` is
+``dim_choices[i % k]`` — any contiguous block of ``k`` reps covers every
+declared dim exactly once.  This eliminates dim-mix variance in the
+composite delta (the bootstrap CI from ``--statistical`` would otherwise
+pick up the noise of "this iteration happened to draw more 5-D
+instances").  Single-dim families (the entire default battery) are
+unaffected.  See :class:`panobbgo.harness_randomized.ProblemFamily` and
+``planning/SELF_IMPROVEMENT_LOOP.md`` §10.
+
 ### Key files
 
 *   `panobbgo/harness.py` — `BenchmarkHarness` class, metrics, serialization, `compare()`, and `statistical_accept()` (bootstrap-CI acceptance rule)

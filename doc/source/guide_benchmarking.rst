@@ -364,6 +364,43 @@ Schwefel's optimum sits near the box boundary and Griewank's oscillation
 couples tightly to the coordinate axes, so rotation pushes ``y`` off the
 function's sensible domain.
 
+Stratified dimension sampling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a :class:`~panobbgo.harness_randomized.ProblemFamily` declares
+``dim_choices = (2, 5, 10)``, naive random selection would produce a
+different mix of dimensions on each loop iteration — and since
+higher-dim instances are systematically harder, that mix-noise
+contaminates the cross-iteration deltas the bootstrap CI in
+:func:`panobbgo.harness.statistical_accept` (§6.2 of the
+self-improvement loop) operates on.
+
+The default ``stratify_dims=True`` flag eliminates that noise source by
+construction.
+:meth:`~panobbgo.harness_randomized.ProblemFamily.stratified_dim_for_rep`
+assigns the dim **cyclically** by repetition index so any contiguous
+block of ``len(dim_choices)`` reps covers every declared dim exactly
+once:
+
+.. code-block:: python
+
+   from panobbgo.harness_randomized import ProblemFamily
+   from panobbgo.lib.classic import DeJong
+
+   fam = ProblemFamily(name="dejong3", base_class=DeJong,
+                       dim_choices=(2, 5, 10))  # stratify_dims=True
+   [fam.stratified_dim_for_rep(rep) for rep in range(7)]
+   # → [2, 5, 10, 2, 5, 10, 2]
+
+When the family's dim-choice tuple has only one element (the default
+battery), stratification is a no-op and the per-rep dim is constant.
+For backwards compatibility with older ledgers, set
+``stratify_dims=False`` to recover the legacy uniform-draw behaviour.
+
+The result of a stratified sample is reflected in
+``RandomizedProblemSpec.last_sampled_params()`` via a
+``stratified_dim: bool`` field, useful for ledger introspection.
+
 Reproducibility
 ~~~~~~~~~~~~~~~
 

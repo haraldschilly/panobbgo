@@ -63,8 +63,10 @@ from panobbgo.self_improve import (
     MutationRule,
     MutationRuleStats,
     SelfImprover,
+    StructuralMutationRule,
     apply_mutation,
     default_catalog,
+    default_structural_catalog,
     load_ledger,
 )
 
@@ -1368,3 +1370,548 @@ class TestLoopConfigAdaptive:
         assert cfg.adaptive_prior_alpha == 1.0
         assert cfg.adaptive_prior_beta == 1.0
         assert cfg.adaptive_prime_from_ledger is False
+
+
+# ===========================================================================
+# StructuralMutationRule (§7.2 — strategy portfolio composition)
+# ===========================================================================
+
+
+class _NewHeuristicX:
+    """A class not yet present in :func:`_make_specs` — usable as an add target."""
+
+    pass
+
+
+class _NewHeuristicY:
+    """Second add-target so add_heuristic has a non-trivial pool to pick from."""
+
+    pass
+
+
+class TestStructuralMutationRule:
+    def test_unknown_op_raises(self):
+        with pytest.raises(ValueError, match="Unknown structural op"):
+            StructuralMutationRule(strategy_pattern="", op="rename_heuristic")
+
+    def test_min_heuristics_below_one_raises(self):
+        with pytest.raises(ValueError, match="min_heuristics"):
+            StructuralMutationRule(strategy_pattern="", op="drop_heuristic", min_heuristics=0)
+
+    def test_non_positive_probability_raises(self):
+        with pytest.raises(ValueError, match="probability"):
+            StructuralMutationRule(strategy_pattern="", op="drop_heuristic", probability=0.0)
+
+    def test_add_requires_candidates(self):
+        with pytest.raises(ValueError, match="candidate_classes"):
+            StructuralMutationRule(strategy_pattern="", op="add_heuristic", candidate_classes=())
+
+    def test_drop_does_not_require_candidates(self):
+        # Construction should not raise; drop allows empty candidate pool.
+        rule = StructuralMutationRule(strategy_pattern="", op="drop_heuristic")
+        assert rule.candidate_classes == ()
+
+    def test_rule_key_collapses_by_op(self):
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}),),
+        )
+        rule_drop = StructuralMutationRule(strategy_pattern="", op="drop_heuristic")
+        assert rule_add.rule_key() == ("*", "add_heuristic", "structural")
+        assert rule_drop.rule_key() == ("*", "drop_heuristic", "structural")
+
+
+class TestStructuralCatalogSampling:
+    def _add_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_heuristic",
+                    candidate_classes=((_NewHeuristicX, {"k": 7}), (_NewHeuristicY, {})),
+                    avoid_duplicates=True,
+                ),
+            ]
+        )
+
+    def _drop_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=1,
+                ),
+            ]
+        )
+
+    def test_add_proposal_carries_op_and_kwargs(self):
+        cat = self._add_catalog()
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.op == "add_heuristic"
+        assert prop.rule_kind == "add_heuristic"
+        assert prop.class_name in {"_NewHeuristicX", "_NewHeuristicY"}
+        assert isinstance(prop.structural_kwargs, dict)
+        # When the chosen class has default kwargs, they round-trip.
+        if prop.class_name == "_NewHeuristicX":
+            assert prop.structural_kwargs == {"k": 7}
+
+    def test_avoid_duplicates_skips_existing_classes(self):
+        # Add a spec that already contains _NewHeuristicX; avoid_duplicates
+        # should yield only _NewHeuristicY for that strategy.
+        specs = [
+            StrategySpec(
+                name="StratZ",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_NewHeuristicX, {})],
+            ),
+        ]
+        cat = self._add_catalog()
+        rng = np.random.default_rng(0)
+        # With avoid_duplicates, every sample must pick _NewHeuristicY.
+        for _ in range(20):
+            prop = cat.sample(rng, specs)
+            assert prop is not None
+            assert prop.class_name == "_NewHeuristicY"
+
+    def test_drop_proposal_targets_existing_class(self):
+        cat = self._drop_catalog()
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.op == "drop_heuristic"
+        assert prop.rule_kind == "drop_heuristic"
+        # StratX has _DummyHeuristicA and _DummyHeuristicB; StratY only A.
+        assert prop.class_name in {"_DummyHeuristicA", "_DummyHeuristicB"}
+
+    def test_drop_respects_min_heuristics_floor(self):
+        # ``min_heuristics`` is the floor *after* dropping (the spec
+        # always keeps that many).  With the floor at 1, StratX (2
+        # heuristics → 1) qualifies but StratY (1 → 0) does not.
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=1,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        for _ in range(30):
+            prop = cat.sample(rng, _make_specs())
+            assert prop is not None
+            assert prop.strategy_name == "StratX"
+
+    def test_drop_min_heuristics_two_requires_three_to_drop(self):
+        """min_heuristics=2 means at-least-2-remain; the spec must have ≥3 to start."""
+        fat_specs = [
+            StrategySpec(
+                name="Big",
+                strategy_class=_DummyStrategy,
+                heuristics=[
+                    (_DummyHeuristicA, {"radius": 0.1}),
+                    (_DummyHeuristicB, {"sigma0": 0.3}),
+                    (_NewHeuristicX, {}),
+                ],
+            ),
+            # A 2-heuristic spec — *not* eligible because dropping breaches
+            # the post-drop floor of 2.
+            StrategySpec(
+                name="Small",
+                strategy_class=_DummyStrategy,
+                heuristics=[
+                    (_DummyHeuristicA, {}),
+                    (_DummyHeuristicB, {}),
+                ],
+            ),
+        ]
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=2,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            prop = cat.sample(rng, fat_specs)
+            assert prop is not None
+            assert prop.strategy_name == "Big"
+
+    def test_drop_returns_none_when_no_strategy_qualifies(self):
+        # Every strategy has only one heuristic → min_heuristics=2 forbids drops.
+        skinny_specs = [
+            StrategySpec(
+                name="OnlyOne",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+            ),
+        ]
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=2,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        assert cat.sample(rng, skinny_specs) is None
+
+    def test_droppable_classes_filter(self):
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    droppable_classes=("_DummyHeuristicB",),
+                    min_heuristics=1,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        for _ in range(10):
+            prop = cat.sample(rng, _make_specs())
+            assert prop is not None
+            assert prop.class_name == "_DummyHeuristicB"
+
+    def test_strategy_pattern_filters_structural(self):
+        # Two strategies that both have ≥2 heuristics; the rule's
+        # ``strategy_pattern`` filters down to "StratX" only.
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="StratX",
+                    op="drop_heuristic",
+                    min_heuristics=1,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        for _ in range(10):
+            prop = cat.sample(rng, _make_specs())
+            assert prop is not None
+            assert prop.strategy_name == "StratX"
+
+    def test_kwarg_default_kwargs_are_independent_per_hit(self):
+        """The catalog must not share mutable kwargs dicts across proposals."""
+        cat = self._add_catalog()
+        rng = np.random.default_rng(0)
+        proposals = [cat.sample(rng, _make_specs()) for _ in range(20)]
+        x_proposals = [p for p in proposals if p is not None and p.class_name == "_NewHeuristicX"]
+        if not x_proposals:
+            pytest.skip("rng never picked _NewHeuristicX in this seed")
+        # Mutating one structural_kwargs must not leak into others.
+        x_proposals[0].structural_kwargs["k"] = 999
+        for p in x_proposals[1:]:
+            assert p.structural_kwargs["k"] == 7
+
+
+class TestStructuralApplyMutation:
+    def test_add_appends_to_heuristics(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_NewHeuristicX",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_heuristic",
+            rationale="t",
+            op="add_heuristic",
+            structural_kwargs={"k": 3},
+        )
+        # Stub out the heuristics-package lookup by monkey-patching the
+        # name into the spec's existing classes — apply_mutation will find
+        # it there before falling back to the package import.
+        specs[0] = StrategySpec(
+            name="StratX",
+            strategy_class=_DummyStrategy,
+            heuristics=[
+                (_DummyHeuristicA, {"radius": 0.1}),
+                (_NewHeuristicX, {}),  # a sibling we can drop later, but here just for type lookup
+            ],
+        )
+        out = apply_mutation(specs, proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert any(cls is _NewHeuristicX and kw == {"k": 3} for cls, kw in new_x.heuristics)
+        # Original spec untouched.
+        assert len(specs[0].heuristics) == 2
+
+    def test_add_falls_back_to_heuristics_package(self):
+        # Use a real class from panobbgo.heuristics so the package-import
+        # fallback path is exercised.
+        from panobbgo.heuristics import Random
+
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"radius": 0.1})],
+            ),
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Random",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_heuristic",
+            rationale="t",
+            op="add_heuristic",
+            structural_kwargs={},
+        )
+        out = apply_mutation(specs, proposal)
+        assert len(out[0].heuristics) == 2
+        assert out[0].heuristics[1][0] is Random
+
+    def test_add_unknown_class_raises(self):
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"radius": 0.1})],
+            ),
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="DoesNotExistAnywhere",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_heuristic",
+            rationale="t",
+            op="add_heuristic",
+            structural_kwargs={},
+        )
+        with pytest.raises(ValueError, match="not exported"):
+            apply_mutation(specs, proposal)
+
+    def test_drop_removes_first_match(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicB",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            op="drop_heuristic",
+            structural_kwargs={"sigma0": 0.3},
+        )
+        out = apply_mutation(specs, proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert all(cls.__name__ != "_DummyHeuristicB" for cls, _ in new_x.heuristics)
+        # Original spec untouched.
+        assert any(cls.__name__ == "_DummyHeuristicB" for cls, _ in specs[0].heuristics)
+
+    def test_drop_missing_class_raises(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="DoesNotExist",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            op="drop_heuristic",
+            structural_kwargs={},
+        )
+        with pytest.raises(ValueError, match="no heuristic"):
+            apply_mutation(specs, proposal)
+
+    def test_drop_refuses_to_empty_strategy(self):
+        skinny = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+            ),
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="_DummyHeuristicA",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            op="drop_heuristic",
+            structural_kwargs={},
+        )
+        with pytest.raises(ValueError, match="no heuristics"):
+            apply_mutation(skinny, proposal)
+
+
+class TestStructuralProposalToDict:
+    def test_round_trips_op_and_kwargs(self):
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Random",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_heuristic",
+            rationale="t",
+            op="add_heuristic",
+            structural_kwargs={"radius": 0.1, "div": np.int64(4)},
+        )
+        d = proposal.to_dict()
+        # Op + kwargs surface in the dict; numpy scalars are coerced.
+        assert d["op"] == "add_heuristic"
+        assert d["structural_kwargs"]["radius"] == 0.1
+        assert d["structural_kwargs"]["div"] == 4
+        assert isinstance(d["structural_kwargs"]["div"], int)
+        # JSON-serialisable.
+        assert json.loads(json.dumps(d))
+
+    def test_kwarg_proposal_omits_structural_fields(self):
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Nearby",
+            param_name="radius",
+            old_value=0.1,
+            new_value=0.2,
+            rule_kind="log_uniform_perturb",
+            rationale="t",
+        )
+        d = proposal.to_dict()
+        assert "op" not in d
+        assert "structural_kwargs" not in d
+
+
+class TestStructuralRuleKey:
+    def test_proposal_rule_key_collapses_structural(self):
+        from panobbgo.self_improve import _proposal_rule_key
+
+        # Both ops should collapse to the wildcard key — distinguished
+        # only by the param_name slot which carries the op name.
+        assert _proposal_rule_key("Sobol", "", "add_heuristic") == ("*", "add_heuristic", "structural")
+        assert _proposal_rule_key("Random", "", "drop_heuristic") == ("*", "drop_heuristic", "structural")
+        # Kwarg keys are unchanged.
+        assert _proposal_rule_key("Nearby", "radius", "log_uniform_perturb") == (
+            "Nearby",
+            "radius",
+            "log_uniform_perturb",
+        )
+
+    def test_adaptive_sampler_buckets_structural_history(self):
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+        )
+        cat = MutationCatalog([rule_add])
+        samp = AdaptiveMutationSampler(cat)
+        rng = np.random.default_rng(0)
+        for _ in range(10):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        # All 10 attempts/accepts collapse into one structural arm.
+        assert len(snap) == 1
+        assert snap[0].rule_key == ("*", "add_heuristic", "structural")
+        assert snap[0].n_attempts == 10
+        assert snap[0].n_accepts == 10
+
+
+class TestDefaultStructuralCatalog:
+    def test_returns_catalog_with_structural_rules(self):
+        cat = default_structural_catalog()
+        kinds = {type(r).__name__ for r in cat.rules}
+        assert "MutationRule" in kinds
+        assert "StructuralMutationRule" in kinds
+        # At least the two structural rules from §7.2 — add + drop.
+        ops = {r.op for r in cat.rules if isinstance(r, StructuralMutationRule)}
+        assert ops == {"add_heuristic", "drop_heuristic"}
+
+    def test_structural_catalog_is_superset_of_default(self):
+        base = default_catalog()
+        ext = default_structural_catalog()
+        assert len(ext.rules) > len(base.rules)
+
+
+class TestStructuralEndToEnd:
+    """Exercise SelfImprover with a structural-rule catalog end-to-end."""
+
+    def _structural_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=1,
+                ),
+            ]
+        )
+
+    def test_loop_accepts_structural_improvement(self, tmp_path):
+        # Baseline 0.3, candidate 0.8 — strong improvement, must accept.
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.3 if n % 2 == 0 else 0.8
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=200,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._structural_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert len(records) == 1
+        rec = records[0]
+        assert rec.accepted is True
+        assert rec.proposal is not None
+        assert rec.proposal["op"] == "drop_heuristic"
+
+    def test_loop_skips_when_structural_rule_inapplicable(self, tmp_path):
+        # Skinny specs (1 heuristic each) + min_heuristics=2 → no drop possible.
+        skinny = [
+            StrategySpec(
+                name="S1",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+            ),
+            StrategySpec(
+                name="S2",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+            ),
+        ]
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=2,
+                ),
+            ]
+        )
+        cfg = LoopConfig(
+            iterations=2,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=cat, seed_strategies=skinny)
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert len(records) == 2
+        assert all(r.proposal is None for r in records)
+        assert all(r.reason_skipped is not None for r in records)

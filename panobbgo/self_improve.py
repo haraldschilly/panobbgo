@@ -193,10 +193,132 @@ class MutationRule:
         if self.probability <= 0:
             raise ValueError(f"probability must be > 0, got {self.probability}")
 
+    def rule_key(self) -> "RuleKey":
+        """Return the bandit-arm key for this rule.
+
+        Centralising this on the rule object lets the catalog and the
+        adaptive sampler treat :class:`MutationRule` and
+        :class:`StructuralMutationRule` uniformly without knowing each
+        other's field layout.
+        """
+        return (self.class_name, self.param_name, self.kind)
+
+
+# Op values accepted by :class:`StructuralMutationRule`.  Kept as a tuple
+# rather than a Literal for runtime introspection (``op in _STRUCTURAL_OPS``).
+_STRUCTURAL_OPS: Tuple[str, ...] = ("add_heuristic", "drop_heuristic")
+
+
+@dataclass
+class StructuralMutationRule:
+    """Add or drop a heuristic from a strategy's portfolio.
+
+    Implements the *Strategy portfolio composition* mutation class from
+    §7.2 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Where
+    :class:`MutationRule` only retunes existing kwargs, this rule changes
+    the *shape* of a :class:`StrategySpec`'s ``heuristics`` list — the
+    loop can therefore discover whether dropping a heuristic, or adding a
+    fresh one, generalises better than the seed composition.
+
+    Args:
+        strategy_pattern: Substring matched against
+            :attr:`StrategySpec.name`; empty string matches every
+            strategy.  Same semantics as :class:`MutationRule`.
+        op: One of
+
+            * ``"add_heuristic"`` — append a heuristic from
+              :attr:`candidate_classes` to a target strategy.  When
+              :attr:`avoid_duplicates` is ``True`` (default) candidate
+              classes already present in the strategy are skipped, which
+              keeps the catalog from cluttering a portfolio with
+              redundant copies.
+            * ``"drop_heuristic"`` — remove an existing heuristic from a
+              target strategy.  The :attr:`min_heuristics` safety guard
+              forbids dropping below this many heuristics so the strategy
+              always has *something* to emit points.  When
+              :attr:`droppable_classes` is non-empty, only heuristics
+              whose ``__name__`` is in the set are eligible.
+        candidate_classes: Sequence of ``(HeuristicClass, default_kwargs)``
+            pairs the rule may pull from for ``add_heuristic``.  Ignored
+            for ``drop_heuristic``.  Each tuple's ``default_kwargs`` is
+            shallow-copied into the new spec so subsequent kwarg-tune
+            mutations can perturb it independently.
+        droppable_classes: Optional restriction for ``drop_heuristic``.
+            When provided (a tuple of class ``__name__``s), only matching
+            heuristics may be dropped.  Empty tuple means "any heuristic
+            in the strategy is eligible (subject to :attr:`min_heuristics`)".
+        min_heuristics: Lower bound on the size of the heuristics list
+            after a drop.  Default ``2`` keeps every strategy with at
+            least one diversity slot beyond the bare minimum.  ``1`` is
+            the absolute floor; ``0`` is rejected.
+        avoid_duplicates: For ``add_heuristic``, skip candidates whose
+            class is already present in the strategy.  Default ``True``.
+            Set to ``False`` when intentional duplicates are desirable
+            (e.g. two :class:`Nearby` instances at different radii).
+        probability: Relative weight when the catalog picks among
+            multiple applicable rules; normalised automatically.  Same
+            semantics as :class:`MutationRule`.
+
+    Raises:
+        ValueError: If ``op`` is not one of :data:`_STRUCTURAL_OPS`,
+            ``min_heuristics`` is below ``1``, ``probability`` is
+            non-positive, or ``op == "add_heuristic"`` is paired with an
+            empty :attr:`candidate_classes`.
+    """
+
+    strategy_pattern: str
+    op: str
+    candidate_classes: Tuple[Tuple[type, Dict[str, Any]], ...] = ()
+    droppable_classes: Tuple[str, ...] = ()
+    min_heuristics: int = 2
+    avoid_duplicates: bool = True
+    probability: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.op not in _STRUCTURAL_OPS:
+            raise ValueError(f"Unknown structural op: {self.op!r}; expected one of {_STRUCTURAL_OPS}")
+        if self.min_heuristics < 1:
+            raise ValueError(f"min_heuristics must be >= 1, got {self.min_heuristics}")
+        if self.probability <= 0:
+            raise ValueError(f"probability must be > 0, got {self.probability}")
+        if self.op == "add_heuristic" and not self.candidate_classes:
+            raise ValueError("add_heuristic requires at least one entry in candidate_classes")
+
+    def rule_key(self) -> "RuleKey":
+        """Return the bandit-arm key for this rule.
+
+        All structural rules with the same ``op`` share one arm by
+        default — this keeps the bandit space small and matches the
+        coarsest reasonable taxonomy ("does adding heuristics help?",
+        "does dropping help?").  Per-class arms are a future refinement
+        (see §10 ledger note in the plan).
+        """
+        return ("*", self.op, "structural")
+
 
 @dataclass
 class MutationProposal:
-    """A concrete mutation produced by :meth:`MutationCatalog.sample`."""
+    """A concrete mutation produced by :meth:`MutationCatalog.sample`.
+
+    Two flavours share this type:
+
+    * **Hyperparameter retune** — the canonical case.  ``op`` is ``None``;
+      ``class_name`` / ``param_name`` identify the kwarg slot;
+      ``old_value`` / ``new_value`` are scalar values.
+
+    * **Structural mutation** (:class:`StructuralMutationRule`) — the
+      candidate adds or drops a heuristic from a strategy's portfolio.
+      ``op`` is ``"add_heuristic"`` or ``"drop_heuristic"``; ``class_name``
+      identifies the heuristic class added or dropped; ``param_name`` is
+      the empty string; ``structural_kwargs`` carries the heuristic's
+      kwargs (the kwargs about to be added, or the kwargs that were on the
+      dropped heuristic).  ``old_value`` and ``new_value`` are unused for
+      structural ops and serialised as ``None``.
+
+    The proposal is the universal currency the ledger and
+    :func:`apply_mutation` consume — both flavours round-trip through
+    :meth:`to_dict` so a JSONL ledger can be replayed losslessly.
+    """
 
     strategy_name: str
     class_name: str
@@ -205,9 +327,11 @@ class MutationProposal:
     new_value: Any
     rule_kind: str
     rationale: str
+    op: Optional[str] = None
+    structural_kwargs: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "strategy_name": self.strategy_name,
             "class_name": self.class_name,
             "param_name": self.param_name,
@@ -216,6 +340,14 @@ class MutationProposal:
             "rule_kind": self.rule_kind,
             "rationale": self.rationale,
         }
+        if self.op is not None:
+            d["op"] = self.op
+            d["structural_kwargs"] = (
+                {k: _to_plain(v) for k, v in self.structural_kwargs.items()}
+                if self.structural_kwargs is not None
+                else None
+            )
+        return d
 
 
 def _to_plain(val: Any) -> Any:
@@ -259,29 +391,107 @@ def _find_targets(
     return hits
 
 
+# Shape of one structural hit: (spec_index, candidate_class, candidate_kwargs).
+# For ``add_heuristic`` ``candidate_class`` is the class about to be added and
+# ``candidate_kwargs`` are its default kwargs.  For ``drop_heuristic`` the
+# triple is (spec_index, dropped_class, dropped_kwargs) and the heuristic is
+# located by class name (the strategy carries at most one entry per class
+# under :attr:`StructuralMutationRule.avoid_duplicates = True`, which the
+# default — duplicates are allowed but a drop targets *one* of them).
+_StructuralHit = Tuple[int, type, Dict[str, Any]]
+
+
+def _find_structural_hits(
+    specs: Sequence[StrategySpec],
+    rule: "StructuralMutationRule",
+) -> List[_StructuralHit]:
+    """Enumerate every (spec, candidate) site to which ``rule`` may be applied.
+
+    The set differs by ``op``:
+
+    * ``add_heuristic`` — Cartesian product of matching strategies and
+      :attr:`candidate_classes`, optionally pruned by
+      :attr:`avoid_duplicates`.  Each candidate's ``default_kwargs`` is
+      shallow-copied so two hits never share a mutable dict.
+    * ``drop_heuristic`` — every existing ``(spec, heuristic)`` pair
+      whose strategy matches :attr:`strategy_pattern`, the heuristic's
+      class is in :attr:`droppable_classes` (or any, if empty), and the
+      strategy currently has more than :attr:`min_heuristics` heuristics
+      so removal would not violate the safety floor.
+
+    Returning an empty list signals "rule not applicable to current
+    specs"; the catalog uses that to skip the rule entirely (and so the
+    bandit does not waste an iteration on a no-op).
+    """
+    hits: List[_StructuralHit] = []
+    if rule.op == "add_heuristic":
+        for si, spec in enumerate(specs):
+            if rule.strategy_pattern and rule.strategy_pattern not in spec.name:
+                continue
+            present = {cls.__name__ for cls, _ in spec.heuristics}
+            for cls, default_kwargs in rule.candidate_classes:
+                if rule.avoid_duplicates and cls.__name__ in present:
+                    continue
+                hits.append((si, cls, dict(default_kwargs)))
+    elif rule.op == "drop_heuristic":
+        droppable = set(rule.droppable_classes)
+        for si, spec in enumerate(specs):
+            if rule.strategy_pattern and rule.strategy_pattern not in spec.name:
+                continue
+            if len(spec.heuristics) <= rule.min_heuristics:
+                # Dropping any one would breach the safety floor.
+                continue
+            for cls, kwargs in spec.heuristics:
+                if droppable and cls.__name__ not in droppable:
+                    continue
+                hits.append((si, cls, dict(kwargs)))
+    return hits
+
+
+# A catalog entry is either a kwarg perturbation rule or a structural
+# rule.  Both expose ``rule_key()`` and ``probability``; the catalog
+# branches on type when it needs the kind-specific machinery.
+CatalogRule = Any  # Union[MutationRule, StructuralMutationRule] — kept loose for static checkers
+
+
 class MutationCatalog:
-    """A weighted pool of :class:`MutationRule` instances.
+    """A weighted pool of :class:`MutationRule` and :class:`StructuralMutationRule` instances.
 
     :meth:`sample` returns one applicable :class:`MutationProposal`, or
     ``None`` when no rule can be applied to the input spec list.  An
-    "applicable" rule is one whose target class + kwarg exist somewhere
-    in the input specs.
+    "applicable" rule is one whose target class + kwarg exists somewhere
+    in the input specs (kwarg rules), or whose op has at least one valid
+    site under the current portfolio shape (structural rules).
     """
 
-    def __init__(self, rules: Sequence[MutationRule]) -> None:
+    def __init__(self, rules: Sequence[CatalogRule]) -> None:
         if not rules:
             raise ValueError("MutationCatalog requires at least one rule")
-        self.rules: List[MutationRule] = list(rules)
+        self.rules: List[CatalogRule] = list(rules)
 
-    def applicable_rules(
-        self, specs: Sequence[StrategySpec]
-    ) -> List[Tuple[MutationRule, List[Tuple[int, str, int, Any]]]]:
-        """Return ``[(rule, hits), …]`` for rules with ≥1 target in ``specs``."""
-        out: List[Tuple[MutationRule, List[Tuple[int, str, int, Any]]]] = []
+    def applicable_rules(self, specs: Sequence[StrategySpec]) -> List[Tuple[CatalogRule, List[Any]]]:
+        """Return ``[(rule, hits), …]`` for rules with ≥1 target in ``specs``.
+
+        The shape of each ``hits`` entry depends on the rule type:
+
+        * :class:`MutationRule` → ``(spec_index, bucket, entry_index, current_value)``
+          (the existing layout, unchanged)
+        * :class:`StructuralMutationRule` → ``(spec_index, class, kwargs_dict)``
+          (the new layout — see :func:`_find_structural_hits`)
+
+        Callers must dispatch on ``isinstance(rule, ...)`` before
+        unpacking — :meth:`sample` does so internally.
+        """
+        out: List[Tuple[CatalogRule, List[Any]]] = []
         for rule in self.rules:
-            hits = _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
-            if hits:
-                out.append((rule, hits))
+            if isinstance(rule, StructuralMutationRule):
+                s_hits = _find_structural_hits(specs, rule)
+                if s_hits:
+                    out.append((rule, list(s_hits)))
+            else:
+                k_hits = _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
+                if k_hits:
+                    out.append((rule, list(k_hits)))
         return out
 
     def sample(
@@ -304,14 +514,17 @@ class MutationCatalog:
         rule, hits = applicable[chosen_idx]
 
         hit_idx = int(rng.integers(0, len(hits)))
+
+        if isinstance(rule, StructuralMutationRule):
+            return _make_structural_proposal(rule, hits[hit_idx], specs)
+
+        # Kwarg perturbation.
         si, _, _, old_value = hits[hit_idx]
         strategy_name = specs[si].name
-
         new_value = self._mutate_value(rule, old_value, rng)
         rationale = (
             f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: {old_value!r} -> {new_value!r}"
         )
-
         return MutationProposal(
             strategy_name=strategy_name,
             class_name=rule.class_name,
@@ -340,6 +553,49 @@ class MutationCatalog:
             return float(min(hi, max(lo, candidate_f)))
         # Unreachable — validated in MutationRule.__post_init__
         raise ValueError(f"Unknown mutation kind: {rule.kind!r}")
+
+
+def _make_structural_proposal(
+    rule: StructuralMutationRule,
+    hit: _StructuralHit,
+    specs: Sequence[StrategySpec],
+) -> MutationProposal:
+    """Convert one structural hit into a :class:`MutationProposal`.
+
+    The ``op`` and ``structural_kwargs`` fields carry the per-op
+    information :func:`apply_mutation` needs; the legacy
+    ``class_name`` / ``rule_kind`` fields stay populated so existing
+    ledger consumers (and the bandit's :func:`_proposal_rule_key`)
+    continue to work without special-casing.
+    """
+    si, cls, kwargs = hit
+    strategy_name = specs[si].name
+    if rule.op == "add_heuristic":
+        rationale = f"add_heuristic {cls.__name__}({kwargs!r}) to {strategy_name}"
+        return MutationProposal(
+            strategy_name=strategy_name,
+            class_name=cls.__name__,
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind=rule.op,
+            rationale=rationale,
+            op=rule.op,
+            structural_kwargs=dict(kwargs),
+        )
+    # drop_heuristic
+    rationale = f"drop_heuristic {cls.__name__}({kwargs!r}) from {strategy_name}"
+    return MutationProposal(
+        strategy_name=strategy_name,
+        class_name=cls.__name__,
+        param_name="",
+        old_value=None,
+        new_value=None,
+        rule_kind=rule.op,
+        rationale=rationale,
+        op=rule.op,
+        structural_kwargs=dict(kwargs),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -394,6 +650,18 @@ class MutationRuleStats:
 
 
 def _proposal_rule_key(class_name: str, param_name: str, rule_kind: str) -> RuleKey:
+    """Map a proposal triple to the bandit's arm key.
+
+    Structural ops (``add_heuristic``, ``drop_heuristic``) collapse
+    onto a single arm per op type — see
+    :meth:`StructuralMutationRule.rule_key`.  Kwarg perturbations keep
+    the natural one-arm-per-(class, param, kind) granularity.  The two
+    paths must agree because :meth:`AdaptiveMutationSampler.prime_from_ledger`
+    rebuilds the bandit history from JSONL records that only carry the
+    proposal triple — never the original rule object.
+    """
+    if rule_kind in _STRUCTURAL_OPS:
+        return ("*", str(rule_kind), "structural")
     return (str(class_name), str(param_name), str(rule_kind))
 
 
@@ -456,8 +724,11 @@ class AdaptiveMutationSampler:
         self._last_rule_key: Optional[RuleKey] = None
 
     @staticmethod
-    def _rule_key(rule: MutationRule) -> RuleKey:
-        return _proposal_rule_key(rule.class_name, rule.param_name, rule.kind)
+    def _rule_key(rule: CatalogRule) -> RuleKey:
+        # Both :class:`MutationRule` and :class:`StructuralMutationRule`
+        # expose ``rule_key()``; delegating keeps the sampler agnostic to
+        # which kind of rule the catalog holds.
+        return rule.rule_key()
 
     def get_stats(self, rule: MutationRule) -> MutationRuleStats:
         """Return (creating if needed) the stats bucket for ``rule``."""
@@ -502,22 +773,31 @@ class AdaptiveMutationSampler:
             sampled[i] = float(rng.beta(alpha, beta_param))
         chosen_idx = int(np.argmax(sampled))
         rule, hits = applicable[chosen_idx]
-
-        hit_idx = int(rng.integers(0, len(hits)))
-        si, _, _, old_value = hits[hit_idx]
-        strategy_name = specs[si].name
-        new_value = MutationCatalog._mutate_value(rule, old_value, rng)
-
         chosen_stats = self.get_stats(rule)
         alpha_eff = self.prior_alpha + chosen_stats.n_accepts
         beta_eff = self.prior_beta + (chosen_stats.n_attempts - chosen_stats.n_accepts)
-        rationale = (
-            f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: "
-            f"{old_value!r} -> {new_value!r} "
-            f"[Thompson Beta({alpha_eff:.1f}, {beta_eff:.1f}); draw={sampled[chosen_idx]:.3f}; "
+        thompson_tag = (
+            f"[Thompson Beta({alpha_eff:.1f}, {beta_eff:.1f}); "
+            f"draw={sampled[chosen_idx]:.3f}; "
             f"history {chosen_stats.n_accepts}/{chosen_stats.n_attempts}]"
         )
         self._last_rule_key = self._rule_key(rule)
+
+        hit_idx = int(rng.integers(0, len(hits)))
+
+        if isinstance(rule, StructuralMutationRule):
+            base = _make_structural_proposal(rule, hits[hit_idx], specs)
+            base.rationale = f"{base.rationale} {thompson_tag}"
+            return base
+
+        # Kwarg perturbation path — same formatting as the uniform sampler.
+        si, _, _, old_value = hits[hit_idx]
+        strategy_name = specs[si].name
+        new_value = MutationCatalog._mutate_value(rule, old_value, rng)
+        rationale = (
+            f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: "
+            f"{old_value!r} -> {new_value!r} {thompson_tag}"
+        )
         return MutationProposal(
             strategy_name=strategy_name,
             class_name=rule.class_name,
@@ -656,6 +936,69 @@ def default_catalog() -> MutationCatalog:
     )
 
 
+def default_structural_catalog() -> MutationCatalog:
+    """Return :func:`default_catalog` extended with portfolio-shape rules.
+
+    Implements the *Strategy portfolio composition* mutation class from
+    §7.2 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Two structural rules
+    sit alongside the existing kwarg perturbations:
+
+    * ``add_heuristic`` from a curated pool of unconditionally-safe
+      generators (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
+      ``LatinHypercube``, ``Sobol``, ``Extremal``).  ``avoid_duplicates=True``
+      so the catalog never proposes a duplicate of a class already in the
+      strategy.
+    * ``drop_heuristic`` with ``min_heuristics=2`` so no strategy is
+      ever stripped down past the diversity floor.
+
+    Both rules carry a low probability (``0.3``) relative to the kwarg
+    rules — structural changes are higher-variance than retunes, so the
+    loop should sample them sparingly.  The overall acceptance rate stays
+    in the same neighbourhood as :func:`default_catalog`'s while
+    expanding the search space the loop can explore.
+
+    Opt-in via :class:`SelfImprover`'s ``catalog=`` argument or
+    ``scripts/self_improve.py run --structural``.  The default
+    :class:`SelfImprover` instance still uses :func:`default_catalog`,
+    so existing CLI invocations are byte-identical.
+    """
+    from panobbgo.heuristics import (  # local import to avoid heuristics-package cycles
+        Center,
+        Extremal,
+        LatinHypercube,
+        Nearby,
+        NelderMead,
+        Random,
+        Sobol,
+    )
+
+    base_rules = list(default_catalog().rules)
+    candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
+        (Random, {}),
+        (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+        (NelderMead, {}),
+        (Center, {}),
+        (LatinHypercube, {"div": 4}),
+        (Sobol, {"n": 16, "scramble": True}),
+        (Extremal, {}),
+    )
+    structural_rules: List[CatalogRule] = [
+        StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=candidates,
+            probability=0.3,
+        ),
+        StructuralMutationRule(
+            strategy_pattern="",
+            op="drop_heuristic",
+            min_heuristics=2,
+            probability=0.3,
+        ),
+    ]
+    return MutationCatalog(base_rules + structural_rules)
+
+
 # ---------------------------------------------------------------------------
 # Applying a mutation
 # ---------------------------------------------------------------------------
@@ -673,9 +1016,28 @@ def apply_mutation(
     input list is untouched — this lets the loop keep the prior spec
     list around as the "fallback" when a proposal is rejected.
 
+    Three proposal flavours are supported:
+
+    * Hyperparameter retune (``proposal.op is None``) — overwrite the
+      existing kwarg value at ``(class_name, param_name)``.
+    * ``proposal.op == "add_heuristic"`` — append
+      ``(proposal.class_name's class object, proposal.structural_kwargs)``
+      to the strategy's heuristics list.  The class object is recovered
+      by name from the existing heuristics or from ``structural_kwargs``
+      that the catalog kept alive on the proposal.  See
+      :func:`_make_structural_proposal`.
+    * ``proposal.op == "drop_heuristic"`` — remove the first heuristic
+      whose ``__name__`` equals ``proposal.class_name``.  The
+      :attr:`StructuralMutationRule.min_heuristics` floor is enforced at
+      *sample* time (in :func:`_find_structural_hits`); apply trusts the
+      catalog and only re-checks the trivial "≥ 1 entry remains" floor
+      so this function still refuses to produce an empty strategy.
+
     Raises:
-        ValueError: If the target strategy is absent, or if the target
-            class / param combination cannot be located inside it.
+        ValueError: If the target strategy is absent, the target class
+            cannot be located inside it (drop / kwarg paths), or the
+            structural rule kept on the proposal is unrecoverable
+            (add path with no class object reachable).
     """
     out: List[StrategySpec] = []
     applied = False
@@ -687,22 +1049,40 @@ def apply_mutation(
         new_heuristics = [(cls, dict(kw)) for cls, kw in spec.heuristics]
         new_analyzers = [(cls, dict(kw)) for cls, kw in spec.analyzers]
 
-        hit = False
-        for cls, kw in new_heuristics:
-            if cls.__name__ == proposal.class_name and proposal.param_name in kw:
-                kw[proposal.param_name] = proposal.new_value
-                hit = True
-                break
-        if not hit:
-            for cls, kw in new_analyzers:
+        if proposal.op == "add_heuristic":
+            cls_obj = _resolve_heuristic_class(proposal, spec)
+            new_kwargs = dict(proposal.structural_kwargs or {})
+            new_heuristics.append((cls_obj, new_kwargs))
+        elif proposal.op == "drop_heuristic":
+            drop_idx = next(
+                (i for i, (cls, _) in enumerate(new_heuristics) if cls.__name__ == proposal.class_name),
+                None,
+            )
+            if drop_idx is None:
+                raise ValueError(
+                    f"drop_heuristic proposal targets class {proposal.class_name!r}"
+                    f" but no heuristic of that name exists in {spec.name!r}"
+                )
+            if len(new_heuristics) <= 1:
+                raise ValueError(f"drop_heuristic on {spec.name!r} would leave the strategy with no heuristics")
+            new_heuristics.pop(drop_idx)
+        else:
+            hit = False
+            for cls, kw in new_heuristics:
                 if cls.__name__ == proposal.class_name and proposal.param_name in kw:
                     kw[proposal.param_name] = proposal.new_value
                     hit = True
                     break
-        if not hit:
-            raise ValueError(
-                f"proposal target {proposal.class_name}.{proposal.param_name} not found in strategy {spec.name!r}"
-            )
+            if not hit:
+                for cls, kw in new_analyzers:
+                    if cls.__name__ == proposal.class_name and proposal.param_name in kw:
+                        kw[proposal.param_name] = proposal.new_value
+                        hit = True
+                        break
+            if not hit:
+                raise ValueError(
+                    f"proposal target {proposal.class_name}.{proposal.param_name} not found in strategy {spec.name!r}"
+                )
 
         applied = True
         out.append(
@@ -718,6 +1098,37 @@ def apply_mutation(
     if not applied:
         raise ValueError(f"proposal refers to strategy {proposal.strategy_name!r} which is not in the input spec list")
     return out
+
+
+def _resolve_heuristic_class(proposal: MutationProposal, spec: StrategySpec) -> type:
+    """Recover the actual class object for an ``add_heuristic`` proposal.
+
+    The catalog's :func:`_make_structural_proposal` records the
+    heuristic's ``__name__``; the proposal carries the *string*, not the
+    object.  We look it up against the spec's existing classes first
+    (which covers the ``avoid_duplicates=False`` case where the same
+    class is already present) and, failing that, walk the strategy's
+    sibling specs the loop has just sampled.  In the common path the
+    catalog hands us a class that is *not* yet in the spec — so we fall
+    back to importing it via its registered location in
+    :mod:`panobbgo.heuristics`.
+    """
+    name = proposal.class_name
+    for cls, _ in spec.heuristics:
+        if cls.__name__ == name:
+            return cls
+    # Fallback: import from the heuristics package by name.  Restrict to
+    # names actually registered there to avoid eval-style class lookup.
+    import panobbgo.heuristics as _h
+
+    if hasattr(_h, name):
+        candidate = getattr(_h, name)
+        if isinstance(candidate, type):
+            return candidate
+    raise ValueError(
+        f"add_heuristic proposal references class {name!r} which is not present in"
+        f" strategy {spec.name!r} and not exported from panobbgo.heuristics"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1463,12 +1874,14 @@ def load_ledger(path: str) -> List[Dict[str, Any]]:
 
 __all__ = [
     "MutationRule",
+    "StructuralMutationRule",
     "MutationProposal",
     "MutationCatalog",
     "MutationRuleStats",
     "AdaptiveMutationSampler",
     "RuleKey",
     "default_catalog",
+    "default_structural_catalog",
     "apply_mutation",
     "LoopConfig",
     "LoopIterationRecord",

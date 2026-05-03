@@ -230,6 +230,16 @@ The harness is the measurement substrate for an autonomous
     accept history while still exploring under-tried rules.
     Cold-start (Beta(1, 1) prior) is statistically identical to uniform
     sampling.
+*   Strategy portfolio composition (§7.2) — **shipped**, see
+    `panobbgo.self_improve.StructuralMutationRule` and the
+    `default_structural_catalog()` factory.  Two ops join the mutation
+    catalog: `add_heuristic` (append from a curated pool such as
+    Random/Nearby/NelderMead/Sobol/...; `avoid_duplicates` skips
+    classes already present) and `drop_heuristic` (remove subject to a
+    `min_heuristics` post-drop floor).  Opt in via
+    `scripts/self_improve.py run --structural` or
+    `SelfImprover(catalog=default_structural_catalog())`.  Off by
+    default so existing CLI invocations remain byte-identical.
 
 Run the loop:
 
@@ -244,6 +254,10 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # Adaptive (Thompson-sampling) mutation sampler primed from a prior ledger
 uv run python scripts/self_improve.py run --iterations 100 \
     --adaptive --adaptive-prime-from-ledger
+
+# Structural catalog: kwarg perturbations + add_heuristic / drop_heuristic ops
+uv run python scripts/self_improve.py run --iterations 100 \
+    --structural --adaptive
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

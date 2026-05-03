@@ -2,6 +2,67 @@
 
 ## Recent Improvements (continued)
 
+### Strategy Portfolio Composition (`StructuralMutationRule`) (2026-05-03)
+- [x] **`panobbgo.self_improve.StructuralMutationRule`** — new dataclass
+      that joins :class:`MutationRule` as a first-class catalog entry.
+      Closes the §7.2 *Strategy portfolio composition* item in
+      `planning/SELF_IMPROVEMENT_LOOP.md` — the loop driver could
+      previously only retune existing kwargs; now it can also reshape
+      a strategy's heuristics list.
+- [x] **Two ops** — ``add_heuristic`` (append a class from a curated
+      ``candidate_classes`` pool, ``avoid_duplicates`` by default
+      skips classes already present) and ``drop_heuristic`` (remove
+      one heuristic, optionally restricted via ``droppable_classes``
+      with a ``min_heuristics`` post-drop safety floor — default ``2``).
+- [x] **`MutationProposal` extension** — keyword-only ``op`` and
+      ``structural_kwargs`` fields, default ``None``.  Kwarg proposals
+      serialise byte-identically to before; structural proposals get
+      the two extra keys via :meth:`to_dict`.
+- [x] **`apply_mutation` dispatch** — branches on ``proposal.op``;
+      ``add_heuristic`` recovers the class object via the spec's
+      existing classes first and ``panobbgo.heuristics`` package as
+      fallback; ``drop_heuristic`` removes the first match and refuses
+      to leave the spec empty.
+- [x] **Adaptive sampler integration** — ``_proposal_rule_key``
+      collapses both structural ops onto a single arm
+      (``("*", op, "structural")``) so cold-start variance stays
+      bounded.  Per-class arms are listed as a follow-up under "Next
+      iteration ideas".
+- [x] **`default_structural_catalog()`** — extends
+      :func:`default_catalog` with one ``add_heuristic`` rule (pool of
+      seven safe generators: Random/Nearby/NelderMead/Center/
+      LatinHypercube/Sobol/Extremal) and one ``drop_heuristic`` rule
+      (``min_heuristics=2``).  Both at probability ``0.3`` so the
+      structural rules don't dominate kwarg perturbations.
+- [x] **CLI flag** — `scripts/self_improve.py run --structural`
+      switches the loop to the structural catalog.  Off by default so
+      existing CLI invocations are byte-identical.
+- [x] **29 new tests in `tests/test_self_improve.py`** (total 92):
+      rule validation, applicable-hits enumeration (add / drop /
+      ``avoid_duplicates`` / ``droppable_classes`` / ``min_heuristics``
+      floor / strategy_pattern filter), proposal serialisation, the
+      apply-side dispatch (add appends, drop removes, missing class
+      raises, empty-strategy refusal, fallback-import path),
+      :func:`_proposal_rule_key` collapse for structural ops, the
+      Thompson sampler bucketing structural history into one arm, the
+      `default_structural_catalog()` factory shape, and an end-to-end
+      loop run that accepts a structural drop on a fake harness.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: Phase 6 checklist marks §7.2
+    done; §7 item 2 annotated as shipped; "Next iteration ideas"
+    rewritten with per-class-arms, analyzer add/drop, and
+    strategy-class-swap follow-ups; new §12 dated entry under the
+    iteration log.
+  - `doc/source/guide_benchmarking.rst`: new "Strategy portfolio
+    composition (§7.2)" subsection covering the ops, safety floors,
+    Thompson-sampler bucketing, CLI invocation, and a programmatic
+    custom-catalog example.
+  - `doc/source/guide.rst`: top-of-page navigation row for the
+    benchmarking guide now lists the structural mutations.
+  - `AGENTS.md`: structural catalog mentioned in the loop checklist
+    and the CLI example block.
+  - This TODO entry.
+
 ### Stratified Dimension Sampling for Multi-Dim Families (2026-05-02)
 - [x] **`panobbgo.harness_randomized.ProblemFamily.stratify_dims`** —
       new bool field (default ``True``) that enables cyclic dim

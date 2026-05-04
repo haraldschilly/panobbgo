@@ -67,10 +67,6 @@ What's missing for a true self-improvement loop:
       `panobbgo.self_improve.SelfImprover` and `scripts/self_improve.py`.
 - [x] A change catalog — `panobbgo.self_improve.MutationCatalog` and
       `default_catalog()` cover hyperparameter retunes from §7.1.
-      Strategy portfolio composition (§7.2) shipped 2026-05-04 as
-      :class:`StructuralMutationRule` + :func:`default_structural_rules`;
-      enable via `default_catalog(include_structural=True)` or
-      `LoopConfig.structural_mutations=True`.
 - [x] Persistence of the running "ladder" of best composite scores
       over time — `LadderEntry` + JSONL ledger
       (`planning/self_improve_ledger.jsonl`).  Each entry stores its
@@ -254,13 +250,11 @@ The mutation space the loop may sample from, in rough order of safety:
    `Sensitivity.update_interval`, bandit temperatures. Bounded perturbation
    of current value (log-uniform ±30%).
 2. **Strategy portfolio composition** — add/drop a heuristic from a
-   strategy, reweight initial priors.  **Shipped 2026-05-04** as
-   :class:`StructuralMutationRule` (`add_heuristic` /
-   `drop_heuristic`) + :func:`default_structural_rules` +
-   `LoopConfig.structural_mutations` + the `--structural` CLI flag.
-   Safety rail: drops are refused below `min_heuristics=1` and the
-   default catalog uses `min_heuristics=2` to keep at least one
-   primer + one local-search heuristic per spec.
+   strategy, reweight initial priors.  *(Shipped 2026-05-03 as
+   :class:`panobbgo.self_improve.StructuralMutationRule` and
+   :func:`panobbgo.self_improve.default_structural_catalog`.  Two ops:
+   ``add_heuristic`` from a curated pool, ``drop_heuristic`` with a
+   ``min_heuristics`` safety floor.  See §12 entry.)*
 3. **Analyzer parameters** — `Restart.patience`, `Sensitivity` window.
 4. **Heuristic code edits** — delegated to a coding agent with a narrow
    task description; applied behind a feature flag if the change is
@@ -395,15 +389,20 @@ Each phase is independently deliverable and keeps the framework usable.
       identical to uniform sampling, so flipping the flag is safe on a
       fresh ledger.  History can be primed from a prior JSONL ledger
       when resuming a long run.
-- [x] Strategy portfolio composition (§7 item 2) — shipped 2026-05-04
-      as :class:`panobbgo.self_improve.StructuralMutationRule`,
-      :func:`default_structural_rules`, the
-      ``LoopConfig.structural_mutations`` knob, and the
-      ``--structural`` CLI flag.  Rules add or drop point-emitting
-      heuristics from a :class:`StrategySpec`; safety rails refuse to
-      empty the heuristic list.  See §7.2 below and the §12 dated
-      entry.
-- [ ] Analyzer add/drop (§7 item 3).
+- [x] Strategy portfolio composition (§7.2) — shipped 2026-05-03 as
+      :class:`panobbgo.self_improve.StructuralMutationRule` and
+      :func:`panobbgo.self_improve.default_structural_catalog`.  Two ops
+      land: ``add_heuristic`` (append a heuristic from a curated pool to
+      a strategy, ``avoid_duplicates`` by default) and
+      ``drop_heuristic`` (remove a heuristic subject to a
+      ``min_heuristics`` safety floor).  ``apply_mutation`` dispatches on
+      ``proposal.op`` so the rest of the loop driver — ledger,
+      anti-cherry-pick guard, statistical acceptance — is unchanged.
+      The Thompson sampler collapses both ops onto one arm per
+      ``op`` so cold-start variance stays bounded.  CLI:
+      ``scripts/self_improve.py run --structural``.
+- [ ] Broaden further: analyzer add/drop, swapping a strategy class
+      itself (e.g., ``StrategyRewarding`` → ``StrategyUCB``).
 - [x] Stratified dimension sampling (§10) for cross-iteration score
       stability — shipped 2026-05-02 as
       :attr:`panobbgo.harness_randomized.ProblemFamily.stratify_dims`
@@ -467,68 +466,62 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
-### 2026-05-04 — Strategy portfolio composition (§7.2)
+### 2026-05-03 — Strategy portfolio composition (`StructuralMutationRule`)
 
-* **What** — `panobbgo/self_improve.py` gains
-  :class:`StructuralMutationRule` (kinds ``"add_heuristic"`` and
-  ``"drop_heuristic"``), the :func:`default_structural_rules` factory,
-  the ``LoopConfig.structural_mutations`` knob, and the
-  ``--structural`` CLI flag on `scripts/self_improve.py run`.
-  :class:`MutationProposal` gains three new fields (``operation``,
-  ``class_module``, ``heuristic_index``) with defaults that preserve
-  byte-level backward compatibility for existing ``set_param``
-  proposals.  :func:`apply_mutation` dispatches on ``operation``;
-  ``add_heuristic`` resolves the inserted class via
-  ``importlib.import_module(class_module)`` so proposals round-trip
-  through the JSONL ledger.  :class:`AdaptiveMutationSampler` learns to
-  key structural rules: ``("Center", "", "add_heuristic")`` for adds,
-  ``(droppable_signature, "", "drop_heuristic")`` for drops (single-
-  class drop rules ⇒ one bandit arm per class).  The default
-  structural catalog ships three add rules (``Nearby`` / ``NelderMead``
-  / ``LatinHypercube``) and four single-class drop rules.
-  ``min_heuristics=2`` floor prevents drops from over-pruning; the
-  applicator hard-fails any drop that would empty a strategy's
-  heuristic list.
-* **Why** — closes the §7.2 "Strategy portfolio composition" item from
-  the §10 Open questions / Phase 6 checklist of this plan.
-  Hyperparameter retunes — the only mutation class until today — only
-  twiddle existing knobs; structural mutations let the loop discover
-  *new* portfolio compositions, which the plan flags as the
-  next-most-impactful mutation class.  This is the path from
-  "Panobbgo is mostly static, with the loop tuning ε" to "the loop
-  reshapes Panobbgo".
-* **Defaults** — ``LoopConfig.structural_mutations = False`` keeps
-  existing CLI invocations byte-identical on a fresh ledger.  Flip to
-  ``True`` (or pass ``--structural`` on the CLI) when you want the
-  loop to broaden its reach.  An explicit ``catalog=`` kwarg to
-  :class:`SelfImprover` always wins, so tests and advanced users keep
-  full control.
-* **Safety rails** — drops respect ``min_heuristics`` (default ``1``;
-  default catalog uses ``2``), the applicator hard-fails any drop that
-  would empty the heuristic list, and adds gate on
-  ``skip_if_class_present=True`` so duplicate copies of the same
-  class don't accumulate.  All rule-validation errors raise at
-  :class:`StructuralMutationRule` construction time so misconfigured
-  catalogs fail fast.
-* **Tests** — `tests/test_self_improve.py` (46 new tests, total 109).
-  Coverage: rule validation (kind, ``heuristic_class``,
-  ``min_heuristics``, probability), catalog applicable-rule filtering
-  (``skip_if_class_present``, ``min_heuristics``, ``strategy_pattern``,
-  empty droppable_classes), proposal sampling (add + drop schemas,
-  ``last_sampled_params``-style fields), :func:`apply_mutation` for
-  add and drop including index drift fallback, last-heuristic refusal,
-  unknown-strategy / unknown-class error paths, dispatch on
-  ``operation``, default catalog content, adaptive-sampler keying
-  for add / drop / unrestricted-drop / multi-class-drop arms, an
-  end-to-end run that accepts a structural mutation and round-trips
-  the proposal through the JSONL ledger, and ``LoopConfig`` flag
-  precedence (explicit catalog wins, default-on widens, default-off
-  preserves backward compat).
-* **Backwards compatibility** — strictly safe.  Existing ledger lines
-  parse unchanged because :class:`MutationProposal` defaults
-  ``operation`` to ``"set_param"``.  ``default_catalog()`` (no
-  argument) is byte-identical to the prior 6-rule catalog.  All
-  prior tests pass without modification (63 → 109 by addition).
+* **What** — `panobbgo/self_improve.py`:
+  :class:`StructuralMutationRule` joins :class:`MutationRule` as a
+  first-class catalog rule.  Two ops:
+
+  * ``add_heuristic`` appends one of ``candidate_classes`` (a
+    ``(HeuristicClass, default_kwargs)`` pool) to a target strategy.
+    ``avoid_duplicates=True`` (default) skips classes already present
+    in the strategy so the catalog cannot clutter a portfolio with
+    redundant copies of the same heuristic.
+  * ``drop_heuristic`` removes one heuristic, optionally restricted to
+    ``droppable_classes``.  ``min_heuristics`` (default ``2``) is the
+    floor of the *post-drop* heuristic count, so the strategy always
+    keeps a diversity slot.
+
+  :class:`MutationProposal` gains ``op`` and ``structural_kwargs``
+  fields that are populated only for structural ops; kwarg proposals
+  serialise byte-identically to before.  :func:`apply_mutation`
+  dispatches on ``proposal.op`` and falls through to the existing
+  kwarg path for non-structural proposals.  The Thompson sampler maps
+  every structural rule onto one arm per ``op``
+  (``("*", op, "structural")``) which keeps cold-start variance bounded
+  while still letting the bandit learn whether portfolio expansion or
+  contraction wins on the current battery.
+  :func:`default_structural_catalog` returns
+  ``default_catalog().rules + [StructuralMutationRule(add), StructuralMutationRule(drop)]``
+  so the existing ledger and CI defaults are unchanged — opt in via
+  ``--structural`` on ``scripts/self_improve.py run`` or by passing
+  the catalog explicitly to :class:`SelfImprover`.
+* **Why** — closes the §7.2 *Strategy portfolio composition* item.  The
+  loop driver shipped in Phase 5 only retunes existing kwargs, so it
+  could discover better dial settings but never a better composition.
+  Most measurable Panobbgo wins to date have come from composition
+  changes (adding Sobol' for the BayesOpt initial design,
+  splitting CMAES strategies into IPOP/BIPOP variants, etc.) — exactly
+  the moves the loop now has the vocabulary to make autonomously.
+* **Backwards compatibility** — strictly safe.  :func:`default_catalog`
+  is unchanged; :class:`MutationProposal` keeps the same required
+  fields and adds ``op`` / ``structural_kwargs`` as keyword-only with
+  ``None`` defaults; :meth:`MutationProposal.to_dict` only emits the
+  new keys when ``op`` is set, so existing ledger consumers parse the
+  old layout byte-identically.  The bandit's
+  :func:`_proposal_rule_key` collapses structural ops onto the
+  ``("*", op, "structural")`` arm; kwarg keys are unchanged so
+  prior-ledger priming still recovers identical statistics.
+* **Tests** — `tests/test_self_improve.py` (29 new tests, total 92):
+  rule validation, applicable-hits enumeration (add / drop /
+  ``avoid_duplicates`` / ``droppable_classes`` / ``min_heuristics``
+  floor / strategy_pattern filter), proposal serialisation, the
+  apply-side dispatch (add appends, drop removes, missing class
+  raises, empty-strategy refusal, fallback-import path),
+  :func:`_proposal_rule_key` collapse for structural ops, the
+  Thompson sampler bucketing structural history into one arm, and an
+  end-to-end loop run that accepts a structural drop on a fake
+  harness.
 
 ### 2026-05-02 — Stratified dimension sampling for multi-dim families
 
@@ -699,17 +692,27 @@ generalisation signal.  Needs an architectural decision record because
 the resulting composite is not directly comparable to the existing
 ladder.
 
-#### Analyzer add/drop (§7.3)
+#### Strategy portfolio composition (§7.2) — shipped 2026-05-03
 
-The next structural-mutation class once strategy portfolio composition
-(shipped 2026-05-04) has bedded in.  Adding / dropping
-:class:`Sensitivity` or :class:`Restart` from a strategy reshapes the
-event stream the heuristics react to, which can be a much larger lever
-than the analyzer's own kwargs.  Needs an analogous
-``StructuralAnalyzerRule`` (or a single rule type with a
-``"target": "heuristic" | "analyzer"`` discriminator) plus a safety
-check that the four mandatory analyzers (Best, Grid, Splitter,
-Convergence) cannot be touched.
+Strategy portfolio composition shipped as
+:class:`panobbgo.self_improve.StructuralMutationRule` and
+:func:`panobbgo.self_improve.default_structural_catalog` — opt in with
+``--structural`` on ``scripts/self_improve.py run`` or by passing
+``catalog=default_structural_catalog()`` to :class:`SelfImprover`.  See
+the §12 entry.  Natural next refinements:
+
+- **Per-class arms in the bandit** — today every ``add_heuristic`` lives
+  on one bandit arm regardless of which class is added.  Splitting into
+  per-class arms (e.g. ``add Sobol`` vs ``add NelderMead``) gives the
+  loop sharper signal at the cost of more sparse data.  Pairs naturally
+  with the *contextual / hierarchical bandit* idea above.
+- **Analyzer add/drop** — symmetric to the heuristic ops; the
+  ``Sensitivity`` / ``Restart`` analyzers are obvious candidates because
+  they already opt in via ``StrategySpec.analyzers``.
+- **Strategy-class swap** — replace ``StrategyRewarding`` with
+  ``StrategyUCB`` etc. without touching the heuristics list.  Requires
+  every accepted swap to keep the strategy's hyperparameters either
+  compatible or to drop them on the floor; needs a translation table.
 
 #### Hold-out validation set
 

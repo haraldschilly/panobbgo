@@ -2,83 +2,65 @@
 
 ## Recent Improvements (continued)
 
-### Strategy Portfolio Composition for Self-Improvement Loop (2026-05-04)
-- [x] **New `panobbgo.self_improve.StructuralMutationRule`** (`add_heuristic`
-      / `drop_heuristic`) — closes the §7.2 *Strategy portfolio composition*
-      ticket in `planning/SELF_IMPROVEMENT_LOOP.md`.  The loop driver can
-      now reshape a `StrategySpec`'s heuristic list, not just retune
-      kwargs.
-  - **Why it matters.** Hyperparameter mutations only twiddle existing
-    knobs; the plan flagged structural mutations as the
-    next-most-impactful class.  This is the path from "the loop tunes
-    Panobbgo" to "the loop reshapes Panobbgo".
-  - **API.** `StructuralMutationRule(strategy_pattern, kind,
-    heuristic_class, heuristic_kwargs, droppable_classes,
-    min_heuristics, skip_if_class_present, probability)`.  Sits next to
-    `MutationRule` in the same `MutationCatalog`; the dispatcher picks
-    the right code path by `isinstance`.
-- [x] **`MutationProposal` schema extended** with three back-compat
-      fields (`operation: str = "set_param"`, `class_module: str = ""`,
-      `heuristic_index: Optional[int] = None`).  Existing ledger lines
-      deserialise unchanged.  `apply_mutation` dispatches on
-      `operation`; `add_heuristic` resolves the inserted class via
-      `importlib.import_module(class_module)` so proposals round-trip
-      through the JSONL ledger.
-- [x] **`default_structural_rules()`** — three add rules (`Nearby` /
-      `NelderMead` / `LatinHypercube`) and four single-class drop rules
-      (`Nearby` / `NelderMead` / `LatinHypercube` / `Sobol`) with
-      `min_heuristics=2` so the loop can't accidentally empty a spec's
-      heuristic list.  Single-class drop rules give the adaptive
-      sampler one bandit arm per heuristic class so it can learn
-      *which* drop is worth making.
-- [x] **`AdaptiveMutationSampler` integration.**  `_rule_key` now
-      handles structural rules: `("Center", "", "add_heuristic")` for
-      adds, `(droppable_signature, "", "drop_heuristic")` for drops
-      (sorted "|"-joined `droppable_classes` or `"*"` if unrestricted).
-      The single-class drop rules in the default catalog map cleanly
-      onto one arm per class.
-- [x] **`LoopConfig.structural_mutations: bool = False`** — when True
-      and `catalog=` is left at its default, the loop's catalog is
-      built with `default_catalog(include_structural=True)`.  An
-      explicit catalog always wins so tests / advanced users keep
-      total control.  CLI flag: `--structural` on
-      `scripts/self_improve.py run`.
-- [x] **Safety rails.**  Drops respect `min_heuristics` (default `1`,
-      catalog uses `2`); the applicator hard-fails any drop that would
-      empty the heuristic list; adds gate on
-      `skip_if_class_present=True` so duplicate copies of the same
-      class don't accumulate.  All rule-validation errors raise at
-      `StructuralMutationRule` construction time.
-- [x] **46 new tests in `tests/test_self_improve.py`** (total 109).
-      Covers rule validation, catalog applicable-rule filtering
-      (`skip_if_class_present`, `min_heuristics`, `strategy_pattern`,
-      empty `droppable_classes`), proposal sampling (add + drop
-      schemas), `apply_mutation` for add and drop (including index
-      drift fallback, last-heuristic refusal, unknown-strategy /
-      unknown-class error paths), dispatch on `operation`, default
-      catalog content, adaptive-sampler keying for add /
-      single-class-drop / multi-class-drop / unrestricted-drop arms,
-      an end-to-end run that accepts a structural mutation and
-      round-trips the proposal through the JSONL ledger, and
-      `LoopConfig` flag precedence (explicit catalog wins, default-on
-      widens, default-off preserves backward compat).
-- [x] **Backwards compatibility — strictly safe.**  Existing ledger
-      lines parse unchanged because `MutationProposal` defaults
-      `operation` to `"set_param"`.  `default_catalog()` (no
-      argument) is byte-identical to the prior 6-rule catalog.
-      Existing 63 tests pass without modification.
+### Strategy Portfolio Composition (`StructuralMutationRule`) (2026-05-03)
+- [x] **`panobbgo.self_improve.StructuralMutationRule`** — new dataclass
+      that joins :class:`MutationRule` as a first-class catalog entry.
+      Closes the §7.2 *Strategy portfolio composition* item in
+      `planning/SELF_IMPROVEMENT_LOOP.md` — the loop driver could
+      previously only retune existing kwargs; now it can also reshape
+      a strategy's heuristics list.
+- [x] **Two ops** — ``add_heuristic`` (append a class from a curated
+      ``candidate_classes`` pool, ``avoid_duplicates`` by default
+      skips classes already present) and ``drop_heuristic`` (remove
+      one heuristic, optionally restricted via ``droppable_classes``
+      with a ``min_heuristics`` post-drop safety floor — default ``2``).
+- [x] **`MutationProposal` extension** — keyword-only ``op`` and
+      ``structural_kwargs`` fields, default ``None``.  Kwarg proposals
+      serialise byte-identically to before; structural proposals get
+      the two extra keys via :meth:`to_dict`.
+- [x] **`apply_mutation` dispatch** — branches on ``proposal.op``;
+      ``add_heuristic`` recovers the class object via the spec's
+      existing classes first and ``panobbgo.heuristics`` package as
+      fallback; ``drop_heuristic`` removes the first match and refuses
+      to leave the spec empty.
+- [x] **Adaptive sampler integration** — ``_proposal_rule_key``
+      collapses both structural ops onto a single arm
+      (``("*", op, "structural")``) so cold-start variance stays
+      bounded.  Per-class arms are listed as a follow-up under "Next
+      iteration ideas".
+- [x] **`default_structural_catalog()`** — extends
+      :func:`default_catalog` with one ``add_heuristic`` rule (pool of
+      seven safe generators: Random/Nearby/NelderMead/Center/
+      LatinHypercube/Sobol/Extremal) and one ``drop_heuristic`` rule
+      (``min_heuristics=2``).  Both at probability ``0.3`` so the
+      structural rules don't dominate kwarg perturbations.
+- [x] **CLI flag** — `scripts/self_improve.py run --structural`
+      switches the loop to the structural catalog.  Off by default so
+      existing CLI invocations are byte-identical.
+- [x] **29 new tests in `tests/test_self_improve.py`** (total 92):
+      rule validation, applicable-hits enumeration (add / drop /
+      ``avoid_duplicates`` / ``droppable_classes`` / ``min_heuristics``
+      floor / strategy_pattern filter), proposal serialisation, the
+      apply-side dispatch (add appends, drop removes, missing class
+      raises, empty-strategy refusal, fallback-import path),
+      :func:`_proposal_rule_key` collapse for structural ops, the
+      Thompson sampler bucketing structural history into one arm, the
+      `default_structural_catalog()` factory shape, and an end-to-end
+      loop run that accepts a structural drop on a fake harness.
 - [x] **Documentation updated**
-  - `planning/SELF_IMPROVEMENT_LOOP.md`: §7.2 marked shipped, Phase 6
-    checklist updated, "Next iteration ideas" Strategy portfolio
-    composition entry replaced by Analyzer add/drop follow-up, new
-    §12 dated entry under iteration log.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: Phase 6 checklist marks §7.2
+    done; §7 item 2 annotated as shipped; "Next iteration ideas"
+    rewritten with per-class-arms, analyzer add/drop, and
+    strategy-class-swap follow-ups; new §12 dated entry under the
+    iteration log.
   - `doc/source/guide_benchmarking.rst`: new "Strategy portfolio
-    composition (§7.2)" subsection with API, default catalog, CLI
-    examples, programmatic example, and safety-rails rationale.
-  - `doc/source/guide.rst`: quick-nav entry mentions structural
-    mutations.
-  - `AGENTS.md`: self-improvement loop subsection lists the new
-    `--structural` flag with run-the-loop bash example.
+    composition (§7.2)" subsection covering the ops, safety floors,
+    Thompson-sampler bucketing, CLI invocation, and a programmatic
+    custom-catalog example.
+  - `doc/source/guide.rst`: top-of-page navigation row for the
+    benchmarking guide now lists the structural mutations.
+  - `AGENTS.md`: structural catalog mentioned in the loop checklist
+    and the CLI example block.
   - This TODO entry.
 
 ### Stratified Dimension Sampling for Multi-Dim Families (2026-05-02)

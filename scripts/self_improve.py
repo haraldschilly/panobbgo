@@ -48,15 +48,16 @@ Two subcommands:
             --adaptive --adaptive-prime-from-ledger
 
 ``--structural``
-    Enable structural mutations (§7.2 of the plan).  The loop's catalog
-    is widened with ``add_heuristic`` / ``drop_heuristic`` rules from
-    :func:`panobbgo.self_improve.default_structural_rules` so the
-    sampler can reshape the strategy portfolio in addition to retuning
-    hyperparameters.  Off by default — enable it for unattended runs
-    where the loop is allowed to discover new portfolio compositions::
+    Use the structural mutation catalog (§7.2): the default
+    hyperparameter rules **plus** ``add_heuristic`` /
+    ``drop_heuristic`` ops over a curated heuristic pool
+    (Random, Nearby, NelderMead, Center, LatinHypercube, Sobol,
+    Extremal).  Drops respect a ``min_heuristics=2`` safety floor and
+    adds skip classes already present in the strategy.  Off by default
+    so existing CLI invocations are byte-identical::
 
         uv run python scripts/self_improve.py run --iterations 50 \\
-            --adaptive --structural
+            --structural --adaptive
 
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
@@ -236,16 +237,15 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.set_defaults(adaptive_prime_from_ledger=False)
     run_p.add_argument(
         "--structural",
-        dest="structural_mutations",
+        dest="structural",
         action="store_true",
         help=(
-            "Enable structural mutations (§7.2): the loop may also propose "
-            "add_heuristic / drop_heuristic mutations from "
-            "panobbgo.self_improve.default_structural_rules() in addition to the "
-            "hyperparameter retunes from default_catalog().  Off by default."
+            "Use the structural catalog (§7.2): kwarg perturbations + "
+            "add_heuristic / drop_heuristic ops over a curated heuristic pool. "
+            "Off by default to keep existing CLI invocations byte-identical."
         ),
     )
-    run_p.set_defaults(structural_mutations=False)
+    run_p.set_defaults(structural=False)
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -262,8 +262,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    from panobbgo.self_improve import LoopConfig, SelfImprover
+    from panobbgo.self_improve import LoopConfig, SelfImprover, default_catalog, default_structural_catalog
 
+    catalog = default_structural_catalog() if args.structural else default_catalog()
     cfg = LoopConfig(
         iterations=args.iterations,
         base_seed=args.base_seed,
@@ -288,9 +289,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         adaptive_prior_alpha=args.adaptive_prior_alpha,
         adaptive_prior_beta=args.adaptive_prior_beta,
         adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
-        structural_mutations=args.structural_mutations,
     )
-    improver = SelfImprover(cfg)
+    improver = SelfImprover(cfg, catalog=catalog)
     records = improver.run(verbose=not args.quiet)
 
     n_accepts = sum(1 for r in records if r.accepted)

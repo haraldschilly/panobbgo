@@ -41,7 +41,7 @@ Quick Navigation
    * - **Interested in research?**
      - Explore :doc:`guide_research` for related work, theoretical properties, and future directions
    * - **Want to measure progress?**
-     - Read :doc:`guide_benchmarking` for the composite score, external baselines, parametrically randomised problems, the statistical acceptance rule, the autonomous self-improvement loop driver, the anti-cherry-pick guard, and structural mutations (add/drop heuristics)
+     - Read :doc:`guide_benchmarking` for the composite score, external baselines, parametrically randomised problems, the statistical acceptance rule, the autonomous self-improvement loop driver, the anti-cherry-pick guard, the adaptive Thompson-sampling mutation sampler, and the structural ``add_heuristic`` / ``drop_heuristic`` portfolio mutations
 
 Guide Contents
 --------------

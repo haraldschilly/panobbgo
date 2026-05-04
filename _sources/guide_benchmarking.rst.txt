@@ -640,6 +640,88 @@ Programmatic use:
 The sampler is **off by default** (``adaptive_sampling = False``) for
 backward compatibility.
 
+Strategy portfolio composition (§7.2)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The default catalog only retunes hyperparameters of heuristics that
+already exist in each strategy.  The structural catalog — opt in via
+``--structural`` on ``scripts/self_improve.py run`` or by passing
+:func:`~panobbgo.self_improve.default_structural_catalog` to
+:class:`~panobbgo.self_improve.SelfImprover` — extends the mutation
+space with two new ops that change the *shape* of a
+:class:`~panobbgo.benchmark.StrategySpec`'s heuristics list:
+
+* ``add_heuristic`` — append a heuristic from a curated pool
+  (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
+  ``LatinHypercube``, ``Sobol``, ``Extremal``) to a target strategy.
+  ``avoid_duplicates=True`` (default) skips classes that are already
+  present in the strategy, so the catalog cannot litter a portfolio
+  with redundant copies.
+* ``drop_heuristic`` — remove an existing heuristic, optionally
+  restricted to a tuple of class names via
+  ``StructuralMutationRule.droppable_classes``.  The
+  ``min_heuristics`` field (default ``2``) is the floor of the
+  *post-drop* heuristic count, so the strategy always keeps at least
+  one diversity slot beyond the bare minimum.
+
+Both flavours land as one
+:class:`~panobbgo.self_improve.MutationProposal` carrying ``op`` and
+``structural_kwargs``; :func:`~panobbgo.self_improve.apply_mutation`
+dispatches on ``proposal.op`` so the rest of the loop driver — the
+ledger, the anti-cherry-pick guard, the statistical acceptance rule —
+is unchanged and the JSONL ledger remains backwards compatible.
+
+The Thompson sampler maps every structural rule onto **one arm per
+op** (key ``("*", op, "structural")``).  This keeps cold-start
+variance bounded — a freshly enabled adaptive sampler on a structural
+catalog has the same uniform-mix behaviour as on the kwarg catalog.
+Per-class arms (``"add Sobol" vs "add NelderMead"``) are the natural
+next refinement and are listed under "Next iteration ideas" in
+``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+CLI:
+
+.. code-block:: bash
+
+   # Structural catalog, uniform sampler.
+   uv run python scripts/self_improve.py run --iterations 50 --structural
+
+   # Structural catalog plus Thompson-sampling adaptive sampler.
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --structural --adaptive --adaptive-prime-from-ledger
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import (
+       LoopConfig,
+       SelfImprover,
+       StructuralMutationRule,
+       MutationCatalog,
+       default_structural_catalog,
+   )
+   from panobbgo.heuristics import Sobol, Nearby
+
+   cfg = LoopConfig(iterations=100, mode="standard", randomize=True)
+   # Built-in structural catalog (kwarg rules + add/drop ops).
+   improver = SelfImprover(cfg, catalog=default_structural_catalog())
+   improver.run()
+
+   # Or build a focused custom catalog: just propose adding Sobol' to
+   # any strategy that doesn't have it yet.
+   custom = MutationCatalog([
+       StructuralMutationRule(
+           strategy_pattern="",
+           op="add_heuristic",
+           candidate_classes=((Sobol, {"n": 16, "scramble": True}),),
+       ),
+   ])
+   SelfImprover(cfg, catalog=custom).run()
+
+The ``--structural`` flag is **off by default** so existing CLI
+invocations and existing ledgers stay byte-identical.
+
 
 Extending the harness
 ---------------------

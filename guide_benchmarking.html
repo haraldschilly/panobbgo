@@ -129,6 +129,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#self-improvement-loop">Self-improvement loop</a><ul>
 <li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
+<li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
@@ -214,16 +215,17 @@ self-improvement loop.</p>
 <ul>
 <li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id22">Anti-cherry-pick guard (§6.3)</a></p></li>
 <li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id23">Adaptive mutation sampler (§10)</a></p></li>
+<li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id24">Strategy portfolio composition (§7.2)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id24">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id25">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id25">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id26">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id27">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id26">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id27">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id28">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id28">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id29">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -841,11 +843,86 @@ have worked so far.</p>
 <p>The sampler is <strong>off by default</strong> (<code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span> <span class="pre">=</span> <span class="pre">False</span></code>) for
 backward compatibility.</p>
 </section>
+<section id="strategy-portfolio-composition-7-2">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
+<p>The default catalog only retunes hyperparameters of heuristics that
+already exist in each strategy.  The structural catalog — opt in via
+<code class="docutils literal notranslate"><span class="pre">--structural</span></code> on <code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">run</span></code> or by passing
+<code class="xref py py-func docutils literal notranslate"><span class="pre">default_structural_catalog()</span></code> to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SelfImprover</span></code> — extends the mutation
+space with two new ops that change the <em>shape</em> of a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code>’s heuristics list:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> — append a heuristic from a curated pool
+(<code class="docutils literal notranslate"><span class="pre">Random</span></code>, <code class="docutils literal notranslate"><span class="pre">Nearby</span></code>, <code class="docutils literal notranslate"><span class="pre">NelderMead</span></code>, <code class="docutils literal notranslate"><span class="pre">Center</span></code>,
+<code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code>, <code class="docutils literal notranslate"><span class="pre">Sobol</span></code>, <code class="docutils literal notranslate"><span class="pre">Extremal</span></code>) to a target strategy.
+<code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code> (default) skips classes that are already
+present in the strategy, so the catalog cannot litter a portfolio
+with redundant copies.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> — remove an existing heuristic, optionally
+restricted to a tuple of class names via
+<code class="docutils literal notranslate"><span class="pre">StructuralMutationRule.droppable_classes</span></code>.  The
+<code class="docutils literal notranslate"><span class="pre">min_heuristics</span></code> field (default <code class="docutils literal notranslate"><span class="pre">2</span></code>) is the floor of the
+<em>post-drop</em> heuristic count, so the strategy always keeps at least
+one diversity slot beyond the bare minimum.</p></li>
+</ul>
+<p>Both flavours land as one
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MutationProposal</span></code> carrying <code class="docutils literal notranslate"><span class="pre">op</span></code> and
+<code class="docutils literal notranslate"><span class="pre">structural_kwargs</span></code>; <code class="xref py py-func docutils literal notranslate"><span class="pre">apply_mutation()</span></code>
+dispatches on <code class="docutils literal notranslate"><span class="pre">proposal.op</span></code> so the rest of the loop driver — the
+ledger, the anti-cherry-pick guard, the statistical acceptance rule —
+is unchanged and the JSONL ledger remains backwards compatible.</p>
+<p>The Thompson sampler maps every structural rule onto <strong>one arm per
+op</strong> (key <code class="docutils literal notranslate"><span class="pre">(&quot;*&quot;,</span> <span class="pre">op,</span> <span class="pre">&quot;structural&quot;)</span></code>).  This keeps cold-start
+variance bounded — a freshly enabled adaptive sampler on a structural
+catalog has the same uniform-mix behaviour as on the kwarg catalog.
+Per-class arms (<code class="docutils literal notranslate"><span class="pre">&quot;add</span> <span class="pre">Sobol&quot;</span> <span class="pre">vs</span> <span class="pre">&quot;add</span> <span class="pre">NelderMead&quot;</span></code>) are the natural
+next refinement and are listed under “Next iteration ideas” in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Structural catalog, uniform sampler.</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span>--structural
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Structural catalog plus Thompson-sampling adaptive sampler.</span>
+</span><span data-line="5">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="6"><span class="w">    </span>--structural<span class="w"> </span>--adaptive<span class="w"> </span>--adaptive-prime-from-ledger
+</span></pre></div>
+</div>
+<p>Programmatic use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">LoopConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">SelfImprover</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">StructuralMutationRule</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">MutationCatalog</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">default_structural_catalog</span><span class="p">,</span>
+</span><span data-line="7"><span class="p">)</span>
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sobol</span><span class="p">,</span> <span class="n">Nearby</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="n">cfg</span> <span class="o">=</span> <span class="n">LoopConfig</span><span class="p">(</span><span class="n">iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span> <span class="n">randomize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="11"><span class="c1"># Built-in structural catalog (kwarg rules + add/drop ops).</span>
+</span><span data-line="12"><span class="n">improver</span> <span class="o">=</span> <span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="n">default_structural_catalog</span><span class="p">())</span>
+</span><span data-line="13"><span class="n">improver</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="c1"># Or build a focused custom catalog: just propose adding Sobol&#39; to</span>
+</span><span data-line="16"><span class="c1"># any strategy that doesn&#39;t have it yet.</span>
+</span><span data-line="17"><span class="n">custom</span> <span class="o">=</span> <span class="n">MutationCatalog</span><span class="p">([</span>
+</span><span data-line="18">    <span class="n">StructuralMutationRule</span><span class="p">(</span>
+</span><span data-line="19">        <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="20">        <span class="n">op</span><span class="o">=</span><span class="s2">&quot;add_heuristic&quot;</span><span class="p">,</span>
+</span><span data-line="21">        <span class="n">candidate_classes</span><span class="o">=</span><span class="p">((</span><span class="n">Sobol</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span> <span class="s2">&quot;scramble&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}),),</span>
+</span><span data-line="22">    <span class="p">),</span>
+</span><span data-line="23"><span class="p">])</span>
+</span><span data-line="24"><span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="n">custom</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--structural</span></code> flag is <strong>off by default</strong> so existing CLI
+invocations and existing ledgers stay byte-identical.</p>
+</section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -855,7 +932,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -865,7 +942,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -874,7 +951,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id28" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id29" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

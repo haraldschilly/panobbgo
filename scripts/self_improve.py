@@ -47,6 +47,17 @@ Two subcommands:
         uv run python scripts/self_improve.py run --iterations 50 \\
             --adaptive --adaptive-prime-from-ledger
 
+``--structural``
+    Enable structural mutations (§7.2 of the plan).  The loop's catalog
+    is widened with ``add_heuristic`` / ``drop_heuristic`` rules from
+    :func:`panobbgo.self_improve.default_structural_rules` so the
+    sampler can reshape the strategy portfolio in addition to retuning
+    hyperparameters.  Off by default — enable it for unattended runs
+    where the loop is allowed to discover new portfolio compositions::
+
+        uv run python scripts/self_improve.py run --iterations 50 \\
+            --adaptive --structural
+
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
 exits and the ledger is preserved.
@@ -223,6 +234,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seed adaptive sampler history from the existing ledger before running",
     )
     run_p.set_defaults(adaptive_prime_from_ledger=False)
+    run_p.add_argument(
+        "--structural",
+        dest="structural_mutations",
+        action="store_true",
+        help=(
+            "Enable structural mutations (§7.2): the loop may also propose "
+            "add_heuristic / drop_heuristic mutations from "
+            "panobbgo.self_improve.default_structural_rules() in addition to the "
+            "hyperparameter retunes from default_catalog().  Off by default."
+        ),
+    )
+    run_p.set_defaults(structural_mutations=False)
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -265,6 +288,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         adaptive_prior_alpha=args.adaptive_prior_alpha,
         adaptive_prior_beta=args.adaptive_prior_beta,
         adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
+        structural_mutations=args.structural_mutations,
     )
     improver = SelfImprover(cfg)
     records = improver.run(verbose=not args.quiet)

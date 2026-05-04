@@ -230,6 +230,17 @@ The harness is the measurement substrate for an autonomous
     accept history while still exploring under-tried rules.
     Cold-start (Beta(1, 1) prior) is statistically identical to uniform
     sampling.
+*   Strategy portfolio composition — **shipped** (§7.2), see
+    `panobbgo.self_improve.StructuralMutationRule` /
+    `default_structural_rules()` / `LoopConfig.structural_mutations` /
+    the `--structural` CLI flag.  Adds an `add_heuristic` /
+    `drop_heuristic` rule type so the loop can reshape a
+    `StrategySpec`'s heuristic list, not just retune kwargs.  Off by
+    default; enable for unattended runs that should be allowed to
+    discover new portfolio compositions.  The default catalog ships
+    three add rules (`Nearby` / `NelderMead` / `LatinHypercube`) and
+    four single-class drop rules with `min_heuristics=2` so the
+    sampler can't accidentally empty a strategy.
 
 Run the loop:
 
@@ -244,6 +255,10 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # Adaptive (Thompson-sampling) mutation sampler primed from a prior ledger
 uv run python scripts/self_improve.py run --iterations 100 \
     --adaptive --adaptive-prime-from-ledger
+
+# Adaptive sampler + structural mutations (add/drop heuristics)
+uv run python scripts/self_improve.py run --iterations 100 \
+    --adaptive --structural
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

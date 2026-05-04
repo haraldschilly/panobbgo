@@ -640,6 +640,98 @@ Programmatic use:
 The sampler is **off by default** (``adaptive_sampling = False``) for
 backward compatibility.
 
+Strategy portfolio composition (§7.2)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hyperparameter retunes (the default mutation class) only twiddle
+existing knobs.  The next-most-impactful mutation class is **structural**:
+adding a heuristic to or dropping one from a
+:class:`~panobbgo.benchmark.StrategySpec`.  This lets the loop reshape
+the *portfolio* of point sources, not just their kwargs — and is the
+path from "the loop tunes Panobbgo" to "the loop reshapes Panobbgo".
+
+Two new rule kinds, both expressed as
+:class:`~panobbgo.self_improve.StructuralMutationRule`:
+
+``add_heuristic``
+    Append an instance of ``heuristic_class`` (with
+    ``heuristic_kwargs``) to the strategy's heuristic list.  Skips
+    strategies that already include the class
+    (``skip_if_class_present=True`` by default — duplicates rarely
+    help because heuristic queues are independent and the bandit
+    assigns budget at the *class* level).
+
+``drop_heuristic``
+    Remove one heuristic from the list.  Constrained by
+    ``droppable_classes`` (a tuple of allowed
+    ``__name__`` strings; empty = "any heuristic in the spec is
+    droppable") and ``min_heuristics`` (refuse drops below this size;
+    the default catalog uses ``2`` so at least a primer + a
+    local-search heuristic survive).
+
+Default catalog.  :func:`~panobbgo.self_improve.default_structural_rules`
+ships three add rules (``Nearby`` / ``NelderMead`` /
+``LatinHypercube``) and four single-class drop rules (``Nearby`` /
+``NelderMead`` / ``LatinHypercube`` / ``Sobol``).  Single-class drop
+rules give the adaptive sampler one bandit arm per class so it can
+learn *which* heuristic is dragging a given strategy down.
+
+CLI:
+
+.. code-block:: bash
+
+   # Loop with hyperparameter + structural mutations
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --structural
+
+   # Adaptive sampler + structural — the recommended unattended preset
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --adaptive --structural
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import (
+       LoopConfig, SelfImprover, default_catalog,
+   )
+
+   # Option A — flag on LoopConfig (simple)
+   cfg = LoopConfig(iterations=50, structural_mutations=True)
+   SelfImprover(cfg).run()
+
+   # Option B — explicit catalog (full control)
+   from panobbgo.self_improve import (
+       MutationCatalog, MutationRule, StructuralMutationRule,
+   )
+   from panobbgo.heuristics.nearby import Nearby
+   custom = MutationCatalog([
+       MutationRule(strategy_pattern="", class_name="CMAES",
+                    param_name="sigma0", kind="log_uniform_perturb",
+                    bounds=(0.05, 1.0)),
+       StructuralMutationRule(strategy_pattern="BayesOpt",
+                              kind="add_heuristic",
+                              heuristic_class=Nearby,
+                              heuristic_kwargs={"radius": 0.05}),
+   ])
+   SelfImprover(LoopConfig(iterations=20), catalog=custom).run()
+
+Safety rails:
+
+* The applicator (:func:`~panobbgo.self_improve.apply_mutation`) hard-
+  fails any drop that would empty a strategy's heuristic list, so the
+  worst a misconfigured catalog can do is reject the iteration.
+* ``add_heuristic`` resolves the inserted class via
+  ``importlib.import_module(class_module)`` at apply time.  The class
+  module + name are stored in the JSONL ledger so a future
+  :class:`SelfImprover` can replay structural decisions without
+  holding a live reference.
+
+Off by default.  ``LoopConfig.structural_mutations = False`` keeps
+existing CLI invocations byte-identical on a fresh ledger.  Flip to
+``True`` (or pass ``--structural``) when you want the loop to widen
+its reach.
+
 
 Extending the harness
 ---------------------

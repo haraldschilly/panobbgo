@@ -63,8 +63,10 @@ from panobbgo.self_improve import (
     MutationRule,
     MutationRuleStats,
     SelfImprover,
+    StructuralMutationRule,
     apply_mutation,
     default_catalog,
+    default_structural_rules,
     load_ledger,
 )
 
@@ -1368,3 +1370,683 @@ class TestLoopConfigAdaptive:
         assert cfg.adaptive_prior_alpha == 1.0
         assert cfg.adaptive_prior_beta == 1.0
         assert cfg.adaptive_prime_from_ledger is False
+
+
+# ===========================================================================
+# Structural mutations (§7.2 — strategy portfolio composition)
+# ===========================================================================
+
+
+# Heuristics already imported at module top for the in-process resolve test;
+# we need a real, importable Heuristic subclass so ``add_heuristic`` proposals
+# can round-trip through the ledger via importlib.  Pulling from
+# panobbgo.heuristics is fine — they are pure-NumPy, importable, and don't
+# hit Dask until ``start()`` is called.
+from panobbgo.heuristics.center import Center  # noqa: E402  (intentional below imports)
+from panobbgo.heuristics.zero import Zero  # noqa: E402
+from panobbgo.heuristics.nearby import Nearby  # noqa: E402
+
+
+class TestStructuralMutationRule:
+    def test_valid_add(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+            heuristic_kwargs={},
+        )
+        assert rule.kind == "add_heuristic"
+        assert rule.heuristic_class is Center
+
+    def test_valid_drop(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=("Center",),
+            min_heuristics=1,
+        )
+        assert rule.kind == "drop_heuristic"
+        assert rule.droppable_classes == ("Center",)
+
+    def test_unknown_kind_raises(self):
+        with pytest.raises(ValueError, match="Unknown structural mutation kind"):
+            StructuralMutationRule(strategy_pattern="", kind="explode")
+
+    def test_add_without_class_raises(self):
+        with pytest.raises(ValueError, match="non-None heuristic_class"):
+            StructuralMutationRule(strategy_pattern="", kind="add_heuristic")
+
+    def test_add_with_non_class_raises(self):
+        with pytest.raises(ValueError, match="must be a type"):
+            StructuralMutationRule(
+                strategy_pattern="",
+                kind="add_heuristic",
+                heuristic_class=(lambda: None),  # type: ignore[arg-type]
+            )
+
+    def test_min_heuristics_below_one_raises(self):
+        with pytest.raises(ValueError, match="min_heuristics"):
+            StructuralMutationRule(
+                strategy_pattern="",
+                kind="drop_heuristic",
+                min_heuristics=0,
+            )
+
+    def test_non_positive_probability_raises(self):
+        with pytest.raises(ValueError, match="probability"):
+            StructuralMutationRule(
+                strategy_pattern="",
+                kind="add_heuristic",
+                heuristic_class=Center,
+                probability=0.0,
+            )
+
+
+class TestStructuralCatalogApplicable:
+    def test_add_skips_when_class_present(self):
+        # _DummyHeuristicA is in both StratX and StratY -> add Center anywhere
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+        )
+        cat = MutationCatalog([rule])
+        applicable = cat.applicable_rules(_make_specs())
+        assert len(applicable) == 1
+        _, hits = applicable[0]
+        # Center is not present in either spec, so both are eligible.
+        assert len(hits) == 2
+
+    def test_add_skip_if_class_present_filters(self):
+        # _DummyHeuristicA already exists in both specs -> rule should skip them.
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=_DummyHeuristicA,
+            skip_if_class_present=True,
+        )
+        cat = MutationCatalog([rule])
+        assert cat.applicable_rules(_make_specs()) == []
+
+    def test_add_skip_if_class_present_false_keeps_them(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=_DummyHeuristicA,
+            skip_if_class_present=False,
+        )
+        cat = MutationCatalog([rule])
+        applicable = cat.applicable_rules(_make_specs())
+        assert len(applicable) == 1
+        _, hits = applicable[0]
+        assert len(hits) == 2  # both specs
+
+    def test_drop_respects_min_heuristics(self):
+        # StratY has only one heuristic -> drop forbidden.  StratX has two ->
+        # one slot droppable.
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=("_DummyHeuristicA",),
+            min_heuristics=1,
+        )
+        cat = MutationCatalog([rule])
+        applicable = cat.applicable_rules(_make_specs())
+        assert len(applicable) == 1
+        _, hits = applicable[0]
+        # Only StratX qualifies (StratY would drop below 1 heuristic).
+        assert len(hits) == 1
+        si, hi, cls_name = hits[0]
+        assert cls_name == "_DummyHeuristicA"
+        assert hi == 0  # _DummyHeuristicA is at slot 0 in StratX
+
+    def test_drop_no_droppable_classes_means_any(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=(),
+            min_heuristics=1,
+        )
+        cat = MutationCatalog([rule])
+        applicable = cat.applicable_rules(_make_specs())
+        assert len(applicable) == 1
+        _, hits = applicable[0]
+        # Both StratX heuristics are droppable; StratY has only one
+        # heuristic and is therefore protected.
+        assert len(hits) == 2
+
+    def test_drop_strategy_pattern_filters(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="StratX",
+            kind="drop_heuristic",
+            droppable_classes=("_DummyHeuristicA",),
+            min_heuristics=1,
+        )
+        cat = MutationCatalog([rule])
+        applicable = cat.applicable_rules(_make_specs())
+        assert len(applicable) == 1
+        _, hits = applicable[0]
+        assert len(hits) == 1
+        si, hi, cls_name = hits[0]
+        assert _make_specs()[si].name == "StratX"
+
+
+class TestStructuralCatalogSample:
+    def test_sample_add_heuristic_proposal(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+            heuristic_kwargs={"alpha": 0.5},
+        )
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.operation == "add_heuristic"
+        assert prop.class_name == "Center"
+        assert prop.class_module == Center.__module__
+        assert prop.new_value == {"alpha": 0.5}
+        assert prop.old_value is None
+        assert prop.param_name == ""
+        assert prop.heuristic_index is None
+        assert prop.rule_kind == "add_heuristic"
+
+    def test_sample_drop_heuristic_proposal(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="StratX",
+            kind="drop_heuristic",
+            droppable_classes=("_DummyHeuristicB",),
+            min_heuristics=1,
+        )
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.operation == "drop_heuristic"
+        assert prop.class_name == "_DummyHeuristicB"
+        assert prop.class_module == ""  # not needed for drop
+        assert prop.new_value is None
+        # Old value snapshots the dropped kwargs (rollback evidence).
+        assert prop.old_value == {"sigma0": 0.3}
+        assert prop.heuristic_index == 1  # _DummyHeuristicB is at slot 1
+        assert prop.rule_kind == "drop_heuristic"
+
+    def test_sample_returns_none_when_no_applicable(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="DoesNotExist",
+            kind="add_heuristic",
+            heuristic_class=Center,
+        )
+        cat = MutationCatalog([rule])
+        assert cat.sample(np.random.default_rng(0), _make_specs()) is None
+
+    def test_proposal_to_dict_roundtrip(self):
+        # Proposals must serialise the new fields (operation, class_module,
+        # heuristic_index) so a future SelfImprover can replay structural
+        # decisions from the JSONL ledger.
+        prop = MutationProposal(
+            strategy_name="StratX",
+            class_name="Center",
+            param_name="",
+            old_value=None,
+            new_value={"alpha": 0.5},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module="panobbgo.heuristics.center",
+            heuristic_index=None,
+        )
+        d = prop.to_dict()
+        assert d["operation"] == "add_heuristic"
+        assert d["class_module"] == "panobbgo.heuristics.center"
+        assert d["heuristic_index"] is None
+
+    def test_legacy_proposal_defaults_to_set_param(self):
+        """Proposals constructed without ``operation`` must default to set_param."""
+        prop = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicA",
+            param_name="radius",
+            old_value=0.1,
+            new_value=0.2,
+            rule_kind="log_uniform_perturb",
+            rationale="t",
+        )
+        assert prop.operation == "set_param"
+        assert prop.class_module == ""
+        assert prop.heuristic_index is None
+
+
+class TestApplyAddHeuristic:
+    def test_add_appends_heuristic(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="Center",
+            param_name="",
+            old_value=None,
+            new_value={},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module=Center.__module__,
+        )
+        out = apply_mutation(_make_specs(), proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert new_x.heuristics[-1][0] is Center
+        assert new_x.heuristics[-1][1] == {}
+        # Original list lengths grew by exactly one.
+        assert len(new_x.heuristics) == 3
+
+    def test_add_uses_kwargs_dict_copy(self):
+        kwargs = {"alpha": 0.1}
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="Center",
+            param_name="",
+            old_value=None,
+            new_value=kwargs,
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module=Center.__module__,
+        )
+        out = apply_mutation(_make_specs(), proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        # Mutating the proposal's kwargs after apply must NOT corrupt the
+        # spec — the applier copies.
+        kwargs["alpha"] = 999
+        assert new_x.heuristics[-1][1] == {"alpha": 0.1}
+
+    def test_add_other_strategies_untouched(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="Zero",
+            param_name="",
+            old_value=None,
+            new_value={},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module=Zero.__module__,
+        )
+        specs = _make_specs()
+        out = apply_mutation(specs, proposal)
+        new_y = next(s for s in out if s.name == "StratY")
+        assert new_y is specs[1]  # untouched -> same object
+
+    def test_add_unknown_module_raises(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="Center",
+            param_name="",
+            old_value=None,
+            new_value={},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module="not.a.real.module",
+        )
+        with pytest.raises(ValueError, match="could not import module"):
+            apply_mutation(_make_specs(), proposal)
+
+    def test_add_unknown_class_raises(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="GhostHeuristic",
+            param_name="",
+            old_value=None,
+            new_value={},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module="panobbgo.heuristics.center",
+        )
+        with pytest.raises(ValueError, match="not found in module"):
+            apply_mutation(_make_specs(), proposal)
+
+    def test_add_empty_module_raises(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="Center",
+            param_name="",
+            old_value=None,
+            new_value={},
+            rule_kind="add_heuristic",
+            rationale="t",
+            operation="add_heuristic",
+            class_module="",
+        )
+        with pytest.raises(ValueError, match="class_module is empty"):
+            apply_mutation(_make_specs(), proposal)
+
+
+class TestApplyDropHeuristic:
+    def test_drop_removes_at_index(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicB",
+            param_name="",
+            old_value={"sigma0": 0.3},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=1,
+        )
+        out = apply_mutation(_make_specs(), proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        # Slot 1 (DummyHeuristicB) is gone; slot 0 (DummyHeuristicA) remains.
+        assert len(new_x.heuristics) == 1
+        assert new_x.heuristics[0][0] is _DummyHeuristicA
+
+    def test_drop_falls_back_when_index_drifted(self):
+        # Index points to slot 0, which is _DummyHeuristicA, but the proposal
+        # asks to drop _DummyHeuristicB.  The applier should fall back to the
+        # first by-name match.
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicB",
+            param_name="",
+            old_value={"sigma0": 0.3},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=0,  # wrong index — fallback by name should kick in
+        )
+        out = apply_mutation(_make_specs(), proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        # Only the by-name match was dropped.
+        assert [h[0].__name__ for h in new_x.heuristics] == ["_DummyHeuristicA"]
+
+    def test_drop_falls_back_when_index_none(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicA",
+            param_name="",
+            old_value={"radius": 0.1},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=None,
+        )
+        out = apply_mutation(_make_specs(), proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert [h[0].__name__ for h in new_x.heuristics] == ["_DummyHeuristicB"]
+
+    def test_drop_class_not_present_raises(self):
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="GhostHeuristic",
+            param_name="",
+            old_value={},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+        )
+        with pytest.raises(ValueError, match="GhostHeuristic"):
+            apply_mutation(_make_specs(), proposal)
+
+    def test_drop_last_heuristic_raises(self):
+        proposal = MutationProposal(
+            strategy_name="StratY",  # StratY has only one heuristic
+            class_name="_DummyHeuristicA",
+            param_name="",
+            old_value={"radius": 0.05},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=0,
+        )
+        with pytest.raises(ValueError, match="empty"):
+            apply_mutation(_make_specs(), proposal)
+
+    def test_drop_unknown_strategy_raises(self):
+        proposal = MutationProposal(
+            strategy_name="Nope",
+            class_name="_DummyHeuristicA",
+            param_name="",
+            old_value={"radius": 0.1},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=0,
+        )
+        with pytest.raises(ValueError, match="not in the input spec list"):
+            apply_mutation(_make_specs(), proposal)
+
+    def test_drop_input_specs_not_mutated(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyHeuristicB",
+            param_name="",
+            old_value={"sigma0": 0.3},
+            new_value=None,
+            rule_kind="drop_heuristic",
+            rationale="t",
+            operation="drop_heuristic",
+            heuristic_index=1,
+        )
+        apply_mutation(specs, proposal)
+        # Original StratX still has both heuristics.
+        assert len(specs[0].heuristics) == 2
+
+
+class TestApplyMutationDispatch:
+    def test_unknown_operation_raises(self):
+        prop = MutationProposal(
+            strategy_name="StratX",
+            class_name="X",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="weird",
+            rationale="t",
+            operation="frobnicate",
+        )
+        with pytest.raises(ValueError, match="Unknown proposal operation"):
+            apply_mutation(_make_specs(), prop)
+
+
+class TestDefaultStructuralRules:
+    def test_count_and_kinds(self):
+        rules = default_structural_rules()
+        # 3 add (Nearby/NelderMead/LatinHypercube) + 4 drop = 7
+        assert len(rules) == 7
+        kinds = {r.kind for r in rules}
+        assert kinds == {"add_heuristic", "drop_heuristic"}
+
+    def test_drop_rules_use_min_heuristics_2(self):
+        for r in default_structural_rules():
+            if r.kind == "drop_heuristic":
+                assert r.min_heuristics == 2
+
+    def test_default_catalog_with_structural_includes_them(self):
+        cat = default_catalog(include_structural=True)
+        kinds = {(r.kind, isinstance(r, StructuralMutationRule)) for r in cat.rules}
+        assert ("add_heuristic", True) in kinds
+        assert ("drop_heuristic", True) in kinds
+        # The default value-rules must still be present.
+        assert ("log_uniform_perturb", False) in kinds
+
+    def test_default_catalog_without_structural_unchanged(self):
+        cat = default_catalog()
+        # Backwards compat: no structural rules slip in by default.
+        assert all(isinstance(r, MutationRule) for r in cat.rules)
+
+
+class TestAdaptiveSamplerWithStructural:
+    def _specs(self):
+        # A spec where Nearby exists (so drop_heuristic_Nearby is applicable)
+        # *and* Center is missing (so add_heuristic_Center is applicable).
+        return [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[
+                    (Nearby, {"radius": 0.1}),
+                    (_DummyHeuristicB, {"sigma0": 0.3}),
+                ],
+            )
+        ]
+
+    def test_rule_key_for_add_heuristic(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        key = sampler._rule_key(rule)
+        assert key == ("Center", "", "add_heuristic")
+
+    def test_rule_key_for_drop_heuristic_single(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=("Nearby",),
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        key = sampler._rule_key(rule)
+        assert key == ("Nearby", "", "drop_heuristic")
+
+    def test_rule_key_for_drop_heuristic_multi_sorted(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=("Nearby", "NelderMead"),
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        key = sampler._rule_key(rule)
+        # Sorted, "|"-joined.
+        assert key == ("Nearby|NelderMead", "", "drop_heuristic")
+
+    def test_rule_key_for_drop_heuristic_unrestricted(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=(),
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        assert sampler._rule_key(rule) == ("*", "", "drop_heuristic")
+
+    def test_sample_produces_structural_proposal(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        rng = np.random.default_rng(7)
+        prop = sampler.sample(rng, self._specs())
+        assert prop is not None
+        assert prop.operation == "add_heuristic"
+        assert prop.class_name == "Center"
+        # Bandit-history bookkeeping must be populated.
+        assert sampler.last_rule_key == ("Center", "", "add_heuristic")
+        # Rationale is augmented with Thompson-sampling debug suffix.
+        assert "Thompson Beta" in prop.rationale
+
+    def test_record_outcome_updates_structural_arm(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Center,
+        )
+        sampler = AdaptiveMutationSampler(MutationCatalog([rule]))
+        rng = np.random.default_rng(0)
+        sampler.sample(rng, self._specs())
+        sampler.record_outcome(True)
+        snap = sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].rule_key == ("Center", "", "add_heuristic")
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+
+class TestStructuralEndToEnd:
+    """End-to-end: a SelfImprover run that accepts a structural mutation."""
+
+    def _accept_structural_catalog(self):
+        # Single rule that adds Center — exercises the full structural
+        # mutation path through the catalog, the proposal, the applicator,
+        # and the ledger.
+        rule = StructuralMutationRule(
+            strategy_pattern="StratX",
+            kind="add_heuristic",
+            heuristic_class=Center,
+            heuristic_kwargs={},
+        )
+        return MutationCatalog([rule])
+
+    def test_structural_accept_writes_ledger(self, tmp_path):
+        # Accept by score lift ~0.4 on the candidate.
+        def score_fn(cfg: HarnessConfig) -> float:
+            specs = cfg.strategies_override
+            assert specs is not None
+            for spec in specs:
+                if spec.name == "StratX":
+                    if any(hc.__name__ == "Center" for hc, _ in spec.heuristics):
+                        return 0.85
+                    return 0.45
+            return 0.5
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._accept_structural_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert len(records) == 1
+        assert records[0].accepted is True
+        assert records[0].proposal is not None
+        assert records[0].proposal["operation"] == "add_heuristic"
+        assert records[0].proposal["class_name"] == "Center"
+        # Ledger must persist the structural proposal too.
+        rows = load_ledger(str(tmp_path / "ledger.jsonl"))
+        iter_rows = [r for r in rows if r.get("record_type", "iteration") == "iteration"]
+        assert len(iter_rows) == 1
+        assert iter_rows[0]["proposal"]["operation"] == "add_heuristic"
+        assert iter_rows[0]["proposal"]["class_module"] == Center.__module__
+
+
+class TestLoopConfigStructuralFlag:
+    def test_default_is_false(self):
+        assert LoopConfig().structural_mutations is False
+
+    def test_explicit_catalog_overrides_flag(self):
+        # When the caller passes a catalog, the flag is ignored — the catalog
+        # is taken as-is (so tests / advanced users keep total control).
+        custom = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="X",
+                    param_name="p",
+                    kind="float_uniform",
+                    bounds=(0.0, 1.0),
+                )
+            ]
+        )
+        si = SelfImprover(LoopConfig(structural_mutations=True), catalog=custom)
+        assert si.catalog is custom
+
+    def test_flag_widens_default_catalog(self):
+        si_off = SelfImprover(LoopConfig(structural_mutations=False))
+        si_on = SelfImprover(LoopConfig(structural_mutations=True))
+        # The structural-on catalog must have strictly more rules than off.
+        assert len(si_on.catalog.rules) > len(si_off.catalog.rules)
+        # And contain at least one StructuralMutationRule.
+        assert any(isinstance(r, StructuralMutationRule) for r in si_on.catalog.rules)
+        # While the off variant has none.
+        assert not any(isinstance(r, StructuralMutationRule) for r in si_off.catalog.rules)

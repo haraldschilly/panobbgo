@@ -116,12 +116,13 @@ See also
 
 from __future__ import annotations
 
+import importlib
 import json
 import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -195,8 +196,104 @@ class MutationRule:
 
 
 @dataclass
+class StructuralMutationRule:
+    """A mutation that adds or drops a *heuristic* from a strategy spec (§7.2).
+
+    Hyperparameter retunes (:class:`MutationRule`) only twiddle existing
+    knobs.  Strategy *portfolio composition* — adding or removing a
+    point-emitting heuristic from a strategy — is the next-most-impactful
+    mutation class identified in
+    ``planning/SELF_IMPROVEMENT_LOOP.md`` §7.2.  This rule type expresses
+    those structural changes inside the existing
+    :class:`~panobbgo.benchmark.StrategySpec` API, so the loop driver can
+    sample them alongside hyperparameter rules and the bandit can learn
+    which heuristics tend to help on the current battery.
+
+    Args:
+        strategy_pattern: Substring matched against :attr:`StrategySpec.name`.
+            Empty string matches every strategy.
+        kind: One of ``"add_heuristic"`` / ``"drop_heuristic"``.
+        heuristic_class: Required for ``"add_heuristic"`` — the heuristic
+            subclass to insert.  Must be importable by
+            ``(class_module, class_name)`` so the proposal round-trips
+            through the JSONL ledger.
+        heuristic_kwargs: Default kwargs for the inserted heuristic.  The
+            applied :class:`StrategySpec` carries a *copy* of this dict so
+            subsequent hyperparameter mutations on the same spec do not
+            mutate the rule's defaults.
+        droppable_classes: For ``"drop_heuristic"``, a tuple of
+            ``__name__`` strings naming the heuristic classes the rule may
+            remove.  Empty tuple = "any heuristic in the spec is fair
+            game", which is convenient but yields a coarser bandit arm
+            (every drop type collapses into one).  Default catalogs ship
+            one rule per droppable class for fine-grained learning.
+        min_heuristics: Refuse to drop if it would leave the strategy
+            with fewer than this many heuristics.  Hard minimum is ``1``
+            (the strategy needs at least one point source); higher values
+            preserve more diversity in the portfolio.
+        skip_if_class_present: For ``"add_heuristic"``, skip strategies
+            that already include an instance of ``heuristic_class``.
+            Default ``True`` — duplicating a heuristic almost never helps
+            because their queues are independent and the bandit assigns
+            budget at the *class* level.
+        probability: Relative weight when the catalog picks among
+            multiple applicable rules; normalised automatically.
+    """
+
+    strategy_pattern: str
+    kind: str
+    heuristic_class: Optional[type] = None
+    heuristic_kwargs: Dict[str, Any] = field(default_factory=dict)
+    droppable_classes: Tuple[str, ...] = ()
+    min_heuristics: int = 1
+    skip_if_class_present: bool = True
+    probability: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.kind not in {"add_heuristic", "drop_heuristic"}:
+            raise ValueError(f"Unknown structural mutation kind: {self.kind!r}")
+        if self.kind == "add_heuristic":
+            if self.heuristic_class is None:
+                raise ValueError("add_heuristic requires a non-None heuristic_class")
+            if not isinstance(self.heuristic_class, type):
+                raise ValueError(f"heuristic_class must be a type, got {type(self.heuristic_class)!r}")
+        if self.min_heuristics < 1:
+            raise ValueError(f"min_heuristics must be >= 1, got {self.min_heuristics}")
+        if self.probability <= 0:
+            raise ValueError(f"probability must be > 0, got {self.probability}")
+
+
+# Type alias for the union of rules accepted by :class:`MutationCatalog`.
+# Useful in annotations of helpers that don't care which kind of rule
+# they were handed.
+Rule = Union[MutationRule, StructuralMutationRule]
+
+
+@dataclass
 class MutationProposal:
-    """A concrete mutation produced by :meth:`MutationCatalog.sample`."""
+    """A concrete mutation produced by :meth:`MutationCatalog.sample`.
+
+    The schema covers three :attr:`operation` flavours:
+
+    * ``"set_param"`` (default) — value mutation on
+      ``class_name.param_name``.  Uses :attr:`old_value` and
+      :attr:`new_value`.  Backward compatible: existing ledger lines
+      that pre-date the structural-mutation rollout deserialise
+      unchanged because :attr:`operation` defaults to ``"set_param"``.
+    * ``"add_heuristic"`` — appends a new heuristic to the strategy's
+      heuristic list.  :attr:`class_name` and :attr:`class_module`
+      identify the inserted class; :attr:`new_value` is the kwargs dict
+      passed to its constructor; :attr:`old_value` is ``None``;
+      :attr:`param_name` is empty.
+    * ``"drop_heuristic"`` — removes one heuristic from the list.
+      :attr:`class_name` is the dropped class's ``__name__``;
+      :attr:`heuristic_index` records the slot, used for an unambiguous
+      drop when the same class appears more than once;
+      :attr:`old_value` snapshots the dropped kwargs (lets a human or a
+      future rollback re-create the heuristic); :attr:`new_value` is
+      ``None``; :attr:`param_name` is empty; :attr:`class_module` is
+      omitted because no fresh import is required.
+    """
 
     strategy_name: str
     class_name: str
@@ -205,6 +302,9 @@ class MutationProposal:
     new_value: Any
     rule_kind: str
     rationale: str
+    operation: str = "set_param"
+    class_module: str = ""
+    heuristic_index: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -215,6 +315,9 @@ class MutationProposal:
             "new_value": _to_plain(self.new_value),
             "rule_kind": self.rule_kind,
             "rationale": self.rationale,
+            "operation": self.operation,
+            "class_module": self.class_module,
+            "heuristic_index": self.heuristic_index,
         }
 
 
@@ -259,27 +362,86 @@ def _find_targets(
     return hits
 
 
+def _structural_targets(
+    specs: Sequence[StrategySpec],
+    rule: StructuralMutationRule,
+) -> List[Tuple[Any, ...]]:
+    """Find applicable hits for a :class:`StructuralMutationRule`.
+
+    Hit shapes:
+
+    * ``add_heuristic`` — ``(spec_idx,)`` for each strategy that matches
+      :attr:`StructuralMutationRule.strategy_pattern` *and* either has no
+      instance of ``heuristic_class`` or
+      :attr:`skip_if_class_present` is ``False``.
+    * ``drop_heuristic`` — ``(spec_idx, heuristic_idx, class_name)`` for
+      each droppable slot in matching strategies, subject to the
+      :attr:`min_heuristics` floor.
+
+    The shape diverges from :func:`_find_targets`'s 4-tuple intentionally:
+    structural and value rules carry different state, so blending them
+    into a uniform tuple would cost more clarity than it saves.
+    """
+    hits: List[Tuple[Any, ...]] = []
+    for si, spec in enumerate(specs):
+        if rule.strategy_pattern and rule.strategy_pattern not in spec.name:
+            continue
+        if rule.kind == "add_heuristic":
+            cls = rule.heuristic_class
+            assert cls is not None  # guarded in __post_init__
+            existing = {hcls.__name__ for hcls, _ in spec.heuristics}
+            if rule.skip_if_class_present and cls.__name__ in existing:
+                continue
+            hits.append((si,))
+        elif rule.kind == "drop_heuristic":
+            # Only count slots whose removal still leaves >= min_heuristics
+            # *droppable-or-pinned* heuristics.  Use the spec's current
+            # length as the floor check; per-slot we additionally honour
+            # the optional droppable_classes whitelist.
+            if len(spec.heuristics) <= rule.min_heuristics:
+                continue
+            for hi, (hcls, _) in enumerate(spec.heuristics):
+                if rule.droppable_classes and hcls.__name__ not in rule.droppable_classes:
+                    continue
+                hits.append((si, hi, hcls.__name__))
+    return hits
+
+
 class MutationCatalog:
-    """A weighted pool of :class:`MutationRule` instances.
+    """A weighted pool of :class:`MutationRule` and / or
+    :class:`StructuralMutationRule` instances.
 
     :meth:`sample` returns one applicable :class:`MutationProposal`, or
     ``None`` when no rule can be applied to the input spec list.  An
-    "applicable" rule is one whose target class + kwarg exist somewhere
-    in the input specs.
+    "applicable" rule is one whose target exists somewhere in the input
+    specs:
+
+    * For :class:`MutationRule` — the target class + kwarg are present.
+    * For :class:`StructuralMutationRule` — the rule has at least one
+      candidate insertion / removal slot in matching strategies.
     """
 
-    def __init__(self, rules: Sequence[MutationRule]) -> None:
+    def __init__(self, rules: Sequence[Rule]) -> None:
         if not rules:
             raise ValueError("MutationCatalog requires at least one rule")
-        self.rules: List[MutationRule] = list(rules)
+        self.rules: List[Rule] = list(rules)
 
-    def applicable_rules(
-        self, specs: Sequence[StrategySpec]
-    ) -> List[Tuple[MutationRule, List[Tuple[int, str, int, Any]]]]:
-        """Return ``[(rule, hits), …]`` for rules with ≥1 target in ``specs``."""
-        out: List[Tuple[MutationRule, List[Tuple[int, str, int, Any]]]] = []
+    def applicable_rules(self, specs: Sequence[StrategySpec]) -> List[Tuple[Rule, List[Tuple[Any, ...]]]]:
+        """Return ``[(rule, hits), …]`` for rules with ≥1 target in ``specs``.
+
+        Hit tuples are rule-specific; see :func:`_find_targets` for value
+        rules and :func:`_structural_targets` for structural rules.
+        Callers that downstream-unpack the tuple must dispatch on
+        ``isinstance(rule, MutationRule)``.
+        """
+        out: List[Tuple[Rule, List[Tuple[Any, ...]]]] = []
         for rule in self.rules:
-            hits = _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
+            if isinstance(rule, MutationRule):
+                hits: List[Tuple[Any, ...]] = list(
+                    _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
+                )
+            else:
+                hits = _structural_targets(specs, rule)
             if hits:
                 out.append((rule, hits))
         return out
@@ -302,16 +464,34 @@ class MutationCatalog:
         weights = weights / weights.sum()
         chosen_idx = int(rng.choice(len(applicable), p=weights))
         rule, hits = applicable[chosen_idx]
+        return self._sample_from_rule(rng, rule, hits, specs)
 
+    @staticmethod
+    def _sample_from_rule(
+        rng: np.random.Generator,
+        rule: Rule,
+        hits: List[Tuple[Any, ...]],
+        specs: Sequence[StrategySpec],
+    ) -> MutationProposal:
+        """Dispatch to the appropriate proposal builder for ``rule``."""
+        if isinstance(rule, MutationRule):
+            return MutationCatalog._sample_value_proposal(rng, rule, hits, specs)
+        return MutationCatalog._sample_structural_proposal(rng, rule, hits, specs)
+
+    @staticmethod
+    def _sample_value_proposal(
+        rng: np.random.Generator,
+        rule: MutationRule,
+        hits: List[Tuple[Any, ...]],
+        specs: Sequence[StrategySpec],
+    ) -> MutationProposal:
         hit_idx = int(rng.integers(0, len(hits)))
         si, _, _, old_value = hits[hit_idx]
         strategy_name = specs[si].name
-
-        new_value = self._mutate_value(rule, old_value, rng)
+        new_value = MutationCatalog._mutate_value(rule, old_value, rng)
         rationale = (
             f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: {old_value!r} -> {new_value!r}"
         )
-
         return MutationProposal(
             strategy_name=strategy_name,
             class_name=rule.class_name,
@@ -320,6 +500,50 @@ class MutationCatalog:
             new_value=_to_plain(new_value),
             rule_kind=rule.kind,
             rationale=rationale,
+            operation="set_param",
+        )
+
+    @staticmethod
+    def _sample_structural_proposal(
+        rng: np.random.Generator,
+        rule: StructuralMutationRule,
+        hits: List[Tuple[Any, ...]],
+        specs: Sequence[StrategySpec],
+    ) -> MutationProposal:
+        hit_idx = int(rng.integers(0, len(hits)))
+        if rule.kind == "add_heuristic":
+            (si,) = hits[hit_idx]
+            spec = specs[si]
+            cls = rule.heuristic_class
+            assert cls is not None
+            kwargs = dict(rule.heuristic_kwargs)
+            rationale = f"add_heuristic {cls.__name__}({kwargs}) into {spec.name}"
+            return MutationProposal(
+                strategy_name=spec.name,
+                class_name=cls.__name__,
+                param_name="",
+                old_value=None,
+                new_value=_to_plain(kwargs),
+                rule_kind=rule.kind,
+                rationale=rationale,
+                operation="add_heuristic",
+                class_module=cls.__module__,
+            )
+        # drop_heuristic
+        si, hi, cls_name = hits[hit_idx]
+        spec = specs[si]
+        old_kwargs = dict(spec.heuristics[hi][1])
+        rationale = f"drop_heuristic {cls_name}@{hi} from {spec.name}"
+        return MutationProposal(
+            strategy_name=spec.name,
+            class_name=cls_name,
+            param_name="",
+            old_value=_to_plain(old_kwargs),
+            new_value=None,
+            rule_kind=rule.kind,
+            rationale=rationale,
+            operation="drop_heuristic",
+            heuristic_index=hi,
         )
 
     @staticmethod
@@ -456,10 +680,38 @@ class AdaptiveMutationSampler:
         self._last_rule_key: Optional[RuleKey] = None
 
     @staticmethod
-    def _rule_key(rule: MutationRule) -> RuleKey:
-        return _proposal_rule_key(rule.class_name, rule.param_name, rule.kind)
+    def _rule_key(rule: Rule) -> RuleKey:
+        """Bandit-arm identifier for ``rule``.
 
-    def get_stats(self, rule: MutationRule) -> MutationRuleStats:
+        Rules that conceptually pull the same lever share one bucket:
+
+        * For :class:`MutationRule` — ``(class_name, param_name, kind)``,
+          so two rules differing only in :attr:`strategy_pattern`
+          collapse into one arm.
+        * For :class:`StructuralMutationRule` of kind
+          ``add_heuristic`` — ``(heuristic_class.__name__, "",
+          kind)``: every "add Sobol" rule is one arm regardless of which
+          strategy patterns it targets.
+        * For :class:`StructuralMutationRule` of kind
+          ``drop_heuristic`` — ``(droppable_signature, "", kind)`` where
+          ``droppable_signature`` is the sorted ``"|"``-joined
+          :attr:`droppable_classes` (or ``"*"`` if unrestricted).  This
+          intentionally lets the catalog ship one rule per droppable
+          class (the recommended pattern); the bandit then learns which
+          class is worth dropping rather than collapsing all drops into
+          a single arm.
+        """
+        if isinstance(rule, MutationRule):
+            return _proposal_rule_key(rule.class_name, rule.param_name, rule.kind)
+        # StructuralMutationRule
+        if rule.kind == "add_heuristic":
+            assert rule.heuristic_class is not None
+            return _proposal_rule_key(rule.heuristic_class.__name__, "", rule.kind)
+        # drop_heuristic
+        droppable_repr = "|".join(sorted(rule.droppable_classes)) or "*"
+        return _proposal_rule_key(droppable_repr, "", rule.kind)
+
+    def get_stats(self, rule: Rule) -> MutationRuleStats:
         """Return (creating if needed) the stats bucket for ``rule``."""
         key = self._rule_key(rule)
         if key not in self._stats:
@@ -503,30 +755,20 @@ class AdaptiveMutationSampler:
         chosen_idx = int(np.argmax(sampled))
         rule, hits = applicable[chosen_idx]
 
-        hit_idx = int(rng.integers(0, len(hits)))
-        si, _, _, old_value = hits[hit_idx]
-        strategy_name = specs[si].name
-        new_value = MutationCatalog._mutate_value(rule, old_value, rng)
+        # Build the proposal via the same dispatcher the catalog uses, so
+        # value rules and structural rules share one code path.
+        proposal = MutationCatalog._sample_from_rule(rng, rule, hits, specs)
 
         chosen_stats = self.get_stats(rule)
         alpha_eff = self.prior_alpha + chosen_stats.n_accepts
         beta_eff = self.prior_beta + (chosen_stats.n_attempts - chosen_stats.n_accepts)
-        rationale = (
-            f"{rule.kind} on {rule.class_name}.{rule.param_name} in {strategy_name}: "
-            f"{old_value!r} -> {new_value!r} "
+        proposal.rationale = (
+            f"{proposal.rationale} "
             f"[Thompson Beta({alpha_eff:.1f}, {beta_eff:.1f}); draw={sampled[chosen_idx]:.3f}; "
             f"history {chosen_stats.n_accepts}/{chosen_stats.n_attempts}]"
         )
         self._last_rule_key = self._rule_key(rule)
-        return MutationProposal(
-            strategy_name=strategy_name,
-            class_name=rule.class_name,
-            param_name=rule.param_name,
-            old_value=_to_plain(old_value),
-            new_value=_to_plain(new_value),
-            rule_kind=rule.kind,
-            rationale=rationale,
-        )
+        return proposal
 
     def record_outcome(self, accepted: bool) -> None:
         """Update the bandit with the most recent iteration's verdict.
@@ -578,8 +820,8 @@ class AdaptiveMutationSampler:
         return consumed
 
 
-def default_catalog() -> MutationCatalog:
-    """Return the built-in hyperparameter mutation catalog.
+def default_catalog(include_structural: bool = False) -> MutationCatalog:
+    """Return the built-in mutation catalog.
 
     Covers the most impactful dials on the harness strategies:
 
@@ -592,68 +834,153 @@ def default_catalog() -> MutationCatalog:
 
     Bounds are chosen so a single accept keeps the value in a sensible
     range (never zero, never pathologically large).
+
+    Args:
+        include_structural: When ``True``, the structural rules from
+            :func:`default_structural_rules` are appended to the catalog
+            so the loop can also propose
+            ``add_heuristic`` / ``drop_heuristic`` mutations
+            (`planning/SELF_IMPROVEMENT_LOOP.md` §7.2).  Defaults to
+            ``False`` so existing CLI invocations remain byte-identical
+            on a fresh ledger.
     """
-    return MutationCatalog(
-        [
-            MutationRule(
-                strategy_pattern="",
-                class_name="Nearby",
-                param_name="radius",
-                kind="log_uniform_perturb",
-                bounds=(0.005, 0.5),
-                log_step=0.15,
-                probability=1.0,
-            ),
-            MutationRule(
-                strategy_pattern="",
-                class_name="CMAES",
-                param_name="sigma0",
-                kind="log_uniform_perturb",
-                bounds=(0.05, 1.0),
-                log_step=0.15,
-                probability=1.0,
-            ),
-            MutationRule(
-                strategy_pattern="",
-                class_name="Sensitivity",
-                param_name="update_interval",
-                kind="integer_add",
-                bounds=(5, 60),
-                delta_choices=(-5, -2, 2, 5),
-                probability=0.5,
-            ),
-            MutationRule(
-                strategy_pattern="",
-                class_name="LatinHypercube",
-                param_name="div",
-                kind="integer_add",
-                bounds=(2, 8),
-                delta_choices=(-1, 1),
-                probability=0.5,
-            ),
-            # Sobol' is a power-of-two-friendly low-discrepancy sequence; we
-            # double / halve the sample count to stay on 2^k boundaries while
-            # respecting the 4..64 envelope.
-            MutationRule(
-                strategy_pattern="",
-                class_name="Sobol",
-                param_name="n",
-                kind="integer_add",
-                bounds=(4, 64),
-                delta_choices=(-8, -4, 4, 8),
-                probability=0.5,
-            ),
-            MutationRule(
-                strategy_pattern="",
-                class_name="Restart",
-                param_name="max_restarts",
-                kind="integer_add",
-                bounds=(1, 20),
-                delta_choices=(-2, -1, 1, 2),
-                probability=0.5,
-            ),
-        ]
-    )
+    rules: List[Rule] = [
+        MutationRule(
+            strategy_pattern="",
+            class_name="Nearby",
+            param_name="radius",
+            kind="log_uniform_perturb",
+            bounds=(0.005, 0.5),
+            log_step=0.15,
+            probability=1.0,
+        ),
+        MutationRule(
+            strategy_pattern="",
+            class_name="CMAES",
+            param_name="sigma0",
+            kind="log_uniform_perturb",
+            bounds=(0.05, 1.0),
+            log_step=0.15,
+            probability=1.0,
+        ),
+        MutationRule(
+            strategy_pattern="",
+            class_name="Sensitivity",
+            param_name="update_interval",
+            kind="integer_add",
+            bounds=(5, 60),
+            delta_choices=(-5, -2, 2, 5),
+            probability=0.5,
+        ),
+        MutationRule(
+            strategy_pattern="",
+            class_name="LatinHypercube",
+            param_name="div",
+            kind="integer_add",
+            bounds=(2, 8),
+            delta_choices=(-1, 1),
+            probability=0.5,
+        ),
+        # Sobol' is a power-of-two-friendly low-discrepancy sequence; we
+        # double / halve the sample count to stay on 2^k boundaries while
+        # respecting the 4..64 envelope.
+        MutationRule(
+            strategy_pattern="",
+            class_name="Sobol",
+            param_name="n",
+            kind="integer_add",
+            bounds=(4, 64),
+            delta_choices=(-8, -4, 4, 8),
+            probability=0.5,
+        ),
+        MutationRule(
+            strategy_pattern="",
+            class_name="Restart",
+            param_name="max_restarts",
+            kind="integer_add",
+            bounds=(1, 20),
+            delta_choices=(-2, -1, 1, 2),
+            probability=0.5,
+        ),
+    ]
+    if include_structural:
+        rules.extend(default_structural_rules())
+    return MutationCatalog(rules)
+
+
+def default_structural_rules() -> List[StructuralMutationRule]:
+    """Return the built-in structural-mutation rules (§7.2).
+
+    Three heuristic classes are common, side-effect-free additions
+    that frequently *do* help on the standard battery, so they are good
+    candidates for ``add_heuristic`` mutations:
+
+    * :class:`~panobbgo.heuristics.nearby.Nearby` — local-search around
+      the running best; cheap and broadly useful.
+    * :class:`~panobbgo.heuristics.nelder_mead.NelderMead` — derivative-
+      free polish, finishes optimisation runs.
+    * :class:`~panobbgo.heuristics.latin_hypercube.LatinHypercube` —
+      space-filling initial design; rescues strategies that under-explore.
+
+    The drop side ships one rule per droppable class so the bandit can
+    learn *which* heuristic is dragging a given strategy down.
+    Strategies with one heuristic are protected by ``min_heuristics=2``;
+    structural mutations should never empty a portfolio (the spec would
+    have no point source).
+
+    Each rule probability is intentionally lower than a hyperparameter
+    rule's: the loop should accept structural changes more cautiously
+    because they shift the search distribution on every problem rather
+    than tweaking one knob.
+
+    Adding heuristics is gated by ``skip_if_class_present=True`` so a
+    strategy that already includes the heuristic does not get a second
+    copy (their queues are independent and the bandit assigns budget at
+    the *class* level — duplicates almost never help).
+    """
+    # Lazy imports keep the module's import-time fast even when the
+    # catalog is not used; structural-rule users pay the cost.
+    from panobbgo.heuristics.nearby import Nearby
+    from panobbgo.heuristics.nelder_mead import NelderMead
+    from panobbgo.heuristics.latin_hypercube import LatinHypercube
+
+    add_rules: List[StructuralMutationRule] = [
+        StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=Nearby,
+            heuristic_kwargs={"radius": 0.1, "axes": "all", "new": 3},
+            probability=0.3,
+        ),
+        StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=NelderMead,
+            heuristic_kwargs={},
+            probability=0.3,
+        ),
+        StructuralMutationRule(
+            strategy_pattern="",
+            kind="add_heuristic",
+            heuristic_class=LatinHypercube,
+            heuristic_kwargs={"div": 4},
+            probability=0.3,
+        ),
+    ]
+    drop_rules: List[StructuralMutationRule] = [
+        StructuralMutationRule(
+            strategy_pattern="",
+            kind="drop_heuristic",
+            droppable_classes=(cls,),
+            min_heuristics=2,
+            probability=0.2,
+        )
+        # Single-class drop rules so the bandit's per-rule arm cleanly
+        # corresponds to "is dropping <cls> a good idea?".  See
+        # AdaptiveMutationSampler._rule_key for why this matters.
+        for cls in ("Nearby", "NelderMead", "LatinHypercube", "Sobol")
+    ]
+    return add_rules + drop_rules
 
 
 # ---------------------------------------------------------------------------
@@ -673,10 +1000,36 @@ def apply_mutation(
     input list is untouched — this lets the loop keep the prior spec
     list around as the "fallback" when a proposal is rejected.
 
+    Dispatches on :attr:`MutationProposal.operation`:
+
+    * ``"set_param"`` — update ``class_name.param_name`` in-place.
+    * ``"add_heuristic"`` — append a new heuristic; the class is
+      resolved at apply time via
+      ``importlib.import_module(class_module)`` + ``getattr``.
+    * ``"drop_heuristic"`` — remove the heuristic at
+      ``heuristic_index`` (falling back to the first by-name match if
+      the index has shifted), refusing to leave the strategy with zero
+      heuristics.
+
     Raises:
-        ValueError: If the target strategy is absent, or if the target
-            class / param combination cannot be located inside it.
+        ValueError: If the target strategy is absent, the target class
+            cannot be located / imported, or the resulting strategy
+            would have no heuristics.
     """
+    op = proposal.operation
+    if op == "set_param":
+        return _apply_set_param(specs, proposal)
+    if op == "add_heuristic":
+        return _apply_add_heuristic(specs, proposal)
+    if op == "drop_heuristic":
+        return _apply_drop_heuristic(specs, proposal)
+    raise ValueError(f"Unknown proposal operation: {op!r}")
+
+
+def _apply_set_param(
+    specs: Sequence[StrategySpec],
+    proposal: MutationProposal,
+) -> List[StrategySpec]:
     out: List[StrategySpec] = []
     applied = False
     for spec in specs:
@@ -702,6 +1055,117 @@ def apply_mutation(
         if not hit:
             raise ValueError(
                 f"proposal target {proposal.class_name}.{proposal.param_name} not found in strategy {spec.name!r}"
+            )
+
+        applied = True
+        out.append(
+            StrategySpec(
+                name=spec.name,
+                strategy_class=spec.strategy_class,
+                heuristics=new_heuristics,
+                analyzers=new_analyzers,
+                config_overrides=dict(spec.config_overrides),
+            )
+        )
+
+    if not applied:
+        raise ValueError(f"proposal refers to strategy {proposal.strategy_name!r} which is not in the input spec list")
+    return out
+
+
+def _resolve_class(class_module: str, class_name: str) -> type:
+    """Resolve ``(class_module, class_name)`` to a class object.
+
+    Used by :func:`_apply_add_heuristic` so the proposal can round-trip
+    through the JSONL ledger without holding a live reference to the
+    class.  Raises :class:`ValueError` with a clear message on lookup
+    failure — the loop driver catches the error, reports the iteration
+    as an apply-failure, and keeps the prior spec list.
+    """
+    if not class_module:
+        raise ValueError("class_module is empty; cannot resolve heuristic class")
+    try:
+        mod = importlib.import_module(class_module)
+    except ImportError as exc:
+        raise ValueError(f"could not import module {class_module!r}: {exc}") from exc
+    cls = getattr(mod, class_name, None)
+    if cls is None:
+        raise ValueError(f"class {class_name!r} not found in module {class_module!r}")
+    if not isinstance(cls, type):
+        raise ValueError(f"{class_module}.{class_name} is not a class")
+    return cls
+
+
+def _apply_add_heuristic(
+    specs: Sequence[StrategySpec],
+    proposal: MutationProposal,
+) -> List[StrategySpec]:
+    out: List[StrategySpec] = []
+    applied = False
+    for spec in specs:
+        if spec.name != proposal.strategy_name:
+            out.append(spec)
+            continue
+
+        cls = _resolve_class(proposal.class_module, proposal.class_name)
+        new_heuristics = [(hc, dict(kw)) for hc, kw in spec.heuristics]
+        new_analyzers = [(ac, dict(kw)) for ac, kw in spec.analyzers]
+        kwargs_for_new = dict(proposal.new_value or {})
+        new_heuristics.append((cls, kwargs_for_new))
+
+        applied = True
+        out.append(
+            StrategySpec(
+                name=spec.name,
+                strategy_class=spec.strategy_class,
+                heuristics=new_heuristics,
+                analyzers=new_analyzers,
+                config_overrides=dict(spec.config_overrides),
+            )
+        )
+
+    if not applied:
+        raise ValueError(f"proposal refers to strategy {proposal.strategy_name!r} which is not in the input spec list")
+    return out
+
+
+def _apply_drop_heuristic(
+    specs: Sequence[StrategySpec],
+    proposal: MutationProposal,
+) -> List[StrategySpec]:
+    out: List[StrategySpec] = []
+    applied = False
+    for spec in specs:
+        if spec.name != proposal.strategy_name:
+            out.append(spec)
+            continue
+
+        new_heuristics = [(hc, dict(kw)) for hc, kw in spec.heuristics]
+        new_analyzers = [(ac, dict(kw)) for ac, kw in spec.analyzers]
+
+        # Prefer the recorded index when it still points at the target
+        # class; this makes drops idempotent in the presence of duplicate
+        # classes.  When the index drifted (e.g. a previous mutation
+        # rearranged the list), fall back to the first by-name match.
+        idx = proposal.heuristic_index
+        if (
+            idx is not None
+            and 0 <= idx < len(new_heuristics)
+            and new_heuristics[idx][0].__name__ == proposal.class_name
+        ):
+            del new_heuristics[idx]
+        else:
+            fallback_idx = next(
+                (i for i, (hc, _) in enumerate(new_heuristics) if hc.__name__ == proposal.class_name),
+                None,
+            )
+            if fallback_idx is None:
+                raise ValueError(f"drop_heuristic: class {proposal.class_name!r} not found in strategy {spec.name!r}")
+            del new_heuristics[fallback_idx]
+
+        if not new_heuristics:
+            raise ValueError(
+                f"drop_heuristic would empty {spec.name!r}'s heuristic list — at least one heuristic must remain"
             )
 
         applied = True
@@ -798,6 +1262,16 @@ class LoopConfig:
             seeds its bandit history from any existing
             :attr:`ledger_path` before the first iteration.  Useful when
             resuming a long unattended run.
+        structural_mutations: When ``True`` and ``catalog`` is left at
+            its default, the loop's catalog is built with
+            ``default_catalog(include_structural=True)`` so the sampler
+            can also propose ``add_heuristic`` and ``drop_heuristic``
+            mutations from
+            :func:`default_structural_rules`.  Defaults to ``False`` so
+            existing CLI invocations behave identically.  Closes the
+            §7.2 *Strategy portfolio composition* ticket of
+            ``planning/SELF_IMPROVEMENT_LOOP.md``.  Has no effect when
+            an explicit ``catalog`` is passed to :class:`SelfImprover`.
     """
 
     iterations: int = 5
@@ -823,6 +1297,7 @@ class LoopConfig:
     adaptive_prior_alpha: float = 1.0
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
+    structural_mutations: bool = False
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -1042,7 +1517,14 @@ class SelfImprover:
         sampler: Optional[AdaptiveMutationSampler] = None,
     ) -> None:
         self.config = config or LoopConfig()
-        self.catalog = catalog or default_catalog()
+        # When the caller doesn't supply an explicit catalog, honour the
+        # config flag for structural mutations (§7.2).  Passing a catalog
+        # explicitly always wins so test / advanced users keep full
+        # control.
+        if catalog is not None:
+            self.catalog = catalog
+        else:
+            self.catalog = default_catalog(include_structural=self.config.structural_mutations)
         self._seed_strategies: Optional[List[StrategySpec]] = (
             list(seed_strategies) if seed_strategies is not None else None
         )
@@ -1463,12 +1945,15 @@ def load_ledger(path: str) -> List[Dict[str, Any]]:
 
 __all__ = [
     "MutationRule",
+    "StructuralMutationRule",
+    "Rule",
     "MutationProposal",
     "MutationCatalog",
     "MutationRuleStats",
     "AdaptiveMutationSampler",
     "RuleKey",
     "default_catalog",
+    "default_structural_rules",
     "apply_mutation",
     "LoopConfig",
     "LoopIterationRecord",

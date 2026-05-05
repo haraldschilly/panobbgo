@@ -2,6 +2,40 @@
 
 ## Recent Improvements (continued)
 
+### PSO (Particle Swarm Optimization) heuristic (2026-05-05)
+- [x] **`panobbgo/heuristics/pso.py`** — new asynchronous PSO heuristic
+      with the canonical Clerc–Kennedy (2002) constriction-coefficient
+      parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).  Each
+      particle carries a position, velocity, and personal best; the
+      velocity update pulls toward both personal best and global best
+      with random per-component weights and is clamped per-dimension to
+      a configurable fraction of the box range to prevent explosion.
+- [x] **Async event-loop integration** — follows the same pattern as
+      :class:`DifferentialEvolution`: each in-flight trial carries a
+      unique ``who`` id; ``on_new_results`` matches the id back to its
+      particle slot, updates pbest/gbest, and emits the next velocity-
+      based trial.  No per-tick busy waiting.
+- [x] **IPOP-style warm restart** — ``on_restart(center, reason)``
+      drops in-flight trials, scatters particles in a velocity-clamp
+      ball around the new center, and resets the global memory while
+      the strategy keeps its accumulated history.
+- [x] **Catalog integration** — added a kwarg rule in
+      :func:`default_catalog` for ``PSO.NP`` (swarm size, range
+      ``[8, 60]``, ±4 / ±8 deltas) and added ``PSO`` to the
+      ``add_heuristic`` candidate pool in
+      :func:`default_structural_catalog`.
+- [x] **24 new tests in `tests/test_heuristic_pso.py`** — construction
+      validation (8), initial-swarm emission and shape (3), pbest /
+      gbest update + follow-up trial (5), velocity clamp invariant (1),
+      restart behaviour (3), an end-to-end smoke run on a quadratic, and
+      registration tests for ``panobbgo.heuristics`` and the structural
+      catalog.
+- [x] **Documentation updated** — ``doc/source/heuristics.rst`` and
+      ``doc/source/guide_architecture.rst`` (Population-based section)
+      now describe PSO; ``doc/source/guide_benchmarking.rst`` mentions
+      it among the structural-catalog candidates;
+      ``planning/SELF_IMPROVEMENT_LOOP.md`` §12 logs the iteration.
+
 ### Strategy Portfolio Composition (`StructuralMutationRule`) (2026-05-03)
 - [x] **`panobbgo.self_improve.StructuralMutationRule`** — new dataclass
       that joins :class:`MutationRule` as a first-class catalog entry.

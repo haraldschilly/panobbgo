@@ -932,6 +932,19 @@ def default_catalog() -> MutationCatalog:
                 delta_choices=(-2, -1, 1, 2),
                 probability=0.5,
             ),
+            # PSO swarm size — too small starves the social attraction
+            # term, too large wastes evaluations on a fixed budget.
+            # Step in increments of 4 so the swarm does not jitter around
+            # noise-level changes.
+            MutationRule(
+                strategy_pattern="",
+                class_name="PSO",
+                param_name="NP",
+                kind="integer_add",
+                bounds=(8, 60),
+                delta_choices=(-8, -4, 4, 8),
+                probability=0.5,
+            ),
         ]
     )
 
@@ -973,6 +986,14 @@ def default_structural_catalog() -> MutationCatalog:
     )
 
     base_rules = list(default_catalog().rules)
+    # PSO is loaded lazily because it uses a slightly heavier set of
+    # numpy / RNG primitives than the simpler heuristics above, and
+    # ``default_structural_catalog`` may be called from environments
+    # (e.g. minimal CI) that import :mod:`panobbgo.self_improve` without
+    # the full heuristics package.  The local import keeps the cost of
+    # the catalog factory unchanged when PSO is not actually selected.
+    from panobbgo.heuristics.pso import PSO
+
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -981,6 +1002,7 @@ def default_structural_catalog() -> MutationCatalog:
         (LatinHypercube, {"div": 4}),
         (Sobol, {"n": 16, "scramble": True}),
         (Extremal, {}),
+        (PSO, {"NP": 20}),
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

@@ -653,7 +653,8 @@ space with two new ops that change the *shape* of a
 
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
-  ``LatinHypercube``, ``Sobol``, ``Extremal``) to a target strategy.
+  ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``) to a target
+  strategy.
   ``avoid_duplicates=True`` (default) skips classes that are already
   present in the strategy, so the catalog cannot litter a portfolio
   with redundant copies.

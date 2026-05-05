@@ -262,6 +262,19 @@ Implemented Heuristics
   mutation/crossover/selection operators run against the accumulated result database.  Excels on
   multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.
 
+- :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
+  Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).
+  Each particle carries a position, a velocity, and a memory of its personal best; on every step
+  the velocity is pulled toward the personal and the global best with random per-component
+  weights.  PSO's *momentum* and *social* dynamics are markedly different from CMA-ES (covariance
+  re-sampling) and DE (recombination of three random members) — fast contraction once a basin is
+  found, while inertia retains the prior search direction.  Velocities are clamped to a
+  configurable fraction of each box dimension to prevent the swarm from exploding outside the
+  search box.  Supports IPOP-style warm restarts via the
+  :class:`~panobbgo.analyzers.restart.Restart` analyzer: on a ``restart`` event the swarm is
+  scattered around the suggested center and the global memory is wiped while the strategy keeps
+  its accumulated result history.
+
 **Constraint-focused:**
 
 - :class:`~panobbgo.heuristics.feasible_search.FeasibleSearch`: Beta(2,1)-biased line search

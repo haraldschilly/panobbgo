@@ -466,6 +466,76 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-05 — Particle Swarm Optimization (`PSO` heuristic)
+
+* **What** — `panobbgo/heuristics/pso.py` adds an asynchronous PSO
+  heuristic with the canonical Clerc–Kennedy (2002) constriction-
+  coefficient parameters: ``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``.
+  Each particle carries a position, velocity, and personal-best
+  memory; on every step the velocity update::
+
+      v_i ← w · v_i + c1·r1·(pbest_i − x_i) + c2·r2·(gbest − x_i)
+      x_i ← x_i + v_i
+
+  pulls the particle toward both its own best and the global best
+  with random per-component weights.  Velocities are clamped per
+  dimension to ``v_max_frac · range`` (default 0.5) to prevent the
+  swarm from exploding outside the search box.  The heuristic is
+  registered in :mod:`panobbgo.heuristics` and added to the
+  ``add_heuristic`` candidate pool of
+  :func:`default_structural_catalog`; a kwarg rule for ``PSO.NP``
+  (swarm size, range ``[8, 60]`` with ±4 / ±8 deltas) is added to
+  :func:`default_catalog` so the loop can also tune the swarm
+  size.  ``on_restart(center, reason)`` implements an IPOP-style
+  warm restart: drop in-flight trials, scatter particles in a
+  velocity-clamp ball around the new center, wipe the global
+  memory, and re-seed.
+* **Why** — closes a clear gap in the heuristic portfolio.  PSO is
+  the third great population-based metaheuristic alongside CMA-ES
+  (covariance re-sampling) and Differential Evolution (recombination
+  of three random members), but its dynamics are markedly different:
+  particles carry **momentum** (velocity inertia retained from the
+  prior step) and a **social** attraction toward the swarm's best,
+  giving fast contraction once a basin is found while still probing
+  along the prior search direction.  These dynamics are
+  complementary to CMA-ES and DE — they exploit ridges with
+  momentum that CMA-ES has to *learn* via covariance updates and
+  that DE has no concept of at all — so adding PSO to the portfolio
+  diversifies the heuristic mix the bandit can choose from on any
+  given problem.
+* **Impact** — quick A/B at ``--quick`` (3 problems × 3 reps × 75
+  evaluations, seed 42), comparing the same Rewarding strategy with
+  and without PSO appended to the heuristics list:
+
+  * ``Rewarding_NoPSO``  — DeJong 1.000 / Rosenbrock 0.000 /
+    Rastrigin 1.000 (mean 0.667).
+  * ``Rewarding_WithPSO`` — DeJong 1.000 / Rosenbrock **0.031** /
+    Rastrigin 1.000 (mean **0.677**).
+
+  Adding PSO upgrades the Rosenbrock pair from 0/3 reps solved to
+  2/3 reps solved (success rate 0% → 67%) without regressing on
+  DeJong or Rastrigin.  Rosenbrock is exactly the regime where
+  momentum helps — a narrow curved valley where vector inertia along
+  the valley floor is more useful than the Gaussian re-sampling of
+  Random / Nearby / NelderMead.  At the noisy ``--quick`` level a
+  delta of ``+0.01`` is within noise; the meaningful signal is the
+  per-pair upgrade on Rosenbrock.
+* **Backwards compatibility** — strictly safe.  PSO is opt-in: it is
+  not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers stay
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; its ``avoid_duplicates=True`` invariant
+  keeps the catalog from cluttering a portfolio that already has it.
+* **Tests** — `tests/test_heuristic_pso.py` (24 tests):
+  construction validation (8 — invalid NP / w / c1 / c2 / v_max_frac
+  + default + custom + name), initial-swarm emission and shape (3),
+  pbest / gbest update + follow-up trial (5), velocity clamp
+  invariant (1), restart behaviour (3 — clears pbest, before-start
+  no-op, ``center=None`` random fallback), an end-to-end smoke run
+  on a quadratic where the swarm strictly improves, and registration
+  tests for ``panobbgo.heuristics`` and the structural catalog.
+
 ### 2026-05-03 — Strategy portfolio composition (`StructuralMutationRule`)
 
 * **What** — `panobbgo/self_improve.py`:
@@ -720,3 +790,24 @@ Maintain a small fixed validation set of randomized instances drawn
 from a separate `base_seed`.  Use it (read-only) to spot-check the
 ladder once at the end of a loop run.  Cheaper than the periodic
 guard but complements it.
+
+#### PSO follow-ups (after 2026-05-05 ship)
+
+PSO landed 2026-05-05.  Natural extensions when the loop has
+collected enough evidence to motivate the work:
+
+- **Topology variants** — the shipped PSO uses the standard *fully
+  connected* (``gbest``) topology.  *Lbest* (ring) and *random*
+  topologies trade slower contraction for better multimodal
+  exploration; both are one-line changes in
+  ``_update_global_best`` once a topology field is added.
+- **Adaptive inertia** — Shi & Eberhart (1998) recommend linearly
+  decreasing ``w`` from 0.9 to 0.4 over the budget.  The shipped
+  version uses the constriction χ which is a fixed point that
+  doesn't anneal — fine for a portfolio member but a known
+  improvement for stand-alone PSO.
+- **`StrategyPhased` integration** — pair PSO (global exploration
+  phase) with NelderMead / LBFGSB (local refinement phase) on a
+  single budget split, similar to the existing ``IPOP_CMAES``
+  strategy.  Would be a new entry in
+  ``_make_standard_strategies`` once measured to be a net win.

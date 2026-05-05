@@ -108,6 +108,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#bayesian-optimization">Bayesian Optimization</a></li>
 <li><a class="reference internal" href="#cma-es-covariance-matrix-adaptation-evolution-strategy">CMA-ES (Covariance Matrix Adaptation Evolution Strategy)</a></li>
 <li><a class="reference internal" href="#differential-evolution">Differential Evolution</a></li>
+<li><a class="reference internal" href="#particle-swarm-optimization">Particle Swarm Optimization</a></li>
 <li><a class="reference internal" href="#direct-dividing-rectangles">DIRECT (Dividing Rectangles)</a></li>
 <li><a class="reference internal" href="#simulated-annealing">Simulated Annealing</a></li>
 <li><a class="reference internal" href="#comparison-summary">Comparison Summary</a></li>
@@ -283,6 +284,24 @@ accumulated result history is preserved.</p>
 runs DE operators against the accumulated result database.  Strong complement to CMA-ES on
 multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p>
 <p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a></p>
+</section>
+<section id="particle-swarm-optimization">
+<h3>Particle Swarm Optimization<a class="headerlink" href="#particle-swarm-optimization" title="Link to this heading">¶</a></h3>
+<p><strong>Approach</strong>: A population (swarm) of particles, each carrying a position, velocity, and
+memory of its personal best.  Velocities are pulled toward both the personal best and the
+global best with random per-component weights, giving the swarm both <em>momentum</em> (velocity
+inertia retained from the prior step) and <em>social</em> attraction toward the swarm’s leader.</p>
+<p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a> uses the canonical
+Clerc–Kennedy (2002) constriction-coefficient parameters
+(<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>) which provably guarantee convergence.  The
+heuristic runs asynchronously in the panobbgo event loop following the same pattern as
+<code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code>, and supports IPOP-style warm restarts via the
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer.  PSO’s dynamics are markedly
+different from CMA-ES (which adapts a covariance matrix and re-samples) and DE (which
+recombines three random members) — they exploit narrow-valley problems where vector
+inertia along the valley floor is more useful than the alternatives.</p>
+<p><strong>References</strong>: Kennedy &amp; Eberhart (1995); Clerc &amp; Kennedy (2002); Poli, Kennedy &amp;
+Blackwell (2007).</p>
 </section>
 <section id="direct-dividing-rectangles">
 <h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.heuristics.pso - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.pso"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.heuristics.pso</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.heuristics.pso</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="17"><span class="sd">Particle Swarm Optimization (PSO) Heuristic</span>
+</span><span data-line="18"><span class="sd">============================================</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">Asynchronous Particle Swarm Optimization with the canonical</span>
+</span><span data-line="21"><span class="sd">Clerc-Kennedy (2002) constriction-coefficient parameters.</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="sd">PSO maintains a population of *particles*, each with a position ``x_i``,</span>
+</span><span data-line="24"><span class="sd">a velocity ``v_i``, and a memory of its best-so-far position ``pbest_i``.</span>
+</span><span data-line="25"><span class="sd">On every step a particle is pulled toward its personal best and toward</span>
+</span><span data-line="26"><span class="sd">the swarm&#39;s globally best position ``gbest``::</span>
+</span><span data-line="27">
+</span><span data-line="28"><span class="sd">    v_i ← χ · (v_i + c1·r1·(pbest_i − x_i) + c2·r2·(gbest − x_i))</span>
+</span><span data-line="29"><span class="sd">    x_i ← x_i + v_i</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="sd">with ``r1, r2 ∼ U(0, 1)^d`` independent per-component random vectors and</span>
+</span><span data-line="32"><span class="sd">``χ`` the constriction coefficient that guarantees convergence (Clerc &amp;</span>
+</span><span data-line="33"><span class="sd">Kennedy, 2002).  Default parameters use the canonical values</span>
+</span><span data-line="34"><span class="sd">``φ = c1 + c2 = 4.1`` and ``χ = 2 / (φ − 2 + √(φ² − 4·φ)) ≈ 0.7298``,</span>
+</span><span data-line="35"><span class="sd">which together with ``c1 = c2 = 2.05`` yield effective coefficients</span>
+</span><span data-line="36"><span class="sd">``χ·c1 = χ·c2 ≈ 1.49618`` and an inertia weight ``w = χ ≈ 0.7298``.</span>
+</span><span data-line="37">
+</span><span data-line="38"><span class="sd">Key differences from existing population heuristics:</span>
+</span><span data-line="39">
+</span><span data-line="40"><span class="sd">* :class:`~panobbgo.heuristics.cma_es.CMAES` adapts a *covariance matrix*</span>
+</span><span data-line="41"><span class="sd">  and re-samples from it; it has no per-individual memory.</span>
+</span><span data-line="42"><span class="sd">* :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`</span>
+</span><span data-line="43"><span class="sd">  generates trial vectors via *recombination* of three randomly-chosen</span>
+</span><span data-line="44"><span class="sd">  population members (``DE/rand/1``); it has no momentum.</span>
+</span><span data-line="45"><span class="sd">* PSO carries a *velocity* (momentum) per particle and uses *social*</span>
+</span><span data-line="46"><span class="sd">  attraction toward the global best; this gives it markedly different</span>
+</span><span data-line="47"><span class="sd">  exploration dynamics — fast contraction once a basin is found while</span>
+</span><span data-line="48"><span class="sd">  retaining inertia from the prior search direction.</span>
+</span><span data-line="49">
+</span><span data-line="50"><span class="sd">The implementation runs **asynchronously** inside the panobbgo event loop,</span>
+</span><span data-line="51"><span class="sd">following the same pattern as :class:`DifferentialEvolution`:</span>
+</span><span data-line="52">
+</span><span data-line="53"><span class="sd">1. ``on_start()`` emits ``NP`` random initial positions, one per particle.</span>
+</span><span data-line="54"><span class="sd">2. ``on_new_results()`` matches incoming results back to their particle</span>
+</span><span data-line="55"><span class="sd">   index (via the ``who`` tag), updates ``pbest_i`` if the result improves,</span>
+</span><span data-line="56"><span class="sd">   refreshes ``gbest`` from the running ``pbest`` table, and emits the</span>
+</span><span data-line="57"><span class="sd">   particle&#39;s next position generated from the velocity update above.</span>
+</span><span data-line="58"><span class="sd">3. ``on_restart(center, reason)`` resets all particles to a randomized</span>
+</span><span data-line="59"><span class="sd">   ball around the new center, drops in-flight trials, and starts a fresh</span>
+</span><span data-line="60"><span class="sd">   swarm (matching the &quot;warm restart&quot; behaviour of CMA-ES IPOP).</span>
+</span><span data-line="61">
+</span><span data-line="62"><span class="sd">References</span>
+</span><span data-line="63"><span class="sd">----------</span>
+</span><span data-line="64">
+</span><span data-line="65"><span class="sd">* J. Kennedy &amp; R. Eberhart (1995). &quot;Particle Swarm Optimization.&quot;</span>
+</span><span data-line="66"><span class="sd">  *Proceedings of ICNN&#39;95.*</span>
+</span><span data-line="67"><span class="sd">* M. Clerc &amp; J. Kennedy (2002). &quot;The Particle Swarm — Explosion, Stability,</span>
+</span><span data-line="68"><span class="sd">  and Convergence in a Multidimensional Complex Space.&quot;</span>
+</span><span data-line="69"><span class="sd">  *IEEE Transactions on Evolutionary Computation*, 6(1):58–73.</span>
+</span><span data-line="70"><span class="sd">* R. Poli, J. Kennedy, T. Blackwell (2007). &quot;Particle Swarm Optimization:</span>
+</span><span data-line="71"><span class="sd">  An Overview.&quot; *Swarm Intelligence*, 1(1):33–57.</span>
+</span><span data-line="72"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="73">
+</span><span data-line="74"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="75">
+</span><span data-line="76"><span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+</span><span data-line="77"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+</span><span data-line="78">
+</span><span data-line="79"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="80">
+</span><span data-line="81"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="82"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span><span class="p">,</span> <span class="n">Result</span>
+</span><span data-line="83">
+</span><span data-line="84">
+</span><span data-line="85"><span class="c1"># Canonical Clerc-Kennedy (2002) constriction-coefficient parameters.</span>
+</span><span data-line="86"><span class="c1"># χ = 2 / (φ − 2 + √(φ² − 4·φ))  with φ = c1 + c2 = 4.1</span>
+</span><span data-line="87"><span class="n">_DEFAULT_W</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7298437881283576</span>  <span class="c1"># χ</span>
+</span><span data-line="88"><span class="n">_DEFAULT_C1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.49618</span>  <span class="c1"># χ · 2.05</span>
+</span><span data-line="89"><span class="n">_DEFAULT_C2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.49618</span>  <span class="c1"># χ · 2.05</span>
+</span><span data-line="90">
+</span><span data-line="91">
+<div class="viewcode-block" id="PSO">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO">[docs]</a>
+</span><span data-line="92"><span class="k">class</span><span class="w"> </span><span class="nc">PSO</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="93"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Asynchronous Particle Swarm Optimization heuristic.</span>
+</span><span data-line="94">
+</span><span data-line="95"><span class="sd">    Args:</span>
+</span><span data-line="96"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="97"><span class="sd">        NP: Swarm size (number of particles).  Default ``20`` — large</span>
+</span><span data-line="98"><span class="sd">            enough to avoid premature convergence on multimodal problems</span>
+</span><span data-line="99"><span class="sd">            yet cheap enough that the per-iteration overhead is tiny next</span>
+</span><span data-line="100"><span class="sd">            to a typical black-box evaluation cost.</span>
+</span><span data-line="101"><span class="sd">        w: Inertia weight (``χ`` in the constriction formulation).</span>
+</span><span data-line="102"><span class="sd">            Default ``0.7298`` — the canonical Clerc-Kennedy value that</span>
+</span><span data-line="103"><span class="sd">            provably guarantees convergence with ``c1 = c2 = 1.49618``.</span>
+</span><span data-line="104"><span class="sd">        c1: Cognitive (personal-best attraction) coefficient.</span>
+</span><span data-line="105"><span class="sd">            Default ``1.49618`` — Clerc-Kennedy.</span>
+</span><span data-line="106"><span class="sd">        c2: Social (global-best attraction) coefficient.</span>
+</span><span data-line="107"><span class="sd">            Default ``1.49618`` — Clerc-Kennedy.</span>
+</span><span data-line="108"><span class="sd">        v_max_frac: Maximum velocity per dimension as a fraction of the</span>
+</span><span data-line="109"><span class="sd">            corresponding box range.  Velocities are clamped to</span>
+</span><span data-line="110"><span class="sd">            ``[-v_max_frac · range, +v_max_frac · range]`` to prevent the</span>
+</span><span data-line="111"><span class="sd">            swarm from exploding outside the search box.  Default</span>
+</span><span data-line="112"><span class="sd">            ``0.5`` — a common conservative choice.</span>
+</span><span data-line="113"><span class="sd">        seed: Optional seed for the per-instance RNG.  ``None`` (default)</span>
+</span><span data-line="114"><span class="sd">            seeds from ``np.random.default_rng()``.</span>
+</span><span data-line="115"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="116">
+</span><span data-line="117"><span class="sd">    Notes:</span>
+</span><span data-line="118"><span class="sd">        - The constructor validates all numeric arguments and raises</span>
+</span><span data-line="119"><span class="sd">          :class:`ValueError` on bad inputs.</span>
+</span><span data-line="120"><span class="sd">        - All particle bookkeeping (positions, velocities, personal bests,</span>
+</span><span data-line="121"><span class="sd">          global best) lives in the heuristic instance — no shared global</span>
+</span><span data-line="122"><span class="sd">          state, so multiple PSO heuristics in one strategy are</span>
+</span><span data-line="123"><span class="sd">          independent.</span>
+</span><span data-line="124"><span class="sd">        - The heuristic respects constraints via</span>
+</span><span data-line="125"><span class="sd">          ``self.strategy.constraint_handler.is_better`` and</span>
+</span><span data-line="126"><span class="sd">          ``get_penalty_value`` exactly like</span>
+</span><span data-line="127"><span class="sd">          :class:`DifferentialEvolution`.</span>
+</span><span data-line="128"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="129">
+</span><span data-line="130">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="131">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="132">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="133">        <span class="n">NP</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+</span><span data-line="134">        <span class="n">w</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_W</span><span class="p">,</span>
+</span><span data-line="135">        <span class="n">c1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_C1</span><span class="p">,</span>
+</span><span data-line="136">        <span class="n">c2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_C2</span><span class="p">,</span>
+</span><span data-line="137">        <span class="n">v_max_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="138">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="139">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="140">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="141">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="142">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: NP must be an integer, got </span><span class="si">{</span><span class="n">NP</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="143">        <span class="k">if</span> <span class="n">NP</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span data-line="144">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: NP must be &gt;= 2, got </span><span class="si">{</span><span class="n">NP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="145">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+</span><span data-line="146">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: w must be finite, got </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="147">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">c1</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="148">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: c1 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="149">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span> <span class="ow">or</span> <span class="n">c2</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="150">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: c2 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="151">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">v_max_frac</span><span class="p">)</span> <span class="ow">or</span> <span class="n">v_max_frac</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="152">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: v_max_frac must be a positive finite float, got </span><span class="si">{</span><span class="n">v_max_frac</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="153">
+</span><span data-line="154">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;PSO&quot;</span><span class="p">)</span>
+</span><span data-line="155">        <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NP</span>
+</span><span data-line="156">        <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+</span><span data-line="157">        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
+</span><span data-line="158">        <span class="bp">self</span><span class="o">.</span><span class="n">c2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span>
+</span><span data-line="159">        <span class="bp">self</span><span class="o">.</span><span class="n">v_max_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">v_max_frac</span><span class="p">)</span>
+</span><span data-line="160">        <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">Generator</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="161">
+</span><span data-line="162">        <span class="c1"># Per-particle state.  Sized once on_start() runs (we need</span>
+</span><span data-line="163">        <span class="c1"># ``problem.dim`` to allocate velocity arrays).</span>
+</span><span data-line="164">        <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (NP, dim)</span>
+</span><span data-line="165">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (NP, dim)</span>
+</span><span data-line="166">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (NP, dim)</span>
+</span><span data-line="167">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Result</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># length NP</span>
+</span><span data-line="168">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># index into _pbest_result</span>
+</span><span data-line="169">
+</span><span data-line="170">        <span class="c1"># Pending trials: req_id -&gt; particle index.  When a result with</span>
+</span><span data-line="171">        <span class="c1"># this id arrives we know which particle slot to update.  A</span>
+</span><span data-line="172">        <span class="c1"># particle has at most one trial pending at any time.</span>
+</span><span data-line="173">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="174">
+</span><span data-line="175">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="176">    <span class="c1"># Internal helpers</span>
+</span><span data-line="177">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="178">
+</span><span data-line="179">    <span class="k">def</span><span class="w"> </span><span class="nf">_v_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="180"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-dimension velocity clamp from the problem box ranges.&quot;&quot;&quot;</span>
+</span><span data-line="181">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="182">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_max_frac</span> <span class="o">*</span> <span class="n">ranges</span>
+</span><span data-line="183">
+</span><span data-line="184">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="185"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a candidate point tagged with a fresh trial id.</span>
+</span><span data-line="186">
+</span><span data-line="187"><span class="sd">        Returns True if the point was queued, False otherwise.  The</span>
+</span><span data-line="188"><span class="sd">        heuristic stops emitting once :attr:`_stopped` is set.</span>
+</span><span data-line="189"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="190">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="191">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="192">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="193">            <span class="n">x_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="194">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="195">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: projection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="196">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="197">
+</span><span data-line="198">        <span class="n">req_id</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span>
+</span><span data-line="199">        <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">req_id</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="200">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="201">            <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_proj</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
+</span><span data-line="202">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># queue full or shutdown</span>
+</span><span data-line="203">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: emit failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="204">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="205">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">particle_idx</span>
+</span><span data-line="206">        <span class="c1"># Remember the actually-evaluated position so the velocity</span>
+</span><span data-line="207">        <span class="c1"># update next time uses the projected coordinates (not the</span>
+</span><span data-line="208">        <span class="c1"># pre-projection ones, which may be outside the box).</span>
+</span><span data-line="209">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="210">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_proj</span>
+</span><span data-line="211">        <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="212">
+</span><span data-line="213">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_global_best</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="214"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Recompute ``_gbest_idx`` from the current per-particle bests.&quot;&quot;&quot;</span>
+</span><span data-line="215">        <span class="n">best_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="216">        <span class="n">best_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Result</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="217">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
+</span><span data-line="218">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pb</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">):</span>
+</span><span data-line="219">            <span class="k">if</span> <span class="n">pb</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="220">                <span class="k">continue</span>
+</span><span data-line="221">            <span class="k">if</span> <span class="n">best_result</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">best_result</span><span class="p">,</span> <span class="n">pb</span><span class="p">):</span>
+</span><span data-line="222">                <span class="n">best_result</span> <span class="o">=</span> <span class="n">pb</span>
+</span><span data-line="223">                <span class="n">best_idx</span> <span class="o">=</span> <span class="n">i</span>
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="n">best_idx</span>
+</span><span data-line="225">
+</span><span data-line="226">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_next</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="227"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Produce the next candidate position for ``particle_idx``.</span>
+</span><span data-line="228">
+</span><span data-line="229"><span class="sd">        Falls back to a fresh random point if we don&#39;t yet have a</span>
+</span><span data-line="230"><span class="sd">        global best (e.g. all initial trials still pending).</span>
+</span><span data-line="231"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="232">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="233">            <span class="k">return</span>
+</span><span data-line="234">
+</span><span data-line="235">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="236">            <span class="c1"># No memory to pull from yet — emit a fresh random point so</span>
+</span><span data-line="237">            <span class="c1"># the particle stays active.</span>
+</span><span data-line="238">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+</span><span data-line="239">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
+</span><span data-line="240">            <span class="k">return</span>
+</span><span data-line="241">
+</span><span data-line="242">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="243">        <span class="n">x_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="244">        <span class="n">v_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="245">        <span class="n">p_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="246">        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span><span class="p">]</span>
+</span><span data-line="247">
+</span><span data-line="248">        <span class="n">r1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="249">        <span class="n">r2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="250">        <span class="n">new_v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">*</span> <span class="n">v_i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">*</span> <span class="n">r1</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_i</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">*</span> <span class="n">r2</span> <span class="o">*</span> <span class="p">(</span><span class="n">g</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span>
+</span><span data-line="251">
+</span><span data-line="252">        <span class="c1"># Velocity clamp.</span>
+</span><span data-line="253">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="254">        <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">new_v</span><span class="p">,</span> <span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">new_v</span><span class="p">)</span>
+</span><span data-line="255">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_v</span>
+</span><span data-line="256">
+</span><span data-line="257">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x_i</span> <span class="o">+</span> <span class="n">new_v</span>
+</span><span data-line="258">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">new_x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
+</span><span data-line="259">
+</span><span data-line="260">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="261">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="262">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="263">
+<div class="viewcode-block" id="PSO.on_start">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_start">[docs]</a>
+</span><span data-line="264">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="265"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and emit the initial swarm of random positions.&quot;&quot;&quot;</span>
+</span><span data-line="266">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="267">        <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="268">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="269">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="270">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
+</span><span data-line="271">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="272">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="273">
+</span><span data-line="274">        <span class="c1"># Initial velocities are drawn uniformly inside the velocity</span>
+</span><span data-line="275">        <span class="c1"># clamp.  This avoids the &quot;stalled at zero velocity for the</span>
+</span><span data-line="276">        <span class="c1"># first iteration&quot; pathology of pure-zero-init PSO.</span>
+</span><span data-line="277">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="278">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="279">
+</span><span data-line="280">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="281">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+</span><span data-line="282">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="283">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
+
+</span><span data-line="284">
+<div class="viewcode-block" id="PSO.on_new_results">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_new_results">[docs]</a>
+</span><span data-line="285">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="286"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Process incoming evaluation results and emit follow-up trials.&quot;&quot;&quot;</span>
+</span><span data-line="287">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="288">            <span class="k">return</span>  <span class="c1"># not started yet</span>
+</span><span data-line="289">
+</span><span data-line="290">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:&quot;</span>
+</span><span data-line="291">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
+</span><span data-line="292">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="293">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;who&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="294">            <span class="k">if</span> <span class="ow">not</span> <span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+</span><span data-line="295">                <span class="k">continue</span>
+</span><span data-line="296">            <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
+</span><span data-line="297">            <span class="n">particle_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="298">            <span class="k">if</span> <span class="n">particle_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="299">                <span class="k">continue</span>  <span class="c1"># stale or unknown trial id</span>
+</span><span data-line="300">
+</span><span data-line="301">            <span class="c1"># Update personal best.</span>
+</span><span data-line="302">            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="303">            <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="304">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="305">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="306">
+</span><span data-line="307">            <span class="c1"># Refresh global best after every update so the next</span>
+</span><span data-line="308">            <span class="c1"># particle to move can immediately benefit from the new</span>
+</span><span data-line="309">            <span class="c1"># information.  Cheap: O(NP) per result.</span>
+</span><span data-line="310">            <span class="bp">self</span><span class="o">.</span><span class="n">_update_global_best</span><span class="p">()</span>
+</span><span data-line="311">
+</span><span data-line="312">            <span class="c1"># Emit the next trial for this particle.</span>
+</span><span data-line="313">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span></div>
+
+</span><span data-line="314">
+<div class="viewcode-block" id="PSO.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_restart">[docs]</a>
+</span><span data-line="315">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="316"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop in-flight trials and reseed the swarm around ``center``.</span>
+</span><span data-line="317">
+</span><span data-line="318"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
+</span><span data-line="319"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
+</span><span data-line="320"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
+</span><span data-line="321"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
+</span><span data-line="322"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
+</span><span data-line="323"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="324">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="325">            <span class="k">return</span>
+</span><span data-line="326">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="327">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="328">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="329">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
+</span><span data-line="330">
+</span><span data-line="331">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="332">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="333">        <span class="c1"># Scatter particles in a small ball around the new center, with</span>
+</span><span data-line="334">        <span class="c1"># radius equal to v_max.  A ball, not a point: identical</span>
+</span><span data-line="335">        <span class="c1"># positions would collapse the swarm immediately.</span>
+</span><span data-line="336">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="337">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+</span><span data-line="338">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="339">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="340">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="341">            <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="342">            <span class="n">x</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">offset</span>
+</span><span data-line="343">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="344">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="345">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="346">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="347">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="348">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+</span><span data-line="349">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span></div>
+</div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

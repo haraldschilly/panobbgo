@@ -192,6 +192,12 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.PSO"><code class="docutils literal notranslate"><span class="pre">PSO</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.PSO.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.PSO.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.PSO.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.subprocess"><code class="docutils literal notranslate">subprocess()</span></code></a></li>
@@ -264,6 +270,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>LBFGSB</strong>: Local optimization using the L-BFGS-B algorithm.</p></li>
 <li><p><strong>CMAES</strong>: Covariance Matrix Adaptation Evolution Strategy with IPOP-CMA-ES restart support (paired with the Restart analyzer) — gold standard for derivative-free continuous optimization, excellent on ill-conditioned/ridge-following problems like Rosenbrock.</p></li>
 <li><p><strong>DifferentialEvolution</strong>: DE mutation/crossover/selection applied to the accumulated result database — strong on multimodal landscapes (Rastrigin, Schwefel).</p></li>
+<li><p><strong>PSO</strong>: Particle Swarm Optimization with the canonical Clerc–Kennedy (2002) constriction-coefficient parameters — a swarm of particles tracks personal and global bests with momentum, providing exploration dynamics distinct from CMA-ES (covariance) and DE (recombination); supports IPOP-style warm restarts via the Restart analyzer.</p></li>
 <li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions via line search towards feasibility.</p></li>
 <li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
 <li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly with a local scipy optimizer.</p></li>
@@ -1006,6 +1013,84 @@ we have to look up the parents when searching for more result points.</p></li>
 until the queue is full (which blocks) or there is a new best box (breaks inner loop).</p></li>
 <li><p>The <code class="docutils literal notranslate"><span class="pre">break</span></code> exits the outer while and we start fresh with the new best box.</p></li>
 </ol>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.PSO">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">PSO</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NP</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.7298437881283576</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.49618</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.49618</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_max_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/pso.html#PSO"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.PSO" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Asynchronous Particle Swarm Optimization heuristic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – The owning <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a>.</p></li>
+<li><p><strong>NP</strong> – Swarm size (number of particles).  Default <code class="docutils literal notranslate"><span class="pre">20</span></code> — large
+enough to avoid premature convergence on multimodal problems
+yet cheap enough that the per-iteration overhead is tiny next
+to a typical black-box evaluation cost.</p></li>
+<li><p><strong>w</strong> – Inertia weight (<code class="docutils literal notranslate"><span class="pre">χ</span></code> in the constriction formulation).
+Default <code class="docutils literal notranslate"><span class="pre">0.7298</span></code> — the canonical Clerc-Kennedy value that
+provably guarantees convergence with <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">=</span> <span class="pre">1.49618</span></code>.</p></li>
+<li><p><strong>c1</strong> – Cognitive (personal-best attraction) coefficient.
+Default <code class="docutils literal notranslate"><span class="pre">1.49618</span></code> — Clerc-Kennedy.</p></li>
+<li><p><strong>c2</strong> – Social (global-best attraction) coefficient.
+Default <code class="docutils literal notranslate"><span class="pre">1.49618</span></code> — Clerc-Kennedy.</p></li>
+<li><p><strong>v_max_frac</strong> – Maximum velocity per dimension as a fraction of the
+corresponding box range.  Velocities are clamped to
+<code class="docutils literal notranslate"><span class="pre">[-v_max_frac</span> <span class="pre">·</span> <span class="pre">range,</span> <span class="pre">+v_max_frac</span> <span class="pre">·</span> <span class="pre">range]</span></code> to prevent the
+swarm from exploding outside the search box.  Default
+<code class="docutils literal notranslate"><span class="pre">0.5</span></code> — a common conservative choice.</p></li>
+<li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+seeds from <code class="docutils literal notranslate"><span class="pre">np.random.default_rng()</span></code>.</p></li>
+<li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The constructor validates all numeric arguments and raises
+<a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> on bad inputs.</p></li>
+<li><p>All particle bookkeeping (positions, velocities, personal bests,
+global best) lives in the heuristic instance — no shared global
+state, so multiple PSO heuristics in one strategy are
+independent.</p></li>
+<li><p>The heuristic respects constraints via
+<code class="docutils literal notranslate"><span class="pre">self.strategy.constraint_handler.is_better</span></code> and
+<code class="docutils literal notranslate"><span class="pre">get_penalty_value</span></code> exactly like
+<a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.PSO.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/pso.html#PSO.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.PSO.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Process incoming evaluation results and emit follow-up trials.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.PSO.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/pso.html#PSO.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.PSO.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Drop in-flight trials and reseed the swarm around <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
+<p>The behaviour mirrors the IPOP-style warm restart used by
+<a class="reference internal" href="#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>: the global memory is
+wiped, particles are scattered around the suggested center, and
+the next evaluation cycle behaves as if the heuristic had just
+started — except the strategy keeps its accumulated history.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.PSO.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/pso.html#PSO.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.PSO.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Allocate state and emit the initial swarm of random positions.</p>
 </dd></dl>
 
 </dd></dl>

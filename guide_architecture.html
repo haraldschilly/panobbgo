@@ -443,6 +443,18 @@ state is reset.</p>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>: Differential Evolution
 mutation/crossover/selection operators run against the accumulated result database.  Excels on
 multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
+Clerc–Kennedy (2002) constriction-coefficient parameters (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>).
+Each particle carries a position, a velocity, and a memory of its personal best; on every step
+the velocity is pulled toward the personal and the global best with random per-component
+weights.  PSO’s <em>momentum</em> and <em>social</em> dynamics are markedly different from CMA-ES (covariance
+re-sampling) and DE (recombination of three random members) — fast contraction once a basin is
+found, while inertia retains the prior search direction.  Velocities are clamped to a
+configurable fraction of each box dimension to prevent the swarm from exploding outside the
+search box.  Supports IPOP-style warm restarts via the
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer: on a <code class="docutils literal notranslate"><span class="pre">restart</span></code> event the swarm is
+scattered around the suggested center and the global memory is wiped while the strategy keeps
+its accumulated result history.</p></li>
 </ul>
 <p><strong>Constraint-focused:</strong></p>
 <ul class="simple">

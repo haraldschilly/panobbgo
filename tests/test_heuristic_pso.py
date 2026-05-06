@@ -419,3 +419,203 @@ def test_pso_kwarg_rule_in_default_catalog():
     catalog = default_catalog()
     keys = {(r.class_name, r.param_name) for r in catalog.rules}
     assert ("PSO", "NP") in keys
+
+
+# ----------------------------------------------------------------------
+# Topology variants (gbest / lbest)
+# ----------------------------------------------------------------------
+
+
+class PSOTopologyConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
+    def test_default_topology_is_gbest(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy)
+        assert h.topology == "gbest"
+        assert h.lbest_k == 2
+
+    def test_lbest_topology_accepts_custom_k(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="lbest", lbest_k=3)
+        assert h.topology == "lbest"
+        assert h.lbest_k == 3
+
+    def test_invalid_topology_rejected(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="topology must be one of"):
+            PSO(self.strategy, topology="star")  # type: ignore[arg-type]
+
+    def test_invalid_lbest_k_type(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="lbest_k must be an integer"):
+            PSO(self.strategy, lbest_k=2.5)  # type: ignore[arg-type]
+
+    def test_invalid_lbest_k_value(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="lbest_k must be >= 1"):
+            PSO(self.strategy, lbest_k=0)
+
+
+class PSOTopologyBehaviourTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Verify the ``lbest`` topology actually restricts each particle's
+    "social" attractor to its ring neighbourhood — not the swarm-wide
+    best."""
+
+    def _drive_results(self, h, fxs):
+        """Feed back one result per pending trial in id-order with the
+        given fxs in pending-order."""
+        from panobbgo.lib import Point, Result
+
+        items = list(h._pending.items())
+        results = []
+        for k, (req_id, idx) in enumerate(items):
+            x = h._positions[idx].copy()
+            results.append(Result(Point(x, f"PSO:{req_id}"), float(fxs[k])))
+        h.on_new_results(results)
+
+    def test_lbest_neighbourhood_window_excludes_far_particles(self):
+        """In a small lbest window the swarm-wide minimum is not
+        necessarily the nbest of every particle."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=6, topology="lbest", lbest_k=1, seed=11)
+        h.on_start()
+        h.get_points(limit=100)
+
+        # Particles 0..5 in pending-order — feed back ascending fx so
+        # particle 0 has fx=10 (best) and particle 5 has fx=60 (worst).
+        # Pending iteration order matches insertion order in CPython 3.7+.
+        self._drive_results(h, fxs=[10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+
+        # gbest is particle 0 (fx=10).  But for particle 3, the lbest_k=1
+        # ring neighbourhood is {2, 3, 4} → particles 2/3/4 with fxs
+        # 30/40/50 → nbest is particle 2 (fx=30), NOT particle 0.
+        nbest_idx = h._neighbourhood_best_idx(3)
+        assert nbest_idx == 2
+        assert h._gbest_idx == 0  # global best still tracked separately
+
+    def test_gbest_and_lbest_collapse_when_window_covers_swarm(self):
+        """``lbest`` with ``k >= NP // 2`` collapses to ``gbest``."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=4, topology="lbest", lbest_k=10, seed=3)
+        h.on_start()
+        h.get_points(limit=100)
+
+        self._drive_results(h, fxs=[50.0, 10.0, 30.0, 70.0])  # best at idx=1
+        # _gbest_idx is the swarm-wide best from update_global_best.
+        assert h._gbest_idx == 1
+        # With k=10 (capped to NP // 2 = 2), the window is the whole
+        # swarm — every particle's nbest must equal gbest.
+        for i in range(h.NP):
+            assert h._neighbourhood_best_idx(i) == 1
+
+    def test_lbest_no_pbest_returns_none(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=5, topology="lbest", lbest_k=1, seed=0)
+        h.on_start()
+        h.get_points(limit=100)
+        # Nothing has been scored yet.
+        assert h._neighbourhood_best_idx(2) is None
+
+
+# ----------------------------------------------------------------------
+# Adaptive inertia (Shi-Eberhart 1998 linearly decreasing schedule)
+# ----------------------------------------------------------------------
+
+
+class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
+    def test_default_w_end_is_none(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy)
+        assert h.w_end is None
+
+    def test_invalid_w_end(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="w_end must be finite"):
+            PSO(self.strategy, w_end=float("nan"))
+        with pytest.raises(ValueError, match="w_end must be finite"):
+            PSO(self.strategy, w_end=float("inf"))
+
+    def test_constant_inertia_when_w_end_none(self):
+        """Without ``w_end`` the inertia is constant = ``w``."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.6)
+        # No matter what the strategy state is, we return self.w.
+        assert h._current_inertia() == 0.6
+
+    def test_adaptive_inertia_falls_back_when_results_unavailable(self):
+        """``len(strategy.results)`` raises TypeError on the bare mock —
+        the schedule must fall back to constant ``w``."""
+        from panobbgo.heuristics.pso import PSO
+
+        # Default mock: ``strategy.results`` is a MagicMock, ``len()``
+        # raises.  The implementation catches this and returns self.w.
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+        # ``self.config.max_eval`` is 1000 from PanobbgoTestCase, so the
+        # try-block will fail at ``len(self.strategy.results)`` and the
+        # except clause must return ``self.w`` (= 0.9).
+        assert h._current_inertia() == 0.9
+
+    def test_adaptive_inertia_progress_schedule(self):
+        """Linearly-decreasing inertia: ``w_eff = w − (w − w_end) · p``."""
+        from unittest import mock
+
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+
+        # We control ``len(strategy.results)`` via a fake ``results`` object
+        # with a working ``__len__``.  ``max_eval`` is 1000.
+        class FakeResults:
+            def __init__(self, n):
+                self.n = n
+
+            def __len__(self):
+                return self.n
+
+        with mock.patch.object(self.strategy, "results", FakeResults(0)):
+            assert h._current_inertia() == pytest.approx(0.9)
+        with mock.patch.object(self.strategy, "results", FakeResults(500)):
+            # halfway: 0.9 − (0.9 − 0.4) · 0.5 = 0.65
+            assert h._current_inertia() == pytest.approx(0.65)
+        with mock.patch.object(self.strategy, "results", FakeResults(1000)):
+            assert h._current_inertia() == pytest.approx(0.4)
+        with mock.patch.object(self.strategy, "results", FakeResults(2000)):
+            # progress is clamped to 1.0
+            assert h._current_inertia() == pytest.approx(0.4)
+
+    def test_adaptive_inertia_zero_max_eval_falls_back(self):
+        """``max_eval = 0`` is degenerate; fall back to constant ``w``."""
+        from unittest import mock
+
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+
+        class FakeResults:
+            def __len__(self):
+                return 0
+
+        with mock.patch.object(self.strategy, "results", FakeResults()):
+            with mock.patch.object(self.strategy.config, "max_eval", 0):
+                assert h._current_inertia() == 0.9
+
+
+def test_pso_kwarg_rules_in_default_catalog_extras():
+    """default_catalog also exposes PSO.w and PSO.w_end so the loop can
+    tune the adaptive-inertia schedule."""
+    from panobbgo.self_improve import default_catalog
+
+    catalog = default_catalog()
+    keys = {(r.class_name, r.param_name) for r in catalog.rules}
+    assert ("PSO", "w") in keys
+    assert ("PSO", "w_end") in keys

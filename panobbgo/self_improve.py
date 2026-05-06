@@ -945,6 +945,37 @@ def default_catalog() -> MutationCatalog:
                 delta_choices=(-8, -4, 4, 8),
                 probability=0.5,
             ),
+            # PSO inertia (initial value when ``w_end`` is set, constant
+            # otherwise).  Bounds bracket the literature: 0.4 is the
+            # lower end of the Shi-Eberhart schedule, 0.95 the upper end
+            # of "still convergent in practice".  Only fires when a
+            # spec explicitly sets ``w`` — it is otherwise a default
+            # kwarg on :class:`PSO` and not present in the spec dict.
+            MutationRule(
+                strategy_pattern="",
+                class_name="PSO",
+                param_name="w",
+                kind="float_uniform",
+                bounds=(0.4, 0.95),
+                low=0.4,
+                high=0.95,
+                probability=0.5,
+            ),
+            # PSO terminal inertia for the linearly-decreasing schedule
+            # (Shi-Eberhart 1998).  When the spec sets ``w_end`` the
+            # heuristic anneals from ``w`` to ``w_end`` over the budget;
+            # without ``w_end`` the inertia is constant.  Bounds chosen
+            # to keep the late-search inertia in the "exploit" regime.
+            MutationRule(
+                strategy_pattern="",
+                class_name="PSO",
+                param_name="w_end",
+                kind="float_uniform",
+                bounds=(0.2, 0.6),
+                low=0.2,
+                high=0.6,
+                probability=0.5,
+            ),
         ]
     )
 

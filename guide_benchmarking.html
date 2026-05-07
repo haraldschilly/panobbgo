@@ -856,10 +856,14 @@ space with two new ops that change the <em>shape</em> of a
 <li><p><code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> — append a heuristic from a curated pool
 (<code class="docutils literal notranslate"><span class="pre">Random</span></code>, <code class="docutils literal notranslate"><span class="pre">Nearby</span></code>, <code class="docutils literal notranslate"><span class="pre">NelderMead</span></code>, <code class="docutils literal notranslate"><span class="pre">Center</span></code>,
 <code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code>, <code class="docutils literal notranslate"><span class="pre">Sobol</span></code>, <code class="docutils literal notranslate"><span class="pre">Extremal</span></code>, <code class="docutils literal notranslate"><span class="pre">PSO</span></code>) to a target
-strategy.
-<code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code> (default) skips classes that are already
-present in the strategy, so the catalog cannot litter a portfolio
-with redundant copies.</p></li>
+strategy.  The pool ships <em>two</em> PSO entries — the default
+fully-connected <code class="docutils literal notranslate"><span class="pre">gbest</span></code> topology (Kennedy-Eberhart 1995) and the
+ring <code class="docutils literal notranslate"><span class="pre">lbest</span></code> topology with <code class="docutils literal notranslate"><span class="pre">k_neighbors=2</span></code> (Kennedy &amp; Mendes
+2002) — so the bandit can pick whichever exploration / exploitation
+trade-off helps on the current battery.  <code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code>
+(default) skips classes that are already present in the strategy,
+so the catalog cannot litter a portfolio with redundant copies (and
+in particular only ever installs <em>one</em> PSO variant per strategy).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> — remove an existing heuristic, optionally
 restricted to a tuple of class names via
 <code class="docutils literal notranslate"><span class="pre">StructuralMutationRule.droppable_classes</span></code>.  The

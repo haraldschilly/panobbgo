@@ -300,8 +300,15 @@ heuristic runs asynchronously in the panobbgo event loop following the same patt
 different from CMA-ES (which adapts a covariance matrix and re-samples) and DE (which
 recombines three random members) — they exploit narrow-valley problems where vector
 inertia along the valley floor is more useful than the alternatives.</p>
-<p><strong>References</strong>: Kennedy &amp; Eberhart (1995); Clerc &amp; Kennedy (2002); Poli, Kennedy &amp;
-Blackwell (2007).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">topology</span></code> argument selects how the <em>social</em> attractor for each particle is
+chosen.  <code class="docutils literal notranslate"><span class="pre">&quot;gbest&quot;</span></code> (default) uses the single global best — fast contraction once a
+basin is found.  <code class="docutils literal notranslate"><span class="pre">&quot;lbest&quot;</span></code> switches to a wrap-around <em>ring</em> of width
+<code class="docutils literal notranslate"><span class="pre">2·k_neighbors</span> <span class="pre">+</span> <span class="pre">1</span></code> so information about a new best diffuses through the swarm at
+one hop per iteration; this is empirically stronger on highly-multimodal landscapes
+(Kennedy &amp; Mendes 2002).  Panobbgo’s structural mutation catalog ships <em>both</em> variants
+so the self-improvement loop can pick whichever helps on a given problem family.</p>
+<p><strong>References</strong>: Kennedy &amp; Eberhart (1995); Clerc &amp; Kennedy (2002); Kennedy &amp; Mendes
+(2002); Poli, Kennedy &amp; Blackwell (2007).</p>
 </section>
 <section id="direct-dividing-rectangles">
 <h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>

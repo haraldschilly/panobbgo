@@ -103,6 +103,40 @@ class PSOConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         with pytest.raises(ValueError, match="v_max_frac must be"):
             PSO(self.strategy, v_max_frac=-0.5)
 
+    def test_default_topology_is_gbest(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy)
+        assert h.topology == "gbest"
+        assert h.k_neighbors == 2
+
+    def test_lbest_construction(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="lbest", k_neighbors=3)
+        assert h.topology == "lbest"
+        assert h.k_neighbors == 3
+
+    def test_invalid_topology(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="topology must be one of"):
+            PSO(self.strategy, topology="random")  # type: ignore[arg-type]
+
+    def test_invalid_k_neighbors_type(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="k_neighbors must be an integer"):
+            PSO(self.strategy, topology="lbest", k_neighbors=2.5)  # type: ignore[arg-type]
+
+    def test_invalid_k_neighbors_value(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="k_neighbors must be >= 1"):
+            PSO(self.strategy, topology="lbest", k_neighbors=0)
+        with pytest.raises(ValueError, match="k_neighbors must be >= 1"):
+            PSO(self.strategy, topology="lbest", k_neighbors=-1)
+
 
 # ----------------------------------------------------------------------
 # Initial swarm generation
@@ -388,6 +422,163 @@ class PSOConvergenceSmokeTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
+# Topology variants (gbest vs lbest / ring)
+# ----------------------------------------------------------------------
+
+
+class PSOLBestTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Verify the ``lbest`` (ring) topology behaviour."""
+
+    def test_ring_neighbors_wrap_around(self):
+        """``_ring_neighbors`` is a wrap-around window of width ``2k+1``."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="lbest", k_neighbors=2)
+        # No on_start required; _ring_neighbors only depends on NP / k.
+        ring0 = h._ring_neighbors(0)
+        # k=2, NP=10 → 5 neighbors centred at 0: {-2, -1, 0, 1, 2} → {8, 9, 0, 1, 2}
+        assert sorted(ring0) == [0, 1, 2, 8, 9]
+
+        ring9 = h._ring_neighbors(9)
+        # centred at 9: {7, 8, 9, 0, 1}
+        assert sorted(ring9) == [0, 1, 7, 8, 9]
+
+    def test_ring_neighbors_size(self):
+        """Each ring neighbourhood has exactly ``2k+1`` indices."""
+        from panobbgo.heuristics.pso import PSO
+
+        for k in (1, 2, 3):
+            h = PSO(self.strategy, NP=20, topology="lbest", k_neighbors=k)
+            for i in range(20):
+                ring = h._ring_neighbors(i)
+                assert len(ring) == 2 * k + 1
+                assert i in ring  # neighbourhood always includes self
+
+    def test_lbest_social_best_uses_ring(self):
+        """Under ``lbest``, the social attractor for particle ``i`` is the
+        best ``pbest`` among ``i``'s ring neighbours — even when a
+        better pbest exists *outside* the ring.
+        """
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        # NP=8, k=1 → ring(0) = {7, 0, 1}.  Plant a great pbest at index 4
+        # (outside the ring) and a mediocre pbest at index 1 (inside the
+        # ring).  lbest social attractor for particle 0 must be index 1.
+        h = PSO(self.strategy, NP=8, topology="lbest", k_neighbors=1, seed=0)
+        h.on_start()
+        h.get_points(limit=100)
+
+        def feed(idx, fx):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, fx)])
+
+        feed(4, 0.001)  # excellent pbest — but outside particle 0's ring
+        h.get_points(limit=100)
+        feed(1, 5.0)  # mediocre pbest — inside particle 0's ring
+        h.get_points(limit=100)
+
+        # _gbest_idx is the global best (used for reporting), points at 4.
+        assert h._gbest_idx == 4
+        # The social attractor for particle 0 (lbest topology) should be 1,
+        # not 4 — particle 0 cannot "see" past its ring of width 3.
+        assert h._social_best_idx(0) == 1
+
+    def test_gbest_social_best_is_global(self):
+        """Under ``gbest``, ``_social_best_idx`` is just ``_gbest_idx``."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(self.strategy, NP=6, topology="gbest", seed=0)
+        h.on_start()
+        h.get_points(limit=100)
+
+        # Plant two pbests, one strictly better than the other.
+        items = list(h._pending.items())
+        req_id_a, idx_a = items[0]
+        req_id_b, idx_b = items[1]
+        h.on_new_results(
+            [
+                Result(Point(h._positions[idx_a].copy(), f"PSO:{req_id_a}"), 100.0),
+                Result(Point(h._positions[idx_b].copy(), f"PSO:{req_id_b}"), 1.0),
+            ]
+        )
+
+        # Every particle's social attractor under gbest is the global best.
+        for i in range(h.NP):
+            assert h._social_best_idx(i) == idx_b
+
+    def test_lbest_social_best_none_until_neighbour_evaluated(self):
+        """If no neighbour in the ring has a pbest yet, returns None."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=8, topology="lbest", k_neighbors=1)
+        h.on_start()
+        h.get_points(limit=100)
+        # No results fed yet → no pbests anywhere.
+        for i in range(h.NP):
+            assert h._social_best_idx(i) is None
+
+    def test_lbest_velocity_clamp(self):
+        """lbest topology must respect the same ``v_max`` clamp as gbest."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(
+            self.strategy,
+            NP=5,
+            topology="lbest",
+            k_neighbors=1,
+            w=0.9,
+            c1=2.0,
+            c2=2.0,
+            v_max_frac=0.2,
+            seed=99,
+        )
+        h.on_start()
+        h.get_points(limit=100)
+
+        # Trigger an lbest-driven velocity update by feeding back two
+        # neighbours' results — particle 0 then sees a non-None social
+        # attractor in its ring {4, 0, 1}.
+        for idx in (1, 0):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, 1.0 + idx)])
+
+        ranges = self.problem.box[:, 1] - self.problem.box[:, 0]
+        v_max = 0.2 * ranges
+        assert np.all(np.abs(h._velocities) <= v_max + 1e-12)
+
+    def test_lbest_drives_toward_origin_on_quadratic(self):
+        """End-to-end: lbest still strictly improves on a quadratic."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Result
+
+        h = PSO(self.strategy, NP=10, topology="lbest", k_neighbors=2, seed=2026)
+        h.on_start()
+        pts = h.get_points(limit=100)
+
+        def f(x):
+            return float(np.sum(x * x))
+
+        def evaluate_and_feed(points):
+            results = [Result(pt, f(pt.x)) for pt in points]
+            h.on_new_results(results)
+
+        evaluate_and_feed(pts)
+        best_fx = min(r.fx for r in h._pbest_result if r is not None)
+        for _ in range(20):
+            pts = h.get_points(limit=100)
+            if not pts:
+                break
+            evaluate_and_feed(pts)
+        new_best = min(r.fx for r in h._pbest_result if r is not None)
+        assert new_best <= best_fx + 1e-12
+
+
+# ----------------------------------------------------------------------
 # Module-level registration
 # ----------------------------------------------------------------------
 
@@ -412,6 +603,27 @@ def test_pso_in_default_structural_catalog():
     assert PSO in classes_in_pool
 
 
+def test_pso_lbest_variant_in_default_structural_catalog():
+    """Both gbest (default) and lbest PSO variants appear in the structural catalog.
+
+    The catalog ships *two* PSO entries — canonical gbest (Kennedy-Eberhart
+    1995) and lbest ring topology (Kennedy & Mendes 2002) — so the
+    self-improvement loop can pick whichever helps on the current battery.
+    Both share ``cls = PSO`` so ``avoid_duplicates=True`` still prevents
+    multiple PSO instances per strategy; instead the catalog samples
+    uniformly between them when PSO is not yet present.
+    """
+    from panobbgo.self_improve import default_structural_catalog
+    from panobbgo.heuristics.pso import PSO
+
+    catalog = default_structural_catalog()
+    add_rules = [r for r in catalog.rules if getattr(r, "op", None) == "add_heuristic"]
+    pso_entries = [kwargs for rule in add_rules for cls, kwargs in rule.candidate_classes if cls is PSO]
+    assert len(pso_entries) >= 2, f"expected ≥2 PSO entries, got {pso_entries!r}"
+    topologies = {kwargs.get("topology", "gbest") for kwargs in pso_entries}
+    assert topologies == {"gbest", "lbest"}
+
+
 def test_pso_kwarg_rule_in_default_catalog():
     """default_catalog includes a kwarg rule for PSO.NP."""
     from panobbgo.self_improve import default_catalog
@@ -419,109 +631,6 @@ def test_pso_kwarg_rule_in_default_catalog():
     catalog = default_catalog()
     keys = {(r.class_name, r.param_name) for r in catalog.rules}
     assert ("PSO", "NP") in keys
-
-
-# ----------------------------------------------------------------------
-# Topology variants (gbest / lbest)
-# ----------------------------------------------------------------------
-
-
-class PSOTopologyConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
-    def test_default_topology_is_gbest(self):
-        from panobbgo.heuristics.pso import PSO
-
-        h = PSO(self.strategy)
-        assert h.topology == "gbest"
-        assert h.lbest_k == 2
-
-    def test_lbest_topology_accepts_custom_k(self):
-        from panobbgo.heuristics.pso import PSO
-
-        h = PSO(self.strategy, NP=12, topology="lbest", lbest_k=3)
-        assert h.topology == "lbest"
-        assert h.lbest_k == 3
-
-    def test_invalid_topology_rejected(self):
-        from panobbgo.heuristics.pso import PSO
-
-        with pytest.raises(ValueError, match="topology must be one of"):
-            PSO(self.strategy, topology="star")  # type: ignore[arg-type]
-
-    def test_invalid_lbest_k_type(self):
-        from panobbgo.heuristics.pso import PSO
-
-        with pytest.raises(ValueError, match="lbest_k must be an integer"):
-            PSO(self.strategy, lbest_k=2.5)  # type: ignore[arg-type]
-
-    def test_invalid_lbest_k_value(self):
-        from panobbgo.heuristics.pso import PSO
-
-        with pytest.raises(ValueError, match="lbest_k must be >= 1"):
-            PSO(self.strategy, lbest_k=0)
-
-
-class PSOTopologyBehaviourTests(_MockStrategyMixin, PanobbgoTestCase):
-    """Verify the ``lbest`` topology actually restricts each particle's
-    "social" attractor to its ring neighbourhood — not the swarm-wide
-    best."""
-
-    def _drive_results(self, h, fxs):
-        """Feed back one result per pending trial in id-order with the
-        given fxs in pending-order."""
-        from panobbgo.lib import Point, Result
-
-        items = list(h._pending.items())
-        results = []
-        for k, (req_id, idx) in enumerate(items):
-            x = h._positions[idx].copy()
-            results.append(Result(Point(x, f"PSO:{req_id}"), float(fxs[k])))
-        h.on_new_results(results)
-
-    def test_lbest_neighbourhood_window_excludes_far_particles(self):
-        """In a small lbest window the swarm-wide minimum is not
-        necessarily the nbest of every particle."""
-        from panobbgo.heuristics.pso import PSO
-
-        h = PSO(self.strategy, NP=6, topology="lbest", lbest_k=1, seed=11)
-        h.on_start()
-        h.get_points(limit=100)
-
-        # Particles 0..5 in pending-order — feed back ascending fx so
-        # particle 0 has fx=10 (best) and particle 5 has fx=60 (worst).
-        # Pending iteration order matches insertion order in CPython 3.7+.
-        self._drive_results(h, fxs=[10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
-
-        # gbest is particle 0 (fx=10).  But for particle 3, the lbest_k=1
-        # ring neighbourhood is {2, 3, 4} → particles 2/3/4 with fxs
-        # 30/40/50 → nbest is particle 2 (fx=30), NOT particle 0.
-        nbest_idx = h._neighbourhood_best_idx(3)
-        assert nbest_idx == 2
-        assert h._gbest_idx == 0  # global best still tracked separately
-
-    def test_gbest_and_lbest_collapse_when_window_covers_swarm(self):
-        """``lbest`` with ``k >= NP // 2`` collapses to ``gbest``."""
-        from panobbgo.heuristics.pso import PSO
-
-        h = PSO(self.strategy, NP=4, topology="lbest", lbest_k=10, seed=3)
-        h.on_start()
-        h.get_points(limit=100)
-
-        self._drive_results(h, fxs=[50.0, 10.0, 30.0, 70.0])  # best at idx=1
-        # _gbest_idx is the swarm-wide best from update_global_best.
-        assert h._gbest_idx == 1
-        # With k=10 (capped to NP // 2 = 2), the window is the whole
-        # swarm — every particle's nbest must equal gbest.
-        for i in range(h.NP):
-            assert h._neighbourhood_best_idx(i) == 1
-
-    def test_lbest_no_pbest_returns_none(self):
-        from panobbgo.heuristics.pso import PSO
-
-        h = PSO(self.strategy, NP=5, topology="lbest", lbest_k=1, seed=0)
-        h.on_start()
-        h.get_points(limit=100)
-        # Nothing has been scored yet.
-        assert h._neighbourhood_best_idx(2) is None
 
 
 # ----------------------------------------------------------------------
@@ -549,20 +658,13 @@ class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.heuristics.pso import PSO
 
         h = PSO(self.strategy, w=0.6)
-        # No matter what the strategy state is, we return self.w.
         assert h._current_inertia() == 0.6
 
     def test_adaptive_inertia_falls_back_when_results_unavailable(self):
-        """``len(strategy.results)`` raises TypeError on the bare mock —
-        the schedule must fall back to constant ``w``."""
+        """When ``len(strategy.results)`` raises, fall back to constant ``w``."""
         from panobbgo.heuristics.pso import PSO
 
-        # Default mock: ``strategy.results`` is a MagicMock, ``len()``
-        # raises.  The implementation catches this and returns self.w.
         h = PSO(self.strategy, w=0.9, w_end=0.4)
-        # ``self.config.max_eval`` is 1000 from PanobbgoTestCase, so the
-        # try-block will fail at ``len(self.strategy.results)`` and the
-        # except clause must return ``self.w`` (= 0.9).
         assert h._current_inertia() == 0.9
 
     def test_adaptive_inertia_progress_schedule(self):
@@ -573,8 +675,6 @@ class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
 
         h = PSO(self.strategy, w=0.9, w_end=0.4)
 
-        # We control ``len(strategy.results)`` via a fake ``results`` object
-        # with a working ``__len__``.  ``max_eval`` is 1000.
         class FakeResults:
             def __init__(self, n):
                 self.n = n
@@ -585,12 +685,10 @@ class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
         with mock.patch.object(self.strategy, "results", FakeResults(0)):
             assert h._current_inertia() == pytest.approx(0.9)
         with mock.patch.object(self.strategy, "results", FakeResults(500)):
-            # halfway: 0.9 − (0.9 − 0.4) · 0.5 = 0.65
             assert h._current_inertia() == pytest.approx(0.65)
         with mock.patch.object(self.strategy, "results", FakeResults(1000)):
             assert h._current_inertia() == pytest.approx(0.4)
         with mock.patch.object(self.strategy, "results", FakeResults(2000)):
-            # progress is clamped to 1.0
             assert h._current_inertia() == pytest.approx(0.4)
 
     def test_adaptive_inertia_zero_max_eval_falls_back(self):

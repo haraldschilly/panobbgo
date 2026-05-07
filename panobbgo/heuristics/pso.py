@@ -23,35 +23,53 @@ Clerc-Kennedy (2002) constriction-coefficient parameters.
 PSO maintains a population of *particles*, each with a position ``x_i``,
 a velocity ``v_i``, and a memory of its best-so-far position ``pbest_i``.
 On every step a particle is pulled toward its personal best and toward
-its *neighbourhood's* best position ``nbest_i``::
+the *swarm best the particle is allowed to see* — call it ``sbest_i``::
 
-    v_i ← w · v_i + c1·r1·(pbest_i − x_i) + c2·r2·(nbest_i − x_i)
+    v_i ← χ · (v_i + c1·r1·(pbest_i − x_i) + c2·r2·(sbest_i − x_i))
     x_i ← x_i + v_i
 
-with ``r1, r2 ∼ U(0, 1)^d`` independent per-component random vectors.
-``nbest_i`` is the best of the personal bests inside the *topology*
-neighbourhood of particle ``i``:
-
-* ``topology="gbest"`` (default) — every particle's neighbourhood is the
-  whole swarm, so ``nbest_i = gbest`` for all ``i``.  Fastest contraction
-  but most prone to premature convergence on multimodal problems.
-* ``topology="lbest"`` — ring topology, particle ``i`` sees the ``lbest_k``
-  particles on each side along the ring (default ``k=2``, so a
-  five-particle window centred on ``i``).  Slower contraction but better
-  multimodal exploration; information about a new basin propagates
-  around the ring rather than instantly to all particles.
-
-Default constriction parameters use the canonical values
+with ``r1, r2 ∼ U(0, 1)^d`` independent per-component random vectors and
+``χ`` the constriction coefficient that guarantees convergence (Clerc &
+Kennedy, 2002).  Default parameters use the canonical values
 ``φ = c1 + c2 = 4.1`` and ``χ = 2 / (φ − 2 + √(φ² − 4·φ)) ≈ 0.7298``,
 which together with ``c1 = c2 = 2.05`` yield effective coefficients
 ``χ·c1 = χ·c2 ≈ 1.49618`` and an inertia weight ``w = χ ≈ 0.7298``.
 
-Optional **adaptive inertia** (Shi & Eberhart, 1998): pass ``w_end`` to
-linearly decrease the inertia weight from ``w`` (the *initial* value) to
-``w_end`` over the strategy's evaluation budget — the swarm explores
-broadly with high inertia early and refines with low inertia late.  The
-schedule is paced by ``len(strategy.results) / strategy.config.max_eval``;
-when the budget is unknown the heuristic falls back to constant ``w``.
+Topology
+~~~~~~~~
+
+How ``sbest_i`` is determined depends on the *swarm topology*:
+
+* ``"gbest"`` (default, Kennedy-Eberhart 1995) — the social neighbourhood
+  is the entire swarm: every particle pulls toward the single global
+  best.  Fast contraction once a basin is found, but premature
+  convergence on multimodal problems where the first good basin is
+  rarely the global one.
+* ``"lbest"`` — *ring* topology: each particle ``i`` is connected only
+  to its ``k_neighbors`` closest indices on a wrap-around ring, so it
+  pulls toward the best ``pbest`` among ``{(i ± j) mod NP : j ≤ k}``.
+  Information about a new best diffuses through the swarm only one hop
+  per iteration, which is *slower* but lets multiple sub-swarms explore
+  different basins in parallel.  Empirically beats ``gbest`` on
+  multimodal problems (Kennedy & Mendes, 2002).
+
+The two topologies are *complementary*: ``gbest`` excels on unimodal /
+weakly-multimodal problems where rapid exploitation pays off, ``lbest``
+on highly-multimodal landscapes where a swarm-wide attractor would lock
+all particles into the first decent basin.  Panobbgo's structural
+mutation catalog ships *both* variants so the self-improvement loop
+can pick whichever helps on a given problem family.
+
+Adaptive inertia (Shi-Eberhart 1998)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Optionally pass ``w_end`` to linearly decrease the inertia weight from
+``w`` (the *initial* value) to ``w_end`` over the strategy's evaluation
+budget — the swarm explores broadly with high inertia early and refines
+with low inertia late.  The schedule is paced by
+``len(strategy.results) / strategy.config.max_eval``; when the budget is
+unknown the heuristic falls back to constant ``w``.  Default
+``w_end=None`` preserves the constant Clerc-Kennedy schedule.
 
 Key differences from existing population heuristics:
 
@@ -61,9 +79,10 @@ Key differences from existing population heuristics:
   generates trial vectors via *recombination* of three randomly-chosen
   population members (``DE/rand/1``); it has no momentum.
 * PSO carries a *velocity* (momentum) per particle and uses *social*
-  attraction toward its neighbourhood's best; this gives it markedly
-  different exploration dynamics — fast contraction once a basin is
-  found while retaining inertia from the prior search direction.
+  attraction toward the swarm or neighbourhood best; this gives it
+  markedly different exploration dynamics — fast contraction once a
+  basin is found while retaining inertia from the prior search
+  direction.
 
 The implementation runs **asynchronously** inside the panobbgo event loop,
 following the same pattern as :class:`DifferentialEvolution`:
@@ -71,8 +90,9 @@ following the same pattern as :class:`DifferentialEvolution`:
 1. ``on_start()`` emits ``NP`` random initial positions, one per particle.
 2. ``on_new_results()`` matches incoming results back to their particle
    index (via the ``who`` tag), updates ``pbest_i`` if the result improves,
-   refreshes the cached neighbourhood bests, and emits the particle's next
-   position generated from the velocity update above.
+   refreshes the global best (for reporting) plus the per-particle
+   neighbourhood best (for ``lbest`` topology), and emits the particle's
+   next position generated from the velocity update above.
 3. ``on_restart(center, reason)`` resets all particles to a randomized
    ball around the new center, drops in-flight trials, and starts a fresh
    swarm (matching the "warm restart" behaviour of CMA-ES IPOP).
@@ -88,9 +108,10 @@ References
 * M. Clerc & J. Kennedy (2002). "The Particle Swarm — Explosion, Stability,
   and Convergence in a Multidimensional Complex Space."
   *IEEE Transactions on Evolutionary Computation*, 6(1):58–73.
-* R. Mendes, J. Kennedy, J. Neves (2004). "The Fully Informed Particle
-  Swarm: Simpler, Maybe Better." *IEEE Transactions on Evolutionary
-  Computation*, 8(3):204–210 — neighbourhood topologies.
+* J. Kennedy & R. Mendes (2002). "Population Structure and Particle Swarm
+  Performance." *Proceedings of CEC 2002*, 1671–1676.
+  Empirical study showing ``lbest`` beats ``gbest`` on multimodal
+  benchmarks.
 * R. Poli, J. Kennedy, T. Blackwell (2007). "Particle Swarm Optimization:
   An Overview." *Swarm Intelligence*, 1(1):33–57.
 """
@@ -112,8 +133,10 @@ _DEFAULT_W: float = 0.7298437881283576  # χ
 _DEFAULT_C1: float = 1.49618  # χ · 2.05
 _DEFAULT_C2: float = 1.49618  # χ · 2.05
 
-
-_VALID_TOPOLOGIES: tuple = ("gbest", "lbest")
+# Topologies controlling the *social* attraction term in the velocity
+# update.  Kept as a tuple for runtime introspection (``topology in
+# _TOPOLOGIES``).
+_TOPOLOGIES: tuple = ("gbest", "lbest")
 
 
 class PSO(Heuristic):
@@ -128,41 +151,38 @@ class PSO(Heuristic):
         w: Inertia weight (``χ`` in the constriction formulation).
             Default ``0.7298`` — the canonical Clerc-Kennedy value that
             provably guarantees convergence with ``c1 = c2 = 1.49618``.
-            Also acts as the *initial* value of the linearly-decreasing
-            inertia schedule when ``w_end`` is provided.
+            Also acts as the *initial* inertia of the linearly-decreasing
+            schedule when ``w_end`` is provided.
         c1: Cognitive (personal-best attraction) coefficient.
             Default ``1.49618`` — Clerc-Kennedy.
-        c2: Social (neighbourhood-best attraction) coefficient.
+        c2: Social (global-best attraction) coefficient.
             Default ``1.49618`` — Clerc-Kennedy.
         v_max_frac: Maximum velocity per dimension as a fraction of the
             corresponding box range.  Velocities are clamped to
             ``[-v_max_frac · range, +v_max_frac · range]`` to prevent the
             swarm from exploding outside the search box.  Default
             ``0.5`` — a common conservative choice.
-        topology: Neighbourhood structure.  ``"gbest"`` (default) — every
-            particle pulls toward the swarm-wide global best.
-            ``"lbest"`` — ring topology, each particle sees only the
-            ``lbest_k`` neighbours on each side along the ring (so a
-            ``2*lbest_k + 1`` window centred on itself, including itself).
-            ``"lbest"`` slows premature convergence on multimodal
-            problems by letting better information about a new basin
-            propagate gradually around the ring instead of pulling the
-            entire swarm immediately.
-        lbest_k: Half-width of the ring neighbourhood when
-            ``topology="lbest"``.  Each particle sees ``lbest_k``
-            neighbours on its left, ``lbest_k`` on its right, plus
-            itself.  Must be ``>= 1`` and ``< NP / 2``; otherwise the
-            ring degenerates and the topology is effectively ``gbest``.
-            Default ``2``.  Ignored when ``topology="gbest"``.
+        topology: Social-attraction topology (see module docstring).
+            ``"gbest"`` (default) pulls every particle toward the single
+            global best.  ``"lbest"`` switches to a wrap-around *ring*
+            of width ``2 · k_neighbors + 1`` and pulls toward the best
+            ``pbest`` in that ring; this slows information diffusion and
+            is empirically stronger on multimodal problems
+            (Kennedy & Mendes, 2002).
+        k_neighbors: Half-width of the ``"lbest"`` neighbourhood.
+            Default ``2`` (neighbourhood size 5, including self) which
+            matches the recommendation in Kennedy & Mendes 2002.  Must
+            be a positive integer; ``k_neighbors >= NP // 2`` makes the
+            neighbourhood span the whole swarm and degenerates to
+            ``gbest``.  Ignored when ``topology == "gbest"``.
         w_end: Final inertia weight for the linearly-decreasing
             (Shi-Eberhart 1998) schedule.  When set, the inertia at
             evaluation count ``e`` (out of ``E = strategy.config.max_eval``)
             is ``w_eff(e) = w − (w − w_end) · min(e / E, 1)``.  When
             ``None`` (default) inertia is constant at ``w`` — the original
             Clerc-Kennedy behaviour.  Common choice: ``w = 0.9``,
-            ``w_end = 0.4``.  Ignored when the strategy budget is unknown
-            (no ``max_eval`` configured), in which case the heuristic
-            falls back to constant ``w``.
+            ``w_end = 0.4``.  Falls back to constant ``w`` whenever the
+            strategy budget is unknown (no ``max_eval`` configured).
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             seeds from ``np.random.default_rng()``.
         name: Override the heuristic's display name.
@@ -171,9 +191,9 @@ class PSO(Heuristic):
         - The constructor validates all numeric arguments and raises
           :class:`ValueError` on bad inputs.
         - All particle bookkeeping (positions, velocities, personal bests,
-          neighbourhood bests) lives in the heuristic instance — no
-          shared global state, so multiple PSO heuristics in one strategy
-          are independent.
+          global best) lives in the heuristic instance — no shared global
+          state, so multiple PSO heuristics in one strategy are
+          independent.
         - The heuristic respects constraints via
           ``self.strategy.constraint_handler.is_better`` and
           ``get_penalty_value`` exactly like
@@ -189,7 +209,7 @@ class PSO(Heuristic):
         c2: float = _DEFAULT_C2,
         v_max_frac: float = 0.5,
         topology: str = "gbest",
-        lbest_k: int = 2,
+        k_neighbors: int = 2,
         w_end: Optional[float] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
@@ -206,15 +226,14 @@ class PSO(Heuristic):
             raise ValueError(f"PSO: c2 must be a non-negative finite float, got {c2}")
         if not np.isfinite(v_max_frac) or v_max_frac <= 0.0:
             raise ValueError(f"PSO: v_max_frac must be a positive finite float, got {v_max_frac}")
-        if topology not in _VALID_TOPOLOGIES:
-            raise ValueError(f"PSO: topology must be one of {_VALID_TOPOLOGIES}, got {topology!r}")
-        if not isinstance(lbest_k, int):
-            raise ValueError(f"PSO: lbest_k must be an integer, got {lbest_k!r}")
-        if lbest_k < 1:
-            raise ValueError(f"PSO: lbest_k must be >= 1, got {lbest_k}")
-        if w_end is not None:
-            if not np.isfinite(w_end):
-                raise ValueError(f"PSO: w_end must be finite when set, got {w_end}")
+        if topology not in _TOPOLOGIES:
+            raise ValueError(f"PSO: topology must be one of {_TOPOLOGIES}, got {topology!r}")
+        if not isinstance(k_neighbors, int):
+            raise ValueError(f"PSO: k_neighbors must be an integer, got {k_neighbors!r}")
+        if k_neighbors < 1:
+            raise ValueError(f"PSO: k_neighbors must be >= 1, got {k_neighbors}")
+        if w_end is not None and not np.isfinite(w_end):
+            raise ValueError(f"PSO: w_end must be finite when set, got {w_end}")
 
         super().__init__(strategy, name=name or "PSO")
         self.NP: int = NP
@@ -223,7 +242,7 @@ class PSO(Heuristic):
         self.c2: float = float(c2)
         self.v_max_frac: float = float(v_max_frac)
         self.topology: str = topology
-        self.lbest_k: int = lbest_k
+        self.k_neighbors: int = int(k_neighbors)
         self.w_end: Optional[float] = None if w_end is None else float(w_end)
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -291,32 +310,38 @@ class PSO(Heuristic):
                 best_idx = i
         self._gbest_idx = best_idx
 
-    def _neighbourhood_best_idx(self, particle_idx: int) -> Optional[int]:
-        """Return the index of the best ``pbest`` in ``particle_idx``'s neighbourhood.
+    def _ring_neighbors(self, particle_idx: int) -> List[int]:
+        """Indices in the ring neighbourhood of ``particle_idx``.
 
-        For ``topology="gbest"`` the neighbourhood is the whole swarm and
-        this collapses to ``self._gbest_idx``.  For ``topology="lbest"``
-        only the ring neighbours within ``lbest_k`` of ``particle_idx``
-        plus the particle itself contribute, so each particle moves
-        toward a *local* (not global) best — the classic Kennedy 1999
-        ring topology.
+        The wrap-around ring includes the particle itself plus
+        :attr:`k_neighbors` indices on each side.  Ordered so the centre
+        particle's index appears in the middle, but the order is not
+        observed by callers — only the set matters.
+        """
+        return [(particle_idx + j) % self.NP for j in range(-self.k_neighbors, self.k_neighbors + 1)]
 
-        Returns ``None`` when no particle in the neighbourhood has a
-        scored personal best yet.
+    def _social_best_idx(self, particle_idx: int) -> Optional[int]:
+        """Return the index of the social attractor for ``particle_idx``.
+
+        For ``topology == "gbest"`` this is just :attr:`_gbest_idx`.
+        For ``topology == "lbest"`` it is the index of the best
+        ``pbest`` among the wrap-around ring of width
+        ``2·k_neighbors + 1`` centred on ``particle_idx`` — slower
+        information diffusion than the gbest variant but stronger on
+        multimodal problems (Kennedy & Mendes, 2002).
+
+        Returns ``None`` if no neighbour has accumulated a personal
+        best yet, in which case :meth:`_generate_next` falls back to a
+        random point.
         """
         if self.topology == "gbest":
             return self._gbest_idx
 
-        # lbest: ring window of half-width lbest_k centred on particle_idx.
-        # Cap k at NP // 2 so the window never exceeds the swarm — at the
-        # cap the lbest topology naturally degenerates to gbest, which is
-        # the documented behaviour.
-        k = min(self.lbest_k, self.NP // 2)
+        # lbest: scan the ring neighbourhood.
         handler = self.strategy.constraint_handler
         best_idx: Optional[int] = None
         best_result: Optional[Result] = None
-        for offset in range(-k, k + 1):
-            j = (particle_idx + offset) % self.NP
+        for j in self._ring_neighbors(particle_idx):
             pb = self._pbest_result[j]
             if pb is None:
                 continue
@@ -351,13 +376,14 @@ class PSO(Heuristic):
         """Produce the next candidate position for ``particle_idx``.
 
         Falls back to a fresh random point if we don't yet have a
-        neighbourhood best (e.g. all initial trials still pending).
+        social attractor (e.g. all initial trials still pending, or
+        ``lbest`` mode with the entire local neighbourhood empty).
         """
         if self._positions is None or self._velocities is None or self._pbest_x is None:
             return
 
-        nbest_idx = self._neighbourhood_best_idx(particle_idx)
-        if nbest_idx is None or self._pbest_x[particle_idx] is None:
+        social_idx = self._social_best_idx(particle_idx)
+        if social_idx is None or self._pbest_x[particle_idx] is None:
             # No memory to pull from yet — emit a fresh random point so
             # the particle stays active.
             x = self.problem.random_point()
@@ -368,12 +394,12 @@ class PSO(Heuristic):
         x_i = self._positions[particle_idx]
         v_i = self._velocities[particle_idx]
         p_i = self._pbest_x[particle_idx]
-        n = self._pbest_x[nbest_idx]
+        g = self._pbest_x[social_idx]
 
         w = self._current_inertia()
         r1 = self._rng.random(dim)
         r2 = self._rng.random(dim)
-        new_v = w * v_i + self.c1 * r1 * (p_i - x_i) + self.c2 * r2 * (n - x_i)
+        new_v = w * v_i + self.c1 * r1 * (p_i - x_i) + self.c2 * r2 * (g - x_i)
 
         # Velocity clamp.
         v_max = self._v_max()

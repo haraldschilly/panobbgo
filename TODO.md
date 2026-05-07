@@ -2,56 +2,85 @@
 
 ## Recent Improvements (continued)
 
-### PSO topology variants + adaptive inertia (2026-05-06)
-- [x] **`panobbgo/heuristics/pso.py`** — extends :class:`PSO` with two
-      literature-standard refinements (``topology`` argument with
-      ``"gbest"`` / ``"lbest"`` values, ``lbest_k`` ring half-width,
-      ``w_end`` Shi-Eberhart linearly-decreasing inertia schedule).
-      All four new arguments default to values that preserve the
-      previously-shipped 2026-05-05 behaviour byte-identically.
-- [x] **lbest topology** — new ``_neighbourhood_best_idx(particle_idx)``
-      method returns the best ``pbest`` within a ring window of
-      half-width ``min(lbest_k, NP // 2)`` centred on the particle.
-      Collapses to ``self._gbest_idx`` when ``topology="gbest"`` so
-      the default code path is the same as before.  Reduces premature
-      convergence on multimodal problems (Mendes-Kennedy-Neves 2004).
-- [x] **Adaptive inertia** — new ``_current_inertia()`` method
-      returns ``self.w − (self.w − self.w_end) · progress`` where
-      ``progress = min(len(strategy.results) / strategy.config.max_eval, 1)``.
-      Falls back to constant ``self.w`` whenever the budget is
-      unknown / zero / unreachable.  Closes the canonical
-      Shi-Eberhart (1998) modification of the original Kennedy-Eberhart
-      (1995) PSO.
+### PSO adaptive inertia (Shi-Eberhart 1998) (2026-05-07)
+- [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains an opt-in
+      ``w_end`` keyword argument.  When set, a new
+      ``_current_inertia()`` method linearly anneals the inertia from
+      ``self.w`` down to ``self.w_end`` paced by
+      ``len(strategy.results) / strategy.config.max_eval``; otherwise
+      the inertia is constant at ``self.w``, reproducing the prior
+      Clerc-Kennedy behaviour byte-for-byte.  Falls back to constant
+      ``w`` whenever the budget is unknown, zero, or non-numeric.
 - [x] **Catalog rules** — :func:`default_catalog` gains
       ``MutationRule`` entries for ``PSO.w`` (``float_uniform`` over
       ``[0.4, 0.95]``) and ``PSO.w_end`` (``float_uniform`` over
       ``[0.2, 0.6]``) so the loop driver can tune the inertia
-      schedule once a spec opts in.  The existing ``PSO.NP`` rule is
-      unchanged.
-- [x] **15 new tests in `tests/test_heuristic_pso.py`** (total 39):
-      topology construction validation (5), ``lbest`` neighbourhood
-      semantics + the swarm-wide collapse + the no-pbest fallback
-      (3), adaptive-inertia construction validation (2), the
-      constant-w short-circuit (1), the missing-results fall-back
-      (1), the linearly-decreasing schedule at four progress points
-      (1), the zero-``max_eval`` fall-back (1), and a catalog test
-      asserting ``PSO.w`` / ``PSO.w_end`` rules are present (1).
-- [x] **Impact** — A/B benchmark over four seeds (42–45), 3 reps,
-      3 default-quick problems (DeJong/Rosenbrock/Rastrigin),
-      ``Rewarding[Random, Nearby, NelderMead, PSO(NP=16)]`` strategy.
-      At budget 120 the legacy gbest+fixed-w stays best (mean 0.34
-      vs 0.22–0.33 for the new variants); at budget 300 each new
-      variant beats the legacy default by +0.08…+0.11 composite.
-      The legacy default is preserved unchanged so there is no
-      regression on the existing ``--quick`` battery.
-- [x] **Documentation updated**
-  - ``planning/SELF_IMPROVEMENT_LOOP.md`` §12: new dated iteration log
-    entry; "Next iteration ideas" updated to mark two of the three
-    PSO follow-ups as shipped and to seed two fresh tickets
-    (LSHADE-style adaptive DE; BOBYQA / NEWUOA local optimizer).
-  - ``doc/source/heuristics.rst``: PSO bullet now mentions the
-    topology variants and adaptive-inertia option.
-  - This TODO entry.
+      schedule once a spec opts in.
+- [x] **6 new tests in `tests/test_heuristic_pso.py`**: default
+      ``w_end`` is ``None``; finiteness validation; constant-``w``
+      short-circuit; missing-results fall-back; linearly-decreasing
+      schedule at four progress points; ``max_eval = 0`` fall-back;
+      and a catalog test asserting ``PSO.w`` / ``PSO.w_end`` rules
+      are present.
+- [x] **Documentation updated** — module docstring gets a new
+      "Adaptive inertia" section and a Shi-Eberhart reference;
+      ``doc/source/heuristics.rst`` and
+      ``doc/source/guide_architecture.rst`` mention ``w_end``.
+
+### PSO ring (`lbest`) topology variant (2026-05-07)
+- [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains a
+      ``topology: str = "gbest"`` argument and a ``k_neighbors: int = 2``
+      half-width.  ``"gbest"`` keeps the canonical Kennedy-Eberhart
+      1995 fully-connected swarm (default, byte-identical to the
+      2026-05-05 ship); ``"lbest"`` switches every particle's social
+      attractor to the best ``pbest`` in a wrap-around *ring* of width
+      ``2·k_neighbors + 1`` centred on the particle's index — slower
+      information diffusion, stronger multimodal exploration
+      (Kennedy & Mendes, CEC 2002).
+- [x] **Two new helpers** — ``_ring_neighbors(i)`` returns the
+      wrap-around index list; ``_social_best_idx(i)`` returns the
+      per-particle social attractor (collapsing to ``_gbest_idx`` for
+      gbest, scanning the ring for lbest).  ``_generate_next``
+      consults ``_social_best_idx`` exactly where it used
+      ``_gbest_idx`` before, so the velocity-update / clamp /
+      projection paths are shared between topologies.
+- [x] **Structural catalog integration** —
+      :func:`default_structural_catalog` ships two PSO entries:
+      ``(PSO, {"NP": 20})`` (gbest, default) and
+      ``(PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2})``.
+      Both share ``cls = PSO`` so ``avoid_duplicates=True`` still
+      installs only one PSO per strategy; the catalog samples
+      uniformly between the two when PSO is not yet present and
+      skips both afterwards.
+- [x] **Backwards compatibility** — ``topology`` defaults to
+      ``"gbest"`` so existing PSO instances retain their prior
+      behaviour bit-for-bit.  Existing kwarg rule
+      (``MutationRule(class_name="PSO", param_name="NP", …)``) and
+      bandit ``_proposal_rule_key`` are unchanged.
+- [x] **A/B at `--quick`** (3 problems × 5 reps × 150 evals): seed
+      42 → gbest 0.183 / **lbest 0.288**; seed 43 → **gbest 0.296** /
+      lbest 0.181.  The two topologies are *complementary* (each
+      wins on one seed), exactly the literature's prediction —
+      shipping both gives the bandit a finer-grained choice without
+      regressing the gbest path.
+- [x] **13 new tests in `tests/test_heuristic_pso.py`** (total 50):
+      construction validation (default topology / lbest construction
+      / invalid topology / invalid k_neighbors type / value), ring
+      wrap-around correctness, ring size invariant, lbest social
+      attractor uses ring (not the global best), gbest social
+      attractor degenerates to ``_gbest_idx``, lbest returns ``None``
+      before any neighbour pbest exists, lbest velocity clamp
+      invariant, lbest end-to-end smoke convergence on a quadratic,
+      and the structural catalog now ships both gbest and lbest PSO
+      entries.
+- [x] **Documentation updated** — ``planning/SELF_IMPROVEMENT_LOOP.md``
+      §12 logs the iteration and the PSO follow-ups list now drops
+      "Topology variants" (shipped) and adds "Random / Von Neumann
+      topologies" + "Categorical / topology mutation rule" as next
+      ideas.  ``doc/source/heuristics.rst``,
+      ``doc/source/guide_architecture.rst``,
+      ``doc/source/guide_research.rst``, and
+      ``doc/source/guide_benchmarking.rst`` describe both topologies.
 
 ### PSO (Particle Swarm Optimization) heuristic (2026-05-05)
 - [x] **`panobbgo/heuristics/pso.py`** — new asynchronous PSO heuristic

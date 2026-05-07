@@ -994,6 +994,11 @@ def default_structural_catalog() -> MutationCatalog:
     # the catalog factory unchanged when PSO is not actually selected.
     from panobbgo.heuristics.pso import PSO
 
+    # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
+    # 1995 swarm) and the ``lbest`` ring topology (Kennedy & Mendes 2002).
+    # ``avoid_duplicates=True`` ensures only one PSO variant ends up in any
+    # given strategy — the catalog picks gbest or lbest uniformly when PSO
+    # is not yet present, after which subsequent samples skip both.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1002,7 +1007,8 @@ def default_structural_catalog() -> MutationCatalog:
         (LatinHypercube, {"div": 4}),
         (Sobol, {"n": 16, "scramble": True}),
         (Extremal, {}),
-        (PSO, {"NP": 20}),
+        (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
+        (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

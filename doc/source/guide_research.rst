@@ -118,8 +118,16 @@ different from CMA-ES (which adapts a covariance matrix and re-samples) and DE (
 recombines three random members) — they exploit narrow-valley problems where vector
 inertia along the valley floor is more useful than the alternatives.
 
-**References**: Kennedy & Eberhart (1995); Clerc & Kennedy (2002); Poli, Kennedy &
-Blackwell (2007).
+The ``topology`` argument selects how the *social* attractor for each particle is
+chosen.  ``"gbest"`` (default) uses the single global best — fast contraction once a
+basin is found.  ``"lbest"`` switches to a wrap-around *ring* of width
+``2·k_neighbors + 1`` so information about a new best diffuses through the swarm at
+one hop per iteration; this is empirically stronger on highly-multimodal landscapes
+(Kennedy & Mendes 2002).  Panobbgo's structural mutation catalog ships *both* variants
+so the self-improvement loop can pick whichever helps on a given problem family.
+
+**References**: Kennedy & Eberhart (1995); Clerc & Kennedy (2002); Kennedy & Mendes
+(2002); Poli, Kennedy & Blackwell (2007).
 
 DIRECT (Dividing Rectangles)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

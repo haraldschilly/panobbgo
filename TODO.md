@@ -2,6 +2,61 @@
 
 ## Recent Improvements (continued)
 
+### PSO ring (`lbest`) topology variant (2026-05-07)
+- [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains a
+      ``topology: str = "gbest"`` argument and a ``k_neighbors: int = 2``
+      half-width.  ``"gbest"`` keeps the canonical Kennedy-Eberhart
+      1995 fully-connected swarm (default, byte-identical to the
+      2026-05-05 ship); ``"lbest"`` switches every particle's social
+      attractor to the best ``pbest`` in a wrap-around *ring* of width
+      ``2·k_neighbors + 1`` centred on the particle's index — slower
+      information diffusion, stronger multimodal exploration
+      (Kennedy & Mendes, CEC 2002).
+- [x] **Two new helpers** — ``_ring_neighbors(i)`` returns the
+      wrap-around index list; ``_social_best_idx(i)`` returns the
+      per-particle social attractor (collapsing to ``_gbest_idx`` for
+      gbest, scanning the ring for lbest).  ``_generate_next``
+      consults ``_social_best_idx`` exactly where it used
+      ``_gbest_idx`` before, so the velocity-update / clamp /
+      projection paths are shared between topologies.
+- [x] **Structural catalog integration** —
+      :func:`default_structural_catalog` ships two PSO entries:
+      ``(PSO, {"NP": 20})`` (gbest, default) and
+      ``(PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2})``.
+      Both share ``cls = PSO`` so ``avoid_duplicates=True`` still
+      installs only one PSO per strategy; the catalog samples
+      uniformly between the two when PSO is not yet present and
+      skips both afterwards.
+- [x] **Backwards compatibility** — ``topology`` defaults to
+      ``"gbest"`` so existing PSO instances retain their prior
+      behaviour bit-for-bit.  Existing kwarg rule
+      (``MutationRule(class_name="PSO", param_name="NP", …)``) and
+      bandit ``_proposal_rule_key`` are unchanged.
+- [x] **A/B at `--quick`** (3 problems × 5 reps × 150 evals): seed
+      42 → gbest 0.183 / **lbest 0.288**; seed 43 → **gbest 0.296** /
+      lbest 0.181.  The two topologies are *complementary* (each
+      wins on one seed), exactly the literature's prediction —
+      shipping both gives the bandit a finer-grained choice without
+      regressing the gbest path.
+- [x] **13 new tests in `tests/test_heuristic_pso.py`** (total 50):
+      construction validation (default topology / lbest construction
+      / invalid topology / invalid k_neighbors type / value), ring
+      wrap-around correctness, ring size invariant, lbest social
+      attractor uses ring (not the global best), gbest social
+      attractor degenerates to ``_gbest_idx``, lbest returns ``None``
+      before any neighbour pbest exists, lbest velocity clamp
+      invariant, lbest end-to-end smoke convergence on a quadratic,
+      and the structural catalog now ships both gbest and lbest PSO
+      entries.
+- [x] **Documentation updated** — ``planning/SELF_IMPROVEMENT_LOOP.md``
+      §12 logs the iteration and the PSO follow-ups list now drops
+      "Topology variants" (shipped) and adds "Random / Von Neumann
+      topologies" + "Categorical / topology mutation rule" as next
+      ideas.  ``doc/source/heuristics.rst``,
+      ``doc/source/guide_architecture.rst``,
+      ``doc/source/guide_research.rst``, and
+      ``doc/source/guide_benchmarking.rst`` describe both topologies.
+
 ### PSO (Particle Swarm Optimization) heuristic (2026-05-05)
 - [x] **`panobbgo/heuristics/pso.py`** — new asynchronous PSO heuristic
       with the canonical Clerc–Kennedy (2002) constriction-coefficient

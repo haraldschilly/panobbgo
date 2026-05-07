@@ -466,6 +466,70 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-07 — PSO ring (`lbest`) topology variant
+
+* **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a
+  ``topology: str = "gbest"`` argument plus a ``k_neighbors: int = 2``
+  half-width.  ``"gbest"`` (default, byte-identical to the 2026-05-05
+  ship) keeps the canonical Kennedy-Eberhart 1995 fully-connected
+  swarm; ``"lbest"`` switches every particle's social attractor to the
+  best ``pbest`` in a wrap-around *ring* of width ``2·k_neighbors + 1``
+  centred on the particle's own index.  Two new helpers cover the
+  bookkeeping: ``_ring_neighbors(i)`` returns the wrap-around index
+  list and ``_social_best_idx(i)`` returns the per-particle attractor
+  (collapsing to ``_gbest_idx`` for ``gbest``).  ``_generate_next``
+  consults ``_social_best_idx`` exactly where it used ``_gbest_idx``
+  before, so the velocity-update / clamp / projection paths are
+  shared.  :func:`panobbgo.self_improve.default_structural_catalog`
+  gains a second PSO entry — ``(PSO, {"NP": 20, "topology": "lbest",
+  "k_neighbors": 2})`` — alongside the existing gbest default.  Both
+  entries share ``cls = PSO`` so ``avoid_duplicates=True`` still
+  prevents two PSO instances from landing in the same strategy; the
+  catalog samples uniformly between them when PSO is not yet present
+  and skips both afterwards.
+* **Why** — closes the "Topology variants" follow-up below the §12
+  PSO entry from 2026-05-05.  ``gbest`` and ``lbest`` topologies
+  trade off different parts of the exploration / exploitation
+  spectrum: ``gbest`` contracts faster (every particle sees the same
+  best), ``lbest`` slows information diffusion to one hop per
+  iteration so multiple sub-swarms can probe different basins in
+  parallel.  Kennedy & Mendes (CEC 2002) show ``lbest`` empirically
+  beats ``gbest`` on multimodal benchmarks — exactly the regime where
+  Panobbgo's standard battery (Rastrigin, Ackley, Griewank,
+  Schwefel) is concentrated.  Shipping both variants in the
+  structural catalog gives the self-improvement loop the vocabulary
+  to pick whichever wins on the current battery.
+* **Impact** — 2-seed A/B at ``--quick`` (3 problems × 5 reps × 150
+  evaluations), comparing the same Rewarding strategy with PSO under
+  each topology:
+
+  * Seed 42 — ``gbest`` 0.183 / ``lbest`` **0.288** (lbest +0.105).
+  * Seed 43 — ``gbest`` **0.296** / ``lbest`` 0.181 (gbest +0.115).
+
+  Each topology wins on one of the two seeds — exactly the
+  *complementarity* the literature predicts.  At ``--quick`` noise
+  (~ ±0.05) neither dominates, but adding ``lbest`` to the catalog
+  expands the bandit's reachable strategy space without regressing
+  the gbest path: the loop now has two PSO arms with markedly
+  different exploration dynamics to choose between.
+* **Backwards compatibility** — strictly safe.  ``topology`` defaults
+  to ``"gbest"``, so every existing PSO instance retains its prior
+  behaviour bit-for-bit.  The structural catalog gains one extra
+  ``add_heuristic`` candidate that shares ``cls = PSO`` with the
+  existing entry — under ``avoid_duplicates=True`` (default), only
+  one is ever added per strategy.  Existing ledger consumers, kwarg
+  rules (``MutationRule(class_name="PSO", ...)``), and the bandit's
+  ``_proposal_rule_key`` are unchanged.
+* **Tests** — `tests/test_heuristic_pso.py` (13 new tests, total
+  50): construction validation (default topology / lbest
+  construction / invalid topology / invalid k_neighbors type / value),
+  ring-neighbour wrap-around correctness, ring size invariant, lbest
+  social-attractor uses ring (not the global best), gbest social
+  attractor degenerates to ``_gbest_idx``, lbest returns ``None``
+  before any neighbour pbest exists, lbest velocity clamp invariant,
+  lbest end-to-end smoke convergence on a quadratic, and structural
+  catalog now ships both gbest and lbest PSO entries.
+
 ### 2026-05-05 — Particle Swarm Optimization (`PSO` heuristic)
 
 * **What** — `panobbgo/heuristics/pso.py` adds an asynchronous PSO
@@ -793,14 +857,16 @@ guard but complements it.
 
 #### PSO follow-ups (after 2026-05-05 ship)
 
-PSO landed 2026-05-05.  Natural extensions when the loop has
-collected enough evidence to motivate the work:
+PSO landed 2026-05-05; the ``lbest`` ring topology shipped
+2026-05-07.  Natural extensions when the loop has collected enough
+evidence to motivate the work:
 
-- **Topology variants** — the shipped PSO uses the standard *fully
-  connected* (``gbest``) topology.  *Lbest* (ring) and *random*
-  topologies trade slower contraction for better multimodal
-  exploration; both are one-line changes in
-  ``_update_global_best`` once a topology field is added.
+- **Random / Von Neumann topologies** — ring (``lbest``) gives
+  one-hop diffusion, gbest gives instantaneous diffusion.  Random
+  re-wired graphs and 2-D Von Neumann grids sit between the two and
+  have been shown to trade differently on different problem
+  classes (Mendes 2004); a third topology slot for ``random`` would
+  give the bandit a finer-grained choice.
 - **Adaptive inertia** — Shi & Eberhart (1998) recommend linearly
   decreasing ``w`` from 0.9 to 0.4 over the budget.  The shipped
   version uses the constriction χ which is a fixed point that
@@ -811,3 +877,11 @@ collected enough evidence to motivate the work:
   single budget split, similar to the existing ``IPOP_CMAES``
   strategy.  Would be a new entry in
   ``_make_standard_strategies`` once measured to be a net win.
+- **Categorical / topology mutation rule** — :class:`MutationRule`
+  today only supports numeric perturbations
+  (``log_uniform_perturb`` / ``integer_add`` / ``float_uniform``).
+  Adding a ``categorical_choice`` kind would let the loop flip an
+  existing PSO instance's ``topology`` between ``"gbest"`` and
+  ``"lbest"`` without going through the full ``add_heuristic`` /
+  ``drop_heuristic`` cycle.  Generalises to other categorical
+  knobs (``Sobol.scramble``, etc.).

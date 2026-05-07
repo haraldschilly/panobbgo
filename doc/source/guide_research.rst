@@ -100,6 +100,27 @@ multimodal landscapes such as Rastrigin and Schwefel where purely local methods 
 
 **References**: [Storn1997]_
 
+Particle Swarm Optimization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Approach**: A population (swarm) of particles, each carrying a position, velocity, and
+memory of its personal best.  Velocities are pulled toward both the personal best and the
+global best with random per-component weights, giving the swarm both *momentum* (velocity
+inertia retained from the prior step) and *social* attraction toward the swarm's leader.
+
+**Panobbgo implementation**: :class:`~panobbgo.heuristics.pso.PSO` uses the canonical
+Clerc–Kennedy (2002) constriction-coefficient parameters
+(``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``) which provably guarantee convergence.  The
+heuristic runs asynchronously in the panobbgo event loop following the same pattern as
+:class:`DifferentialEvolution`, and supports IPOP-style warm restarts via the
+:class:`~panobbgo.analyzers.restart.Restart` analyzer.  PSO's dynamics are markedly
+different from CMA-ES (which adapts a covariance matrix and re-samples) and DE (which
+recombines three random members) — they exploit narrow-valley problems where vector
+inertia along the valley floor is more useful than the alternatives.
+
+**References**: Kennedy & Eberhart (1995); Clerc & Kennedy (2002); Poli, Kennedy &
+Blackwell (2007).
+
 DIRECT (Dividing Rectangles)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

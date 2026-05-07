@@ -471,8 +471,8 @@ A good portfolio balances exploration and exploitation:
      - ClaudeHeuristic
      - Multimodal landscapes, finding hidden optima near good regions
    * - Population-based
-     - CMAES (IPOP/BIPOP), DifferentialEvolution
-     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel)
+     - CMAES (IPOP/BIPOP), DifferentialEvolution, PSO
+     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel); PSO: momentum + social attraction, complementary to CMA-ES / DE — strong on narrow-valley problems where vector inertia helps
    * - Gradient-free local
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected

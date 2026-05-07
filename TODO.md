@@ -2,6 +2,31 @@
 
 ## Recent Improvements (continued)
 
+### PSO adaptive inertia (Shi-Eberhart 1998) (2026-05-07)
+- [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains an opt-in
+      ``w_end`` keyword argument.  When set, a new
+      ``_current_inertia()`` method linearly anneals the inertia from
+      ``self.w`` down to ``self.w_end`` paced by
+      ``len(strategy.results) / strategy.config.max_eval``; otherwise
+      the inertia is constant at ``self.w``, reproducing the prior
+      Clerc-Kennedy behaviour byte-for-byte.  Falls back to constant
+      ``w`` whenever the budget is unknown, zero, or non-numeric.
+- [x] **Catalog rules** — :func:`default_catalog` gains
+      ``MutationRule`` entries for ``PSO.w`` (``float_uniform`` over
+      ``[0.4, 0.95]``) and ``PSO.w_end`` (``float_uniform`` over
+      ``[0.2, 0.6]``) so the loop driver can tune the inertia
+      schedule once a spec opts in.
+- [x] **6 new tests in `tests/test_heuristic_pso.py`**: default
+      ``w_end`` is ``None``; finiteness validation; constant-``w``
+      short-circuit; missing-results fall-back; linearly-decreasing
+      schedule at four progress points; ``max_eval = 0`` fall-back;
+      and a catalog test asserting ``PSO.w`` / ``PSO.w_end`` rules
+      are present.
+- [x] **Documentation updated** — module docstring gets a new
+      "Adaptive inertia" section and a Shi-Eberhart reference;
+      ``doc/source/heuristics.rst`` and
+      ``doc/source/guide_architecture.rst`` mention ``w_end``.
+
 ### PSO ring (`lbest`) topology variant (2026-05-07)
 - [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains a
       ``topology: str = "gbest"`` argument and a ``k_neighbors: int = 2``

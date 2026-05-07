@@ -466,6 +466,46 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-07 — PSO adaptive inertia (Shi-Eberhart 1998)
+
+* **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains an
+  opt-in ``w_end`` keyword argument and a new ``_current_inertia()``
+  helper.  When ``w_end`` is set, the inertia weight at evaluation
+  count ``e`` (out of ``E = strategy.config.max_eval``) is
+  ``w_eff(e) = w − (w − w_end) · min(e/E, 1)`` — the canonical
+  Shi-Eberhart (1998) linearly-decreasing schedule.  When
+  ``w_end is None`` (default) ``_current_inertia()`` returns
+  ``self.w`` unchanged, preserving the original Clerc-Kennedy
+  constriction-coefficient behaviour byte-for-byte.  When the
+  strategy budget is unknown (no ``max_eval``, zero, or non-numeric)
+  the heuristic falls back to constant ``w`` rather than guessing a
+  horizon.  :func:`default_catalog` gains two new
+  :class:`MutationRule`s (``PSO.w`` and ``PSO.w_end``, both
+  ``float_uniform`` over literature-standard bounds) so the loop
+  driver can tune the adaptive-inertia schedule once a spec opts in
+  by setting either kwarg explicitly.
+* **Why** — closes the *Adaptive inertia* PSO follow-up.  At the
+  budgets used by competition-winning PSO variants (≥ 300
+  evaluations per run), the canonical fixed Clerc-Kennedy parameters
+  under-explore multimodal landscapes; Shi-Eberhart inertia
+  annealing is the literature-standard fix.  The extension is
+  *opt-in* — the default constructor preserves the shipped
+  behaviour exactly — so the loop driver can discover whether any
+  given strategy benefits without disturbing existing ledgers.
+* **Backwards compatibility** — strictly safe.  ``w_end`` defaults to
+  ``None``; existing PSO instances retain their prior behaviour
+  bit-for-bit.  The new ``PSO.w`` / ``PSO.w_end`` catalog rules only
+  fire when a spec explicitly sets the kwarg (per
+  :func:`_find_targets`'s "param already in kwargs" predicate), so a
+  fresh ledger run on the built-in factories sees no behavioural
+  change.
+* **Tests** — `tests/test_heuristic_pso.py` adds 6 tests:
+  default ``w_end`` is ``None``; finiteness validation; constant-``w``
+  short-circuit; missing-results fall-back path; the
+  linearly-decreasing schedule at four progress points; the
+  zero-``max_eval`` fall-back; plus a catalog test confirming
+  ``PSO.w`` / ``PSO.w_end`` rules are present.
+
 ### 2026-05-07 — PSO ring (`lbest`) topology variant
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a
@@ -857,7 +897,8 @@ guard but complements it.
 
 #### PSO follow-ups (after 2026-05-05 ship)
 
-PSO landed 2026-05-05; the ``lbest`` ring topology shipped
+PSO landed 2026-05-05; the ``lbest`` ring topology shipped 2026-05-07
+and the optional Shi-Eberhart adaptive inertia (``w_end``) shipped
 2026-05-07.  Natural extensions when the loop has collected enough
 evidence to motivate the work:
 
@@ -867,11 +908,6 @@ evidence to motivate the work:
   have been shown to trade differently on different problem
   classes (Mendes 2004); a third topology slot for ``random`` would
   give the bandit a finer-grained choice.
-- **Adaptive inertia** — Shi & Eberhart (1998) recommend linearly
-  decreasing ``w`` from 0.9 to 0.4 over the budget.  The shipped
-  version uses the constriction χ which is a fixed point that
-  doesn't anneal — fine for a portfolio member but a known
-  improvement for stand-alone PSO.
 - **`StrategyPhased` integration** — pair PSO (global exploration
   phase) with NelderMead / LBFGSB (local refinement phase) on a
   single budget split, similar to the existing ``IPOP_CMAES``
@@ -885,3 +921,34 @@ evidence to motivate the work:
   ``"lbest"`` without going through the full ``add_heuristic`` /
   ``drop_heuristic`` cycle.  Generalises to other categorical
   knobs (``Sobol.scramble``, etc.).
+
+#### Adaptive Differential Evolution (LSHADE / JADE)
+
+The shipped :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
+implements the basic ``DE/rand/1/bin`` variant with fixed ``F = 0.8``
+and ``CR = 0.9``.  Modern competitive DE variants — JADE
+(Zhang-Sanderson 2009) and L-SHADE (Tanabe-Fukunaga 2014, winner of
+CEC-2014) — adapt ``F`` and ``CR`` online via successful-history
+memories and shrink the population linearly with the budget.
+L-SHADE in particular is widely cited as one of the strongest
+single-population black-box solvers; adding it as a new heuristic
+(rather than replacing the existing DE) would close a clear gap
+versus the literature-best baselines and give the structural
+mutation catalog a strong new candidate.  Reference: Tanabe &
+Fukunaga, "Improving the Search Performance of SHADE Using Linear
+Population Size Reduction," CEC 2014.
+
+#### BOBYQA / NEWUOA local optimizer
+
+Powell's derivative-free trust-region method with quadratic
+interpolation models is consistently the strongest local optimizer
+for smooth and near-smooth black-box objectives — well above
+Nelder-Mead in robustness and convergence rate.  ``Py-BOBYQA`` is
+a pure-Python wrapper that fits the existing
+:class:`~panobbgo.heuristics.lbfgsb.LBFGSB` adapter pattern (one
+local solve from a starting point, no async loop required).  Adding
+it would give the portfolio a derivative-free local refinement step
+that is currently missing — Nelder-Mead is the only generic
+derivative-free local optimizer in the catalog, and it is
+known to underperform on ill-conditioned problems where BOBYQA's
+quadratic model directly captures curvature.

@@ -269,14 +269,16 @@ Implemented Heuristics
   allowed to see* with random per-component weights.  Two swarm topologies select that visible
   attractor: ``"gbest"`` (default) — every particle sees the single global best; or ``"lbest"`` —
   a wrap-around ring of width ``2·k_neighbors + 1`` (Kennedy & Mendes 2002), trading slower
-  information diffusion for stronger multimodal exploration.  PSO's *momentum* and *social*
-  dynamics are markedly different from CMA-ES (covariance re-sampling) and DE (recombination of
-  three random members) — fast contraction once a basin is found, while inertia retains the prior
-  search direction.  Velocities are clamped to a configurable fraction of each box dimension to
-  prevent the swarm from exploding outside the search box.  Supports IPOP-style warm restarts
-  via the :class:`~panobbgo.analyzers.restart.Restart` analyzer: on a ``restart`` event the swarm
-  is scattered around the suggested center and the global memory is wiped while the strategy
-  keeps its accumulated result history.
+  information diffusion for stronger multimodal exploration.  An opt-in ``w_end`` argument enables
+  the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy's evaluation
+  budget; the default constant ``w`` reproduces the original Clerc-Kennedy behaviour.  PSO's
+  *momentum* and *social* dynamics are markedly different from CMA-ES (covariance re-sampling) and
+  DE (recombination of three random members) — fast contraction once a basin is found, while
+  inertia retains the prior search direction.  Velocities are clamped to a configurable fraction
+  of each box dimension to prevent the swarm from exploding outside the search box.  Supports
+  IPOP-style warm restarts via the :class:`~panobbgo.analyzers.restart.Restart` analyzer: on a
+  ``restart`` event the swarm is scattered around the suggested center and the global memory is
+  wiped while the strategy keeps its accumulated result history.
 
 **Constraint-focused:**
 

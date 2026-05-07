@@ -60,6 +60,17 @@ all particles into the first decent basin.  Panobbgo's structural
 mutation catalog ships *both* variants so the self-improvement loop
 can pick whichever helps on a given problem family.
 
+Adaptive inertia (Shi-Eberhart 1998)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Optionally pass ``w_end`` to linearly decrease the inertia weight from
+``w`` (the *initial* value) to ``w_end`` over the strategy's evaluation
+budget — the swarm explores broadly with high inertia early and refines
+with low inertia late.  The schedule is paced by
+``len(strategy.results) / strategy.config.max_eval``; when the budget is
+unknown the heuristic falls back to constant ``w``.  Default
+``w_end=None`` preserves the constant Clerc-Kennedy schedule.
+
 Key differences from existing population heuristics:
 
 * :class:`~panobbgo.heuristics.cma_es.CMAES` adapts a *covariance matrix*
@@ -91,6 +102,9 @@ References
 
 * J. Kennedy & R. Eberhart (1995). "Particle Swarm Optimization."
   *Proceedings of ICNN'95.*
+* Y. Shi & R. Eberhart (1998). "A Modified Particle Swarm Optimizer."
+  *Proceedings of the IEEE International Conference on Evolutionary
+  Computation*, pages 69–73 — linearly decreasing inertia weight.
 * M. Clerc & J. Kennedy (2002). "The Particle Swarm — Explosion, Stability,
   and Convergence in a Multidimensional Complex Space."
   *IEEE Transactions on Evolutionary Computation*, 6(1):58–73.
@@ -137,6 +151,8 @@ class PSO(Heuristic):
         w: Inertia weight (``χ`` in the constriction formulation).
             Default ``0.7298`` — the canonical Clerc-Kennedy value that
             provably guarantees convergence with ``c1 = c2 = 1.49618``.
+            Also acts as the *initial* inertia of the linearly-decreasing
+            schedule when ``w_end`` is provided.
         c1: Cognitive (personal-best attraction) coefficient.
             Default ``1.49618`` — Clerc-Kennedy.
         c2: Social (global-best attraction) coefficient.
@@ -159,6 +175,14 @@ class PSO(Heuristic):
             be a positive integer; ``k_neighbors >= NP // 2`` makes the
             neighbourhood span the whole swarm and degenerates to
             ``gbest``.  Ignored when ``topology == "gbest"``.
+        w_end: Final inertia weight for the linearly-decreasing
+            (Shi-Eberhart 1998) schedule.  When set, the inertia at
+            evaluation count ``e`` (out of ``E = strategy.config.max_eval``)
+            is ``w_eff(e) = w − (w − w_end) · min(e / E, 1)``.  When
+            ``None`` (default) inertia is constant at ``w`` — the original
+            Clerc-Kennedy behaviour.  Common choice: ``w = 0.9``,
+            ``w_end = 0.4``.  Falls back to constant ``w`` whenever the
+            strategy budget is unknown (no ``max_eval`` configured).
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             seeds from ``np.random.default_rng()``.
         name: Override the heuristic's display name.
@@ -186,6 +210,7 @@ class PSO(Heuristic):
         v_max_frac: float = 0.5,
         topology: str = "gbest",
         k_neighbors: int = 2,
+        w_end: Optional[float] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -207,6 +232,8 @@ class PSO(Heuristic):
             raise ValueError(f"PSO: k_neighbors must be an integer, got {k_neighbors!r}")
         if k_neighbors < 1:
             raise ValueError(f"PSO: k_neighbors must be >= 1, got {k_neighbors}")
+        if w_end is not None and not np.isfinite(w_end):
+            raise ValueError(f"PSO: w_end must be finite when set, got {w_end}")
 
         super().__init__(strategy, name=name or "PSO")
         self.NP: int = NP
@@ -216,6 +243,7 @@ class PSO(Heuristic):
         self.v_max_frac: float = float(v_max_frac)
         self.topology: str = topology
         self.k_neighbors: int = int(k_neighbors)
+        self.w_end: Optional[float] = None if w_end is None else float(w_end)
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
@@ -322,6 +350,28 @@ class PSO(Heuristic):
                 best_idx = j
         return best_idx
 
+    def _current_inertia(self) -> float:
+        """Return the inertia weight to use for the next velocity update.
+
+        When ``w_end`` is ``None`` this is the constant ``self.w``.
+        Otherwise it is a linearly-decreasing schedule paced by
+        ``len(strategy.results) / strategy.config.max_eval`` (Shi &
+        Eberhart, 1998).  When the budget is unknown (no ``max_eval``,
+        zero, or non-numeric) the heuristic falls back to constant
+        ``self.w`` rather than guessing a horizon.
+        """
+        if self.w_end is None:
+            return self.w
+        try:
+            max_eval = float(self.strategy.config.max_eval)  # type: ignore[union-attr]
+            current = float(len(self.strategy.results))
+        except Exception:
+            return self.w
+        if not np.isfinite(max_eval) or max_eval <= 0.0:
+            return self.w
+        progress = min(max(current / max_eval, 0.0), 1.0)
+        return self.w - (self.w - self.w_end) * progress
+
     def _generate_next(self, particle_idx: int) -> None:
         """Produce the next candidate position for ``particle_idx``.
 
@@ -346,9 +396,10 @@ class PSO(Heuristic):
         p_i = self._pbest_x[particle_idx]
         g = self._pbest_x[social_idx]
 
+        w = self._current_inertia()
         r1 = self._rng.random(dim)
         r2 = self._rng.random(dim)
-        new_v = self.w * v_i + self.c1 * r1 * (p_i - x_i) + self.c2 * r2 * (g - x_i)
+        new_v = w * v_i + self.c1 * r1 * (p_i - x_i) + self.c2 * r2 * (g - x_i)
 
         # Velocity clamp.
         v_max = self._v_max()

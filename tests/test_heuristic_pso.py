@@ -631,3 +631,89 @@ def test_pso_kwarg_rule_in_default_catalog():
     catalog = default_catalog()
     keys = {(r.class_name, r.param_name) for r in catalog.rules}
     assert ("PSO", "NP") in keys
+
+
+# ----------------------------------------------------------------------
+# Adaptive inertia (Shi-Eberhart 1998 linearly decreasing schedule)
+# ----------------------------------------------------------------------
+
+
+class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
+    def test_default_w_end_is_none(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy)
+        assert h.w_end is None
+
+    def test_invalid_w_end(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="w_end must be finite"):
+            PSO(self.strategy, w_end=float("nan"))
+        with pytest.raises(ValueError, match="w_end must be finite"):
+            PSO(self.strategy, w_end=float("inf"))
+
+    def test_constant_inertia_when_w_end_none(self):
+        """Without ``w_end`` the inertia is constant = ``w``."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.6)
+        assert h._current_inertia() == 0.6
+
+    def test_adaptive_inertia_falls_back_when_results_unavailable(self):
+        """When ``len(strategy.results)`` raises, fall back to constant ``w``."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+        assert h._current_inertia() == 0.9
+
+    def test_adaptive_inertia_progress_schedule(self):
+        """Linearly-decreasing inertia: ``w_eff = w − (w − w_end) · p``."""
+        from unittest import mock
+
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+
+        class FakeResults:
+            def __init__(self, n):
+                self.n = n
+
+            def __len__(self):
+                return self.n
+
+        with mock.patch.object(self.strategy, "results", FakeResults(0)):
+            assert h._current_inertia() == pytest.approx(0.9)
+        with mock.patch.object(self.strategy, "results", FakeResults(500)):
+            assert h._current_inertia() == pytest.approx(0.65)
+        with mock.patch.object(self.strategy, "results", FakeResults(1000)):
+            assert h._current_inertia() == pytest.approx(0.4)
+        with mock.patch.object(self.strategy, "results", FakeResults(2000)):
+            assert h._current_inertia() == pytest.approx(0.4)
+
+    def test_adaptive_inertia_zero_max_eval_falls_back(self):
+        """``max_eval = 0`` is degenerate; fall back to constant ``w``."""
+        from unittest import mock
+
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, w=0.9, w_end=0.4)
+
+        class FakeResults:
+            def __len__(self):
+                return 0
+
+        with mock.patch.object(self.strategy, "results", FakeResults()):
+            with mock.patch.object(self.strategy.config, "max_eval", 0):
+                assert h._current_inertia() == 0.9
+
+
+def test_pso_kwarg_rules_in_default_catalog_extras():
+    """default_catalog also exposes PSO.w and PSO.w_end so the loop can
+    tune the adaptive-inertia schedule."""
+    from panobbgo.self_improve import default_catalog
+
+    catalog = default_catalog()
+    keys = {(r.class_name, r.param_name) for r in catalog.rules}
+    assert ("PSO", "w") in keys
+    assert ("PSO", "w_end") in keys

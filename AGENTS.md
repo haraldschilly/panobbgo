@@ -240,6 +240,16 @@ The harness is the measurement substrate for an autonomous
     `scripts/self_improve.py run --structural` or
     `SelfImprover(catalog=default_structural_catalog())`.  Off by
     default so existing CLI invocations remain byte-identical.
+*   Hold-out validation set — **shipped** (§10), see
+    `panobbgo.self_improve.LoopHoldoutRecord` and the
+    `--holdout-base-seed`, `--holdout-iterations`,
+    `--holdout-iteration-offset`, `--holdout-eps-overfit`,
+    `--fail-on-overfit` CLI flags.  At the end of every loop run, the
+    seed and final-top of the ladder are re-measured on instances
+    drawn from a completely independent ``base_seed`` SHA-256 stream;
+    a shrinking ``top - seed`` gap (``drift < -eps_overfit``) flags
+    overfit to the training base_seed family — the failure mode the
+    anti-cherry-pick guard cannot see.
 
 Run the loop:
 
@@ -258,6 +268,11 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # Structural catalog: kwarg perturbations + add_heuristic / drop_heuristic ops
 uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive
+
+# End-of-loop hold-out validation against an independent base_seed,
+# fail with exit code 3 if the ladder is flagged as overfit
+uv run python scripts/self_improve.py run --iterations 100 \
+    --mode standard --holdout-base-seed 1234 --fail-on-overfit
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

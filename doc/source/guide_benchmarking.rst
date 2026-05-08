@@ -727,6 +727,102 @@ Programmatic use:
 The ``--structural`` flag is **off by default** so existing CLI
 invocations and existing ledgers stay byte-identical.
 
+Hold-out validation set
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The anti-cherry-pick guard catches drift inside the *training*
+``base_seed`` family — it varies only ``randomize_iteration`` and keeps
+the ``HarnessConfig.seed`` constant.  A mutation that overfits to
+peculiarities of the training base-seed family slips through: the
+guard's "fresh" instances are still drawn from the same SHA-256 stream.
+
+The **hold-out validation set** closes that gap.  At the end of the
+loop run, when
+:attr:`~panobbgo.self_improve.LoopConfig.holdout_base_seed` is non-zero
+and :attr:`~panobbgo.self_improve.LoopConfig.holdout_iterations` is
+positive, the loop re-measures both the **seed** ladder entry and the
+**final top** entry on instances drawn from a completely independent
+``base_seed`` SHA-256 stream.  The two scores are averaged over
+``holdout_iterations`` distinct ``randomize_iteration`` values and
+compared to the training-time ``last_validated_score`` recorded on the
+ladder.  If the hold-out gap (``top − seed``) is smaller than the
+training gap by more than
+:attr:`~panobbgo.self_improve.LoopConfig.holdout_eps_overfit`, the
+:class:`~panobbgo.self_improve.LoopHoldoutRecord` is flagged
+``overfit=True``.
+
+Algorithm:
+
+1. After all loop iterations have completed (and the guard has done
+   its work), run :meth:`~panobbgo.self_improve.SelfImprover._run_holdout`.
+2. Build a :class:`~panobbgo.harness.HarnessConfig` whose ``seed`` is
+   the **independent** ``holdout_base_seed`` (every other knob — mode,
+   reps, budget, ``strategies_override`` — matches the training run).
+3. For ``k = 0 … holdout_iterations - 1``, set
+   ``randomize_iteration = holdout_iteration_offset + k`` and measure
+   both the seed and top spec lists.  Average to get
+   ``seed_holdout_score`` and ``top_holdout_score``.
+4. ``drift = (top_holdout − seed_holdout) − (top_training −
+   seed_training)``.  Negative drift means the gap shrank on hold-out
+   (overfit); within tolerance means the improvement generalises.
+5. Append a :class:`~panobbgo.self_improve.LoopHoldoutRecord` to the
+   ledger (``record_type = "holdout"``) so audits can replay the
+   third signal alongside iteration and guard records.
+
+Compute cost is fixed: ``2 × holdout_iterations`` harness runs at the
+end of the loop (or just ``holdout_iterations`` when the ladder has
+only the seed entry — no accepted mutations to validate).
+
+The hold-out is **disabled by default** (``holdout_base_seed = 0``)
+for backward compatibility.  Pick any independent base seed (e.g.
+``1234``) for unattended runs where overfitting to the training
+``base_seed`` is the dominant remaining risk.
+
+CLI:
+
+.. code-block:: bash
+
+   # Basic: 50 iterations on standard, hold-out at base_seed=1234
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --mode standard --holdout-base-seed 1234
+
+   # Stricter: fail with exit code 3 if hold-out flags overfit
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --mode standard --holdout-base-seed 1234 \
+       --holdout-eps-overfit 0.03 --fail-on-overfit
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover
+
+   cfg = LoopConfig(
+       iterations=50,
+       mode="standard",
+       guard_interval=10,
+       holdout_base_seed=1234,        # independent of base_seed=42
+       holdout_iterations=5,
+       holdout_eps_overfit=0.05,
+   )
+   iter_records, guard_records, holdout_records = (
+       SelfImprover(cfg).run_full()
+   )
+
+   if holdout_records:
+       ho = holdout_records[-1]
+       if ho.overfit:
+           print(f"WARNING: ladder overfits training base_seed (drift={ho.drift:+.4f})")
+       else:
+           print(f"Improvement generalises (drift={ho.drift:+.4f})")
+
+The hold-out is **independent** of the guard.  Both can be on
+simultaneously: the guard runs periodically inside the loop and
+catches drift between iterations within the training base_seed
+family; the hold-out runs once at the end and catches overfit to the
+training base_seed family itself.  Together they cover the two main
+overfitting modes the loop can suffer from.
+
 
 Extending the harness
 ---------------------

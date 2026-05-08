@@ -2,6 +2,75 @@
 
 ## Recent Improvements (continued)
 
+### Hold-Out Validation Set for Self-Improvement Loop (2026-05-08)
+- [x] **New `panobbgo.self_improve.LoopHoldoutRecord`** — third record
+      type alongside `LoopIterationRecord` / `LoopGuardRecord`; closes
+      the §10 "Hold-out validation set" item in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  At the end of every loop
+      run, the seed and final-top of the accepted ladder are
+      re-measured on instances drawn from an *independent*
+      `base_seed` SHA-256 stream, and the shrinking-gap drift is
+      reported on the JSONL ledger as `record_type="holdout"`.
+  - **Why it matters.**  The anti-cherry-pick guard catches drift
+    *within* the training base_seed family — it varies only
+    `randomize_iteration` and keeps `HarnessConfig.seed` constant.  A
+    mutation that overfits to peculiarities of the training base_seed
+    family slips through silently because the guard's "fresh"
+    instances are still drawn from the same SHA-256 stream.  The
+    hold-out re-measures on a *completely* independent base_seed, so
+    an overfit ladder is exposed by ``drift < -eps_overfit``.
+- [x] **`LoopConfig` knobs** — `holdout_base_seed` (0 = disabled),
+      `holdout_iterations` (5 by default), `holdout_iteration_offset`
+      (0 by default), `holdout_eps_overfit` (0.05 by default).
+      `LoopConfig.__post_init__` rejects `holdout_base_seed ==
+      base_seed` (other than 0) — equal values would collapse the
+      check to a glorified guard with offset 0.
+- [x] **`LoopConfig.holdout_harness_config()`** — sibling to
+      `harness_config()` that swaps the `seed` field to
+      `holdout_base_seed`; every other knob (mode, reps, budget,
+      `strategies_override`) matches the training run.
+- [x] **`SelfImprover._run_holdout()`** + helpers
+      (`_holdout_enabled`, `_measure_holdout`, `_print_holdout`).
+      Skipped silently when (a) disabled, (b) the loop ran zero
+      iterations, or (c) `randomize=False` (the fixed battery is
+      unaffected by base_seed, so a hold-out check would be no
+      signal).
+- [x] **New public entry-point `SelfImprover.run_full()`** — returns
+      `(iter_records, guard_records, holdout_records)` for callers
+      that want all three signals.  `SelfImprover.run()` keeps its
+      original return type for backward compatibility;
+      `run_with_guard_records()` returns just the first two.
+- [x] **CLI flags** `--holdout-base-seed`, `--holdout-iterations`,
+      `--holdout-iteration-offset`, `--holdout-eps-overfit`,
+      `--fail-on-overfit` (exits `3` on a flagged ladder) on
+      `scripts/self_improve.py run`; `summary` distinguishes
+      hold-out records and prints drift / overfit verdict.
+- [x] **17 new tests in `tests/test_self_improve.py`** (total 97):
+      - **`TestLoopConfigHoldout`** — defaults, negative-iterations
+        validation, negative-eps validation, equal-base-seed
+        rejection, zero-zero edge case, `holdout_harness_config`
+        propagation.
+      - **`TestSelfImproverHoldout`** — disabled-by-default,
+        skipped when `randomize=False`, skipped on zero iterations,
+        seed-only ladder records zero drift, hold-out uses the
+        independent base_seed for measurement, overfit flag fires
+        when gap collapses, no flag when gap holds, ledger writes
+        `record_type='holdout'` line, `run()` keeps backward
+        compatibility.
+      - **`TestLoopHoldoutRecord`** — `to_dict` round-trip with JSON
+        serialisation.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §2 missing-pieces list
+    refreshed; §10 hold-out item resolved; Phase 6 checklist updated;
+    new §12 dated entry; "Next iteration ideas" replaced with
+    multi-seed hold-out / auto-rollback follow-up tickets.
+  - `doc/source/guide_benchmarking.rst`: new "Hold-out validation
+    set" subsection with algorithm, CLI examples, programmatic
+    example, and the independence-from-the-guard note.
+  - `doc/source/guide.rst`: quick-nav entry mentions the hold-out.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    hold-out feature with run-the-loop bash example.
+
 ### PSO adaptive inertia (Shi-Eberhart 1998) (2026-05-07)
 - [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains an opt-in
       ``w_end`` keyword argument.  When set, a new

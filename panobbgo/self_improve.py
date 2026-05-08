@@ -87,6 +87,35 @@ stable entry is found or the seed strategies are reached.  Set
 ``10``) to enable; ``0`` (default) disables the guard so existing
 configurations behave identically.
 
+Hold-out validation set
+-----------------------
+
+The guard catches drift inside the *training* base-seed family — it uses
+the same :attr:`HarnessConfig.seed` and only varies
+:attr:`HarnessConfig.randomize_iteration`.  A mutation that overfits to
+peculiarities of the training base-seed family will *not* be caught: the
+guard's "fresh" instances are drawn from the same SHA-256 stream.
+
+The hold-out validation closes that gap.  At the **end** of the loop run
+(once :attr:`LoopConfig.iterations` are exhausted), if
+:attr:`LoopConfig.holdout_base_seed` is non-zero and
+:attr:`LoopConfig.holdout_iterations` is positive, the loop re-measures
+both the **seed** ladder entry and the **final top** entry on a
+completely independent ``base_seed`` family.  The two scores are
+averaged over ``holdout_iterations`` distinct instances and compared
+to the training-time scores recorded on the ladder.  If the
+"top minus seed" gap on the hold-out is smaller than the training gap
+by more than :attr:`LoopConfig.holdout_eps_overfit`, the loop emits an
+``overfit=True`` :class:`LoopHoldoutRecord` and exits non-zero from the
+CLI when ``--fail-on-overfit`` is set.  Otherwise the record is written
+informationally so an auditor can inspect the generalisation drift.
+
+Hold-out is one-shot at the end of the loop and uses fresh randomized
+instances, so its compute cost is fixed:
+``2 × holdout_iterations`` harness runs — typically a small fraction
+of the loop's total budget.  Disabled by default
+(``holdout_base_seed = 0``) so existing configurations behave identically.
+
 Safety rails (§8 in the plan)
 -----------------------------
 
@@ -1319,6 +1348,29 @@ class LoopConfig:
             seeds its bandit history from any existing
             :attr:`ledger_path` before the first iteration.  Useful when
             resuming a long unattended run.
+        holdout_base_seed: Independent ``base_seed`` used for the
+            end-of-loop hold-out validation.  ``0`` (default) disables
+            hold-out entirely.  Should differ from :attr:`base_seed` —
+            using the same value collapses the hold-out check to the
+            anti-cherry-pick guard with offset ``0`` and is rejected at
+            validation time.  See "Hold-out validation set" in the module
+            docstring for the full rationale.
+        holdout_iterations: Number of distinct ``randomize_iteration``
+            values to average over when computing the hold-out composite
+            for both the seed and the top ladder entries.  Must be
+            non-negative.  ``0`` (with ``holdout_base_seed != 0``) is a
+            valid no-op.
+        holdout_iteration_offset: Starting ``randomize_iteration`` index
+            for the hold-out sweep.  Almost always ``0`` is fine because
+            ``holdout_base_seed`` already gives an independent SHA-256
+            stream, but the knob exists for users who want to walk a
+            specific window of instances (e.g. for replication studies).
+        holdout_eps_overfit: Drift tolerance on the
+            ``(top − seed)`` gap.  When the hold-out gap is smaller than
+            the training-time gap by more than this amount, the
+            :class:`LoopHoldoutRecord` is flagged ``overfit=True``.
+            Default ``0.05`` matches the per-pair regression bound used
+            by the statistical-acceptance rule.
     """
 
     iterations: int = 5
@@ -1344,6 +1396,10 @@ class LoopConfig:
     adaptive_prior_alpha: float = 1.0
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
+    holdout_base_seed: int = 0
+    holdout_iterations: int = 5
+    holdout_iteration_offset: int = 0
+    holdout_eps_overfit: float = 0.05
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -1358,6 +1414,19 @@ class LoopConfig:
             raise ValueError(f"adaptive_prior_alpha must be > 0, got {self.adaptive_prior_alpha}")
         if self.adaptive_prior_beta <= 0:
             raise ValueError(f"adaptive_prior_beta must be > 0, got {self.adaptive_prior_beta}")
+        if self.holdout_iterations < 0:
+            raise ValueError(f"holdout_iterations must be >= 0, got {self.holdout_iterations}")
+        if self.holdout_eps_overfit < 0:
+            raise ValueError(f"holdout_eps_overfit must be >= 0, got {self.holdout_eps_overfit}")
+        # An independent base_seed is the entire point — silently treating
+        # equal values as "ok" would let the loop ship a hold-out that
+        # collapses to a glorified guard check, which is exactly the
+        # measurement gap this feature exists to close.
+        if self.holdout_base_seed != 0 and self.holdout_base_seed == self.base_seed:
+            raise ValueError(
+                f"holdout_base_seed must differ from base_seed (both={self.base_seed});"
+                " hold-out is meant to draw from a *different* SHA-256 stream"
+            )
 
     def harness_config(
         self,
@@ -1370,6 +1439,30 @@ class LoopConfig:
             budget=self.budget,
             reps=self.reps,
             seed=self.base_seed,
+            strategies=self.strategy_names,
+            timeout_per_run=self.timeout_per_run,
+            randomize=self.randomize,
+            randomize_iteration=iteration_id,
+            strategies_override=strategies_override,
+        )
+
+    def holdout_harness_config(
+        self,
+        strategies_override: List[StrategySpec],
+        iteration_id: int,
+    ) -> HarnessConfig:
+        """Build the :class:`HarnessConfig` used by hold-out validation.
+
+        Identical to :meth:`harness_config` except that ``seed`` is taken
+        from :attr:`holdout_base_seed`.  This swaps the SHA-256 instance
+        stream wholesale, giving the hold-out a genuinely independent set
+        of randomized problems.
+        """
+        return HarnessConfig(
+            mode=self.mode,
+            budget=self.budget,
+            reps=self.reps,
+            seed=self.holdout_base_seed,
             strategies=self.strategy_names,
             timeout_per_run=self.timeout_per_run,
             randomize=self.randomize,
@@ -1531,6 +1624,121 @@ class LoopGuardRecord:
         }
 
 
+@dataclass
+class LoopHoldoutRecord:
+    """One ledger line — outcome of the end-of-loop hold-out validation.
+
+    Run once at the end of :meth:`SelfImprover.run` when
+    :attr:`LoopConfig.holdout_base_seed` is non-zero and
+    :attr:`LoopConfig.holdout_iterations` is positive.  The hold-out
+    re-measures both the **seed** ladder entry and the **final top**
+    entry on instances drawn from a completely independent
+    ``base_seed`` SHA-256 stream, then compares the on-hold-out gap
+    ``top − seed`` to the on-training gap.  A drop of more than
+    :attr:`LoopConfig.holdout_eps_overfit` is flagged as overfitting.
+
+    Unlike the anti-cherry-pick guard, the hold-out:
+
+    * runs **once** at the end of the loop (cheap), and
+    * uses an **independent base_seed** rather than the training
+      base_seed with an iteration offset, so it catches overfit to the
+      base_seed family that the guard cannot see.
+
+    Attributes:
+        timestamp: ISO-8601 UTC timestamp.
+        duration_seconds: Wall-clock cost of all hold-out re-measurements.
+        holdout_base_seed: The independent ``base_seed`` used for the
+            hold-out.
+        holdout_iterations: Number of distinct ``randomize_iteration``
+            values averaged for both seed and top.
+        holdout_iteration_offset: Starting iteration_id for the sweep
+            (passed through from :attr:`LoopConfig`).
+        seed_holdout_score: Mean composite of the **seed** ladder entry
+            evaluated on the hold-out instances.
+        top_holdout_score: Mean composite of the **top** ladder entry
+            evaluated on the hold-out instances.  Equals
+            :attr:`seed_holdout_score` when the ladder has only the seed
+            (no accepted mutations).
+        seed_training_score: ``last_validated_score`` of the seed entry
+            recorded during the training loop.  ``NaN`` when the seed
+            never got a baseline measurement (e.g. a zero-iteration
+            run).
+        top_training_score: ``last_validated_score`` of the top ladder
+            entry at the moment the hold-out runs.  Equals
+            :attr:`seed_training_score` when the ladder has only the
+            seed.
+        holdout_delta: ``top_holdout_score − seed_holdout_score``.  This
+            is the *generalisation* effect size of all accepted
+            mutations on a held-out instance family.
+        training_delta: ``top_training_score − seed_training_score``.
+            This is the *training* effect size; the loop's claimed
+            improvement.
+        drift: ``holdout_delta − training_delta``.  Negative values
+            mean the gain shrank on hold-out (overfit); zero means it
+            generalised exactly; positive means the hold-out happened
+            to like the mutation even more than the training set
+            (within noise, treated as fine).
+        overfit: ``True`` iff ``drift < -eps_overfit``.
+        eps_overfit: Tolerance from :attr:`LoopConfig.holdout_eps_overfit`.
+        top_iteration: Iteration index of the final ladder top, ``-1``
+            for the seed.
+        ladder_size: Length of the ladder at the moment hold-out ran.
+        base_seed: The loop's *training* base_seed (for cross-reference
+            against the iteration ledger).
+        mode: Harness mode used for the hold-out (same as the loop).
+        reasons: Human-readable bullet points: skipped, overfit, or
+            generalised.
+        record_type: Always ``"holdout"``; lets ledger consumers
+            distinguish hold-out records from iteration and guard
+            records.
+    """
+
+    timestamp: str
+    duration_seconds: float
+    holdout_base_seed: int
+    holdout_iterations: int
+    holdout_iteration_offset: int
+    seed_holdout_score: float
+    top_holdout_score: float
+    seed_training_score: float
+    top_training_score: float
+    holdout_delta: float
+    training_delta: float
+    drift: float
+    overfit: bool
+    eps_overfit: float
+    top_iteration: int
+    ladder_size: int
+    base_seed: int = 42
+    mode: str = "quick"
+    reasons: List[str] = field(default_factory=list)
+    record_type: str = "holdout"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "record_type": self.record_type,
+            "timestamp": self.timestamp,
+            "duration_seconds": self.duration_seconds,
+            "holdout_base_seed": int(self.holdout_base_seed),
+            "holdout_iterations": int(self.holdout_iterations),
+            "holdout_iteration_offset": int(self.holdout_iteration_offset),
+            "seed_holdout_score": float(self.seed_holdout_score),
+            "top_holdout_score": float(self.top_holdout_score),
+            "seed_training_score": float(self.seed_training_score),
+            "top_training_score": float(self.top_training_score),
+            "holdout_delta": float(self.holdout_delta),
+            "training_delta": float(self.training_delta),
+            "drift": float(self.drift),
+            "overfit": bool(self.overfit),
+            "eps_overfit": float(self.eps_overfit),
+            "top_iteration": int(self.top_iteration),
+            "ladder_size": int(self.ladder_size),
+            "base_seed": int(self.base_seed),
+            "mode": self.mode,
+            "reasons": list(self.reasons),
+        }
+
+
 # ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
@@ -1592,29 +1800,47 @@ class SelfImprover:
     def run(self, verbose: bool = False) -> List[LoopIterationRecord]:
         """Run the loop and return the per-iteration records.
 
-        Guard records (:class:`LoopGuardRecord`) are written to the
-        ledger alongside iteration records but are not returned here —
-        the contract of :meth:`run` is unchanged for backward
-        compatibility.  Use :meth:`run_with_guard_records` when both
-        are wanted in-process, or read the ledger to recover them.
+        Guard and hold-out records (:class:`LoopGuardRecord`,
+        :class:`LoopHoldoutRecord`) are written to the ledger alongside
+        iteration records but are not returned here — the contract of
+        :meth:`run` is unchanged for backward compatibility.  Use
+        :meth:`run_with_guard_records` for ``(iter, guard)`` or
+        :meth:`run_full` for ``(iter, guard, holdout)`` when those are
+        wanted in-process.  Reading the ledger recovers all three.
         """
-        records, _ = self._run_internal(verbose=verbose)
+        records, _, _ = self._run_internal(verbose=verbose)
         return records
 
     def run_with_guard_records(self, verbose: bool = False) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord]]:
         """Run the loop and return ``(iteration_records, guard_records)``.
 
-        The two lists are returned separately so existing callers of
-        :meth:`run` keep their type contract.  Both lists are also
-        persisted to the ledger.
+        Hold-out records, when produced, are persisted to the ledger
+        but not returned by this method.  Use :meth:`run_full` to also
+        receive the hold-out record in-process.
+        """
+        records, guards, _ = self._run_internal(verbose=verbose)
+        return records, guards
+
+    def run_full(
+        self, verbose: bool = False
+    ) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord], List["LoopHoldoutRecord"]]:
+        """Run the loop and return all three record streams.
+
+        Returns ``(iteration_records, guard_records, holdout_records)``.
+        The hold-out list is empty when hold-out is disabled
+        (``LoopConfig.holdout_base_seed == 0``) or when the loop ran
+        zero iterations.
         """
         return self._run_internal(verbose=verbose)
 
-    def _run_internal(self, verbose: bool = False) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord]]:
+    def _run_internal(
+        self, verbose: bool = False
+    ) -> Tuple[List[LoopIterationRecord], List[LoopGuardRecord], List["LoopHoldoutRecord"]]:
         current = self._load_seed_strategies()
         rng = np.random.default_rng(self.config.mutation_seed)
         records: List[LoopIterationRecord] = []
         guard_records: List[LoopGuardRecord] = []
+        holdout_records: List["LoopHoldoutRecord"] = []
         ladder: List[LadderEntry] = [
             LadderEntry(iteration=-1, specs=list(current), last_validated_score=float("nan"), proposal=None)
         ]
@@ -1724,7 +1950,19 @@ class SelfImprover:
                 if guard_record.rolled_back:
                     current = list(ladder[-1].specs)
 
-        return records, guard_records
+        # End-of-loop hold-out validation.  Skipped when disabled, when
+        # the loop never produced a baseline measurement, or when the
+        # battery is non-randomized (in which case a different base_seed
+        # would not change the instances and the check is meaningless).
+        if self._holdout_enabled() and len(records) > 0:
+            holdout_record = self._run_holdout(ladder, verbose)
+            if holdout_record is not None:
+                holdout_records.append(holdout_record)
+                ledger.write(holdout_record)
+                if verbose:
+                    self._print_holdout(holdout_record)
+
+        return records, guard_records, holdout_records
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1918,6 +2156,143 @@ class SelfImprover:
             return False
         return guard_score < stored_score - self.config.guard_eps_ladder
 
+    # ------------------------------------------------------------------
+    # Hold-out validation
+    # ------------------------------------------------------------------
+
+    def _holdout_enabled(self) -> bool:
+        """Return True iff the hold-out validation is configured to run.
+
+        Three knobs gate this: an independent ``base_seed``, a positive
+        iteration count, and the randomized battery itself — without
+        randomization a different ``base_seed`` does not produce
+        different instances and the check would be vacuous.
+        """
+        return (
+            int(self.config.holdout_base_seed) != 0
+            and int(self.config.holdout_iterations) > 0
+            and bool(self.config.randomize)
+        )
+
+    def _measure_holdout(
+        self,
+        specs: List[StrategySpec],
+        iteration_id: int,
+        label: str,
+        verbose: bool,
+    ) -> HarnessResult:
+        """Single hold-out measurement on the independent base_seed."""
+        hc = self.config.holdout_harness_config(specs, iteration_id)
+        if verbose:
+            print(f"[self_improve] hold-out measuring {label} at iter_id={iteration_id}")
+        return self._harness_factory(hc).run(verbose=False)
+
+    def _run_holdout(
+        self,
+        ladder: List[LadderEntry],
+        verbose: bool,
+    ) -> Optional["LoopHoldoutRecord"]:
+        """Re-measure seed and top of the ladder on an independent base_seed.
+
+        Returns ``None`` only if the ladder is empty (defensive — by the
+        time this is called the ladder always has at least the seed
+        entry).  Otherwise produces a :class:`LoopHoldoutRecord` whose
+        ``overfit`` flag is set when the on-hold-out improvement gap
+        falls more than :attr:`LoopConfig.holdout_eps_overfit` short of
+        the on-training gap.
+        """
+        if not ladder:
+            return None
+
+        start = time.time()
+        seed_entry = ladder[0]
+        top_entry = ladder[-1]
+        seed_only = top_entry is seed_entry  # ladder never accepted anything
+
+        n_iters = int(self.config.holdout_iterations)
+        offset = int(self.config.holdout_iteration_offset)
+        seed_scores: List[float] = []
+        top_scores: List[float] = []
+
+        for k in range(n_iters):
+            iter_id = offset + k
+            seed_result = self._measure_holdout(seed_entry.specs, iter_id, "seed", verbose)
+            seed_scores.append(float(seed_result.composite_score))
+            if seed_only:
+                top_scores.append(seed_scores[-1])
+            else:
+                top_result = self._measure_holdout(top_entry.specs, iter_id, "top", verbose)
+                top_scores.append(float(top_result.composite_score))
+
+        seed_holdout = float(np.mean(seed_scores)) if seed_scores else 0.0
+        top_holdout = float(np.mean(top_scores)) if top_scores else seed_holdout
+
+        # ``last_validated_score`` is the most recent training-time
+        # measurement.  When the seed never recorded a baseline (e.g. a
+        # zero-iteration loop, which we filter out before calling this),
+        # NaN is mapped to 0.0 so the delta stays well-defined.
+        seed_training = float(seed_entry.last_validated_score) if not np.isnan(seed_entry.last_validated_score) else 0.0
+        top_training = (
+            float(top_entry.last_validated_score) if not np.isnan(top_entry.last_validated_score) else seed_training
+        )
+
+        holdout_delta = top_holdout - seed_holdout
+        training_delta = top_training - seed_training
+        drift = holdout_delta - training_delta
+        overfit = drift < -float(self.config.holdout_eps_overfit)
+
+        reasons: List[str] = []
+        if seed_only:
+            reasons.append(
+                "ladder has only the seed entry — no accepted mutations to validate; "
+                "hold-out scores recorded for reference but drift is 0 by construction"
+            )
+        elif overfit:
+            reasons.append(
+                f"hold-out drift {drift:+.4f} below -eps_overfit "
+                f"({-float(self.config.holdout_eps_overfit):.4f}); "
+                f"on-hold-out gap {holdout_delta:+.4f} vs on-training {training_delta:+.4f} "
+                "— the ladder appears to overfit the training base_seed family"
+            )
+        else:
+            reasons.append(
+                f"hold-out drift {drift:+.4f} within tolerance "
+                f"(>= {-float(self.config.holdout_eps_overfit):.4f}); "
+                f"on-hold-out gap {holdout_delta:+.4f} vs on-training {training_delta:+.4f} "
+                "— improvement appears to generalise"
+            )
+
+        return LoopHoldoutRecord(
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            duration_seconds=time.time() - start,
+            holdout_base_seed=int(self.config.holdout_base_seed),
+            holdout_iterations=n_iters,
+            holdout_iteration_offset=offset,
+            seed_holdout_score=seed_holdout,
+            top_holdout_score=top_holdout,
+            seed_training_score=seed_training,
+            top_training_score=top_training,
+            holdout_delta=float(holdout_delta),
+            training_delta=float(training_delta),
+            drift=float(drift),
+            overfit=bool(overfit),
+            eps_overfit=float(self.config.holdout_eps_overfit),
+            top_iteration=int(top_entry.iteration),
+            ladder_size=len(ladder),
+            base_seed=int(self.config.base_seed),
+            mode=self.config.mode,
+            reasons=reasons,
+        )
+
+    @staticmethod
+    def _print_holdout(rec: "LoopHoldoutRecord") -> None:
+        verdict = "OVERFIT" if rec.overfit else "OK"
+        print(
+            f"[hold-out] {verdict}  drift={rec.drift:+.4f}  "
+            f"holdout_gap={rec.holdout_delta:+.4f}  training_gap={rec.training_delta:+.4f}  "
+            f"top_iter={rec.top_iteration}"
+        )
+
     @staticmethod
     def _print_iteration(rec: LoopIterationRecord) -> None:
         if rec.proposal is None:
@@ -1941,8 +2316,9 @@ class SelfImprover:
 class _LedgerWriter:
     """Append-only JSONL ledger.  Creates parent directories on demand.
 
-    Writes both :class:`LoopIterationRecord` and :class:`LoopGuardRecord`
-    instances; the ``record_type`` field distinguishes them on read.
+    Writes :class:`LoopIterationRecord`, :class:`LoopGuardRecord`, and
+    :class:`LoopHoldoutRecord` instances; the ``record_type`` field
+    distinguishes them on read.
     """
 
     def __init__(self, path: str) -> None:
@@ -1996,6 +2372,7 @@ __all__ = [
     "LoopConfig",
     "LoopIterationRecord",
     "LoopGuardRecord",
+    "LoopHoldoutRecord",
     "LadderEntry",
     "SelfImprover",
     "load_ledger",

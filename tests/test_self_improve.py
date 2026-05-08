@@ -57,6 +57,7 @@ from panobbgo.self_improve import (
     LadderEntry,
     LoopConfig,
     LoopGuardRecord,
+    LoopHoldoutRecord,
     LoopIterationRecord,
     MutationCatalog,
     MutationProposal,
@@ -554,6 +555,7 @@ class _FakeHarness:
             {
                 "score": score,
                 "randomize_iteration": self.config.randomize_iteration,
+                "seed": self.config.seed,
                 "n_strategies": (
                     len(self.config.strategies_override) if self.config.strategies_override is not None else 0
                 ),
@@ -1915,3 +1917,366 @@ class TestStructuralEndToEnd:
         assert len(records) == 2
         assert all(r.proposal is None for r in records)
         assert all(r.reason_skipped is not None for r in records)
+
+
+# ===========================================================================
+# Hold-out validation set
+# ===========================================================================
+
+
+def _accept_radius_catalog() -> MutationCatalog:
+    """Catalog whose only rule perturbs ``_DummyHeuristicA.radius``.
+
+    Used by hold-out tests so the loop reliably proposes mutations
+    against ``_make_specs()`` and the bandit's accept rate is governed
+    purely by the ``score_fn`` we hand the fake harness.
+    """
+    return MutationCatalog(
+        [
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicA",
+                param_name="radius",
+                kind="log_uniform_perturb",
+                bounds=(0.005, 0.5),
+            ),
+        ]
+    )
+
+
+class TestLoopConfigHoldout:
+    """Validation of the hold-out config knobs."""
+
+    def test_defaults_disabled(self):
+        cfg = LoopConfig()
+        assert cfg.holdout_base_seed == 0
+        assert cfg.holdout_iterations == 5
+        assert cfg.holdout_iteration_offset == 0
+        assert cfg.holdout_eps_overfit == 0.05
+
+    def test_negative_iterations_raises(self):
+        with pytest.raises(ValueError, match="holdout_iterations"):
+            LoopConfig(holdout_iterations=-1)
+
+    def test_negative_eps_overfit_raises(self):
+        with pytest.raises(ValueError, match="holdout_eps_overfit"):
+            LoopConfig(holdout_eps_overfit=-0.1)
+
+    def test_holdout_base_seed_equal_to_base_seed_raises(self):
+        # The whole point is an *independent* SHA-256 stream.  Equal
+        # values would silently collapse the check; reject loudly.
+        with pytest.raises(ValueError, match="holdout_base_seed must differ"):
+            LoopConfig(base_seed=42, holdout_base_seed=42)
+
+    def test_holdout_base_seed_zero_does_not_collide_with_base_seed(self):
+        # 0 means "disabled" — the equality check must skip 0 even when
+        # base_seed is also 0.
+        cfg = LoopConfig(base_seed=0, holdout_base_seed=0)
+        assert cfg.holdout_base_seed == 0
+
+    def test_holdout_harness_config_uses_holdout_seed(self):
+        cfg = LoopConfig(base_seed=42, holdout_base_seed=99)
+        hc = cfg.holdout_harness_config([], iteration_id=7)
+        assert hc.seed == 99
+        assert hc.randomize_iteration == 7
+
+    def test_regular_harness_config_still_uses_base_seed(self):
+        cfg = LoopConfig(base_seed=42, holdout_base_seed=99)
+        hc = cfg.harness_config([], iteration_id=3)
+        assert hc.seed == 42  # unchanged
+        assert hc.randomize_iteration == 3
+
+
+class TestSelfImproverHoldout:
+    """End-to-end behaviour of the hold-out validation pass."""
+
+    def test_disabled_by_default(self, tmp_path):
+        """holdout_base_seed=0 must produce no hold-out records."""
+        cfg = LoopConfig(
+            iterations=2,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            # holdout_base_seed defaults to 0 (disabled).
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert holdout_records == []
+
+    def test_skipped_when_randomize_false(self, tmp_path):
+        """randomize=False makes hold-out vacuous; the loop must skip it.
+
+        Without randomization, ``base_seed`` does not affect the
+        instances drawn — every measurement returns identical scores
+        and a hold-out check would be no signal at all.  The helper
+        ``_holdout_enabled`` guards against this so we never write a
+        meaningless ``LoopHoldoutRecord``.
+        """
+        cfg = LoopConfig(
+            iterations=2,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert holdout_records == []
+
+    def test_skipped_when_zero_iterations_run(self, tmp_path):
+        """Zero iterations means no ladder activity; hold-out is moot."""
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert holdout_records == []
+
+    def test_seed_only_ladder_records_zero_drift(self, tmp_path):
+        """When no mutation is accepted, holdout_delta == 0 by construction.
+
+        With ``score_fn`` constant the iteration produces zero delta and
+        the rule is rejected.  The ladder still has only the seed —
+        hold-out reports it as a no-op (drift 0) and overfit=False.
+        """
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+            holdout_iteration_offset=0,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        # Constant score: the iteration delta is 0 and the rule is rejected.
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        iter_records, _, holdout_records = si.run_full()
+        assert iter_records[0].accepted is False
+        assert len(holdout_records) == 1
+        rec = holdout_records[0]
+        assert rec.top_iteration == -1  # ladder stayed at the seed
+        assert rec.ladder_size == 1
+        assert rec.holdout_delta == pytest.approx(0.0)
+        assert rec.training_delta == pytest.approx(0.0)
+        assert rec.drift == pytest.approx(0.0)
+        assert rec.overfit is False
+        assert any("only the seed entry" in r for r in rec.reasons)
+
+    def test_uses_holdout_base_seed_for_measurement(self, tmp_path):
+        """Hold-out calls must use ``holdout_base_seed``, not the training seed.
+
+        Sanity-checks that the SHA-256 instance stream is genuinely
+        independent: no hold-out call should go through with the
+        training base_seed.
+        """
+        call_log: List[Dict[str, Any]] = []
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=4242,
+            holdout_iterations=2,
+            holdout_iteration_offset=10,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5, call_log=call_log)
+        si.run_full()
+
+        training_calls = [c for c in call_log if c["seed"] == 42]
+        holdout_calls = [c for c in call_log if c["seed"] == 4242]
+        # 1 iter × 2 measurements (baseline + candidate) = 2 training calls.
+        assert len(training_calls) == 2
+        # 2 hold-out iterations × 2 ladder slots (seed + top) = 4.
+        # Note: when ladder has only seed, top_specs IS seed_specs so the
+        # branch only does one measurement per iter — handle both cases.
+        assert len(holdout_calls) in (2, 4)
+        # All hold-out iter ids must come from offset=10 sweep [10, 11].
+        assert {c["randomize_iteration"] for c in holdout_calls} == {10, 11}
+
+    def test_overfit_flagged_when_gap_collapses(self, tmp_path):
+        """A mutation that wins on training but collapses on hold-out is flagged.
+
+        Setup: training measurements have a +0.5 gap (seed=0.3,
+        top=0.8), so the iteration accepts decisively.  Hold-out
+        measurements (those using ``seed=99``) collapse: seed=0.3,
+        top=0.3 — zero gap.  Drift = 0 - 0.5 = -0.5 < -0.05, so the
+        record reports ``overfit=True``.
+        """
+        # Training calls alternate baseline (0.3) / candidate (0.8).
+        # Hold-out calls all return 0.3 — total collapse on the
+        # independent base_seed family.
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            if config.seed == 99:
+                # Hold-out — collapse.
+                return 0.3
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.3 if n % 2 == 0 else 0.8
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+            holdout_eps_overfit=0.05,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        iter_records, _, holdout_records = si.run_full()
+        assert iter_records[0].accepted is True
+        assert len(holdout_records) == 1
+        rec = holdout_records[0]
+        assert rec.top_iteration == 0  # the mutation we just accepted
+        assert rec.ladder_size == 2
+        assert rec.training_delta == pytest.approx(0.5, abs=1e-6)
+        assert rec.holdout_delta == pytest.approx(0.0, abs=1e-6)
+        assert rec.drift == pytest.approx(-0.5, abs=1e-6)
+        assert rec.overfit is True
+        assert any("overfit" in r for r in rec.reasons)
+
+    def test_generalises_when_gap_holds(self, tmp_path):
+        """Improvement that holds on hold-out is *not* flagged as overfit."""
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            if config.seed == 99:
+                # Hold-out preserves the gap — slightly noisy but well within
+                # the eps_overfit tolerance.
+                ho = counter.get("ho", 0)
+                counter["ho"] = ho + 1
+                # Alternate seed-eval and top-eval; seed=0.3, top=0.78.
+                return 0.3 if ho % 2 == 0 else 0.78
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.3 if n % 2 == 0 else 0.8
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=4,  # even so seed/top alternation balances
+            holdout_eps_overfit=0.05,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        iter_records, _, holdout_records = si.run_full()
+        assert iter_records[0].accepted is True
+        rec = holdout_records[0]
+        assert rec.overfit is False
+        # Drift |delta| stays within tolerance.
+        assert abs(rec.drift) < cfg.holdout_eps_overfit
+        assert any("generalise" in r for r in rec.reasons)
+
+    def test_writes_holdout_record_to_ledger(self, tmp_path):
+        """The hold-out record is appended to the JSONL ledger as
+        ``record_type='holdout'``.
+
+        Auditors loading the ledger must be able to filter to just the
+        hold-out records, so the type tag is the contract.
+        """
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        si.run_full()
+
+        records = load_ledger(cfg.ledger_path)
+        types = [r.get("record_type") for r in records]
+        # Order: 1 iter, then 1 holdout record at the end.
+        assert types[-1] == "holdout"
+        assert types.count("holdout") == 1
+
+    def test_run_keeps_back_compatibility(self, tmp_path):
+        """:meth:`SelfImprover.run` still returns just iteration records."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        records = si.run()
+        # Type stable: list of LoopIterationRecord, not a tuple.
+        assert isinstance(records, list)
+        assert all(isinstance(r, LoopIterationRecord) for r in records)
+
+
+class TestLoopHoldoutRecord:
+    """Round-trip and surface checks for the new dataclass."""
+
+    def test_to_dict_round_trip(self):
+        rec = LoopHoldoutRecord(
+            timestamp="2026-05-08T00:00:00+00:00",
+            duration_seconds=1.5,
+            holdout_base_seed=99,
+            holdout_iterations=4,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.30,
+            top_holdout_score=0.32,
+            seed_training_score=0.30,
+            top_training_score=0.80,
+            holdout_delta=0.02,
+            training_delta=0.50,
+            drift=-0.48,
+            overfit=True,
+            eps_overfit=0.05,
+            top_iteration=4,
+            ladder_size=3,
+            base_seed=42,
+            mode="quick",
+            reasons=["hold-out drift -0.4800 below -eps_overfit"],
+        )
+        d = rec.to_dict()
+        assert d["record_type"] == "holdout"
+        assert d["overfit"] is True
+        assert d["drift"] == pytest.approx(-0.48)
+        assert d["holdout_iterations"] == 4
+        assert d["base_seed"] == 42
+        assert d["mode"] == "quick"
+        # Round-trip through JSON to validate JSON-default coverage.
+        s = json.dumps(d)
+        parsed = json.loads(s)
+        assert parsed["record_type"] == "holdout"
+        assert parsed["holdout_base_seed"] == 99

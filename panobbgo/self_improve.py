@@ -976,6 +976,36 @@ def default_catalog() -> MutationCatalog:
                 high=0.6,
                 probability=0.5,
             ),
+            # L-SHADE initial population size.  The Tanabe-Fukunaga
+            # 2014 paper recommends 18·dim — at Panobbgo's typical
+            # 2..10D problems that lands in [36, 180].  We bound at
+            # [10, 80] so the heuristic stays competitive in the
+            # budget-constrained regime Panobbgo targets.  Steps of
+            # 8/4 keep the change above the per-pair noise floor.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 80),
+                delta_choices=(-8, -4, 4, 8),
+                probability=0.5,
+            ),
+            # L-SHADE pbest fraction: top-p% of the population eligible
+            # for the pbest term.  Tanabe-Fukunaga default is 0.11; the
+            # JADE paper sweeps [0.05, 0.20] and we follow that range.
+            # Smaller p → greedier (closer to DE/current-to-best/1),
+            # larger p → more diversity.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="p_best_rate",
+                kind="float_uniform",
+                bounds=(0.05, 0.30),
+                low=0.05,
+                high=0.30,
+                probability=0.5,
+            ),
         ]
     )
 
@@ -1017,19 +1047,24 @@ def default_structural_catalog() -> MutationCatalog:
     )
 
     base_rules = list(default_catalog().rules)
-    # PSO is loaded lazily because it uses a slightly heavier set of
-    # numpy / RNG primitives than the simpler heuristics above, and
-    # ``default_structural_catalog`` may be called from environments
-    # (e.g. minimal CI) that import :mod:`panobbgo.self_improve` without
-    # the full heuristics package.  The local import keeps the cost of
-    # the catalog factory unchanged when PSO is not actually selected.
+    # PSO and L-SHADE are loaded lazily because they use a slightly
+    # heavier set of numpy / RNG primitives than the simpler heuristics
+    # above, and ``default_structural_catalog`` may be called from
+    # environments (e.g. minimal CI) that import
+    # :mod:`panobbgo.self_improve` without the full heuristics package.
+    # The local imports keep the cost of the catalog factory unchanged
+    # when these heuristics are not actually selected.
     from panobbgo.heuristics.pso import PSO
+    from panobbgo.heuristics.lshade import LSHADE
 
     # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
     # 1995 swarm) and the ``lbest`` ring topology (Kennedy & Mendes 2002).
     # ``avoid_duplicates=True`` ensures only one PSO variant ends up in any
     # given strategy — the catalog picks gbest or lbest uniformly when PSO
-    # is not yet present, after which subsequent samples skip both.
+    # is not yet present, after which subsequent samples skip both.  L-SHADE
+    # (Tanabe-Fukunaga 2014) joins as a third population-based candidate,
+    # complementary to PSO (no momentum, no social attractor — instead an
+    # adaptive DE/current-to-pbest/1 mutation with archive and LPSR).
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1040,6 +1075,10 @@ def default_structural_catalog() -> MutationCatalog:
         (Extremal, {}),
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
+        # L-SHADE: NP_init=None lets the heuristic pick 18·dim (paper
+        # default) clipped to the queue capacity; NP_min=4 is the
+        # smallest viable size for current-to-pbest/1 with archive.
+        (LSHADE, {"NP_init": 30, "NP_min": 4, "H": 6, "p_best_rate": 0.11}),
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

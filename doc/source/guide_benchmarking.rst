@@ -653,15 +653,21 @@ space with two new ops that change the *shape* of a
 
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
-  ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``) to a target
-  strategy.  The pool ships *two* PSO entries — the default
+  ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``) to
+  a target strategy.  The pool ships *two* PSO entries — the default
   fully-connected ``gbest`` topology (Kennedy-Eberhart 1995) and the
   ring ``lbest`` topology with ``k_neighbors=2`` (Kennedy & Mendes
   2002) — so the bandit can pick whichever exploration / exploitation
-  trade-off helps on the current battery.  ``avoid_duplicates=True``
-  (default) skips classes that are already present in the strategy,
-  so the catalog cannot litter a portfolio with redundant copies (and
-  in particular only ever installs *one* PSO variant per strategy).
+  trade-off helps on the current battery.  ``LSHADE``
+  (Tanabe-Fukunaga 2014, CEC-2014 winner) joins as a third
+  population-based candidate complementary to PSO: no momentum, no
+  social attractor — instead an adaptive ``DE/current-to-pbest/1``
+  mutation with an external archive, success-history-based parameter
+  adaptation, and Linear Population Size Reduction.
+  ``avoid_duplicates=True`` (default) skips classes that are already
+  present in the strategy, so the catalog cannot litter a portfolio
+  with redundant copies (and in particular only ever installs *one*
+  PSO variant — and *one* L-SHADE — per strategy).
 * ``drop_heuristic`` — remove an existing heuristic, optionally
   restricted to a tuple of class names via
   ``StructuralMutationRule.droppable_classes``.  The

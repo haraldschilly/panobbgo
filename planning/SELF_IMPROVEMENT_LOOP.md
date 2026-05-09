@@ -466,6 +466,122 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-09 — L-SHADE (Tanabe-Fukunaga 2014, CEC-2014 winner)
+
+* **What** — `panobbgo/heuristics/lshade.py` adds an asynchronous
+  adaptation of L-SHADE, the CEC-2014 black-box optimisation
+  competition winner and one of the strongest single-population
+  black-box solvers in the literature.  The heuristic combines three
+  ideas that consistently beat fixed-parameter DE in benchmark
+  studies:
+
+  * **DE/current-to-pbest/1 with archive** (JADE; Zhang & Sanderson,
+    2009).  Each mutant is ``v_i = x_i + F·(x_pbest − x_i) + F·(x_r1 −
+    x_r2)`` where ``x_pbest`` is sampled from the top
+    ``p_best_rate · NP`` (default ``0.11``) and ``x_r2`` may come
+    from an external *archive* of recently-replaced parents — pbest
+    injects greediness, archive injects diversity.
+  * **Success-history adaptation of F and CR**.  Memories ``M_F``,
+    ``M_CR`` of size ``H`` (default ``6``) hold recently-successful
+    parameter values; each trial samples ``F ∼ Cauchy(M_F[r], 0.1)``
+    clipped to ``(0, 1]`` and ``CR ∼ Normal(M_CR[r], 0.1)`` clipped
+    to ``[0, 1]``.  After every "generation" (``NP`` outcomes) the
+    memory entry at ``mem_pos`` is updated with the
+    *fitness-improvement-weighted Lehmer mean* of the successful
+    trials and ``mem_pos`` advances round-robin.
+  * **Linear Population Size Reduction (LPSR)**.  Population shrinks
+    linearly from ``NP_init`` to ``NP_min`` as evaluations accumulate;
+    the worst-penalty filled slots are dropped first so evaluations
+    concentrate on the more promising members late in the budget.
+
+  Like the existing :class:`PSO` and
+  :class:`DifferentialEvolution`, L-SHADE runs **asynchronously**
+  inside the panobbgo event loop: each trial carries its
+  pre-sampled ``(F, CR)`` tagged in the trial id, "generations"
+  become NP-sized batches of trial outcomes, and LPSR fires on the
+  same boundary using ``len(strategy.results) /
+  strategy.config.max_eval`` for progress.  When ``max_eval`` is
+  unknown LPSR is a no-op (NP stays at ``NP_init``), matching the
+  basic DE behaviour.  ``on_restart`` mirrors the IPOP-style warm
+  restart used by CMA-ES and PSO: clear pending, wipe archive,
+  reset memories to neutral, scatter ``NP_init`` fresh trials in a
+  ball around the new center.
+
+  Three integrations land alongside the heuristic:
+
+  * Registered in :mod:`panobbgo.heuristics` (``LSHADE`` joins the
+    public ``__all__`` list).
+  * Added to the ``add_heuristic`` candidate pool of
+    :func:`panobbgo.self_improve.default_structural_catalog` with
+    ``NP_init=30, NP_min=4, p_best_rate=0.11`` so the loop driver
+    can install it under the ``--structural`` flag.
+  * Two kwarg perturbation rules in
+    :func:`panobbgo.self_improve.default_catalog` so the loop can
+    also tune ``LSHADE.NP_init`` (``[10, 80]``, ``±4 / ±8``) and
+    ``LSHADE.p_best_rate`` (``[0.05, 0.30]`` uniform) once a spec
+    explicitly sets either kwarg.
+* **Why** — closes the *Adaptive Differential Evolution (LSHADE /
+  JADE)* follow-up listed at the bottom of this document.  Panobbgo
+  already shipped the basic ``DE/rand/1/bin`` variant with fixed
+  ``F = 0.8 / CR = 0.9``, but at budget-constrained regimes —
+  exactly the kind of expensive-evaluation black-box optimisation
+  Panobbgo targets — L-SHADE consistently outperforms fixed-parameter
+  DE because the per-trial parameter sampling adapts to the
+  landscape: large ``F`` for exploration when the population is
+  dispersed, small ``F`` for exploitation as it concentrates,
+  similarly for ``CR``.  Adding L-SHADE as a *separate* heuristic
+  rather than replacing the existing DE preserves the basic-DE
+  behaviour for users who depend on it and gives the
+  self-improvement loop a strong new candidate to choose between.
+* **Impact** — head-to-head A/B at ``--standard`` budget
+  (200 evals × 5 reps × 8 problems), comparing the same Rewarding
+  strategy with and without L-SHADE appended:
+
+  * Seed 42 — ``Rewarding_NoLSHADE = 0.5903`` /
+    ``Rewarding_LSHADE = 0.6503`` (delta **+0.0600**).
+  * Seed 43 — ``Rewarding_NoLSHADE = 0.6670`` /
+    ``Rewarding_LSHADE = 0.6851`` (delta **+0.0181**).
+
+  Both seeds favour the L-SHADE variant by a margin comfortably
+  above the standard-mode noise floor (~ ±0.01-0.02).  At
+  ``--quick`` (75 evals) L-SHADE is starved by its initial
+  population fill (``NP_init=18`` requires 18 evals just to
+  bootstrap, leaving < 1.5 generations of real DE adaptation), so
+  the pure quick-mode score is unchanged — but quick-mode strategies
+  do not include L-SHADE in any case.  L-SHADE only enters the
+  picture under ``--structural`` or when explicitly added to a
+  user-defined :class:`StrategySpec`.
+* **Backwards compatibility** — strictly safe.  L-SHADE is opt-in:
+  it is not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers remain
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; ``avoid_duplicates=True`` (default)
+  prevents the catalog from cluttering a portfolio that already has
+  L-SHADE.  The new ``LSHADE`` kwarg rules in
+  :func:`default_catalog` only fire when a spec explicitly sets the
+  kwarg (per :func:`_find_targets`'s "param already in kwargs"
+  predicate), so a fresh ledger run on the built-in factories sees
+  no behavioural change.
+* **Tests** — `tests/test_heuristic_lshade.py` (31 tests):
+  construction validation (10 — invalid NP_init type / value /
+  vs. NP_min relationship / NP_min / H / p_best_rate / archive_factor
+  + default + custom), helper functions (5 — weighted Lehmer mean
+  uniform-collapse, zero-weight fallback, empty input, all-zero
+  values, Cauchy-F sampler clip rules and centring, Normal-CR
+  sampler clip), initial-population emission (4 — NP_init points
+  emitted, dim-scaled default, neutral memories, in-box invariant),
+  result processing (5 — unknown-who ignored, initial fill no
+  success, better trial wins + archive + success record, worse
+  trial does not replace, follow-up trials emitted), adaptation
+  (3 — memory updates after one generation, archive grows with
+  replacements, archive cap enforced), LPSR (3 — disabled without
+  max_eval, shrink with budget, drops worst), restart behaviour
+  (3 — clears population, before-start no-op, ``center=None``
+  random fallback), end-to-end smoke convergence on a quadratic,
+  and registration tests for ``panobbgo.heuristics`` / structural
+  catalog / kwarg catalog (3).
+
 ### 2026-05-07 — PSO adaptive inertia (Shi-Eberhart 1998)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains an
@@ -922,21 +1038,33 @@ evidence to motivate the work:
   ``drop_heuristic`` cycle.  Generalises to other categorical
   knobs (``Sobol.scramble``, etc.).
 
-#### Adaptive Differential Evolution (LSHADE / JADE)
+#### Adaptive Differential Evolution (LSHADE) — shipped 2026-05-09
 
-The shipped :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
-implements the basic ``DE/rand/1/bin`` variant with fixed ``F = 0.8``
-and ``CR = 0.9``.  Modern competitive DE variants — JADE
-(Zhang-Sanderson 2009) and L-SHADE (Tanabe-Fukunaga 2014, winner of
-CEC-2014) — adapt ``F`` and ``CR`` online via successful-history
-memories and shrink the population linearly with the budget.
-L-SHADE in particular is widely cited as one of the strongest
-single-population black-box solvers; adding it as a new heuristic
-(rather than replacing the existing DE) would close a clear gap
-versus the literature-best baselines and give the structural
-mutation catalog a strong new candidate.  Reference: Tanabe &
-Fukunaga, "Improving the Search Performance of SHADE Using Linear
-Population Size Reduction," CEC 2014.
+L-SHADE landed 2026-05-09 as
+:class:`~panobbgo.heuristics.lshade.LSHADE`, joined the
+``add_heuristic`` candidate pool of
+:func:`~panobbgo.self_improve.default_structural_catalog`, and gained
+two kwarg perturbation rules (``LSHADE.NP_init`` and
+``LSHADE.p_best_rate``) in :func:`default_catalog`.  See the §12
+entry.  Natural follow-ups now that the heuristic is in place:
+
+- **iL-SHADE / jSO** — Brest et al. (CEC-2017 winner) adds an
+  initial mean-bias on ``M_F`` / ``M_CR`` toward exploration in the
+  early budget and a "weighted improvement" success-history update
+  that accounts for selection pressure.  Pure parameter-schedule
+  changes; would slot in as ``ihsade=True`` flag on
+  :class:`LSHADE` without disturbing the default behaviour.
+- **L-SHADE-cnEpSin** — Awad et al. (CEC-2018) hybridises L-SHADE
+  with an Epsilon-constrained Sin-wave parameter schedule.  Shows
+  state-of-the-art results on the CEC-2018 benchmark.
+- **Per-class arms in the bandit for population-based heuristics**
+  — once both PSO (gbest / lbest) and L-SHADE are in the
+  ``add_heuristic`` pool, the Thompson sampler still treats them as
+  one ``add_heuristic`` arm.  Splitting into per-class arms (``add
+  PSO_gbest`` vs ``add PSO_lbest`` vs ``add LSHADE``) would let the
+  loop pick the right *kind* of population-based heuristic rather
+  than the right *op*.  Pairs naturally with the contextual /
+  hierarchical bandit idea below.
 
 #### BOBYQA / NEWUOA local optimizer
 

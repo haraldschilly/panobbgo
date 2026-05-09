@@ -2,6 +2,56 @@
 
 ## Recent Improvements (continued)
 
+### L-SHADE (Tanabe-Fukunaga 2014, CEC-2014 winner) (2026-05-09)
+- [x] **`panobbgo/heuristics/lshade.py`** — new asynchronous L-SHADE
+      heuristic.  Combines DE/current-to-pbest/1 mutation with an
+      external archive (JADE; Zhang & Sanderson, 2009),
+      success-history adaptation of ``F`` and ``CR`` from per-trial
+      Cauchy / Normal samples around memory-bank entries updated via
+      the fitness-improvement-weighted Lehmer mean, and Linear
+      Population Size Reduction (LPSR) from ``NP_init`` to ``NP_min``
+      paced by the strategy's evaluation budget.  When ``max_eval`` is
+      unknown LPSR is a no-op (NP stays at ``NP_init``), matching the
+      basic DE behaviour.  ``on_restart`` mirrors the IPOP-style warm
+      restart used by CMA-ES and PSO.
+- [x] **Registered in `panobbgo.heuristics`** — ``LSHADE`` joins the
+      public ``__all__`` list.
+- [x] **Structural catalog integration** —
+      :func:`default_structural_catalog` gains an ``add_heuristic``
+      candidate ``(LSHADE, {"NP_init": 30, "NP_min": 4,
+      "p_best_rate": 0.11})`` so the loop driver can install it under
+      the ``--structural`` flag.  ``avoid_duplicates=True`` (default)
+      prevents duplicate L-SHADE installations.
+- [x] **Kwarg catalog integration** — :func:`default_catalog` gains
+      two ``MutationRule`` entries: ``LSHADE.NP_init``
+      (``integer_add`` over ``[10, 80]``, ``±4 / ±8``) and
+      ``LSHADE.p_best_rate`` (``float_uniform`` over ``[0.05, 0.30]``).
+      Both fire only when a spec explicitly sets the kwarg.
+- [x] **A/B at `--standard`** (8 problems × 5 reps × 200 evals):
+      seed 42 → ``Rewarding_NoLSHADE = 0.5903`` /
+      ``Rewarding_LSHADE = 0.6503`` (delta **+0.0600**); seed 43 →
+      ``0.6670 → 0.6851`` (delta **+0.0181**).  Both seeds favour
+      L-SHADE comfortably above the standard-mode noise floor.
+- [x] **Backwards compatibility** — strictly safe.  L-SHADE is opt-in:
+      it is not added to any default ``_make_quick_strategies`` /
+      ``_make_standard_strategies`` / ``_make_full_strategies`` spec,
+      so existing CLI invocations and existing ledgers stay
+      byte-identical.
+- [x] **31 new tests in `tests/test_heuristic_lshade.py`** —
+      construction validation (10), helper functions (5), initial
+      population emission (4), result processing (5), adaptation +
+      memory + archive (3), LPSR (3), restart behaviour (3), smoke
+      convergence on a quadratic, and registration tests for
+      ``panobbgo.heuristics`` / structural catalog / kwarg catalog (3).
+- [x] **Documentation updated** — ``doc/source/heuristics.rst``
+      describes L-SHADE; ``doc/source/guide.rst`` adds it to the
+      benchmarking pointer; ``doc/source/guide_benchmarking.rst``
+      mentions it among the structural-catalog candidates;
+      ``planning/SELF_IMPROVEMENT_LOOP.md`` §12 logs the iteration
+      and the "Adaptive Differential Evolution (LSHADE)" follow-up
+      bullet drops to "shipped" with a fresh follow-up list (iL-SHADE
+      / jSO, L-SHADE-cnEpSin, per-class arms in the bandit).
+
 ### PSO adaptive inertia (Shi-Eberhart 1998) (2026-05-07)
 - [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains an opt-in
       ``w_end`` keyword argument.  When set, a new

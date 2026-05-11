@@ -72,6 +72,12 @@ What's missing for a true self-improvement loop:
       (`planning/self_improve_ledger.jsonl`).  Each entry stores its
       ``last_validated_score``, refreshed every time the guard
       re-measures it.
+- [x] Hold-out validation set — shipped 2026-05-08 as
+      `LoopHoldoutRecord` and the `LoopConfig.holdout_*` knobs.
+      End-of-loop re-measure on an *independent* `base_seed`
+      catches overfit to the training base_seed family that the
+      anti-cherry-pick guard cannot see.  CLI: `--holdout-base-seed`,
+      `--fail-on-overfit`.
 
 ## 3. Architecture of the loop
 
@@ -401,6 +407,15 @@ Each phase is independently deliverable and keeps the framework usable.
       The Thompson sampler collapses both ops onto one arm per
       ``op`` so cold-start variance stays bounded.  CLI:
       ``scripts/self_improve.py run --structural``.
+- [x] Hold-out validation set (§10) — shipped 2026-05-08 as
+      :class:`panobbgo.self_improve.LoopHoldoutRecord` plus the
+      ``LoopConfig.holdout_base_seed`` / ``holdout_iterations`` /
+      ``holdout_iteration_offset`` / ``holdout_eps_overfit`` knobs and
+      the ``--holdout-base-seed`` / ``--fail-on-overfit`` CLI flags.
+      End-of-loop re-measure of seed + top ladder entries on an
+      *independent* ``base_seed`` SHA-256 stream catches overfit to
+      the training base_seed family — the failure mode the guard
+      cannot see (the guard varies only ``randomize_iteration``).
 - [ ] Broaden further: analyzer add/drop, swapping a strategy class
       itself (e.g., ``StrategyRewarding`` → ``StrategyUCB``).
 - [x] Stratified dimension sampling (§10) for cross-iteration score
@@ -576,6 +591,83 @@ the rationale, and a measured-impact number when available.
   measurable progress, plus registration tests for
   :mod:`panobbgo.heuristics` and the structural and kwarg
   catalogs.
+
+### 2026-05-08 — Hold-out validation set for the self-improvement loop
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`LoopHoldoutRecord` (a third ledger record type next to
+  :class:`LoopIterationRecord` and :class:`LoopGuardRecord`) plus the
+  :attr:`LoopConfig.holdout_base_seed` /
+  :attr:`LoopConfig.holdout_iterations` /
+  :attr:`LoopConfig.holdout_iteration_offset` /
+  :attr:`LoopConfig.holdout_eps_overfit` knobs and a new
+  :meth:`LoopConfig.holdout_harness_config` helper.
+  :class:`SelfImprover` gains :meth:`_holdout_enabled`,
+  :meth:`_measure_holdout`, and :meth:`_run_holdout` plus a public
+  :meth:`run_full` entrypoint that returns
+  ``(iter_records, guard_records, holdout_records)`` for tests and
+  callers that want the full audit trail.  The CLI gains
+  ``--holdout-base-seed``, ``--holdout-iterations``,
+  ``--holdout-iteration-offset``, ``--holdout-eps-overfit``, and
+  ``--fail-on-overfit`` (exits ``3`` on a flagged ladder).  The
+  ``summary`` subcommand now reports hold-out outcomes alongside
+  iteration and guard summaries.
+* **Why** — closes the Phase 6 / §10 *Hold-out validation set*
+  ticket.  The anti-cherry-pick guard catches drift inside the
+  *training* base_seed family — it varies only
+  ``randomize_iteration`` and keeps ``HarnessConfig.seed`` constant.
+  A mutation that overfits to peculiarities of the training base_seed
+  family slips through silently because the guard's "fresh" instances
+  are still drawn from the same SHA-256 stream.  The hold-out
+  re-measures the seed and the final top of the ladder on a
+  completely independent ``base_seed``, so an overfit ladder is
+  exposed by a shrinking ``top − seed`` gap on hold-out.  A bias of
+  ``drift < -eps_overfit`` is flagged ``overfit=True`` and, when
+  combined with ``--fail-on-overfit``, exits the CLI non-zero so the
+  signal is usable as an unattended-loop tripwire.
+* **Independence vs the guard** — the guard validates within the
+  training instance stream (same ``base_seed``, different
+  ``randomize_iteration``); the hold-out validates *across* training
+  streams (different ``base_seed``, same ``randomize_iteration``
+  range).  Together they cover the two axes along which the loop can
+  silently overfit.
+* **Defaults** — ``holdout_base_seed = 0`` (disabled) keeps existing
+  CLI invocations byte-identical.  When set, the value must differ
+  from :attr:`LoopConfig.base_seed`; equal values would collapse the
+  hold-out to a glorified guard check on offset ``0`` and the
+  ``LoopConfig`` constructor rejects them at validation time.
+  ``holdout_iterations = 5``, ``holdout_iteration_offset = 0``,
+  ``holdout_eps_overfit = 0.05`` are the recommended starting points.
+* **Skip rules** — hold-out is skipped silently when (a) disabled,
+  (b) the loop ran zero iterations, or (c) ``randomize=False`` (the
+  fixed battery is unaffected by ``base_seed``, so a hold-out check
+  would be no signal at all).
+* **Cost** — fixed: ``2 × holdout_iterations`` harness runs at the
+  end of the loop (or just ``holdout_iterations`` when the ladder
+  has only the seed, since both endpoints are the same spec list).
+  Cheap relative to the ``2 × iterations`` cost of the main loop.
+* **Tests** — `tests/test_self_improve.py` (17 new tests, total 97):
+  config validation (negative iterations, negative eps, equal
+  base_seed rejection, zero-zero edge case, `holdout_harness_config`
+  vs `harness_config` propagation), end-to-end behaviour
+  (disabled-by-default, skipped when randomize=False, skipped on
+  zero iterations, seed-only ladder records zero drift, hold-out
+  uses the independent base_seed for measurement, overfit flag fires
+  when gap collapses, no flag when gap holds, ledger writes
+  ``record_type='holdout'`` line), back-compat (`SelfImprover.run`
+  still returns a list of `LoopIterationRecord`), and `to_dict`
+  round-trip with JSON serialisation.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §2 missing-pieces list
+    refreshed; §10 Open Questions item resolved; Phase 6 checklist
+    updated; this §12 entry; Next iteration ideas reduced.
+  - `doc/source/guide_benchmarking.rst`: new "Hold-out validation
+    set" subsection with algorithm, CLI examples, programmatic
+    example, and the independence-from-the-guard note.
+  - `doc/source/guide.rst`: quick-nav entry mentions the hold-out.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    hold-out feature with run-the-loop bash example.
+  - `TODO.md`: this entry.
 
 ### 2026-05-07 — PSO adaptive inertia (Shi-Eberhart 1998)
 
@@ -807,7 +899,6 @@ the rationale, and a measured-impact number when available.
   Thompson sampler bucketing structural history into one arm, and an
   end-to-end loop run that accepts a structural drop on a fake
   harness.
-
 ### 2026-05-02 — Stratified dimension sampling for multi-dim families
 
 * **What** — `panobbgo/harness_randomized.py`:
@@ -999,13 +1090,6 @@ the §12 entry.  Natural next refinements:
   every accepted swap to keep the strategy's hyperparameters either
   compatible or to drop them on the floor; needs a translation table.
 
-#### Hold-out validation set
-
-Maintain a small fixed validation set of randomized instances drawn
-from a separate `base_seed`.  Use it (read-only) to spot-check the
-ladder once at the end of a loop run.  Cheaper than the periodic
-guard but complements it.
-
 #### PSO follow-ups (after 2026-05-05 ship)
 
 PSO landed 2026-05-05; the ``lbest`` ring topology shipped 2026-05-07
@@ -1076,3 +1160,37 @@ that is currently missing — Nelder-Mead is the only generic
 derivative-free local optimizer in the catalog, and it is
 known to underperform on ill-conditioned problems where BOBYQA's
 quadratic model directly captures curvature.
+
+#### Multi-seed hold-out for robust drift estimation
+
+The single-base-seed hold-out shipped 2026-05-08 catches overfit to
+the *training* base_seed family but reduces the entire generalisation
+question to one independent draw.  A natural upgrade is to evaluate
+the ladder on *several* independent ``holdout_base_seed`` values
+(e.g. ``[1234, 5678, 9012]``) and report the *worst* drift across
+them.  Needs:
+
+- A list-typed ``holdout_base_seeds`` knob (``int | List[int]``)
+  alongside the current scalar.
+- A reduction over the per-seed records (``min`` of drift, ``any``
+  of overfit) into a single CLI summary line.
+- Bootstrap CI on the drift estimate would be the next step beyond
+  that — turning the hold-out into a statistical test rather than
+  a point check.
+
+Cost scales linearly with the number of seeds; for a typical 5-seed
+hold-out at ``holdout_iterations=5`` that is ``2 × 5 × 5 = 50``
+extra harness runs at the end of the loop, still small compared to
+a typical ``2 × 100`` iteration loop.
+
+#### Auto-rollback on hold-out overfit
+
+When the hold-out flags ``overfit=True``, the loop currently just
+records and (optionally) exits.  A more aggressive remediation is
+to automatically pop the ladder back to the seed entry and persist
+the rollback in a new ``LoopHoldoutRollbackRecord`` so a subsequent
+``--adaptive-prime-from-ledger`` resume picks up the failure as a
+negative reward signal for *all* the rules that contributed to the
+discarded ladder.  Needs care around the bandit semantics: penalising
+all rules along the discarded path is more aggressive than penalising
+only the last one, and the right policy is an open question.

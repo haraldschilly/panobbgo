@@ -59,6 +59,17 @@ Two subcommands:
         uv run python scripts/self_improve.py run --iterations 50 \\
             --structural --adaptive
 
+``--holdout-base-seed``
+    Enable end-of-loop hold-out validation against an independent
+    ``base_seed`` family.  After the main loop finishes, the seed and
+    final-top of the ladder are re-measured on instances drawn from
+    the hold-out base seed; an overfit ladder (gap shrinks more than
+    ``--holdout-eps-overfit`` on hold-out) is logged and, when
+    ``--fail-on-overfit`` is set, exits the CLI with code ``3``::
+
+        uv run python scripts/self_improve.py run --iterations 50 \\
+            --holdout-base-seed 1234 --fail-on-overfit
+
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
 exits and the ledger is preserved.
@@ -67,6 +78,7 @@ Exit codes
 ----------
 - ``0`` — loop completed (or stopped via sentinel).
 - ``1`` — argument error.
+- ``3`` — ``--fail-on-overfit`` and the hold-out flagged overfit.
 """
 
 from __future__ import annotations
@@ -246,6 +258,44 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.set_defaults(structural=False)
+    run_p.add_argument(
+        "--holdout-base-seed",
+        dest="holdout_base_seed",
+        type=int,
+        default=0,
+        help=(
+            "Independent base_seed for end-of-loop hold-out validation."
+            " Default 0 disables hold-out.  Must differ from --base-seed."
+        ),
+    )
+    run_p.add_argument(
+        "--holdout-iterations",
+        dest="holdout_iterations",
+        type=int,
+        default=5,
+        help="Number of distinct iteration_ids to average for the hold-out (default: 5)",
+    )
+    run_p.add_argument(
+        "--holdout-iteration-offset",
+        dest="holdout_iteration_offset",
+        type=int,
+        default=0,
+        help="Starting iteration_id for the hold-out sweep (default: 0)",
+    )
+    run_p.add_argument(
+        "--holdout-eps-overfit",
+        dest="holdout_eps_overfit",
+        type=float,
+        default=0.05,
+        help="Drift tolerance on top-vs-seed gap; below -eps flags overfit (default: 0.05)",
+    )
+    run_p.add_argument(
+        "--fail-on-overfit",
+        dest="fail_on_overfit",
+        action="store_true",
+        help="Exit with code 3 if the hold-out flags an overfit ladder",
+    )
+    run_p.set_defaults(fail_on_overfit=False)
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -289,9 +339,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
         adaptive_prior_alpha=args.adaptive_prior_alpha,
         adaptive_prior_beta=args.adaptive_prior_beta,
         adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
+        holdout_base_seed=args.holdout_base_seed,
+        holdout_iterations=args.holdout_iterations,
+        holdout_iteration_offset=args.holdout_iteration_offset,
+        holdout_eps_overfit=args.holdout_eps_overfit,
     )
     improver = SelfImprover(cfg, catalog=catalog)
-    records = improver.run(verbose=not args.quiet)
+    records, _, holdout_records = improver.run_full(verbose=not args.quiet)
 
     n_accepts = sum(1 for r in records if r.accepted)
     n_skips = sum(1 for r in records if r.proposal is None)
@@ -305,6 +359,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
             for s in snap:
                 cls, param, kind = s.rule_key
                 print(f"  {cls}.{param}[{kind}] -> {s.n_accepts}/{s.n_attempts} ({s.accept_rate:.0%})")
+    if holdout_records:
+        ho = holdout_records[-1]
+        verdict = "OVERFIT" if ho.overfit else "OK"
+        print(
+            f"[self_improve] hold-out: {verdict}  drift={ho.drift:+.4f}  "
+            f"holdout_gap={ho.holdout_delta:+.4f}  training_gap={ho.training_delta:+.4f}  "
+            f"(base_seed={ho.holdout_base_seed}, n={ho.holdout_iterations})"
+        )
+        if ho.overfit and args.fail_on_overfit:
+            return 3
     return 0
 
 
@@ -323,6 +387,7 @@ def _cmd_summary(args: argparse.Namespace) -> int:
 
     iter_records = [r for r in records if r.get("record_type", "iteration") == "iteration"]
     guard_records = [r for r in records if r.get("record_type") == "guard"]
+    holdout_records = [r for r in records if r.get("record_type") == "holdout"]
     n = len(iter_records)
     accepted = [r for r in iter_records if r.get("accepted")]
     skipped = [r for r in iter_records if r.get("proposal") is None]
@@ -330,6 +395,7 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     accept_rate = (len(accepted) / len(decided)) if decided else 0.0
     best_delta = max((r.get("delta", 0.0) for r in decided), default=0.0)
     rolled_back = [r for r in guard_records if r.get("rolled_back")]
+    overfits = [r for r in holdout_records if r.get("overfit")]
 
     print(f"Ledger:        {path}")
     print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)})")
@@ -337,6 +403,8 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     if guard_records:
         total_pops = sum(int(r.get("pops", 0)) for r in guard_records)
         print(f"Guards:        {len(guard_records)}  (rollbacks={len(rolled_back)}, total pops={total_pops})")
+    if holdout_records:
+        print(f"Hold-outs:     {len(holdout_records)}  (overfit={len(overfits)})")
     if decided:
         print(f"Best Δ seen:   {best_delta:+.4f}")
 
@@ -359,6 +427,17 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"score={r.get('guard_score'):.4f} vs stored "
                 f"{r.get('pre_guard_top_score'):.4f}; "
                 f"new top iter={r.get('rolled_back_to_iteration')}"
+            )
+    if holdout_records:
+        print("Hold-out validation:")
+        for r in holdout_records:
+            verdict = "OVERFIT" if r.get("overfit") else "OK"
+            print(
+                f"  {verdict}  drift={r.get('drift'):+.4f}  "
+                f"holdout_gap={r.get('holdout_delta'):+.4f} "
+                f"training_gap={r.get('training_delta'):+.4f}  "
+                f"top_iter={r.get('top_iteration')}  "
+                f"(base_seed={r.get('holdout_base_seed')}, n={r.get('holdout_iterations')})"
             )
     return 0
 

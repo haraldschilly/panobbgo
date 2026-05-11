@@ -234,12 +234,20 @@ The harness is the measurement substrate for an autonomous
     `panobbgo.self_improve.StructuralMutationRule` and the
     `default_structural_catalog()` factory.  Two ops join the mutation
     catalog: `add_heuristic` (append from a curated pool such as
-    Random/Nearby/NelderMead/Sobol/...; `avoid_duplicates` skips
-    classes already present) and `drop_heuristic` (remove subject to a
-    `min_heuristics` post-drop floor).  Opt in via
+    Random/Nearby/NelderMead/Sobol/PSO/LSHADE/...; `avoid_duplicates`
+    skips classes already present) and `drop_heuristic` (remove
+    subject to a `min_heuristics` post-drop floor).  Opt in via
     `scripts/self_improve.py run --structural` or
     `SelfImprover(catalog=default_structural_catalog())`.  Off by
     default so existing CLI invocations remain byte-identical.
+*   L-SHADE adaptive Differential Evolution (CEC-2014 winner) —
+    **shipped**, see `panobbgo.heuristics.lshade.LSHADE`.  Combines
+    success-history adaptation of F/CR, *current-to-pbest/1* mutation
+    with an external archive, and Linear Population Size Reduction.
+    Available in the structural catalog's `add_heuristic` pool and
+    via a kwarg rule (`LSHADE.H`).  Opt-in like PSO: not added to
+    any default strategy, so existing CLI invocations stay
+    byte-identical.
 
 Run the loop:
 

@@ -466,6 +466,109 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-11 — L-SHADE (CEC-2014 winner; adaptive DE with LPSR)
+
+* **What** — `panobbgo/heuristics/lshade.py` adds the
+  :class:`LSHADE` heuristic, an asynchronous port of the L-SHADE
+  algorithm (Tanabe & Fukunaga, "Improving the Search Performance of
+  SHADE Using Linear Population Size Reduction", CEC 2014).  L-SHADE
+  combines three ingredients on top of the existing classical
+  :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
+  (``DE/rand/1/bin`` with fixed ``F = 0.8`` and ``CR = 0.9``):
+
+  1. **Success-history adaptation of F and CR** (SHADE, Tanabe-Fukunaga
+     2013).  Two memory arrays ``M_F``, ``M_CR`` of length ``H = 6``
+     are seeded at ``0.5``; every trial samples ``CR ∼ N(M_CR[r], 0.1)``
+     and ``F ∼ Cauchy(M_F[r], 0.1)`` with ``r`` uniform.  After every
+     wave of ``NP`` outcomes the next memory slot is overwritten with
+     the Lehmer / arithmetic mean of successful values weighted by
+     ``Δf``, then rotated.
+
+  2. **current-to-pbest/1 mutation with external archive** (JADE,
+     Zhang-Sanderson 2009).  ``v_i = x_i + F·(x_pbest − x_i) +
+     F·(x_r1 − x_r2)`` where ``x_pbest`` is one of the top
+     ``p · NP`` individuals (``p ∈ [0.11, 0.20]``), and ``x_r2`` is
+     drawn from the union of the population and an external archive
+     of recent losers.
+
+  3. **Linear Population Size Reduction (LPSR)**.  ``NP`` shrinks
+     linearly from ``N_init = min(18·dim, NP_init_cap)`` to
+     ``NP_min = 4`` over ``[0, max_eval]``; worst individuals are
+     pruned to match.  When ``max_eval`` is unknown the heuristic
+     reverts to SHADE (no shrinkage).
+
+  Registered in :mod:`panobbgo.heuristics` and added to
+  :func:`panobbgo.self_improve.default_structural_catalog`'s
+  ``add_heuristic`` candidate pool, plus a new
+  :class:`~panobbgo.self_improve.MutationRule` for ``LSHADE.H``
+  (memory length, range ``[4, 12]`` with ±1 / ±2 deltas) so the loop
+  driver can also tune it once a spec opts in.
+  :meth:`LSHADE.on_restart` implements an IPOP-style warm restart
+  (drop pending trials, scatter particles around the new center, reset
+  memory to neutral, re-seed).
+
+* **Why** — closes a clear gap in the heuristic portfolio.  L-SHADE
+  was the CEC-2014 single-objective competition winner and is widely
+  cited as one of the strongest single-population black-box solvers.
+  The existing :class:`DifferentialEvolution` with fixed ``F = 0.8``
+  and ``CR = 0.9`` under-explores multimodal landscapes that modern
+  adaptive DE variants handle effortlessly.  Adding L-SHADE
+  (a) gives Panobbgo a literature-best DE variant alongside the
+  existing CMA-ES / PSO references, (b) expands the structural
+  mutation catalog's vocabulary so the self-improvement loop can pick
+  whichever DE flavour wins on the current battery, and (c) prepares
+  the framework for the larger evaluation budgets (≥ 10⁴) where
+  L-SHADE's adaptation dominates fixed-parameter solvers.
+
+* **Impact** — head-to-head A/B at ``mode=standard``, budget 400,
+  5 reps, seed 42, comparing ``DE_only`` (a Rewarding strategy with
+  Random + classical DE) and ``LSHADE_only`` (Random + LSHADE):
+
+  * On the score metric (success-rate driven) DE wins on the two
+    easy unimodal problems where 400 evaluations are enough to reach
+    tolerance.  Neither algorithm crosses the solve tolerance on the
+    hard multimodal problems at this budget.
+  * On the **best_func_distance** metric L-SHADE strictly dominates
+    DE on **4 of 7 problems**:
+
+    * Rastrigin_2D — DE 2.85 / L-SHADE **0.704** (−75%).
+    * Ackley_2D — DE 2.92 / L-SHADE **1.24** (−57%).
+    * Griewank_2D — DE 0.897 / L-SHADE **0.376** (−58%).
+    * Rosenbrock_5D — DE 47.8 / L-SHADE **29.8** (−38%).
+
+    This is the regime where SHADE's adaptive ``F`` and ``CR`` are
+    designed to pay off — multimodal landscapes that need to
+    contract toward a narrow basin once one is found while still
+    sampling diversely elsewhere.  At larger budgets (the regime
+    L-SHADE was tuned for, ≥ 10⁴ evals) the gap is expected to widen
+    and turn into solve-tolerance wins.
+
+* **Backwards compatibility** — strictly safe.  L-SHADE is opt-in: it
+  is not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers stay
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; ``avoid_duplicates=True`` (the
+  default) keeps the catalog from cluttering a portfolio that
+  already has it.
+
+* **Tests** — `tests/test_heuristic_lshade.py` (36 tests):
+  construction validation (10 — invalid NP_init / NP_min /
+  NP_init_smaller_than_NP_min / H / pbest range / archive_factor +
+  default + custom construction), initial-population emission
+  (6 — explicit init, auto-NP from dim, NP_min floor, points inside
+  box, neutral memory init), initial-fill result handling and
+  unknown-who isolation (2), trial-result handling (4 — replace on
+  improvement, keep target on regression, memory update after wave,
+  archive capping), LPSR (4 — no-budget no-op, progress-driven
+  shrinkage, **regression test for stale-index after shrink**, and
+  worst-individual pruning), parameter sampling (2 — positivity
+  bound, frozen-CR sentinel), memory update (3 — no-op, write +
+  rotate, freeze-on-zero), restart (3 — clears state, before-start
+  no-op, ``center=None`` random fallback), end-to-end smoke
+  convergence on a quadratic, and registration tests for both
+  ``panobbgo.heuristics`` and the structural catalog.
+
 ### 2026-05-07 — PSO adaptive inertia (Shi-Eberhart 1998)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains an
@@ -922,21 +1025,31 @@ evidence to motivate the work:
   ``drop_heuristic`` cycle.  Generalises to other categorical
   knobs (``Sobol.scramble``, etc.).
 
-#### Adaptive Differential Evolution (LSHADE / JADE)
+#### Adaptive Differential Evolution (LSHADE / JADE) — L-SHADE shipped 2026-05-11
 
-The shipped :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
-implements the basic ``DE/rand/1/bin`` variant with fixed ``F = 0.8``
-and ``CR = 0.9``.  Modern competitive DE variants — JADE
-(Zhang-Sanderson 2009) and L-SHADE (Tanabe-Fukunaga 2014, winner of
-CEC-2014) — adapt ``F`` and ``CR`` online via successful-history
-memories and shrink the population linearly with the budget.
-L-SHADE in particular is widely cited as one of the strongest
-single-population black-box solvers; adding it as a new heuristic
-(rather than replacing the existing DE) would close a clear gap
-versus the literature-best baselines and give the structural
-mutation catalog a strong new candidate.  Reference: Tanabe &
-Fukunaga, "Improving the Search Performance of SHADE Using Linear
-Population Size Reduction," CEC 2014.
+L-SHADE shipped 2026-05-11 as :class:`panobbgo.heuristics.lshade.LSHADE`
+— see the §12 entry.  JADE (the non-LPSR predecessor) is a natural
+follow-up if the loop driver finds budgets where the population
+shrinkage actually hurts.  Other natural extensions when the loop has
+collected enough evidence to motivate the work:
+
+- **JADE without LPSR** — same current-to-pbest/1 mutation and
+  success-history adaptation, but a fixed population.  Useful as a
+  ``LPSR=False`` variant for short / fast-restart budgets where the
+  LPSR schedule starves the late generations.  Trivial to add by
+  pinning ``NP_min = NP_init`` (LPSR becomes a no-op).
+- **iL-SHADE / jSO / L-SHADE-EpSin** — successive CEC winners
+  building on L-SHADE with enhanced parameter adaptation (linearly
+  varying ``F``, ensemble of mutation strategies, success-history
+  weighted sinusoidal ``F``).  Adding any of these as a new
+  heuristic would give the structural catalog three more elite DE
+  variants to choose from.
+- **L-SHADE as the loop's `add_heuristic` default for adaptive DE** —
+  today the catalog ships both ``DifferentialEvolution`` (via the
+  built-in factories) and ``LSHADE`` (via the structural pool).
+  When ledger data shows L-SHADE wins consistently, swap the
+  ``BayesOpt_Enhanced`` strategy's ``DifferentialEvolution`` slot
+  for ``LSHADE`` in :func:`_make_full_strategies`.
 
 #### BOBYQA / NEWUOA local optimizer
 

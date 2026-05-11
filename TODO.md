@@ -2,6 +2,56 @@
 
 ## Recent Improvements (continued)
 
+### L-SHADE (Tanabe-Fukunaga 2014; CEC-2014 winner) (2026-05-11)
+- [x] **`panobbgo/heuristics/lshade.py`** — new :class:`LSHADE`
+      heuristic implementing the L-SHADE algorithm: success-history
+      adaptation of ``F`` / ``CR`` (memory of length ``H = 6``),
+      *current-to-pbest/1* mutation (``p ∈ [0.11, 0.20]``) with an
+      external archive of recent losers, and Linear Population Size
+      Reduction (``NP`` shrinks linearly from ``min(18·dim, cap)`` to
+      ``NP_min = 4`` over ``[0, max_eval]``).  Falls back to SHADE
+      (no shrinkage) when the budget is unknown.  IPOP-style warm
+      restart resets the population around the supplied center.
+- [x] **Registration** — registered in
+      :mod:`panobbgo.heuristics` (`__init__` + `__all__`) and added
+      to :func:`panobbgo.self_improve.default_structural_catalog`'s
+      ``add_heuristic`` candidate pool.  Kwarg rule
+      ``MutationRule(class_name="LSHADE", param_name="H", ...)`` joins
+      :func:`panobbgo.self_improve.default_catalog` so the loop
+      driver can tune the memory length once a spec opts in.
+- [x] **36 tests in `tests/test_heuristic_lshade.py`**: construction
+      validation (10), initial-population emission (6), result
+      handling and bookkeeping (2), trial/selection/archive logic
+      (4), LPSR including a regression test for the stale-index
+      bug found mid-development (4), parameter sampling (2),
+      memory update (3), restart (3), end-to-end smoke convergence
+      on a quadratic, and registration tests for both
+      ``panobbgo.heuristics`` and the structural catalog.
+- [x] **Head-to-head A/B** (``mode=standard``, budget 400, 5 reps,
+      seed 42, classical DE vs LSHADE inside matching Rewarding
+      strategies):  L-SHADE strictly dominates DE on
+      ``best_func_distance`` for 4 / 7 problems — Rastrigin_2D
+      (−75%), Ackley_2D (−57%), Griewank_2D (−58%),
+      Rosenbrock_5D (−38%).  Score-metric wins go to DE on the two
+      problems where 400 evaluations already cross the solve
+      tolerance; neither algorithm hits tolerance on the harder
+      multimodal problems at this budget (L-SHADE is designed for
+      ≥ 10⁴ evals).
+- [x] **Backwards compatibility** — strictly safe.  L-SHADE is
+      opt-in: not added to any default
+      :func:`_make_quick_strategies` /
+      :func:`_make_standard_strategies` /
+      :func:`_make_full_strategies` spec; CLI invocations and
+      ledger consumers stay byte-identical.
+- [x] **Documentation** — module docstring with full algorithm
+      reference; ``doc/source/heuristics.rst`` gets an entry;
+      ``doc/source/guide.rst`` and
+      ``doc/source/guide_benchmarking.rst`` updated to mention the
+      L-SHADE candidate; ``AGENTS.md`` updated;
+      ``planning/SELF_IMPROVEMENT_LOOP.md`` §12 entry added and
+      the §"Next iteration ideas" entry rewritten to mark L-SHADE
+      shipped (JADE / iL-SHADE / jSO listed as future follow-ups).
+
 ### PSO adaptive inertia (Shi-Eberhart 1998) (2026-05-07)
 - [x] **`panobbgo/heuristics/pso.py`** — :class:`PSO` gains an opt-in
       ``w_end`` keyword argument.  When set, a new

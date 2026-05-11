@@ -976,6 +976,50 @@ def default_catalog() -> MutationCatalog:
                 high=0.6,
                 probability=0.5,
             ),
+            # L-SHADE (Tanabe-Fukunaga 2014) initial population size.
+            # The literature setting is ``18 · d`` which is well above
+            # Panobbgo's typical budget; bracket the practical range
+            # ``[10, 60]`` and step in 5/10-individual increments so the
+            # swarm size moves meaningfully but not catastrophically.
+            # ``NP_min = 4`` is a hard constraint inside the heuristic
+            # so the lower bound here stays well clear of it.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # L-SHADE history memory size H.  The SHADE / L-SHADE papers
+            # both use H = 6.  Probing 4 .. 12 lets the loop adapt the
+            # update smoothness without straying outside the regime
+            # where the algorithm is well-behaved.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="H",
+                kind="integer_add",
+                bounds=(4, 12),
+                delta_choices=(-2, -1, 1, 2),
+                probability=0.5,
+            ),
+            # L-SHADE pbest greediness.  ``p_best`` controls how greedy
+            # the ``current-to-pbest/1`` mutation is — lower values
+            # (0.05) pull toward the very best individual, higher values
+            # (0.2) sample from a broader top slice.  Tanabe-Fukunaga
+            # report 0.11 as a robust default.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="p_best",
+                kind="float_uniform",
+                bounds=(0.05, 0.25),
+                low=0.05,
+                high=0.25,
+                probability=0.5,
+            ),
         ]
     )
 
@@ -1017,19 +1061,25 @@ def default_structural_catalog() -> MutationCatalog:
     )
 
     base_rules = list(default_catalog().rules)
-    # PSO is loaded lazily because it uses a slightly heavier set of
-    # numpy / RNG primitives than the simpler heuristics above, and
-    # ``default_structural_catalog`` may be called from environments
-    # (e.g. minimal CI) that import :mod:`panobbgo.self_improve` without
-    # the full heuristics package.  The local import keeps the cost of
-    # the catalog factory unchanged when PSO is not actually selected.
+    # PSO and L-SHADE are loaded lazily because they use a slightly
+    # heavier set of numpy / RNG primitives than the simpler heuristics
+    # above, and ``default_structural_catalog`` may be called from
+    # environments (e.g. minimal CI) that import :mod:`panobbgo.self_improve`
+    # without the full heuristics package.  The local imports keep the
+    # cost of the catalog factory unchanged when these classes are not
+    # actually selected.
     from panobbgo.heuristics.pso import PSO
+    from panobbgo.heuristics.lshade import LSHADE
 
     # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
     # 1995 swarm) and the ``lbest`` ring topology (Kennedy & Mendes 2002).
     # ``avoid_duplicates=True`` ensures only one PSO variant ends up in any
     # given strategy — the catalog picks gbest or lbest uniformly when PSO
     # is not yet present, after which subsequent samples skip both.
+    # L-SHADE (Tanabe-Fukunaga 2014) is the literature-best adaptive
+    # Differential Evolution variant; the default ``NP_init=30`` matches
+    # Panobbgo's typical max-eval budgets.  ``NP_min`` stays at the
+    # heuristic's default of 4 (the floor required by current-to-pbest/1).
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1040,6 +1090,7 @@ def default_structural_catalog() -> MutationCatalog:
         (Extremal, {}),
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
+        (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

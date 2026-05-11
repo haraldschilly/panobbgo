@@ -95,10 +95,19 @@ Differential Evolution
 **Approach**: Population-based mutation/crossover/selection on a population of solution vectors
 
 **Panobbgo implementation**: :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`
-runs DE operators against the accumulated result database.  Strong complement to CMA-ES on
-multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.
+runs the basic ``DE/rand/1/bin`` operators against the accumulated result database.  Strong
+complement to CMA-ES on multimodal landscapes such as Rastrigin and Schwefel where purely
+local methods get trapped.
 
-**References**: [Storn1997]_
+For the literature-best adaptive variant, see :class:`~panobbgo.heuristics.lshade.LSHADE`,
+which adapts ``F`` and ``CR`` per-trial via success-history memories and shrinks the
+population linearly with the budget (Tanabe & Fukunaga 2014, CEC 2014 winner).  L-SHADE
+uses the ``current-to-pbest/1`` mutation (Zhang & Sanderson 2009) with an external
+archive of replaced parents and is widely cited as one of the strongest single-population
+black-box optimizers — the high-water mark from which subsequent variants
+(jSO, IMODE, NL-SHADE-RSP) merely refine.
+
+**References**: [Storn1997]_; Zhang & Sanderson (2009); Tanabe & Fukunaga (2013, 2014).
 
 Particle Swarm Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

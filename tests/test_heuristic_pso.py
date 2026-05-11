@@ -682,14 +682,18 @@ class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
             def __len__(self):
                 return self.n
 
-        with mock.patch.object(self.strategy, "results", FakeResults(0)):
-            assert h._current_inertia() == pytest.approx(0.9)
-        with mock.patch.object(self.strategy, "results", FakeResults(500)):
-            assert h._current_inertia() == pytest.approx(0.65)
-        with mock.patch.object(self.strategy, "results", FakeResults(1000)):
-            assert h._current_inertia() == pytest.approx(0.4)
-        with mock.patch.object(self.strategy, "results", FakeResults(2000)):
-            assert h._current_inertia() == pytest.approx(0.4)
+        # Pin ``max_eval`` to 1000 so the schedule is well-defined regardless
+        # of any earlier test (the Panobbgo Config object is a singleton, so
+        # an unrelated test can otherwise mutate the budget out from under us).
+        with mock.patch.object(self.strategy.config, "max_eval", 1000):
+            with mock.patch.object(self.strategy, "results", FakeResults(0)):
+                assert h._current_inertia() == pytest.approx(0.9)
+            with mock.patch.object(self.strategy, "results", FakeResults(500)):
+                assert h._current_inertia() == pytest.approx(0.65)
+            with mock.patch.object(self.strategy, "results", FakeResults(1000)):
+                assert h._current_inertia() == pytest.approx(0.4)
+            with mock.patch.object(self.strategy, "results", FakeResults(2000)):
+                assert h._current_inertia() == pytest.approx(0.4)
 
     def test_adaptive_inertia_zero_max_eval_falls_back(self):
         """``max_eval = 0`` is degenerate; fall back to constant ``w``."""

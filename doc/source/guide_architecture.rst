@@ -259,8 +259,19 @@ Implemented Heuristics
   state is reset.
 
 - :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`: Differential Evolution
-  mutation/crossover/selection operators run against the accumulated result database.  Excels on
-  multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.
+  mutation/crossover/selection operators (``DE/rand/1/bin`` with fixed ``F = 0.8`` and ``CR = 0.9``)
+  run against the accumulated result database.  Excels on multimodal landscapes such as Rastrigin and
+  Schwefel where purely local methods get trapped.
+
+- :class:`~panobbgo.heuristics.lshade.LSHADE`: Linear-population-reduction Success-History Adaptive
+  Differential Evolution (Tanabe & Fukunaga, CEC 2014 winner).  Adapts ``F`` and ``CR`` per-trial
+  via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of
+  successful triples; uses the ``current-to-pbest/1`` mutation (Zhang & Sanderson 2009) with an
+  external archive of replaced parents.  The population shrinks linearly from ``NP_init`` (default 30)
+  down to ``NP_min`` (default 4) over the strategy's evaluation budget — broad exploration early,
+  focused exploitation late.  Strictly stronger than the basic DE on multimodal benchmarks; opt-in
+  via the structural mutation catalog.  Also supports IPOP-style warm restarts via
+  :class:`~panobbgo.analyzers.restart.Restart`.
 
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).

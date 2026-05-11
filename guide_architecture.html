@@ -441,8 +441,18 @@ standard for highly multimodal problems with limited evaluation budget.</p></li>
 state is reset.</p>
 </li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>: Differential Evolution
-mutation/crossover/selection operators run against the accumulated result database.  Excels on
-multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p></li>
+mutation/crossover/selection operators (<code class="docutils literal notranslate"><span class="pre">DE/rand/1/bin</span></code> with fixed <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">=</span> <span class="pre">0.8</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span> <span class="pre">=</span> <span class="pre">0.9</span></code>)
+run against the accumulated result database.  Excels on multimodal landscapes such as Rastrigin and
+Schwefel where purely local methods get trapped.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a>: Linear-population-reduction Success-History Adaptive
+Differential Evolution (Tanabe &amp; Fukunaga, CEC 2014 winner).  Adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span></code> per-trial
+via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of
+successful triples; uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation (Zhang &amp; Sanderson 2009) with an
+external archive of replaced parents.  The population shrinks linearly from <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> (default 30)
+down to <code class="docutils literal notranslate"><span class="pre">NP_min</span></code> (default 4) over the strategy’s evaluation budget — broad exploration early,
+focused exploitation late.  Strictly stronger than the basic DE on multimodal benchmarks; opt-in
+via the structural mutation catalog.  Also supports IPOP-style warm restarts via
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
 Clerc–Kennedy (2002) constriction-coefficient parameters (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>).
 Each particle carries a position, a velocity, and a memory of its personal best; on every step

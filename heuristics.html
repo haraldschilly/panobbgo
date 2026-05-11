@@ -164,6 +164,12 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.LBFGSB.worker"><code class="docutils literal notranslate">worker()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LSHADE"><code class="docutils literal notranslate"><span class="pre">LSHADE</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube"><code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -270,6 +276,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>LBFGSB</strong>: Local optimization using the L-BFGS-B algorithm.</p></li>
 <li><p><strong>CMAES</strong>: Covariance Matrix Adaptation Evolution Strategy with IPOP-CMA-ES restart support (paired with the Restart analyzer) — gold standard for derivative-free continuous optimization, excellent on ill-conditioned/ridge-following problems like Rosenbrock.</p></li>
 <li><p><strong>DifferentialEvolution</strong>: DE mutation/crossover/selection applied to the accumulated result database — strong on multimodal landscapes (Rastrigin, Schwefel).</p></li>
+<li><p><strong>LSHADE</strong>: Linear-population-reduction Success-History Adaptive DE (Tanabe &amp; Fukunaga, CEC 2014 winner).  Adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span></code> per-trial via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of successful triples; uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation with an external archive of replaced parents.  The population shrinks linearly from <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> (default 30) down to <code class="docutils literal notranslate"><span class="pre">NP_min</span></code> (default 4) over the strategy’s evaluation budget — broad exploration early, focused exploitation late.  Out-of-bounds components are repaired by midpoint reflection.  Strictly stronger than the basic <code class="docutils literal notranslate"><span class="pre">DE/rand/1/bin</span></code> on multimodal benchmarks; opt-in via the structural mutation catalog.</p></li>
 <li><p><strong>PSO</strong>: Particle Swarm Optimization with the canonical Clerc–Kennedy (2002) constriction-coefficient parameters — a swarm of particles tracks personal and global bests with momentum, providing exploration dynamics distinct from CMA-ES (covariance) and DE (recombination); supports IPOP-style warm restarts via the Restart analyzer.  Two swarm topologies are available via the <code class="docutils literal notranslate"><span class="pre">topology</span></code> argument: the default fully-connected <code class="docutils literal notranslate"><span class="pre">&quot;gbest&quot;</span></code> (Kennedy-Eberhart 1995) and the wrap-around ring <code class="docutils literal notranslate"><span class="pre">&quot;lbest&quot;</span></code> of width <code class="docutils literal notranslate"><span class="pre">2·k_neighbors+1</span></code> (Kennedy &amp; Mendes 2002), which trades slower information diffusion for stronger multimodal exploration.  Optional <code class="docutils literal notranslate"><span class="pre">w_end</span></code> enables the Shi–Eberhart (1998) linearly-decreasing inertia schedule (off by default; constant <code class="docutils literal notranslate"><span class="pre">w</span></code> reproduces the prior behaviour).</p></li>
 <li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions via line search towards feasibility.</p></li>
 <li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
@@ -767,6 +774,91 @@ new results by updating the model and suggesting new points.</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.worker">
 <span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">worker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipe</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.worker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.worker" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LSHADE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NP_init</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">NP_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_best</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.11</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">archive_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/lshade.html#LSHADE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LSHADE" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>L-SHADE: linear-population-reduction SHADE adaptive DE.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – The owning <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a>.</p></li>
+<li><p><strong>NP_init</strong> – Initial population size.  Default <code class="docutils literal notranslate"><span class="pre">30</span></code> — the standard
+literature setting.  The CEC-2014 paper used <code class="docutils literal notranslate"><span class="pre">18</span> <span class="pre">·</span> <span class="pre">d</span></code>,
+which is a heavier swarm than Panobbgo’s typical budget can
+support; <code class="docutils literal notranslate"><span class="pre">30</span></code> is a good middle ground for the 2-10 D
+problems in our benchmark battery.</p></li>
+<li><p><strong>NP_min</strong> – Minimum population size after LPSR shrinking.  Default
+<code class="docutils literal notranslate"><span class="pre">4</span></code> — required by <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> (mutation needs
+at least four distinct individuals).  Must satisfy
+<code class="docutils literal notranslate"><span class="pre">NP_min</span> <span class="pre">&lt;=</span> <span class="pre">NP_init</span></code>.</p></li>
+<li><p><strong>H</strong> – History memory size — number of (M_F, M_CR) bins.  Default
+<code class="docutils literal notranslate"><span class="pre">6</span></code> — the value used by both SHADE and L-SHADE.  Larger
+values smooth memory updates but slow adaptation; smaller
+values track recent successes more tightly at the cost of
+more variance.</p></li>
+<li><p><strong>p_best</strong> – Greediness factor for <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code>.  Each
+trial picks its <code class="docutils literal notranslate"><span class="pre">pbest</span></code> uniformly from the top
+<code class="docutils literal notranslate"><span class="pre">ceil(p_best</span> <span class="pre">·</span> <span class="pre">|population|)</span></code> by fitness.  Default
+<code class="docutils literal notranslate"><span class="pre">0.11</span></code> per Tanabe-Fukunaga §III-A.  Must lie in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>.</p></li>
+<li><p><strong>archive_factor</strong> – Multiplier for the external archive size; the
+archive is capped at <code class="docutils literal notranslate"><span class="pre">ceil(archive_factor</span> <span class="pre">·</span> <span class="pre">NP_current)</span></code>.
+Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.  Setting it to <code class="docutils literal notranslate"><span class="pre">0</span></code> disables the archive
+(<code class="docutils literal notranslate"><span class="pre">r2</span></code> is then drawn only from the live population).</p></li>
+<li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+seeds from <code class="docutils literal notranslate"><span class="pre">np.random.default_rng()</span></code>.</p></li>
+<li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>All numeric arguments are validated; bad values raise
+<a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>.</p></li>
+<li><p>Like every Panobbgo heuristic, all state is per-instance.
+Multiple <code class="docutils literal notranslate"><span class="pre">LSHADE</span></code> heuristics in one strategy run
+independently and never share memory bins.</p></li>
+<li><p>LPSR scales the population by progress
+<code class="docutils literal notranslate"><span class="pre">len(strategy.results)</span> <span class="pre">/</span> <span class="pre">strategy.config.max_eval</span></code>.  When
+the budget is unknown (no <code class="docutils literal notranslate"><span class="pre">max_eval</span></code>, zero, or non-numeric)
+the heuristic falls back to a <em>constant</em> population at
+<code class="docutils literal notranslate"><span class="pre">NP_init</span></code>.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lshade.html#LSHADE.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LSHADE.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Process incoming evaluations and dispatch follow-up trials.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lshade.html#LSHADE.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LSHADE.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Drop in-flight state and reseed the population around <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
+<p>Mirrors the warm-restart pattern used by
+<a class="reference internal" href="#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a> and the IPOP/BIPOP CMA-ES
+variants: archive cleared, memory bins reset to 0.5, slots
+re-randomised in a small ball around <code class="docutils literal notranslate"><span class="pre">center</span></code> (or random in
+the box if <code class="docutils literal notranslate"><span class="pre">center</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>), and a fresh round of
+initial-random trials emitted.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lshade.html#LSHADE.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LSHADE.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Allocate state and emit <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> random initial trials.</p>
+</dd></dl>
 
 </dd></dl>
 

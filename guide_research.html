@@ -281,9 +281,17 @@ accumulated result history is preserved.</p>
 <h3>Differential Evolution<a class="headerlink" href="#differential-evolution" title="Link to this heading">¶</a></h3>
 <p><strong>Approach</strong>: Population-based mutation/crossover/selection on a population of solution vectors</p>
 <p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>
-runs DE operators against the accumulated result database.  Strong complement to CMA-ES on
-multimodal landscapes such as Rastrigin and Schwefel where purely local methods get trapped.</p>
-<p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a></p>
+runs the basic <code class="docutils literal notranslate"><span class="pre">DE/rand/1/bin</span></code> operators against the accumulated result database.  Strong
+complement to CMA-ES on multimodal landscapes such as Rastrigin and Schwefel where purely
+local methods get trapped.</p>
+<p>For the literature-best adaptive variant, see <a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a>,
+which adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span></code> per-trial via success-history memories and shrinks the
+population linearly with the budget (Tanabe &amp; Fukunaga 2014, CEC 2014 winner).  L-SHADE
+uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation (Zhang &amp; Sanderson 2009) with an external
+archive of replaced parents and is widely cited as one of the strongest single-population
+black-box optimizers — the high-water mark from which subsequent variants
+(jSO, IMODE, NL-SHADE-RSP) merely refine.</p>
+<p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a>; Zhang &amp; Sanderson (2009); Tanabe &amp; Fukunaga (2013, 2014).</p>
 </section>
 <section id="particle-swarm-optimization">
 <h3>Particle Swarm Optimization<a class="headerlink" href="#particle-swarm-optimization" title="Link to this heading">¶</a></h3>

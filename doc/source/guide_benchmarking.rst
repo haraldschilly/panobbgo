@@ -653,12 +653,17 @@ space with two new ops that change the *shape* of a
 
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
-  ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``) to a target
-  strategy.  The pool ships *two* PSO entries — the default
-  fully-connected ``gbest`` topology (Kennedy-Eberhart 1995) and the
-  ring ``lbest`` topology with ``k_neighbors=2`` (Kennedy & Mendes
-  2002) — so the bandit can pick whichever exploration / exploitation
-  trade-off helps on the current battery.  ``avoid_duplicates=True``
+  ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
+  ``COBYQA``) to a target strategy.  The pool ships *two* PSO
+  entries — the default fully-connected ``gbest`` topology
+  (Kennedy-Eberhart 1995) and the ring ``lbest`` topology with
+  ``k_neighbors=2`` (Kennedy & Mendes 2002) — so the bandit can pick
+  whichever exploration / exploitation trade-off helps on the current
+  battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
+  adaptive Differential Evolution with linear population reduction;
+  COBYQA (Ragonneau-Zhang 2023) brings the modern Powell-family
+  derivative-free trust-region local optimizer (BOBYQA / NEWUOA
+  successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
   (default) skips classes that are already present in the strategy,
   so the catalog cannot litter a portfolio with redundant copies (and
   in particular only ever installs *one* PSO variant per strategy).

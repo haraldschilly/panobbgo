@@ -481,6 +481,116 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-12 — COBYQA derivative-free trust-region local optimizer
+
+* **What** — `panobbgo/heuristics/cobyqa.py` adds the
+  :class:`COBYQA` heuristic, a subprocess-backed adapter around
+  `scipy.optimize.minimize(method="COBYQA")`.  COBYQA
+  (*Constrained Optimization BY Quadratic Approximations*,
+  Ragonneau-Zhang 2023) is the modern Powell-family successor to
+  BOBYQA / COBYLA / NEWUOA / LINCOA.  Like BOBYQA it maintains an
+  interpolation set of ``2·n + 1`` points and fits an adaptive
+  *quadratic model* of the objective inside a trust region; like
+  LINCOA / COBYLA it natively supports bounds and linear / nonlinear
+  constraints.  The asynchronous wrapping pattern mirrors
+  :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`: a daemon ``spawn``
+  subprocess drives the synchronous COBYQA solver, requests
+  ``f(x)`` over a pipe, and the main thread relays the projected
+  point through Panobbgo's evaluator and pipes the penalty value
+  back.  Constraint handling delegates to
+  ``strategy.constraint_handler.get_penalty_value`` so COBYQA "sees"
+  a smooth penalty objective even when raw constraints are
+  non-smooth.  ``on_restart(center, reason)`` tears down the
+  subprocess and respawns it at the clipped suggested center —
+  matching :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`'s warm
+  restart pattern.  Initial trust-region radius auto-resolves to
+  ``0.1 · max(box_width)`` when the user does not pin it; final
+  radius defaults to ``1e-6`` (scipy's COBYQA library default).
+  ``scale=True`` (default) maps the box to ``[-1, 1]`` so the
+  interpolation geometry stays well-conditioned on boxes whose
+  axes span very different magnitudes.
+  :func:`default_structural_catalog` gains it as an eleventh
+  ``add_heuristic`` candidate (``avoid_duplicates=True`` keeps the
+  catalog from cluttering portfolios that already include it), and
+  :func:`default_catalog` gains two kwarg rules so the loop driver
+  can also retune ``COBYQA.initial_tr_radius`` (log-uniform around
+  ``0.1`` in ``[0.01, 1.0]``) and ``COBYQA.final_tr_radius``
+  (log-uniform in ``[1e-8, 1e-4]``) once a spec opts in.
+* **Why** — closes the *BOBYQA / NEWUOA local optimizer* follow-up
+  below.  Before this entry, :class:`~panobbgo.heuristics.nelder_mead.NelderMead`
+  was the *only* generic derivative-free local refinement step in
+  the portfolio; :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`
+  requires a finite-difference gradient approximation that breaks
+  on noisy objectives, and Nelder-Mead's simplex updates are not
+  curvature-aware, so it converges slowly on ill-conditioned
+  valleys (Rosenbrock-like landscapes).  COBYQA fills the gap with
+  a *derivative-free **and** curvature-aware* local refinement
+  step.  Picking COBYQA over the older BOBYQA library (which would
+  have required adding ``Py-BOBYQA`` as a new dependency) keeps
+  the dependency surface unchanged — COBYQA ships as a built-in
+  method of ``scipy.optimize.minimize`` since scipy 1.14 and is
+  the literature-recommended replacement going forward.
+* **Asynchronous adapter** — synchronous COBYQA calls a Python
+  callable ``f(x)`` and blocks on the return value.  We host it in
+  a dedicated subprocess (``spawn`` context, matching
+  :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`) and pipe the
+  request / response between the solver and Panobbgo's
+  event-driven main thread.  ``Heuristic.cap`` is fixed to ``1``
+  because COBYQA has at most one outstanding evaluation at a time
+  — the subprocess blocks until the previous return value
+  arrives.  Out-of-bounds proposals are projected by
+  ``problem.project`` before being emitted; the value sent back to
+  COBYQA is therefore the objective at the projected (feasible)
+  point.  Pipe-closed events (parent ``__stop__`` or termination)
+  raise ``SystemExit`` inside the worker so it exits cleanly
+  without hanging.
+* **Impact** — quick A/B at ``--quick`` (3 problems × 3 reps × 75
+  evaluations), comparing the same Rewarding strategy with NelderMead,
+  COBYQA, or both as the local optimizer:
+
+  * Seed 42 — ``NM`` 0.665 / ``COBYQA`` **0.769** (+0.104) /
+    ``NM+COBYQA`` 0.699.  Rosenbrock success rate jumps from
+    **0/3 with NM** to **2/3 with COBYQA**.
+  * Seed 43 — ``NM`` **0.864** / ``COBYQA`` 0.714 / ``NM+COBYQA``
+    0.753.  NM happens to win Rosenbrock on this seed.
+
+  Each local optimizer wins on one of the two seeds — exactly the
+  *complementarity* the literature predicts.  At ``--quick`` noise
+  the average is comparable, but the *Rosenbrock success rate
+  upgrade* from 0/3 → 2/3 on seed 42 demonstrates the property
+  that motivates the addition: COBYQA's curvature-aware quadratic
+  model lets it cross Rosenbrock's narrow curved valley that
+  Nelder-Mead's simplex updates miss.  Adding COBYQA to the
+  structural catalog gives the self-improvement loop a second
+  derivative-free local arm the bandit can pick whichever wins on
+  the current battery.
+* **Backwards compatibility** — strictly safe.  COBYQA is opt-in:
+  it is not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers stay
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; ``avoid_duplicates=True`` keeps the
+  catalog from cluttering a portfolio that already has it.  The
+  kwarg rules only fire when a spec explicitly sets the matching
+  kwarg (per :func:`_find_targets`'s "param already in kwargs"
+  predicate), so a fresh ledger run on the built-in factories
+  sees no behavioural change.
+* **Tests** — `tests/test_heuristic_cobyqa.py` (30 tests):
+  construction validation (11 — invalid initial_tr_radius / zero /
+  negative / NaN, invalid final_tr_radius / zero / negative / inf,
+  ordering rule final < initial, invalid maxfev type / zero /
+  negative + default + custom), initial-TR auto-resolution (4 —
+  box-width derivation, user override, final-floor invariant,
+  zero-width box fallback), subprocess lifecycle (2 — start spawns
+  daemon process, stop force-kills if join times out), pipe wiring
+  (4 — penalty value routed, foreign-who ignored, on_start exits
+  on pipe close, on_start logs subprocess output), restart
+  behaviour (4 — relaunches subprocess, ``center=None`` uses box
+  centre, out-of-box centre is clipped, stopped-state no-op),
+  registration (3 — package re-export, structural catalog
+  candidate pool, kwarg rules present in default catalog), and
+  a smoke test exercising scipy COBYQA directly on a quadratic.
+
 ### 2026-05-10 — L-SHADE adaptive Differential Evolution
 
 * **What** — `panobbgo/heuristics/lshade.py` adds the
@@ -1146,20 +1256,34 @@ motivate the work:
   ``categorical_choice`` mutation rule (see PSO follow-ups
   above) would handle naturally.
 
-#### BOBYQA / NEWUOA local optimizer
+#### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 
-Powell's derivative-free trust-region method with quadratic
-interpolation models is consistently the strongest local optimizer
-for smooth and near-smooth black-box objectives — well above
-Nelder-Mead in robustness and convergence rate.  ``Py-BOBYQA`` is
-a pure-Python wrapper that fits the existing
-:class:`~panobbgo.heuristics.lbfgsb.LBFGSB` adapter pattern (one
-local solve from a starting point, no async loop required).  Adding
-it would give the portfolio a derivative-free local refinement step
-that is currently missing — Nelder-Mead is the only generic
-derivative-free local optimizer in the catalog, and it is
-known to underperform on ill-conditioned problems where BOBYQA's
-quadratic model directly captures curvature.
+COBYQA (Ragonneau-Zhang 2023) — the modern Powell-family successor
+to BOBYQA / NEWUOA / LINCOA — shipped 2026-05-12 as
+:class:`~panobbgo.heuristics.cobyqa.COBYQA`; see the §12 entry.
+Natural follow-ups when the loop has collected enough evidence to
+motivate the work:
+
+- **Constraint-aware variant** — COBYQA natively supports linear
+  and nonlinear constraints; today the adapter only wires the box
+  bounds.  A second variant that passes the strategy's constraint
+  set to ``scipy.optimize.minimize(constraints=...)`` would let
+  COBYQA exploit the constraint geometry directly instead of
+  going through the penalty-handler indirection.  Useful when the
+  problem has explicit constraints whose shapes are known.
+- **Warm-start interpolation reuse** — every restart today rebuilds
+  the ``2·n + 1`` interpolation set from scratch (a fresh
+  subprocess).  COBYQA's reference implementation does not expose
+  a persistent solver state in scipy's wrapper, but a vendored
+  build of the upstream ``cobyqa`` library could be configured to
+  warm-start the interpolation set from the last successful
+  iterate — saving the first ``2·n`` evaluations on every
+  restart.
+- **Categorical mutation rule for ``scale`` on/off** — see the
+  PSO-follow-up entry above; the same ``categorical_choice``
+  mutation rule would let the loop flip an existing COBYQA
+  instance's ``scale`` kwarg without going through the full
+  ``add_heuristic`` / ``drop_heuristic`` cycle.
 
 #### Multi-seed hold-out for robust drift estimation
 

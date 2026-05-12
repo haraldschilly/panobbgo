@@ -294,6 +294,7 @@ class COBYQARestartTests(PanobbgoTestCase):
 class COBYQARegistrationTests(PanobbgoTestCase):
     def test_registered_in_heuristics_package(self):
         from panobbgo.heuristics import COBYQA as Reg
+
         assert Reg is COBYQA
 
     def test_in_structural_catalog_candidate_pool(self):

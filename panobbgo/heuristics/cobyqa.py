@@ -209,10 +209,7 @@ class COBYQA(Heuristic):
                 )
         if not np.isfinite(final_tr_radius) or final_tr_radius <= 0.0:
             raise ValueError(f"COBYQA: final_tr_radius must be a positive finite float, got {final_tr_radius!r}")
-        if (
-            initial_tr_radius is not None
-            and final_tr_radius >= initial_tr_radius
-        ):
+        if initial_tr_radius is not None and final_tr_radius >= initial_tr_radius:
             raise ValueError(
                 f"COBYQA: final_tr_radius ({final_tr_radius}) must be strictly less than "
                 f"initial_tr_radius ({initial_tr_radius})"

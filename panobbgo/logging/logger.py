@@ -115,13 +115,17 @@ class PanobbgoLogger:
 
     def _load_config(self):
         """Load logging configuration."""
-        # Default configuration
+        # Default configuration.  Progress and status defaults follow
+        # stdout TTY detection so CI / piped logs stay quiet without
+        # having to wire a config knob.  Pass an explicit value in the
+        # config dict to override.
+        _is_tty = sys.stdout.isatty()
         defaults = {
             "default_level": "WARNING",
             "enabled_components": [],
-            "progress_enabled": True,
+            "progress_enabled": _is_tty,
             "progress_symbols": True,
-            "status_line_enabled": True,
+            "status_line_enabled": _is_tty,
             "status_update_frequency": 5,
             "always_show_errors": True,
             "always_show_warnings": True,

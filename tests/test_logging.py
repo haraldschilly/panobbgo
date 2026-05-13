@@ -125,8 +125,15 @@ class TestProgressReporter:
     """Test ProgressReporter functionality."""
 
     def test_initial_state(self):
-        """Test initial progress reporter state."""
-        reporter = ProgressReporter()
+        """Test initial progress reporter state.
+
+        Defaults follow ``sys.stdout.isatty()``: progress / status are
+        auto-disabled when not running on a TTY (CI, pipes).  Force
+        TTY here so the assertion is environment-independent.
+        """
+        with patch("sys.stdout") as mock_stdout:
+            mock_stdout.isatty = lambda: True
+            reporter = ProgressReporter()
 
         assert reporter.enabled
         assert reporter.use_symbols
@@ -170,6 +177,7 @@ class TestProgressReporter:
 
         with patch("sys.stdout", mock_stdout):
             reporter = ProgressReporter()
+            reporter.enabled = True  # StringIO is not a TTY; force on for test
             result = Result(Point(np.array([1.0, 2.0]), "test"), 5.0, None, None, False)
             context = ProgressContext()
 
@@ -186,6 +194,8 @@ class TestProgressReporter:
 
         with patch("sys.stdout", mock_stdout):
             reporter = ProgressReporter()
+            reporter.enabled = True  # StringIO is not a TTY; force on for test
+            reporter.status_enabled = True
             reporter.status_line_printed = True  # Simulate that status line exists
 
             reporter.update_status(
@@ -264,6 +274,8 @@ class TestProgressReporterIntegration:
             mock_stdout.isatty = lambda: False
 
             reporter = ProgressReporter()
+            reporter.enabled = True  # force-on; default would be off for non-TTY
+            reporter.status_enabled = True
             assert not reporter.supports_ansi  # Should detect non-TTY
 
             result1 = Result(Point(np.array([1.0, 2.0]), "test1"), 5.0, None, None, False)

@@ -40,8 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Need full history so we can push back to master.
-          fetch-depth: 0
+          # Shallow clone is enough to push fast-forward commits to
+          # master.  fetch-depth: 0 listed every remote branch in the
+          # log (~100 lines of noise on this repo).
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python ${{ env.PYTHON }}

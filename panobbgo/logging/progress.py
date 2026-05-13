@@ -44,9 +44,16 @@ class ProgressReporter:
     """
 
     def __init__(self):
-        self.enabled = True
+        # Auto-disable progress output when stdout is not a TTY (CI, pipes,
+        # redirected logs).  The per-evaluation progress chars + status
+        # line are designed for live human viewing; in a log file they
+        # are pure noise.  Callers that *want* progress in a log can set
+        # `.enabled = True` after construction or call
+        # `PanobbgoLogger.enable_progress_reporting()`.
+        _is_tty = sys.stdout.isatty()
+        self.enabled = _is_tty
         self.use_symbols = True
-        self.status_enabled = True
+        self.status_enabled = _is_tty
         self.update_frequency = 5  # Update status every N evaluations
 
         self.evaluation_count = 0

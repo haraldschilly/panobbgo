@@ -21,6 +21,7 @@ Some utility functions, will move eventually.
 """
 
 import logging
+import sys
 import numpy as np
 
 
@@ -40,9 +41,18 @@ class ColoredFormatter(logging.Formatter):
         "ERROR": RED,
     }
 
-    def __init__(self):
-        msg = "%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s"
-        msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
+    def __init__(self, use_color=None):
+        # use_color=None → auto-detect from stderr (the default
+        # StreamHandler target).  In a log file the ANSI escapes
+        # render as literal "^[[1m..." garbage, so non-TTY = plain.
+        if use_color is None:
+            use_color = sys.stderr.isatty()
+        self.use_color = use_color
+        if use_color:
+            msg = "%(runtime)f %(where)-15s $BOLD%(name)-5s$RESET %(levelname)-9s %(message)s"
+            msg = msg.replace("$RESET", ColoredFormatter.RESET_SEQ).replace("$BOLD", ColoredFormatter.BOLD_SEQ)
+        else:
+            msg = "%(runtime)f %(where)-15s %(name)-5s %(levelname)-9s %(message)s"
         logging.Formatter.__init__(self, fmt=msg)
 
     @staticmethod
@@ -56,13 +66,13 @@ class ColoredFormatter(logging.Formatter):
         import copy
 
         record = copy.copy(record)
-        levelname = record.levelname
-        if levelname in ColoredFormatter.COLORS:
-            col = ColoredFormatter.COLORS[levelname]
-            record.name = self.colorize(record.name, col, True)
-            # record.lineno = self.colorize(record.lineno, col, True)  # Pyright warning: str not assignable to int
-            record.levelname = self.colorize(levelname, col, True)
-            record.msg = self.colorize(record.msg, col)
+        if self.use_color:
+            levelname = record.levelname
+            if levelname in ColoredFormatter.COLORS:
+                col = ColoredFormatter.COLORS[levelname]
+                record.name = self.colorize(record.name, col, True)
+                record.levelname = self.colorize(levelname, col, True)
+                record.msg = self.colorize(record.msg, col)
         return logging.Formatter.format(self, record)
 
 

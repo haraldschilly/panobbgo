@@ -90,9 +90,13 @@ jobs:
       - name: Regenerate summary
         if: always()
         run: |
-          uv run python scripts/self_improve.py summary \
-            --ledger planning/self_improve_ledger.jsonl \
-            > planning/self_improve_summary.txt || true
+          if [ -f planning/self_improve_ledger.jsonl ]; then
+            uv run python scripts/self_improve.py summary \
+              planning/self_improve_ledger.jsonl \
+              > planning/self_improve_summary.txt
+          else
+            echo "No ledger file present — skipping summary."
+          fi
 
       - name: Commit ledger + summary
         if: always()

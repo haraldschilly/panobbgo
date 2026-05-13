@@ -260,7 +260,7 @@ The mutation space the loop may sample from, in rough order of safety:
    :class:`panobbgo.self_improve.StructuralMutationRule` and
    :func:`panobbgo.self_improve.default_structural_catalog`.  Two ops:
    ``add_heuristic`` from a curated pool, ``drop_heuristic`` with a
-   ``min_heuristics`` safety floor.  See §12 entry.)*
+   ``min_heuristics`` safety floor.  See §13 entry.)*
 3. **Analyzer parameters** — `Restart.patience`, `Sensitivity` window.
 4. **Heuristic code edits** — delegated to a coding agent with a narrow
    task description; applied behind a feature flag if the change is
@@ -430,7 +430,11 @@ Each phase is independently deliverable and keeps the framework usable.
       ``tests/test_harness_randomized.py::TestStratifiedDims`` /
       ``TestStratifiedSampleInstance`` /
       ``TestStratifiedRandomizedSpec``.
-- [ ] Connect the loop to CI (nightly run on a dedicated runner).
+- [x] Connect the loop to CI (nightly run on a dedicated runner) —
+      shipped 2026-05-13 as ``.github/workflows/self_improve_nightly.yml``.
+      Runs at 03:00 UTC daily on a GitHub-hosted runner; commits the
+      updated ledger + summary back to master with ``[skip ci]``.
+      Also triggerable on demand via ``workflow_dispatch``.  See §12.
 - [ ] Publish the ladder in the docs.
 
 ## 10. Open questions
@@ -454,7 +458,7 @@ Each phase is independently deliverable and keeps the framework usable.
   :attr:`panobbgo.harness_randomized.ProblemFamily.stratify_dims` —
   multi-dim families now assign dims cyclically by ``rep`` so any
   contiguous block of ``len(dim_choices)`` reps covers every declared
-  dim exactly once.  See the §12 entry below.
+  dim exactly once.  See the §13 entry below.
 - **Coordination with `simplify`, `review`, `security-review`.** The loop
   should not run alongside a human PR — race conditions on the branch
   would be ugly. A simple lockfile suffices.
@@ -474,7 +478,97 @@ After Phase 5, the framework is "self-improving" when:
 
 That is the target.
 
-## 12. Iteration log
+## 12. Nightly cron and the ledger feedback path
+
+Two loops feed the same ledger:
+
+1. **Nightly cron** (`.github/workflows/self_improve_nightly.yml`) — runs
+   `scripts/self_improve.py run --adaptive --adaptive-prime-from-ledger
+   --structural` at 03:00 UTC.  Each invocation appends to
+   `planning/self_improve_ledger.jsonl` and overwrites
+   `planning/self_improve_summary.txt`, then commits both back to master
+   with `[skip ci]` so the test workflow does not re-trigger.  The cron
+   measures and persists — it does *not* edit any source files in
+   `panobbgo/`.
+2. **Daily coding routine** (the human / Claude agent that follows this
+   plan) — reads `planning/self_improve_summary.txt` for trends, reads
+   the raw `planning/self_improve_ledger.jsonl` when it needs to drill
+   into a specific iteration, and *codifies* persistent wins by editing
+   source code.  Codifying means: if the bandit has consistently picked
+   a particular rule and the accepted deltas line up, change the
+   *default* for that hyperparameter in
+   `panobbgo/strategies/*` / `panobbgo/heuristics/*` so all users see
+   the improvement without having to run the loop themselves.
+
+### 12.1 What the cron actually persists
+
+| Artifact                                 | Purpose                                                                                            | Consumed by                                  |
+|------------------------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------|
+| `planning/self_improve_ledger.jsonl`     | Append-only history of every iteration, guard check, and hold-out re-measure.  Never edited.       | Next night's `prime_from_ledger`; daily agent for drill-down. |
+| `planning/self_improve_summary.txt`      | Latest output of `scripts/self_improve.py summary`.  Overwritten each night.                       | Daily agent for at-a-glance trends.          |
+| GitHub Actions artifact (30-day retention) | Same two files, separately archived per run.                                                       | Anyone debugging a particular night.         |
+
+### 12.2 What the cron does *not* do
+
+* It does **not** commit any change to `panobbgo/` source.  An accepted
+  mutation only lives in the in-memory `LadderEntry` list for that
+  iteration; when the loop exits, the ladder is gone.  The bandit's
+  beliefs survive (via the ledger) but the actual best hyperparameter
+  values do not.  This is on purpose — making source edits without
+  human review is what §7 item 4 ("heuristic code edits") flags as
+  needing the daily coding agent, not an unattended cron.
+* It does **not** open a PR.  The daily routine opens PRs.
+
+### 12.3 What the daily routine should do with this
+
+Concrete checklist for whoever follows this plan:
+
+1. **Skim `planning/self_improve_summary.txt`** before picking a task.
+   Look for: which rules have systematically positive accept history,
+   which strategies are climbing on the ladder, any guard rollbacks or
+   hold-out overfits worth investigating.
+2. **If a rule keeps winning** (e.g.,
+   `Nearby.radius: 0.05 → ~0.08` consistently accepted across many
+   iterations), open a PR that changes the *default* for that kwarg in
+   the heuristic / analyzer class — and ideally adjust the catalog's
+   bounds so the loop can keep tuning around the new centre.  Cite the
+   ledger evidence in the PR description.
+3. **If a structural mutation keeps winning** (e.g., `add_heuristic
+   LSHADE` keeps getting accepted on the default Rewarding strategy),
+   update `_make_quick_strategies` / `_make_standard_strategies` /
+   `_make_full_strategies` in `panobbgo/harness.py` so the heuristic is
+   in the default battery, and remove it from the structural catalog's
+   "candidate pool" (or leave it — it just no-ops when
+   `avoid_duplicates=True`).
+4. **If hold-out is flagging overfit**, the §11 "retained a week later"
+   acceptance criterion is failing.  Treat this as a real bug:
+   tightening `eps_accept`, widening hold-out reps, or revisiting the
+   problem battery is in scope.
+5. **Do not edit the ledger by hand.**  If you need to start a fresh
+   run, archive it (`mv planning/self_improve_ledger.jsonl
+   planning/done/self_improve_ledger_YYYY-MM-DD.jsonl`) and let the
+   cron create a new one.  The bandit's Beta priors come from the
+   ledger; manual edits will mislead it.
+
+### 12.4 Tuning knobs on the cron
+
+Defaults are conservative:
+
+* `--iterations 20` — finishes in ~30–60 min at `--quick`.  Bump to
+  ~50 at `--standard` if you're willing to use a self-hosted runner.
+* `--mode quick` — the GitHub-hosted runner is small (2 cores).  For
+  `--standard` or `--full`, switch to `runs-on: self-hosted` and
+  raise the timeout.
+* `--guard-interval 5` — every 5th iteration the anti-cherry-pick
+  guard re-validates the top ladder entry on a fresh seed.
+* `--holdout-base-seed 7` — end-of-run hold-out on a base seed
+  independent of the training base seed (42).  Catches the failure
+  mode the guard cannot see.
+
+`workflow_dispatch` accepts `iterations` and `mode` inputs so you can
+fire a longer run on demand without editing the workflow.
+
+## 13. Iteration log
 
 This section records direct algorithmic improvements applied to Panobbgo
 *outside* of the autonomous loop, so the human-in-the-loop history stays
@@ -520,7 +614,7 @@ the rationale, and a measured-impact number when available.
   is one self-contained piece of infrastructure that unlocks three
   distinct loop capabilities at once, and matches the long-running
   "graduate one infra ticket into a dated entry once shipped" pattern
-  in §12.
+  in §13.
 * **Impact** — applied to the standard battery
   (``_make_standard_strategies``):
 
@@ -846,7 +940,7 @@ the rationale, and a measured-impact number when available.
 * **Documentation updated**
   - `planning/SELF_IMPROVEMENT_LOOP.md`: §2 missing-pieces list
     refreshed; §10 Open Questions item resolved; Phase 6 checklist
-    updated; this §12 entry; Next iteration ideas reduced.
+    updated; this §13 entry; Next iteration ideas reduced.
   - `doc/source/guide_benchmarking.rst`: new "Hold-out validation
     set" subsection with algorithm, CLI examples, programmatic
     example, and the independence-from-the-guard note.
@@ -916,7 +1010,7 @@ the rationale, and a measured-impact number when available.
   prevents two PSO instances from landing in the same strategy; the
   catalog samples uniformly between them when PSO is not yet present
   and skips both afterwards.
-* **Why** — closes the "Topology variants" follow-up below the §12
+* **Why** — closes the "Topology variants" follow-up below the §13
   PSO entry from 2026-05-05.  ``gbest`` and ``lbest`` topologies
   trade off different parts of the exploration / exploitation
   spectrum: ``gbest`` contracts faster (every particle sees the same
@@ -1261,7 +1355,7 @@ Strategy portfolio composition shipped as
 :func:`panobbgo.self_improve.default_structural_catalog` — opt in with
 ``--structural`` on ``scripts/self_improve.py run`` or by passing
 ``catalog=default_structural_catalog()`` to :class:`SelfImprover`.  See
-the §12 entry.  Natural next refinements:
+the §13 entry.  Natural next refinements:
 
 - **Per-class arms in the bandit** — today every ``add_heuristic`` lives
   on one bandit arm regardless of which class is added.  Splitting into
@@ -1299,12 +1393,12 @@ evidence to motivate the work:
   numeric kinds (``log_uniform_perturb`` / ``integer_add`` /
   ``float_uniform``).  The default catalog wires it up for
   ``PSO.topology``, ``Sobol.scramble`` and ``LSHADE.archive_factor``.
-  See the §12 entry.
+  See the §13 entry.
 
 #### Adaptive Differential Evolution (LSHADE / JADE) — shipped 2026-05-10
 
 L-SHADE shipped 2026-05-10 as
-:class:`~panobbgo.heuristics.lshade.LSHADE`; see the §12 entry.
+:class:`~panobbgo.heuristics.lshade.LSHADE`; see the §13 entry.
 Natural follow-ups when the loop has collected enough evidence to
 motivate the work:
 
@@ -1326,14 +1420,14 @@ motivate the work:
 - **Categorical mutation rule for ``LSHADE`` archive on/off** —
   shipped 2026-05-13.  The default catalog now contains an
   ``archive_factor`` rule with ``choices=(0.0, 1.0, 2.6)`` that fires
-  whenever a spec sets ``archive_factor`` explicitly.  See the §12
+  whenever a spec sets ``archive_factor`` explicitly.  See the §13
   entry.
 
 #### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 
 COBYQA (Ragonneau-Zhang 2023) — the modern Powell-family successor
 to BOBYQA / NEWUOA / LINCOA — shipped 2026-05-12 as
-:class:`~panobbgo.heuristics.cobyqa.COBYQA`; see the §12 entry.
+:class:`~panobbgo.heuristics.cobyqa.COBYQA`; see the §13 entry.
 Natural follow-ups when the loop has collected enough evidence to
 motivate the work:
 

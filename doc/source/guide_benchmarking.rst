@@ -732,6 +732,96 @@ Programmatic use:
 The ``--structural`` flag is **off by default** so existing CLI
 invocations and existing ledgers stay byte-identical.
 
+Categorical mutation rule
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The three original mutation kinds — ``log_uniform_perturb``,
+``integer_add``, ``float_uniform`` — all sample from a continuous
+numeric space.  Some of the most impactful design choices in
+Panobbgo's heuristic portfolio are **discrete** instead:
+
+* ``PSO.topology`` — ``"gbest"`` (fully-connected swarm,
+  instantaneous diffusion) vs ``"lbest"`` (ring with one-hop
+  diffusion, better on multimodal landscapes).
+* ``Sobol.scramble`` — Owen scrambling on / off; trades a
+  pseudo-random "freshness" against the classic Sobol' grid.
+* ``LSHADE.archive_factor`` — ``0.0`` (no archive, vanilla
+  current-to-pbest/1) vs ``1.0`` (Tanabe-Fukunaga default) vs
+  ``2.6`` (L-SHADE-RSP enlarged archive).
+
+The :class:`~panobbgo.self_improve.MutationRule` ``categorical_choice``
+kind closes this gap.  The rule carries a ``choices`` tuple of
+candidate values; on every applicable sample the catalog draws
+uniformly from ``choices`` *excluding* the current value, so the
+mutation always proposes a real change (no-op samples are
+eliminated by construction).  The bandit treats categorical rules
+as their own arm — distinct from any numeric rule on the same
+``(class, param)`` slot — so the Thompson sampler can learn whether
+flipping a discrete knob is worthwhile.
+
+The default catalog ships three categorical rules out-of-the-box:
+
+.. code-block:: python
+
+   MutationRule(
+       strategy_pattern="",
+       class_name="PSO",
+       param_name="topology",
+       kind="categorical_choice",
+       choices=("gbest", "lbest"),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="Sobol",
+       param_name="scramble",
+       kind="categorical_choice",
+       choices=(True, False),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="LSHADE",
+       param_name="archive_factor",
+       kind="categorical_choice",
+       choices=(0.0, 1.0, 2.6),
+       probability=0.3,
+   ),
+
+Each fires only when the target spec sets the kwarg *explicitly*
+— the catalog's "param already in kwargs" predicate filters out
+specs that left the kwarg implicit (the heuristic's constructor
+default).  Of the shipped strategies, ``BayesOpt_Sobol`` sets
+``scramble=True`` so the Sobol' rule fires straight away; the
+PSO and LSHADE rules become applicable once the structural
+catalog adds an opt-in PSO / LSHADE entry with the matching
+kwarg present.
+
+Adding more categorical rules is a one-liner:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import MutationRule, MutationCatalog, default_catalog
+
+   custom = MutationCatalog(
+       list(default_catalog().rules)
+       + [
+           MutationRule(
+               strategy_pattern="",
+               class_name="MyHeuristic",
+               param_name="mode",
+               kind="categorical_choice",
+               choices=("aggressive", "conservative"),
+           ),
+       ]
+   )
+
+Ledger serialisation is automatic: the proposal records
+``rule_kind="categorical_choice"`` and the literal categorical
+values in ``old_value`` / ``new_value``, so a replay through
+:func:`panobbgo.self_improve._proposal_rule_key` recovers the
+bandit arm losslessly.
+
 Hold-out validation set
 ~~~~~~~~~~~~~~~~~~~~~~~
 

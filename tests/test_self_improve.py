@@ -169,6 +169,61 @@ class TestMutationRule:
                 probability=0.0,
             )
 
+    def test_categorical_choice_constructs(self):
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="X",
+            param_name="topology",
+            kind="categorical_choice",
+            choices=("gbest", "lbest"),
+        )
+        assert rule.kind == "categorical_choice"
+        assert rule.choices == ("gbest", "lbest")
+        # rule_key disambiguates from numeric kinds on the same (class, param).
+        assert rule.rule_key() == ("X", "topology", "categorical_choice")
+
+    def test_categorical_choice_requires_two_choices(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            MutationRule(
+                strategy_pattern="",
+                class_name="X",
+                param_name="topology",
+                kind="categorical_choice",
+                choices=("only_one",),
+            )
+
+    def test_categorical_choice_rejects_empty_choices(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            MutationRule(
+                strategy_pattern="",
+                class_name="X",
+                param_name="topology",
+                kind="categorical_choice",
+                choices=(),
+            )
+
+    def test_categorical_choice_rejects_duplicate_choices(self):
+        with pytest.raises(ValueError, match="duplicate"):
+            MutationRule(
+                strategy_pattern="",
+                class_name="X",
+                param_name="topology",
+                kind="categorical_choice",
+                choices=("a", "a"),
+            )
+
+    def test_categorical_choice_ignores_bounds(self):
+        # bounds=(0,0) default — categorical never reads it, so the
+        # "ordered" check is intentionally skipped.
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="X",
+            param_name="scramble",
+            kind="categorical_choice",
+            choices=(True, False),
+        )
+        assert rule.bounds == (0.0, 0.0)
+
 
 # ===========================================================================
 # MutationCatalog: sampling, applicable rules, mutation kinds
@@ -328,6 +383,115 @@ class TestMutationCatalog:
         cat = default_catalog()
         assert len(cat.rules) >= 5
 
+    def test_default_catalog_has_categorical_rules(self):
+        """Default catalog should ship PSO.topology / Sobol.scramble /
+        LSHADE.archive_factor as categorical_choice rules."""
+        cat = default_catalog()
+        cat_rules = [r for r in cat.rules if getattr(r, "kind", None) == "categorical_choice"]
+        keys = {(r.class_name, r.param_name) for r in cat_rules}
+        assert ("PSO", "topology") in keys
+        assert ("Sobol", "scramble") in keys
+        assert ("LSHADE", "archive_factor") in keys
+
+    def test_sample_categorical_choice_picks_different_value(self):
+        """Categorical mutation always proposes a value != current."""
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="_DummyHeuristicA",
+            param_name="mode",
+            kind="categorical_choice",
+            choices=("A", "B", "C"),
+        )
+        # Inject ``mode="A"`` so the rule is applicable.
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"mode": "A"})],
+            )
+        ]
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+        for _ in range(30):
+            prop = cat.sample(rng, specs)
+            assert prop is not None
+            assert prop.new_value in ("B", "C")
+            assert prop.old_value == "A"
+
+    def test_sample_categorical_choice_two_way_toggle(self):
+        """With exactly 2 choices the rule must flip to the other one."""
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="_DummyHeuristicA",
+            param_name="flag",
+            kind="categorical_choice",
+            choices=(True, False),
+        )
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"flag": True})],
+            )
+        ]
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            prop = cat.sample(rng, specs)
+            assert prop is not None
+            assert prop.new_value is False
+
+    def test_sample_categorical_choice_old_not_in_choices(self):
+        """When the current value drifted out of the choice set, every
+        entry is a valid candidate (no exclusion)."""
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="_DummyHeuristicA",
+            param_name="mode",
+            kind="categorical_choice",
+            choices=("A", "B"),
+        )
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                # ``mode="Z"`` is not in choices.
+                heuristics=[(_DummyHeuristicA, {"mode": "Z"})],
+            )
+        ]
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+        seen = set()
+        for _ in range(40):
+            prop = cat.sample(rng, specs)
+            assert prop is not None
+            assert prop.new_value in ("A", "B")
+            seen.add(prop.new_value)
+        # Both options should be reachable.
+        assert seen == {"A", "B"}
+
+    def test_sample_categorical_choice_rationale_format(self):
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="_DummyHeuristicA",
+            param_name="mode",
+            kind="categorical_choice",
+            choices=("A", "B"),
+        )
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"mode": "A"})],
+            )
+        ]
+        prop = MutationCatalog([rule]).sample(np.random.default_rng(0), specs)
+        assert prop is not None
+        # Rationale should mention the kind, the target, and the values.
+        assert "categorical_choice" in prop.rationale
+        assert "mode" in prop.rationale
+        assert prop.rule_kind == "categorical_choice"
+
 
 # ===========================================================================
 # apply_mutation
@@ -410,6 +574,53 @@ class TestApplyMutation:
         )
         with pytest.raises(ValueError, match="not found"):
             apply_mutation(_make_specs(), proposal)
+
+    def test_applies_categorical_string_value(self):
+        """A categorical proposal must overwrite the kwarg with the new
+        string value (the apply path is value-type-agnostic)."""
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"topology": "gbest"})],
+            )
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="_DummyHeuristicA",
+            param_name="topology",
+            old_value="gbest",
+            new_value="lbest",
+            rule_kind="categorical_choice",
+            rationale="flip",
+        )
+        out = apply_mutation(specs, proposal)
+        assert out[0].heuristics[0][1]["topology"] == "lbest"
+        # Original spec untouched.
+        assert specs[0].heuristics[0][1]["topology"] == "gbest"
+
+    def test_applies_categorical_bool_value(self):
+        """Bool round-trips through apply_mutation without coercion to int."""
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"scramble": True})],
+            )
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="_DummyHeuristicA",
+            param_name="scramble",
+            old_value=True,
+            new_value=False,
+            rule_kind="categorical_choice",
+            rationale="flip",
+        )
+        out = apply_mutation(specs, proposal)
+        applied = out[0].heuristics[0][1]["scramble"]
+        assert applied is False
+        assert isinstance(applied, bool)
 
 
 # ===========================================================================
@@ -1060,6 +1271,37 @@ class TestAdaptiveMutationSampler:
         # Without a prior sample(), record is a no-op.
         samp.record_outcome(True)
         assert samp.stats_snapshot() == []
+
+    def test_categorical_rule_gets_its_own_arm(self):
+        """A categorical_choice rule must occupy a distinct bandit arm
+        from a numeric rule on the same (class, param) slot."""
+        rules = [
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicA",
+                param_name="radius",
+                kind="log_uniform_perturb",
+                bounds=(0.01, 1.0),
+            ),
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicA",
+                param_name="radius",
+                kind="categorical_choice",
+                choices=(0.05, 0.1, 0.2),
+            ),
+        ]
+        cat = MutationCatalog(rules)
+        samp = AdaptiveMutationSampler(cat)
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        keys = {s.rule_key for s in snap}
+        assert ("_DummyHeuristicA", "radius", "log_uniform_perturb") in keys
+        assert ("_DummyHeuristicA", "radius", "categorical_choice") in keys
 
     def test_thompson_biases_toward_winning_rule(self):
         """If one rule always accepts and the other always rejects,
@@ -1804,6 +2046,13 @@ class TestStructuralRuleKey:
             "Nearby",
             "radius",
             "log_uniform_perturb",
+        )
+        # Categorical kwarg rules get their own per-(class, param) arm —
+        # distinct from any numeric rule on the same slot.
+        assert _proposal_rule_key("PSO", "topology", "categorical_choice") == (
+            "PSO",
+            "topology",
+            "categorical_choice",
         )
 
     def test_adaptive_sampler_buckets_structural_history(self):

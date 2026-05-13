@@ -250,6 +250,17 @@ The harness is the measurement substrate for an autonomous
     a shrinking ``top - seed`` gap (``drift < -eps_overfit``) flags
     overfit to the training base_seed family — the failure mode the
     anti-cherry-pick guard cannot see.
+*   Categorical mutation rule — **shipped**, see
+    `panobbgo.self_improve.MutationRule` with
+    `kind="categorical_choice"`.  Picks uniformly from a discrete
+    `choices` tuple while always excluding the current value (no-op
+    mutations are eliminated by construction).  The default catalog
+    ships three categorical rules out-of-the-box: `PSO.topology`
+    (`"gbest"` ↔ `"lbest"`), `Sobol.scramble` (`True` ↔ `False`), and
+    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`).  Each fires only
+    when the target spec sets the kwarg *explicitly* — the
+    "param already in kwargs" predicate keeps the rule out of specs
+    that left the kwarg at the heuristic's constructor default.
 
 Run the loop:
 

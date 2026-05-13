@@ -190,14 +190,24 @@ class MutationRule:
               ``int(bounds[0]) .. int(bounds[1])``.
             * ``"float_uniform"`` — uniform sample from
               ``[low, high]``, then clamped to :attr:`bounds`.
+            * ``"categorical_choice"`` — discrete choice from
+              :attr:`choices`.  Always proposes a *different* value from
+              the current one; the rule therefore never produces a
+              no-op mutation on its own.  ``bounds`` is ignored.
         bounds: Inclusive ``(low, high)`` clamp applied after sampling.
             Always interpreted as floats for ``log_uniform_perturb`` and
-            ``float_uniform``; as ints for ``integer_add``.
+            ``float_uniform``; as ints for ``integer_add``.  Ignored for
+            ``categorical_choice`` — pass any placeholder (the default
+            ``(0.0, 0.0)`` is fine).
         log_step: Half-width of the log-uniform perturbation (decades).
             Default ``0.15`` ≈ ±41 %.
         delta_choices: Integer deltas for ``integer_add``.
         low: Lower bound for ``float_uniform``.
         high: Upper bound for ``float_uniform``.
+        choices: Discrete options for ``categorical_choice``.  Must
+            contain at least two entries; any hashable Python value works
+            (strings, bools, numerics — anything JSON-serialisable
+            without a custom encoder).  Ignored for the numeric kinds.
         probability: Relative weight used when the catalog picks among
             multiple applicable rules; normalised automatically.
     """
@@ -206,19 +216,31 @@ class MutationRule:
     class_name: str
     param_name: str
     kind: str
-    bounds: Tuple[float, float]
+    bounds: Tuple[float, float] = (0.0, 0.0)
     log_step: float = 0.15
     delta_choices: Tuple[int, ...] = (-1, 1)
     low: float = 0.0
     high: float = 1.0
+    choices: Tuple[Any, ...] = ()
     probability: float = 1.0
 
     def __post_init__(self) -> None:
-        if self.kind not in {"log_uniform_perturb", "integer_add", "float_uniform"}:
+        if self.kind not in {
+            "log_uniform_perturb",
+            "integer_add",
+            "float_uniform",
+            "categorical_choice",
+        }:
             raise ValueError(f"Unknown mutation kind: {self.kind!r}")
-        lo, hi = self.bounds
-        if not lo <= hi:
-            raise ValueError(f"bounds not ordered: {self.bounds}")
+        if self.kind == "categorical_choice":
+            if len(self.choices) < 2:
+                raise ValueError(f"categorical_choice requires at least 2 distinct choices, got {len(self.choices)}")
+            if len(set(self.choices)) != len(self.choices):
+                raise ValueError(f"categorical_choice: duplicate entries in choices={self.choices!r}")
+        else:
+            lo, hi = self.bounds
+            if not lo <= hi:
+                raise ValueError(f"bounds not ordered: {self.bounds}")
         if self.probability <= 0:
             raise ValueError(f"probability must be > 0, got {self.probability}")
 
@@ -580,6 +602,18 @@ class MutationCatalog:
         if rule.kind == "float_uniform":
             candidate_f = float(rng.uniform(rule.low, rule.high))
             return float(min(hi, max(lo, candidate_f)))
+        if rule.kind == "categorical_choice":
+            # Always propose a value different from ``old`` so the
+            # mutation does something observable.  When ``old`` is not
+            # in ``choices`` (spec drift) every entry is a valid
+            # candidate.  ``MutationRule.__post_init__`` guarantees
+            # ``len(choices) >= 2`` so the alternative pool is never
+            # empty in the well-formed case.
+            alternatives = [c for c in rule.choices if c != old]
+            if not alternatives:
+                alternatives = list(rule.choices)
+            idx = int(rng.integers(0, len(alternatives)))
+            return alternatives[idx]
         # Unreachable — validated in MutationRule.__post_init__
         raise ValueError(f"Unknown mutation kind: {rule.kind!r}")
 
@@ -898,6 +932,15 @@ def default_catalog() -> MutationCatalog:
     * ``LatinHypercube.div`` — initial-sample coarseness.
     * ``Sobol.n`` — Sobol' initial-design sample count (powers of two).
     * ``Restart.max_restarts`` — restart budget.
+    * ``PSO.NP`` / ``PSO.w`` / ``PSO.w_end`` — swarm size, initial /
+      terminal inertia (Clerc-Kennedy and Shi-Eberhart parameters).
+    * ``LSHADE.NP_init`` / ``LSHADE.H`` / ``LSHADE.p_best`` — L-SHADE
+      population, success-history memory size, and pbest greediness.
+    * Categorical toggles — ``PSO.topology`` (``gbest`` ↔ ``lbest``),
+      ``Sobol.scramble`` (``True`` ↔ ``False``), and
+      ``LSHADE.archive_factor`` (``0.0`` / ``1.0`` / ``2.6``).  These
+      use the ``categorical_choice`` mutation kind so the loop can
+      flip discrete design knobs the same way it tunes numeric ones.
 
     Bounds are chosen so a single accept keeps the value in a sensible
     range (never zero, never pathologically large).
@@ -1048,6 +1091,58 @@ def default_catalog() -> MutationCatalog:
                 low=0.05,
                 high=0.25,
                 probability=0.5,
+            ),
+            # PSO topology toggle (categorical).  Flips an existing PSO
+            # heuristic between the canonical Kennedy-Eberhart ``gbest``
+            # (fully-connected swarm, instantaneous diffusion) and the
+            # Kennedy-Mendes ``lbest`` (ring with one-hop diffusion,
+            # better on multimodal landscapes).  Only fires when the
+            # spec sets ``topology`` explicitly — the default PSO
+            # constructor leaves it implicit at ``"gbest"``.  The
+            # structural catalog ships an lbest variant, so this rule
+            # is immediately useful for any portfolio that has gained
+            # an explicit-topology PSO via ``add_heuristic``.
+            MutationRule(
+                strategy_pattern="",
+                class_name="PSO",
+                param_name="topology",
+                kind="categorical_choice",
+                choices=("gbest", "lbest"),
+                probability=0.3,
+            ),
+            # Sobol' scrambling toggle (categorical).  ``scramble=True``
+            # (Owen-style) keeps draws low-discrepancy but breaks the
+            # exact deterministic grid; ``scramble=False`` reproduces
+            # the classic Sobol' sequence verbatim.  Different problems
+            # respond differently — scramble helps when the true
+            # optimum is *not* axis-aligned with the box, hurts when
+            # it is.  ``BayesOpt_Sobol`` sets ``scramble=True``
+            # explicitly so this rule fires out-of-the-box on the
+            # standard battery.
+            MutationRule(
+                strategy_pattern="",
+                class_name="Sobol",
+                param_name="scramble",
+                kind="categorical_choice",
+                choices=(True, False),
+                probability=0.3,
+            ),
+            # L-SHADE archive factor toggle (categorical).  ``0.0``
+            # disables the external archive entirely (classic
+            # current-to-pbest/1 with no replaced-parent memory);
+            # ``1.0`` and ``2.6`` are the Tanabe-Fukunaga 2014 default
+            # and the L-SHADE-RSP enlarged-archive setting
+            # respectively.  Discrete switch because the
+            # archive-on/archive-off boundary is qualitatively
+            # different from "tune the archive size".  Only fires
+            # when a spec sets ``archive_factor`` explicitly.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="archive_factor",
+                kind="categorical_choice",
+                choices=(0.0, 1.0, 2.6),
+                probability=0.3,
             ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires

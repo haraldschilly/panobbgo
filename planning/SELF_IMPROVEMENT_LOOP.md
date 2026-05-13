@@ -481,6 +481,82 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-13 — Categorical mutation rule (`categorical_choice`)
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`MutationRule` gains a fourth ``kind`` value
+  ``"categorical_choice"`` plus a ``choices: Tuple[Any, ...]`` field.
+  A categorical proposal picks uniformly from ``choices`` *excluding*
+  the current value so the mutation always proposes a real change
+  (no-op samples are eliminated by construction).  ``bounds`` is
+  ignored for the categorical kind and now defaults to ``(0.0, 0.0)``
+  so callers no longer need to invent a placeholder.  ``__post_init__``
+  validates the choice set (``len(choices) >= 2``, no duplicates).
+  The :class:`MutationCatalog` / :func:`apply_mutation` /
+  :class:`AdaptiveMutationSampler` paths are dispatch-by-kind already,
+  so the new kind plugs in without touching the proposal / ledger /
+  bandit machinery: a categorical mutation rides through
+  :meth:`MutationProposal.to_dict` byte-identically to a numeric one,
+  and :func:`_proposal_rule_key` puts it on its own
+  ``(class_name, param_name, "categorical_choice")`` bandit arm —
+  distinct from any numeric rule on the same kwarg slot.
+  :func:`default_catalog` gains three categorical rules:
+  ``PSO.topology`` (``"gbest"`` ↔ ``"lbest"``), ``Sobol.scramble``
+  (``True`` ↔ ``False``), and ``LSHADE.archive_factor``
+  (``0.0`` / ``1.0`` / ``2.6``).  Each fires only when a spec sets the
+  matching kwarg explicitly — :func:`_find_targets`'s existing
+  "param already in kwargs" predicate keeps the rule from injecting
+  itself into specs that never opted in.
+* **Why** — closes the *categorical mutation rule* item that the PSO
+  follow-ups (2026-05-07 entry) and the L-SHADE follow-ups
+  (2026-05-10 entry) both name as a blocker.  The shipped
+  :class:`MutationRule` only supported numeric perturbations
+  (``log_uniform_perturb`` / ``integer_add`` / ``float_uniform``) so
+  the loop had no vocabulary for discrete design choices — it could
+  *tune* ``PSO.NP`` but not *flip* ``PSO.topology``; it could tune
+  ``Sobol.n`` but not flip ``Sobol.scramble``; it could tune
+  ``LSHADE.NP_init`` but not toggle ``LSHADE.archive_factor`` between
+  the archive-on and archive-off regimes.  Adding the categorical kind
+  is one self-contained piece of infrastructure that unlocks three
+  distinct loop capabilities at once, and matches the long-running
+  "graduate one infra ticket into a dated entry once shipped" pattern
+  in §12.
+* **Impact** — applied to the standard battery
+  (``_make_standard_strategies``):
+
+  * ``BayesOpt_Sobol`` already sets ``scramble=True`` explicitly, so
+    the ``Sobol.scramble`` categorical rule fires out-of-the-box —
+    the loop can now decide whether Owen scrambling helps on the
+    sampled instance distribution.
+  * ``PSO.topology`` fires whenever the structural catalog has added
+    the ``lbest`` PSO variant (``{"NP": 20, "topology": "lbest",
+    "k_neighbors": 2}``), enabling the loop to flip the topology of
+    an existing PSO without dropping and re-adding it.
+  * ``LSHADE.archive_factor`` is dormant on the default battery (no
+    spec sets ``archive_factor`` explicitly) but ready for any future
+    spec that opts in — a clean wire-up rather than dead code.
+* **Backwards compatibility** — strictly safe.  ``bounds`` retains
+  its prior meaning for the three numeric kinds and now has a default
+  ``(0.0, 0.0)`` that no existing call site relies on: every shipped
+  catalog rule passes ``bounds`` explicitly, every test fixture passes
+  ``bounds`` explicitly, and the dataclass field order is unchanged
+  modulo the new defaulted ``choices`` slot.  Categorical mutations
+  serialise to the ledger via the existing
+  :meth:`MutationProposal.to_dict` path — ``rule_kind`` is the string
+  ``"categorical_choice"``, ``old_value`` / ``new_value`` are the
+  literal categorical values (strings / bools / floats), and a
+  replay through :func:`_proposal_rule_key` recovers the bandit arm
+  losslessly.  Existing ledger consumers parsing only numeric
+  ``rule_kind``s simply see one extra kind they may ignore.
+* **Tests** — `tests/test_self_improve.py` (13 new tests, total 122):
+  rule validation (kind accepted, two-choice minimum, duplicate
+  rejection, empty choices rejected, bounds ignored), catalog sampling
+  (always-different value, two-way toggle, out-of-set drift handling,
+  rationale formatting, default-catalog membership), apply path
+  (string round-trip, bool round-trip preserves ``isinstance(bool)``),
+  and bandit integration (categorical arm distinct from numeric arm
+  on the same slot, ``_proposal_rule_key`` mapping).
+
 ### 2026-05-12 — COBYQA derivative-free trust-region local optimizer
 
 * **What** — `panobbgo/heuristics/cobyqa.py` adds the
@@ -1218,14 +1294,12 @@ evidence to motivate the work:
   single budget split, similar to the existing ``IPOP_CMAES``
   strategy.  Would be a new entry in
   ``_make_standard_strategies`` once measured to be a net win.
-- **Categorical / topology mutation rule** — :class:`MutationRule`
-  today only supports numeric perturbations
-  (``log_uniform_perturb`` / ``integer_add`` / ``float_uniform``).
-  Adding a ``categorical_choice`` kind would let the loop flip an
-  existing PSO instance's ``topology`` between ``"gbest"`` and
-  ``"lbest"`` without going through the full ``add_heuristic`` /
-  ``drop_heuristic`` cycle.  Generalises to other categorical
-  knobs (``Sobol.scramble``, etc.).
+- **Categorical / topology mutation rule** — shipped 2026-05-13.
+  ``MutationRule(kind="categorical_choice", choices=...)`` joined the
+  numeric kinds (``log_uniform_perturb`` / ``integer_add`` /
+  ``float_uniform``).  The default catalog wires it up for
+  ``PSO.topology``, ``Sobol.scramble`` and ``LSHADE.archive_factor``.
+  See the §12 entry.
 
 #### Adaptive Differential Evolution (LSHADE / JADE) — shipped 2026-05-10
 
@@ -1250,11 +1324,10 @@ motivate the work:
   function call on top of the existing ``_generate_trial``
   pipeline.
 - **Categorical mutation rule for ``LSHADE`` archive on/off** —
-  the shipped catalog only retunes numeric kwargs; flipping
-  ``archive_factor`` between ``0.0`` (no archive) and ``1.0+``
-  (archive enabled) is a discrete choice that the upcoming
-  ``categorical_choice`` mutation rule (see PSO follow-ups
-  above) would handle naturally.
+  shipped 2026-05-13.  The default catalog now contains an
+  ``archive_factor`` rule with ``choices=(0.0, 1.0, 2.6)`` that fires
+  whenever a spec sets ``archive_factor`` explicitly.  See the §12
+  entry.
 
 #### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 

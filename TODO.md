@@ -2,6 +2,70 @@
 
 ## Recent Improvements (continued)
 
+### Categorical Mutation Rule (`categorical_choice`) (2026-05-13)
+- [x] **New `MutationRule(kind="categorical_choice", choices=...)`**
+      in `panobbgo/self_improve.py`.  Fourth mutation kind alongside
+      `log_uniform_perturb` / `integer_add` / `float_uniform`; picks
+      uniformly from `choices` *excluding* the current value so the
+      mutation always proposes a real change.  No-op samples
+      (`new == old`) are eliminated by construction — important for
+      two-choice toggles like `(True, False)` where a uniform sample
+      would no-op half the time.
+- [x] **`bounds` made optional** (defaults to `(0.0, 0.0)`) since
+      categorical rules don't use it.  All shipped catalog rules pass
+      `bounds` explicitly, so the change is byte-identical for every
+      existing call site.
+- [x] **Validation** in `MutationRule.__post_init__`:
+      `len(choices) >= 2` (single-choice catalogues are forbidden —
+      they would always no-op), no duplicate entries.  Numeric kinds
+      keep their existing bounds check; categorical skips it.
+- [x] **`MutationCatalog._mutate_value` extended** with the
+      categorical branch.  Always excludes the current value from
+      candidates; falls back to the full set if drift means
+      `old not in choices`.  Returns the chosen value verbatim — no
+      coercion through `_to_plain` (strings / bools / floats round-
+      trip through the dataclass and the JSONL ledger naturally).
+- [x] **Three categorical rules in `default_catalog()`**:
+      - `PSO.topology` — `("gbest", "lbest")`, fires whenever a spec
+        sets `topology` explicitly (typically after the structural
+        catalog has added the lbest PSO variant).
+      - `Sobol.scramble` — `(True, False)`, fires out-of-the-box on
+        `BayesOpt_Sobol` which sets `scramble=True` explicitly.
+      - `LSHADE.archive_factor` — `(0.0, 1.0, 2.6)`, dormant on the
+        default battery (no spec sets `archive_factor` explicitly) but
+        ready for opt-in.
+- [x] **Bandit integration** — `_proposal_rule_key` maps a categorical
+      rule to its own `(class_name, param_name, "categorical_choice")`
+      arm, distinct from any numeric rule on the same kwarg slot.
+      The Thompson sampler can therefore learn whether flipping a
+      discrete knob is worthwhile, independently of whether tuning the
+      same kwarg numerically is.
+- [x] **Ledger round-trip** — `MutationProposal.to_dict` emits
+      `rule_kind="categorical_choice"` and the literal categorical
+      values in `old_value` / `new_value`.  Replay via
+      `_proposal_rule_key` recovers the bandit arm losslessly.
+- [x] **13 new tests in `tests/test_self_improve.py`** (total 122):
+      - **`TestMutationRule`** — categorical constructs, two-choice
+        minimum enforced, empty choices rejected, duplicate choices
+        rejected, bounds ignored for categorical.
+      - **`TestMutationCatalog`** — `default_catalog` ships
+        PSO/Sobol/LSHADE categorical rules; sampling always returns a
+        value distinct from `old`; two-choice toggle deterministically
+        flips; out-of-set drift handled (all choices reachable);
+        rationale and `rule_kind` formatting.
+      - **`TestApplyMutation`** — categorical string round-trip;
+        categorical bool round-trip preserves `isinstance(bool)`.
+      - **`TestAdaptiveMutationSampler`** — categorical rule occupies
+        its own bandit arm distinct from a numeric rule on the same
+        `(class, param)` slot.
+      - **`TestStructuralRuleKey`** — `_proposal_rule_key` maps
+        categorical to `(class, param, "categorical_choice")`.
+- [x] **Backwards compatibility** — strictly safe.  All shipped
+      catalog rules use the numeric kinds and pass `bounds` explicitly;
+      the new defaulted `choices` field and the new defaulted `bounds`
+      are no-ops for existing callers.  Ledger consumers that filter
+      on `rule_kind` simply see one extra kind they may ignore.
+
 ### Hold-Out Validation Set for Self-Improvement Loop (2026-05-08)
 - [x] **New `panobbgo.self_improve.LoopHoldoutRecord`** — third record
       type alongside `LoopIterationRecord` / `LoopGuardRecord`; closes

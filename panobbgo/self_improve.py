@@ -234,9 +234,7 @@ class MutationRule:
             raise ValueError(f"Unknown mutation kind: {self.kind!r}")
         if self.kind == "categorical_choice":
             if len(self.choices) < 2:
-                raise ValueError(
-                    f"categorical_choice requires at least 2 distinct choices, got {len(self.choices)}"
-                )
+                raise ValueError(f"categorical_choice requires at least 2 distinct choices, got {len(self.choices)}")
             if len(set(self.choices)) != len(self.choices):
                 raise ValueError(f"categorical_choice: duplicate entries in choices={self.choices!r}")
         else:

@@ -1049,6 +1049,35 @@ def default_catalog() -> MutationCatalog:
                 high=0.25,
                 probability=0.5,
             ),
+            # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
+            # log-uniform around the literature default (0.1).  Only fires
+            # when a spec explicitly sets ``initial_tr_radius`` (the
+            # heuristic auto-derives it from the box width otherwise);
+            # values are in *absolute* units, suitable for boxes scaled to
+            # ``[-1, 1]`` via ``scale=True`` (the default).
+            MutationRule(
+                strategy_pattern="",
+                class_name="COBYQA",
+                param_name="initial_tr_radius",
+                kind="log_uniform_perturb",
+                bounds=(0.01, 1.0),
+                log_step=0.15,
+                probability=0.5,
+            ),
+            # COBYQA final trust-region radius — convergence threshold.
+            # Bracket the literature range; tighter (1e-8) gives more
+            # accurate final values at the cost of more evaluations,
+            # looser (1e-4) stops earlier and frees budget for other
+            # heuristics in the strategy.
+            MutationRule(
+                strategy_pattern="",
+                class_name="COBYQA",
+                param_name="final_tr_radius",
+                kind="log_uniform_perturb",
+                bounds=(1e-8, 1e-4),
+                log_step=0.25,
+                probability=0.5,
+            ),
         ]
     )
 
@@ -1099,6 +1128,7 @@ def default_structural_catalog() -> MutationCatalog:
     # actually selected.
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
+    from panobbgo.heuristics.cobyqa import COBYQA
 
     # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
     # 1995 swarm) and the ``lbest`` ring topology (Kennedy & Mendes 2002).
@@ -1109,6 +1139,10 @@ def default_structural_catalog() -> MutationCatalog:
     # Differential Evolution variant; the default ``NP_init=30`` matches
     # Panobbgo's typical max-eval budgets.  ``NP_min`` stays at the
     # heuristic's default of 4 (the floor required by current-to-pbest/1).
+    # COBYQA (Ragonneau-Zhang 2023) is Powell's BOBYQA / NEWUOA successor —
+    # a derivative-free trust-region method with quadratic interpolation
+    # models, dominant on smooth / near-smooth local refinement.  Defaults
+    # to ``scale=True`` and the heuristic's auto-derived initial TR radius.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1120,6 +1154,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
+        (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

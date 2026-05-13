@@ -45,6 +45,7 @@ from .lshade import LSHADE
 from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
+from .cobyqa import COBYQA
 
 __all__ = [
     "Center",
@@ -68,4 +69,5 @@ __all__ = [
     "ConstraintRepair",
     "CMAES",
     "PSO",
+    "COBYQA",
 ]

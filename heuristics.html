@@ -110,6 +110,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.restart_count"><code class="docutils literal notranslate">restart_count</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.COBYQA"><code class="docutils literal notranslate"><span class="pre">COBYQA</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.COBYQA.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.COBYQA.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.COBYQA.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.COBYQA.worker"><code class="docutils literal notranslate">worker()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Center"><code class="docutils literal notranslate"><span class="pre">Center</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.Center.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -274,6 +281,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>GaussianProcessHeuristic</strong>: Gaussian Process surrogate with EI / UCB / PI acquisition functions; uses Expected Improvement with Constraints (EIC) when constraints are active.</p></li>
 <li><p><strong>NelderMead</strong>: Simplex optimization method.</p></li>
 <li><p><strong>LBFGSB</strong>: Local optimization using the L-BFGS-B algorithm.</p></li>
+<li><p><strong>COBYQA</strong>: Powell-family derivative-free trust-region local optimizer (Ragonneau &amp; Zhang 2023) — the modern successor to BOBYQA / COBYLA / NEWUOA / LINCOA.  Maintains an interpolation set of <code class="docutils literal notranslate"><span class="pre">2·n</span> <span class="pre">+</span> <span class="pre">1</span></code> points and fits an adaptive <em>quadratic model</em> of the objective inside a trust region; natively supports bounds.  Curvature-aware and derivative-free at once, dominant on smooth / near-smooth local refinement (e.g. Rosenbrock-like ill-conditioned valleys where Nelder-Mead converges slowly).  Subprocess-backed adapter around <code class="docutils literal notranslate"><span class="pre">scipy.optimize.minimize(method=&quot;COBYQA&quot;)</span></code> (scipy 1.14+).</p></li>
 <li><p><strong>CMAES</strong>: Covariance Matrix Adaptation Evolution Strategy with IPOP-CMA-ES restart support (paired with the Restart analyzer) — gold standard for derivative-free continuous optimization, excellent on ill-conditioned/ridge-following problems like Rosenbrock.</p></li>
 <li><p><strong>DifferentialEvolution</strong>: DE mutation/crossover/selection applied to the accumulated result database — strong on multimodal landscapes (Rastrigin, Schwefel).</p></li>
 <li><p><strong>LSHADE</strong>: Linear-population-reduction Success-History Adaptive DE (Tanabe &amp; Fukunaga, CEC 2014 winner).  Adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span></code> per-trial via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of successful triples; uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation with an external archive of replaced parents.  The population shrinks linearly from <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> (default 30) down to <code class="docutils literal notranslate"><span class="pre">NP_min</span></code> (default 4) over the strategy’s evaluation budget — broad exploration early, focused exploitation late.  Out-of-bounds components are repaired by midpoint reflection.  Strictly stronger than the basic <code class="docutils literal notranslate"><span class="pre">DE/rand/1/bin</span></code> on multimodal benchmarks; opt-in via the structural mutation catalog.</p></li>
@@ -396,6 +404,92 @@ population) and a small regime (small λ + random small σ).</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.restart_count">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">restart_count</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.restart_count" title="Link to this definition">¶</a></dt>
 <dd><p>Number of restarts triggered so far (IPOP or BIPOP).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">COBYQA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_tr_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_tr_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxfev</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>COBYQA: Powell-family derivative-free trust-region local optimizer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> – The owning <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a>.</p></li>
+<li><p><strong>initial_tr_radius</strong> – Initial trust-region radius.  Sensible values
+are in the order of one tenth of the greatest expected change
+to the variables.  When <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) the heuristic uses
+<code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">·</span> <span class="pre">max(box_width)</span></code> so the first step explores a useful
+slice of the feasible region.  Must be positive.</p></li>
+<li><p><strong>final_tr_radius</strong> – Final trust-region radius — accuracy required in
+the converged variables.  COBYQA terminates once the radius
+falls below this threshold.  Default <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.  Must be
+positive and strictly less than <code class="docutils literal notranslate"><span class="pre">initial_tr_radius</span></code>.</p></li>
+<li><p><strong>maxfev</strong> – Maximum number of function evaluations the underlying
+<code class="docutils literal notranslate"><span class="pre">scipy.optimize.minimize</span></code> may consume.  When <code class="docutils literal notranslate"><span class="pre">None</span></code>
+(default) the strategy’s evaluation budget is the only cap;
+the subprocess is terminated when the strategy stops.
+<code class="docutils literal notranslate"><span class="pre">maxfev</span></code> is useful when the user wants COBYQA to give up
+<em>earlier</em> than the global budget — e.g. when paired with
+other heuristics inside the same strategy.</p></li>
+<li><p><strong>scale</strong> – When <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), COBYQA rescales the variables to
+<code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code> based on the box bounds, keeping the
+interpolation geometry well-conditioned for boxes whose axes
+span very different magnitudes.  Panobbgo problems always
+have finite bounds, so this is safe.</p></li>
+<li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The heuristic spawns one dedicated subprocess per restart
+(Powell’s interpolation set has to be rebuilt from scratch
+anyway, so a fresh process is the cleanest unit of restart).</p></li>
+<li><p>Out-of-bounds proposals from the subprocess are projected onto
+the feasible box by <a class="reference internal" href="lib.html#panobbgo.lib.Problem.project" title="panobbgo.lib.Problem.project"><code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.lib.Problem.project()</span></code></a> before
+being emitted; the value the subprocess sees is therefore the
+objective at the projected (feasible) point.</p></li>
+<li><p>Like <a class="reference internal" href="#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>, the
+subprocess uses the <code class="docutils literal notranslate"><span class="pre">&quot;spawn&quot;</span></code> start method to avoid the
+deadlocks that <code class="docutils literal notranslate"><span class="pre">fork</span></code> triggers in multi-threaded processes.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.on_new_results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.on_restart">
+<span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.on_restart" title="Link to this definition">¶</a></dt>
+<dd><p>Tear down and restart the subprocess around <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
+<p>COBYQA’s interpolation set is built from scratch on construction;
+the cleanest restart strategy is to terminate the subprocess and
+start a fresh one with <code class="docutils literal notranslate"><span class="pre">center</span></code> (when provided) as the new
+starting point.  When <code class="docutils literal notranslate"><span class="pre">center</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> we fall back to the
+box centre, matching <code class="xref py py-meth docutils literal notranslate"><span class="pre">__start__()</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.on_start" title="Link to this definition">¶</a></dt>
+<dd><p>Pipe x → emit → wait for fx → pipe.send pattern.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.worker">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">worker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipe</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_tr_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_tr_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxfev</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.worker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.worker" title="Link to this definition">¶</a></dt>
+<dd><p>Subprocess entry point: drive scipy’s COBYQA via pipe-based f(x).</p>
 </dd></dl>
 
 </dd></dl>

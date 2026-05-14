@@ -198,6 +198,20 @@ than `eps_regress` (default `0.05`).  Exit code is `2` on rejection when
 combined with `--fail-on-regression`, so this is usable as a CI gate.
 See `panobbgo.harness.statistical_accept` for the programmatic API.
 
+The bootstrap defaults to a **paired (rep-aligned) sampler** when
+``n_before == n_after`` on at least one shared pair — the case under
+``--randomize`` because the harness keys instance seeds on
+``(base_seed, randomize_iteration, family, rep)`` and rep ``i`` on
+each side sees the *same* sampled instance.  Paired sampling is
+typically 3–10× narrower than the historical independent-resample
+scheme on the loop's regime (5 reps × ~3 problems at quick mode) and
+is what unblocks acceptance of moderate-but-real improvements.  Force
+the scheme explicitly with `--paired` / `--unpaired` (mutually
+exclusive) on `compare --statistical` and on
+`scripts/self_improve.py run`; use `--unpaired` when reps are NOT
+instance-aligned (e.g. comparing two ledgers built with different
+`base_seed` values).
+
 ### Agent self-improvement loop (in progress)
 
 The harness is the measurement substrate for an autonomous

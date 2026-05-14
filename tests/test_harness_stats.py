@@ -478,3 +478,201 @@ class TestCompareCLIStatistical:
         assert "accept" in stats
         assert "ci_low" in stats and "ci_high" in stats
         assert "per_pair" in stats and len(stats["per_pair"]) == 1
+
+
+# ===========================================================================
+# Paired vs unpaired bootstrap (added with the paired-bootstrap upgrade).
+# ===========================================================================
+
+
+class TestPairedBootstrap:
+    """The randomized harness keeps reps instance-aligned by index, so the
+    paired bootstrap is the statistically efficient choice and the
+    historical unpaired sampler is wastefully wide.  These tests pin the
+    auto-detection rule and the contract of the explicit ``paired`` knob.
+    """
+
+    def test_paired_tighter_than_unpaired_when_correlated(self):
+        """Strongly correlated paired reps → paired CI strictly narrower."""
+        # Same instance index gives correlated outcomes.  The per-rep delta
+        # is exactly +5 evals across all reps, so the paired bootstrap CI
+        # collapses to a point.  The unpaired sampler shuffles the two
+        # sides independently and gets a wide CI driven by the (large)
+        # within-side rep variance.
+        before = _harness_result([_psr("P", "S", [50, 80, 30, 60, 20])])
+        after = _harness_result([_psr("P", "S", [45, 75, 25, 55, 15])])
+        d_paired = statistical_accept(before, after, n_boot=2000, seed=42, paired=True)
+        d_unpaired = statistical_accept(before, after, n_boot=2000, seed=42, paired=False)
+        assert d_paired.delta == pytest.approx(d_unpaired.delta)
+        # Identical per-rep delta ⇒ paired CI collapses; unpaired stays wide.
+        assert d_paired.ci_high - d_paired.ci_low == pytest.approx(0.0, abs=1e-9)
+        assert d_unpaired.ci_high - d_unpaired.ci_low > 0.1
+        assert d_paired.paired is True
+        assert d_unpaired.paired is False
+
+    def test_paired_unblocks_genuine_improvement(self):
+        """A 5-eval lift on every paired rep is a real improvement that
+        the unpaired bootstrap cannot distinguish from noise."""
+        before = _harness_result([_psr("P", "S", [50, 80, 30, 60, 20])])
+        after = _harness_result([_psr("P", "S", [45, 75, 25, 55, 15])])
+        d_paired = statistical_accept(before, after, n_boot=2000, seed=42, paired=True)
+        d_unpaired = statistical_accept(before, after, n_boot=2000, seed=42, paired=False)
+        assert d_paired.delta > 0
+        # Paired: tight CI strictly above zero ⇒ accept.
+        assert d_paired.ci_low > 0.0
+        assert d_paired.accept is True
+        # Unpaired: CI brackets zero ⇒ reject (correct only if reps
+        # were genuinely independent, which they aren't here).
+        assert d_unpaired.ci_low <= 0.0
+        assert d_unpaired.accept is False
+
+    def test_auto_detect_uses_paired_when_rep_counts_match(self):
+        """``paired=None`` auto-selects paired when ``n_before == n_after``."""
+        before = _harness_result([_psr("P", "S", [10, 50, 90])])
+        after = _harness_result([_psr("P", "S", [5, 45, 85])])
+        d = statistical_accept(before, after, n_boot=500, seed=0)
+        # All three pairs have matched counts → paired path should fire.
+        assert d.paired is True
+
+    def test_auto_detect_falls_back_to_unpaired_on_mismatch(self):
+        """Mismatched rep counts on every shared pair → fall back to unpaired."""
+        before = _harness_result([_psr("P", "S", [10, 50, 90])])  # 3 reps
+        after = _harness_result([_psr("P", "S", [5, 45])])  # 2 reps
+        d = statistical_accept(before, after, n_boot=500, seed=0)
+        assert d.paired is False
+        assert d.per_pair[0].n_before == 3
+        assert d.per_pair[0].n_after == 2
+
+    def test_force_paired_truncates_mismatched_reps(self):
+        """``paired=True`` with mismatched reps truncates to the common prefix."""
+        # before reps: [10, 50, 90] → after truncation [10, 50]
+        # after reps:  [5, 45]
+        before = _harness_result([_psr("P", "S", [10, 50, 90])])
+        after = _harness_result([_psr("P", "S", [5, 45])])
+        d = statistical_accept(before, after, n_boot=500, seed=0, paired=True)
+        # Per-pair n_* reflect the truncated values, not the originals.
+        assert d.per_pair[0].n_before == 2
+        assert d.per_pair[0].n_after == 2
+        assert d.paired is True
+
+    def test_paired_field_survives_json_roundtrip(self):
+        """``paired`` must round-trip through the JSON serialisation."""
+        before = _harness_result([_psr("P", "S", [50, 80, 30])])
+        after = _harness_result([_psr("P", "S", [45, 75, 25])])
+        d = statistical_accept(before, after, n_boot=200, seed=42, paired=True)
+        doc = json.loads(json.dumps(d.to_dict()))
+        assert doc["paired"] is True
+        d2 = statistical_accept(before, after, n_boot=200, seed=42, paired=False)
+        doc2 = json.loads(json.dumps(d2.to_dict()))
+        assert doc2["paired"] is False
+
+    def test_paired_print_summary_mentions_scheme(self, capsys):
+        """``print_summary`` should report which bootstrap was used."""
+        before = _harness_result([_psr("P", "S", [50, 80, 30])])
+        after = _harness_result([_psr("P", "S", [45, 75, 25])])
+        d_paired = statistical_accept(before, after, n_boot=200, seed=42, paired=True)
+        d_paired.print_summary()
+        out = capsys.readouterr().out
+        assert "bootstrap=paired" in out
+        d_unpaired = statistical_accept(before, after, n_boot=200, seed=42, paired=False)
+        d_unpaired.print_summary()
+        out = capsys.readouterr().out
+        assert "bootstrap=unpaired" in out
+
+    def test_auto_detect_with_no_reps_picks_unpaired(self):
+        """An empty intersection trivially leaves ``paired=False``."""
+        # Both sides have zero reps.  Edge case — no per-pair bootstrap fires.
+        before = _harness_result([_psr("P", "S", [])])
+        after = _harness_result([_psr("P", "S", [])])
+        d = statistical_accept(before, after, n_boot=200, seed=0)
+        assert d.paired is False
+
+    def test_paired_bootstrap_seed_reproducible(self):
+        """Same seed + same paired flag → identical CI."""
+        before = _harness_result([_psr("P", "S", [50, 80, 30, 60, 20])])
+        after = _harness_result([_psr("P", "S", [45, 75, 25, 55, 15])])
+        d1 = statistical_accept(before, after, n_boot=500, seed=7, paired=True)
+        d2 = statistical_accept(before, after, n_boot=500, seed=7, paired=True)
+        assert (d1.ci_low, d1.ci_high) == (d2.ci_low, d2.ci_high)
+
+
+# ===========================================================================
+# CLI: --paired / --unpaired flags on `compare --statistical`
+# ===========================================================================
+
+
+class TestCompareCLIPaired:
+    def _write_result(self, path: str, psrs: List[ProblemStrategyResult]) -> None:
+        result = _harness_result(psrs)
+        result.save(path)
+
+    def test_compare_paired_flag_unblocks_acceptance(self, tmp_path, capsys):
+        """The same data that fails the unpaired gate passes when --paired
+        is set, mirroring the auto-detect default for randomized runs."""
+        import sys
+
+        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+        from benchmark_harness import main
+
+        before = str(tmp_path / "before.json")
+        after = str(tmp_path / "after.json")
+        self._write_result(before, [_psr("P", "S", [50, 80, 30, 60, 20])])
+        self._write_result(after, [_psr("P", "S", [45, 75, 25, 55, 15])])
+
+        # --paired ⇒ accept.
+        ret_paired = main(
+            [
+                "compare",
+                before,
+                after,
+                "--statistical",
+                "--paired",
+                "--n-boot",
+                "300",
+            ]
+        )
+        out_paired = capsys.readouterr().out
+        assert ret_paired == 0
+        assert "STATISTICAL DECISION: ACCEPT" in out_paired
+        assert "bootstrap=paired" in out_paired
+
+        # --unpaired ⇒ reject (CI lower bound straddles zero).
+        ret_unpaired = main(
+            [
+                "compare",
+                before,
+                after,
+                "--statistical",
+                "--unpaired",
+                "--n-boot",
+                "300",
+            ]
+        )
+        out_unpaired = capsys.readouterr().out
+        assert ret_unpaired == 0
+        assert "STATISTICAL DECISION: REJECT" in out_unpaired
+        assert "bootstrap=unpaired" in out_unpaired
+
+    def test_compare_paired_and_unpaired_are_mutually_exclusive(self, tmp_path, capsys):
+        """argparse should reject both flags together."""
+        import sys
+
+        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+        from benchmark_harness import main
+
+        before = str(tmp_path / "before.json")
+        after = str(tmp_path / "after.json")
+        self._write_result(before, [_psr("P", "S", [50])])
+        self._write_result(after, [_psr("P", "S", [40])])
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    "compare",
+                    before,
+                    after,
+                    "--statistical",
+                    "--paired",
+                    "--unpaired",
+                ]
+            )

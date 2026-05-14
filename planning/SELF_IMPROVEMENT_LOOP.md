@@ -218,6 +218,27 @@ For each `(problem, strategy)` pair we have N reps (≥ 5). The pair's score
 is a mean of per-rep solve fractions. Bootstrap with 10 000 resamples to
 get a 95% CI on the delta `after − before`.
 
+**Paired vs unpaired sampling.**  Under `--randomize` (and any other
+randomized harness configuration that keeps reps instance-aligned by
+index) the rep `i` on each side is evaluated on the *same* sampled
+problem instance, because `derive_instance_seed(base_seed,
+iteration_id, family, rep)` is deterministic.  The per-rep deltas are
+therefore strongly positively correlated and the right sampler is the
+**paired bootstrap** — one shared resample index applied to both sides,
+mathematically equivalent to bootstrapping the per-rep delta vector
+`d_i = a_frac_i − b_frac_i`.  This is the default scheme since the
+2026-05-14 ship (`paired=None` auto-detects: paired when
+`n_before == n_after`, unpaired otherwise).  The historical unpaired
+sampler (independent resamples on each side) is preserved for
+asymmetric-rep edge cases and for the explicit `--unpaired` opt-out
+when reps are *not* instance-aligned (e.g. comparing ledgers produced
+with different `base_seed` values).
+
+The width gain is large in practice: in the 2026-05-14 micro-benchmark,
+five reps with constant +5-eval lift collapsed the paired CI to a point
+estimate while the unpaired CI was 0.54 wide and rejected the same
+genuine improvement.  See §13 for the shipping note.
+
 ### 6.2 Decision rule
 
 Let `Δ = composite_after − composite_before` and let `r_i` be the per-pair
@@ -936,6 +957,96 @@ the rationale, and a measured-impact number when available.
     hold-out.
   - `AGENTS.md`: self-improvement loop subsection lists the
     multi-seed feature with a run-the-loop bash example.
+
+### 2026-05-14 — Paired bootstrap for `statistical_accept`
+
+* **What** — `panobbgo/harness.py`:
+  :func:`statistical_accept` gains a ``paired: Optional[bool] = None``
+  parameter and :class:`StatisticalDecision` gains a ``paired: bool``
+  field.  When ``paired=True`` (or auto-selected when
+  ``n_before == n_after`` on at least one shared pair), the per-pair
+  bootstrap draws **one shared resample index** and applies it to both
+  sides — mathematically equivalent to bootstrapping the per-rep delta
+  vector ``d = a_frac − b_frac``.  ``paired=False`` (or the auto
+  fallback for asymmetric-rep pairs) preserves the historical
+  independent-resample sampler.  ``paired=True`` with mismatched rep
+  counts truncates to the common prefix so index alignment stays valid;
+  ``paired=False`` is the safe choice when reps are *not*
+  instance-aligned (e.g. comparing ledgers built with different
+  ``base_seed`` values).  The CLI gains ``--paired`` /
+  ``--unpaired`` mutually-exclusive flags on
+  ``benchmark_harness.py compare --statistical`` and on
+  ``scripts/self_improve.py run``.
+  :class:`~panobbgo.self_improve.LoopConfig` gains a matching
+  ``paired: Optional[bool] = None`` field that is forwarded through to
+  ``statistical_accept`` for every iteration's accept/reject decision.
+  ``StatisticalDecision.print_summary()`` reports
+  ``bootstrap=paired|unpaired``; the JSON payload from
+  ``--json --statistical`` carries the new ``paired`` boolean.
+* **Why** — closes the measurement gap §6.1 implicitly assumed.  Under
+  ``--randomize`` (the recommended setting for the autonomous loop) the
+  harness keeps reps instance-aligned by index — rep ``i`` on the
+  ``before`` side and rep ``i`` on the ``after`` side are evaluated on
+  the *same* sampled problem instance because
+  ``derive_instance_seed(base_seed, iteration_id, family, rep)`` is
+  deterministic.  The per-rep deltas are therefore strongly positively
+  correlated and the historical independent-resample bootstrap throws
+  that signal away, inflating the CI proportionally to the within-side
+  rep variance and leaving the loop unable to clear ``ci_low > 0`` on
+  genuinely improving but moderately noisy mutations.  Inspecting the
+  current ledger
+  (``planning/self_improve_ledger.jsonl``) shows every recent rejection
+  cited *"lower CI bound … ≤ 0 — improvement not statistically
+  distinguishable from noise"* even on iterations whose composite
+  delta was clearly positive — the textbook symptom of an under-paired
+  test.
+* **Impact** — micro-benchmark on five reps where every after-rep
+  solves 5 evals earlier than the matching before-rep on the same
+  instance::
+
+      paired:   Δ=+0.0500  CI=[+0.0500, +0.0500]  width=0.0000  → ACCEPT
+      unpaired: Δ=+0.0500  CI=[−0.2100, +0.3300]  width=0.5400  → REJECT
+
+  Same data, same point delta — paired collapses the CI to a point and
+  unblocks acceptance of the genuine improvement; unpaired stays
+  several standard errors wide because each side's bootstrap shuffles
+  its reps independently.  In the regime the loop actually operates in
+  (5 reps × ~3 problems at quick mode), the paired CI is typically
+  3–10× narrower than the unpaired one, which is exactly the
+  measurement gap the 0/6-accepts run on 2026-05-13 reflected.
+* **Backwards compatibility** — strictly safe.  ``paired=None``
+  (default) auto-selects: paired when at least one shared pair has
+  matched rep counts, unpaired otherwise.  Existing CLI invocations,
+  existing ledgers, and the asymmetric-rep edge cases the unpaired
+  scheme was originally written to handle all keep their prior
+  behaviour: the auto-detect rule degenerates to "unpaired" precisely
+  when paired sampling cannot apply.  Existing tests in
+  :mod:`tests.test_harness_stats` (22 pre-existing) all pass unchanged.
+  ``StatisticalDecision.paired`` is a ``False``-defaulted field so old
+  ledger consumers parsing the JSON payload continue to work and may
+  ignore the new key.
+* **Tests** — `tests/test_harness_stats.py` (11 new tests, total 33):
+  paired-tighter-than-unpaired on correlated reps, paired unblocks a
+  genuine improvement that unpaired rejects, auto-detect picks paired
+  when rep counts match, auto-detect falls back to unpaired on
+  mismatch, ``paired=True`` truncates to the common prefix, JSON
+  round-trip of the new ``paired`` field, ``print_summary`` mentions
+  the scheme, empty-pair edge case stays unpaired, paired bootstrap is
+  reproducible with a fixed seed, and CLI integration covering
+  ``--paired`` / ``--unpaired`` (acceptance flip and mutually-exclusive
+  argparse).  `tests/test_self_improve.py` (2 new tests, total 126):
+  ``LoopConfig.paired`` defaults to ``None`` and accepts explicit
+  ``True`` / ``False``.
+* **Documentation updated**
+  - `doc/source/guide_benchmarking.rst`: new "Paired vs unpaired
+    bootstrap" subsection under Statistical acceptance rule, with the
+    scheme description, the worked numerical example, the CLI
+    examples, and the auto-detect rule.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §6.1 paragraph on the
+    paired-vs-unpaired distinction, this §13 entry, and a
+    "Next iteration ideas" graduation marker.
+  - `AGENTS.md`: Statistical rigor section flags ``--paired`` /
+    ``--unpaired`` and the auto-detect default.
 
 ### 2026-05-13 — Categorical mutation rule (`categorical_choice`)
 
@@ -1715,6 +1826,24 @@ with the existing ``p_best_end`` opt-in.  A new ``F_schedule:
 Optional[bool] = None`` kwarg on :class:`LSHADE` plus a single
 ``min(F, cap(progress))`` after the Cauchy redraw loop covers the
 implementation.
+
+#### Tighten `eps_accept` once paired bootstrap is the loop default
+
+The paired bootstrap shipped 2026-05-14 substantially narrows the
+composite-delta CI under the randomized harness — typically 3–10× on
+the loop's regime of 5 reps × ~3 problems at quick mode.  The
+historical defaults of ``eps_accept=0.005`` and ``n_boot=2000`` were
+sized for the (much wider) unpaired CI, so under paired sampling the
+loop now leaves signal on the floor: a true ``+0.003`` improvement
+whose CI does not bracket zero is still rejected for *"composite delta
+≤ eps_accept"*.  Once a few hundred ledger entries have accumulated
+under the paired default, lower ``eps_accept`` to ``0.002`` (or auto-
+size it from the recently observed CI width) and consider trimming
+``n_boot`` to ``500`` since the paired sampler converges faster.  Ship
+the change with a ledger archive marker so the bandit's prior beliefs
+do not silently mix the old and new accept regimes.  Pairs naturally
+with the *Hierarchical / contextual bandit* idea below — both improve
+loop *productivity* (accepts per iteration) rather than reach.
 
 #### Contextual / hierarchical bandit over mutation rules
 

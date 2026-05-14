@@ -1640,6 +1640,15 @@ class LoopConfig:
             :class:`LoopHoldoutRecord` is flagged ``overfit=True``.
             Default ``0.05`` matches the per-pair regression bound used
             by the statistical-acceptance rule.
+        paired: Bootstrap scheme passed to
+            :func:`panobbgo.harness.statistical_accept`.  ``None``
+            (default) uses auto-detection: when the randomized harness
+            keeps reps instance-aligned by index (the common case under
+            :attr:`randomize` ``= True``), the paired scheme preserves
+            the strong within-rep correlation between baseline and
+            candidate and shrinks the CI substantially compared to the
+            independent-resample scheme.  Set to ``False`` to force the
+            historical unpaired sampler.
     """
 
     iterations: int = 5
@@ -1671,6 +1680,7 @@ class LoopConfig:
     holdout_iterations: int = 5
     holdout_iteration_offset: int = 0
     holdout_eps_overfit: float = 0.05
+    paired: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -2426,6 +2436,7 @@ class SelfImprover:
                 n_boot=self.config.n_boot,
                 confidence=self.config.confidence,
                 seed=self.config.stat_seed + iteration,
+                paired=self.config.paired,
             )
 
             rec = LoopIterationRecord(

@@ -215,6 +215,61 @@ a pair blew up).  Every knob has a flag:
    * - ``--stat-seed``
      - ``42``
      - RNG seed for reproducible bootstraps.
+   * - ``--paired`` / ``--unpaired``
+     - auto
+     - Force the paired (rep-aligned) or independent bootstrap scheme;
+       see *Paired vs unpaired bootstrap* below.
+
+Paired vs unpaired bootstrap
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Under ``--randomize`` the harness keeps reps **instance-aligned by index**
+— rep ``i`` on the ``before`` side and rep ``i`` on the ``after`` side
+are evaluated on the *same* sampled problem instance (the SHA-256 stream
+is keyed on ``(base_seed, randomize_iteration, family, rep)``).  The
+per-rep deltas are therefore strongly correlated, and the statistically
+efficient sampler is the **paired bootstrap** — draw one shared resample
+index and apply it to both sides, equivalent to bootstrapping the per-rep
+delta vector ``a_frac − b_frac``.
+
+The historical default of an **unpaired** sampler (independent resamples
+on each side) discards the within-rep correlation and inflates the CI by
+roughly the within-side variance, often leaving a genuine improvement
+indistinguishable from noise:
+
+.. code-block:: text
+
+   # Strongly correlated reps: every rep solves 5 evals earlier on the
+   # same instance.  The paired sampler accepts; the unpaired one does
+   # not.
+   paired:   Δ=+0.0500  CI=[+0.0500, +0.0500]  width=0.0000  → ACCEPT
+   unpaired: Δ=+0.0500  CI=[−0.2100, +0.3300]  width=0.5400  → REJECT
+
+The ``--paired`` and ``--unpaired`` flags toggle the scheme explicitly:
+
+.. code-block:: bash
+
+   # Paired — recommended for any --randomize run or any other
+   # comparison where reps are instance-aligned by index.
+   uv run python benchmark_harness.py compare before.json after.json \
+       --statistical --paired
+
+   # Unpaired — required when reps are NOT instance-aligned (e.g. when
+   # comparing two ledgers built with different base_seed values).
+   uv run python benchmark_harness.py compare before.json after.json \
+       --statistical --unpaired
+
+Without either flag the rule auto-selects: paired when at least one
+shared pair has ``n_before == n_after``, falling back to unpaired
+otherwise.  The auto-detect default is the right choice for the
+randomized harness and a safe no-op for the asymmetric-rep edge cases
+the unpaired scheme was originally written to handle.
+
+The chosen scheme is reported on the
+:class:`~panobbgo.harness.StatisticalDecision`:
+``decision.paired`` is ``True`` if the paired sampler fired on at least
+one pair, ``False`` otherwise.  ``print_summary()`` and the
+``--json`` payload include the field.
 
 With ``--json --statistical`` the emitted payload carries a
 ``statistical`` block with the composite verdict, the overall CI, the worst

@@ -652,6 +652,18 @@ class TestLoopConfig:
         with pytest.raises(ValueError, match="guard_eps_ladder"):
             LoopConfig(guard_eps_ladder=-0.001)
 
+    def test_paired_default_is_auto_detect(self):
+        """``paired`` defaults to ``None`` (auto-detect) so randomized
+        runs get paired CIs without explicit opt-in."""
+        cfg = LoopConfig()
+        assert cfg.paired is None
+
+    def test_paired_can_be_forced_true_or_false(self):
+        cfg_true = LoopConfig(paired=True)
+        assert cfg_true.paired is True
+        cfg_false = LoopConfig(paired=False)
+        assert cfg_false.paired is False
+
 
 # ===========================================================================
 # Fake harness used to drive SelfImprover deterministically

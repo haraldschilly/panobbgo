@@ -42,6 +42,7 @@ from .local_penalty_search import LocalPenaltySearch
 from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
 from .lshade import LSHADE
+from .jso import JSO
 from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
@@ -66,6 +67,7 @@ __all__ = [
     "ClaudeHeuristic",
     "DifferentialEvolution",
     "LSHADE",
+    "JSO",
     "ConstraintRepair",
     "CMAES",
     "PSO",

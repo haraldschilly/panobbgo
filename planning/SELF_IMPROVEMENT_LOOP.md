@@ -77,7 +77,11 @@ What's missing for a true self-improvement loop:
       End-of-loop re-measure on an *independent* `base_seed`
       catches overfit to the training base_seed family that the
       anti-cherry-pick guard cannot see.  CLI: `--holdout-base-seed`,
-      `--fail-on-overfit`.
+      `--fail-on-overfit`.  Extended 2026-05-16 with multi-seed
+      hold-out — `LoopConfig.holdout_base_seeds` is a list of
+      independent seeds; one `LoopHoldoutRecord` is written per seed
+      and the CLI aggregates with worst-case drift / any-overfit
+      semantics.  CLI: `--holdout-base-seeds 1234,5678,9012`.
 
 ## 3. Architecture of the loop
 
@@ -416,6 +420,11 @@ Each phase is independently deliverable and keeps the framework usable.
       *independent* ``base_seed`` SHA-256 stream catches overfit to
       the training base_seed family — the failure mode the guard
       cannot see (the guard varies only ``randomize_iteration``).
+      Extended 2026-05-16 with multi-seed hold-out via
+      :attr:`LoopConfig.holdout_base_seeds` (list-typed) and
+      ``--holdout-base-seeds 1234,5678,9012``; the CLI aggregates
+      per-seed records with worst-case drift / any-overfit
+      semantics (see §13 entry).
 - [ ] Broaden further: analyzer add/drop, swapping a strategy class
       itself (e.g., ``StrategyRewarding`` → ``StrategyUCB``).
 - [x] Stratified dimension sampling (§10) for cross-iteration score
@@ -574,6 +583,96 @@ This section records direct algorithmic improvements applied to Panobbgo
 *outside* of the autonomous loop, so the human-in-the-loop history stays
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
+
+### 2026-05-16 — Multi-seed hold-out for robust drift estimation
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`LoopConfig` gains a list-typed
+  ``holdout_base_seeds: Tuple[int, ...]`` field (default ``()``)
+  that sits alongside the scalar ``holdout_base_seed`` shipped
+  2026-05-08.  A new helper :meth:`LoopConfig.resolved_holdout_seeds`
+  returns the effective seed tuple: the list when non-empty, else
+  the scalar promoted to a 1-tuple, else ``()`` (= disabled).
+  :meth:`LoopConfig.holdout_harness_config` gains an optional
+  ``base_seed`` argument so the multi-seed loop can drive the
+  ``HarnessConfig.seed`` per call rather than reading it from the
+  config attribute.  :class:`SelfImprover._run_holdout` similarly
+  takes ``base_seed`` as a parameter (formerly read from
+  ``self.config.holdout_base_seed``) and :class:`SelfImprover._run_internal`
+  iterates over the resolved tuple, writing one
+  :class:`LoopHoldoutRecord` per seed to the ledger.  The
+  ``record_type='holdout'`` tag is unchanged, so existing ledger
+  consumers see N records back-to-back per loop run instead of one.
+  ``scripts/self_improve.py`` gains a ``--holdout-base-seeds``
+  flag that accepts a comma-separated list (e.g.
+  ``--holdout-base-seeds 1234,5678,9012``); the parser tolerates
+  whitespace and trailing commas and rejects non-integer tokens
+  with a clear error.  The CLI's end-of-run summary line and the
+  ``summary`` subcommand both report the aggregated verdict:
+  ``OVERFIT`` if *any* per-seed record flagged overfit, with the
+  *worst* (most negative) drift across seeds.
+* **Why** — closes the *Multi-seed hold-out for robust drift
+  estimation* follow-up below.  The single-seed hold-out shipped
+  2026-05-08 reduces the entire generalisation question to one
+  independent SHA-256 draw, and a single recent ledger run
+  produced ``drift=-0.0074`` (well within the default
+  ``eps_overfit=0.05``, but on a single draw it is hard to know
+  whether ``-0.0074`` is the typical drift or the lucky tail of a
+  larger one).  Multi-seed aggregation gives a worst-case
+  estimate over several independent draws — strictly more
+  conservative — at a cost that scales linearly with the seed
+  list and stays small relative to the loop's training budget.
+  The reduction matches the planning doc's request: ``min`` over
+  drifts, ``any`` over overfit flags.
+* **Backwards compatibility** — strictly safe.  The default for
+  ``holdout_base_seeds`` is the empty tuple; existing callers that
+  set only ``holdout_base_seed`` see exactly one
+  :class:`LoopHoldoutRecord` as before.  ``resolved_holdout_seeds()``
+  promotes a scalar to a 1-tuple, so the multi-seed code path
+  handles both cases through one branch.  When both are set, the
+  list takes precedence (the explicit "do exactly this" override)
+  and the scalar is silently ignored.  No existing ledger or
+  ledger consumer is affected; the new records share the same
+  schema as the single-seed record and the same ``record_type``
+  tag.
+* **Validation** — three rules at config construction time, with
+  distinct error messages: no zero entries (``0`` is the disable
+  sentinel), no collision with ``base_seed``, no duplicates.  The
+  CLI parser also tolerates ``"1234, 5678 , 9012"`` and trailing
+  commas so common copy/paste inputs don't trip the user.
+* **Cost** — fixed at ``2 × holdout_iterations × len(seeds)``
+  harness runs at the end of the loop (or
+  ``holdout_iterations × len(seeds)`` when the ladder has only
+  the seed entry — both endpoints are the same spec list).  At
+  the standard ``holdout_iterations=5`` with 3 seeds that is 30
+  extra harness runs, small relative to the ``2 × iterations``
+  cost of a typical 50-iteration loop.
+* **Tests** — `tests/test_self_improve.py` (25 new tests, total 147):
+  config validation (default empty tuple, list/tuple normalization,
+  zero entry rejected, collision with base_seed rejected,
+  duplicates rejected), :meth:`resolved_holdout_seeds` (list
+  precedence, scalar fallback, empty fallback),
+  :meth:`holdout_harness_config` explicit-seed override and
+  default-to-scalar paths, end-to-end behaviour (one record per
+  seed in configured order, per-seed harness seeds reach the
+  factory, overfit flagged independently per seed, list-wins-over-
+  scalar precedence, all records written to JSONL ledger, scalar
+  back-compat path unaffected, disable when both knobs unset), and
+  the CLI parser (empty / whitespace / single / multiple /
+  whitespace-tolerant / negative-accepted / non-integer-rejected /
+  trailing-comma-skipped paths — 8 tests).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Multi-seed hold-out for robust drift estimation* follow-up
+    promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: new "Multi-seed hold-out"
+    subsection under "Hold-out validation set" with the
+    aggregation rule, validation rules, CLI example, and
+    programmatic example.
+  - `doc/source/guide.rst`: quick-nav entry mentions the multi-seed
+    hold-out.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    multi-seed feature with a run-the-loop bash example.
 
 ### 2026-05-13 — Categorical mutation rule (`categorical_choice`)
 
@@ -1452,27 +1551,28 @@ motivate the work:
   instance's ``scale`` kwarg without going through the full
   ``add_heuristic`` / ``drop_heuristic`` cycle.
 
-#### Multi-seed hold-out for robust drift estimation
+#### Multi-seed hold-out for robust drift estimation — shipped 2026-05-16
 
-The single-base-seed hold-out shipped 2026-05-08 catches overfit to
-the *training* base_seed family but reduces the entire generalisation
-question to one independent draw.  A natural upgrade is to evaluate
-the ladder on *several* independent ``holdout_base_seed`` values
-(e.g. ``[1234, 5678, 9012]``) and report the *worst* drift across
-them.  Needs:
+Multi-seed hold-out shipped 2026-05-16 as
+:attr:`panobbgo.self_improve.LoopConfig.holdout_base_seeds` (the
+list-typed sibling of the scalar ``holdout_base_seed``) and the
+``--holdout-base-seeds`` CLI flag.  See the §13 entry.  Natural
+follow-ups when the loop has collected enough evidence to motivate
+the work:
 
-- A list-typed ``holdout_base_seeds`` knob (``int | List[int]``)
-  alongside the current scalar.
-- A reduction over the per-seed records (``min`` of drift, ``any``
-  of overfit) into a single CLI summary line.
-- Bootstrap CI on the drift estimate would be the next step beyond
-  that — turning the hold-out into a statistical test rather than
-  a point check.
-
-Cost scales linearly with the number of seeds; for a typical 5-seed
-hold-out at ``holdout_iterations=5`` that is ``2 × 5 × 5 = 50``
-extra harness runs at the end of the loop, still small compared to
-a typical ``2 × 100`` iteration loop.
+- **Bootstrap CI on the drift estimate** — today the multi-seed
+  reduction is ``min`` over drifts and ``any`` over overfit flags.
+  A natural upgrade is to bootstrap the per-seed drift values and
+  emit a confidence interval on the *aggregate* drift, turning the
+  hold-out into a statistical test rather than a point check.  This
+  pairs naturally with the :func:`statistical_accept`-style decision
+  rules already used inside the loop.
+- **Auto-rollback on multi-seed overfit** — when several seeds
+  agree the ladder is overfit, the loop could automatically pop the
+  ladder back to the seed and penalise the bandit (see
+  *Auto-rollback on hold-out overfit* below).  Multi-seed evidence
+  is strong enough to act on, whereas single-seed evidence might
+  still be a fluke.
 
 #### Auto-rollback on hold-out overfit
 

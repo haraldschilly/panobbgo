@@ -97,12 +97,14 @@ peculiarities of the training base-seed family will *not* be caught: the
 guard's "fresh" instances are drawn from the same SHA-256 stream.
 
 The hold-out validation closes that gap.  At the **end** of the loop run
-(once :attr:`LoopConfig.iterations` are exhausted), if
-:attr:`LoopConfig.holdout_base_seed` is non-zero and
+(once :attr:`LoopConfig.iterations` are exhausted), if at least one
+hold-out base seed is configured (either the scalar
+:attr:`LoopConfig.holdout_base_seed` or the list-typed
+:attr:`LoopConfig.holdout_base_seeds`) and
 :attr:`LoopConfig.holdout_iterations` is positive, the loop re-measures
-both the **seed** ladder entry and the **final top** entry on a
-completely independent ``base_seed`` family.  The two scores are
-averaged over ``holdout_iterations`` distinct instances and compared
+both the **seed** ladder entry and the **final top** entry on each
+completely independent ``base_seed`` family.  Per seed, the two scores
+are averaged over ``holdout_iterations`` distinct instances and compared
 to the training-time scores recorded on the ladder.  If the
 "top minus seed" gap on the hold-out is smaller than the training gap
 by more than :attr:`LoopConfig.holdout_eps_overfit`, the loop emits an
@@ -110,11 +112,21 @@ by more than :attr:`LoopConfig.holdout_eps_overfit`, the loop emits an
 CLI when ``--fail-on-overfit`` is set.  Otherwise the record is written
 informationally so an auditor can inspect the generalisation drift.
 
+When multiple seeds are configured via :attr:`LoopConfig.holdout_base_seeds`,
+one :class:`LoopHoldoutRecord` is written per seed and the CLI aggregates
+them into a single verdict line — ``overfit`` if **any** seed flagged
+overfit, and the **worst** (most negative) drift across seeds.  This
+makes the hold-out a more robust drift estimator: a single hold-out seed
+reduces the entire generalisation question to one independent draw, but
+several seeds catch overfits that escape any one draw while remaining
+cheap relative to the loop's training cost.
+
 Hold-out is one-shot at the end of the loop and uses fresh randomized
-instances, so its compute cost is fixed:
-``2 × holdout_iterations`` harness runs — typically a small fraction
-of the loop's total budget.  Disabled by default
-(``holdout_base_seed = 0``) so existing configurations behave identically.
+instances, so its compute cost is fixed per seed:
+``2 × holdout_iterations`` harness runs per seed — typically a small
+fraction of the loop's total budget.  Disabled by default
+(``holdout_base_seed = 0`` and ``holdout_base_seeds = ()``) so existing
+configurations behave identically.
 
 Safety rails (§8 in the plan)
 -----------------------------
@@ -1480,11 +1492,23 @@ class LoopConfig:
             resuming a long unattended run.
         holdout_base_seed: Independent ``base_seed`` used for the
             end-of-loop hold-out validation.  ``0`` (default) disables
-            hold-out entirely.  Should differ from :attr:`base_seed` —
-            using the same value collapses the hold-out check to the
-            anti-cherry-pick guard with offset ``0`` and is rejected at
-            validation time.  See "Hold-out validation set" in the module
-            docstring for the full rationale.
+            hold-out entirely (unless :attr:`holdout_base_seeds` is set).
+            Should differ from :attr:`base_seed` — using the same value
+            collapses the hold-out check to the anti-cherry-pick guard
+            with offset ``0`` and is rejected at validation time.  See
+            "Hold-out validation set" in the module docstring for the full
+            rationale.  This scalar knob is retained for back-compat;
+            multi-seed callers should prefer :attr:`holdout_base_seeds`.
+        holdout_base_seeds: Multi-seed hold-out validation.  Each entry is
+            an independent ``base_seed`` value the loop will re-measure
+            the ladder against at the end of the run.  Empty tuple
+            (default) means "fall back to the scalar
+            :attr:`holdout_base_seed`".  When non-empty, the scalar is
+            ignored.  Reducing across the per-seed records uses ``min``
+            on drift (worst-case generalisation) and ``any`` on overfit
+            (one bad seed flags the ladder).  All entries must differ
+            from :attr:`base_seed` and from one another; ``0`` is not a
+            valid entry (use the empty tuple to disable).
         holdout_iterations: Number of distinct ``randomize_iteration``
             values to average over when computing the hold-out composite
             for both the seed and the top ladder entries.  Must be
@@ -1527,6 +1551,7 @@ class LoopConfig:
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
     holdout_base_seed: int = 0
+    holdout_base_seeds: Tuple[int, ...] = ()
     holdout_iterations: int = 5
     holdout_iteration_offset: int = 0
     holdout_eps_overfit: float = 0.05
@@ -1557,6 +1582,30 @@ class LoopConfig:
                 f"holdout_base_seed must differ from base_seed (both={self.base_seed});"
                 " hold-out is meant to draw from a *different* SHA-256 stream"
             )
+        # Normalize a list/sequence argument into a tuple so callers may pass
+        # either a tuple or a list and the dataclass stays hashable-safe.
+        # ``Sequence[int]`` would type the field correctly but a tuple is
+        # the simplest concrete shape the rest of the code relies on.
+        self.holdout_base_seeds = tuple(int(s) for s in self.holdout_base_seeds)
+        if self.holdout_base_seeds:
+            # Per-entry constraints: no 0 sentinel, no collision with the
+            # training base_seed, and no duplicates within the list.  Each
+            # rule has a distinct failure mode the user should hear about.
+            if any(s == 0 for s in self.holdout_base_seeds):
+                raise ValueError(
+                    "holdout_base_seeds entries must be non-zero; pass an empty tuple to disable multi-seed hold-out"
+                )
+            collisions = [s for s in self.holdout_base_seeds if s == self.base_seed]
+            if collisions:
+                raise ValueError(
+                    f"holdout_base_seeds must differ from base_seed (overlap={collisions});"
+                    " hold-out is meant to draw from *different* SHA-256 streams"
+                )
+            if len(set(self.holdout_base_seeds)) != len(self.holdout_base_seeds):
+                raise ValueError(
+                    f"holdout_base_seeds must be distinct, got {list(self.holdout_base_seeds)};"
+                    " duplicates would just re-measure the same SHA-256 stream"
+                )
 
     def harness_config(
         self,
@@ -1580,25 +1629,43 @@ class LoopConfig:
         self,
         strategies_override: List[StrategySpec],
         iteration_id: int,
+        base_seed: Optional[int] = None,
     ) -> HarnessConfig:
         """Build the :class:`HarnessConfig` used by hold-out validation.
 
         Identical to :meth:`harness_config` except that ``seed`` is taken
-        from :attr:`holdout_base_seed`.  This swaps the SHA-256 instance
-        stream wholesale, giving the hold-out a genuinely independent set
-        of randomized problems.
+        either from the explicit ``base_seed`` argument (used by the
+        multi-seed path) or from :attr:`holdout_base_seed` when not
+        provided.  This swaps the SHA-256 instance stream wholesale,
+        giving the hold-out a genuinely independent set of randomized
+        problems.
         """
         return HarnessConfig(
             mode=self.mode,
             budget=self.budget,
             reps=self.reps,
-            seed=self.holdout_base_seed,
+            seed=self.holdout_base_seed if base_seed is None else int(base_seed),
             strategies=self.strategy_names,
             timeout_per_run=self.timeout_per_run,
             randomize=self.randomize,
             randomize_iteration=iteration_id,
             strategies_override=strategies_override,
         )
+
+    def resolved_holdout_seeds(self) -> Tuple[int, ...]:
+        """Effective tuple of hold-out base seeds.
+
+        Multi-seed (:attr:`holdout_base_seeds`) wins when set so callers
+        opting into the list don't have to also clear the scalar.  Otherwise
+        the scalar :attr:`holdout_base_seed` is promoted to a 1-tuple when
+        non-zero, or the empty tuple when both knobs are at their defaults
+        (= hold-out disabled).
+        """
+        if self.holdout_base_seeds:
+            return self.holdout_base_seeds
+        if self.holdout_base_seed != 0:
+            return (int(self.holdout_base_seed),)
+        return ()
 
 
 @dataclass
@@ -2084,13 +2151,18 @@ class SelfImprover:
         # the loop never produced a baseline measurement, or when the
         # battery is non-randomized (in which case a different base_seed
         # would not change the instances and the check is meaningless).
+        # When multiple hold-out seeds are configured we write one
+        # :class:`LoopHoldoutRecord` per seed so an auditor can inspect
+        # per-seed generalisation; aggregation across seeds is left to
+        # the CLI summary path.
         if self._holdout_enabled() and len(records) > 0:
-            holdout_record = self._run_holdout(ladder, verbose)
-            if holdout_record is not None:
-                holdout_records.append(holdout_record)
-                ledger.write(holdout_record)
-                if verbose:
-                    self._print_holdout(holdout_record)
+            for ho_seed in self.config.resolved_holdout_seeds():
+                holdout_record = self._run_holdout(ladder, ho_seed, verbose)
+                if holdout_record is not None:
+                    holdout_records.append(holdout_record)
+                    ledger.write(holdout_record)
+                    if verbose:
+                        self._print_holdout(holdout_record)
 
         return records, guard_records, holdout_records
 
@@ -2293,13 +2365,15 @@ class SelfImprover:
     def _holdout_enabled(self) -> bool:
         """Return True iff the hold-out validation is configured to run.
 
-        Three knobs gate this: an independent ``base_seed``, a positive
+        Three knobs gate this: at least one independent ``base_seed``
+        (via the scalar :attr:`LoopConfig.holdout_base_seed` or the
+        list-typed :attr:`LoopConfig.holdout_base_seeds`), a positive
         iteration count, and the randomized battery itself — without
         randomization a different ``base_seed`` does not produce
         different instances and the check would be vacuous.
         """
         return (
-            int(self.config.holdout_base_seed) != 0
+            len(self.config.resolved_holdout_seeds()) > 0
             and int(self.config.holdout_iterations) > 0
             and bool(self.config.randomize)
         )
@@ -2308,18 +2382,20 @@ class SelfImprover:
         self,
         specs: List[StrategySpec],
         iteration_id: int,
+        base_seed: int,
         label: str,
         verbose: bool,
     ) -> HarnessResult:
-        """Single hold-out measurement on the independent base_seed."""
-        hc = self.config.holdout_harness_config(specs, iteration_id)
+        """Single hold-out measurement on an independent ``base_seed``."""
+        hc = self.config.holdout_harness_config(specs, iteration_id, base_seed=base_seed)
         if verbose:
-            print(f"[self_improve] hold-out measuring {label} at iter_id={iteration_id}")
+            print(f"[self_improve] hold-out measuring {label} at iter_id={iteration_id} base_seed={base_seed}")
         return self._harness_factory(hc).run(verbose=False)
 
     def _run_holdout(
         self,
         ladder: List[LadderEntry],
+        base_seed: int,
         verbose: bool,
     ) -> Optional["LoopHoldoutRecord"]:
         """Re-measure seed and top of the ladder on an independent base_seed.
@@ -2330,6 +2406,11 @@ class SelfImprover:
         ``overfit`` flag is set when the on-hold-out improvement gap
         falls more than :attr:`LoopConfig.holdout_eps_overfit` short of
         the on-training gap.
+
+        ``base_seed`` is the per-call hold-out seed — when only the
+        scalar :attr:`LoopConfig.holdout_base_seed` is set this is that
+        value, otherwise it cycles through
+        :attr:`LoopConfig.holdout_base_seeds`.
         """
         if not ladder:
             return None
@@ -2346,12 +2427,12 @@ class SelfImprover:
 
         for k in range(n_iters):
             iter_id = offset + k
-            seed_result = self._measure_holdout(seed_entry.specs, iter_id, "seed", verbose)
+            seed_result = self._measure_holdout(seed_entry.specs, iter_id, base_seed, "seed", verbose)
             seed_scores.append(float(seed_result.composite_score))
             if seed_only:
                 top_scores.append(seed_scores[-1])
             else:
-                top_result = self._measure_holdout(top_entry.specs, iter_id, "top", verbose)
+                top_result = self._measure_holdout(top_entry.specs, iter_id, base_seed, "top", verbose)
                 top_scores.append(float(top_result.composite_score))
 
         seed_holdout = float(np.mean(seed_scores)) if seed_scores else 0.0
@@ -2395,7 +2476,7 @@ class SelfImprover:
         return LoopHoldoutRecord(
             timestamp=datetime.now(tz=timezone.utc).isoformat(),
             duration_seconds=time.time() - start,
-            holdout_base_seed=int(self.config.holdout_base_seed),
+            holdout_base_seed=int(base_seed),
             holdout_iterations=n_iters,
             holdout_iteration_offset=offset,
             seed_holdout_score=seed_holdout,

@@ -918,6 +918,74 @@ family; the hold-out runs once at the end and catches overfit to the
 training base_seed family itself.  Together they cover the two main
 overfitting modes the loop can suffer from.
 
+Multi-seed hold-out
+^^^^^^^^^^^^^^^^^^^
+
+The single-base-seed hold-out described above reduces the entire
+generalisation question to one independent draw.  When a ladder
+overfits in a subtle way — for example, the accepted mutation
+exploits a quirk that happens to repeat across the chosen hold-out
+seed — that one draw can miss it.
+
+The list-typed
+:attr:`~panobbgo.self_improve.LoopConfig.holdout_base_seeds` knob
+trades that single point estimate for a worst-case estimate over
+several independent SHA-256 streams.  At the end of the loop, one
+:class:`~panobbgo.self_improve.LoopHoldoutRecord` is written per seed
+in the list.  The CLI then aggregates:
+
+* **overfit** ⟺ ``any(record.overfit for record in records)``
+* **worst drift** is the smallest (most negative) ``drift`` across
+  seeds.
+
+This is strictly more conservative than the single-seed check: one
+bad seed flags the ladder, even when the average drift across seeds
+is comfortably positive.  Cost scales linearly with the number of
+seeds (each seed adds ``2 × holdout_iterations`` harness runs at the
+end of the loop), still small relative to a typical training-loop
+budget.
+
+When both ``holdout_base_seed`` (scalar) and ``holdout_base_seeds``
+(list) are configured, the list wins and the scalar is silently
+ignored — the list is the "do exactly this" override.
+
+Validation rules:
+
+* Every list entry must be non-zero (``0`` is the disable sentinel).
+* Every list entry must differ from
+  :attr:`~panobbgo.self_improve.LoopConfig.base_seed`.
+* List entries must be distinct (duplicates would re-measure the
+  same stream).
+
+CLI:
+
+.. code-block:: bash
+
+   # 3-seed hold-out: worst drift across 1234 / 5678 / 9012 is the
+   # number the CLI reports; overfit flags if any seed regresses.
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --mode standard --holdout-base-seeds 1234,5678,9012 \
+       --fail-on-overfit
+
+Programmatic use:
+
+.. code-block:: python
+
+   cfg = LoopConfig(
+       iterations=50,
+       mode="standard",
+       holdout_base_seeds=(1234, 5678, 9012),
+       holdout_iterations=5,
+   )
+   iter_records, guard_records, holdout_records = (
+       SelfImprover(cfg).run_full()
+   )
+   any_overfit = any(r.overfit for r in holdout_records)
+   worst_drift = min(r.drift for r in holdout_records)
+   if any_overfit:
+       print(f"WARNING: ladder overfits at least one hold-out seed"
+             f" (worst drift={worst_drift:+.4f})")
+
 
 Extending the harness
 ---------------------

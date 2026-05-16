@@ -131,7 +131,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
 <li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
-<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a></li>
+<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
+<li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
@@ -1101,6 +1104,67 @@ catches drift between iterations within the training base_seed
 family; the hold-out runs once at the end and catches overfit to the
 training base_seed family itself.  Together they cover the two main
 overfitting modes the loop can suffer from.</p>
+<section id="multi-seed-hold-out">
+<h4>Multi-seed hold-out<a class="headerlink" href="#multi-seed-hold-out" title="Link to this heading">¶</a></h4>
+<p>The single-base-seed hold-out described above reduces the entire
+generalisation question to one independent draw.  When a ladder
+overfits in a subtle way — for example, the accepted mutation
+exploits a quirk that happens to repeat across the chosen hold-out
+seed — that one draw can miss it.</p>
+<p>The list-typed
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">holdout_base_seeds</span></code> knob
+trades that single point estimate for a worst-case estimate over
+several independent SHA-256 streams.  At the end of the loop, one
+<code class="xref py py-class docutils literal notranslate"><span class="pre">LoopHoldoutRecord</span></code> is written per seed
+in the list.  The CLI then aggregates:</p>
+<ul class="simple">
+<li><p><strong>overfit</strong> ⟺ <code class="docutils literal notranslate"><span class="pre">any(record.overfit</span> <span class="pre">for</span> <span class="pre">record</span> <span class="pre">in</span> <span class="pre">records)</span></code></p></li>
+<li><p><strong>worst drift</strong> is the smallest (most negative) <code class="docutils literal notranslate"><span class="pre">drift</span></code> across
+seeds.</p></li>
+</ul>
+<p>This is strictly more conservative than the single-seed check: one
+bad seed flags the ladder, even when the average drift across seeds
+is comfortably positive.  Cost scales linearly with the number of
+seeds (each seed adds <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">×</span> <span class="pre">holdout_iterations</span></code> harness runs at the
+end of the loop), still small relative to a typical training-loop
+budget.</p>
+<p>When both <code class="docutils literal notranslate"><span class="pre">holdout_base_seed</span></code> (scalar) and <code class="docutils literal notranslate"><span class="pre">holdout_base_seeds</span></code>
+(list) are configured, the list wins and the scalar is silently
+ignored — the list is the “do exactly this” override.</p>
+<p>Validation rules:</p>
+<ul class="simple">
+<li><p>Every list entry must be non-zero (<code class="docutils literal notranslate"><span class="pre">0</span></code> is the disable sentinel).</p></li>
+<li><p>Every list entry must differ from
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">base_seed</span></code>.</p></li>
+<li><p>List entries must be distinct (duplicates would re-measure the
+same stream).</p></li>
+</ul>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># 3-seed hold-out: worst drift across 1234 / 5678 / 9012 is the</span>
+</span><span data-line="2"><span class="c1"># number the CLI reports; overfit flags if any seed regresses.</span>
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--mode<span class="w"> </span>standard<span class="w"> </span>--holdout-base-seeds<span class="w"> </span><span class="m">1234</span>,5678,9012<span class="w"> </span><span class="se">\</span>
+</span><span data-line="5"><span class="w">    </span>--fail-on-overfit
+</span></pre></div>
+</div>
+<p>Programmatic use:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">cfg</span> <span class="o">=</span> <span class="n">LoopConfig</span><span class="p">(</span>
+</span><span data-line="2">    <span class="n">iterations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">holdout_base_seeds</span><span class="o">=</span><span class="p">(</span><span class="mi">1234</span><span class="p">,</span> <span class="mi">5678</span><span class="p">,</span> <span class="mi">9012</span><span class="p">),</span>
+</span><span data-line="5">    <span class="n">holdout_iterations</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span data-line="6"><span class="p">)</span>
+</span><span data-line="7"><span class="n">iter_records</span><span class="p">,</span> <span class="n">guard_records</span><span class="p">,</span> <span class="n">holdout_records</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="8">    <span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span><span class="o">.</span><span class="n">run_full</span><span class="p">()</span>
+</span><span data-line="9"><span class="p">)</span>
+</span><span data-line="10"><span class="n">any_overfit</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">overfit</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">holdout_records</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">worst_drift</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">drift</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">holdout_records</span><span class="p">)</span>
+</span><span data-line="12"><span class="k">if</span> <span class="n">any_overfit</span><span class="p">:</span>
+</span><span data-line="13">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: ladder overfits at least one hold-out seed&quot;</span>
+</span><span data-line="14">          <span class="sa">f</span><span class="s2">&quot; (worst drift=</span><span class="si">{</span><span class="n">worst_drift</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
 </section>
 </section>
 <section id="extending-the-harness">

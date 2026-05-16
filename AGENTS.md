@@ -249,7 +249,13 @@ The harness is the measurement substrate for an autonomous
     drawn from a completely independent ``base_seed`` SHA-256 stream;
     a shrinking ``top - seed`` gap (``drift < -eps_overfit``) flags
     overfit to the training base_seed family — the failure mode the
-    anti-cherry-pick guard cannot see.
+    anti-cherry-pick guard cannot see.  Multi-seed hold-out
+    (**shipped 2026-05-16**) extends this with
+    `LoopConfig.holdout_base_seeds` (list-typed) and
+    `--holdout-base-seeds 1234,5678,9012`: one record per seed is
+    written and the CLI aggregates with worst-case drift /
+    any-overfit semantics — a more robust generalisation check
+    than a single independent draw.
 *   Categorical mutation rule — **shipped**, see
     `panobbgo.self_improve.MutationRule` with
     `kind="categorical_choice"`.  Picks uniformly from a discrete
@@ -284,6 +290,13 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # fail with exit code 3 if the ladder is flagged as overfit
 uv run python scripts/self_improve.py run --iterations 100 \
     --mode standard --holdout-base-seed 1234 --fail-on-overfit
+
+# Multi-seed hold-out: more robust drift estimate over several
+# independent SHA-256 streams.  Worst-case drift across seeds is
+# reported; --fail-on-overfit fires if any single seed flags overfit.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --mode standard --holdout-base-seeds 1234,5678,9012 \
+    --fail-on-overfit
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

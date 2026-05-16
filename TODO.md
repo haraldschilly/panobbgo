@@ -2,6 +2,80 @@
 
 ## Recent Improvements (continued)
 
+### Multi-Seed Hold-Out Validation (2026-05-16)
+- [x] **New `panobbgo.self_improve.LoopConfig.holdout_base_seeds`** —
+      list-typed sibling of the scalar `holdout_base_seed` shipped
+      2026-05-08; closes the *Multi-seed hold-out for robust drift
+      estimation* follow-up in `planning/SELF_IMPROVEMENT_LOOP.md`.
+      At the end of every loop run, one `LoopHoldoutRecord` is
+      written per seed in the list and the CLI aggregates with
+      worst-case drift (`min`) and any-overfit (`any`) semantics —
+      strictly more conservative than the single-seed check.
+  - **Why it matters.**  The single-seed hold-out reduces the
+    entire generalisation question to one independent SHA-256
+    draw.  When a ladder overfits in a subtle way — for example,
+    exploiting a quirk that happens to repeat across the chosen
+    hold-out seed — that one draw can miss it.  Aggregating over
+    several seeds catches the failure mode the single seed
+    misses while remaining cheap relative to the training cost.
+- [x] **`LoopConfig.resolved_holdout_seeds()`** helper — single
+      branch that returns the effective seed tuple (list when
+      non-empty, else scalar promoted to a 1-tuple, else `()` =
+      disabled).  Keeps the multi-seed loop driver simple while
+      preserving back-compat for scalar callers.
+- [x] **`LoopConfig.holdout_harness_config(..., base_seed=None)`** —
+      optional `base_seed` argument drives `HarnessConfig.seed`
+      per call rather than reading the scalar attribute.  Without
+      this wiring, the multi-seed loop would still measure against
+      the scalar.
+- [x] **`SelfImprover._run_holdout(ladder, base_seed, verbose)`**
+      now takes the seed as a parameter; the main loop iterates
+      over `resolved_holdout_seeds()` and writes one record per
+      seed to the ledger.  `record_type='holdout'` is unchanged, so
+      existing ledger consumers see N records back-to-back instead
+      of one.
+- [x] **CLI flag `--holdout-base-seeds`** on
+      `scripts/self_improve.py run`.  Accepts a comma-separated
+      list (e.g. `1234,5678,9012`); the parser tolerates whitespace
+      around entries and trailing commas, and rejects non-integer
+      tokens with a clear error.  The end-of-run summary line and
+      the `summary` subcommand both report the aggregated verdict:
+      `OVERFIT` if any record flagged overfit, worst (most negative)
+      drift across seeds.
+- [x] **Validation rules** — `LoopConfig.__post_init__` rejects
+      `0` entries (the disable sentinel), collision with
+      `base_seed`, and duplicates in the list.  Each rule has a
+      distinct error message.  Normalises `List[int]` input to
+      `Tuple[int, ...]` for hash / equality stability.
+- [x] **25 new tests in `tests/test_self_improve.py`** (total 147):
+      - **`TestLoopConfigMultiSeedHoldout`** — default empty tuple,
+        list/tuple normalization, zero entry rejected, collision
+        with base_seed rejected, duplicates rejected,
+        `resolved_holdout_seeds()` precedence (list > scalar >
+        empty), `holdout_harness_config()` explicit-seed override
+        and default-to-scalar.
+      - **`TestSelfImproverMultiSeedHoldout`** — one record per
+        seed in configured order, per-seed harness seeds reach
+        the factory, overfit flagged independently per seed,
+        list-wins-over-scalar precedence, all records written to
+        JSONL ledger, scalar back-compat path unaffected, disable
+        when both knobs unset.
+      - **`TestCliSeedListParser`** — empty / whitespace / single
+        / multiple / whitespace-tolerant / negative-accepted /
+        non-integer-rejected / trailing-comma-skipped paths.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §2 missing-pieces list
+    extended; Phase 6 checklist updated; new §13 dated entry; the
+    *Multi-seed hold-out* follow-up promoted from "open" to
+    "shipped".
+  - `doc/source/guide_benchmarking.rst`: new "Multi-seed hold-out"
+    subsection with the aggregation rule, validation rules, CLI
+    example, and programmatic example.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    multi-seed hold-out.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    multi-seed feature with a run-the-loop bash example.
+
 ### Categorical Mutation Rule (`categorical_choice`) (2026-05-13)
 - [x] **New `MutationRule(kind="categorical_choice", choices=...)`**
       in `panobbgo/self_improve.py`.  Fourth mutation kind alongside

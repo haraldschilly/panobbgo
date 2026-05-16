@@ -70,6 +70,17 @@ Two subcommands:
         uv run python scripts/self_improve.py run --iterations 50 \\
             --holdout-base-seed 1234 --fail-on-overfit
 
+``--holdout-base-seeds``
+    Multi-seed variant of ``--holdout-base-seed``.  Pass a comma-separated
+    list of integers; one :class:`LoopHoldoutRecord` is written per seed
+    and the CLI prints a single aggregated verdict (``OVERFIT`` if any
+    seed flagged overfit; worst drift across seeds).  Strictly more
+    robust than the single-seed check at the cost of one extra
+    ``2 × holdout_iterations`` runs per added seed::
+
+        uv run python scripts/self_improve.py run --iterations 50 \\
+            --holdout-base-seeds 1234,5678,9012 --fail-on-overfit
+
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
 exits and the ledger is preserved.
@@ -266,6 +277,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Independent base_seed for end-of-loop hold-out validation."
             " Default 0 disables hold-out.  Must differ from --base-seed."
+            " Ignored when --holdout-base-seeds is set."
+        ),
+    )
+    run_p.add_argument(
+        "--holdout-base-seeds",
+        dest="holdout_base_seeds",
+        type=str,
+        default="",
+        metavar="S1,S2,...",
+        help=(
+            "Comma-separated list of independent base_seeds for multi-seed"
+            " hold-out validation.  When set, supersedes --holdout-base-seed."
+            " Reduction across seeds: worst (most negative) drift, any overfit."
+            " Empty (default) disables multi-seed hold-out."
+            " Each seed must be non-zero, distinct, and differ from --base-seed."
         ),
     )
     run_p.add_argument(
@@ -311,39 +337,72 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _parse_seed_list(raw: str) -> tuple:
+    """Parse a comma-separated seed list (e.g. ``"1234,5678,9012"``).
+
+    Empty / blank → empty tuple.  Whitespace around entries is tolerated
+    so command-line callers can write ``"1234, 5678"`` without quoting
+    surprises.  Non-integer entries raise ``ValueError`` with the
+    offending token for ergonomic error messages.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return ()
+    out = []
+    for piece in s.split(","):
+        token = piece.strip()
+        if not token:
+            continue
+        try:
+            out.append(int(token))
+        except ValueError as e:
+            raise ValueError(f"--holdout-base-seeds: invalid integer {token!r}") from e
+    return tuple(out)
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     from panobbgo.self_improve import LoopConfig, SelfImprover, default_catalog, default_structural_catalog
 
     catalog = default_structural_catalog() if args.structural else default_catalog()
-    cfg = LoopConfig(
-        iterations=args.iterations,
-        base_seed=args.base_seed,
-        mode=args.mode,
-        reps=args.reps,
-        budget=args.budget,
-        eps_accept=args.eps_accept,
-        eps_regress=args.eps_regress,
-        n_boot=args.n_boot,
-        confidence=args.confidence,
-        stat_seed=args.stat_seed,
-        mutation_seed=args.mutation_seed,
-        strategy_names=args.strategies,
-        ledger_path=args.ledger,
-        stop_sentinel_path=args.stop_sentinel,
-        timeout_per_run=args.timeout,
-        randomize=args.randomize,
-        guard_interval=args.guard_interval,
-        guard_eps_ladder=args.guard_eps_ladder,
-        guard_iteration_offset=args.guard_iteration_offset,
-        adaptive_sampling=args.adaptive_sampling,
-        adaptive_prior_alpha=args.adaptive_prior_alpha,
-        adaptive_prior_beta=args.adaptive_prior_beta,
-        adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
-        holdout_base_seed=args.holdout_base_seed,
-        holdout_iterations=args.holdout_iterations,
-        holdout_iteration_offset=args.holdout_iteration_offset,
-        holdout_eps_overfit=args.holdout_eps_overfit,
-    )
+    try:
+        holdout_seeds = _parse_seed_list(args.holdout_base_seeds)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    try:
+        cfg = LoopConfig(
+            iterations=args.iterations,
+            base_seed=args.base_seed,
+            mode=args.mode,
+            reps=args.reps,
+            budget=args.budget,
+            eps_accept=args.eps_accept,
+            eps_regress=args.eps_regress,
+            n_boot=args.n_boot,
+            confidence=args.confidence,
+            stat_seed=args.stat_seed,
+            mutation_seed=args.mutation_seed,
+            strategy_names=args.strategies,
+            ledger_path=args.ledger,
+            stop_sentinel_path=args.stop_sentinel,
+            timeout_per_run=args.timeout,
+            randomize=args.randomize,
+            guard_interval=args.guard_interval,
+            guard_eps_ladder=args.guard_eps_ladder,
+            guard_iteration_offset=args.guard_iteration_offset,
+            adaptive_sampling=args.adaptive_sampling,
+            adaptive_prior_alpha=args.adaptive_prior_alpha,
+            adaptive_prior_beta=args.adaptive_prior_beta,
+            adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
+            holdout_base_seed=args.holdout_base_seed,
+            holdout_base_seeds=holdout_seeds,
+            holdout_iterations=args.holdout_iterations,
+            holdout_iteration_offset=args.holdout_iteration_offset,
+            holdout_eps_overfit=args.holdout_eps_overfit,
+        )
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     improver = SelfImprover(cfg, catalog=catalog)
     records, _, holdout_records = improver.run_full(verbose=not args.quiet)
 
@@ -360,14 +419,29 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 cls, param, kind = s.rule_key
                 print(f"  {cls}.{param}[{kind}] -> {s.n_accepts}/{s.n_attempts} ({s.accept_rate:.0%})")
     if holdout_records:
-        ho = holdout_records[-1]
-        verdict = "OVERFIT" if ho.overfit else "OK"
-        print(
-            f"[self_improve] hold-out: {verdict}  drift={ho.drift:+.4f}  "
-            f"holdout_gap={ho.holdout_delta:+.4f}  training_gap={ho.training_delta:+.4f}  "
-            f"(base_seed={ho.holdout_base_seed}, n={ho.holdout_iterations})"
-        )
-        if ho.overfit and args.fail_on_overfit:
+        any_overfit = any(r.overfit for r in holdout_records)
+        # Worst-case generalisation: the most negative drift across seeds
+        # is the one a reviewer cares about — a positive aggregate hides
+        # a single bad seed.  Match the planning doc's `min` reduction.
+        worst = min(holdout_records, key=lambda r: r.drift)
+        if len(holdout_records) == 1:
+            ho = holdout_records[0]
+            verdict = "OVERFIT" if ho.overfit else "OK"
+            print(
+                f"[self_improve] hold-out: {verdict}  drift={ho.drift:+.4f}  "
+                f"holdout_gap={ho.holdout_delta:+.4f}  training_gap={ho.training_delta:+.4f}  "
+                f"(base_seed={ho.holdout_base_seed}, n={ho.holdout_iterations})"
+            )
+        else:
+            verdict = "OVERFIT" if any_overfit else "OK"
+            seeds = ",".join(str(r.holdout_base_seed) for r in holdout_records)
+            n_overfit = sum(1 for r in holdout_records if r.overfit)
+            print(
+                f"[self_improve] hold-out aggregate: {verdict}  worst_drift={worst.drift:+.4f}  "
+                f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.holdout_base_seed}  "
+                f"(seeds=[{seeds}], n={worst.holdout_iterations})"
+            )
+        if any_overfit and args.fail_on_overfit:
             return 3
     return 0
 
@@ -429,6 +503,10 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"new top iter={r.get('rolled_back_to_iteration')}"
             )
     if holdout_records:
+        # Multi-seed hold-out lands as multiple records back-to-back per
+        # loop run (one per seed).  Reduce to the worst (most negative)
+        # drift so the summary surfaces the failure mode a single-seed
+        # check would have missed.
         print("Hold-out validation:")
         for r in holdout_records:
             verdict = "OVERFIT" if r.get("overfit") else "OK"
@@ -438,6 +516,14 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"training_gap={r.get('training_delta'):+.4f}  "
                 f"top_iter={r.get('top_iteration')}  "
                 f"(base_seed={r.get('holdout_base_seed')}, n={r.get('holdout_iterations')})"
+            )
+        if len(holdout_records) > 1:
+            worst = min(holdout_records, key=lambda r: float(r.get("drift", 0.0)))
+            n_overfit = sum(1 for r in holdout_records if r.get("overfit"))
+            agg = "OVERFIT" if n_overfit else "OK"
+            print(
+                f"  --> aggregate: {agg}  worst_drift={float(worst.get('drift', 0.0)):+.4f}  "
+                f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.get('holdout_base_seed')}"
             )
     return 0
 

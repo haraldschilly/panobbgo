@@ -2529,3 +2529,315 @@ class TestLoopHoldoutRecord:
         parsed = json.loads(s)
         assert parsed["record_type"] == "holdout"
         assert parsed["holdout_base_seed"] == 99
+
+
+# ===========================================================================
+# Multi-seed hold-out (planning/SELF_IMPROVEMENT_LOOP.md §13 follow-up)
+# ===========================================================================
+
+
+class TestLoopConfigMultiSeedHoldout:
+    """Validation of the list-typed ``holdout_base_seeds`` knob.
+
+    The single-seed scalar landed in 2026-05-08; the list version turns
+    a single drift draw into a worst-case estimate over multiple
+    independent SHA-256 streams.  Validation rules mirror the scalar
+    case (no collision with base_seed) plus list-only constraints
+    (no zero entries, no duplicates).
+    """
+
+    def test_default_is_empty_tuple(self):
+        cfg = LoopConfig()
+        assert cfg.holdout_base_seeds == ()
+
+    def test_accepts_list_and_normalizes_to_tuple(self):
+        cfg = LoopConfig(holdout_base_seeds=[1, 2, 3])
+        # The dataclass stores tuples for hashability and equality stability.
+        assert isinstance(cfg.holdout_base_seeds, tuple)
+        assert cfg.holdout_base_seeds == (1, 2, 3)
+
+    def test_rejects_zero_entry(self):
+        # 0 is the disable sentinel — accepting it here would silently
+        # produce a no-op call against the *training* base seed family.
+        with pytest.raises(ValueError, match="non-zero"):
+            LoopConfig(holdout_base_seeds=(1234, 0, 5678))
+
+    def test_rejects_collision_with_base_seed(self):
+        with pytest.raises(ValueError, match="must differ from base_seed"):
+            LoopConfig(base_seed=42, holdout_base_seeds=(99, 42, 77))
+
+    def test_rejects_duplicates(self):
+        with pytest.raises(ValueError, match="distinct"):
+            LoopConfig(holdout_base_seeds=(1234, 5678, 1234))
+
+    def test_resolved_seeds_prefers_list_over_scalar(self):
+        """When both knobs are set, the list takes precedence."""
+        cfg = LoopConfig(holdout_base_seed=99, holdout_base_seeds=(1234, 5678))
+        assert cfg.resolved_holdout_seeds() == (1234, 5678)
+
+    def test_resolved_seeds_falls_back_to_scalar(self):
+        """Scalar promoted to a 1-tuple for the multi-seed code path."""
+        cfg = LoopConfig(holdout_base_seed=99)
+        assert cfg.resolved_holdout_seeds() == (99,)
+
+    def test_resolved_seeds_empty_when_both_unset(self):
+        cfg = LoopConfig()
+        assert cfg.resolved_holdout_seeds() == ()
+
+    def test_holdout_harness_config_accepts_explicit_seed(self):
+        """The explicit ``base_seed`` argument overrides ``holdout_base_seed``.
+
+        This is the wiring the multi-seed loop relies on — without it,
+        every per-seed iteration would still measure against the
+        scalar attribute.
+        """
+        cfg = LoopConfig(base_seed=42, holdout_base_seed=99)
+        hc = cfg.holdout_harness_config([], iteration_id=3, base_seed=5678)
+        assert hc.seed == 5678
+        assert hc.randomize_iteration == 3
+
+    def test_holdout_harness_config_defaults_to_scalar(self):
+        """Omitting ``base_seed`` keeps the single-seed back-compat path."""
+        cfg = LoopConfig(base_seed=42, holdout_base_seed=99)
+        hc = cfg.holdout_harness_config([], iteration_id=3)
+        assert hc.seed == 99
+
+
+class TestSelfImproverMultiSeedHoldout:
+    """End-to-end behaviour with ``holdout_base_seeds`` set."""
+
+    def test_writes_one_record_per_seed(self, tmp_path):
+        """Each seed produces its own LoopHoldoutRecord, in order."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seeds=(99, 101, 103),
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert len(holdout_records) == 3
+        # Records preserve seed order so a ledger audit lines up with
+        # the configured list.
+        assert [r.holdout_base_seed for r in holdout_records] == [99, 101, 103]
+
+    def test_uses_each_seed_for_measurement(self, tmp_path):
+        """Hold-out measurements must use the per-seed base_seed.
+
+        The call log proves we actually drew from the configured
+        SHA-256 streams rather than reusing the scalar or the
+        training seed.
+        """
+        call_log: List[Dict[str, Any]] = []
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seeds=(1234, 5678),
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5, call_log=call_log)
+        si.run_full()
+
+        seeds_seen = {c["seed"] for c in call_log}
+        # 42 = training, 1234/5678 = hold-out streams.  No leakage of
+        # 99 or 0 anywhere.
+        assert 42 in seeds_seen
+        assert 1234 in seeds_seen
+        assert 5678 in seeds_seen
+        assert 0 not in seeds_seen
+        assert 99 not in seeds_seen
+
+    def test_overfit_on_one_seed_only(self, tmp_path):
+        """Per-record overfit is computed independently per seed.
+
+        Setup: seed 99 collapses (drift = -0.5), seed 7777 holds
+        (drift ≈ 0).  We expect record[0].overfit == True and
+        record[1].overfit == False — the aggregation across seeds is
+        the CLI's job, not the loop's.
+        """
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            if config.seed == 99:
+                return 0.3  # collapsed gap on seed 99
+            if config.seed == 7777:
+                # Hold-out preserves the gap.  Alternate seed/top eval.
+                ho = counter.get("ho2", 0)
+                counter["ho2"] = ho + 1
+                return 0.3 if ho % 2 == 0 else 0.78
+            n = counter["n"]
+            counter["n"] += 1
+            # Training alternation: baseline (0.3) / candidate (0.8).
+            return 0.3 if n % 2 == 0 else 0.8
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seeds=(99, 7777),
+            holdout_iterations=4,
+            holdout_eps_overfit=0.05,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        iter_records, _, holdout_records = si.run_full()
+        assert iter_records[0].accepted is True
+        assert len(holdout_records) == 2
+        # Seed 99: collapsed -> overfit; seed 7777: held -> not overfit.
+        assert holdout_records[0].holdout_base_seed == 99
+        assert holdout_records[0].overfit is True
+        assert holdout_records[1].holdout_base_seed == 7777
+        assert holdout_records[1].overfit is False
+
+    def test_list_takes_precedence_over_scalar(self, tmp_path):
+        """If both scalar and list are set, only the list seeds are used."""
+        call_log: List[Dict[str, Any]] = []
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_base_seeds=(1234, 5678),
+            holdout_iterations=1,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5, call_log=call_log)
+        si.run_full()
+        seeds_seen = {c["seed"] for c in call_log}
+        # 99 (the scalar) must NOT appear when the list is set.
+        assert 99 not in seeds_seen
+        assert 1234 in seeds_seen
+        assert 5678 in seeds_seen
+
+    def test_writes_all_records_to_ledger(self, tmp_path):
+        """All per-seed records land in the JSONL ledger with type=holdout."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seeds=(11, 22, 33),
+            holdout_iterations=1,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        si.run_full()
+
+        records = load_ledger(cfg.ledger_path)
+        holdout_rows = [r for r in records if r.get("record_type") == "holdout"]
+        assert len(holdout_rows) == 3
+        assert [r["holdout_base_seed"] for r in holdout_rows] == [11, 22, 33]
+
+    def test_scalar_path_unaffected(self, tmp_path):
+        """Existing scalar callers see exactly one record (back-compat)."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,  # scalar only
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert len(holdout_records) == 1
+        assert holdout_records[0].holdout_base_seed == 99
+
+    def test_disabled_when_only_zero_scalar(self, tmp_path):
+        """``holdout_base_seed=0`` + empty list = hold-out disabled."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            # both knobs at default => disabled
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert holdout_records == []
+
+
+class TestCliSeedListParser:
+    """Tests for ``scripts/self_improve.py:_parse_seed_list``.
+
+    The parser is the only CLI-side surface the user touches for
+    multi-seed hold-out; the loop driver receives a tuple either way.
+    """
+
+    @staticmethod
+    def _parser():
+        import sys
+
+        sys.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+
+            return cli._parse_seed_list
+        finally:
+            # Don't leave the import path polluted for downstream tests.
+            sys.path = [p for p in sys.path if not p.endswith("/scripts")]
+
+    def test_empty_string_returns_empty_tuple(self):
+        parse = self._parser()
+        assert parse("") == ()
+
+    def test_whitespace_only_returns_empty_tuple(self):
+        parse = self._parser()
+        assert parse("   ") == ()
+
+    def test_single_int(self):
+        parse = self._parser()
+        assert parse("1234") == (1234,)
+
+    def test_multiple_ints(self):
+        parse = self._parser()
+        assert parse("1,2,3") == (1, 2, 3)
+
+    def test_tolerates_whitespace_around_entries(self):
+        # `--holdout-base-seeds "1234, 5678"` should work without
+        # forcing the user to remember to omit the space.
+        parse = self._parser()
+        assert parse("1234, 5678 , 9012") == (1234, 5678, 9012)
+
+    def test_negative_int_accepted(self):
+        # The validator on LoopConfig rejects 0 and duplicates; the
+        # parser itself stays tolerant of negative ints so the loop
+        # config gets to emit a clearer error.
+        parse = self._parser()
+        assert parse("-1,2") == (-1, 2)
+
+    def test_rejects_non_integer(self):
+        parse = self._parser()
+        with pytest.raises(ValueError, match="invalid integer"):
+            parse("1,foo,3")
+
+    def test_skips_empty_entries_from_trailing_comma(self):
+        parse = self._parser()
+        # Trailing commas are common in copy/paste; quietly tolerate them.
+        assert parse("1,2,3,") == (1, 2, 3)
+        assert parse(",1,2") == (1, 2)

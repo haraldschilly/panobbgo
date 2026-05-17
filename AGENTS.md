@@ -255,7 +255,17 @@ The harness is the measurement substrate for an autonomous
     `--holdout-base-seeds 1234,5678,9012`: one record per seed is
     written and the CLI aggregates with worst-case drift /
     any-overfit semantics — a more robust generalisation check
-    than a single independent draw.
+    than a single independent draw.  Bootstrap-CI aggregation
+    (**shipped 2026-05-17**) layers a statistical test on top:
+    :func:`panobbgo.self_improve.aggregate_holdout_drift` pools
+    per-iteration paired drifts across every hold-out record and
+    emits a CI on the mean drift; the `--fail-on-overfit-ci` CLI
+    flag fires iff the CI's upper bound falls below
+    ``-holdout_eps_overfit`` — a stricter, less-noise-reactive
+    sibling of `--fail-on-overfit` that pairs with the
+    `statistical_accept` rule already in `panobbgo.harness`.  See
+    `doc/source/guide_benchmarking.rst` "Bootstrap CI on the
+    aggregated drift".
 *   Categorical mutation rule — **shipped**, see
     `panobbgo.self_improve.MutationRule` with
     `kind="categorical_choice"`.  Picks uniformly from a discrete
@@ -297,6 +307,13 @@ uv run python scripts/self_improve.py run --iterations 100 \
 uv run python scripts/self_improve.py run --iterations 100 \
     --mode standard --holdout-base-seeds 1234,5678,9012 \
     --fail-on-overfit
+
+# Bootstrap-CI on the aggregated multi-seed hold-out drift.  Stricter
+# exit rule than --fail-on-overfit: fires only when the CI's upper
+# bound falls below -holdout_eps_overfit at the configured confidence.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --mode standard --holdout-base-seeds 1234,5678,9012 \
+    --fail-on-overfit-ci --holdout-ci-confidence 0.95
 
 # Inspect the ledger
 uv run python scripts/self_improve.py summary

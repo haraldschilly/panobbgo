@@ -2,6 +2,56 @@
 
 ## Recent Improvements (continued)
 
+### Bootstrap CI on Multi-Seed Hold-Out Drift (2026-05-17)
+- [x] **New `panobbgo.self_improve.aggregate_holdout_drift`** —
+      pools per-iteration paired drift samples across every input
+      hold-out record and bootstrap-resamples the mean using the
+      same machinery as `panobbgo.harness.statistical_accept`.
+      Closes the *Bootstrap CI on the drift estimate* follow-up
+      listed under the 2026-05-16 multi-seed hold-out in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  Returns a
+      `HoldoutDriftAggregate` carrying `mean_drift`, `ci_low`,
+      `ci_high`, `worst_drift`/`worst_seed` (preserving the
+      shipped reduction for side-by-side display), `any_overfit` /
+      `overfit_count`, `n_samples`, `n_records`, `confidence`,
+      `eps_overfit`, and `statistically_overfit`.
+- [x] **`LoopHoldoutRecord.seed_iteration_scores` /
+      `top_iteration_scores`** — per-iteration paired composite
+      scores of the seed and top ladder entries on the hold-out
+      instances, persisted alongside the existing aggregate scores.
+      Default empty lists keep every legacy call site / ledger
+      record byte-identical.
+- [x] **CLI flags `--fail-on-overfit-ci`,
+      `--holdout-ci-confidence`, `--holdout-ci-n-boot`** on
+      `scripts/self_improve.py run`.  `--fail-on-overfit-ci` exits
+      with code 3 iff the bootstrap CI's upper bound falls below
+      `-holdout_eps_overfit` (i.e. the bootstrap rules out a drift
+      better than the tolerance at the configured confidence
+      level) — a stricter, less-noise-reactive sibling of
+      `--fail-on-overfit`.
+- [x] **CLI aggregate output** — both `run` and `summary` print
+      the CI line alongside the worst-case reduction, e.g.
+      `[self_improve] hold-out drift CI: OK_CI  mean=-0.0012  CI95%=[-0.0037, +0.0000]`.
+- [x] **Backwards compatibility** — strictly safe.  All 147 prior
+      tests pass unchanged.  Legacy records (without per-iteration
+      lists) fall back to one-sample-per-record automatically
+      inside `aggregate_holdout_drift`; mixed legacy + modern
+      inputs work transparently.  The new CLI flags are all
+      opt-in; existing `--fail-on-overfit` behaviour is unchanged.
+- [x] **20 new tests in `tests/test_self_improve.py`** (total 167):
+      `TestAggregateHoldoutDrift` (15 tests — empty input, per-iter
+      pooling, legacy fallback, mixed records, worst-drift /
+      any-overfit reductions, statistically_overfit semantics on
+      constant-negative and mixed-sign samples, CI widening with
+      confidence, reproducibility under fixed seed, distinct seeds
+      give distinct CIs, eps_overfit override, unequal-length
+      defensive handling, JSON round-trip),
+      `TestLoopHoldoutRecordPerIterScores` (2 tests — default empty
+      lists, to_dict emits the lists), and
+      `TestSelfImproverPersistsPerIterScores` (3 tests — single-seed
+      run populates per-iter lists, multi-seed run keeps lists
+      per-seed, JSONL ledger round-trips them).
+
 ### Multi-Seed Hold-Out Validation (2026-05-16)
 - [x] **New `panobbgo.self_improve.LoopConfig.holdout_base_seeds`** —
       list-typed sibling of the scalar `holdout_base_seed` shipped

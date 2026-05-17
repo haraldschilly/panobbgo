@@ -54,6 +54,7 @@ from panobbgo.harness import (
 )
 from panobbgo.self_improve import (
     AdaptiveMutationSampler,
+    HoldoutDriftAggregate,
     LadderEntry,
     LoopConfig,
     LoopGuardRecord,
@@ -65,6 +66,7 @@ from panobbgo.self_improve import (
     MutationRuleStats,
     SelfImprover,
     StructuralMutationRule,
+    aggregate_holdout_drift,
     apply_mutation,
     default_catalog,
     default_structural_catalog,
@@ -2841,3 +2843,408 @@ class TestCliSeedListParser:
         # Trailing commas are common in copy/paste; quietly tolerate them.
         assert parse("1,2,3,") == (1, 2, 3)
         assert parse(",1,2") == (1, 2)
+
+
+# ===========================================================================
+# Bootstrap-CI aggregation of multi-seed hold-out drift
+# (planning/SELF_IMPROVEMENT_LOOP.md §13 — *Bootstrap CI on the drift
+# estimate* follow-up to the multi-seed hold-out shipped 2026-05-16).
+# ===========================================================================
+
+
+def _make_holdout_record(
+    *,
+    seed: int = 99,
+    drift: float = 0.0,
+    overfit: bool = False,
+    seed_iter_scores: Optional[List[float]] = None,
+    top_iter_scores: Optional[List[float]] = None,
+    training_delta: float = 0.0,
+    eps_overfit: float = 0.05,
+) -> LoopHoldoutRecord:
+    """Build a :class:`LoopHoldoutRecord` for the aggregation tests.
+
+    Defaults to a zero-drift, non-overfit record; pass per-iter score
+    lists to exercise the high-resolution bootstrap path, omit them to
+    exercise the legacy one-sample-per-record fallback.
+    """
+    s_iter = list(seed_iter_scores) if seed_iter_scores is not None else []
+    t_iter = list(top_iter_scores) if top_iter_scores is not None else []
+    return LoopHoldoutRecord(
+        timestamp="2026-05-17T00:00:00+00:00",
+        duration_seconds=1.0,
+        holdout_base_seed=seed,
+        holdout_iterations=max(len(s_iter), 1),
+        holdout_iteration_offset=0,
+        seed_holdout_score=float(np.mean(s_iter)) if s_iter else 0.0,
+        top_holdout_score=float(np.mean(t_iter)) if t_iter else float(training_delta),
+        seed_training_score=0.0,
+        top_training_score=float(training_delta),
+        holdout_delta=(float(np.mean(t_iter)) - float(np.mean(s_iter)))
+        if (s_iter and t_iter)
+        else float(training_delta),
+        training_delta=float(training_delta),
+        drift=float(drift),
+        overfit=bool(overfit),
+        eps_overfit=float(eps_overfit),
+        top_iteration=4,
+        ladder_size=3,
+        base_seed=42,
+        mode="quick",
+        reasons=[],
+        seed_iteration_scores=s_iter,
+        top_iteration_scores=t_iter,
+    )
+
+
+class TestAggregateHoldoutDrift:
+    """Bootstrap-CI aggregation across a list of hold-out records.
+
+    The aggregation closes the §13 *Bootstrap CI on the drift estimate*
+    follow-up — the multi-seed hold-out's worst-case reduction is hard
+    to interpret on a single seed because it confounds noise with real
+    drift, and a single recent ledger showed drift=-0.0074 (well within
+    eps=0.05, but still hard to know whether that is the typical drift
+    or the lucky tail).  Pooling per-iteration paired drifts across
+    seeds and bootstrap-resampling the mean gives a real CI.
+    """
+
+    def test_empty_input_returns_degenerate_aggregate(self):
+        """No records → zero-everything, n_samples=0, not flagged."""
+        agg = aggregate_holdout_drift([])
+        assert agg.mean_drift == 0.0
+        assert agg.ci_low == 0.0
+        assert agg.ci_high == 0.0
+        assert agg.n_samples == 0
+        assert agg.n_records == 0
+        assert agg.any_overfit is False
+        assert agg.statistically_overfit is False
+
+    def test_per_iteration_path_pools_across_records(self):
+        """With per-iter scores, n_samples = records × iterations."""
+        rec_a = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.5, 0.5],
+            top_iter_scores=[0.7, 0.7, 0.7],
+            training_delta=0.2,
+            drift=0.0,
+        )
+        rec_b = _make_holdout_record(
+            seed=101,
+            seed_iter_scores=[0.4, 0.4, 0.4],
+            top_iter_scores=[0.6, 0.6, 0.6],
+            training_delta=0.2,
+            drift=0.0,
+        )
+        agg = aggregate_holdout_drift([rec_a, rec_b])
+        # 2 records × 3 iters = 6 pooled samples, all zero drift.
+        assert agg.n_samples == 6
+        assert agg.n_records == 2
+        assert agg.mean_drift == pytest.approx(0.0)
+        # Constant samples → degenerate CI at the point estimate.
+        assert agg.ci_low == pytest.approx(0.0)
+        assert agg.ci_high == pytest.approx(0.0)
+
+    def test_legacy_record_falls_back_to_point_drift(self):
+        """No per-iter scores → one sample per record from the cached drift."""
+        legacy = _make_holdout_record(seed=99, drift=-0.03, overfit=False)
+        # No seed_iter_scores set → empty lists → fallback.
+        agg = aggregate_holdout_drift([legacy])
+        assert agg.n_samples == 1
+        assert agg.mean_drift == pytest.approx(-0.03)
+        # Single-sample bootstrap collapses to point estimate.
+        assert agg.ci_low == pytest.approx(-0.03)
+        assert agg.ci_high == pytest.approx(-0.03)
+
+    def test_mixed_legacy_and_modern_records(self):
+        """Modern records contribute iters, legacy contribute one point each."""
+        modern = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.5],
+            top_iter_scores=[0.7, 0.7],
+            training_delta=0.2,
+            drift=0.0,
+        )
+        legacy = _make_holdout_record(seed=101, drift=-0.05)
+        agg = aggregate_holdout_drift([modern, legacy])
+        # 2 (modern) + 1 (legacy) = 3 pooled samples.
+        assert agg.n_samples == 3
+        assert agg.n_records == 2
+
+    def test_worst_drift_is_min_across_records(self):
+        """worst_drift / worst_seed mirror the existing `min` reduction."""
+        r1 = _make_holdout_record(seed=1, drift=-0.01)
+        r2 = _make_holdout_record(seed=2, drift=-0.10)  # worst
+        r3 = _make_holdout_record(seed=3, drift=+0.02)
+        agg = aggregate_holdout_drift([r1, r2, r3])
+        assert agg.worst_drift == pytest.approx(-0.10)
+        assert agg.worst_seed == 2
+
+    def test_any_overfit_reduction(self):
+        """any_overfit fires on a single bad record (per-seed semantics)."""
+        good = _make_holdout_record(seed=1, drift=-0.01, overfit=False)
+        bad = _make_holdout_record(seed=2, drift=-0.20, overfit=True)
+        agg = aggregate_holdout_drift([good, bad])
+        assert agg.any_overfit is True
+        assert agg.overfit_count == 1
+
+    def test_no_overfit_when_all_records_clean(self):
+        good_a = _make_holdout_record(seed=1, drift=-0.01, overfit=False)
+        good_b = _make_holdout_record(seed=2, drift=+0.00, overfit=False)
+        agg = aggregate_holdout_drift([good_a, good_b])
+        assert agg.any_overfit is False
+        assert agg.overfit_count == 0
+
+    def test_statistically_overfit_fires_when_ci_excludes_zero_drift(self):
+        """ci_high < -eps_overfit → statistically_overfit True.
+
+        Setup: large constant negative drift across many samples.  The
+        bootstrap CI then collapses far below -eps_overfit and the
+        verdict fires regardless of the per-record overfit flag.
+        """
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5] * 8,
+            top_iter_scores=[0.3] * 8,  # gap -0.2 each iter
+            training_delta=0.3,  # drift = (-0.2) - 0.3 = -0.5 per iter
+            drift=-0.5,
+            overfit=True,
+            eps_overfit=0.05,
+        )
+        agg = aggregate_holdout_drift([rec])
+        # Constant -0.5 samples → CI degenerate at -0.5; well below -0.05.
+        assert agg.mean_drift == pytest.approx(-0.5)
+        assert agg.statistically_overfit is True
+
+    def test_statistically_overfit_silent_when_ci_brackets_zero(self):
+        """Mixed-sign samples → CI brackets zero → not flagged."""
+        rec = _make_holdout_record(
+            seed=99,
+            # Half samples positive, half negative drift.  Mean ≈ 0,
+            # CI brackets 0 — should never trip overfit.
+            seed_iter_scores=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+            top_iter_scores=[0.7, 0.3, 0.7, 0.3, 0.7, 0.3],
+            training_delta=0.0,
+        )
+        agg = aggregate_holdout_drift([rec])
+        # Mean ≈ 0; CI brackets 0 → not flagged.
+        assert agg.statistically_overfit is False
+
+    def test_confidence_widens_the_ci(self):
+        """Higher confidence → wider CI (looser lower / tighter upper)."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+            top_iter_scores=[0.7, 0.3, 0.8, 0.2, 0.7, 0.3, 0.6, 0.4],
+            training_delta=0.0,
+        )
+        agg_95 = aggregate_holdout_drift([rec], confidence=0.95, seed=42)
+        agg_99 = aggregate_holdout_drift([rec], confidence=0.99, seed=42)
+        width_95 = agg_95.ci_high - agg_95.ci_low
+        width_99 = agg_99.ci_high - agg_99.ci_low
+        assert width_99 >= width_95
+
+    def test_reproducible_with_same_seed(self):
+        """Same seed → byte-identical CI bounds (the harness contract)."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.4, 0.6, 0.5, 0.45],
+            top_iter_scores=[0.7, 0.6, 0.8, 0.7, 0.65],
+            training_delta=0.2,
+        )
+        a = aggregate_holdout_drift([rec], seed=123, n_boot=500)
+        b = aggregate_holdout_drift([rec], seed=123, n_boot=500)
+        assert a.ci_low == pytest.approx(b.ci_low)
+        assert a.ci_high == pytest.approx(b.ci_high)
+
+    def test_different_seeds_can_give_different_cis(self):
+        """Sanity: distinct seeds usually give distinct CI bounds.
+
+        Needs *variance* in the per-iteration drifts; uniform gaps
+        would collapse the bootstrap to the degenerate point estimate
+        regardless of seed.  This sample is constructed so the pooled
+        drifts span a non-degenerate range.
+        """
+        rec = _make_holdout_record(
+            seed=99,
+            # Spread the drift contributions: (top-seed) − training varies
+            # across iterations to give the bootstrap something to chew on.
+            seed_iter_scores=[0.5, 0.4, 0.6, 0.5, 0.45, 0.55, 0.42, 0.58],
+            top_iter_scores=[0.9, 0.5, 0.6, 0.8, 0.4, 0.75, 0.55, 0.7],
+            training_delta=0.2,
+        )
+        a = aggregate_holdout_drift([rec], seed=1, n_boot=500)
+        b = aggregate_holdout_drift([rec], seed=99999, n_boot=500)
+        # With variance > 0 in the samples and modest n_boot, the bounds
+        # almost certainly differ (probability of collision is tiny).
+        assert (a.ci_low, a.ci_high) != (b.ci_low, b.ci_high)
+
+    def test_eps_overfit_override(self):
+        """Explicit eps_overfit wins over the one stored on the record."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5] * 5,
+            top_iter_scores=[0.4] * 5,  # gap -0.1 each iter
+            training_delta=0.0,  # drift = -0.1
+            eps_overfit=0.5,  # record's own eps is generous
+        )
+        # Default (use record's eps=0.5): not statistically overfit
+        # because -0.1 is well above -0.5.
+        agg_default = aggregate_holdout_drift([rec])
+        assert agg_default.eps_overfit == 0.5
+        assert agg_default.statistically_overfit is False
+        # Stricter override: eps=0.05.  ci_high stays at -0.1 < -0.05.
+        agg_strict = aggregate_holdout_drift([rec], eps_overfit=0.05)
+        assert agg_strict.eps_overfit == 0.05
+        assert agg_strict.statistically_overfit is True
+
+    def test_per_iter_lists_unequal_length_uses_min(self):
+        """Defensive: mismatched list lengths use the shorter prefix."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.5, 0.5, 0.5, 0.5],  # 5 entries
+            top_iter_scores=[0.7, 0.7, 0.7],  # 3 entries
+            training_delta=0.2,
+        )
+        agg = aggregate_holdout_drift([rec])
+        # Only 3 paired samples should reach the bootstrap.
+        assert agg.n_samples == 3
+
+    def test_to_dict_round_trip(self):
+        """JSON-friendly serialisation for ledger / dashboard consumers."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5, 0.5],
+            top_iter_scores=[0.7, 0.6],
+            training_delta=0.1,
+        )
+        agg = aggregate_holdout_drift([rec])
+        d = agg.to_dict()
+        assert d["n_records"] == 1
+        assert d["n_samples"] == 2
+        assert "mean_drift" in d
+        assert "ci_low" in d
+        assert "ci_high" in d
+        # Round-trip through JSON exercises the float / int / bool coercions.
+        parsed = json.loads(json.dumps(d))
+        assert parsed["n_samples"] == 2
+
+
+class TestLoopHoldoutRecordPerIterScores:
+    """The new per-iteration score fields preserve back-compat."""
+
+    def test_default_to_empty_lists(self):
+        """Old call sites that omit the new kwargs see empty lists."""
+        rec = LoopHoldoutRecord(
+            timestamp="t",
+            duration_seconds=0.0,
+            holdout_base_seed=1,
+            holdout_iterations=0,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.0,
+            top_holdout_score=0.0,
+            seed_training_score=0.0,
+            top_training_score=0.0,
+            holdout_delta=0.0,
+            training_delta=0.0,
+            drift=0.0,
+            overfit=False,
+            eps_overfit=0.05,
+            top_iteration=-1,
+            ladder_size=1,
+        )
+        assert rec.seed_iteration_scores == []
+        assert rec.top_iteration_scores == []
+
+    def test_to_dict_emits_lists(self):
+        """The lists round-trip through to_dict so the ledger persists them."""
+        rec = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.1, 0.2, 0.3],
+            top_iter_scores=[0.4, 0.5, 0.6],
+            training_delta=0.0,
+        )
+        d = rec.to_dict()
+        assert d["seed_iteration_scores"] == [0.1, 0.2, 0.3]
+        assert d["top_iteration_scores"] == [0.4, 0.5, 0.6]
+        # JSON-serialisable (float lists are JSON-native, but check the
+        # contract end-to-end so a future regression surfaces here).
+        parsed = json.loads(json.dumps(d))
+        assert parsed["seed_iteration_scores"] == [0.1, 0.2, 0.3]
+
+
+class TestSelfImproverPersistsPerIterScores:
+    """End-to-end: the loop wires per-iter scores into the record.
+
+    Regression guard: without this, ``aggregate_holdout_drift`` would
+    silently fall back to one-sample-per-record on every fresh run.
+    """
+
+    def test_run_full_record_carries_per_iter_scores(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        # Constant-score harness — the per-iter values will all be 0.4.
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        _, _, holdout_records = si.run_full()
+        assert len(holdout_records) == 1
+        rec = holdout_records[0]
+        # Lists should be populated with one float per hold-out iter.
+        assert len(rec.seed_iteration_scores) == 3
+        assert len(rec.top_iteration_scores) == 3
+        assert all(s == pytest.approx(0.4) for s in rec.seed_iteration_scores)
+
+    def test_multi_seed_each_record_has_its_own_iter_scores(self, tmp_path):
+        """One record per seed, each with its own per-iter score list."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seeds=(99, 7777),
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        # Distinct scores per seed so we can verify the lists came from
+        # the per-seed path, not some shared cache.
+        si._harness_factory = _make_factory(lambda c: 0.3 if c.seed == 99 else 0.6)
+        _, _, holdout_records = si.run_full()
+        assert len(holdout_records) == 2
+        # Find each record by its seed (order is configured but explicit
+        # check guards against silent reordering).
+        by_seed = {r.holdout_base_seed: r for r in holdout_records}
+        # Seed 99 ran with score function returning 0.3.
+        assert all(s == pytest.approx(0.3) for s in by_seed[99].seed_iteration_scores)
+        # Seed 7777 ran with score function returning 0.6.
+        assert all(s == pytest.approx(0.6) for s in by_seed[7777].seed_iteration_scores)
+
+    def test_ledger_round_trip_preserves_per_iter_scores(self, tmp_path):
+        """JSONL ledger persistence keeps the new fields readable."""
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            holdout_base_seed=99,
+            holdout_iterations=2,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        si.run_full()
+        records = load_ledger(cfg.ledger_path)
+        holdout = [r for r in records if r.get("record_type") == "holdout"]
+        assert len(holdout) == 1
+        assert holdout[0]["seed_iteration_scores"] == [0.5, 0.5]
+        assert holdout[0]["top_iteration_scores"] == [0.5, 0.5]

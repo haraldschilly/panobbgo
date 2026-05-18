@@ -2078,6 +2078,275 @@ class TestStructuralRuleKey:
         assert snap[0].n_accepts == 10
 
 
+class TestStructuralPerClassArms:
+    """Per-class bandit arms for structural mutations.
+
+    Closes the 'Per-class arms in the bandit' follow-up below the
+    2026-05-03 §13 entry — splits each structural op into one bandit
+    arm per candidate class so the loop can learn that, e.g., adding
+    ``Sobol`` wins while adding ``Random`` loses, instead of pooling
+    both into the same arm.
+    """
+
+    def test_proposal_rule_key_per_class_structural(self):
+        from panobbgo.self_improve import _proposal_rule_key
+
+        # With the per-class flag on, the key gains the class name.
+        assert _proposal_rule_key("Sobol", "", "add_heuristic", per_class_structural=True) == (
+            "Sobol",
+            "add_heuristic",
+            "structural",
+        )
+        assert _proposal_rule_key("Random", "", "drop_heuristic", per_class_structural=True) == (
+            "Random",
+            "drop_heuristic",
+            "structural",
+        )
+        # Off (default) preserves the collapsed key.
+        assert _proposal_rule_key("Sobol", "", "add_heuristic") == ("*", "add_heuristic", "structural")
+        # Kwarg perturbations are unaffected regardless of the flag.
+        assert _proposal_rule_key("Nearby", "radius", "log_uniform_perturb", per_class_structural=True) == (
+            "Nearby",
+            "radius",
+            "log_uniform_perturb",
+        )
+
+    def test_sampler_default_is_off(self):
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_heuristic",
+                    candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+                ),
+            ]
+        )
+        samp = AdaptiveMutationSampler(cat)
+        assert samp.per_class_structural is False
+
+    def test_sampler_splits_structural_arms_by_class(self):
+        """With the flag on, each candidate class gets its own arm."""
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+        )
+        cat = MutationCatalog([rule_add])
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng = np.random.default_rng(0)
+        for _ in range(30):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        # Two distinct arms, one per candidate class, no wildcard key.
+        keys = {s.rule_key for s in snap}
+        assert ("_NewHeuristicX", "add_heuristic", "structural") in keys
+        assert ("_NewHeuristicY", "add_heuristic", "structural") in keys
+        assert ("*", "add_heuristic", "structural") not in keys
+        # Every sampled iteration is counted once across the two arms.
+        total = sum(s.n_attempts for s in snap)
+        accepts = sum(s.n_accepts for s in snap)
+        assert total == 30
+        assert accepts == 30
+
+    def test_sampler_thompson_biases_to_winning_class(self):
+        """When only one candidate class ever accepts, the sampler
+        must concentrate probability on it — the headline guarantee
+        of per-class arms.
+        """
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+        )
+        cat = MutationCatalog([rule_add])
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng = np.random.default_rng(123)
+
+        # Train: X accepts, Y rejects.
+        for _ in range(50):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(prop.class_name == "_NewHeuristicX")
+
+        # Sample without recording so stats freeze, then count.
+        counts = {"_NewHeuristicX": 0, "_NewHeuristicY": 0}
+        for _ in range(500):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            counts[prop.class_name] += 1
+            samp._last_rule_key = None
+
+        assert counts["_NewHeuristicX"] > 4 * counts["_NewHeuristicY"], (
+            f"per-class Thompson should heavily favor the winning class, got {counts}"
+        )
+
+    def test_sampler_drop_arm_keys_per_class(self):
+        """Drop ops are also split per class — the bandit can learn
+        which class is most worth dropping.
+        """
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_heuristic",
+                    min_heuristics=1,
+                ),
+            ]
+        )
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng = np.random.default_rng(0)
+        for _ in range(30):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        keys = {s.rule_key for s in snap}
+        # _make_specs has StratX with A+B (so both droppable) and StratY
+        # with only A (also droppable under min_heuristics=1).  Both A
+        # and B should have appeared as drop targets.
+        assert ("_DummyHeuristicA", "drop_heuristic", "structural") in keys
+        assert ("_DummyHeuristicB", "drop_heuristic", "structural") in keys
+
+    def test_sampler_kwarg_rules_unaffected(self):
+        """Kwarg perturbations keep their (class, param, kind) arms
+        regardless of the structural-per-class flag.
+        """
+        cat = _two_rule_catalog()
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            samp.sample(rng, _make_specs())
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        keys = {s.rule_key for s in snap}
+        assert ("_DummyHeuristicA", "radius", "log_uniform_perturb") in keys
+        assert ("_DummyHeuristicB", "sigma0", "log_uniform_perturb") in keys
+
+    def test_prime_from_ledger_uses_per_class_keys(self, tmp_path):
+        """Ledger replay must respect the per-class flag so a primed
+        sampler picks up the same arms its live sampling would create.
+        """
+        ledger = tmp_path / "old.jsonl"
+        records = [
+            {
+                "record_type": "iteration",
+                "iteration": 0,
+                "proposal": {
+                    "class_name": "Sobol",
+                    "param_name": "",
+                    "rule_kind": "add_heuristic",
+                },
+                "accepted": True,
+            },
+            {
+                "record_type": "iteration",
+                "iteration": 1,
+                "proposal": {
+                    "class_name": "Random",
+                    "param_name": "",
+                    "rule_kind": "add_heuristic",
+                },
+                "accepted": False,
+            },
+        ]
+        ledger.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}),),
+        )
+        samp = AdaptiveMutationSampler(MutationCatalog([rule_add]), per_class_structural=True)
+        consumed = samp.prime_from_ledger(str(ledger))
+        assert consumed == 2
+        snap = samp.stats_snapshot()
+        keys = {s.rule_key for s in snap}
+        assert ("Sobol", "add_heuristic", "structural") in keys
+        assert ("Random", "add_heuristic", "structural") in keys
+        # The off-mode wildcard key must not appear.
+        assert ("*", "add_heuristic", "structural") not in keys
+
+    def test_prime_from_ledger_collapsed_when_flag_off(self, tmp_path):
+        """Default sampler primes into the collapsed wildcard arm."""
+        ledger = tmp_path / "old.jsonl"
+        records = [
+            {
+                "record_type": "iteration",
+                "iteration": 0,
+                "proposal": {
+                    "class_name": "Sobol",
+                    "param_name": "",
+                    "rule_kind": "add_heuristic",
+                },
+                "accepted": True,
+            },
+            {
+                "record_type": "iteration",
+                "iteration": 1,
+                "proposal": {
+                    "class_name": "Random",
+                    "param_name": "",
+                    "rule_kind": "add_heuristic",
+                },
+                "accepted": False,
+            },
+        ]
+        ledger.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_heuristic",
+            candidate_classes=((_NewHeuristicX, {}),),
+        )
+        samp = AdaptiveMutationSampler(MutationCatalog([rule_add]))  # flag off
+        consumed = samp.prime_from_ledger(str(ledger))
+        assert consumed == 2
+        snap = samp.stats_snapshot()
+        # Both Sobol and Random history collapses to one wildcard arm.
+        assert len(snap) == 1
+        assert snap[0].rule_key == ("*", "add_heuristic", "structural")
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 1
+
+    def test_loop_config_default_false(self):
+        cfg = LoopConfig()
+        assert cfg.structural_per_class_arms is False
+
+    def test_loop_config_propagates_flag_to_sampler(self, tmp_path):
+        from panobbgo.self_improve import SelfImprover
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            adaptive_sampling=True,
+            structural_per_class_arms=True,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is not None
+        assert si.sampler.per_class_structural is True
+
+    def test_loop_config_flag_ignored_without_adaptive(self, tmp_path):
+        """structural_per_class_arms is only meaningful for the adaptive
+        sampler.  Without --adaptive, the loop uses the uniform catalog
+        sampler and the flag has no effect.
+        """
+        from panobbgo.self_improve import SelfImprover
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            adaptive_sampling=False,
+            structural_per_class_arms=True,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        # Uniform sampler path: no AdaptiveMutationSampler is constructed,
+        # so the flag is inert (no error, no surprise).
+        assert si.sampler is None
+
+
 class TestDefaultStructuralCatalog:
     def test_returns_catalog_with_structural_rules(self):
         cat = default_structural_catalog()

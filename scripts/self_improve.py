@@ -277,6 +277,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(adaptive_prime_from_ledger=False)
     run_p.add_argument(
+        "--structural-per-class-arms",
+        dest="structural_per_class_arms",
+        action="store_true",
+        help=(
+            "Split structural ops (add_heuristic / drop_heuristic) into "
+            "per-target-class bandit arms in the adaptive sampler.  Lets "
+            "the loop distinguish 'add Sobol' from 'add Random' at the "
+            "cost of sparser per-arm data.  Only effective with --adaptive."
+        ),
+    )
+    run_p.set_defaults(structural_per_class_arms=False)
+    run_p.add_argument(
         "--structural",
         dest="structural",
         action="store_true",
@@ -445,6 +457,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             adaptive_prior_alpha=args.adaptive_prior_alpha,
             adaptive_prior_beta=args.adaptive_prior_beta,
             adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
+            structural_per_class_arms=args.structural_per_class_arms,
             holdout_base_seed=args.holdout_base_seed,
             holdout_base_seeds=holdout_seeds,
             holdout_iterations=args.holdout_iterations,

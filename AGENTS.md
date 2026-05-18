@@ -229,7 +229,14 @@ The harness is the measurement substrate for an autonomous
     accepted" and biases future samples toward rules with positive
     accept history while still exploring under-tried rules.
     Cold-start (Beta(1, 1) prior) is statistically identical to uniform
-    sampling.
+    sampling.  Per-class structural bandit arms
+    (**shipped 2026-05-18**) split each ``add_heuristic`` /
+    ``drop_heuristic`` op into one arm per candidate class so the
+    bandit can learn that, e.g., ``add Sobol`` wins while ``add
+    Random`` loses — opt in with
+    `LoopConfig.structural_per_class_arms` or the
+    `--structural-per-class-arms` CLI flag (only effective with
+    `--adaptive`).
 *   Strategy portfolio composition (§7.2) — **shipped**, see
     `panobbgo.self_improve.StructuralMutationRule` and the
     `default_structural_catalog()` factory.  Two ops join the mutation
@@ -295,6 +302,14 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # Structural catalog: kwarg perturbations + add_heuristic / drop_heuristic ops
 uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive
+
+# Per-class structural bandit arms — splits each add_heuristic /
+# drop_heuristic op into one arm per candidate class so the bandit
+# can distinguish "add Sobol" from "add Random".  Only effective
+# with --adaptive.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --structural --adaptive --structural-per-class-arms \
+    --adaptive-prime-from-ledger
 
 # End-of-loop hold-out validation against an independent base_seed,
 # fail with exit code 3 if the ladder is flagged as overfit

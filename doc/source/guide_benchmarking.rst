@@ -684,12 +684,58 @@ ledger, the anti-cherry-pick guard, the statistical acceptance rule —
 is unchanged and the JSONL ledger remains backwards compatible.
 
 The Thompson sampler maps every structural rule onto **one arm per
-op** (key ``("*", op, "structural")``).  This keeps cold-start
-variance bounded — a freshly enabled adaptive sampler on a structural
-catalog has the same uniform-mix behaviour as on the kwarg catalog.
-Per-class arms (``"add Sobol" vs "add NelderMead"``) are the natural
-next refinement and are listed under "Next iteration ideas" in
-``planning/SELF_IMPROVEMENT_LOOP.md``.
+op** (key ``("*", op, "structural")``) by default.  This keeps
+cold-start variance bounded — a freshly enabled adaptive sampler on
+a structural catalog has the same uniform-mix behaviour as on the
+kwarg catalog.
+
+Per-class structural bandit arms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once a structural catalog has accumulated evidence, the coarse
+one-arm-per-op layout becomes the limiting factor: the bandit cannot
+distinguish ``add Sobol`` (which may be a consistent winner) from
+``add Random`` (which may not).  Setting
+:attr:`~panobbgo.self_improve.LoopConfig.structural_per_class_arms`
+(or passing ``per_class_structural=True`` to
+:class:`~panobbgo.self_improve.AdaptiveMutationSampler` directly)
+splits the structural arms by **target candidate class**.  ``add
+Sobol`` then lives on the bandit arm
+``("Sobol", "add_heuristic", "structural")``; ``add Random`` lives
+on ``("Random", "add_heuristic", "structural")``; the Thompson
+posterior on each arm tracks how often *that specific add* (or
+drop) is accepted.
+
+The trade-off is the canonical bandit one: sharper signal vs sparser
+per-arm data.  With ``N`` candidate classes in the structural
+catalog, the bandit arm space grows by a factor of ``N`` (for each
+op) and each arm starts cold-start with the symmetric ``Beta(1, 1)``
+prior — i.e. uniform.  In practice this means the first few
+iterations will explore each class roughly uniformly, then
+concentrate probability on whatever's accepting.
+
+Ledger replay is consistent: :meth:`prime_from_ledger` uses the
+same key layout the live sampler will produce, so resuming a long
+run with ``--adaptive-prime-from-ledger`` recovers the per-class
+posterior intact.  Kwarg perturbations are unaffected by the flag —
+their ``(class, param, kind)`` arms are already per-class.
+
+CLI:
+
+.. code-block:: bash
+
+   # Structural catalog + adaptive sampler + per-class structural arms.
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --structural --adaptive --structural-per-class-arms \
+       --adaptive-prime-from-ledger
+
+The flag is **off by default** so existing CLI invocations and the
+existing ledger format stay byte-identical.  When ``--adaptive`` is
+not set the flag is inert (no
+:class:`~panobbgo.self_improve.AdaptiveMutationSampler` is
+constructed) but tolerated, which keeps a config-driven workflow
+that toggles ``adaptive_sampling`` independently from
+``structural_per_class_arms`` safe.
 
 CLI:
 

@@ -724,18 +724,36 @@ class MutationRuleStats:
         }
 
 
-def _proposal_rule_key(class_name: str, param_name: str, rule_kind: str) -> RuleKey:
+def _proposal_rule_key(
+    class_name: str,
+    param_name: str,
+    rule_kind: str,
+    per_class_structural: bool = False,
+) -> RuleKey:
     """Map a proposal triple to the bandit's arm key.
 
     Structural ops (``add_heuristic``, ``drop_heuristic``) collapse
-    onto a single arm per op type — see
+    onto a single arm per op type by default — see
     :meth:`StructuralMutationRule.rule_key`.  Kwarg perturbations keep
     the natural one-arm-per-(class, param, kind) granularity.  The two
     paths must agree because :meth:`AdaptiveMutationSampler.prime_from_ledger`
     rebuilds the bandit history from JSONL records that only carry the
     proposal triple — never the original rule object.
+
+    When ``per_class_structural`` is ``True``, structural ops are
+    further split by the target heuristic's class name so each
+    (op, class) pair gets its own bandit arm.  For example, adding
+    ``Sobol`` lives on ``("Sobol", "add_heuristic", "structural")``
+    while adding ``Random`` lives on ``("Random", "add_heuristic",
+    "structural")``.  This trades sparser data per arm for the ability
+    to distinguish which class wins / loses inside a structural op.
+    The flag must be passed consistently with
+    :class:`AdaptiveMutationSampler.per_class_structural` so live
+    sampling and ledger replay use the same key layout.
     """
     if rule_kind in _STRUCTURAL_OPS:
+        if per_class_structural:
+            return (str(class_name), str(rule_kind), "structural")
         return ("*", str(rule_kind), "structural")
     return (str(class_name), str(param_name), str(rule_kind))
 
@@ -779,6 +797,21 @@ class AdaptiveMutationSampler:
         prior_beta: Pseudo-count of "failures" in the Beta prior.  Same
             shape as ``prior_alpha``; defaults to a symmetric ``Beta(1, 1)``.
             Must be > 0.
+        per_class_structural: When ``True``, structural ops
+            (``add_heuristic`` / ``drop_heuristic``) are split into
+            per-candidate-class bandit arms — e.g. adding ``Sobol`` is a
+            distinct arm from adding ``Random``.  Each
+            :class:`StructuralMutationRule` is expanded into one
+            arm-per-class at :meth:`sample` time, and the per-class hits
+            are Thompson-sampled directly so the bandit can learn that
+            ``add Sobol`` wins while ``add Random`` loses (instead of
+            pooling them).  Default ``False`` keeps the coarse one-arm-
+            per-op semantics that have been the published behaviour
+            since 2026-05-03.  Pairs naturally with the next-iteration
+            hierarchical-bandit idea: per-class arms are the leaf nodes
+            a hierarchical posterior would share strength across.  Must
+            match :func:`_proposal_rule_key`'s ``per_class_structural``
+            flag for ledger priming to recover the same arms.
 
     Raises:
         ValueError: If either prior is non-positive.
@@ -789,12 +822,14 @@ class AdaptiveMutationSampler:
         catalog: MutationCatalog,
         prior_alpha: float = 1.0,
         prior_beta: float = 1.0,
+        per_class_structural: bool = False,
     ) -> None:
         if prior_alpha <= 0 or prior_beta <= 0:
             raise ValueError(f"prior_alpha and prior_beta must be > 0, got {prior_alpha!r}, {prior_beta!r}")
         self.catalog = catalog
         self.prior_alpha = float(prior_alpha)
         self.prior_beta = float(prior_beta)
+        self.per_class_structural = bool(per_class_structural)
         self._stats: Dict[RuleKey, MutationRuleStats] = {}
         self._last_rule_key: Optional[RuleKey] = None
 
@@ -804,6 +839,16 @@ class AdaptiveMutationSampler:
         # expose ``rule_key()``; delegating keeps the sampler agnostic to
         # which kind of rule the catalog holds.
         return rule.rule_key()
+
+    def _structural_arm_key(self, op: str, class_name: str) -> RuleKey:
+        """Return the bandit arm key for a structural hit.
+
+        Centralises the per-class vs collapsed decision so :meth:`sample`
+        and :meth:`prime_from_ledger` cannot drift out of sync.
+        """
+        if self.per_class_structural:
+            return (str(class_name), str(op), "structural")
+        return ("*", str(op), "structural")
 
     def get_stats(self, rule: MutationRule) -> MutationRuleStats:
         """Return (creating if needed) the stats bucket for ``rule``."""
@@ -832,23 +877,59 @@ class AdaptiveMutationSampler:
         :meth:`MutationCatalog.sample`.  When that happens,
         :attr:`last_rule_key` is reset to ``None`` so a subsequent
         :meth:`record_outcome` is a safe no-op.
+
+        With ``per_class_structural=True`` each
+        :class:`StructuralMutationRule` is expanded into one arm per
+        candidate class — every (op, class) pair gets its own Beta
+        posterior.  The expansion is done locally in :meth:`sample` so
+        the catalog stays the canonical declaration of *what is
+        sampleable*, while the bandit decides *how* to slice it.
         """
         applicable = self.catalog.applicable_rules(specs)
         if not applicable:
             self._last_rule_key = None
             return None
 
-        # Thompson: one Beta draw per applicable rule, pick the arg-max.
-        n = len(applicable)
+        # Build the per-arm view.  For kwarg rules each rule is one arm and
+        # the hits stay pooled (the rule-level Beta picks; the hit is then
+        # chosen uniformly).  For structural rules we either keep the
+        # coarse one-arm-per-op key (legacy behaviour) or split into
+        # per-class arms when ``per_class_structural`` is on.
+        arms: List[Tuple[CatalogRule, RuleKey, List[Any]]] = []
+        for rule, hits in applicable:
+            if isinstance(rule, StructuralMutationRule):
+                if self.per_class_structural:
+                    by_class: Dict[str, List[Any]] = {}
+                    for hit in hits:
+                        _si, cls, _kwargs = hit
+                        by_class.setdefault(cls.__name__, []).append(hit)
+                    # Sort by class name so the arm order is stable per
+                    # applicable rule and tests can rely on a fixed
+                    # enumeration when the rng is seeded.
+                    for class_name in sorted(by_class):
+                        arms.append(
+                            (
+                                rule,
+                                self._structural_arm_key(rule.op, class_name),
+                                list(by_class[class_name]),
+                            )
+                        )
+                else:
+                    arms.append((rule, self._rule_key(rule), list(hits)))
+            else:
+                arms.append((rule, self._rule_key(rule), list(hits)))
+
+        # Thompson: one Beta draw per arm, pick the arg-max.
+        n = len(arms)
         sampled = np.empty(n, dtype=np.float64)
-        for i, (rule, _) in enumerate(applicable):
-            stats = self.get_stats(rule)
+        for i, (_, key, _) in enumerate(arms):
+            stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
             alpha = self.prior_alpha + stats.n_accepts
             beta_param = self.prior_beta + (stats.n_attempts - stats.n_accepts)
             sampled[i] = float(rng.beta(alpha, beta_param))
         chosen_idx = int(np.argmax(sampled))
-        rule, hits = applicable[chosen_idx]
-        chosen_stats = self.get_stats(rule)
+        rule, chosen_key, hits = arms[chosen_idx]
+        chosen_stats = self._stats[chosen_key]
         alpha_eff = self.prior_alpha + chosen_stats.n_accepts
         beta_eff = self.prior_beta + (chosen_stats.n_attempts - chosen_stats.n_accepts)
         thompson_tag = (
@@ -856,7 +937,7 @@ class AdaptiveMutationSampler:
             f"draw={sampled[chosen_idx]:.3f}; "
             f"history {chosen_stats.n_accepts}/{chosen_stats.n_attempts}]"
         )
-        self._last_rule_key = self._rule_key(rule)
+        self._last_rule_key = chosen_key
 
         hit_idx = int(rng.integers(0, len(hits)))
 
@@ -924,6 +1005,7 @@ class AdaptiveMutationSampler:
                 proposal.get("class_name", ""),
                 proposal.get("param_name", ""),
                 proposal.get("rule_kind", ""),
+                per_class_structural=self.per_class_structural,
             )
             stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
             stats.n_attempts += 1
@@ -1513,6 +1595,16 @@ class LoopConfig:
             seeds its bandit history from any existing
             :attr:`ledger_path` before the first iteration.  Useful when
             resuming a long unattended run.
+        structural_per_class_arms: When ``True``, structural ops in the
+            adaptive sampler are split into per-target-class bandit
+            arms (e.g. adding ``Sobol`` lives on
+            ``("Sobol", "add_heuristic", "structural")`` rather than
+            collapsing into ``("*", "add_heuristic", "structural")``).
+            Gives the loop sharper signal about *which* class to add /
+            drop at the cost of sparser per-arm data.  Default
+            ``False`` keeps the published 2026-05-03 semantics.
+            Only takes effect when :attr:`adaptive_sampling` is also
+            ``True``; the uniform-sampler path is unchanged.
         holdout_base_seed: Independent ``base_seed`` used for the
             end-of-loop hold-out validation.  ``0`` (default) disables
             hold-out entirely (unless :attr:`holdout_base_seeds` is set).
@@ -1573,6 +1665,7 @@ class LoopConfig:
     adaptive_prior_alpha: float = 1.0
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
+    structural_per_class_arms: bool = False
     holdout_base_seed: int = 0
     holdout_base_seeds: Tuple[int, ...] = ()
     holdout_iterations: int = 5
@@ -2229,6 +2322,7 @@ class SelfImprover:
                 self.catalog,
                 prior_alpha=self.config.adaptive_prior_alpha,
                 prior_beta=self.config.adaptive_prior_beta,
+                per_class_structural=self.config.structural_per_class_arms,
             )
             if self.config.adaptive_prime_from_ledger:
                 self.sampler.prime_from_ledger(self.config.ledger_path)

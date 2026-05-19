@@ -63,6 +63,64 @@
   - `doc/source/guide.rst`: quick-nav entry mentions the
     iLSHADE / jSO schedule.
 
+### Per-Class Bandit Arms for Structural Mutations (2026-05-18)
+- [x] **New `panobbgo.self_improve.AdaptiveMutationSampler.per_class_structural`** —
+      constructor argument (default `False`) that splits each
+      `StructuralMutationRule` into one Thompson arm per candidate
+      class at sampling time.  With the flag on, `add_heuristic Sobol`
+      lives on `("Sobol", "add_heuristic", "structural")` and is
+      a distinct arm from `add_heuristic Random` —
+      `("Random", "add_heuristic", "structural")`.  Closes the
+      *Per-class arms in the bandit* follow-up below the 2026-05-03
+      §13 entry in `planning/SELF_IMPROVEMENT_LOOP.md`.
+  - **Why it matters.**  The structural catalog shipped 2026-05-03
+    collapses every `add_heuristic` proposal — regardless of
+    target class — into the single
+    `("*", "add_heuristic", "structural")` bandit arm.  That makes
+    cold-start variance small but the bandit cannot learn that, e.g.,
+    `add Sobol` is a consistent winner while `add Random` is a
+    consistent loser.  Per-class arms split the posterior so the
+    bandit can concentrate probability on the winning class.
+- [x] **New `panobbgo.self_improve.LoopConfig.structural_per_class_arms`** —
+      surface the flag in `LoopConfig` so a CLI / TOML config can
+      enable it.  Default `False` keeps the published 2026-05-03
+      semantics byte-identical.
+- [x] **CLI flag `--structural-per-class-arms`** on
+      `scripts/self_improve.py run`.  Only effective with
+      `--adaptive`; ignored otherwise (the uniform sampler path
+      is unaffected by per-class arms).
+- [x] **`_proposal_rule_key(..., per_class_structural=False)`** —
+      same flag plumbed through so
+      `AdaptiveMutationSampler.prime_from_ledger` rebuilds the
+      same arm layout the live sampler would create.  Without this
+      wiring, priming a per-class sampler from an existing ledger
+      would silently fall back to the wildcard arm.
+- [x] **`AdaptiveMutationSampler._structural_arm_key(op, class_name)`** —
+      centralised helper for the per-class vs collapsed decision
+      so `sample` and `prime_from_ledger` cannot drift out of sync.
+- [x] **11 new tests in `tests/test_self_improve.py`** (total 158)
+      covering: `_proposal_rule_key` per-class round-trip;
+      default `per_class_structural=False`; structural arms split
+      per candidate class (both X and Y observed, total attempts
+      conserved, wildcard key absent); Thompson sampling
+      concentrates probability on the winning class (4x ratio
+      threshold over 500 post-training samples); drop ops also
+      produce per-class arms; kwarg arms unaffected by the flag;
+      `prime_from_ledger` uses per-class keys; off-flag priming
+      still collapses to the wildcard arm; `LoopConfig` default
+      `False`; flag propagates to sampler via `SelfImprover`; flag
+      is inert without adaptive sampling.
+- [x] **Documentation updated:**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: new §13 entry; the
+    *Per-class arms in the bandit* follow-up below the 2026-05-03
+    entry promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: new "Per-class
+    structural bandit arms" subsection under the adaptive
+    sampler.
+  - `doc/source/guide.rst`: quick-nav entry mentions the feature.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    feature with a run-the-loop bash example.
+
 ### Bootstrap CI on Multi-Seed Hold-Out Drift (2026-05-17)
 - [x] **New `panobbgo.self_improve.aggregate_holdout_drift`** —
       pools per-iteration paired drift samples across every input

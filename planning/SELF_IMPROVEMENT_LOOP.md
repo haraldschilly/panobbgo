@@ -682,6 +682,87 @@ the rationale, and a measured-impact number when available.
     ``p_best_end`` schedule alongside L-SHADE's success-history
     adaptive DE / LPSR description.
 
+### 2026-05-18 — Per-class bandit arms for structural mutations
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`AdaptiveMutationSampler` gains a
+  ``per_class_structural: bool = False`` constructor argument.
+  When ``True``, each :class:`StructuralMutationRule` is expanded at
+  :meth:`sample` time into one bandit arm per candidate class
+  (``add_heuristic`` ``Sobol`` is now distinct from ``add_heuristic``
+  ``Random``), Thompson-sampled directly so the bandit can learn
+  *which class* wins or loses inside a structural op.
+  :func:`_proposal_rule_key` gains a matching
+  ``per_class_structural`` keyword so :meth:`prime_from_ledger`
+  recovers the same arm layout as live sampling — without the
+  flag, structural records still collapse onto the legacy
+  ``("*", op, "structural")`` wildcard.  :class:`LoopConfig` gains
+  ``structural_per_class_arms: bool = False`` and ``SelfImprover``
+  passes it through to the sampler whenever the adaptive path is
+  used.  ``scripts/self_improve.py`` gains a
+  ``--structural-per-class-arms`` CLI flag (only effective with
+  ``--adaptive``).  A new helper
+  :meth:`AdaptiveMutationSampler._structural_arm_key` centralises
+  the "per-class vs collapsed" decision so :meth:`sample` and
+  :meth:`prime_from_ledger` cannot drift out of sync.
+* **Why** — closes the *Per-class arms in the bandit* follow-up
+  below the §13 entry from 2026-05-03.  The structural catalog
+  shipped 2026-05-03 collapses every ``add_heuristic`` proposal —
+  regardless of which class is added — into the single
+  ``("*", "add_heuristic", "structural")`` bandit arm.  That makes
+  cold-start variance small (one arm = lots of evidence per draw)
+  but is conceptually wrong once enough evidence accumulates: if
+  ``add_heuristic Sobol`` is consistently accepted and
+  ``add_heuristic Random`` is consistently rejected, the bandit
+  cannot learn the difference; the wildcard arm's posterior is a
+  weighted average of two regimes the sampler still mixes uniformly.
+  Per-class arms split the posterior so the bandit can concentrate
+  probability on the *winning class* (Thompson sampling's headline
+  guarantee).  This pairs naturally with the next-iteration
+  *contextual / hierarchical bandit* idea: per-class arms are the
+  leaf nodes a hierarchical Beta-Binomial would share strength
+  across.
+* **Backwards compatibility** — strictly safe.  Default is ``False``
+  for the new constructor argument and the new ``LoopConfig`` field;
+  existing CLI invocations and existing ledger consumers see the
+  same arm layout they always have.  When the flag is on, live
+  sampling and :meth:`prime_from_ledger` use *the same* key layout
+  (delegated through :func:`_proposal_rule_key`'s new
+  ``per_class_structural`` keyword), so resuming with
+  ``--adaptive-prime-from-ledger`` works identically to a fresh
+  run.  Kwarg perturbations are unaffected regardless of the flag —
+  their ``(class_name, param_name, kind)`` arms are already
+  per-class.  When ``--adaptive`` is *not* set the flag is inert
+  (no :class:`AdaptiveMutationSampler` is constructed); we tolerate
+  the combination rather than reject it so a caller can safely set
+  the flag in a config that may toggle ``adaptive_sampling`` later.
+* **Tests** — `tests/test_self_improve.py` (11 new tests, total
+  158):
+  :func:`_proposal_rule_key` per-class round-trip (per-class flag
+  adds the class name, off-mode collapses, kwarg keys unaffected);
+  default ``per_class_structural=False`` on the sampler; structural
+  arms split per candidate class (both X and Y observed, total
+  attempts conserved, wildcard key absent); Thompson sampling
+  concentrates probability on the winning class
+  (4x ratio threshold over 500 post-training samples); drop ops
+  also produce per-class arms (both A and B observed across hits);
+  kwarg arms untouched by the flag; :meth:`prime_from_ledger`
+  uses per-class keys when flag is on; off-flag priming still
+  collapses to the wildcard arm; ``LoopConfig`` default is
+  ``False``; flag propagates to sampler via :class:`SelfImprover`;
+  flag is inert without adaptive sampling.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Per-class arms in the bandit* follow-up below the 2026-05-03
+    entry promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: new "Per-class
+    structural bandit arms" subsection under the adaptive
+    sampler.
+  - `doc/source/guide.rst`: quick-nav entry mentions per-class
+    structural arms.
+  - `AGENTS.md`: self-improvement loop subsection lists the
+    feature with a run-the-loop bash example.
+
 ### 2026-05-17 — Bootstrap CI on multi-seed hold-out drift
 
 * **What** — `panobbgo/self_improve.py`:
@@ -1669,11 +1750,16 @@ Strategy portfolio composition shipped as
 ``catalog=default_structural_catalog()`` to :class:`SelfImprover`.  See
 the §13 entry.  Natural next refinements:
 
-- **Per-class arms in the bandit** — today every ``add_heuristic`` lives
-  on one bandit arm regardless of which class is added.  Splitting into
-  per-class arms (e.g. ``add Sobol`` vs ``add NelderMead``) gives the
-  loop sharper signal at the cost of more sparse data.  Pairs naturally
-  with the *contextual / hierarchical bandit* idea above.
+- **Per-class arms in the bandit** — shipped 2026-05-18 as
+  :attr:`panobbgo.self_improve.AdaptiveMutationSampler.per_class_structural`
+  and :attr:`LoopConfig.structural_per_class_arms`.  Opt in via
+  ``scripts/self_improve.py run --adaptive --structural-per-class-arms``.
+  Each ``StructuralMutationRule`` is expanded at sampling time into one
+  Thompson arm per candidate class so the bandit can learn that, e.g.,
+  ``add Sobol`` wins while ``add Random`` loses.  See the §13 entry.
+  Pairs naturally with the *contextual / hierarchical bandit* idea
+  above — per-class arms are exactly the leaf nodes a hierarchical
+  posterior would share strength across.
 - **Analyzer add/drop** — symmetric to the heuristic ops; the
   ``Sensitivity`` / ``Restart`` analyzers are obvious candidates because
   they already opt in via ``StrategySpec.analyzers``.
@@ -1801,3 +1887,51 @@ negative reward signal for *all* the rules that contributed to the
 discarded ladder.  Needs care around the bandit semantics: penalising
 all rules along the discarded path is more aggressive than penalising
 only the last one, and the right policy is an open question.
+
+#### Hierarchical bandit over the per-class structural arms
+
+Per-class structural arms shipped 2026-05-18 (see §13 entry above).
+The natural next refinement is to make the per-class arms *share
+strength* via a hierarchical Beta-Binomial: each ``add_heuristic``
+arm's posterior would borrow from the op-level posterior so a fresh
+candidate class starts with the op's aggregate accept rate rather
+than the symmetric ``Beta(1, 1)`` prior.  This addresses the
+sparsity trade-off the per-class flag introduces — with N candidate
+classes, the per-class flag divides the bandit's data by roughly N,
+which can hurt early-iteration sample efficiency.  A hierarchical
+prior recovers the data-sharing of the wildcard arm while preserving
+the per-class arg-max.
+
+Implementation sketch.  Replace the flat
+``Dict[RuleKey, MutationRuleStats]`` with a two-level structure: one
+``MutationRuleStats`` per op (``("*", op, "structural")``) plus the
+per-class stats.  On Thompson draw, sample
+``alpha = prior_alpha + n_class_accepts + κ · n_op_accepts``
+(similarly for ``beta``) where ``κ ∈ [0, 1]`` is a "borrow"
+coefficient — ``κ = 0`` recovers today's per-class arms, ``κ = 1``
+recovers the collapsed wildcard.  Validation: an end-to-end loop
+that observes ``add Sobol`` winning should still drive Sobol's
+arm up faster than Random's, while a brand-new candidate class
+starts with the op's empirical accept rate instead of the cold
+prior.
+
+#### Inactivity-guarded loop productivity
+
+The most recent unattended ledger (planning/self_improve_summary.txt)
+shows 1 accept in 86 iterations (~1.2 %).  That is small enough that
+the bandit's posterior remains close to the prior for most arms —
+defeating the point of adaptive sampling.  Two complementary moves:
+
+* **Bump the harness mode for the cron** — quick mode at 3 reps is
+  the noise floor.  A 30-iteration loop at ``--standard`` (5 reps,
+  larger budget) may produce more genuine accepts than 100
+  iterations at ``--quick``.  Needs a self-hosted runner because
+  GitHub-hosted runners are 2 cores.
+* **Relax ``eps_accept`` adaptively** — if the loop has gone N
+  iterations without an accept, temporarily lower ``eps_accept`` to
+  half the configured value (or use the bootstrap CI alone, with no
+  point-delta gate).  Re-tighten on the next accept.  Documented in
+  the ledger record so an auditor can replay the loop with the
+  effective rule.  Care: the §11 success criteria pin ``eps_accept``
+  at a fixed level so a chronic relaxation would silently shift the
+  loop's "improvement" bar.

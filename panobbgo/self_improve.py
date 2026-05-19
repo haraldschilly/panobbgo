@@ -1885,6 +1885,18 @@ class LoopHoldoutRecord:
         mode: Harness mode used for the hold-out (same as the loop).
         reasons: Human-readable bullet points: skipped, overfit, or
             generalised.
+        seed_iteration_scores: Per-iteration composite scores of the
+            **seed** ladder entry on the hold-out instances.  Length
+            equals :attr:`holdout_iterations` when the record was
+            written by the current code path; an empty list signals a
+            legacy record that only carries the aggregate
+            :attr:`seed_holdout_score` (so :func:`aggregate_holdout_drift`
+            falls back to per-record point estimates).
+        top_iteration_scores: Per-iteration composite scores of the
+            **top** ladder entry, paired index-by-index with
+            :attr:`seed_iteration_scores`.  When the ladder has only
+            the seed entry both lists carry the same values (the seed
+            measurement is reused for top).
         record_type: Always ``"holdout"``; lets ledger consumers
             distinguish hold-out records from iteration and guard
             records.
@@ -1909,6 +1921,8 @@ class LoopHoldoutRecord:
     base_seed: int = 42
     mode: str = "quick"
     reasons: List[str] = field(default_factory=list)
+    seed_iteration_scores: List[float] = field(default_factory=list)
+    top_iteration_scores: List[float] = field(default_factory=list)
     record_type: str = "holdout"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1933,7 +1947,217 @@ class LoopHoldoutRecord:
             "base_seed": int(self.base_seed),
             "mode": self.mode,
             "reasons": list(self.reasons),
+            "seed_iteration_scores": [float(x) for x in self.seed_iteration_scores],
+            "top_iteration_scores": [float(x) for x in self.top_iteration_scores],
         }
+
+
+# ---------------------------------------------------------------------------
+# Bootstrap-CI aggregation across multi-seed hold-out records
+# (planning/SELF_IMPROVEMENT_LOOP.md §13 — *Bootstrap CI on the drift
+# estimate* follow-up to the multi-seed hold-out shipped 2026-05-16).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class HoldoutDriftAggregate:
+    """Bootstrap CI on the aggregated hold-out drift across seeds.
+
+    Produced by :func:`aggregate_holdout_drift`.  The aggregation pools
+    per-iteration paired drift samples (one sample per ``(record, k)``
+    where ``k`` indexes the hold-out iteration) and bootstrap-resamples
+    the mean.  This turns the single-seed point check from 2026-05-08
+    and the worst-case reduction from 2026-05-16 into a *statistical
+    test* — pairs naturally with the existing :func:`statistical_accept`
+    rule in :mod:`panobbgo.harness`.
+
+    Attributes:
+        mean_drift: Mean of all pooled per-iteration drift values
+            (records × iterations).  When records lack per-iteration
+            scores (legacy ledger lines), the per-record point drift is
+            used as a single sample contribution.
+        ci_low: Lower bound of the bootstrap CI on the mean drift.
+        ci_high: Upper bound of the bootstrap CI on the mean drift.
+        worst_drift: Most negative per-record point drift across the
+            input records — same reduction the CLI already prints.
+            Preserved here so callers can show point + CI side-by-side.
+        worst_seed: ``holdout_base_seed`` of the worst-drift record.
+        any_overfit: ``True`` iff at least one input record is flagged
+            ``overfit=True``.  Mirrors the existing CLI semantics.
+        overfit_count: Number of input records flagged ``overfit=True``.
+        n_samples: Total pooled drift samples used for the bootstrap
+            (records × iterations when per-iteration scores are
+            present; otherwise records).
+        n_records: Number of input :class:`LoopHoldoutRecord` instances.
+        confidence: Confidence level used for the bootstrap CI.
+        eps_overfit: Tolerance from
+            :attr:`LoopConfig.holdout_eps_overfit` for "statistically
+            significant overfit" downstream — the aggregate is flagged
+            iff ``ci_high < -eps_overfit`` (the upper bound of the CI
+            falls below the negative tolerance, i.e. even the
+            *optimistic* end of the CI says we drifted).
+        statistically_overfit: ``ci_high < -eps_overfit`` — a stronger
+            verdict than per-record ``any_overfit``; tripping this means
+            the bootstrap CI rules out drift better than ``-eps_overfit``
+            at the configured confidence level.
+    """
+
+    mean_drift: float
+    ci_low: float
+    ci_high: float
+    worst_drift: float
+    worst_seed: int
+    any_overfit: bool
+    overfit_count: int
+    n_samples: int
+    n_records: int
+    confidence: float
+    eps_overfit: float
+    statistically_overfit: bool
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "mean_drift": float(self.mean_drift),
+            "ci_low": float(self.ci_low),
+            "ci_high": float(self.ci_high),
+            "worst_drift": float(self.worst_drift),
+            "worst_seed": int(self.worst_seed),
+            "any_overfit": bool(self.any_overfit),
+            "overfit_count": int(self.overfit_count),
+            "n_samples": int(self.n_samples),
+            "n_records": int(self.n_records),
+            "confidence": float(self.confidence),
+            "eps_overfit": float(self.eps_overfit),
+            "statistically_overfit": bool(self.statistically_overfit),
+        }
+
+
+def aggregate_holdout_drift(
+    records: Sequence["LoopHoldoutRecord"],
+    n_boot: int = 10_000,
+    confidence: float = 0.95,
+    seed: int = 42,
+    eps_overfit: Optional[float] = None,
+) -> HoldoutDriftAggregate:
+    """Bootstrap-CI aggregation across multi-seed hold-out records.
+
+    Each record contributes per-iteration paired drift samples::
+
+        drift_{r, k} = (top_holdout_{r, k} - seed_holdout_{r, k}) - training_delta_r
+
+    where ``training_delta_r`` is the *per-record* training-time
+    improvement gap (so the comparison is correctly paired against the
+    training-time baseline each seed actually saw).  The pooled samples
+    are bootstrap-resampled to produce a CI on the mean drift.
+
+    Why "per-iteration" not "per-record"?  With 3 seeds the per-record
+    sample size is 3 — bootstrap CIs on three points are nearly
+    point-estimate-shaped and carry no real information.  Each record's
+    per-iteration scores already exist (``holdout_iterations`` of them,
+    default 5), so pooling exposes ``3 × 5 = 15`` paired drift samples
+    to the bootstrap — enough that the CI quantiles are meaningful
+    without changing the loop's measurement cost.
+
+    Legacy records (written before the per-iteration scores were
+    persisted) fall back to a *single* point-drift contribution per
+    record.  Mixed inputs work too: any record with non-empty per-iter
+    score lists contributes them; the rest contribute one point each.
+
+    Args:
+        records: Sequence of :class:`LoopHoldoutRecord` from a single
+            loop run.  Empty input is allowed and produces a degenerate
+            zero-drift aggregate with no CI.
+        n_boot: Number of bootstrap resamples.  Default ``10_000``
+            matches :func:`statistical_accept`.
+        confidence: Two-sided confidence level for the CI quantiles.
+            Default ``0.95``.
+        seed: Base RNG seed for the bootstrap (reproducibility).
+        eps_overfit: Tolerance for the statistical-overfit verdict.
+            ``None`` (default) reads it from the first input record's
+            :attr:`LoopHoldoutRecord.eps_overfit`; pass an explicit
+            value to override.
+
+    Returns:
+        A populated :class:`HoldoutDriftAggregate`.  When ``records`` is
+        empty, returns an all-zero aggregate that is safe to print but
+        carries no information.
+    """
+    if not records:
+        return HoldoutDriftAggregate(
+            mean_drift=0.0,
+            ci_low=0.0,
+            ci_high=0.0,
+            worst_drift=0.0,
+            worst_seed=0,
+            any_overfit=False,
+            overfit_count=0,
+            n_samples=0,
+            n_records=0,
+            confidence=float(confidence),
+            eps_overfit=float(eps_overfit if eps_overfit is not None else 0.0),
+            statistically_overfit=False,
+        )
+
+    # Pool per-iteration drifts.  When a record carries paired iter
+    # scores we use them (the "high-resolution" contribution); otherwise
+    # fall back to the cached point drift (legacy record).
+    samples: List[float] = []
+    for rec in records:
+        n_pair = min(len(rec.seed_iteration_scores), len(rec.top_iteration_scores))
+        if n_pair > 0:
+            seed_arr = np.asarray(rec.seed_iteration_scores[:n_pair], dtype=np.float64)
+            top_arr = np.asarray(rec.top_iteration_scores[:n_pair], dtype=np.float64)
+            iter_drifts = (top_arr - seed_arr) - float(rec.training_delta)
+            samples.extend(float(x) for x in iter_drifts)
+        else:
+            # Legacy record — one point per record.  Better than dropping
+            # it entirely; documents the limitation in the n_samples count.
+            samples.append(float(rec.drift))
+
+    arr = np.asarray(samples, dtype=np.float64)
+    mean_drift = float(arr.mean()) if arr.size else 0.0
+    n_samples = int(arr.size)
+
+    if n_samples >= 2 and n_boot > 0:
+        rng = np.random.default_rng(seed)
+        idx = rng.integers(0, n_samples, size=(int(n_boot), n_samples))
+        boots = arr[idx].mean(axis=1)
+        alpha = (1.0 - float(confidence)) / 2.0
+        ci_low = float(np.quantile(boots, alpha))
+        ci_high = float(np.quantile(boots, 1.0 - alpha))
+    else:
+        # n_samples == 1 — the bootstrap would just resample the same
+        # value n_boot times.  Skip the work and return a degenerate
+        # CI equal to the point estimate.
+        ci_low = mean_drift
+        ci_high = mean_drift
+
+    worst_rec = min(records, key=lambda r: float(r.drift))
+    any_overfit = any(bool(r.overfit) for r in records)
+    overfit_count = sum(1 for r in records if bool(r.overfit))
+    eps = float(eps_overfit) if eps_overfit is not None else float(records[0].eps_overfit)
+    # "Statistically significant overfit": the *upper* end of the CI
+    # is still below the negative tolerance — i.e. even the optimistic
+    # bootstrap resample says we drifted worse than -eps_overfit.  The
+    # point check (any_overfit) fires on a single bad seed; the CI
+    # check is stricter and only fires when the aggregate is bad on
+    # the optimistic end of the noise envelope.
+    statistically_overfit = bool(ci_high < -eps)
+
+    return HoldoutDriftAggregate(
+        mean_drift=mean_drift,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        worst_drift=float(worst_rec.drift),
+        worst_seed=int(worst_rec.holdout_base_seed),
+        any_overfit=any_overfit,
+        overfit_count=overfit_count,
+        n_samples=n_samples,
+        n_records=len(records),
+        confidence=float(confidence),
+        eps_overfit=eps,
+        statistically_overfit=statistically_overfit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2493,6 +2717,12 @@ class SelfImprover:
             base_seed=int(self.config.base_seed),
             mode=self.config.mode,
             reasons=reasons,
+            # Per-iteration paired scores enable bootstrap-CI aggregation
+            # via :func:`aggregate_holdout_drift`.  Stored alongside the
+            # aggregate scores so consumers can either use the cached
+            # means or re-derive a CI on the pooled drift sample.
+            seed_iteration_scores=list(seed_scores),
+            top_iteration_scores=list(top_scores),
         )
 
     @staticmethod
@@ -2584,6 +2814,8 @@ __all__ = [
     "LoopIterationRecord",
     "LoopGuardRecord",
     "LoopHoldoutRecord",
+    "HoldoutDriftAggregate",
+    "aggregate_holdout_drift",
     "LadderEntry",
     "SelfImprover",
     "load_ledger",

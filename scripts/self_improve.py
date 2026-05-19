@@ -81,6 +81,22 @@ Two subcommands:
         uv run python scripts/self_improve.py run --iterations 50 \\
             --holdout-base-seeds 1234,5678,9012 --fail-on-overfit
 
+``--fail-on-overfit-ci``
+    Stricter sibling of ``--fail-on-overfit``.  Computes a bootstrap
+    confidence interval on the pooled per-iteration hold-out drift
+    (across all configured hold-out seeds and iterations) and exits
+    with code ``3`` iff the upper bound of the CI falls below
+    ``-holdout-eps-overfit`` — i.e. the bootstrap *rules out* a drift
+    better than the tolerance at the configured confidence level.
+    Less reactive than ``--fail-on-overfit`` (single-seed noise can no
+    longer trip it) and pairs naturally with
+    :func:`panobbgo.harness.statistical_accept`-style decision rules
+    used elsewhere in the loop::
+
+        uv run python scripts/self_improve.py run --iterations 50 \\
+            --holdout-base-seeds 1234,5678,9012 \\
+            --fail-on-overfit-ci --holdout-ci-confidence 0.95
+
 Stop the loop early by ``touch STOP_SELF_IMPROVE`` (configurable via
 ``--stop-sentinel``); the current iteration will finish, then the loop
 exits and the ledger is preserved.
@@ -89,7 +105,9 @@ Exit codes
 ----------
 - ``0`` — loop completed (or stopped via sentinel).
 - ``1`` — argument error.
-- ``3`` — ``--fail-on-overfit`` and the hold-out flagged overfit.
+- ``3`` — ``--fail-on-overfit`` and the hold-out flagged overfit, or
+  ``--fail-on-overfit-ci`` and the aggregated drift CI's upper bound
+  fell below ``-holdout_eps_overfit``.
 """
 
 from __future__ import annotations
@@ -322,6 +340,39 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Exit with code 3 if the hold-out flags an overfit ladder",
     )
     run_p.set_defaults(fail_on_overfit=False)
+    run_p.add_argument(
+        "--fail-on-overfit-ci",
+        dest="fail_on_overfit_ci",
+        action="store_true",
+        help=(
+            "Exit with code 3 if the bootstrap CI on the aggregated"
+            " hold-out drift is statistically significant for overfit"
+            " (upper bound of the CI < -eps_overfit).  Stricter than"
+            " --fail-on-overfit: ignores single-seed noise and only"
+            " fires when the pooled per-iteration drift CI rules out"
+            " no-drift at the configured confidence level."
+        ),
+    )
+    run_p.set_defaults(fail_on_overfit_ci=False)
+    run_p.add_argument(
+        "--holdout-ci-confidence",
+        dest="holdout_ci_confidence",
+        type=float,
+        default=0.95,
+        help=(
+            "Confidence level for the bootstrap CI on the aggregated"
+            " hold-out drift (default: 0.95).  Only affects the"
+            " printed aggregate line and --fail-on-overfit-ci; the"
+            " per-record overfit flag is unchanged."
+        ),
+    )
+    run_p.add_argument(
+        "--holdout-ci-n-boot",
+        dest="holdout_ci_n_boot",
+        type=int,
+        default=10_000,
+        help="Bootstrap resamples for the hold-out drift CI (default: 10000)",
+    )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -419,6 +470,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 cls, param, kind = s.rule_key
                 print(f"  {cls}.{param}[{kind}] -> {s.n_accepts}/{s.n_attempts} ({s.accept_rate:.0%})")
     if holdout_records:
+        from panobbgo.self_improve import aggregate_holdout_drift
+
         any_overfit = any(r.overfit for r in holdout_records)
         # Worst-case generalisation: the most negative drift across seeds
         # is the one a reviewer cares about — a positive aggregate hides
@@ -441,7 +494,30 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.holdout_base_seed}  "
                 f"(seeds=[{seeds}], n={worst.holdout_iterations})"
             )
+
+        # Bootstrap CI on the pooled per-iteration drift across all
+        # hold-out records.  Stable across single-vs-multi-seed: with a
+        # single seed it is a CI on the per-iteration drifts inside
+        # that one record (still a real distribution because each
+        # holdout_iterations is paired); with multiple seeds it pools
+        # across (seed, iter).  See aggregate_holdout_drift docstring
+        # for the per-iteration vs per-record fallback.
+        agg = aggregate_holdout_drift(
+            holdout_records,
+            n_boot=int(args.holdout_ci_n_boot),
+            confidence=float(args.holdout_ci_confidence),
+            seed=int(args.stat_seed),
+        )
+        ci_verdict = "OVERFIT_CI" if agg.statistically_overfit else "OK_CI"
+        print(
+            f"[self_improve] hold-out drift CI: {ci_verdict}  "
+            f"mean={agg.mean_drift:+.4f}  "
+            f"CI{int(agg.confidence * 100)}%=[{agg.ci_low:+.4f}, {agg.ci_high:+.4f}]  "
+            f"n_samples={agg.n_samples}  n_records={agg.n_records}"
+        )
         if any_overfit and args.fail_on_overfit:
+            return 3
+        if agg.statistically_overfit and args.fail_on_overfit_ci:
             return 3
     return 0
 
@@ -525,6 +601,46 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"  --> aggregate: {agg}  worst_drift={float(worst.get('drift', 0.0)):+.4f}  "
                 f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.get('holdout_base_seed')}"
             )
+        # Bootstrap-CI aggregation across all hold-out records.  Rebuilds
+        # :class:`LoopHoldoutRecord` instances from the JSONL payload so
+        # the same helper used at loop end is reused unchanged; legacy
+        # records (missing the per-iteration score lists) fall back to
+        # one-sample-per-record automatically inside the helper.
+        from panobbgo.self_improve import LoopHoldoutRecord, aggregate_holdout_drift
+
+        rebuilt = [
+            LoopHoldoutRecord(
+                timestamp=str(r.get("timestamp", "")),
+                duration_seconds=float(r.get("duration_seconds", 0.0)),
+                holdout_base_seed=int(r.get("holdout_base_seed", 0)),
+                holdout_iterations=int(r.get("holdout_iterations", 0)),
+                holdout_iteration_offset=int(r.get("holdout_iteration_offset", 0)),
+                seed_holdout_score=float(r.get("seed_holdout_score", 0.0)),
+                top_holdout_score=float(r.get("top_holdout_score", 0.0)),
+                seed_training_score=float(r.get("seed_training_score", 0.0)),
+                top_training_score=float(r.get("top_training_score", 0.0)),
+                holdout_delta=float(r.get("holdout_delta", 0.0)),
+                training_delta=float(r.get("training_delta", 0.0)),
+                drift=float(r.get("drift", 0.0)),
+                overfit=bool(r.get("overfit", False)),
+                eps_overfit=float(r.get("eps_overfit", 0.05)),
+                top_iteration=int(r.get("top_iteration", -1)),
+                ladder_size=int(r.get("ladder_size", 0)),
+                base_seed=int(r.get("base_seed", 42)),
+                mode=str(r.get("mode", "quick")),
+                reasons=list(r.get("reasons", [])),
+                seed_iteration_scores=[float(x) for x in r.get("seed_iteration_scores", [])],
+                top_iteration_scores=[float(x) for x in r.get("top_iteration_scores", [])],
+            )
+            for r in holdout_records
+        ]
+        agg = aggregate_holdout_drift(rebuilt)
+        ci_verdict = "OVERFIT_CI" if agg.statistically_overfit else "OK_CI"
+        print(
+            f"  --> drift CI: {ci_verdict}  mean={agg.mean_drift:+.4f}  "
+            f"CI{int(agg.confidence * 100)}%=[{agg.ci_low:+.4f}, {agg.ci_high:+.4f}]  "
+            f"n_samples={agg.n_samples}  n_records={agg.n_records}"
+        )
     return 0
 
 

@@ -254,10 +254,19 @@ def _make_full_problems() -> List[ProblemSpec]:
 def _make_quick_strategies() -> List[StrategySpec]:
     """Minimal strategy set: one baseline + one adaptive.
 
-    The adaptive strategy includes a :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
-    analyzer so that the sensitivity-aware :class:`~panobbgo.heuristics.nearby.Nearby`
-    heuristic can scale perturbations by dimension importance once enough evaluations
-    have been accumulated.
+    The adaptive strategy (``Rewarding_Diverse``) combines a Sobol' low-
+    discrepancy initial design with a continuous-exploration ``Random`` arm,
+    a sensitivity-aware ``Nearby`` perturbation, a ``Center`` anchor, and a
+    ``NelderMead`` local refiner under the rewarding bandit.  The Sobol'
+    block covers the box more uniformly than uniform i.i.d. sampling at the
+    same evaluation count — the same rationale the standard-mode
+    ``BayesOpt_Sobol`` / ``CMAES_Portfolio`` strategies use — giving the
+    downstream local heuristics a higher-quality grid of "first looks" at
+    the landscape.  The :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
+    analyzer feeds dimension importances to ``Nearby`` once enough
+    evaluations have accumulated; ``update_interval=25`` was selected by
+    the self-improvement loop as a small but reproducible gain over the
+    earlier ``20`` (see ``planning/self_improve_ledger.jsonl`` iter 6).
 
     CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
     its covariance adaptation has too little data to converge, and the population overhead
@@ -265,7 +274,7 @@ def _make_quick_strategies() -> List[StrategySpec]:
     standard or full mode for CMA-ES benchmarking.
     """
     from panobbgo.strategies import StrategyRoundRobin, StrategyRewarding
-    from panobbgo.heuristics import Random, Nearby, NelderMead, Center
+    from panobbgo.heuristics import Random, Nearby, NelderMead, Center, Sobol
     from panobbgo.analyzers import Sensitivity
 
     return [
@@ -278,12 +287,13 @@ def _make_quick_strategies() -> List[StrategySpec]:
             name="Rewarding_Diverse",
             strategy_class=StrategyRewarding,
             heuristics=[
+                (Sobol, {"n": 16, "scramble": True}),
                 (Random, {}),
                 (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
                 (Center, {}),
                 (NelderMead, {}),
             ],
-            analyzers=[(Sensitivity, {"update_interval": 20})],
+            analyzers=[(Sensitivity, {"update_interval": 25})],
         ),
     ]
 

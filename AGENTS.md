@@ -168,6 +168,61 @@ Per-pair metrics also reported: ``success_rate``, ``ert`` (BBOB standard),
 *   Changing core evaluation or constraint handling logic
 *   Adding new benchmark problems or strategies to the registry
 
+### Agent-driven "improve X" PRs — evidence vs. CI
+
+A green PR proves the change does not break tests / lint / typecheck /
+docs / format / the micro pytest-benchmark suite.  **A green PR does NOT
+prove the change improved ``composite_score``** — none of the PR-side CI
+workflows in `.github/workflows/` execute `benchmark_harness.py`.  Only
+the nightly `self_improve_nightly.yml` workflow runs the harness, and it
+operates on `master`, not on PR branches.
+
+When the user instructs the agent to "improve the default strategy" /
+"push to PR" / "do not run locally" — or any equivalent phrasing that
+prevents the agent from running the harness before opening the PR — the
+agent must:
+
+1.  **State the evidence form in the PR description**, not just the
+    intended improvement.  Acceptable evidence, in decreasing order of
+    strength:
+
+    *   A locally-captured `before.json` / `after.json` pair compared
+        with `benchmark_harness.py compare --statistical
+        --fail-on-regression --paired` (see "Workflow" above).  The PR
+        description should include the composite delta and CI bounds.
+    *   An entry in `planning/self_improve_ledger.jsonl` whose
+        `proposal` matches the exact change being shipped, where
+        `accepted: true`, the CI lower bound > 0, and no per-pair
+        regression exceeds `eps_regress`.  Cite the iteration number
+        and `(base_seed, randomize_iteration)`.
+    *   *Not acceptable as the only evidence:* "this matches a
+        configuration used by another strategy in the codebase",
+        literature analogy, or "the docstring says it should help".
+        These are reasonable *motivations* but they do not quantify the
+        delta on this strategy on this problem battery.
+
+2.  **Be explicit when an evidence form is missing.**  If part of the
+    change is supported by ledger evidence and another part is argued
+    by analogy, the PR description must say so.  Future autonomous
+    runs will accumulate data only if each PR's claim is honest about
+    what was measured.
+
+3.  **Queue the change for follow-up measurement.**  If shipping
+    without a harness run, the merged change becomes the new seed
+    spec for the next nightly self-improvement run.  That run will
+    re-measure the seed on a fresh randomized iteration (and the
+    hold-out base_seed) and either accumulate confirming evidence in
+    the ledger or surface a regression via the anti-cherry-pick
+    guard.  No additional action is required from the agent, but the
+    PR description should flag that the change is "pending nightly
+    validation" so the user knows where to look for the post-merge
+    composite delta.
+
+Cumulative improvement across many such PRs requires that each PR's
+claim be either backed by measurement up-front or queued for
+post-merge measurement; otherwise the project's "is it better than
+master?" signal degrades over time as analogies stack.
+
 ### Statistical rigor
 
 The composite score is **noisy** at `--quick` mode (3 reps). A delta of

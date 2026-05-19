@@ -105,9 +105,21 @@ population linearly with the budget (Tanabe & Fukunaga 2014, CEC 2014 winner).  
 uses the ``current-to-pbest/1`` mutation (Zhang & Sanderson 2009) with an external
 archive of replaced parents and is widely cited as one of the strongest single-population
 black-box optimizers — the high-water mark from which subsequent variants
-(jSO, IMODE, NL-SHADE-RSP) merely refine.
+(jSO, IMODE, NL-SHADE-RSP) refine.
 
-**References**: [Storn1997]_; Zhang & Sanderson (2009); Tanabe & Fukunaga (2013, 2014).
+For the **CEC-2017 refinement**, see :class:`~panobbgo.heuristics.jso.JSO`
+(Brest, Maučec & Bošković 2017 — winner of the CEC-2017 single-objective
+bound-constrained competition).  jSO is a direct subclass of L-SHADE that adds:
+a *weighted* ``current-to-pbest-w/1`` mutation (the pbest direction is re-weighted by a
+phase-dependent ``F_w`` factor — ``0.7·F`` early, ``0.8·F`` mid, ``1.2·F`` late);
+a *linear* ``p_best`` schedule (``0.25 → 0.125``) that contracts greediness as the
+population shrinks; *Cauchy-F clamping* that limits ``F`` to ``0.7`` while
+``progress < 0.6``; and a frozen anchor memory bin at ``M_F = M_CR = 0.9`` that
+``_update_memory`` never overwrites.  Subsequent CEC winners (jDE100,
+NL-SHADE-RSP, NL-SHADE-LBC) all cite jSO as their direct ancestor.
+
+**References**: [Storn1997]_; Zhang & Sanderson (2009); Tanabe & Fukunaga (2013, 2014);
+Brest, Maučec & Bošković (CEC 2017).
 
 Particle Swarm Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

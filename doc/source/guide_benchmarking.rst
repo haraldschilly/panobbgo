@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``COBYQA``) to a target strategy.  The pool ships *two* PSO
+  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *two* PSO
   entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995) and the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002) — so the bandit can pick
@@ -718,7 +718,12 @@ space with two new ops that change the *shape* of a
   adaptive Differential Evolution with linear population reduction
   and an opt-in iLSHADE / jSO (Brest 2016 / 2017) linearly-decreasing
   ``p_best`` schedule (set ``p_best_end`` on the spec to enable);
-  COBYQA (Ragonneau-Zhang 2023) brings the modern Powell-family
+  jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner) refines L-SHADE
+  with a weighted ``current-to-pbest-w/1`` mutation, a linear
+  ``p_best`` schedule, Cauchy-F clamping, and a frozen anchor memory
+  bin; both share the ``add_heuristic`` arm so the bandit picks
+  whichever DE-family variant wins on the current battery.  COBYQA
+  (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
   (default) skips classes that are already present in the strategy,

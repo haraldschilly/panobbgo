@@ -313,6 +313,103 @@
     `--paired` / `--unpaired` and the auto-detect default.
   - This TODO entry.
 
+### jSO Adaptive Differential Evolution (CEC 2017 Winner) (2026-05-15)
+- [x] **`panobbgo/heuristics/jso.py`** — new :class:`JSO` heuristic,
+      a direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE`
+      that ports the Brest-Maučec-Bošković (CEC 2017) jSO refinement.
+      jSO won the CEC-2017 single-objective bound-constrained
+      competition and remains the canonical successor to L-SHADE in
+      the adaptive-DE family.
+- [x] **Three algorithmic refinements over L-SHADE**:
+      - **Weighted current-to-pbest mutation** (``current-to-pbest-w/1``).
+        The pbest direction is re-weighted by a phase-dependent
+        ``F_w`` factor: ``0.7·F`` while ``progress < 0.2``, ``0.8·F``
+        while ``progress < 0.4``, ``1.2·F`` afterwards.  The
+        differential ``F · (x_r1 − x_r2)`` term keeps the unweighted
+        scaling.
+      - **Linear ``p_best`` schedule**.  ``p_best`` decreases linearly
+        from ``p_best_max = 0.25`` to ``p_best_min = 0.125`` over the
+        budget — broader pbest pool early, focused exploitation late.
+      - **Cauchy-F clamping**.  When ``progress < 0.6``, sampled ``F``
+        values above ``0.7`` are clamped to ``0.7`` to prevent
+        pathologically large jumps in the early phase.
+- [x] **Two memory tweaks** — ``M_F`` initialised to ``0.3`` (vs
+      L-SHADE's ``0.5``) and ``M_CR`` to ``0.8`` (vs ``0.5``), plus a
+      *frozen anchor bin* at ``H − 1`` permanently pinned at
+      ``M_F = M_CR = 0.9``.  ``_update_memory`` advances the pointer
+      through ``[0, H − 2]`` only — the anchor bin is still drawn
+      from at sampling time so it stably contributes a "moderately
+      greedy" parameter setting regardless of what the live
+      success-history has learned.
+- [x] **Asynchronous adaptation** — identical to L-SHADE.  jSO inherits
+      the per-slot pending dict, generation-by-count update cadence,
+      archive trimming, LPSR shrinking, and warm restart unchanged.
+      Progress measurement uses ``len(strategy.results) / max_eval``
+      (the same idiom L-SHADE uses for LPSR pacing) so the F-clamp
+      and ``F_w`` schedules stay in lock-step with the population
+      shrink.  When ``max_eval`` is unknown the schedules degrade to
+      ``progress = 0.0`` (early-phase regime).
+- [x] **Structural catalog integration** — :func:`default_structural_catalog`
+      gains JSO as a twelfth ``add_heuristic`` candidate
+      (``avoid_duplicates=True`` keeps the catalog from cluttering
+      portfolios).  Both L-SHADE and jSO ship side-by-side so the
+      bandit picks whichever DE-family variant wins on the current
+      battery — exactly the kind of complementarity the structural
+      catalog is designed to leverage.
+- [x] **Kwarg catalog rules** — :func:`default_catalog` gains two
+      jSO-specific rules: ``JSO.NP_init`` (``integer_add`` over
+      ``[10, 60]`` with ``±5 / ±10`` deltas) and ``JSO.p_best_max``
+      (``float_uniform`` over ``[0.15, 0.4]``).  Each fires only when
+      a spec sets the matching kwarg explicitly.
+- [x] **Impact** — A/B at quick mode (3 problems × 5 reps × 300 evals)
+      against L-SHADE in the same Rewarding strategy:
+      - Seed 42: ``Rewarding_LSHADE`` 0.791 / ``Rewarding_JSO`` **0.856**
+        (mean **+0.065**).  Rosenbrock pair: 0.374 → **0.568** (success
+        rate **40% → 80%**).
+      - Seed 43: ``Rewarding_LSHADE`` **0.831** / ``Rewarding_JSO`` 0.801
+        (mean -0.030).
+      Each variant wins on one seed — the per-seed complementarity
+      that motivates carrying both arms in the catalog.  The +0.194
+      Rosenbrock spike on seed 42 is the literature-predicted win:
+      jSO's weighted mutation term navigates the curved Rosenbrock
+      valley faster than fixed-weight ``current-to-pbest/1``.
+- [x] **Backwards compatibility** — strictly safe.  jSO is opt-in:
+      not added to any default
+      :func:`_make_quick_strategies` /
+      :func:`_make_standard_strategies` /
+      :func:`_make_full_strategies` spec, so existing CLI invocations
+      and existing ledgers stay byte-identical.  L-SHADE itself is
+      untouched.
+- [x] **33 new tests** in `tests/test_heuristic_jso.py`:
+      - **Construction validation** (8) — defaults match Brest 2017,
+        custom kwargs, subclass-of-LSHADE invariant, ``H >= 2``
+        requirement (anchor bin separation), ``p_best_max`` bounds,
+        ``p_best_min`` bounds, ordering rule
+        ``p_best_min <= p_best_max``.
+      - **Memory anchor invariants** (5) — anchor frozen at
+        construction, never written by ``_update_memory`` even
+        after many cycles, pointer wraps over ``[0, H − 2]`` only,
+        writable bin updated via Lehmer mean, no-success leaves
+        memory unchanged.
+      - **Schedule helpers** (5) — progress clipped to ``[0, 1]``,
+        falls back to zero without budget, linear ``p_best``
+        schedule, three-phase ``F_w`` schedule, phase-boundary
+        inclusivity.
+      - **Cauchy-F clamping** (3) — clamped at ``0.7`` in early
+        phase, unclamped in late phase, F always in ``(0, 1]``
+        regardless of phase.
+      - **Initial population emission** (4) — ``NP_init`` points
+        emitted, ``on_start`` re-stamps jSO defaults, NaN F/CR on
+        initial trials, points stay inside the box.
+      - **Generate-trial path** (2) — evolutionary trials emitted
+        post-fill, better trial wins and archives parent.
+      - **Restart behaviour** (3) — re-stamps jSO memory and
+        anchor, ``center=None`` random fallback, before-start no-op.
+      - **Smoke convergence** (1) — end-to-end no-regression on a
+        quadratic.
+      - **Registration** (3) — package re-export, structural catalog
+        candidate pool, kwarg rules present in default catalog.
+
 ### Categorical Mutation Rule (`categorical_choice`) (2026-05-13)
 - [x] **New `MutationRule(kind="categorical_choice", choices=...)`**
       in `panobbgo/self_improve.py`.  Fourth mutation kind alongside

@@ -1261,6 +1261,34 @@ def default_catalog() -> MutationCatalog:
                 choices=(0.0, 1.0, 2.6),
                 probability=0.3,
             ),
+            # jSO (Brest, Maučec & Bošković 2017) initial population size.
+            # Same ``[10, 60]`` bracket as L-SHADE — they share the
+            # ``current-to-pbest/1`` mutation skeleton and benefit from the
+            # same population sizing trade-off.
+            MutationRule(
+                strategy_pattern="",
+                class_name="JSO",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # jSO upper bound on the linear ``p_best`` schedule.  Brest et al.
+            # report ``0.25`` as the default; bracket the practical range
+            # ``[0.15, 0.4]`` so the loop can probe a slightly greedier or
+            # broader pbest pool without going below the implicit floor of
+            # ``p_best_min`` (the constructor enforces ``p_best_min <= p_best_max``).
+            MutationRule(
+                strategy_pattern="",
+                class_name="JSO",
+                param_name="p_best_max",
+                kind="float_uniform",
+                bounds=(0.15, 0.4),
+                low=0.15,
+                high=0.4,
+                probability=0.5,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1340,6 +1368,7 @@ def default_structural_catalog() -> MutationCatalog:
     # actually selected.
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
+    from panobbgo.heuristics.jso import JSO
     from panobbgo.heuristics.cobyqa import COBYQA
 
     # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
@@ -1351,6 +1380,14 @@ def default_structural_catalog() -> MutationCatalog:
     # Differential Evolution variant; the default ``NP_init=30`` matches
     # Panobbgo's typical max-eval budgets.  ``NP_min`` stays at the
     # heuristic's default of 4 (the floor required by current-to-pbest/1).
+    # jSO (Brest, Maučec & Bošković 2017) is the CEC-2017 winner, a
+    # direct refinement of L-SHADE that adds a weighted ``current-to-pbest-w/1``
+    # mutation, a linear ``p_best`` schedule, Cauchy-F clamping, and a
+    # frozen-anchor memory bin.  L-SHADE and jSO are listed as *separate*
+    # candidate classes — ``avoid_duplicates`` (the default) only filters
+    # exact-class matches, so a portfolio can end up with both arms.  The
+    # bandit then weighs whichever DE-family variant wins on the current
+    # battery via the per-heuristic reward signal.
     # COBYQA (Ragonneau-Zhang 2023) is Powell's BOBYQA / NEWUOA successor —
     # a derivative-free trust-region method with quadratic interpolation
     # models, dominant on smooth / near-smooth local refinement.  Defaults
@@ -1366,6 +1403,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
+        (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [

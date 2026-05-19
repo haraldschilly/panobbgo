@@ -1048,6 +1048,127 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: Statistical rigor section flags ``--paired`` /
     ``--unpaired`` and the auto-detect default.
 
+### 2026-05-15 — jSO adaptive Differential Evolution (CEC 2017 winner)
+
+* **What** — `panobbgo/heuristics/jso.py` adds the :class:`JSO` heuristic,
+  a direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE` that
+  ports the Brest-Maučec-Bošković (CEC 2017) "jSO" refinement.  jSO
+  inherits the entire L-SHADE asynchronous pipeline (per-slot pending
+  dict, generation-by-count book-keeping, archive of replaced parents,
+  warm restart) and overrides three pieces of the trial-generation
+  machinery:
+
+  * **Weighted current-to-pbest mutation** (``current-to-pbest-w/1``).
+    The pbest direction is re-weighted by a phase-dependent factor
+    ``F_w`` that grows with progress: ``0.7·F`` while ``progress < 0.2``,
+    ``0.8·F`` while ``progress < 0.4``, ``1.2·F`` afterwards.  The
+    differential ``F · (x_r1 − x_r2)`` term keeps the unweighted
+    scaling.  Asynchronous progress is measured the same way LPSR
+    measures it: ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.
+  * **Linear ``p_best`` schedule**.  ``p_best`` decreases linearly from
+    ``p_best_max = 0.25`` to ``p_best_min = 0.125`` over the budget.
+    Early-run mutations draw from a broader top slice; once LPSR has
+    shrunk the population, the top 12.5% is enough to focus on the
+    leading basin.
+  * **Cauchy-F clamping**.  When ``progress < 0.6``, sampled ``F``
+    values above ``0.7`` are clamped to ``0.7``.  Prevents
+    pathologically large jumps when the population is still big.
+
+  Plus two memory tweaks Brest et al. measured to give better
+  early-run behaviour across the CEC battery:
+
+  * **Initial memory values** ``M_F = 0.3`` / ``M_CR = 0.8``
+    (vs L-SHADE's ``0.5`` / ``0.5``).
+  * **Frozen anchor bin**.  The last memory bin (``H − 1``) is permanently
+    pinned at ``M_F = M_CR = 0.9``.  ``_update_memory`` advances the
+    pointer through ``[0, H − 2]`` only — the anchor bin is still drawn
+    from at sampling time so it stably contributes a "moderately greedy"
+    parameter setting regardless of what the live success-history has
+    learned.
+
+  The heuristic is registered in :mod:`panobbgo.heuristics`,
+  :func:`default_structural_catalog` gains it as a twelfth
+  ``add_heuristic`` candidate (``avoid_duplicates=True`` keeps the
+  catalog from cluttering portfolios that already include it), and
+  :func:`default_catalog` gains two kwarg rules so the loop driver
+  can also retune ``JSO.NP_init`` and ``JSO.p_best_max`` once a spec
+  opts in.
+* **Why** — closes the *iLSHADE / jSO* L-SHADE follow-up below.  jSO
+  is the **CEC-2017 single-objective bound-constrained competition
+  winner** and remains a high-water mark for adaptive DE variants:
+  every CEC winner since (jDE100, NL-SHADE-RSP, etc.) cites jSO as
+  their direct ancestor and most differ from it only in
+  archive-handling or rank-based selection refinements.  Subclassing
+  L-SHADE keeps the *new* heuristic at the literature-best frontier
+  while leaving the original L-SHADE byte-identical for ledger
+  reproducibility — exactly the precedent set by the L-SHADE entry
+  itself, which kept the basic ``DE/rand/1/bin`` heuristic available
+  alongside.  Adding jSO to the structural catalog gives the
+  self-improvement loop a third DE-family arm (basic DE, L-SHADE,
+  jSO) the bandit can pick whichever wins on the current battery.
+* **Asynchronous adaptation** — identical to L-SHADE.  jSO inherits
+  the per-slot pending dict, generation-by-count update cadence,
+  archive trimming, LPSR shrinking, and warm restart unchanged.
+  The only async-relevant change is the use of ``_progress()`` (the
+  same idiom L-SHADE uses for LPSR pacing) inside the F-clamp,
+  ``F_w`` schedule, and ``p_best`` schedule — so the three jSO
+  schedules stay in lock-step with the population shrink.  When
+  ``max_eval`` is unknown the schedules degrade to ``progress = 0.0``
+  (early-phase regime), matching L-SHADE's "no budget → no LPSR"
+  fallback.
+* **Impact** — A/B against L-SHADE in the same Rewarding strategy
+  (Random + Nearby + Center + NelderMead + DE-arm), at quick mode
+  (3 problems × 5 reps × 300 evaluations):
+
+  * Seed 42 — ``Rewarding_LSHADE`` 0.791 / ``Rewarding_JSO`` **0.856**
+    (mean **+0.065**).  Rosenbrock pair: 0.374 → **0.568** (success
+    rate **40% → 80%**).  DeJong / Rastrigin tied at perfect.
+  * Seed 43 — ``Rewarding_LSHADE`` **0.831** / ``Rewarding_JSO`` 0.801
+    (mean -0.030).  Rosenbrock pair: **0.495 → 0.404** (both 60%
+    success rate; LSHADE earlier ERT).
+
+  Each variant wins on one of the two seeds — exactly the
+  *complementarity* that motivates carrying both in the structural
+  catalog.  The +0.194 spike on Rosenbrock seed 42 demonstrates the
+  property the literature predicts: jSO's weighted mutation term
+  navigates the curved Rosenbrock valley faster than fixed-weight
+  ``current-to-pbest/1``, but at quick budgets (300 evals) the win
+  is seed-dependent.  Adding jSO to the catalog gives the
+  self-improvement loop a CEC-2017-class DE arm the bandit can swap
+  in on a per-problem basis once it has gathered evidence.
+* **Backwards compatibility** — strictly safe.  jSO is opt-in: it is
+  not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers stay
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; ``avoid_duplicates=True`` keeps the
+  catalog from cluttering a portfolio that already has it.  The
+  kwarg rules only fire when a spec explicitly sets ``NP_init`` /
+  ``p_best_max`` (per :func:`_find_targets`'s "param already in
+  kwargs" predicate), so a fresh ledger run on the built-in
+  factories sees no behavioural change.  L-SHADE itself is
+  untouched — jSO is a *new* class.
+* **Tests** — `tests/test_heuristic_jso.py` (33 tests):
+  construction validation (8 — defaults match Brest 2017, custom
+  kwargs, subclass invariant, H must be ≥ 2 for the anchor bin
+  separation, p_best_max bounds, p_best_min bounds, ordering rule
+  ``p_best_min <= p_best_max``), memory anchor invariants (5 —
+  anchor frozen at construction, never written by ``_update_memory``
+  even after many cycles, pointer wraps over ``[0, H − 2]`` only,
+  writable bin updated via Lehmer mean, no-success leaves memory
+  unchanged), schedule helpers (5 — progress clipped, fallback to
+  zero without budget, linear p_best schedule, three-phase F_w
+  schedule, phase-boundary inclusivity), Cauchy-F clamping (3 —
+  clamped at 0.7 in early phase, unclamped in late phase, F always
+  in (0, 1]), initial population emission (4 — NP_init points,
+  on_start re-stamps jSO defaults, NaN F/CR, points inside box),
+  generate-trial path (2 — evolutionary trials emitted post-fill,
+  better trial wins and archives parent), restart behaviour (3 —
+  re-stamps jSO memory, ``center=None`` random fallback,
+  before-start no-op), end-to-end smoke convergence on a quadratic,
+  and registration tests (3 — package re-export, structural catalog
+  candidate pool, kwarg rules present in default catalog).
+
 ### 2026-05-13 — Categorical mutation rule (`categorical_choice`)
 
 * **What** — `panobbgo/self_improve.py`:
@@ -1943,11 +2064,51 @@ motivate the work:
 - **iLSHADE / jSO adaptive p_best schedule** — shipped 2026-05-19
   as the opt-in ``LSHADE.p_best_end`` kwarg plus the
   :meth:`LSHADE._current_p_best` helper.  See the §13 entry.
+- **iLSHADE / jSO heuristic class** — shipped 2026-05-15 as
+  :class:`~panobbgo.heuristics.jso.JSO`, a direct subclass of L-SHADE
+  with the Brest-Maučec-Bošković (CEC 2017) refinements: weighted
+  ``current-to-pbest-w/1`` mutation, linear ``p_best`` schedule
+  (``0.25 → 0.125``), Cauchy-F clamping in the early phase, jSO
+  initial memory values (``M_F = 0.3``, ``M_CR = 0.8``), and a
+  frozen anchor memory bin at ``M_F = M_CR = 0.9``.  See the §13
+  entry above.  jSO is the **CEC-2017 single-objective
+  bound-constrained competition winner**.
 - **Categorical mutation rule for ``LSHADE`` archive on/off** —
   shipped 2026-05-13.  The default catalog now contains an
   ``archive_factor`` rule with ``choices=(0.0, 1.0, 2.6)`` that fires
   whenever a spec sets ``archive_factor`` explicitly.  See the §13
   entry.
+
+#### jSO follow-ups (after 2026-05-15 ship)
+
+jSO landed 2026-05-15 as :class:`~panobbgo.heuristics.jso.JSO`; see
+the §13 entry.  Natural extensions when the loop has collected
+enough evidence to motivate the work:
+
+- **NL-SHADE-RSP / NL-SHADE-LBC** — successive CEC winners (2020,
+  2022) that build on jSO with rank-based parent selection and a
+  linear bias-correction mechanism.  Marginal gains in the
+  literature, but they would close the gap against the current
+  state-of-the-art DE family.  Subclassing :class:`JSO` is the
+  obvious shape: only the trial-generation path changes, the
+  asynchronous pipeline and memory machinery stay shared.
+- **L-SHADE-cnEpSin** — independently developed competitive
+  ensemble (Awad et al. CEC 2017) that combines an ensemble of
+  sinusoidal F schedules with the SHADE memory.  A different
+  branch of the DE family tree from jSO; useful if the bandit
+  evidence ever shows neither jSO nor vanilla L-SHADE consistently
+  wins on noisy / multi-modal landscapes.
+- **Auto-tuned ``H``** — Brest et al. report ``H = 5`` as best for
+  the CEC battery; the loop currently has no rule for ``JSO.H``
+  because the constructor enforces ``H >= 2`` (anchor bin
+  separation).  A rule with ``bounds=(2, 10)`` would expose this
+  knob on opt-in specs the same way ``LSHADE.H`` does.
+- **Categorical mutation rule for ``JSO.p_best_max``** — three
+  literature-canonical settings (0.11 from L-SHADE, 0.25 from jSO,
+  0.4 from iLSHADE) make a natural ``categorical_choice`` slot
+  alongside the existing ``float_uniform`` rule.  Would let the
+  loop flip between the three regimes the same way
+  ``LSHADE.archive_factor`` flips between archive on / off / RSP.
 
 #### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 

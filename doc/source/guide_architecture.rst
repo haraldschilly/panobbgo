@@ -273,6 +273,19 @@ Implemented Heuristics
   via the structural mutation catalog.  Also supports IPOP-style warm restarts via
   :class:`~panobbgo.analyzers.restart.Restart`.
 
+- :class:`~panobbgo.heuristics.jso.JSO`: jSO refinement of L-SHADE (Brest, Maučec & Bošković,
+  CEC 2017 winner).  Direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE` that adds three
+  literature-best refinements: a *weighted* ``current-to-pbest-w/1`` mutation
+  (the pbest direction is re-weighted by a phase-dependent ``F_w`` factor — ``0.7·F`` early,
+  ``0.8·F`` mid, ``1.2·F`` late); a *linear* ``p_best`` schedule (``0.25 → 0.125``); and
+  *Cauchy-F clamping* that limits sampled ``F`` to ``0.7`` while ``progress < 0.6``.  The history
+  memory uses ``M_F = 0.3`` / ``M_CR = 0.8`` initial values and reserves the last bin
+  (``H − 1``) as a frozen anchor at ``0.9 / 0.9`` that ``_update_memory`` never overwrites.
+  Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
+  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
+  jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
+  wins on the current battery.
+
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).
   Each particle carries a position, a velocity, and a memory of its personal best; on every step

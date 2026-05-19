@@ -660,7 +660,9 @@ space with two new ops that change the *shape* of a
   ``k_neighbors=2`` (Kennedy & Mendes 2002) — so the bandit can pick
   whichever exploration / exploitation trade-off helps on the current
   battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
-  adaptive Differential Evolution with linear population reduction;
+  adaptive Differential Evolution with linear population reduction
+  and an opt-in iLSHADE / jSO (Brest 2016 / 2017) linearly-decreasing
+  ``p_best`` schedule (set ``p_best_end`` on the spec to enable);
   COBYQA (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``

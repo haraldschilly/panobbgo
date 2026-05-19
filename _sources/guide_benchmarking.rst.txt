@@ -987,6 +987,81 @@ Programmatic use:
              f" (worst drift={worst_drift:+.4f})")
 
 
+Bootstrap CI on the aggregated drift
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The multi-seed worst-case reduction is *conservative* — one bad
+seed flags the entire ladder — but it gives no sense of whether
+``-0.0074`` is the typical drift, the lucky tail of a larger drift,
+or a noisy artefact of a small sample.  The
+:func:`~panobbgo.self_improve.aggregate_holdout_drift` helper pools
+**per-iteration paired drifts** across every hold-out record and
+bootstrap-resamples the mean::
+
+    drift_{r, k} = (top_k - seed_k) - training_delta_r
+
+where ``r`` indexes the record (one per hold-out seed) and ``k``
+indexes the hold-out iteration inside that record.  With the default
+``holdout_iterations=5`` and three seeds the bootstrap sees
+``3 × 5 = 15`` paired samples — enough that the CI quantiles are
+real distributional information rather than a degenerate point
+estimate.
+
+The CLI prints the CI alongside the worst-case verdict::
+
+    [self_improve] hold-out aggregate: OK  worst_drift=-0.0074 ...
+    [self_improve] hold-out drift CI: OK_CI  mean=-0.0012  CI95%=[-0.0037, +0.0000]  ...
+
+Reading the line: the bootstrap places the *expected* drift at
+``-0.0012`` and the 95% CI between ``-0.0037`` and ``0`` — i.e. the
+data does not statistically rule out zero drift.  Compare to the
+worst-case ``-0.0074`` reduction, which can be a lucky-tail
+artefact of a single noisy sample.
+
+A stricter exit-on-overfit rule uses the CI: with
+``--fail-on-overfit-ci`` the loop exits with code ``3`` only when the
+*upper bound* of the CI falls below ``-holdout-eps-overfit`` — i.e.
+the bootstrap rules out a drift better than the tolerance at the
+configured confidence level.  This is the principled sibling of
+``--fail-on-overfit`` and pairs with the
+:func:`~panobbgo.harness.statistical_accept` rule used elsewhere in
+the loop.
+
+.. code-block:: bash
+
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --mode standard \
+       --holdout-base-seeds 1234,5678,9012 \
+       --fail-on-overfit-ci --holdout-ci-confidence 0.95
+
+The per-iteration paired scores are also persisted to the JSONL
+ledger as ``seed_iteration_scores`` and ``top_iteration_scores``
+lists on each :class:`~panobbgo.self_improve.LoopHoldoutRecord`, so
+the ``summary`` subcommand and any downstream analytics can re-run
+the aggregation on stored data:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import (
+       aggregate_holdout_drift, LoopHoldoutRecord,
+   )
+
+   agg = aggregate_holdout_drift(holdout_records)
+   print(
+       f"mean drift {agg.mean_drift:+.4f}, "
+       f"CI{int(agg.confidence * 100)}%=[{agg.ci_low:+.4f}, "
+       f"{agg.ci_high:+.4f}]"
+   )
+   if agg.statistically_overfit:
+       print("CI rules out generalisation at the configured confidence")
+
+Backward compatibility: legacy records (written before the
+per-iteration fields existed) contribute one sample each from their
+cached ``drift`` value.  Mixed inputs work transparently — the
+helper uses high-resolution per-iteration samples when present and
+falls back to per-record point drifts otherwise.
+
+
 Extending the harness
 ---------------------
 

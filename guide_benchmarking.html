@@ -133,6 +133,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
 <li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
 <li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
+<li><a class="reference internal" href="#bootstrap-ci-on-the-aggregated-drift">Bootstrap CI on the aggregated drift</a></li>
 </ul>
 </li>
 </ul>
@@ -1164,6 +1165,73 @@ same stream).</p></li>
 </span><span data-line="14">          <span class="sa">f</span><span class="s2">&quot; (worst drift=</span><span class="si">{</span><span class="n">worst_drift</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
+</section>
+<section id="bootstrap-ci-on-the-aggregated-drift">
+<h4>Bootstrap CI on the aggregated drift<a class="headerlink" href="#bootstrap-ci-on-the-aggregated-drift" title="Link to this heading">¶</a></h4>
+<p>The multi-seed worst-case reduction is <em>conservative</em> — one bad
+seed flags the entire ladder — but it gives no sense of whether
+<code class="docutils literal notranslate"><span class="pre">-0.0074</span></code> is the typical drift, the lucky tail of a larger drift,
+or a noisy artefact of a small sample.  The
+<code class="xref py py-func docutils literal notranslate"><span class="pre">aggregate_holdout_drift()</span></code> helper pools
+<strong>per-iteration paired drifts</strong> across every hold-out record and
+bootstrap-resamples the mean:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">drift_</span><span class="p">{</span><span class="n">r</span><span class="p">,</span> <span class="n">k</span><span class="p">}</span> <span class="o">=</span> <span class="p">(</span><span class="n">top_k</span> <span class="o">-</span> <span class="n">seed_k</span><span class="p">)</span> <span class="o">-</span> <span class="n">training_delta_r</span>
+</span></pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">r</span></code> indexes the record (one per hold-out seed) and <code class="docutils literal notranslate"><span class="pre">k</span></code>
+indexes the hold-out iteration inside that record.  With the default
+<code class="docutils literal notranslate"><span class="pre">holdout_iterations=5</span></code> and three seeds the bootstrap sees
+<code class="docutils literal notranslate"><span class="pre">3</span> <span class="pre">×</span> <span class="pre">5</span> <span class="pre">=</span> <span class="pre">15</span></code> paired samples — enough that the CI quantiles are
+real distributional information rather than a degenerate point
+estimate.</p>
+<p>The CLI prints the CI alongside the worst-case verdict:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">[</span><span class="n">self_improve</span><span class="p">]</span> <span class="n">hold</span><span class="o">-</span><span class="n">out</span> <span class="n">aggregate</span><span class="p">:</span> <span class="n">OK</span>  <span class="n">worst_drift</span><span class="o">=-</span><span class="mf">0.0074</span> <span class="o">...</span>
+</span><span data-line="2"><span class="p">[</span><span class="n">self_improve</span><span class="p">]</span> <span class="n">hold</span><span class="o">-</span><span class="n">out</span> <span class="n">drift</span> <span class="n">CI</span><span class="p">:</span> <span class="n">OK_CI</span>  <span class="n">mean</span><span class="o">=-</span><span class="mf">0.0012</span>  <span class="n">CI95</span><span class="o">%=</span><span class="p">[</span><span class="o">-</span><span class="mf">0.0037</span><span class="p">,</span> <span class="o">+</span><span class="mf">0.0000</span><span class="p">]</span>  <span class="o">...</span>
+</span></pre></div>
+</div>
+<p>Reading the line: the bootstrap places the <em>expected</em> drift at
+<code class="docutils literal notranslate"><span class="pre">-0.0012</span></code> and the 95% CI between <code class="docutils literal notranslate"><span class="pre">-0.0037</span></code> and <code class="docutils literal notranslate"><span class="pre">0</span></code> — i.e. the
+data does not statistically rule out zero drift.  Compare to the
+worst-case <code class="docutils literal notranslate"><span class="pre">-0.0074</span></code> reduction, which can be a lucky-tail
+artefact of a single noisy sample.</p>
+<p>A stricter exit-on-overfit rule uses the CI: with
+<code class="docutils literal notranslate"><span class="pre">--fail-on-overfit-ci</span></code> the loop exits with code <code class="docutils literal notranslate"><span class="pre">3</span></code> only when the
+<em>upper bound</em> of the CI falls below <code class="docutils literal notranslate"><span class="pre">-holdout-eps-overfit</span></code> — i.e.
+the bootstrap rules out a drift better than the tolerance at the
+configured confidence level.  This is the principled sibling of
+<code class="docutils literal notranslate"><span class="pre">--fail-on-overfit</span></code> and pairs with the
+<code class="xref py py-func docutils literal notranslate"><span class="pre">statistical_accept()</span></code> rule used elsewhere in
+the loop.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="2"><span class="w">    </span>--mode<span class="w"> </span>standard<span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--holdout-base-seeds<span class="w"> </span><span class="m">1234</span>,5678,9012<span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--fail-on-overfit-ci<span class="w"> </span>--holdout-ci-confidence<span class="w"> </span><span class="m">0</span>.95
+</span></pre></div>
+</div>
+<p>The per-iteration paired scores are also persisted to the JSONL
+ledger as <code class="docutils literal notranslate"><span class="pre">seed_iteration_scores</span></code> and <code class="docutils literal notranslate"><span class="pre">top_iteration_scores</span></code>
+lists on each <code class="xref py py-class docutils literal notranslate"><span class="pre">LoopHoldoutRecord</span></code>, so
+the <code class="docutils literal notranslate"><span class="pre">summary</span></code> subcommand and any downstream analytics can re-run
+the aggregation on stored data:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">aggregate_holdout_drift</span><span class="p">,</span> <span class="n">LoopHoldoutRecord</span><span class="p">,</span>
+</span><span data-line="3"><span class="p">)</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="n">agg</span> <span class="o">=</span> <span class="n">aggregate_holdout_drift</span><span class="p">(</span><span class="n">holdout_records</span><span class="p">)</span>
+</span><span data-line="6"><span class="nb">print</span><span class="p">(</span>
+</span><span data-line="7">    <span class="sa">f</span><span class="s2">&quot;mean drift </span><span class="si">{</span><span class="n">agg</span><span class="o">.</span><span class="n">mean_drift</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+</span><span data-line="8">    <span class="sa">f</span><span class="s2">&quot;CI</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">agg</span><span class="o">.</span><span class="n">confidence</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">)</span><span class="si">}</span><span class="s2">%=[</span><span class="si">{</span><span class="n">agg</span><span class="o">.</span><span class="n">ci_low</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+</span><span data-line="9">    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">agg</span><span class="o">.</span><span class="n">ci_high</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">]&quot;</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11"><span class="k">if</span> <span class="n">agg</span><span class="o">.</span><span class="n">statistically_overfit</span><span class="p">:</span>
+</span><span data-line="12">    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CI rules out generalisation at the configured confidence&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Backward compatibility: legacy records (written before the
+per-iteration fields existed) contribute one sample each from their
+cached <code class="docutils literal notranslate"><span class="pre">drift</span></code> value.  Mixed inputs work transparently — the
+helper uses high-resolution per-iteration samples when present and
+falls back to per-record point drifts otherwise.</p>
 </section>
 </section>
 </section>

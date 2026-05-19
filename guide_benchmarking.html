@@ -130,6 +130,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
 <li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
+<li><a class="reference internal" href="#per-class-structural-bandit-arms">Per-class structural bandit arms</a></li>
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
 <li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
 <li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
@@ -222,18 +223,19 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id22">Anti-cherry-pick guard (§6.3)</a></p></li>
 <li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id23">Adaptive mutation sampler (§10)</a></p></li>
 <li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id24">Strategy portfolio composition (§7.2)</a></p></li>
-<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id25">Categorical mutation rule</a></p></li>
-<li><p><a class="reference internal" href="#hold-out-validation-set" id="id26">Hold-out validation set</a></p></li>
+<li><p><a class="reference internal" href="#per-class-structural-bandit-arms" id="id25">Per-class structural bandit arms</a></p></li>
+<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id26">Categorical mutation rule</a></p></li>
+<li><p><a class="reference internal" href="#hold-out-validation-set" id="id27">Hold-out validation set</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id27">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id28">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id28">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id29">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id30">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id29">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id30">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id31">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id31">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id32">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -893,12 +895,52 @@ dispatches on <code class="docutils literal notranslate"><span class="pre">propo
 ledger, the anti-cherry-pick guard, the statistical acceptance rule —
 is unchanged and the JSONL ledger remains backwards compatible.</p>
 <p>The Thompson sampler maps every structural rule onto <strong>one arm per
-op</strong> (key <code class="docutils literal notranslate"><span class="pre">(&quot;*&quot;,</span> <span class="pre">op,</span> <span class="pre">&quot;structural&quot;)</span></code>).  This keeps cold-start
-variance bounded — a freshly enabled adaptive sampler on a structural
-catalog has the same uniform-mix behaviour as on the kwarg catalog.
-Per-class arms (<code class="docutils literal notranslate"><span class="pre">&quot;add</span> <span class="pre">Sobol&quot;</span> <span class="pre">vs</span> <span class="pre">&quot;add</span> <span class="pre">NelderMead&quot;</span></code>) are the natural
-next refinement and are listed under “Next iteration ideas” in
-<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code>.</p>
+op</strong> (key <code class="docutils literal notranslate"><span class="pre">(&quot;*&quot;,</span> <span class="pre">op,</span> <span class="pre">&quot;structural&quot;)</span></code>) by default.  This keeps
+cold-start variance bounded — a freshly enabled adaptive sampler on
+a structural catalog has the same uniform-mix behaviour as on the
+kwarg catalog.</p>
+</section>
+<section id="per-class-structural-bandit-arms">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Per-class structural bandit arms</a><a class="headerlink" href="#per-class-structural-bandit-arms" title="Link to this heading">¶</a></h3>
+<p>Once a structural catalog has accumulated evidence, the coarse
+one-arm-per-op layout becomes the limiting factor: the bandit cannot
+distinguish <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Sobol</span></code> (which may be a consistent winner) from
+<code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Random</span></code> (which may not).  Setting
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">structural_per_class_arms</span></code>
+(or passing <code class="docutils literal notranslate"><span class="pre">per_class_structural=True</span></code> to
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AdaptiveMutationSampler</span></code> directly)
+splits the structural arms by <strong>target candidate class</strong>.  <code class="docutils literal notranslate"><span class="pre">add</span>
+<span class="pre">Sobol</span></code> then lives on the bandit arm
+<code class="docutils literal notranslate"><span class="pre">(&quot;Sobol&quot;,</span> <span class="pre">&quot;add_heuristic&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Random</span></code> lives
+on <code class="docutils literal notranslate"><span class="pre">(&quot;Random&quot;,</span> <span class="pre">&quot;add_heuristic&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; the Thompson
+posterior on each arm tracks how often <em>that specific add</em> (or
+drop) is accepted.</p>
+<p>The trade-off is the canonical bandit one: sharper signal vs sparser
+per-arm data.  With <code class="docutils literal notranslate"><span class="pre">N</span></code> candidate classes in the structural
+catalog, the bandit arm space grows by a factor of <code class="docutils literal notranslate"><span class="pre">N</span></code> (for each
+op) and each arm starts cold-start with the symmetric <code class="docutils literal notranslate"><span class="pre">Beta(1,</span> <span class="pre">1)</span></code>
+prior — i.e. uniform.  In practice this means the first few
+iterations will explore each class roughly uniformly, then
+concentrate probability on whatever’s accepting.</p>
+<p>Ledger replay is consistent: <code class="xref py py-meth docutils literal notranslate"><span class="pre">prime_from_ledger()</span></code> uses the
+same key layout the live sampler will produce, so resuming a long
+run with <code class="docutils literal notranslate"><span class="pre">--adaptive-prime-from-ledger</span></code> recovers the per-class
+posterior intact.  Kwarg perturbations are unaffected by the flag —
+their <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span> <span class="pre">kind)</span></code> arms are already per-class.</p>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Structural catalog + adaptive sampler + per-class structural arms.</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--structural<span class="w"> </span>--adaptive<span class="w"> </span>--structural-per-class-arms<span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--adaptive-prime-from-ledger
+</span></pre></div>
+</div>
+<p>The flag is <strong>off by default</strong> so existing CLI invocations and the
+existing ledger format stay byte-identical.  When <code class="docutils literal notranslate"><span class="pre">--adaptive</span></code> is
+not set the flag is inert (no
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AdaptiveMutationSampler</span></code> is
+constructed) but tolerated, which keeps a config-driven workflow
+that toggles <code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span></code> independently from
+<code class="docutils literal notranslate"><span class="pre">structural_per_class_arms</span></code> safe.</p>
 <p>CLI:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Structural catalog, uniform sampler.</span>
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span>--structural
@@ -939,7 +981,7 @@ next refinement and are listed under “Next iteration ideas” in
 invocations and existing ledgers stay byte-identical.</p>
 </section>
 <section id="categorical-mutation-rule">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
 <p>The three original mutation kinds — <code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>,
 <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>, <code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> — all sample from a continuous
 numeric space.  Some of the most impactful design choices in
@@ -1022,7 +1064,7 @@ values in <code class="docutils literal notranslate"><span class="pre">old_value
 bandit arm losslessly.</p>
 </section>
 <section id="hold-out-validation-set">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
 <p>The anti-cherry-pick guard catches drift inside the <em>training</em>
 <code class="docutils literal notranslate"><span class="pre">base_seed</span></code> family — it varies only <code class="docutils literal notranslate"><span class="pre">randomize_iteration</span></code> and keeps
 the <code class="docutils literal notranslate"><span class="pre">HarnessConfig.seed</span></code> constant.  A mutation that overfits to
@@ -1238,9 +1280,9 @@ falls back to per-record point drifts otherwise.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id27" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id28" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -1250,7 +1292,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -1260,7 +1302,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -1269,7 +1311,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id31" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id32" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

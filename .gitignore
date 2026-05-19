@@ -25,3 +25,4 @@ ppdata/
 before.json
 after.json
 harness_*.json
+ioh_*.json

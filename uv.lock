@@ -529,6 +529,29 @@ wheels = [
 ]
 
 [[package]]
+name = "ioh"
+version = "0.3.22"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/fd/001e327e4d1eb36227c7a84bc819f9c760b616592f0da38a81c259fe0937/ioh-0.3.22.tar.gz", hash = "sha256:b482d1c26e358d5ff1127b69dbbf8b53b2284362359f8c66b997a4390fb6b9d3", size = 8057908, upload-time = "2025-09-26T10:18:44.633Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/d9/7021427a7f88fb022aa68498a212b797ab3d6d732edbca886c3d8bd93e40/ioh-0.3.22-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:40379cb573abbc721331eeadf28599c0a2e8d8e148d8395e631adf4558b48451", size = 8338580, upload-time = "2025-09-26T10:18:04.859Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/3e/24108a84bc4fd8fb992a915b3e43fafef313344fe0778c80d3ddc6979b31/ioh-0.3.22-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:35c13ffbb64d4cc105969e492cda983efea95faa35b7656d5f5e3f9b12297e5d", size = 8245791, upload-time = "2025-09-26T10:18:06.793Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/c1/36180ec7775874794eb4d2c45a4576e7939ee39a880be6af7d420e699df9/ioh-0.3.22-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:c99f0cd2eeec43872b5ad79066a925b81c0f5e59500b7e1b9622a9bdf9542de2", size = 8674293, upload-time = "2025-09-26T10:18:08.712Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/7f/4cd6ebc55bc7ad7ed32aa2f0c772d9b4aaf416bf35fe0ee0939bc6e90c0b/ioh-0.3.22-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9dfbd44d942877737188f161333219a5f18797507f907e2ce1060444fd41fde1", size = 8608239, upload-time = "2025-09-26T10:18:10.876Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/1d/ac4c0b20efe9835b8ff72c53a607fbdb58ab75332a02950296faccbe1a65/ioh-0.3.22-cp311-cp311-win32.whl", hash = "sha256:75aca60dc7f6512311bc5e246e4cffa604e0c86fd3e610804e8545bbe898ec2a", size = 8098660, upload-time = "2025-09-26T10:18:13.85Z" },
+    { url = "https://files.pythonhosted.org/packages/30/e2/a26652d417cc9dd240e3e3e38d44759ec6158313fea1534f56d3abb8af9c/ioh-0.3.22-cp311-cp311-win_amd64.whl", hash = "sha256:0b287eb763c17e6b0b55d0fd815e4b1af339d40476521e43e9500523d764b9a1", size = 8205834, upload-time = "2025-09-26T10:18:15.88Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/67/16a124984a141a40edaa1f9776f5fe2021e40e51214751fafa7140e6f465/ioh-0.3.22-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:6810fb39661a9d3ed8f77771de68acbf778305e2e9b92949017472f9ac2aabdc", size = 8350034, upload-time = "2025-09-26T10:18:17.44Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/d0/fc8011418c00b50f7bd85cc63e289387e46d5fa01077d3749e64feee10d1/ioh-0.3.22-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4e03145f319af32c4ab3552524f751fe1ccc71a369cbc1552ae88c64215dee15", size = 8251815, upload-time = "2025-09-26T10:18:20.387Z" },
+    { url = "https://files.pythonhosted.org/packages/58/e1/4ec2e70d456be99a819e7544a5a5ac954b6918d289a7656663d7cc8e4486/ioh-0.3.22-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:88273fab9126a4d1299fd145319f701658dc786a8253fba6ae4c13fb5e8f4fc7", size = 8670467, upload-time = "2025-09-26T10:18:22.196Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/35/949fc370594e9bb9c937888c92ea53e9e04dbcf1fa80c7e6a60a00ad0e78/ioh-0.3.22-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2b56d033d2efe0501cb76851eb4bf6f7031bf01512350006cf25026e3f036add", size = 8605274, upload-time = "2025-09-26T10:18:24.169Z" },
+    { url = "https://files.pythonhosted.org/packages/84/87/3fa26e99673244d811d10b45b0e1d48209ec8c8e2721fc1ca29186226002/ioh-0.3.22-cp312-cp312-win32.whl", hash = "sha256:31e16a60044a7473433ce64439e1388691b3f701ca39d89cfe939ede11ba260f", size = 8095039, upload-time = "2025-09-26T10:18:26.34Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/05/c1983f506511d45e950f5212d37a57ec8587f54b2d11abd8acd7a3a83e4f/ioh-0.3.22-cp312-cp312-win_amd64.whl", hash = "sha256:4a1da06186428cbb3ed0afb9db6dbb3bf771a3e0f4e90c4a5d564dc5158cec14", size = 8206836, upload-time = "2025-09-26T10:18:28.298Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1166,6 +1189,7 @@ dependencies = [
 [package.optional-dependencies]
 benchmark = [
     { name = "coco-experiment" },
+    { name = "ioh" },
 ]
 dev = [
     { name = "flake8" },
@@ -1201,6 +1225,7 @@ requires-dist = [
     { name = "dask", extras = ["distributed"], specifier = ">=2026.1.1" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.3" },
     { name = "future" },
+    { name = "ioh", marker = "extra == 'benchmark'", specifier = ">=0.3.22" },
     { name = "matplotlib", specifier = ">=3.10" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.19" },
     { name = "numpy", specifier = ">=2.4.1" },

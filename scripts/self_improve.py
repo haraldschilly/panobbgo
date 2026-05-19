@@ -143,6 +143,17 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--reps", type=int, default=None, help="Override reps per (problem, strategy)")
     run_p.add_argument("--budget", type=int, default=None, help="Override evaluation budget per run")
     run_p.add_argument(
+        "--metric",
+        choices=["composite", "aocc"],
+        default="composite",
+        help=(
+            "Which metric drives accept/reject. 'composite' (default) "
+            "uses Panobbgo's internal problem battery; 'aocc' uses the "
+            "IOH/MA-BBOB anytime metric. With --metric=aocc, --mode "
+            "selects the IOH battery preset (quick/standard/full)."
+        ),
+    )
+    run_p.add_argument(
         "--base-seed",
         dest="base_seed",
         type=int,
@@ -484,6 +495,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             holdout_iteration_offset=args.holdout_iteration_offset,
             holdout_eps_overfit=args.holdout_eps_overfit,
             paired=args.paired,
+            metric=args.metric,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

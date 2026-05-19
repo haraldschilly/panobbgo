@@ -403,6 +403,67 @@ uv run python scripts/self_improve.py run --iterations 100 \
 uv run python scripts/self_improve.py summary
 ```
 
+## IOH / MA-BBOB Anytime competition harness
+
+A **parallel measurement track** to the composite-score harness above:
+this one scores Panobbgo on the IOHprofiler MA-BBOB suite using the
+**AOCC** (Area Over the Convergence Curve) metric used by the MA-BBOB
+Anytime competition.  Run via `scripts/ioh_benchmark.py`; the data
+structures live in `panobbgo/harness_ioh.py` and wrap
+`panobbgo/ioh_runner.py` (atomic budget-enforced runner) and
+`panobbgo/lib/ioh_wrapper.py` (`IOHProblem` adapter).
+
+```bash
+# Quick run (~10s, 3 instances, dim 2, default Panobbgo strategies)
+uv run python scripts/ioh_benchmark.py run --quick --baselines
+
+# Standard run (~min) — dims 2 & 5, 5 instances, budget 500*d
+uv run python scripts/ioh_benchmark.py run --standard --baselines --output ioh_before.json
+
+# Save & diff
+uv run python scripts/ioh_benchmark.py run --quick --output ioh_after.json
+uv run python scripts/ioh_benchmark.py compare ioh_before.json ioh_after.json
+```
+
+The AOCC metric is computed against log-precision targets `[1e-8, 1e2]`
+(IOH default) and **right-pads short trajectories** with the final
+best-fx so that a strategy which stops early gets penalised for the
+unused budget — this is how IOH itself scores the competition.
+
+`composite_score` and AOCC do not interconvert.  A change can improve
+one and regress the other; track both.
+
+The IOH harness ships its own strategy registry —
+`panobbgo.harness_ioh.make_ioh_strategies()` — tuned for the anytime
+metric (larger Sobol initial design, `Restart` analyzer always on,
+no `stop_on_convergence` interference).  This is the default for
+`scripts/ioh_benchmark.py run`; pass `--legacy` to score using the
+composite-score harness's `_make_quick_strategies` / `_make_standard_strategies`
+instead.
+
+### Self-improvement loop on AOCC
+
+`scripts/self_improve.py run` accepts `--metric aocc` to optimise for
+the IOH/MA-BBOB anytime metric instead of `composite_score`.  Under
+`--metric aocc`:
+
+* The seed strategy registry comes from
+  `panobbgo.harness_ioh.make_ioh_strategies()`.
+* Per-iteration measurement runs the IOH harness on a battery whose
+  size matches `--mode` (quick / standard / full →
+  `make_quick_battery` / `make_standard_battery` / `make_full_battery`).
+* Each :class:`~panobbgo.harness_ioh.IOHHarnessResult` is adapted via
+  :func:`~panobbgo.harness_ioh.aocc_to_harness_result`, encoding per-run
+  AOCC into a synthetic `first_success_eval` so the existing bootstrap
+  CI, ledger writer, guard, and hold-out machinery all work unchanged.
+  The ledger's `baseline_score` / `candidate_score` fields then carry
+  **mean AOCC**, not composite_score — interpret accordingly.
+
+```bash
+# Five iterations of mutation search against the MA-BBOB anytime metric
+uv run python scripts/self_improve.py run --iterations 5 --metric aocc
+```
+
 ## CI/CD and Testing
 
 *   **Local Testing**: Run `./test.sh` to replicate the full CI pipeline locally

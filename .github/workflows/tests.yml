@@ -246,5 +246,10 @@ jobs:
           uv sync --extra dev
 
       - name: Check formatting with ruff
+        # `--extra dev` ensures ruff is in the synced env even when the
+        # cache key matches but uv decided to re-sync the venv without
+        # the dev extras (observed on rebuilds of the same commit
+        # hash — `uv run ruff` then auto-installs only main deps and
+        # errors with "Failed to spawn: ruff").
         run: |
-          uv run ruff format --check .
+          uv run --extra dev ruff format --check .

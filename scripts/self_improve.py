@@ -385,6 +385,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default=10_000,
         help="Bootstrap resamples for the hold-out drift CI (default: 10000)",
     )
+    paired_grp = run_p.add_mutually_exclusive_group()
+    paired_grp.add_argument(
+        "--paired",
+        dest="paired",
+        action="store_const",
+        const=True,
+        help=(
+            "Force paired bootstrap in statistical_accept (default: auto"
+            " — paired when reps are instance-aligned, which is the case"
+            " under the randomized harness)."
+        ),
+    )
+    paired_grp.add_argument(
+        "--unpaired",
+        dest="paired",
+        action="store_const",
+        const=False,
+        help="Force the historical unpaired (independent) bootstrap.",
+    )
+    run_p.set_defaults(paired=None)
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-iteration output")
     run_p.set_defaults(func=_cmd_run)
 
@@ -463,6 +483,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             holdout_iterations=args.holdout_iterations,
             holdout_iteration_offset=args.holdout_iteration_offset,
             holdout_eps_overfit=args.holdout_eps_overfit,
+            paired=args.paired,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

@@ -99,6 +99,7 @@ import json
 import pathlib
 import sys
 from datetime import datetime
+from typing import Optional
 
 
 def _default_output_path(mode: str) -> str:
@@ -217,6 +218,15 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     decision = None
     if args.statistical:
+        # ``paired`` is a tri-state: --paired forces paired, --no-paired
+        # forces unpaired, neither leaves the auto-detect default in place.
+        paired_arg: Optional[bool]
+        if args.paired:
+            paired_arg = True
+        elif args.unpaired:
+            paired_arg = False
+        else:
+            paired_arg = None
         decision = statistical_accept(
             before,
             after,
@@ -225,6 +235,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
             n_boot=args.n_boot,
             confidence=args.confidence,
             seed=args.stat_seed,
+            paired=paired_arg,
         )
         decision.print_summary()
 
@@ -454,6 +465,25 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=42,
         help="Base RNG seed for the bootstrap (default: 42)",
+    )
+    paired_grp = cmp_p.add_mutually_exclusive_group()
+    paired_grp.add_argument(
+        "--paired",
+        action="store_true",
+        help=(
+            "Force a paired (rep-aligned) bootstrap.  Reps are assumed"
+            " instance-aligned by index — the case under --randomize."
+            " Mismatched rep counts are truncated to the common prefix."
+        ),
+    )
+    paired_grp.add_argument(
+        "--unpaired",
+        action="store_true",
+        help=(
+            "Force an unpaired (independent-resample) bootstrap.  Use"
+            " when reps are NOT instance-aligned (e.g. comparing ledgers"
+            " produced with different base_seed)."
+        ),
     )
     cmp_p.set_defaults(func=cmd_compare)
 

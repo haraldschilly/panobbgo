@@ -245,6 +245,74 @@
   - `AGENTS.md`: self-improvement loop subsection lists the
     multi-seed feature with a run-the-loop bash example.
 
+### Paired bootstrap for `statistical_accept` (2026-05-14)
+- [x] **`statistical_accept(..., paired=...)` parameter** in
+      `panobbgo/harness.py`.  When the harness keeps reps
+      instance-aligned by index (the case under `--randomize`, where
+      `derive_instance_seed` is keyed on `(base_seed,
+      randomize_iteration, family, rep)`), the per-rep deltas are
+      strongly positively correlated and a paired bootstrap is the
+      statistically efficient sampler — it draws one shared resample
+      index and applies it to both sides, mathematically equivalent to
+      bootstrapping the per-rep delta vector `a_frac − b_frac`.
+- [x] **Auto-detection** — `paired=None` (default) selects paired when
+      at least one shared `(problem, strategy)` pair has matched rep
+      counts, falls back to unpaired otherwise.  Asymmetric-rep edge
+      cases the old unpaired sampler was written to handle keep their
+      prior behaviour.  `paired=True` truncates mismatched reps to the
+      common prefix; `paired=False` forces the historical
+      independent-resample scheme.
+- [x] **`StatisticalDecision.paired: bool`** — the result records which
+      scheme actually fired so the JSON payload and `print_summary()`
+      can report it (`bootstrap=paired|unpaired`).
+- [x] **CLI flags** — mutually-exclusive `--paired` / `--unpaired` on
+      both `benchmark_harness.py compare --statistical` and
+      `scripts/self_improve.py run`.  Without either flag the
+      auto-detect default fires, which is what randomized harness runs
+      want by construction.
+- [x] **`LoopConfig.paired`** in `panobbgo/self_improve.py` —
+      `Optional[bool] = None`, forwarded into `statistical_accept` for
+      every iteration's accept/reject decision.
+- [x] **Why this matters** — inspecting the recent
+      `planning/self_improve_ledger.jsonl` shows every rejection cited
+      *"lower CI bound … ≤ 0 — improvement not statistically
+      distinguishable from noise"* even on iterations whose composite
+      delta was clearly positive.  That is the textbook symptom of an
+      under-paired test: the unpaired bootstrap was discarding the
+      paired-instance correlation that the randomized harness already
+      builds in.  Micro-benchmark on five reps with constant +5-eval
+      lift: paired CI collapsed to a point (width 0.0000); unpaired CI
+      was 0.5400 wide and rejected the same genuine improvement.
+- [x] **13 new tests** — `tests/test_harness_stats.py` (+11, total 33):
+      paired-tighter-than-unpaired, paired unblocks acceptance,
+      auto-detect picks paired when reps match, auto fallback to
+      unpaired on mismatch, force-paired truncation, JSON round-trip
+      of the new `paired` field, `print_summary` wording,
+      empty-pair edge case, paired bootstrap reproducibility under a
+      fixed seed, CLI integration of `--paired` flipping the verdict,
+      and `--paired`/`--unpaired` mutually-exclusive argparse.
+      `tests/test_self_improve.py` (+2, total 126):
+      `LoopConfig.paired` defaults to `None` and accepts explicit
+      `True`/`False`.
+- [x] **Backwards compatible** — auto-detect default is no behaviour
+      change for asymmetric-rep configurations, and
+      `StatisticalDecision.paired` is a `False`-defaulted field so old
+      ledger consumers parsing the JSON payload continue to work.
+- [x] **Documentation updated**
+  - `doc/source/guide_benchmarking.rst`: new "Paired vs unpaired
+    bootstrap" subsection under Statistical acceptance rule with the
+    scheme description, the worked numerical example, the CLI
+    examples, and the auto-detect rule.
+  - `doc/source/guide.rst`: quick-nav entry now mentions the paired
+    bootstrap.
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §6.1 paragraph on the
+    paired-vs-unpaired distinction, a §13 entry recording the ship,
+    and a "Next iteration ideas" entry on tightening `eps_accept`
+    once the paired CI is the loop default.
+  - `AGENTS.md`: Statistical rigor subsection now flags
+    `--paired` / `--unpaired` and the auto-detect default.
+  - This TODO entry.
+
 ### Categorical Mutation Rule (`categorical_choice`) (2026-05-13)
 - [x] **New `MutationRule(kind="categorical_choice", choices=...)`**
       in `panobbgo/self_improve.py`.  Fourth mutation kind alongside

@@ -1246,6 +1246,10 @@ class StatisticalDecision:
         reasons: Human-readable bullet points explaining the decision.
         per_pair: Per-pair confidence intervals.
         seed: Base RNG seed used for the bootstrap (for reproducibility).
+        paired: ``True`` if the bootstrap used the paired (rep-aligned)
+            scheme on at least one pair; ``False`` if every shared pair was
+            sampled with the unpaired (independent before/after) scheme.
+            See :func:`statistical_accept` for the auto-detection rule.
     """
 
     accept: bool
@@ -1261,6 +1265,7 @@ class StatisticalDecision:
     reasons: List[str]
     per_pair: List[PairCI]
     seed: int
+    paired: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
@@ -1277,6 +1282,7 @@ class StatisticalDecision:
             "worst_pair": (list(self.worst_pair) if self.worst_pair is not None else None),
             "reasons": list(self.reasons),
             "seed": self.seed,
+            "paired": self.paired,
             "per_pair": [
                 {
                     "problem": p.problem,
@@ -1305,7 +1311,11 @@ class StatisticalDecision:
             f"Δ={self.delta:+.4f}  {pct}% CI=[{self.ci_low:+.4f}, {self.ci_high:+.4f}]"
             f"  {arrow}"
         )
-        print(f"  eps_accept={self.eps_accept:.4f}  eps_regress={self.eps_regress:.4f}  n_boot={self.n_boot}")
+        scheme = "paired" if self.paired else "unpaired"
+        print(
+            f"  eps_accept={self.eps_accept:.4f}  eps_regress={self.eps_regress:.4f}"
+            f"  n_boot={self.n_boot}  bootstrap={scheme}"
+        )
         if self.worst_pair is not None:
             prob, strat = self.worst_pair
             print(f"  Worst pair regression: {prob} / {strat}  Δ={self.worst_pair_regression:+.4f}")
@@ -1325,6 +1335,7 @@ def statistical_accept(
     n_boot: int = 10_000,
     confidence: float = 0.95,
     seed: int = 42,
+    paired: Optional[bool] = None,
 ) -> StatisticalDecision:
     """Principled accept/reject decision for a candidate :class:`HarnessResult`.
 
@@ -1356,11 +1367,40 @@ def statistical_accept(
         confidence: Confidence level for the bootstrap CI.  Default ``0.95``.
         seed: Base RNG seed (derived per-pair via SHA-256 for independence).
             Default ``42``.
+        paired: Bootstrap scheme for per-pair CIs.  Under
+            ``--randomize`` (and any other run topology where reps are
+            instance-aligned by index — same ``base_seed`` /
+            ``randomize_iteration`` / ``rep`` slot on both sides) the
+            ``i``-th run on each side is evaluated on the *same* problem
+            instance, so paired sampling preserves the strong positive
+            within-rep correlation between ``before`` and ``after``.  An
+            unpaired bootstrap (the historical default) shuffles the two
+            sides independently and inflates the CI proportionally to the
+            instance-to-instance variance, which can leave genuine
+            improvements indistinguishable from noise.
+
+            Values:
+
+            - ``None`` (default) — auto-detect: use paired sampling on
+              every pair where ``n_before == n_after`` and at least one
+              such pair exists; fall back to unpaired otherwise.  This is
+              the right default for the randomized harness and a no-op
+              for the asymmetric-rep edge cases the unpaired scheme was
+              originally written to handle.
+            - ``True`` — force paired sampling.  Pairs whose rep counts
+              differ are truncated to ``min(n_before, n_after)`` reps so
+              the index alignment stays valid; an empty intersection
+              degenerates to a point estimate.
+            - ``False`` — force the unpaired scheme (independent
+              resamples on each side).  Useful when reps are *not*
+              instance-aligned (e.g. comparing two ledgers built with
+              different ``base_seed`` values).
 
     Returns:
         A populated :class:`StatisticalDecision` describing the verdict and
         carrying per-pair CIs so an agent can drill into the cause of a
-        regression.
+        regression.  :attr:`StatisticalDecision.paired` records which
+        scheme was actually used.
     """
     # Index each result by (problem, strategy) to find shared pairs.
     before_map: Dict[Tuple[str, str], ProblemStrategyResult] = {
@@ -1371,6 +1411,22 @@ def statistical_accept(
     }
     shared = sorted(set(before_map) & set(after_map))
 
+    # Auto-detect paired scheme: any shared pair with matched rep counts is
+    # eligible for paired sampling.  Pairs whose rep counts differ fall back
+    # to the unpaired (independent-resample) scheme on a per-pair basis so the
+    # mode-detection cannot crash on asymmetric-rep edge cases.
+    if paired is None:
+        paired_auto = False
+        for key in shared:
+            b_n = len(before_map[key].runs)
+            a_n = len(after_map[key].runs)
+            if b_n > 0 and b_n == a_n:
+                paired_auto = True
+                break
+        paired_default = paired_auto
+    else:
+        paired_default = bool(paired)
+
     rng = np.random.default_rng(seed)
 
     per_pair: List[PairCI] = []
@@ -1378,6 +1434,7 @@ def statistical_accept(
     # (shape: n_boot,).  Composite delta resamples are obtained by averaging
     # across pairs at matching bootstrap indices.
     pair_delta_samples: List[np.ndarray] = []
+    used_paired_anywhere = False
 
     for key in shared:
         prob, strat = key
@@ -1406,11 +1463,45 @@ def statistical_accept(
             continue
 
         nb, na = b_frac.size, a_frac.size
-        idx_b = rng.integers(0, nb, size=(n_boot, nb))
-        idx_a = rng.integers(0, na, size=(n_boot, na))
-        means_b = b_frac[idx_b].mean(axis=1)
-        means_a = a_frac[idx_a].mean(axis=1)
-        deltas = means_a - means_b
+        # Decide the scheme for this pair: paired requires equal rep counts
+        # (after auto-truncating to min when paired=True is forced).
+        if paired_default and nb != na:
+            if paired is True:
+                # Forced paired with mismatched reps — truncate to the
+                # common prefix so index alignment stays valid.  This is
+                # the conservative interpretation; the alternative (raise)
+                # would be hostile to the common case where one rep timed
+                # out on one side but not the other.
+                cut = min(nb, na)
+                b_frac = b_frac[:cut]
+                a_frac = a_frac[:cut]
+                nb = na = cut
+                use_paired = True
+            else:
+                # Auto-detect mode: this particular pair has mismatched
+                # reps so fall back to unpaired sampling for it; other
+                # pairs may still be paired.
+                use_paired = False
+        else:
+            use_paired = paired_default
+
+        if use_paired and nb > 0:
+            # Paired bootstrap: resample one shared index vector and apply
+            # to both sides so the within-rep correlation is preserved.
+            # Mathematically equivalent to bootstrapping the per-rep delta
+            # vector ``a_frac - b_frac``.
+            d = a_frac - b_frac
+            idx = rng.integers(0, nb, size=(n_boot, nb))
+            deltas = d[idx].mean(axis=1)
+            used_paired_anywhere = True
+        else:
+            # Unpaired bootstrap (historical scheme): independently resample
+            # each side.  Correct when reps are *not* instance-aligned.
+            idx_b = rng.integers(0, nb, size=(n_boot, nb))
+            idx_a = rng.integers(0, na, size=(n_boot, na))
+            means_b = b_frac[idx_b].mean(axis=1)
+            means_a = a_frac[idx_a].mean(axis=1)
+            deltas = means_a - means_b
 
         alpha = (1.0 - confidence) / 2.0
         lo = float(np.quantile(deltas, alpha))
@@ -1509,6 +1600,7 @@ def statistical_accept(
         reasons=reasons,
         per_pair=per_pair,
         seed=seed,
+        paired=used_paired_anywhere,
     )
 
 

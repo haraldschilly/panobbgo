@@ -471,8 +471,8 @@ A good portfolio balances exploration and exploitation:
      - ClaudeHeuristic
      - Multimodal landscapes, finding hidden optima near good regions
    * - Population-based
-     - CMAES (IPOP/BIPOP), DifferentialEvolution, LSHADE, PSO
-     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel); LSHADE: literature-best adaptive DE — adapts ``F`` / ``CR`` via success-history memories and shrinks the population linearly with the budget (CEC-2014 winner, Tanabe & Fukunaga 2014); PSO: momentum + social attraction, complementary to CMA-ES / DE — strong on narrow-valley problems where vector inertia helps
+     - CMAES (IPOP/BIPOP), DifferentialEvolution, LSHADE, JSO, PSO
+     - CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel); LSHADE: literature-best adaptive DE — adapts ``F`` / ``CR`` via success-history memories and shrinks the population linearly with the budget (CEC-2014 winner, Tanabe & Fukunaga 2014); JSO: jSO refinement of L-SHADE with weighted ``current-to-pbest-w/1`` mutation, linear ``p_best`` schedule, Cauchy-F clamping, and a frozen anchor memory bin (CEC-2017 winner, Brest-Maučec-Bošković 2017); PSO: momentum + social attraction, complementary to CMA-ES / DE — strong on narrow-valley problems where vector inertia helps
    * - Gradient-free local
      - LBFGSB, LocalPenaltySearch
      - When local structure suspected

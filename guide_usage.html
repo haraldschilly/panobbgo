@@ -652,8 +652,8 @@ optimization initial designs (lower discrepancy than LHS)</p></td>
 <td><p>Multimodal landscapes, finding hidden optima near good regions</p></td>
 </tr>
 <tr class="row-even"><td><p>Population-based</p></td>
-<td><p>CMAES (IPOP/BIPOP), DifferentialEvolution, LSHADE, PSO</p></td>
-<td><p>CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel); LSHADE: literature-best adaptive DE — adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> / <code class="docutils literal notranslate"><span class="pre">CR</span></code> via success-history memories and shrinks the population linearly with the budget (CEC-2014 winner, Tanabe &amp; Fukunaga 2014); PSO: momentum + social attraction, complementary to CMA-ES / DE — strong on narrow-valley problems where vector inertia helps</p></td>
+<td><p>CMAES (IPOP/BIPOP), DifferentialEvolution, LSHADE, JSO, PSO</p></td>
+<td><p>CMAES: smooth problems, ridges, and ill-conditioned landscapes (Rosenbrock); BIPOP-CMA-ES: highly multimodal (BBOB-2009 winner); DE: multimodal (Rastrigin, Schwefel); LSHADE: literature-best adaptive DE — adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> / <code class="docutils literal notranslate"><span class="pre">CR</span></code> via success-history memories and shrinks the population linearly with the budget (CEC-2014 winner, Tanabe &amp; Fukunaga 2014); JSO: jSO refinement of L-SHADE with weighted <code class="docutils literal notranslate"><span class="pre">current-to-pbest-w/1</span></code> mutation, linear <code class="docutils literal notranslate"><span class="pre">p_best</span></code> schedule, Cauchy-F clamping, and a frozen anchor memory bin (CEC-2017 winner, Brest-Maučec-Bošković 2017); PSO: momentum + social attraction, complementary to CMA-ES / DE — strong on narrow-valley problems where vector inertia helps</p></td>
 </tr>
 <tr class="row-odd"><td><p>Gradient-free local</p></td>
 <td><p>LBFGSB, LocalPenaltySearch</p></td>

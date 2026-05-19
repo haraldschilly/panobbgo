@@ -290,8 +290,19 @@ population linearly with the budget (Tanabe &amp; Fukunaga 2014, CEC 2014 winner
 uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation (Zhang &amp; Sanderson 2009) with an external
 archive of replaced parents and is widely cited as one of the strongest single-population
 black-box optimizers — the high-water mark from which subsequent variants
-(jSO, IMODE, NL-SHADE-RSP) merely refine.</p>
-<p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a>; Zhang &amp; Sanderson (2009); Tanabe &amp; Fukunaga (2013, 2014).</p>
+(jSO, IMODE, NL-SHADE-RSP) refine.</p>
+<p>For the <strong>CEC-2017 refinement</strong>, see <a class="reference internal" href="heuristics.html#panobbgo.heuristics.JSO" title="panobbgo.heuristics.jso.JSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">JSO</span></code></a>
+(Brest, Maučec &amp; Bošković 2017 — winner of the CEC-2017 single-objective
+bound-constrained competition).  jSO is a direct subclass of L-SHADE that adds:
+a <em>weighted</em> <code class="docutils literal notranslate"><span class="pre">current-to-pbest-w/1</span></code> mutation (the pbest direction is re-weighted by a
+phase-dependent <code class="docutils literal notranslate"><span class="pre">F_w</span></code> factor — <code class="docutils literal notranslate"><span class="pre">0.7·F</span></code> early, <code class="docutils literal notranslate"><span class="pre">0.8·F</span></code> mid, <code class="docutils literal notranslate"><span class="pre">1.2·F</span></code> late);
+a <em>linear</em> <code class="docutils literal notranslate"><span class="pre">p_best</span></code> schedule (<code class="docutils literal notranslate"><span class="pre">0.25</span> <span class="pre">→</span> <span class="pre">0.125</span></code>) that contracts greediness as the
+population shrinks; <em>Cauchy-F clamping</em> that limits <code class="docutils literal notranslate"><span class="pre">F</span></code> to <code class="docutils literal notranslate"><span class="pre">0.7</span></code> while
+<code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.6</span></code>; and a frozen anchor memory bin at <code class="docutils literal notranslate"><span class="pre">M_F</span> <span class="pre">=</span> <span class="pre">M_CR</span> <span class="pre">=</span> <span class="pre">0.9</span></code> that
+<code class="docutils literal notranslate"><span class="pre">_update_memory</span></code> never overwrites.  Subsequent CEC winners (jDE100,
+NL-SHADE-RSP, NL-SHADE-LBC) all cite jSO as their direct ancestor.</p>
+<p><strong>References</strong>: <a class="reference internal" href="#storn1997" id="id5"><span>[Storn1997]</span></a>; Zhang &amp; Sanderson (2009); Tanabe &amp; Fukunaga (2013, 2014);
+Brest, Maučec &amp; Bošković (CEC 2017).</p>
 </section>
 <section id="particle-swarm-optimization">
 <h3>Particle Swarm Optimization<a class="headerlink" href="#particle-swarm-optimization" title="Link to this heading">¶</a></h3>

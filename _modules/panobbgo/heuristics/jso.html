@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.heuristics.jso - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.jso"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.heuristics.jso</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.heuristics.jso</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="17"><span class="sd">jSO Heuristic</span>
+</span><span data-line="18"><span class="sd">=============</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">jSO (Brest, Maučec &amp; Bošković, CEC 2017) — winner of the</span>
+</span><span data-line="21"><span class="sd">CEC-2017 single-objective bound-constrained competition.  jSO is a</span>
+</span><span data-line="22"><span class="sd">direct refinement of L-SHADE</span>
+</span><span data-line="23"><span class="sd">(:class:`~panobbgo.heuristics.lshade.LSHADE`) and inherits its</span>
+</span><span data-line="24"><span class="sd">success-history adaptation, linear population reduction (LPSR), and</span>
+</span><span data-line="25"><span class="sd">``current-to-pbest/1`` mutation skeleton.  Three changes lift it above</span>
+</span><span data-line="26"><span class="sd">plain L-SHADE on the CEC test suites:</span>
+</span><span data-line="27">
+</span><span data-line="28"><span class="sd">1. **Weighted current-to-pbest mutation** (``current-to-pbest-w/1``).</span>
+</span><span data-line="29"><span class="sd">   The pbest direction is re-weighted by a phase-dependent factor</span>
+</span><span data-line="30"><span class="sd">   ``F_w`` that grows with progress::</span>
+</span><span data-line="31">
+</span><span data-line="32"><span class="sd">       F_w = 0.7 · F   if  progress &lt; 0.2</span>
+</span><span data-line="33"><span class="sd">       F_w = 0.8 · F   if  progress &lt; 0.4</span>
+</span><span data-line="34"><span class="sd">       F_w = 1.2 · F   otherwise</span>
+</span><span data-line="35">
+</span><span data-line="36"><span class="sd">   so the algorithm explores broadly early and exploits aggressively</span>
+</span><span data-line="37"><span class="sd">   late.  The differential ``F · (x_r1 − x_r2)`` term keeps the</span>
+</span><span data-line="38"><span class="sd">   unweighted scaling.</span>
+</span><span data-line="39">
+</span><span data-line="40"><span class="sd">2. **Linear ``p_best`` schedule**.  ``p_best`` decreases linearly from</span>
+</span><span data-line="41"><span class="sd">   ``p_best_max = 0.25`` to ``p_best_min = p_best_max / 2 = 0.125``</span>
+</span><span data-line="42"><span class="sd">   over the budget.  Early in the run, drawing the ``pbest`` from the</span>
+</span><span data-line="43"><span class="sd">   top 25% keeps mutations diverse; once LPSR has shrunk the</span>
+</span><span data-line="44"><span class="sd">   population, the top 12.5% is enough to focus on the leading</span>
+</span><span data-line="45"><span class="sd">   basin.</span>
+</span><span data-line="46">
+</span><span data-line="47"><span class="sd">3. **Cauchy-F clamping**.  When ``progress &lt; 0.6``, sampled ``F``</span>
+</span><span data-line="48"><span class="sd">   values above ``0.7`` are clamped to ``0.7``.  This prevents</span>
+</span><span data-line="49"><span class="sd">   pathologically large jumps when the population is still big and</span>
+</span><span data-line="50"><span class="sd">   the surrogate landscape has not yet been explored.</span>
+</span><span data-line="51">
+</span><span data-line="52"><span class="sd">Two architectural tweaks come with the algorithmic changes:</span>
+</span><span data-line="53">
+</span><span data-line="54"><span class="sd">4. **Memory anchoring**.  The last memory bin (``H − 1``) is *frozen*</span>
+</span><span data-line="55"><span class="sd">   at ``M_F = M_CR = 0.9`` and never updated by the SHADE Lehmer-mean</span>
+</span><span data-line="56"><span class="sd">   rule.  ``_update_memory`` advances the pointer through indices</span>
+</span><span data-line="57"><span class="sd">   ``[0, H − 2]``; the anchor bin is still drawn from at sampling time,</span>
+</span><span data-line="58"><span class="sd">   so it stably contributes a &quot;moderately greedy&quot; parameter setting</span>
+</span><span data-line="59"><span class="sd">   regardless of what the live success-history has learned.</span>
+</span><span data-line="60">
+</span><span data-line="61"><span class="sd">5. **Initial memory values**.  ``M_F[0..H − 2]`` start at ``0.3``</span>
+</span><span data-line="62"><span class="sd">   (vs L-SHADE&#39;s ``0.5``) and ``M_CR[0..H − 2]`` start at ``0.8``</span>
+</span><span data-line="63"><span class="sd">   (vs ``0.5``).  These are the values Brest et al. measured to</span>
+</span><span data-line="64"><span class="sd">   give good early-run behaviour across the CEC battery.</span>
+</span><span data-line="65">
+</span><span data-line="66"><span class="sd">Asynchronous execution</span>
+</span><span data-line="67"><span class="sd">----------------------</span>
+</span><span data-line="68">
+</span><span data-line="69"><span class="sd">jSO inherits the entire async pipeline from</span>
+</span><span data-line="70"><span class="sd">:class:`~panobbgo.heuristics.lshade.LSHADE`: per-slot pending dict,</span>
+</span><span data-line="71"><span class="sd">generation-by-count book-keeping, archive of replaced parents, and</span>
+</span><span data-line="72"><span class="sd">warm restart via :meth:`on_restart`.  The only methods that change</span>
+</span><span data-line="73"><span class="sd">are :meth:`_sample_F_CR` (Cauchy clamping), :meth:`_generate_trial`</span>
+</span><span data-line="74"><span class="sd">(``F_w`` weighting + linear ``p_best``), and :meth:`_update_memory`</span>
+</span><span data-line="75"><span class="sd">(skip the anchor bin, advance pointer mod ``H − 1``).</span>
+</span><span data-line="76">
+</span><span data-line="77"><span class="sd">Progress measurement uses ``len(strategy.results) / max_eval`` —</span>
+</span><span data-line="78"><span class="sd">the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and</span>
+</span><span data-line="79"><span class="sd">``F_w`` schedules stay in lock-step with the population shrink.</span>
+</span><span data-line="80">
+</span><span data-line="81"><span class="sd">When the strategy budget is unknown (no ``max_eval``, zero, or</span>
+</span><span data-line="82"><span class="sd">non-numeric), jSO falls back to ``progress = 0.0`` for the F-clamp</span>
+</span><span data-line="83"><span class="sd">and ``F_w`` schedule, and ``p_best = p_best_max`` for the greediness</span>
+</span><span data-line="84"><span class="sd">schedule.  This matches L-SHADE&#39;s &quot;no budget → no LPSR&quot; fallback and</span>
+</span><span data-line="85"><span class="sd">keeps the heuristic safe in unmeasured environments.</span>
+</span><span data-line="86">
+</span><span data-line="87"><span class="sd">References</span>
+</span><span data-line="88"><span class="sd">----------</span>
+</span><span data-line="89">
+</span><span data-line="90"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017).  &quot;Single Objective</span>
+</span><span data-line="91"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot;  *Proceedings of CEC</span>
+</span><span data-line="92"><span class="sd">  2017*, pp. 1311-1318.  Winner of the CEC-2017 single-objective</span>
+</span><span data-line="93"><span class="sd">  bound-constrained competition.</span>
+</span><span data-line="94"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014).  &quot;Improving the Search Performance</span>
+</span><span data-line="95"><span class="sd">  of SHADE Using Linear Population Size Reduction.&quot;  *Proceedings of</span>
+</span><span data-line="96"><span class="sd">  CEC 2014*.  The L-SHADE foundation jSO refines.</span>
+</span><span data-line="97"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="98">
+</span><span data-line="99"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="100">
+</span><span data-line="101"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+</span><span data-line="102">
+</span><span data-line="103"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="104">
+</span><span data-line="105"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.lshade</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="106">    <span class="n">LSHADE</span><span class="p">,</span>
+</span><span data-line="107">    <span class="n">_CR_TERMINAL</span><span class="p">,</span>
+</span><span data-line="108">    <span class="n">_F_MAX_REDRAWS</span><span class="p">,</span>
+</span><span data-line="109">    <span class="n">_PARAM_SCALE</span><span class="p">,</span>
+</span><span data-line="110"><span class="p">)</span>
+</span><span data-line="111"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span>
+</span><span data-line="112">
+</span><span data-line="113">
+</span><span data-line="114"><span class="c1"># Default tuning constants — match Brest et al. (2017, jSO).</span>
+</span><span data-line="115"><span class="n">_DEFAULT_NP_INIT</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+</span><span data-line="116"><span class="n">_DEFAULT_NP_MIN</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+</span><span data-line="117"><span class="n">_DEFAULT_H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+</span><span data-line="118"><span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
+</span><span data-line="119"><span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.125</span>
+</span><span data-line="120"><span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="121">
+</span><span data-line="122"><span class="c1"># Initial memory values (vs L-SHADE&#39;s 0.5 / 0.5).</span>
+</span><span data-line="123"><span class="n">_INIT_M_F</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.3</span>
+</span><span data-line="124"><span class="n">_INIT_M_CR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>
+</span><span data-line="125">
+</span><span data-line="126"><span class="c1"># Anchor values for the last (H - 1) memory slot.  Frozen at construction</span>
+</span><span data-line="127"><span class="c1"># time and never updated by ``_update_memory``.</span>
+</span><span data-line="128"><span class="n">_ANCHOR_M_F</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
+</span><span data-line="129"><span class="n">_ANCHOR_M_CR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
+</span><span data-line="130">
+</span><span data-line="131"><span class="c1"># Cauchy-F clamping schedule: F is clipped at ``_F_CLAMP_VALUE`` while</span>
+</span><span data-line="132"><span class="c1"># ``progress &lt; _F_CLAMP_PROGRESS_BOUND``.</span>
+</span><span data-line="133"><span class="n">_F_CLAMP_PROGRESS_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.6</span>
+</span><span data-line="134"><span class="n">_F_CLAMP_VALUE</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span>
+</span><span data-line="135">
+</span><span data-line="136"><span class="c1"># Weighted-mutation schedule for ``F_w``.  Three phases by progress.</span>
+</span><span data-line="137"><span class="n">_FW_PHASE1_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
+</span><span data-line="138"><span class="n">_FW_PHASE2_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span>
+</span><span data-line="139"><span class="n">_FW_PHASE1_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span>
+</span><span data-line="140"><span class="n">_FW_PHASE2_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>
+</span><span data-line="141"><span class="n">_FW_PHASE3_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.2</span>
+</span><span data-line="142">
+</span><span data-line="143">
+<div class="viewcode-block" id="JSO">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO">[docs]</a>
+</span><span data-line="144"><span class="k">class</span><span class="w"> </span><span class="nc">JSO</span><span class="p">(</span><span class="n">LSHADE</span><span class="p">):</span>
+</span><span data-line="145"><span class="w">    </span><span class="sd">&quot;&quot;&quot;jSO: linear-p_best, weighted-mutation refinement of L-SHADE.</span>
+</span><span data-line="146">
+</span><span data-line="147"><span class="sd">    Args:</span>
+</span><span data-line="148"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="149"><span class="sd">        NP_init: Initial population size.  Default ``30``.  See</span>
+</span><span data-line="150"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE` for budget</span>
+</span><span data-line="151"><span class="sd">            sizing notes.</span>
+</span><span data-line="152"><span class="sd">        NP_min: Minimum population size after LPSR shrinking.  Default</span>
+</span><span data-line="153"><span class="sd">            ``4``.</span>
+</span><span data-line="154"><span class="sd">        H: History memory size.  Default ``5`` (Brest et al. report</span>
+</span><span data-line="155"><span class="sd">            ``5`` outperforming the L-SHADE default of ``6`` on the CEC</span>
+</span><span data-line="156"><span class="sd">            battery).  Must be at least ``2`` so the anchor bin</span>
+</span><span data-line="157"><span class="sd">            ``H − 1`` is distinct from the writable bins ``[0, H − 2]``.</span>
+</span><span data-line="158"><span class="sd">        p_best_max: Upper bound on the linear ``p_best`` schedule.</span>
+</span><span data-line="159"><span class="sd">            Default ``0.25``.  Must lie in ``(0, 1]``.</span>
+</span><span data-line="160"><span class="sd">        p_best_min: Lower bound on the linear ``p_best`` schedule.</span>
+</span><span data-line="161"><span class="sd">            Default ``0.125``.  Must satisfy ``0 &lt; p_best_min &lt;= p_best_max``.</span>
+</span><span data-line="162"><span class="sd">        archive_factor: Multiplier for the external archive size.</span>
+</span><span data-line="163"><span class="sd">            Default ``1.0``.  Setting it to ``0`` disables the archive.</span>
+</span><span data-line="164"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
+</span><span data-line="165"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="166">
+</span><span data-line="167"><span class="sd">    Notes:</span>
+</span><span data-line="168"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
+</span><span data-line="169"><span class="sd">          :class:`ValueError`.</span>
+</span><span data-line="170"><span class="sd">        - Memory bins ``[0, H − 2]`` are initialized to</span>
+</span><span data-line="171"><span class="sd">          ``(_INIT_M_F, _INIT_M_CR) = (0.3, 0.8)`` and updated via the</span>
+</span><span data-line="172"><span class="sd">          inherited weighted-Lehmer-mean rule.  Bin ``H − 1`` is frozen</span>
+</span><span data-line="173"><span class="sd">          at ``(_ANCHOR_M_F, _ANCHOR_M_CR) = (0.9, 0.9)`` and never</span>
+</span><span data-line="174"><span class="sd">          touched by ``_update_memory``.</span>
+</span><span data-line="175"><span class="sd">        - The pointer wraps over ``[0, H − 2]`` only — the anchor bin</span>
+</span><span data-line="176"><span class="sd">          is never overwritten.</span>
+</span><span data-line="177"><span class="sd">        - When the strategy budget is unknown, jSO degrades gracefully:</span>
+</span><span data-line="178"><span class="sd">          ``progress = 0.0`` for the F-clamp and ``F_w`` schedule, and</span>
+</span><span data-line="179"><span class="sd">          ``p_best = p_best_max`` for the greediness schedule.  This</span>
+</span><span data-line="180"><span class="sd">          matches L-SHADE&#39;s LPSR fallback.</span>
+</span><span data-line="181"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="182">
+</span><span data-line="183">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="184">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="185">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="186">        <span class="n">NP_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
+</span><span data-line="187">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
+</span><span data-line="188">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
+</span><span data-line="189">        <span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
+</span><span data-line="190">        <span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
+</span><span data-line="191">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
+</span><span data-line="192">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="193">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="194">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="195">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="196">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: H must be an integer, got </span><span class="si">{</span><span class="n">H</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="197">        <span class="k">if</span> <span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span data-line="198">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: H must be &gt;= 2 (anchor bin requires at least one writable bin), got </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="199">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best_max</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best_max</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="200">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_max must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="201">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best_min</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best_min</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="202">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_min must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="203">        <span class="k">if</span> <span class="n">p_best_min</span> <span class="o">&gt;</span> <span class="n">p_best_max</span><span class="p">:</span>
+</span><span data-line="204">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_min (</span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">) must be &lt;= p_best_max (</span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="205">
+</span><span data-line="206">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="207">            <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="208">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
+</span><span data-line="209">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
+</span><span data-line="210">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+</span><span data-line="211">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>  <span class="c1"># parent stores fixed greediness; we override per-call</span>
+</span><span data-line="212">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
+</span><span data-line="213">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+</span><span data-line="214">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;JSO&quot;</span><span class="p">,</span>
+</span><span data-line="215">        <span class="p">)</span>
+</span><span data-line="216">        <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_best_max</span><span class="p">)</span>
+</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_best_min</span><span class="p">)</span>
+</span><span data-line="218">
+</span><span data-line="219">        <span class="c1"># Re-initialize memory bins per jSO defaults (L-SHADE used 0.5).</span>
+</span><span data-line="220">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_F</span>
+</span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_CR</span>
+</span><span data-line="222">        <span class="c1"># Anchor bin is frozen at sample-time-only values.</span>
+</span><span data-line="223">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_F</span>
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_CR</span>
+</span><span data-line="225">
+</span><span data-line="226">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="227">    <span class="c1"># Internal helpers</span>
+</span><span data-line="228">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="229">
+</span><span data-line="230">    <span class="k">def</span><span class="w"> </span><span class="nf">_progress</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="231"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.</span>
+</span><span data-line="232">
+</span><span data-line="233"><span class="sd">        Falls back to ``0.0`` when the budget is unknown — matching</span>
+</span><span data-line="234"><span class="sd">        L-SHADE&#39;s LPSR fallback so an unmeasured environment leaves</span>
+</span><span data-line="235"><span class="sd">        the heuristic in its early-phase regime.</span>
+</span><span data-line="236"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="237">        <span class="n">max_eval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_eval</span><span class="p">()</span>
+</span><span data-line="238">        <span class="k">if</span> <span class="n">max_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="239">            <span class="k">return</span> <span class="mf">0.0</span>
+</span><span data-line="240">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="241">            <span class="n">current</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
+</span><span data-line="242">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="243">            <span class="k">return</span> <span class="mf">0.0</span>
+</span><span data-line="244">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">current</span> <span class="o">/</span> <span class="n">max_eval</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="245">
+</span><span data-line="246">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_p_best</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="247"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``.&quot;&quot;&quot;</span>
+</span><span data-line="248">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">())</span>
+</span><span data-line="249">
+</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_F_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="251"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Three-phase ``F_w`` factor for the weighted current-to-pbest term.&quot;&quot;&quot;</span>
+</span><span data-line="252">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="253">        <span class="k">if</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_FW_PHASE1_BOUND</span><span class="p">:</span>
+</span><span data-line="254">            <span class="k">return</span> <span class="n">_FW_PHASE1_FACTOR</span>
+</span><span data-line="255">        <span class="k">if</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_FW_PHASE2_BOUND</span><span class="p">:</span>
+</span><span data-line="256">            <span class="k">return</span> <span class="n">_FW_PHASE2_FACTOR</span>
+</span><span data-line="257">        <span class="k">return</span> <span class="n">_FW_PHASE3_FACTOR</span>
+</span><span data-line="258">
+</span><span data-line="259">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="260">    <span class="c1"># Overrides</span>
+</span><span data-line="261">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="262">
+</span><span data-line="263">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="264"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``(F, CR)`` from a random bin, then clamp F per jSO.&quot;&quot;&quot;</span>
+</span><span data-line="265">        <span class="c1"># Identical to LSHADE._sample_F_CR up to the F clamp at the end.</span>
+</span><span data-line="266">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
+</span><span data-line="267">        <span class="n">m_cr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
+</span><span data-line="268">        <span class="k">if</span> <span class="n">m_cr</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="269">            <span class="n">CR</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="270">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="271">            <span class="n">CR</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">m_cr</span><span class="p">,</span> <span class="n">_PARAM_SCALE</span><span class="p">))</span>
+</span><span data-line="272">            <span class="n">CR</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">CR</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="273">
+</span><span data-line="274">        <span class="n">m_f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
+</span><span data-line="275">        <span class="n">F</span> <span class="o">=</span> <span class="mf">0.5</span>
+</span><span data-line="276">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
+</span><span data-line="277">            <span class="n">f</span> <span class="o">=</span> <span class="n">m_f</span> <span class="o">+</span> <span class="n">_PARAM_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
+</span><span data-line="278">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="279">                <span class="n">F</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="280">                <span class="k">break</span>
+</span><span data-line="281">
+</span><span data-line="282">        <span class="c1"># jSO Cauchy-F clamping: limit early-phase mutation magnitude.</span>
+</span><span data-line="283">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">_F_CLAMP_PROGRESS_BOUND</span> <span class="ow">and</span> <span class="n">F</span> <span class="o">&gt;</span> <span class="n">_F_CLAMP_VALUE</span><span class="p">:</span>
+</span><span data-line="284">            <span class="n">F</span> <span class="o">=</span> <span class="n">_F_CLAMP_VALUE</span>
+</span><span data-line="285">        <span class="k">return</span> <span class="n">F</span><span class="p">,</span> <span class="n">CR</span>
+</span><span data-line="286">
+</span><span data-line="287">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="288"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and emit one ``current-to-pbest-w/1`` trial vector.</span>
+</span><span data-line="289">
+</span><span data-line="290"><span class="sd">        Differs from L-SHADE&#39;s ``current-to-pbest/1`` by:</span>
+</span><span data-line="291">
+</span><span data-line="292"><span class="sd">        * applying the linear ``p_best`` schedule (``_current_p_best``)</span>
+</span><span data-line="293"><span class="sd">          when picking the pbest pool size;</span>
+</span><span data-line="294"><span class="sd">        * weighting the pbest direction by ``F_w`` (``_current_F_weight``)</span>
+</span><span data-line="295"><span class="sd">          while keeping the differential ``F`` unchanged.</span>
+</span><span data-line="296"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="297">        <span class="n">live</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live_indices</span><span class="p">()</span>
+</span><span data-line="298">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">live</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">target_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">live</span><span class="p">:</span>
+</span><span data-line="299">            <span class="k">return</span>
+</span><span data-line="300">        <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">target_idx</span><span class="p">]</span>
+</span><span data-line="301">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="302">            <span class="k">return</span>
+</span><span data-line="303">
+</span><span data-line="304">        <span class="n">F</span><span class="p">,</span> <span class="n">CR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F_CR</span><span class="p">()</span>
+</span><span data-line="305">        <span class="n">F_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_F_weight</span><span class="p">()</span>
+</span><span data-line="306">        <span class="n">x_target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="307">
+</span><span data-line="308">        <span class="c1"># pbest: top p% of live population by fitness, with linear p_best schedule.</span>
+</span><span data-line="309">        <span class="n">sorted_live</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">live</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="310">        <span class="n">p_best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_p_best</span><span class="p">()</span>
+</span><span data-line="311">        <span class="n">p_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">p_best</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">))),</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="312">        <span class="n">pbest_pool</span> <span class="o">=</span> <span class="n">sorted_live</span><span class="p">[:</span><span class="n">p_count</span><span class="p">]</span>
+</span><span data-line="313">        <span class="n">pbest_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pbest_pool</span><span class="p">)))</span>
+</span><span data-line="314">        <span class="n">pbest_slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">pbest_idx</span><span class="p">]</span>
+</span><span data-line="315">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pbest_slot</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="316">            <span class="k">return</span>
+</span><span data-line="317">        <span class="n">x_pbest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pbest_slot</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="318">
+</span><span data-line="319">        <span class="c1"># r1 from live population, distinct from target.</span>
+</span><span data-line="320">        <span class="n">r1_pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
+</span><span data-line="321">        <span class="k">if</span> <span class="ow">not</span> <span class="n">r1_pool</span><span class="p">:</span>
+</span><span data-line="322">            <span class="k">return</span>
+</span><span data-line="323">        <span class="n">r1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r1_pool</span><span class="p">)))</span>
+</span><span data-line="324">        <span class="n">r1_slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">r1</span><span class="p">]</span>
+</span><span data-line="325">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r1_slot</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="326">            <span class="k">return</span>
+</span><span data-line="327">        <span class="n">x_r1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r1_slot</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="328">
+</span><span data-line="329">        <span class="c1"># r2 from (live ∪ archive) \ {target, r1}.</span>
+</span><span data-line="330">        <span class="n">union</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="331">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span><span class="p">:</span>
+</span><span data-line="332">            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">target_idx</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">==</span> <span class="n">r1</span><span class="p">:</span>
+</span><span data-line="333">                <span class="k">continue</span>
+</span><span data-line="334">            <span class="n">slot_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span><span data-line="335">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot_i</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="336">                <span class="n">union</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">slot_i</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="337">        <span class="n">union</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)</span>
+</span><span data-line="338">        <span class="k">if</span> <span class="ow">not</span> <span class="n">union</span><span class="p">:</span>
+</span><span data-line="339">            <span class="k">return</span>
+</span><span data-line="340">        <span class="n">x_r2</span> <span class="o">=</span> <span class="n">union</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">union</span><span class="p">)))]</span>
+</span><span data-line="341">
+</span><span data-line="342">        <span class="c1"># Mutation: current-to-pbest-w/1 — weighted pbest term, unweighted differential.</span>
+</span><span data-line="343">        <span class="n">v</span> <span class="o">=</span> <span class="n">x_target</span> <span class="o">+</span> <span class="n">F_w</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_pbest</span> <span class="o">-</span> <span class="n">x_target</span><span class="p">)</span> <span class="o">+</span> <span class="n">F</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_r1</span> <span class="o">-</span> <span class="n">x_r2</span><span class="p">)</span>
+</span><span data-line="344">        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reflect_bounds</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">x_target</span><span class="p">)</span>
+</span><span data-line="345">
+</span><span data-line="346">        <span class="c1"># Binomial crossover with at least one component swapped.</span>
+</span><span data-line="347">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="348">        <span class="n">cross</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">CR</span>
+</span><span data-line="349">        <span class="n">j_rand</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="350">        <span class="n">cross</span><span class="p">[</span><span class="n">j_rand</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="351">        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cross</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">x_target</span><span class="p">)</span>
+</span><span data-line="352">
+</span><span data-line="353">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="p">)</span>
+</span><span data-line="354">
+</span><span data-line="355">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="356"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the Lehmer-mean memory update, skipping the anchor bin.</span>
+</span><span data-line="357">
+</span><span data-line="358"><span class="sd">        Identical to :meth:`LSHADE._update_memory` except the writable</span>
+</span><span data-line="359"><span class="sd">        index range is ``[0, H − 2]`` (the anchor bin ``H − 1`` is</span>
+</span><span data-line="360"><span class="sd">        frozen).  The pointer wraps modulo ``H − 1``.</span>
+</span><span data-line="361"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="362">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">:</span>
+</span><span data-line="363">            <span class="k">return</span>
+</span><span data-line="364">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># defensive — constructor enforces H &gt;= 2</span>
+</span><span data-line="365">            <span class="k">return</span>
+</span><span data-line="366">
+</span><span data-line="367">        <span class="n">F_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="368">        <span class="n">CR_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="369">        <span class="n">delta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="370">        <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta_arr</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</span><span data-line="371">        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="372">            <span class="n">w</span> <span class="o">=</span> <span class="n">delta_arr</span> <span class="o">/</span> <span class="n">total</span>
+</span><span data-line="373">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="374">            <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">))</span>
+</span><span data-line="375">
+</span><span data-line="376">        <span class="c1"># Writable pointer must stay strictly below the anchor index.</span>
+</span><span data-line="377">        <span class="n">write_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span>
+</span><span data-line="378">        <span class="k">if</span> <span class="n">write_idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="379">            <span class="n">write_idx</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># defensive — should be impossible by construction</span>
+</span><span data-line="380">
+</span><span data-line="381">        <span class="c1"># F: weighted Lehmer mean.</span>
+</span><span data-line="382">        <span class="n">F_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span> <span class="o">*</span> <span class="n">F_arr</span><span class="p">))</span>
+</span><span data-line="383">        <span class="n">F_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span><span class="p">))</span>
+</span><span data-line="384">        <span class="k">if</span> <span class="n">F_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="385">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F_num</span> <span class="o">/</span> <span class="n">F_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="386">
+</span><span data-line="387">        <span class="c1"># CR: terminal sentinel rule + weighted Lehmer mean.</span>
+</span><span data-line="388">        <span class="n">cr_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">CR_arr</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+</span><span data-line="389">        <span class="k">if</span> <span class="n">cr_max</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="390">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_CR_TERMINAL</span>
+</span><span data-line="391">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="392">            <span class="n">CR_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">CR_arr</span> <span class="o">*</span> <span class="n">CR_arr</span><span class="p">))</span>
+</span><span data-line="393">            <span class="n">CR_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">CR_arr</span><span class="p">))</span>
+</span><span data-line="394">            <span class="k">if</span> <span class="n">CR_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="395">                <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">CR_num</span> <span class="o">/</span> <span class="n">CR_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="396">
+</span><span data-line="397">        <span class="c1"># Advance pointer over writable range only.</span>
+</span><span data-line="398">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="n">write_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="399">
+</span><span data-line="400">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="401">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="402">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="403">
+<div class="viewcode-block" id="JSO.on_start">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO.on_start">[docs]</a>
+</span><span data-line="404">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="405"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state, plant the anchor bin, and emit initial trials.&quot;&quot;&quot;</span>
+</span><span data-line="406">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
+</span><span data-line="407">        <span class="c1"># ``LSHADE.on_start`` resets memory to ``0.5`` — re-stamp the jSO</span>
+</span><span data-line="408">        <span class="c1"># initial values *and* the frozen anchor bin afterwards.</span>
+</span><span data-line="409">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_F</span>
+</span><span data-line="410">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_CR</span>
+</span><span data-line="411">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_F</span>
+</span><span data-line="412">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_CR</span></div>
+
+</span><span data-line="413">
+<div class="viewcode-block" id="JSO.on_restart">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO.on_restart">[docs]</a>
+</span><span data-line="414">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="415"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop in-flight state and reseed the population around ``center``.</span>
+</span><span data-line="416">
+</span><span data-line="417"><span class="sd">        Mirrors :meth:`LSHADE.on_restart` but re-stamps the jSO initial</span>
+</span><span data-line="418"><span class="sd">        memory values and the frozen anchor bin so the warm-restart</span>
+</span><span data-line="419"><span class="sd">        memory matches construction-time.</span>
+</span><span data-line="420"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="421">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+</span><span data-line="422">        <span class="c1"># ``LSHADE.on_restart`` resets memory to ``0.5`` — re-stamp jSO.</span>
+</span><span data-line="423">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_F</span>
+</span><span data-line="424">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_CR</span>
+</span><span data-line="425">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_F</span>
+</span><span data-line="426">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">_ANCHOR_M_CR</span></div>
+</div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

@@ -2,6 +2,67 @@
 
 ## Recent Improvements (continued)
 
+### iLSHADE / jSO Adaptive `p_best` Schedule (2026-05-19)
+- [x] **New `LSHADE.p_best_end` opt-in kwarg** in
+      `panobbgo/heuristics/lshade.py`; closes the *iLSHADE / jSO*
+      follow-up under the L-SHADE entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  When set, the effective
+      ``p_best`` at evaluation count ``e`` (out of
+      ``E = strategy.config.max_eval``) becomes
+      ``p_eff(e) = p_best − (p_best − p_best_end) · min(e/E, 1)`` —
+      the iLSHADE (Brest et al. 2016) / jSO (Brest et al. 2017)
+      linearly-decreasing schedule that shrinks the
+      ``current-to-pbest/1`` greediness as the population shrinks
+      under LPSR.  Canonical jSO setting: ``p_best = 0.25``,
+      ``p_best_end = 0.125``.
+  - **Why it matters.** jSO won the CEC-2017 single-objective
+    competition, establishing the linearly-decreasing
+    ``p_best`` schedule as the literature-best refinement on
+    top of L-SHADE.  Without it, the bandit could only tune
+    ``p_best`` to a single fixed value — leaving on the table
+    the early-exploration / late-exploitation trade-off that
+    pairs naturally with LPSR.
+- [x] **`LSHADE._current_p_best()` helper** — returns
+      ``self.p_best`` when ``p_best_end is None`` (the default),
+      otherwise the budget-paced linear interpolation between
+      ``self.p_best`` and ``self.p_best_end``.  Falls back to
+      constant ``self.p_best`` when the strategy budget is
+      unknown.  Mirrors the
+      :meth:`PSO._current_inertia` pattern shipped 2026-05-07.
+- [x] **`_generate_trial` consults `_current_p_best`** exactly where
+      it previously used ``self.p_best``, so the mutation / crossover
+      / bounds-reflection paths are shared.
+- [x] **New `default_catalog` rule** — ``LSHADE.p_best_end``
+      (``float_uniform`` over the literature range
+      ``[0.025, 0.15]``) joins the existing
+      ``NP_init`` / ``H`` / ``p_best`` LSHADE rules.  Only fires
+      when a spec sets ``p_best_end`` explicitly.
+- [x] **10 new tests in `tests/test_heuristic_lshade.py`** (total 49):
+      construction validation (default ``None``, opt-in round-trip,
+      invalid ``p_best_end`` rejected — zero / negative /
+      too-large / NaN / inf) plus the
+      `LSHADEAdaptivePBestTests` test class covering constant
+      when ``p_best_end is None``, linear decrease at canonical
+      jSO settings, progress > 1 clipping, linear increase
+      (symmetric: end > start), budget-unknown fall-back,
+      no-op schedule (end == start), and an end-to-end
+      ``_generate_trial`` pool-sizing test, plus a catalog
+      membership test confirming the new rule is present.
+- [x] **Backwards compatible** — ``p_best_end`` defaults to
+      ``None``; every existing :class:`LSHADE` instance retains
+      its prior behaviour bit-for-bit, all 39 pre-existing
+      tests pass unchanged.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: new §13 dated entry; the
+    *iLSHADE / jSO* follow-up under the L-SHADE entry promoted
+    from "open" to "shipped"; a new "next iteration" idea
+    (jSO asymmetric F-cap) seeded for the follow-up agent.
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE bullet
+    under the structural-catalog candidate pool now names the
+    opt-in iLSHADE / jSO ``p_best_end`` schedule.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    iLSHADE / jSO schedule.
+
 ### Bootstrap CI on Multi-Seed Hold-Out Drift (2026-05-17)
 - [x] **New `panobbgo.self_improve.aggregate_holdout_drift`** —
       pools per-iteration paired drift samples across every input

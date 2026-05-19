@@ -946,8 +946,10 @@ def default_catalog() -> MutationCatalog:
     * ``Restart.max_restarts`` — restart budget.
     * ``PSO.NP`` / ``PSO.w`` / ``PSO.w_end`` — swarm size, initial /
       terminal inertia (Clerc-Kennedy and Shi-Eberhart parameters).
-    * ``LSHADE.NP_init`` / ``LSHADE.H`` / ``LSHADE.p_best`` — L-SHADE
-      population, success-history memory size, and pbest greediness.
+    * ``LSHADE.NP_init`` / ``LSHADE.H`` / ``LSHADE.p_best`` /
+      ``LSHADE.p_best_end`` — L-SHADE population, success-history
+      memory size, initial and (optional, iLSHADE / jSO) terminal
+      pbest greediness.
     * Categorical toggles — ``PSO.topology`` (``gbest`` ↔ ``lbest``),
       ``Sobol.scramble`` (``True`` ↔ ``False``), and
       ``LSHADE.archive_factor`` (``0.0`` / ``1.0`` / ``2.6``).  These
@@ -1102,6 +1104,27 @@ def default_catalog() -> MutationCatalog:
                 bounds=(0.05, 0.25),
                 low=0.05,
                 high=0.25,
+                probability=0.5,
+            ),
+            # L-SHADE terminal pbest for the optional iLSHADE / jSO
+            # linearly-decreasing schedule (Brest et al. 2016 / 2017).
+            # When the spec sets ``p_best_end`` the heuristic anneals
+            # ``p_best`` from its initial value down to ``p_best_end``
+            # over the strategy budget; without ``p_best_end`` the
+            # greediness is constant.  The jSO setting is half the
+            # initial ``p_best`` (e.g. 0.125 when starting from 0.25),
+            # so bracket the practical range ``[0.025, 0.15]``.  Only
+            # fires when a spec sets ``p_best_end`` explicitly — the
+            # default kwarg on :class:`LSHADE` is ``None`` and not
+            # present in the spec dict.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="p_best_end",
+                kind="float_uniform",
+                bounds=(0.025, 0.15),
+                low=0.025,
+                high=0.15,
                 probability=0.5,
             ),
             # PSO topology toggle (categorical).  Flips an existing PSO

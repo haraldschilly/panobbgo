@@ -53,6 +53,16 @@ binomial with rate ``CR_i``.  Out-of-bounds components are repaired by
 midpoint reflection (Tanabe-Fukunaga §III-A): ``v[j] = (lb[j] + x_i[j]) / 2``
 when ``v[j] < lb[j]``, symmetric for ``ub[j]``.
 
+Optionally pass ``p_best_end`` to enable the iLSHADE / jSO adaptive
+``p_best`` schedule (Brest et al. 2016 / 2017).  The effective
+greediness at evaluation count ``e`` (out of
+``E = strategy.config.max_eval``) becomes
+``p_eff(e) = p_best − (p_best − p_best_end) · min(e/E, 1)``,
+shrinking the pool of ``pbest`` candidates as the population shrinks
+under LPSR.  The canonical jSO setting is
+``p_best = 0.25, p_best_end = 0.125``.  ``p_best_end=None`` (the
+default) preserves the constant-``p_best`` L-SHADE behaviour.
+
 Asynchronous execution
 ----------------------
 
@@ -103,6 +113,13 @@ References
 * R. Tanabe & A. Fukunaga (2014). "Improving the Search Performance of
   SHADE Using Linear Population Size Reduction." *Proceedings of
   CEC 2014*.  Winner of the CEC-2014 single-objective competition.
+* J. Brest, M. S. Maučec & B. Bošković (2016). "iL-SHADE: Improved
+  L-SHADE Algorithm for Single Objective Real-Parameter Optimization."
+  *Proceedings of CEC 2016*.  Introduces the linearly-decreasing
+  ``p_best`` schedule.
+* J. Brest, M. S. Maučec & B. Bošković (2017). "Single Objective
+  Real-Parameter Optimization: Algorithm jSO." *Proceedings of CEC
+  2017*.  Winner of the CEC-2017 single-objective competition.
 """
 
 from __future__ import annotations
@@ -166,6 +183,21 @@ class LSHADE(Heuristic):
             trial picks its ``pbest`` uniformly from the top
             ``ceil(p_best · |population|)`` by fitness.  Default
             ``0.11`` per Tanabe-Fukunaga §III-A.  Must lie in ``(0, 1]``.
+            When ``p_best_end`` is set, this is the *initial* value of
+            a linearly-annealed schedule (iLSHADE / jSO).
+        p_best_end: Optional terminal greediness for the iLSHADE
+            (Brest et al. 2016) / jSO (Brest et al. 2017) adaptive
+            schedule.  When set, the effective ``p_best`` at evaluation
+            count ``e`` (out of ``E = strategy.config.max_eval``) is
+            ``p_eff(e) = p_best − (p_best − p_best_end) · min(e/E, 1)``.
+            The canonical jSO setting is
+            ``p_best = 0.25, p_best_end = 0.125`` — greediness halves
+            as the population shrinks under LPSR so the late-search
+            mutation pulls toward a narrower, more tightly-chosen
+            ``pbest`` slice.  Must lie in ``(0, 1]`` when set;
+            ``None`` (the default) keeps ``p_best`` constant for
+            byte-identical L-SHADE behaviour.  Falls back to constant
+            ``p_best`` whenever the strategy budget is unknown.
         archive_factor: Multiplier for the external archive size; the
             archive is capped at ``ceil(archive_factor · NP_current)``.
             Default ``1.0``.  Setting it to ``0`` disables the archive
@@ -194,6 +226,7 @@ class LSHADE(Heuristic):
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best: float = _DEFAULT_P_BEST,
+        p_best_end: Optional[float] = None,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         seed: Optional[int] = None,
         name: Optional[str] = None,
@@ -214,6 +247,8 @@ class LSHADE(Heuristic):
             raise ValueError(f"LSHADE: H must be >= 1, got {H}")
         if not np.isfinite(p_best) or not (0.0 < p_best <= 1.0):
             raise ValueError(f"LSHADE: p_best must be in (0, 1], got {p_best}")
+        if p_best_end is not None and (not np.isfinite(p_best_end) or not (0.0 < p_best_end <= 1.0)):
+            raise ValueError(f"LSHADE: p_best_end must be in (0, 1] when set, got {p_best_end}")
         if not np.isfinite(archive_factor) or archive_factor < 0.0:
             raise ValueError(f"LSHADE: archive_factor must be a non-negative finite float, got {archive_factor}")
 
@@ -222,6 +257,7 @@ class LSHADE(Heuristic):
         self.NP_min: int = NP_min
         self.H: int = H
         self.p_best: float = float(p_best)
+        self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -267,6 +303,31 @@ class LSHADE(Heuristic):
         if not np.isfinite(v) or v <= 0.0:
             return None
         return v
+
+    def _current_p_best(self) -> float:
+        """Return the ``p_best`` value to use for the next trial.
+
+        When ``p_best_end`` is ``None`` this is the constant ``self.p_best``,
+        i.e. the byte-identical L-SHADE behaviour shipped 2026-05-10.
+        Otherwise it is a linearly-annealed schedule paced by
+        ``len(strategy.results) / strategy.config.max_eval`` — the
+        iLSHADE (Brest et al. 2016) / jSO (Brest et al. 2017) move that
+        shrinks greediness as the population shrinks under LPSR.  When
+        the budget is unknown (no ``max_eval``, zero, or non-numeric)
+        the heuristic falls back to constant ``self.p_best`` rather than
+        guessing a horizon.
+        """
+        if self.p_best_end is None:
+            return self.p_best
+        max_eval = self._max_eval()
+        if max_eval is None:
+            return self.p_best
+        try:
+            current = float(len(self.strategy.results))
+        except Exception:
+            return self.p_best
+        progress = float(np.clip(current / max_eval, 0.0, 1.0))
+        return self.p_best - (self.p_best - self.p_best_end) * progress
 
     def _emit_trial(self, x: np.ndarray, slot_idx: int, F: float, CR: float) -> bool:
         """Project, queue, and book-keep one candidate point."""
@@ -359,8 +420,12 @@ class LSHADE(Heuristic):
         x_target = np.asarray(slot.x, dtype=float)
 
         # pbest: top p% of live population by fitness (ascending — best first).
+        # ``_current_p_best`` honours the optional iLSHADE / jSO linearly-
+        # decreasing schedule when ``p_best_end`` is set; otherwise it is
+        # the constant ``self.p_best``.
         sorted_live = sorted(live, key=lambda i: self._fx_of(self._population[i]))  # type: ignore[arg-type]
-        p_count = max(int(np.ceil(self.p_best * len(sorted_live))), 1)
+        p_eff = self._current_p_best()
+        p_count = max(int(np.ceil(p_eff * len(sorted_live))), 1)
         pbest_pool = sorted_live[:p_count]
         pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
         pbest_slot = self._population[pbest_idx]

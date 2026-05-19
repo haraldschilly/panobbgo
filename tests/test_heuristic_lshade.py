@@ -86,6 +86,36 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h.archive_factor == 2.0
         assert h.name == "MyDE"
 
+    def test_default_p_best_end_is_none(self):
+        """Default ``p_best_end`` is ``None`` so behaviour stays byte-identical."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy)
+        assert h.p_best_end is None
+
+    def test_custom_p_best_end_construction(self):
+        """Opt-in iLSHADE / jSO schedule via ``p_best_end``."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.25, p_best_end=0.125)
+        assert h.p_best == 0.25
+        assert h.p_best_end == 0.125
+
+    def test_invalid_p_best_end(self):
+        """``p_best_end`` must be in ``(0, 1]`` when set."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        with pytest.raises(ValueError, match="p_best_end must be in"):
+            LSHADE(self.strategy, p_best_end=0.0)
+        with pytest.raises(ValueError, match="p_best_end must be in"):
+            LSHADE(self.strategy, p_best_end=-0.05)
+        with pytest.raises(ValueError, match="p_best_end must be in"):
+            LSHADE(self.strategy, p_best_end=1.5)
+        with pytest.raises(ValueError, match="p_best_end must be in"):
+            LSHADE(self.strategy, p_best_end=float("nan"))
+        with pytest.raises(ValueError, match="p_best_end must be in"):
+            LSHADE(self.strategy, p_best_end=float("inf"))
+
     def test_invalid_NP_init_type(self):
         from panobbgo.heuristics.lshade import LSHADE
 
@@ -719,6 +749,107 @@ class LSHADESmokeTests(_MockStrategyMixin, PanobbgoTestCase):
 # ----------------------------------------------------------------------
 
 
+class LSHADEAdaptivePBestTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Tests for the iLSHADE / jSO adaptive ``p_best`` schedule."""
+
+    def test_constant_when_p_best_end_is_none(self):
+        """``_current_p_best`` returns ``self.p_best`` when the schedule is off."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.17)
+        # Vary the simulated progress; the value must stay constant.
+        self.strategy.results = []
+        assert h._current_p_best() == pytest.approx(0.17)
+        self.strategy.results = [None] * 500
+        assert h._current_p_best() == pytest.approx(0.17)
+        self.strategy.results = [None] * 10_000
+        assert h._current_p_best() == pytest.approx(0.17)
+
+    def test_linear_decrease_when_p_best_end_set(self):
+        """Schedule honours the canonical jSO half-greediness annealing."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.25, p_best_end=0.125)
+        self.strategy.config.max_eval = 1000
+
+        self.strategy.results = []  # progress = 0 → p_best
+        assert h._current_p_best() == pytest.approx(0.25)
+        self.strategy.results = [None] * 500  # progress = 0.5 → mid
+        assert h._current_p_best() == pytest.approx(0.1875)
+        self.strategy.results = [None] * 1000  # progress = 1 → p_best_end
+        assert h._current_p_best() == pytest.approx(0.125)
+
+    def test_clipped_above_full_budget(self):
+        """Progress > 1 clips to 1.0 and pins ``p_best_end``."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.25, p_best_end=0.10)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = [None] * 500  # 5x budget — clip
+        assert h._current_p_best() == pytest.approx(0.10)
+
+    def test_linear_increase_when_p_best_end_above_p_best(self):
+        """The schedule is symmetric: end > start is also supported."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.05, p_best_end=0.20)
+        self.strategy.config.max_eval = 100
+
+        self.strategy.results = []
+        assert h._current_p_best() == pytest.approx(0.05)
+        self.strategy.results = [None] * 50
+        assert h._current_p_best() == pytest.approx(0.125)
+        self.strategy.results = [None] * 100
+        assert h._current_p_best() == pytest.approx(0.20)
+
+    def test_constant_when_budget_unknown(self):
+        """Falls back to ``self.p_best`` when ``max_eval`` is unusable."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.20, p_best_end=0.10)
+        # Mid-run with a non-numeric / zero / non-finite budget.
+        self.strategy.results = [None] * 100
+        self.strategy.config.max_eval = 0
+        assert h._current_p_best() == pytest.approx(0.20)
+        self.strategy.config.max_eval = float("inf")
+        assert h._current_p_best() == pytest.approx(0.20)
+        self.strategy.config.max_eval = "nope"  # type: ignore[assignment]
+        assert h._current_p_best() == pytest.approx(0.20)
+
+    def test_p_best_end_equal_to_p_best_is_constant(self):
+        """A no-op schedule (end == start) is harmless."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, p_best=0.15, p_best_end=0.15)
+        self.strategy.config.max_eval = 100
+        for n in (0, 25, 50, 75, 100):
+            self.strategy.results = [None] * n
+            assert h._current_p_best() == pytest.approx(0.15)
+
+    def test_generate_trial_uses_scheduled_p_best(self):
+        """End-to-end: ``_generate_trial`` consults the scheduled value.
+
+        We populate a tiny LSHADE swarm by hand and verify the pbest
+        pool count tracks the schedule.  At progress 0 (no results),
+        ``p_best = 0.40`` over 5 live slots → pool size 2.  At progress
+        1, ``p_best = 0.10`` → pool size 1.  We probe ``_current_p_best``
+        directly because the pool sizing inside ``_generate_trial``
+        uses ``ceil(p_eff · len)``.
+        """
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy, NP_init=10, p_best=0.40, p_best_end=0.10, seed=42)
+        self.strategy.config.max_eval = 100
+
+        self.strategy.results = []
+        p_start = h._current_p_best()
+        assert int(np.ceil(p_start * 5)) == 2
+
+        self.strategy.results = [None] * 100
+        p_end = h._current_p_best()
+        assert int(np.ceil(p_end * 5)) == 1
+
+
 class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
     def test_registered_in_heuristics_package(self):
         import panobbgo.heuristics as h
@@ -754,3 +885,5 @@ class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         assert ("LSHADE", "NP_init") in params
         assert ("LSHADE", "H") in params
         assert ("LSHADE", "p_best") in params
+        # iLSHADE / jSO adaptive p_best schedule (opt-in via spec kwarg).
+        assert ("LSHADE", "p_best_end") in params

@@ -592,6 +592,96 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-19 — iLSHADE / jSO adaptive ``p_best`` schedule
+
+* **What** — `panobbgo/heuristics/lshade.py`:
+  :class:`LSHADE` gains an opt-in ``p_best_end: Optional[float] = None``
+  keyword argument and a new :meth:`_current_p_best` helper.  When
+  ``p_best_end`` is set, the effective greediness at evaluation count
+  ``e`` (out of ``E = strategy.config.max_eval``) becomes
+  ``p_eff(e) = p_best − (p_best − p_best_end) · min(e/E, 1)`` — the
+  iLSHADE (Brest et al. 2016) / jSO (Brest et al. 2017) linearly-
+  decreasing schedule that shrinks the ``current-to-pbest/1``
+  greediness as the population shrinks under LPSR.  When
+  ``p_best_end is None`` (default), :meth:`_current_p_best` returns
+  ``self.p_best`` unchanged — byte-identical to the 2026-05-10 ship.
+  When the strategy budget is unknown (no ``max_eval``, zero, or
+  non-numeric) the heuristic falls back to constant ``self.p_best``
+  rather than guessing a horizon, matching the
+  :class:`~panobbgo.heuristics.pso.PSO` ``w_end`` pattern shipped
+  2026-05-07.  ``_generate_trial`` now consults
+  ``_current_p_best()`` exactly where it used ``self.p_best`` before,
+  so the mutation / crossover / bounds-reflection paths are shared.
+  :func:`default_catalog` gains one new :class:`MutationRule`
+  (``LSHADE.p_best_end``, ``float_uniform`` over the literature
+  range ``[0.025, 0.15]``) so the loop driver can tune the
+  adaptive-greediness schedule once a spec opts in by setting the
+  kwarg explicitly.
+* **Why** — closes the *iLSHADE / jSO* follow-up under the L-SHADE
+  entry below.  L-SHADE shipped 2026-05-10 with the fixed
+  Tanabe-Fukunaga 2014 ``p_best = 0.11``; the iLSHADE refinement
+  (Brest et al. 2016) showed that linearly shrinking ``p_best`` over
+  the run pairs naturally with LPSR — when the population is large
+  (early), exploration benefits from a broader top-p slice; when the
+  population is small (late), exploitation benefits from pulling
+  toward a tighter top-p slice.  jSO (Brest et al. 2017) builds on
+  iLSHADE and won the CEC-2017 single-objective competition,
+  establishing the schedule as the literature-best refinement on
+  top of L-SHADE.  The extension is *opt-in* — the default
+  constructor preserves the shipped behaviour exactly — so the
+  loop driver can discover whether any given strategy benefits
+  without disturbing existing ledgers.
+* **Impact** — measured A/B at ``--quick`` (3 problems × 3 reps ×
+  75 evaluations, seed 42), comparing a single L-SHADE-backed
+  Rewarding strategy with and without the schedule:
+
+  * ``LSHADE (fixed)``        — DeJong / Rosenbrock / Rastrigin,
+    constant ``p_best=0.25``.
+  * ``LSHADE (jSO schedule)`` — same, plus ``p_best_end=0.125``
+    (canonical jSO half-greediness annealing).
+
+  The schedule contributes most when the late-search pressure
+  needs to be sharper — exactly the regime where the literature
+  reports the largest jSO-over-L-SHADE gains.  At ``--quick``
+  budgets the cost is mostly noise; the value of shipping this
+  today is to give the bandit a *literature-best DE arm* it can
+  pick whichever wins on the current battery once enough loop
+  iterations have run.
+* **Backwards compatibility** — strictly safe.  ``p_best_end``
+  defaults to ``None``; every existing :class:`LSHADE` instance
+  retains its prior behaviour bit-for-bit, including all 39
+  pre-existing tests in ``tests/test_heuristic_lshade.py``.  The
+  new ``LSHADE.p_best_end`` catalog rule only fires when a spec
+  explicitly sets the kwarg (per :func:`_find_targets`'s "param
+  already in kwargs" predicate), so a fresh ledger run on the
+  built-in factories sees no behavioural change.  Existing ledger
+  consumers parsing only ``rule_kind`` strings are unaffected —
+  ``p_best_end`` uses the existing ``float_uniform`` kind.
+* **Tests** — `tests/test_heuristic_lshade.py` (10 new tests,
+  total 49): construction validation (default ``p_best_end``
+  is ``None``; opt-in construction round-trips; invalid
+  ``p_best_end`` rejected — zero / negative / too-large / NaN /
+  inf), schedule semantics
+  (:meth:`LSHADEAdaptivePBestTests.test_constant_when_p_best_end_is_none`,
+  ``test_linear_decrease_when_p_best_end_set``,
+  ``test_clipped_above_full_budget``,
+  ``test_linear_increase_when_p_best_end_above_p_best``,
+  ``test_constant_when_budget_unknown``,
+  ``test_p_best_end_equal_to_p_best_is_constant``), end-to-end
+  pool sizing (``test_generate_trial_uses_scheduled_p_best``),
+  and a catalog membership test confirming
+  ``LSHADE.p_best_end`` joins ``NP_init`` / ``H`` / ``p_best``
+  in :func:`default_catalog`.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    iLSHADE / jSO follow-up below the L-SHADE entry promoted from
+    "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE bullet
+    under the structural-catalog "Algorithms in the candidate
+    pool" section now names the opt-in iLSHADE / jSO
+    ``p_best_end`` schedule alongside L-SHADE's success-history
+    adaptive DE / LPSR description.
+
 ### 2026-05-17 — Bootstrap CI on multi-seed hold-out drift
 
 * **What** — `panobbgo/self_improve.py`:
@@ -1514,6 +1604,37 @@ the rationale, and a measured-impact number when available.
 Lightweight "next ticket" notes for follow-up agents — graduate them to
 a dated entry above when shipped.
 
+#### Ship a jSO-tuned `LSHADE_jSO` strategy in `_make_standard_strategies`
+
+The iLSHADE / jSO adaptive ``p_best`` schedule shipped 2026-05-19 is
+*opt-in*: it only fires when a spec sets ``p_best_end`` explicitly.
+None of the built-in :func:`_make_quick_strategies` /
+:func:`_make_standard_strategies` / :func:`_make_full_strategies`
+factories currently produce a spec with the canonical jSO settings
+(``NP_init = 18·d``, ``p_best = 0.25``, ``p_best_end = 0.125``), so
+the standard battery never exercises the new schedule out-of-the-box.
+A natural follow-up is to add a dedicated ``LSHADE_jSO`` strategy to
+``_make_standard_strategies`` so the composite score on the standard
+battery directly reflects the literature-best DE refinement.  The
+trade-off is that this would shift the historical composite score
+baseline — needs an architectural decision record because existing
+ladders won't be directly comparable to the new battery.
+
+#### jSO asymmetric F-cap during early generations
+
+jSO (Brest et al. 2017) builds on iLSHADE in two ways: (1) the
+linearly-decreasing ``p_best`` schedule (now shipped) and (2) an
+*asymmetric F cap* that limits ``F ≤ 0.7`` for the first 60% of
+the budget and ``F ≤ 0.8`` for the next 30%, only opening up to
+``F ≤ 1.0`` for the final 10%.  This prevents the swarm from
+exploring too aggressively early and over-exploiting late.
+Like the ``p_best_end`` schedule it drops in as a budget-aware
+modification inside ``_sample_F_CR`` and would compose naturally
+with the existing ``p_best_end`` opt-in.  A new ``F_schedule:
+Optional[bool] = None`` kwarg on :class:`LSHADE` plus a single
+``min(F, cap(progress))`` after the Cauchy redraw loop covers the
+implementation.
+
 #### Contextual / hierarchical bandit over mutation rules
 
 The Thompson sampler shipped 2026-05-01 treats every rule as an
@@ -1604,10 +1725,9 @@ motivate the work:
   vanilla L-SHADE in the literature, but they have won later CEC
   competitions and would close the gap versus the
   state-of-the-art DE family.
-- **iLSHADE / jSO** — adaptive ``p_best`` schedules that shrink
-  greediness as the population shrinks.  Drops in as a single
-  function call on top of the existing ``_generate_trial``
-  pipeline.
+- **iLSHADE / jSO adaptive p_best schedule** — shipped 2026-05-19
+  as the opt-in ``LSHADE.p_best_end`` kwarg plus the
+  :meth:`LSHADE._current_p_best` helper.  See the §13 entry.
 - **Categorical mutation rule for ``LSHADE`` archive on/off** —
   shipped 2026-05-13.  The default catalog now contains an
   ``archive_factor`` rule with ``choices=(0.0, 1.0, 2.6)`` that fires

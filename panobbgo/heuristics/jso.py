@@ -44,10 +44,18 @@ plain L-SHADE on the CEC test suites:
    population, the top 12.5% is enough to focus on the leading
    basin.
 
-3. **Cauchy-F clamping**.  When ``progress < 0.6``, sampled ``F``
-   values above ``0.7`` are clamped to ``0.7``.  This prevents
-   pathologically large jumps when the population is still big and
-   the surrogate landscape has not yet been explored.
+3. **Asymmetric Cauchy-F cap**.  Sampled ``F`` is clamped by a
+   piecewise-constant phase-dependent ceiling::
+
+       F ≤ 0.7   if  progress < 0.6
+       F ≤ 0.8   if  0.6 ≤ progress < 0.9
+       F ≤ 1.0   otherwise   (effectively no cap; F is already ≤ 1)
+
+   This is the literature-canonical schedule from Brest et al. (2017):
+   the swarm is kept from making pathologically large jumps while the
+   population is still big (early), allowed slightly larger jumps as
+   the basin narrows (middle), and unconstrained for the final 10% so
+   it can escape any remaining stale local minimum.
 
 Two architectural tweaks come with the algorithmic changes:
 
@@ -79,7 +87,7 @@ the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and
 ``F_w`` schedules stay in lock-step with the population shrink.
 
 When the strategy budget is unknown (no ``max_eval``, zero, or
-non-numeric), jSO falls back to ``progress = 0.0`` for the F-clamp
+non-numeric), jSO falls back to ``progress = 0.0`` for the F-cap
 and ``F_w`` schedule, and ``p_best = p_best_max`` for the greediness
 schedule.  This matches L-SHADE's "no budget → no LPSR" fallback and
 keeps the heuristic safe in unmeasured environments.
@@ -128,10 +136,16 @@ _INIT_M_CR: float = 0.8
 _ANCHOR_M_F: float = 0.9
 _ANCHOR_M_CR: float = 0.9
 
-# Cauchy-F clamping schedule: F is clipped at ``_F_CLAMP_VALUE`` while
-# ``progress < _F_CLAMP_PROGRESS_BOUND``.
-_F_CLAMP_PROGRESS_BOUND: float = 0.6
-_F_CLAMP_VALUE: float = 0.7
+# Asymmetric Cauchy-F cap (Brest et al. 2017).  Three progress phases
+# with monotonically loosening ceilings::
+#
+#   progress < _F_CAP_PHASE1_BOUND        →  F ≤ _F_CAP_PHASE1_VALUE
+#   progress < _F_CAP_PHASE2_BOUND        →  F ≤ _F_CAP_PHASE2_VALUE
+#   progress >= _F_CAP_PHASE2_BOUND       →  no cap (F is already ≤ 1)
+_F_CAP_PHASE1_BOUND: float = 0.6
+_F_CAP_PHASE2_BOUND: float = 0.9
+_F_CAP_PHASE1_VALUE: float = 0.7
+_F_CAP_PHASE2_VALUE: float = 0.8
 
 # Weighted-mutation schedule for ``F_w``.  Three phases by progress.
 _FW_PHASE1_BOUND: float = 0.2
@@ -256,6 +270,21 @@ class JSO(LSHADE):
             return _FW_PHASE2_FACTOR
         return _FW_PHASE3_FACTOR
 
+    def _current_F_cap(self) -> float:
+        """Phase-dependent ceiling for the Cauchy ``F`` sample.
+
+        Returns the literature-canonical asymmetric cap from
+        Brest et al. (2017): ``0.7`` for the first 60% of the budget,
+        ``0.8`` for the next 30%, and ``1.0`` (no effective cap, since
+        ``F`` is already drawn in ``(0, 1]``) for the final 10%.
+        """
+        progress = self._progress()
+        if progress < _F_CAP_PHASE1_BOUND:
+            return _F_CAP_PHASE1_VALUE
+        if progress < _F_CAP_PHASE2_BOUND:
+            return _F_CAP_PHASE2_VALUE
+        return 1.0
+
     # ------------------------------------------------------------------
     # Overrides
     # ------------------------------------------------------------------
@@ -279,9 +308,11 @@ class JSO(LSHADE):
                 F = float(min(f, 1.0))
                 break
 
-        # jSO Cauchy-F clamping: limit early-phase mutation magnitude.
-        if self._progress() < _F_CLAMP_PROGRESS_BOUND and F > _F_CLAMP_VALUE:
-            F = _F_CLAMP_VALUE
+        # jSO asymmetric Cauchy-F cap: limit mutation magnitude on a
+        # phase-dependent schedule (Brest et al. 2017).
+        cap = self._current_F_cap()
+        if F > cap:
+            F = cap
         return F, CR
 
     def _generate_trial(self, target_idx: int) -> None:

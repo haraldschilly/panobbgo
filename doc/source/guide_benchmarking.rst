@@ -720,9 +720,11 @@ space with two new ops that change the *shape* of a
   ``p_best`` schedule (set ``p_best_end`` on the spec to enable);
   jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner) refines L-SHADE
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
-  ``p_best`` schedule, Cauchy-F clamping, and a frozen anchor memory
-  bin; both share the ``add_heuristic`` arm so the bandit picks
-  whichever DE-family variant wins on the current battery.  COBYQA
+  ``p_best`` schedule, the asymmetric three-phase Cauchy-F cap
+  (``F ≤ 0.7`` for the first 60% of the budget, ``F ≤ 0.8`` for the
+  next 30%, no effective cap for the final 10%), and a frozen anchor
+  memory bin; both share the ``add_heuristic`` arm so the bandit
+  picks whichever DE-family variant wins on the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``

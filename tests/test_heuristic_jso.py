@@ -287,12 +287,13 @@ class JSOScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
-# Cauchy-F clamping in early phase
+# Asymmetric Cauchy-F cap (Brest et al. 2017, three-phase schedule)
 # ----------------------------------------------------------------------
 
 
 class JSOCauchyClampTests(_MockStrategyMixin, PanobbgoTestCase):
-    def test_F_clamped_at_07_when_progress_below_60_percent(self):
+    def test_F_capped_at_07_when_progress_below_60_percent(self):
+        """Phase 1: F ≤ 0.7 for the first 60% of the budget."""
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy, H=2, seed=42)
@@ -306,18 +307,42 @@ class JSOCauchyClampTests(_MockStrategyMixin, PanobbgoTestCase):
             F, _ = h._sample_F_CR()
             assert F <= 0.7 + 1e-12
 
-    def test_F_unclamped_in_late_phase(self):
-        """At progress >= 0.6 the clamp is released."""
+    def test_F_capped_at_08_in_middle_phase(self):
+        """Phase 2: F ≤ 0.8 between 60% and 90% of the budget (asymmetric cap)."""
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy, H=2, seed=42)
         self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(80))  # progress = 0.8 > 0.6
-        h._M_F[0] = 0.9
+        self.strategy.results = list(range(75))  # progress = 0.75 ∈ [0.6, 0.9)
+        h._M_F[0] = 0.95
         h._M_CR[0] = 0.5
-        # With high M_F and 500 draws we expect at least one F > 0.7.
-        any_above = any(h._sample_F_CR()[0] > 0.7 for _ in range(500))
-        assert any_above
+        capped, exceeded_07 = 0, 0
+        for _ in range(500):
+            F, _ = h._sample_F_CR()
+            assert F <= 0.8 + 1e-12
+            if F > 0.7:
+                exceeded_07 += 1
+            if abs(F - 0.8) <= 1e-12:
+                capped += 1
+        # With M_F = 0.95 and 500 draws, at least one F should exceed the
+        # phase-1 cap (proving the cap *did* loosen from 0.7 to 0.8) and
+        # the new cap of 0.8 should be hit by some draws (proving the
+        # cap is still active in this phase).
+        assert exceeded_07 > 0
+        assert capped > 0
+
+    def test_F_uncapped_in_final_phase(self):
+        """Phase 3: F ≤ 1.0 in the final 10% of the budget (no effective cap)."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy, H=2, seed=42)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = list(range(95))  # progress = 0.95 > 0.9
+        h._M_F[0] = 0.95
+        h._M_CR[0] = 0.5
+        # With high M_F and 500 draws, F values should reach into (0.8, 1.0].
+        any_above_08 = any(h._sample_F_CR()[0] > 0.8 for _ in range(500))
+        assert any_above_08
 
     def test_F_in_unit_interval_always(self):
         """Sampled F is always in (0, 1] regardless of phase."""
@@ -333,6 +358,43 @@ class JSOCauchyClampTests(_MockStrategyMixin, PanobbgoTestCase):
                 assert 0.0 <= CR <= 1.0
                 assert np.isfinite(F)
                 assert np.isfinite(CR)
+
+    def test_F_cap_helper_returns_phase_values(self):
+        """``_current_F_cap`` returns 0.7 / 0.8 / 1.0 for the three phases."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy)
+        self.strategy.config.max_eval = 100
+        # Phase 1
+        self.strategy.results = list(range(10))
+        assert h._current_F_cap() == pytest.approx(0.7)
+        # Phase 2
+        self.strategy.results = list(range(75))
+        assert h._current_F_cap() == pytest.approx(0.8)
+        # Phase 3
+        self.strategy.results = list(range(95))
+        assert h._current_F_cap() == pytest.approx(1.0)
+
+    def test_F_cap_phase_boundaries_inclusive_lower(self):
+        """Phase boundaries: ``progress == 0.6`` belongs to phase 2; ``0.9`` to phase 3."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy)
+        self.strategy.config.max_eval = 100
+        # exactly progress = 0.6 → phase 2 (cap = 0.8)
+        self.strategy.results = list(range(60))
+        assert h._current_F_cap() == pytest.approx(0.8)
+        # exactly progress = 0.9 → phase 3 (cap = 1.0)
+        self.strategy.results = list(range(90))
+        assert h._current_F_cap() == pytest.approx(1.0)
+
+    def test_F_cap_falls_back_to_phase1_without_budget(self):
+        """No ``max_eval`` → ``progress = 0.0`` → phase-1 cap (most conservative)."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy)
+        self.strategy.config.max_eval = 0
+        assert h._current_F_cap() == pytest.approx(0.7)
 
 
 # ----------------------------------------------------------------------

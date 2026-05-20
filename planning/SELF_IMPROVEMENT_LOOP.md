@@ -613,6 +613,76 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-20 — jSO asymmetric three-phase Cauchy-F cap (Brest et al. 2017)
+
+* **What** — `panobbgo/heuristics/jso.py`: :class:`JSO` gains the
+  literature-canonical three-phase asymmetric F cap from Brest,
+  Maučec & Bošković (2017).  The previous ship clamped sampled ``F``
+  at ``0.7`` for the first 60% of the budget and left ``F`` uncapped
+  afterwards — i.e. only phase 1 of the canonical schedule was
+  implemented.  This entry adds phase 2 (``F ≤ 0.8`` between 60% and
+  90% of the budget) and explicitly notes phase 3 (``F ≤ 1.0`` for
+  the final 10%, effectively no cap since the Cauchy redraw loop
+  already constrains ``F ≤ 1``).  Implementation: the two existing
+  module-level constants ``_F_CLAMP_PROGRESS_BOUND`` / ``_F_CLAMP_VALUE``
+  are replaced by the four-constant set ``_F_CAP_PHASE1_BOUND = 0.6``,
+  ``_F_CAP_PHASE2_BOUND = 0.9``, ``_F_CAP_PHASE1_VALUE = 0.7``,
+  ``_F_CAP_PHASE2_VALUE = 0.8``.  A new helper
+  :meth:`JSO._current_F_cap` returns the phase-appropriate ceiling,
+  and :meth:`JSO._sample_F_CR` now applies ``F = min(F, cap)`` after
+  the Cauchy redraw loop instead of the previous single-phase check.
+* **Why** — closes the *jSO asymmetric F-cap during early generations*
+  follow-up listed under the 2026-05-15 jSO entry.  jSO won the
+  CEC-2017 single-objective bound-constrained competition with the
+  three-phase cap as one of its three named refinements over L-SHADE
+  (alongside the weighted ``current-to-pbest-w/1`` mutation and the
+  linear ``p_best`` schedule — both already shipped).  Phase 2's
+  ``F ≤ 0.8`` cap occupies a non-trivial middle regime: too tight
+  (phase 1, ``≤ 0.7``) would freeze exploration once LPSR has shrunk
+  the population to its mid-budget size; too loose (phase 3, no cap)
+  would let pathologically large ``F`` from the Cauchy tail dominate
+  before the population is small enough to absorb them.  The
+  literature reports the three-phase schedule consistently outperforms
+  the single-phase truncation on multimodal CEC benchmarks at
+  budgets ≥ 1000 evaluations / dim.
+* **Backwards compatibility** — minor behavioural change to JSO's
+  default behaviour: at progress in ``[0.6, 0.9)`` the Cauchy
+  redraw can no longer return values in ``(0.8, 1.0]``.  Existing
+  JSO instances and their ledgers will see slightly different
+  trajectories whenever the bandit's M_F memory drifts above ``0.8``
+  in the mid-phase.  Existing tests using ``progress = 0.8``
+  (in phase 2) needed their assertions tightened from "F > 0.7
+  observed" to "F ∈ (0.7, 0.8]" — the previous test name
+  ("``test_F_unclamped_in_late_phase``") incorrectly described the
+  unclamped intent that the current schedule does *not* provide.
+  No API change; ``_F_CLAMP_PROGRESS_BOUND`` / ``_F_CLAMP_VALUE``
+  were private and used only inside the module.
+* **Tests** — `tests/test_heuristic_jso.py` (+4 tests, total 37):
+  phase-2 cap (M_F = 0.95 forces draws into ``(0.7, 0.8]``;
+  saturating cap at 0.8 hit by some draws), phase-3 unclamp
+  (F ∈ ``(0.8, 1.0]`` reachable at progress 0.95), helper
+  :meth:`_current_F_cap` returns 0.7 / 0.8 / 1.0 for the three
+  phases, boundary inclusivity (progress 0.6 belongs to phase 2,
+  0.9 belongs to phase 3), and no-budget fallback to phase 1
+  (most conservative).  The pre-existing phase-1 cap test
+  (``test_F_clamped_at_07_when_progress_below_60_percent``) is
+  renamed to ``test_F_capped_at_07_..`` and tightened; the old
+  ``test_F_unclamped_in_late_phase`` is replaced by
+  ``test_F_capped_at_08_in_middle_phase`` (new) +
+  ``test_F_uncapped_in_final_phase`` (renamed/updated).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *jSO asymmetric F-cap during early generations* follow-up
+    promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE / jSO entry in
+    the structural-catalog candidate-pool description now names the
+    three-phase cap with its concrete values.
+  - `doc/source/guide.rst`: quick-nav entry mentions the three-phase
+    cap.
+  - `panobbgo/heuristics/jso.py`: the module-level docstring's
+    "Cauchy-F clamping" bullet is rewritten as "Asymmetric Cauchy-F
+    cap" with the full piecewise definition.
+
 ### 2026-05-19 — iLSHADE / jSO adaptive ``p_best`` schedule
 
 * **What** — `panobbgo/heuristics/lshade.py`:
@@ -1933,20 +2003,24 @@ trade-off is that this would shift the historical composite score
 baseline — needs an architectural decision record because existing
 ladders won't be directly comparable to the new battery.
 
-#### jSO asymmetric F-cap during early generations
+#### jSO asymmetric F-cap during early generations — shipped 2026-05-20
 
-jSO (Brest et al. 2017) builds on iLSHADE in two ways: (1) the
-linearly-decreasing ``p_best`` schedule (now shipped) and (2) an
-*asymmetric F cap* that limits ``F ≤ 0.7`` for the first 60% of
-the budget and ``F ≤ 0.8`` for the next 30%, only opening up to
-``F ≤ 1.0`` for the final 10%.  This prevents the swarm from
-exploring too aggressively early and over-exploiting late.
-Like the ``p_best_end`` schedule it drops in as a budget-aware
-modification inside ``_sample_F_CR`` and would compose naturally
-with the existing ``p_best_end`` opt-in.  A new ``F_schedule:
-Optional[bool] = None`` kwarg on :class:`LSHADE` plus a single
-``min(F, cap(progress))`` after the Cauchy redraw loop covers the
-implementation.
+The three-phase asymmetric Cauchy-F cap (``F ≤ 0.7`` for the first
+60% of the budget, ``F ≤ 0.8`` for the next 30%, ``F ≤ 1.0`` —
+effectively unbounded — for the final 10%) shipped 2026-05-20 as
+the :meth:`JSO._current_F_cap` helper plus the
+``_F_CAP_PHASE1_BOUND`` / ``_F_CAP_PHASE2_BOUND`` /
+``_F_CAP_PHASE1_VALUE`` / ``_F_CAP_PHASE2_VALUE`` module constants
+on :mod:`panobbgo.heuristics.jso`.  See the §13 entry above.
+
+Follow-up (still open): generalise the cap onto :class:`LSHADE` as
+an opt-in ``F_schedule: Optional[bool] = None`` kwarg.  L-SHADE
+itself does not have a Cauchy-F cap in the literature (the cap is
+a jSO refinement), so an opt-in on the base class is purely a
+mechanism for users / the loop to compose the schedule with
+non-jSO L-SHADE variants.  Modest value; defer until the bandit
+shows enough interest in non-jSO L-SHADE retunes to justify the
+extra surface area.
 
 #### Tighten `eps_accept` once paired bootstrap is the loop default
 

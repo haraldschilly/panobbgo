@@ -2,6 +2,68 @@
 
 ## Recent Improvements (continued)
 
+### jSO Asymmetric Three-Phase Cauchy-F Cap (2026-05-20)
+- [x] **`JSO._current_F_cap()` helper** added in
+      `panobbgo/heuristics/jso.py`; closes the *jSO asymmetric F-cap
+      during early generations* follow-up listed under the 2026-05-15
+      jSO entry in `planning/SELF_IMPROVEMENT_LOOP.md`.  Returns the
+      literature-canonical phase-dependent ceiling for the Cauchy
+      ``F`` draw::
+
+          F ≤ 0.7   if  progress < 0.6
+          F ≤ 0.8   if  0.6 ≤ progress < 0.9
+          F ≤ 1.0   otherwise   (effectively no cap)
+
+  - **Why it matters.**  jSO won the CEC-2017 single-objective
+    competition, and the *three-phase* asymmetric F-cap is one of
+    its three named refinements over L-SHADE (alongside the
+    weighted ``current-to-pbest-w/1`` mutation and the linear
+    ``p_best`` schedule — both already shipped).  The previous
+    JSO implementation only had phase 1 (the single ``F ≤ 0.7``
+    clamp below ``progress < 0.6``) — leaving phase 2's
+    ``F ≤ 0.8`` mid-budget cap unimplemented.  Phase 2 occupies
+    a non-trivial middle regime: phase 1's ``≤ 0.7`` would
+    freeze exploration once LPSR has shrunk the population to
+    its mid-budget size; phase 3's no-cap would let
+    pathologically large Cauchy-tail ``F`` dominate before the
+    population is small enough to absorb them.
+- [x] **`_sample_F_CR` consults the helper** — single
+      ``F = min(F, self._current_F_cap())`` after the Cauchy
+      redraw loop replaces the previous single-phase check.
+- [x] **Module-level constants** — ``_F_CLAMP_PROGRESS_BOUND`` /
+      ``_F_CLAMP_VALUE`` retired in favour of the four-constant set
+      ``_F_CAP_PHASE1_BOUND = 0.6`` / ``_F_CAP_PHASE2_BOUND = 0.9`` /
+      ``_F_CAP_PHASE1_VALUE = 0.7`` / ``_F_CAP_PHASE2_VALUE = 0.8``.
+      Constants were private and used only inside `jso.py`, so this
+      rename is API-safe.
+- [x] **4 new tests in `tests/test_heuristic_jso.py`** (total 37,
+      from 33): phase-2 cap (M_F = 0.95 forces draws into
+      ``(0.7, 0.8]``; saturating cap at 0.8 hit by some draws),
+      phase-3 unclamp (F ∈ ``(0.8, 1.0]`` reachable at progress
+      0.95), helper :meth:`_current_F_cap` returns 0.7 / 0.8 / 1.0
+      for the three phases, boundary inclusivity (progress 0.6
+      belongs to phase 2, 0.9 belongs to phase 3), and no-budget
+      fallback to phase 1 (most conservative).
+- [x] **Minor behavioural change for existing JSO instances** — at
+      progress ∈ ``[0.6, 0.9)`` the Cauchy redraw can no longer
+      return ``F`` ∈ ``(0.8, 1.0]``.  Ledgers built with the prior
+      partial implementation will see slightly different
+      trajectories whenever ``M_F`` drifts above 0.8 in the
+      mid-phase.  No API change.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: new §13 dated entry; the
+    *jSO asymmetric F-cap during early generations* follow-up
+    promoted from "open" to "shipped" (with an LSHADE-generalisation
+    note left open as a low-priority follow-up).
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE / jSO bullet
+    in the structural-catalog candidate-pool description now names
+    the three-phase cap with its concrete cap values.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    three-phase asymmetric Cauchy-F cap.
+  - `panobbgo/heuristics/jso.py`: the module-level docstring's
+    "Cauchy-F clamping" bullet is rewritten as "Asymmetric
+    Cauchy-F cap" with the full piecewise definition.
+
 ### iLSHADE / jSO Adaptive `p_best` Schedule (2026-05-19)
 - [x] **New `LSHADE.p_best_end` opt-in kwarg** in
       `panobbgo/heuristics/lshade.py`; closes the *iLSHADE / jSO*

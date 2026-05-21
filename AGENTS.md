@@ -347,12 +347,19 @@ The harness is the measurement substrate for an autonomous
     `kind="categorical_choice"`.  Picks uniformly from a discrete
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
-    ships three categorical rules out-of-the-box: `PSO.topology`
-    (`"gbest"` ↔ `"lbest"`), `Sobol.scramble` (`True` ↔ `False`), and
-    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`).  Each fires only
+    ships four categorical rules out-of-the-box: `PSO.topology`
+    (`"gbest"` ↔ `"lbest"`), `Sobol.scramble` (`True` ↔ `False`),
+    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`), and
+    `LSHADE.F_schedule` (`True` ↔ `False`).  Each fires only
     when the target spec sets the kwarg *explicitly* — the
     "param already in kwargs" predicate keeps the rule out of specs
     that left the kwarg at the heuristic's constructor default.
+    `LSHADE.F_schedule=True` enables the jSO (Brest et al. 2017)
+    three-phase asymmetric F-cap on L-SHADE (`F ≤ 0.7` while
+    `progress < 0.6`, `F ≤ 0.8` while `0.6 ≤ progress < 0.9`,
+    unclamped in the final 10%); jSO opts into the cap by
+    construction so `JSO` is always literature-faithful regardless of
+    the catalog rule's verdict on L-SHADE.
 
 Run the loop:
 

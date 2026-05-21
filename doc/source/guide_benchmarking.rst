@@ -716,13 +716,19 @@ space with two new ops that change the *shape* of a
   whichever exploration / exploitation trade-off helps on the current
   battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
   adaptive Differential Evolution with linear population reduction
-  and an opt-in iLSHADE / jSO (Brest 2016 / 2017) linearly-decreasing
-  ``p_best`` schedule (set ``p_best_end`` on the spec to enable);
+  and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
+  2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``
+  on the spec to enable) and the jSO (Brest et al. 2017) three-phase
+  asymmetric F-cap (set ``F_schedule=True`` to enable — clamps
+  ``F ≤ 0.7`` while ``progress < 0.6``, ``F ≤ 0.8`` while
+  ``0.6 ≤ progress < 0.9``, unclamped in the final 10%);
   jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner) refines L-SHADE
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
-  ``p_best`` schedule, Cauchy-F clamping, and a frozen anchor memory
-  bin; both share the ``add_heuristic`` arm so the bandit picks
-  whichever DE-family variant wins on the current battery.  COBYQA
+  ``p_best`` schedule, the literature-faithful three-phase asymmetric
+  F-cap (opted into via the shared L-SHADE machinery by construction),
+  and a frozen anchor memory bin; both share the ``add_heuristic`` arm
+  so the bandit picks whichever DE-family variant wins on the current
+  battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
@@ -856,6 +862,14 @@ Panobbgo's heuristic portfolio are **discrete** instead:
 * ``LSHADE.archive_factor`` — ``0.0`` (no archive, vanilla
   current-to-pbest/1) vs ``1.0`` (Tanabe-Fukunaga default) vs
   ``2.6`` (L-SHADE-RSP enlarged archive).
+* ``LSHADE.F_schedule`` — ``True`` (jSO three-phase asymmetric
+  F-cap: ``F ≤ 0.7`` in [0, 0.6), ``F ≤ 0.8`` in [0.6, 0.9),
+  unclamped in [0.9, 1.0]) vs ``False`` (vanilla Tanabe-Fukunaga
+  L-SHADE, unclamped throughout).  The cap is the jSO refinement
+  on top of L-SHADE's success-history adaptation; flipping it lets
+  the bandit move an existing :class:`LSHADE` instance between the
+  two literature regimes without dropping and re-adding the
+  heuristic.
 
 The :class:`~panobbgo.self_improve.MutationRule` ``categorical_choice``
 kind closes this gap.  The rule carries a ``choices`` tuple of
@@ -893,6 +907,14 @@ The default catalog ships three categorical rules out-of-the-box:
        param_name="archive_factor",
        kind="categorical_choice",
        choices=(0.0, 1.0, 2.6),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="LSHADE",
+       param_name="F_schedule",
+       kind="categorical_choice",
+       choices=(True, False),
        probability=0.3,
    ),
 

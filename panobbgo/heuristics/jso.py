@@ -44,10 +44,21 @@ plain L-SHADE on the CEC test suites:
    population, the top 12.5% is enough to focus on the leading
    basin.
 
-3. **Cauchy-F clamping**.  When ``progress < 0.6``, sampled ``F``
-   values above ``0.7`` are clamped to ``0.7``.  This prevents
-   pathologically large jumps when the population is still big and
-   the surrogate landscape has not yet been explored.
+3. **Asymmetric Cauchy-F clamping**.  Three-phase cap keyed on
+   ``progress``::
+
+       F ≤ 0.7   if  progress < 0.6
+       F ≤ 0.8   if  progress < 0.9
+       F ≤ 1.0   otherwise (unclamped)
+
+   This prevents pathologically large jumps when the population is
+   still big while preserving full-range mutation late in the search.
+   jSO opts into the L-SHADE :attr:`~panobbgo.heuristics.lshade.LSHADE.F_schedule`
+   machinery by construction; the cap is shared infrastructure rather
+   than jSO-only code.  Brest et al. (2017, §III-D) document this as
+   the asymmetric F-cap; earlier ports of jSO (including the initial
+   2026-05-15 Panobbgo ship) implemented only the first phase.  The
+   second phase is the literature-faithful completion.
 
 Two architectural tweaks come with the algorithmic changes:
 
@@ -70,19 +81,21 @@ jSO inherits the entire async pipeline from
 :class:`~panobbgo.heuristics.lshade.LSHADE`: per-slot pending dict,
 generation-by-count book-keeping, archive of replaced parents, and
 warm restart via :meth:`on_restart`.  The only methods that change
-are :meth:`_sample_F_CR` (Cauchy clamping), :meth:`_generate_trial`
-(``F_w`` weighting + linear ``p_best``), and :meth:`_update_memory`
-(skip the anchor bin, advance pointer mod ``H − 1``).
+are :meth:`_generate_trial` (``F_w`` weighting + linear ``p_best``)
+and :meth:`_update_memory` (skip the anchor bin, advance pointer
+mod ``H − 1``).  The asymmetric F-cap is inherited from
+:meth:`LSHADE._apply_F_cap` via ``F_schedule=True``.
 
 Progress measurement uses ``len(strategy.results) / max_eval`` —
 the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and
 ``F_w`` schedules stay in lock-step with the population shrink.
 
 When the strategy budget is unknown (no ``max_eval``, zero, or
-non-numeric), jSO falls back to ``progress = 0.0`` for the F-clamp
-and ``F_w`` schedule, and ``p_best = p_best_max`` for the greediness
-schedule.  This matches L-SHADE's "no budget → no LPSR" fallback and
-keeps the heuristic safe in unmeasured environments.
+non-numeric), jSO falls back to ``progress = 0.0`` for the ``F_w``
+schedule, ``p_best = p_best_max`` for the greediness schedule, and
+the F-cap is bypassed entirely.  This matches L-SHADE's "no budget
+→ no LPSR" fallback and keeps the heuristic safe in unmeasured
+environments.
 
 References
 ----------
@@ -102,12 +115,7 @@ from typing import Optional
 
 import numpy as np
 
-from panobbgo.heuristics.lshade import (
-    LSHADE,
-    _CR_TERMINAL,
-    _F_MAX_REDRAWS,
-    _PARAM_SCALE,
-)
+from panobbgo.heuristics.lshade import LSHADE, _CR_TERMINAL
 from panobbgo.lib import Result
 
 
@@ -127,11 +135,6 @@ _INIT_M_CR: float = 0.8
 # time and never updated by ``_update_memory``.
 _ANCHOR_M_F: float = 0.9
 _ANCHOR_M_CR: float = 0.9
-
-# Cauchy-F clamping schedule: F is clipped at ``_F_CLAMP_VALUE`` while
-# ``progress < _F_CLAMP_PROGRESS_BOUND``.
-_F_CLAMP_PROGRESS_BOUND: float = 0.6
-_F_CLAMP_VALUE: float = 0.7
 
 # Weighted-mutation schedule for ``F_w``.  Three phases by progress.
 _FW_PHASE1_BOUND: float = 0.2
@@ -210,6 +213,7 @@ class JSO(LSHADE):
             H=H,
             p_best=p_best_max,  # parent stores fixed greediness; we override per-call
             archive_factor=archive_factor,
+            F_schedule=True,  # jSO opts into the asymmetric F-cap by construction
             seed=seed,
             name=name or "JSO",
         )
@@ -227,29 +231,30 @@ class JSO(LSHADE):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _progress(self) -> float:
-        """Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.
-
-        Falls back to ``0.0`` when the budget is unknown — matching
-        L-SHADE's LPSR fallback so an unmeasured environment leaves
-        the heuristic in its early-phase regime.
-        """
-        max_eval = self._max_eval()
-        if max_eval is None:
-            return 0.0
-        try:
-            current = float(len(self.strategy.results))
-        except Exception:
-            return 0.0
-        return float(np.clip(current / max_eval, 0.0, 1.0))
-
     def _current_p_best(self) -> float:
-        """Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``."""
-        return float(self.p_best_max + (self.p_best_min - self.p_best_max) * self._progress())
+        """Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``.
+
+        Overrides :meth:`LSHADE._current_p_best` (which uses the
+        ``p_best`` / ``p_best_end`` annealing pair) because jSO names
+        its endpoints ``p_best_max`` / ``p_best_min`` and unconditionally
+        anneals — there is no constant fall-back regime.  When the
+        budget is unknown the schedule falls back to
+        ``p_best_max`` (the early-phase value), matching the L-SHADE
+        fall-back pattern.
+        """
+        progress = self._progress()
+        if progress is None:
+            return self.p_best_max
+        return float(self.p_best_max + (self.p_best_min - self.p_best_max) * progress)
 
     def _current_F_weight(self) -> float:
-        """Three-phase ``F_w`` factor for the weighted current-to-pbest term."""
+        """Three-phase ``F_w`` factor for the weighted current-to-pbest term.
+
+        Falls back to the early-phase factor when the budget is unknown.
+        """
         progress = self._progress()
+        if progress is None:
+            return _FW_PHASE1_FACTOR
         if progress < _FW_PHASE1_BOUND:
             return _FW_PHASE1_FACTOR
         if progress < _FW_PHASE2_BOUND:
@@ -259,30 +264,6 @@ class JSO(LSHADE):
     # ------------------------------------------------------------------
     # Overrides
     # ------------------------------------------------------------------
-
-    def _sample_F_CR(self) -> tuple[float, float]:
-        """Draw ``(F, CR)`` from a random bin, then clamp F per jSO."""
-        # Identical to LSHADE._sample_F_CR up to the F clamp at the end.
-        r = int(self._rng.integers(0, self.H))
-        m_cr = float(self._M_CR[r])
-        if m_cr < 0:
-            CR = 0.0
-        else:
-            CR = float(self._rng.normal(m_cr, _PARAM_SCALE))
-            CR = float(np.clip(CR, 0.0, 1.0))
-
-        m_f = float(self._M_F[r])
-        F = 0.5
-        for _ in range(_F_MAX_REDRAWS):
-            f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
-            if f > 0.0:
-                F = float(min(f, 1.0))
-                break
-
-        # jSO Cauchy-F clamping: limit early-phase mutation magnitude.
-        if self._progress() < _F_CLAMP_PROGRESS_BOUND and F > _F_CLAMP_VALUE:
-            F = _F_CLAMP_VALUE
-        return F, CR
 
     def _generate_trial(self, target_idx: int) -> None:
         """Build and emit one ``current-to-pbest-w/1`` trial vector.

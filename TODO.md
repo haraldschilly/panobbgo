@@ -2,6 +2,92 @@
 
 ## Recent Improvements (continued)
 
+### jSO Asymmetric F-cap (Three-Phase, Brest 2017) — 2026-05-21
+- [x] **New `LSHADE.F_schedule` opt-in kwarg** in
+      `panobbgo/heuristics/lshade.py`; closes the *jSO asymmetric
+      F-cap during early generations* follow-up under the 2026-05-19
+      iLSHADE / jSO `p_best` entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  When set to `True`,
+      sampled `F` is capped at `0.7` while `progress < 0.6`, at `0.8`
+      while `0.6 ≤ progress < 0.9`, and left unclamped in the final
+      10% of the budget — the literature-faithful Brest et al. (2017,
+      §III-D) three-phase asymmetric cap.  Default `None` is
+      byte-identical to the 2026-05-10 L-SHADE ship.
+  - **Why it matters.** The 2026-05-15 :class:`JSO` ship implemented
+    only the *first* phase of the cap (`F ≤ 0.7` for the first 60%
+    of the budget), missing the middle phase that the literature
+    documents as part of jSO's CEC-2017-winning recipe.  Adding the
+    cap as shared infrastructure on `LSHADE` lets the loop driver
+    expose it as a categorical mutation rule and lets `JSO`
+    inherit the literature-faithful three-phase cap by construction.
+- [x] **New `LSHADE._progress()` helper** — returns
+      `len(strategy.results) / max_eval` clipped to `[0, 1]`, or
+      `None` when the budget is unknown so each schedule
+      (`_current_p_best`, `_apply_F_cap`, `_apply_lpsr`) picks its
+      own fall-back.  Replaces the inlined computations in
+      `_current_p_best` and `_apply_lpsr`.
+- [x] **New `LSHADE._apply_F_cap(F)` helper** — implements the
+      three-phase cap.  `_sample_F_CR` calls it once on every draw
+      so the cap is shared infrastructure across L-SHADE and
+      every subclass.
+- [x] **JSO opts in by construction** — `JSO.__init__` passes
+      `F_schedule=True` to `super().__init__`.  The old
+      `_sample_F_CR` override and module-level `_F_CLAMP_*`
+      constants are removed in favour of the inherited
+      machinery.  `_progress()` is also removed (inherited from
+      LSHADE).  `_current_p_best` / `_current_F_weight` are
+      updated to handle the new `_progress()` contract
+      (None → early-phase fall-back).
+- [x] **New `default_catalog` rule** — `LSHADE.F_schedule`
+      (`categorical_choice` over `(True, False)`) joins the existing
+      `NP_init` / `H` / `p_best` / `p_best_end` / `archive_factor`
+      LSHADE rules.  Only fires when a spec sets `F_schedule`
+      explicitly (per `_find_targets`'s "param already in kwargs"
+      predicate).  Gives the loop a discrete way to flip an existing
+      `LSHADE` instance between the Tanabe-Fukunaga and jSO regimes.
+- [x] **15 new tests in `tests/test_heuristic_lshade.py`**
+      (`LSHADEAsymmetricFCapTests` test class — total 97):
+      default `F_schedule` is `None`, custom construction
+      (`True` / `False`), invalid type rejection, `_apply_F_cap`
+      disabled-when-off (None and False), three-phase clamping
+      (phase 1 ≤ 0.7, phase 2 ≤ 0.8 admits values > 0.7, phase 3
+      unclamped), phase-boundary inclusivity (`progress = 0.6` →
+      phase 2; `progress = 0.9` → phase 3), bypass when budget
+      unknown, end-to-end `_sample_F_CR` respects the cap across
+      phases, `_progress` returns `None` without budget, `_progress`
+      clipping, and a catalog membership test for `LSHADE.F_schedule`.
+- [x] **3 new tests in `tests/test_heuristic_jso.py`** (total 36):
+      jSO opts into `F_schedule=True` by construction; jSO
+      `_progress()` returns `None` (not 0.0) without budget; jSO
+      `_current_p_best` / `_current_F_weight` fall back to the
+      early-phase value when the budget is unknown.  Plus updated
+      tests for the *three-phase* clamp on jSO (replacing the old
+      two-phase tests).
+- [x] **Backwards compatible on L-SHADE** — `F_schedule` defaults
+      to `None`; every existing L-SHADE instance retains its prior
+      behaviour bit-for-bit, all pre-existing L-SHADE tests pass
+      unchanged.  jSO's behaviour does change in the middle 30% of
+      the budget where the second-phase cap (`F ≤ 0.8`) now
+      activates; the jSO unit tests have been updated to reflect
+      the three-phase contract.  This is a literature-faithful
+      completion rather than a behaviour regression — jSO has
+      always been documented as a three-phase asymmetric F-cap
+      heuristic since Brest et al. 2017.
+- [x] **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: new §13 dated entry; the
+    *jSO asymmetric F-cap during early generations* follow-up
+    promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE / jSO entries
+    under the structural-catalog candidate pool now describe the
+    opt-in jSO F-cap on L-SHADE and the literature-faithful
+    three-phase cap on jSO; new `LSHADE.F_schedule` entry under
+    the categorical-mutation-rule section.
+  - `doc/source/guide.rst`: quick-nav entry mentions
+    `LSHADE.F_schedule` and the literature-faithful three-phase
+    cap on jSO.
+  - `AGENTS.md`: self-improvement loop subsection lists the new
+    `LSHADE.F_schedule` categorical rule.
+
 ### iLSHADE / jSO Adaptive `p_best` Schedule (2026-05-19)
 - [x] **New `LSHADE.p_best_end` opt-in kwarg** in
       `panobbgo/heuristics/lshade.py`; closes the *iLSHADE / jSO*

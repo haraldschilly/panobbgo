@@ -1261,6 +1261,24 @@ def default_catalog() -> MutationCatalog:
                 choices=(0.0, 1.0, 2.6),
                 probability=0.3,
             ),
+            # L-SHADE asymmetric F-cap toggle (categorical).  When ``True``
+            # the heuristic clamps drawn ``F`` to 0.7 in the first 60% of
+            # the budget, 0.8 in the next 30%, and leaves it unclamped in
+            # the final 10% — the jSO (Brest et al. 2017) refinement of
+            # the Cauchy F-sampler.  ``False`` reproduces the byte-identical
+            # Tanabe-Fukunaga 2014 L-SHADE.  Only fires when a spec sets
+            # ``F_schedule`` explicitly (the default kwarg is ``None``).
+            # Gives the loop a discrete way to opt L-SHADE into the
+            # literature-best mutation magnitude schedule without dropping
+            # and re-adding the heuristic.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE",
+                param_name="F_schedule",
+                kind="categorical_choice",
+                choices=(True, False),
+                probability=0.3,
+            ),
             # jSO (Brest, Maučec & Bošković 2017) initial population size.
             # Same ``[10, 60]`` bracket as L-SHADE — they share the
             # ``current-to-pbest/1`` mutation skeleton and benefit from the

@@ -1,11 +1,12 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    126  (decided=126, skipped=0)
-Accepts:       1  (0.8% of decided)
-Guards:        24  (rollbacks=10, total pops=0)
-Hold-outs:     9  (overfit=0)
+Iterations:    166  (decided=166, skipped=0)
+Accepts:       2  (1.2% of decided)
+Guards:        32  (rollbacks=12, total pops=1)
+Hold-outs:     11  (overfit=0)
 Best Δ seen:   +0.0883
 Accepted changes:
   iter=6  Δ=+0.0394  Rewarding_Diverse/Sensitivity.update_interval: 20 -> 25
+  iter=6  Δ=+0.0350  Rewarding_Diverse/Sensitivity.update_interval: 25 -> 20
 Guard rollbacks:
   iter=9  pops=0  score=0.0117 vs stored 0.0339; new top iter=-1
   iter=14  pops=0  score=0.0067 vs stored 0.0339; new top iter=-1
@@ -17,6 +18,8 @@ Guard rollbacks:
   iter=9  pops=0  score=0.0267 vs stored 0.0767; new top iter=-1
   iter=14  pops=0  score=0.0067 vs stored 0.0767; new top iter=-1
   iter=19  pops=0  score=0.0456 vs stored 0.0767; new top iter=-1
+  iter=14  pops=0  score=0.0089 vs stored 0.0400; new top iter=-1
+  iter=14  pops=1  score=0.0067 vs stored 0.0294; new top iter=-1
 Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -27,4 +30,7 @@ Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=-0.0074  overfit=0/9  worst_seed=7
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=-0.0074  overfit=0/11  worst_seed=7
+  --> drift CI: OK_CI  mean=-0.0004  CI95%=[-0.0012, +0.0000]  n_samples=19  n_records=11

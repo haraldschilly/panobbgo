@@ -187,25 +187,35 @@ class IOHTracker:
 
 
 def run_strategy_on_ioh_problem(
-    ioh_problem: Any,
+    kind: str,
+    instance: int,
+    dim: int,
     *,
     strategy_factory: Callable[[Any], Any],
     budget: Optional[int] = None,
+    fid: Optional[int] = None,
 ) -> Trajectory:
-    """Run a panobbgo strategy against a wrapped IOH problem.
+    """Run a panobbgo strategy against an IOH problem (spawns a worker subprocess).
 
     Parameters
     ----------
-    ioh_problem
-        An ``ioh.problem.RealSingleObjective`` (or compatible) instance.
+    kind
+        Problem family, e.g. ``"MA-BBOB"`` or ``"BBOB"``.  Passed
+        verbatim to the worker subprocess.
+    instance
+        Integer instance id for the IOH builder.
+    dim
+        Problem dimensionality.
     strategy_factory
         Callable ``problem -> strategy`` that returns a configured panobbgo
         strategy ready to ``start()``.  The factory is given the wrapped
-        :class:`IOHProblem` (not the raw IOH object) and should attach all
-        heuristics before returning.
+        :class:`IOHProblem` and should attach all heuristics before
+        returning.
     budget
         Override evaluation budget.  Defaults to ``2000 * dim`` per the
         MA-BBOB anytime competition rules.
+    fid
+        BBOB function id (1..24).  Required when ``kind == "BBOB"``.
 
     Returns
     -------
@@ -214,28 +224,31 @@ def run_strategy_on_ioh_problem(
     """
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
-    wrapped = IOHProblem(ioh_problem)
-    if budget is None:
-        budget = 2000 * wrapped.dim
-
-    tracker = IOHTracker(wrapped, budget=budget)
+    wrapped = IOHProblem(kind=kind, instance=instance, dim=dim, fid=fid)
     try:
-        strategy = strategy_factory(wrapped)
-        # The strategy's own max_eval should be set via panobbgo config,
-        # but the tracker enforces budget hard-stop regardless.
-        if hasattr(strategy, "config"):
-            if hasattr(strategy.config, "max_eval"):
-                strategy.config.max_eval = budget
-            # Anytime metric: don't let convergence detection forfeit the
-            # remaining budget — the tracker is the only authority that
-            # ends the run.
-            if hasattr(strategy.config, "stop_on_convergence"):
-                strategy.config.stop_on_convergence = False
-        try:
-            strategy.start()
-        except _BudgetExhausted:
-            pass
-    finally:
-        tracker.restore()
+        if budget is None:
+            budget = 2000 * wrapped.dim
 
-    return tracker.trajectory()
+        tracker = IOHTracker(wrapped, budget=budget)
+        try:
+            strategy = strategy_factory(wrapped)
+            # The strategy's own max_eval should be set via panobbgo config,
+            # but the tracker enforces budget hard-stop regardless.
+            if hasattr(strategy, "config"):
+                if hasattr(strategy.config, "max_eval"):
+                    strategy.config.max_eval = budget
+                # Anytime metric: don't let convergence detection forfeit the
+                # remaining budget — the tracker is the only authority that
+                # ends the run.
+                if hasattr(strategy.config, "stop_on_convergence"):
+                    strategy.config.stop_on_convergence = False
+            try:
+                strategy.start()
+            except _BudgetExhausted:
+                pass
+        finally:
+            tracker.restore()
+
+        return tracker.trajectory()
+    finally:
+        wrapped.close()

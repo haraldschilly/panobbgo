@@ -62,7 +62,7 @@ import hashlib
 import json
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -200,46 +200,21 @@ def aocc_to_harness_result(ioh_result, mode: str = "ioh", base_seed: int = 42):
 
 
 # ---------------------------------------------------------------------------
-# Lazy imports so this module is import-safe without `ioh` installed.
+# Problem-kind registry
 # ---------------------------------------------------------------------------
+#
+# The ``ioh`` C++ binding is *not* imported in this process — it lives in
+# the isolated child venv under ``tools/ioh_worker/`` and is reached via
+# :class:`~panobbgo.lib.ioh_wrapper.IOHProblem`.  All this module knows
+# about a problem kind is the short tag and which extra kwargs the worker
+# needs to build it.
 
 
-def _require_ioh():
-    """Import ``ioh`` lazily and raise a friendly message if missing."""
-    try:
-        import ioh  # noqa: F401
-
-        return ioh
-    except ImportError as exc:
-        raise ImportError(
-            "panobbgo.harness_ioh requires the 'ioh' package (`uv sync --extra benchmark` or `pip install ioh`)"
-        ) from exc
-
-
-# ---------------------------------------------------------------------------
-# Problem-kind dispatch
-# ---------------------------------------------------------------------------
-
-
-def _build_ma_bbob(instance: int, dim: int):
-    ioh = _require_ioh()
-    return ioh.problem.ManyAffine(instance=instance, n_variables=dim)
-
-
-def _build_bbob(instance: int, dim: int, fid: int):
-    """A single BBOB function ``fid`` (1..24) for completeness."""
-    ioh = _require_ioh()
-    return ioh.get_problem(fid, instance, dim, "BBOB")
-
-
-#: Registry of problem builders.  Keys are short, stable strings used in
-#: results and CLI flags.  Builders return an
-#: ``ioh.problem.RealSingleObjective`` ready to wrap with
-#: :class:`~panobbgo.lib.ioh_wrapper.IOHProblem`.
-PROBLEM_KIND_BUILDERS: Dict[str, Callable[..., Any]] = {
-    "MA-BBOB": _build_ma_bbob,
-    "BBOB": _build_bbob,
-}
+#: Recognised problem-kind tags.  These are forwarded to the worker as
+#: the ``kind`` field of the ``create`` JSON-Lines request, where the
+#: actual ``ioh`` builder lives.  Keep in sync with
+#: ``tools/ioh_worker/src/ioh_worker/__main__.py::_build_problem``.
+SUPPORTED_PROBLEM_KINDS: Tuple[str, ...] = ("MA-BBOB", "BBOB")
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +231,7 @@ class IOHBatterySpec:
     name
         Human-readable battery name shown in reports.
     problem_kind
-        Key into :data:`PROBLEM_KIND_BUILDERS`.  ``"MA-BBOB"`` is the
+        One of :data:`SUPPORTED_PROBLEM_KINDS`.  ``"MA-BBOB"`` is the
         MA-BBOB anytime competition family.
     dims
         Tuple of dimensions to evaluate.  The competition uses ``(2, 5)``.
@@ -577,9 +552,8 @@ def _run_one(
     """Run one strategy on one (problem, instance) and return its record."""
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
-    builder = PROBLEM_KIND_BUILDERS.get(problem_kind)
-    if builder is None:
-        raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(PROBLEM_KIND_BUILDERS)}")
+    if problem_kind not in SUPPORTED_PROBLEM_KINDS:
+        raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
 
     t0 = time.time()
     err: Optional[str] = None
@@ -589,10 +563,15 @@ def _run_one(
     trace_evals: List[int] = []
     trace_fx: List[float] = []
     score = 0.0
+    wrapped: Optional[IOHProblem] = None
 
     try:
-        raw = builder(instance=instance, dim=dim, **builder_kwargs)
-        wrapped = IOHProblem(raw)
+        wrapped = IOHProblem(
+            kind=problem_kind,
+            instance=instance,
+            dim=dim,
+            **builder_kwargs,
+        )
         f_opt = float(wrapped.optimum_y)
 
         np.random.seed(seed)
@@ -621,6 +600,12 @@ def _run_one(
         trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
     except Exception as e:  # noqa: BLE001  — record and continue
         err = f"{type(e).__name__}: {e}"
+    finally:
+        if wrapped is not None:
+            try:
+                wrapped.close()
+            except Exception:
+                pass
 
     return IOHRunRecord(
         problem_kind=problem_kind,
@@ -662,7 +647,8 @@ def run_ioh_harness(
     large batteries, drive multiple ``run_ioh_harness`` calls from outside
     if you need outer parallelism.
     """
-    _require_ioh()
+    if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
+        raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []

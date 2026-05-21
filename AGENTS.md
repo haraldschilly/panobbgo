@@ -418,7 +418,46 @@ this one scores Panobbgo on the IOHprofiler MA-BBOB suite using the
 Anytime competition.  Run via `scripts/ioh_benchmark.py`; the data
 structures live in `panobbgo/harness_ioh.py` and wrap
 `panobbgo/ioh_runner.py` (atomic budget-enforced runner) and
-`panobbgo/lib/ioh_wrapper.py` (`IOHProblem` adapter).
+`panobbgo/lib/ioh_wrapper.py` (`IOHProblem` adapter — see below).
+
+### Worker-subprocess architecture
+
+The `ioh` PyPI wheel only ships cp311 / cp312 binaries (no cp313 yet),
+so it cannot be installed into a Python 3.13 panobbgo venv without
+compiling pybind11 from source.  To keep the panobbgo core free to move
+to newer Python, the `ioh` import lives in an **isolated child uv
+project** at `tools/ioh_worker/`, pinned to Python 3.12:
+
+```
+tools/ioh_worker/
+├── pyproject.toml          # panobbgo-ioh-worker, requires-python >=3.11,<3.13
+├── .python-version         # 3.12 (cp312 wheels available)
+├── README.md               # JSON-Lines protocol spec
+└── src/ioh_worker/
+    ├── __init__.py
+    └── __main__.py         # protocol loop
+```
+
+`panobbgo.lib.ioh_wrapper.IOHProblem(kind, instance, dim, ...)` spawns
+the worker as `uv run --project tools/ioh_worker python -m ioh_worker`
+and proxies `eval(x) -> fx` calls over JSON-Lines on stdin/stdout
+behind a per-instance `threading.Lock`.  The parent panobbgo process
+never imports `ioh`; the main `pyproject.toml`'s `benchmark` extra
+no longer carries `ioh` either.
+
+**First-time setup:**
+
+```bash
+cd tools/ioh_worker && uv sync
+```
+
+This downloads the cp312 manylinux/macOS wheel directly — no C++
+compile, no memory pressure.  After this, all IOH tests and the
+benchmarks below run normally.
+
+If `tools/ioh_worker/.venv` does not exist, IOH-related tests skip
+with the `requires_worker` marker (the worker is optional from the
+main project's standpoint).
 
 ```bash
 # Quick run (~10s, 3 instances, dim 2, default Panobbgo strategies)

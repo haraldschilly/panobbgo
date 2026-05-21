@@ -1,19 +1,27 @@
 # -*- coding: utf8 -*-
 # Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
-"""Tests for panobbgo.harness_ioh — IOH-driven multi-instance benchmarking."""
+"""Tests for panobbgo.harness_ioh — IOH-driven multi-instance benchmarking.
+
+The ``ioh`` binding lives in an isolated child venv under
+``tools/ioh_worker/``; tests that actually spawn the worker subprocess
+are gated by :func:`worker_available`, which checks that ``uv`` is
+present and the worker's ``.venv`` has been created.
+
+The AOCC / battery / seed / downsample tests do not need the worker
+and run unconditionally.
+"""
 
 from __future__ import annotations
 
 import json
 import math
+from typing import Iterator
 
 import numpy as np
 import pytest
 
-ioh = pytest.importorskip("ioh", reason="ioh wheel not installed (uv sync --extra benchmark)")
-
-from panobbgo.harness_baselines import make_baseline_strategies  # noqa: E402
-from panobbgo.harness_ioh import (  # noqa: E402
+from panobbgo.harness_baselines import make_baseline_strategies
+from panobbgo.harness_ioh import (
     IOHBatterySpec,
     IOHHarnessResult,
     _derive_seed,
@@ -23,12 +31,28 @@ from panobbgo.harness_ioh import (  # noqa: E402
     make_standard_battery,
     run_ioh_harness,
 )
-from panobbgo.ioh_runner import IOHTracker, _BudgetExhausted, aocc  # noqa: E402
-from panobbgo.lib.ioh_wrapper import IOHProblem  # noqa: E402
+from panobbgo.ioh_runner import IOHTracker, _BudgetExhausted, aocc
+from panobbgo.lib.ioh_wrapper import IOHProblem, worker_available
+
+
+requires_worker = pytest.mark.skipif(
+    not worker_available(),
+    reason=("ioh worker venv not set up (run `cd tools/ioh_worker && uv sync` to enable IOH integration tests)"),
+)
+
+
+@pytest.fixture
+def ioh_problem() -> Iterator[IOHProblem]:
+    """Yield a fresh 2-D MA-BBOB problem and close its worker on teardown."""
+    prob = IOHProblem(kind="MA-BBOB", instance=0, dim=2)
+    try:
+        yield prob
+    finally:
+        prob.close()
 
 
 # ---------------------------------------------------------------------------
-# AOCC
+# AOCC (pure Python — no worker)
 # ---------------------------------------------------------------------------
 
 
@@ -63,7 +87,7 @@ class TestAOCC:
 
 
 # ---------------------------------------------------------------------------
-# Battery shape
+# Battery shape (pure Python — no worker)
 # ---------------------------------------------------------------------------
 
 
@@ -87,7 +111,7 @@ class TestBatteries:
 
 
 # ---------------------------------------------------------------------------
-# Seed derivation
+# Seed derivation (pure Python — no worker)
 # ---------------------------------------------------------------------------
 
 
@@ -107,51 +131,8 @@ class TestSeed:
 
 
 # ---------------------------------------------------------------------------
-# Trajectory downsampling
+# Trajectory downsampling (pure Python — no worker)
 # ---------------------------------------------------------------------------
-
-
-class TestIOHTracker:
-    def _problem(self, dim: int = 2):
-        raw = ioh.problem.ManyAffine(instance=0, n_variables=dim)
-        return IOHProblem(raw)
-
-    def test_soft_budget_returns_inf_past_budget(self) -> None:
-        prob = self._problem()
-        tracker = IOHTracker(prob, budget=5)
-        # Within budget: real evaluations recorded
-        for _ in range(5):
-            fx = prob.eval(np.zeros(prob.dim))
-            assert np.isfinite(fx)
-        assert tracker.n_evals == 5
-        # Past budget: soft no-op, n_evals does not advance
-        for _ in range(3):
-            fx = prob.eval(np.zeros(prob.dim))
-            # The "soft" return value is the last known best (finite) here
-            # because at least one in-budget eval recorded a result.
-            assert fx == tracker.best_fx
-        assert tracker.n_evals == 5
-        tracker.restore()
-
-    def test_hard_budget_raises(self) -> None:
-        prob = self._problem()
-        tracker = IOHTracker(prob, budget=2, hard=True)
-        prob.eval(np.zeros(prob.dim))
-        prob.eval(np.zeros(prob.dim))
-        with pytest.raises(_BudgetExhausted):
-            prob.eval(np.zeros(prob.dim))
-        tracker.restore()
-
-    def test_restore_stops_tracking(self) -> None:
-        prob = self._problem()
-        tracker = IOHTracker(prob, budget=10)
-        prob.eval(np.zeros(prob.dim))
-        assert tracker.n_evals == 1
-        tracker.restore()
-        # After restore, evaluating the problem must not increment the
-        # tracker's counters — the wrapper has been removed.
-        prob.eval(np.zeros(prob.dim))
-        assert tracker.n_evals == 1
 
 
 class TestDownsample:
@@ -175,10 +156,53 @@ class TestDownsample:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end harness run (uses a baseline strategy so it stays fast)
+# IOHTracker (needs the worker for a real IOH problem to evaluate against)
 # ---------------------------------------------------------------------------
 
 
+@requires_worker
+class TestIOHTracker:
+    def test_soft_budget_returns_inf_past_budget(self, ioh_problem: IOHProblem) -> None:
+        tracker = IOHTracker(ioh_problem, budget=5)
+        # Within budget: real evaluations recorded
+        for _ in range(5):
+            fx = ioh_problem.eval(np.zeros(ioh_problem.dim))
+            assert np.isfinite(fx)
+        assert tracker.n_evals == 5
+        # Past budget: soft no-op, n_evals does not advance
+        for _ in range(3):
+            fx = ioh_problem.eval(np.zeros(ioh_problem.dim))
+            # The "soft" return value is the last known best (finite) here
+            # because at least one in-budget eval recorded a result.
+            assert fx == tracker.best_fx
+        assert tracker.n_evals == 5
+        tracker.restore()
+
+    def test_hard_budget_raises(self, ioh_problem: IOHProblem) -> None:
+        tracker = IOHTracker(ioh_problem, budget=2, hard=True)
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        with pytest.raises(_BudgetExhausted):
+            ioh_problem.eval(np.zeros(ioh_problem.dim))
+        tracker.restore()
+
+    def test_restore_stops_tracking(self, ioh_problem: IOHProblem) -> None:
+        tracker = IOHTracker(ioh_problem, budget=10)
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        assert tracker.n_evals == 1
+        tracker.restore()
+        # After restore, evaluating the problem must not increment the
+        # tracker's counters — the wrapper has been removed.
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        assert tracker.n_evals == 1
+
+
+# ---------------------------------------------------------------------------
+# End-to-end harness runs (need the worker)
+# ---------------------------------------------------------------------------
+
+
+@requires_worker
 class TestRunIOHHarness:
     def test_random_baseline_on_quick_battery(self) -> None:
         baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
@@ -316,16 +340,6 @@ class TestRunIOHHarness:
         # ci_low/ci_high are deltas, can be negative — just sanity check shape
         assert rec.ci_low <= rec.ci_high
 
-    def test_loop_config_metric_validation(self) -> None:
-        from panobbgo.self_improve import LoopConfig
-
-        # Valid values
-        LoopConfig(iterations=0, metric="composite")
-        LoopConfig(iterations=0, metric="aocc")
-        # Invalid value
-        with pytest.raises(ValueError, match="metric"):
-            LoopConfig(iterations=0, metric="bogus")
-
     def test_reproducible_seed(self) -> None:
         baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
         battery = IOHBatterySpec(
@@ -340,3 +354,20 @@ class TestRunIOHHarness:
         # In rare cases (very low budget, identical first-evals) it may
         # coincide, so this is a soft check.
         assert isinstance(r3.mean_aocc, float)
+
+
+# ---------------------------------------------------------------------------
+# LoopConfig metric validation (pure Python — no worker)
+# ---------------------------------------------------------------------------
+
+
+class TestLoopConfigMetric:
+    def test_loop_config_metric_validation(self) -> None:
+        from panobbgo.self_improve import LoopConfig
+
+        # Valid values
+        LoopConfig(iterations=0, metric="composite")
+        LoopConfig(iterations=0, metric="aocc")
+        # Invalid value
+        with pytest.raises(ValueError, match="metric"):
+            LoopConfig(iterations=0, metric="bogus")

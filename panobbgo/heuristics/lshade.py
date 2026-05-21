@@ -63,6 +63,15 @@ under LPSR.  The canonical jSO setting is
 ``p_best = 0.25, p_best_end = 0.125``.  ``p_best_end=None`` (the
 default) preserves the constant-``p_best`` L-SHADE behaviour.
 
+Optionally pass ``F_schedule=True`` to enable the jSO asymmetric
+F-cap (Brest et al. 2017).  The cap is keyed on progress
+``e / E``: ``F ≤ 0.7`` while ``progress < 0.6``, ``F ≤ 0.8`` while
+``progress < 0.9``, and unclamped in the final 10%.  This prevents
+pathologically large jumps when the population is still big while
+preserving full-range mutation late in the search.  ``F_schedule=None``
+(default) keeps the unclamped Tanabe-Fukunaga behaviour.  jSO sets
+``F_schedule=True`` by construction.
+
 Asynchronous execution
 ----------------------
 
@@ -152,6 +161,23 @@ _F_MAX_REDRAWS: int = 100
 # (per Tanabe-Fukunaga §III-B).
 _CR_TERMINAL: float = -1.0
 
+# Asymmetric F-cap schedule (Brest et al. 2017, jSO).  Three phases keyed
+# on ``progress = len(results) / max_eval``:
+#
+#   progress ∈ [0, _F_SCHEDULE_PHASE1_BOUND)   → F clamped at _F_SCHEDULE_PHASE1_CAP
+#   progress ∈ [_F_SCHEDULE_PHASE1_BOUND,
+#               _F_SCHEDULE_PHASE2_BOUND)      → F clamped at _F_SCHEDULE_PHASE2_CAP
+#   progress ∈ [_F_SCHEDULE_PHASE2_BOUND, 1]   → F unclamped (just F ≤ 1)
+#
+# The 60% / 90% breakpoints and 0.7 / 0.8 caps match the canonical jSO
+# spec (Brest, Maučec & Bošković 2017, §III-D).  When ``F_schedule`` is
+# off the cap is bypassed and the heuristic reproduces the byte-identical
+# L-SHADE behaviour shipped 2026-05-10.
+_F_SCHEDULE_PHASE1_BOUND: float = 0.6
+_F_SCHEDULE_PHASE2_BOUND: float = 0.9
+_F_SCHEDULE_PHASE1_CAP: float = 0.7
+_F_SCHEDULE_PHASE2_CAP: float = 0.8
+
 
 class _Dropped:
     """Sentinel used to mark population slots removed by LPSR."""
@@ -202,6 +228,14 @@ class LSHADE(Heuristic):
             archive is capped at ``ceil(archive_factor · NP_current)``.
             Default ``1.0``.  Setting it to ``0`` disables the archive
             (``r2`` is then drawn only from the live population).
+        F_schedule: Optional opt-in for the jSO asymmetric F-cap (Brest
+            et al. 2017).  When ``True``, sampled ``F`` is clamped to
+            ``0.7`` while ``progress < 0.6``, to ``0.8`` while
+            ``progress < 0.9``, and left unclamped in the final 10% of
+            the budget.  ``None`` (default) keeps the unclamped
+            Tanabe-Fukunaga behaviour.  jSO opts in by construction.
+            Falls back to the unclamped behaviour when the strategy
+            budget is unknown.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             seeds from ``np.random.default_rng()``.
         name: Override the heuristic's display name.
@@ -228,6 +262,7 @@ class LSHADE(Heuristic):
         p_best: float = _DEFAULT_P_BEST,
         p_best_end: Optional[float] = None,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
+        F_schedule: Optional[bool] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -251,6 +286,8 @@ class LSHADE(Heuristic):
             raise ValueError(f"LSHADE: p_best_end must be in (0, 1] when set, got {p_best_end}")
         if not np.isfinite(archive_factor) or archive_factor < 0.0:
             raise ValueError(f"LSHADE: archive_factor must be a non-negative finite float, got {archive_factor}")
+        if F_schedule is not None and not isinstance(F_schedule, bool):
+            raise ValueError(f"LSHADE: F_schedule must be a bool or None, got {F_schedule!r}")
 
         super().__init__(strategy, name=name or "LSHADE")
         self.NP_init: int = NP_init
@@ -259,6 +296,7 @@ class LSHADE(Heuristic):
         self.p_best: float = float(p_best)
         self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
+        self.F_schedule: Optional[bool] = F_schedule
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
@@ -304,6 +342,22 @@ class LSHADE(Heuristic):
             return None
         return v
 
+    def _progress(self) -> Optional[float]:
+        """Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.
+
+        Returns ``None`` when the budget is unknown so callers can
+        distinguish "early phase" (progress = 0.0) from "no budget at
+        all" and pick a safe fallback for each schedule.
+        """
+        max_eval = self._max_eval()
+        if max_eval is None:
+            return None
+        try:
+            current = float(len(self.strategy.results))
+        except Exception:
+            return None
+        return float(np.clip(current / max_eval, 0.0, 1.0))
+
     def _current_p_best(self) -> float:
         """Return the ``p_best`` value to use for the next trial.
 
@@ -319,15 +373,37 @@ class LSHADE(Heuristic):
         """
         if self.p_best_end is None:
             return self.p_best
-        max_eval = self._max_eval()
-        if max_eval is None:
+        progress = self._progress()
+        if progress is None:
             return self.p_best
-        try:
-            current = float(len(self.strategy.results))
-        except Exception:
-            return self.p_best
-        progress = float(np.clip(current / max_eval, 0.0, 1.0))
         return self.p_best - (self.p_best - self.p_best_end) * progress
+
+    def _apply_F_cap(self, F: float) -> float:
+        """Apply the jSO asymmetric F-cap (Brest et al. 2017) when opted in.
+
+        ``F_schedule=None`` (default) leaves ``F`` unchanged — the
+        byte-identical L-SHADE behaviour.  ``F_schedule=True`` applies
+        the three-phase cap keyed on
+        ``progress = len(strategy.results) / strategy.config.max_eval``:
+
+        * ``progress < 0.6``: ``F`` clamped at ``0.7``.
+        * ``0.6 <= progress < 0.9``: ``F`` clamped at ``0.8``.
+        * ``progress >= 0.9``: ``F`` left unclamped (≤ 1.0 by sampler).
+
+        When the strategy budget is unknown the cap is bypassed — the
+        same safe fallback used by :meth:`_current_p_best` and
+        :meth:`_apply_lpsr`.
+        """
+        if not self.F_schedule:
+            return F
+        progress = self._progress()
+        if progress is None:
+            return F
+        if progress < _F_SCHEDULE_PHASE1_BOUND:
+            return min(F, _F_SCHEDULE_PHASE1_CAP)
+        if progress < _F_SCHEDULE_PHASE2_BOUND:
+            return min(F, _F_SCHEDULE_PHASE2_CAP)
+        return F
 
     def _emit_trial(self, x: np.ndarray, slot_idx: int, F: float, CR: float) -> bool:
         """Project, queue, and book-keep one candidate point."""
@@ -392,7 +468,7 @@ class LSHADE(Heuristic):
             if f > 0.0:
                 F = float(min(f, 1.0))
                 break
-        return F, CR
+        return self._apply_F_cap(F), CR
 
     def _reflect_bounds(self, v: np.ndarray, x_target: np.ndarray) -> np.ndarray:
         """Midpoint reflection bounds repair (Tanabe-Fukunaga §III-A)."""
@@ -503,14 +579,9 @@ class LSHADE(Heuristic):
 
     def _apply_lpsr(self) -> None:
         """Shrink the population to ``NP_target`` based on budget progress."""
-        max_eval = self._max_eval()
-        if max_eval is None:
+        progress = self._progress()
+        if progress is None:
             return
-        try:
-            current = float(len(self.strategy.results))
-        except Exception:
-            return
-        progress = float(np.clip(current / max_eval, 0.0, 1.0))
         target = int(round(self.NP_init - (self.NP_init - self.NP_min) * progress))
         target = max(target, self.NP_min)
         target = min(target, self._NP_current)

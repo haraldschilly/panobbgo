@@ -613,6 +613,116 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-21 — jSO asymmetric F-cap (three-phase, Brest 2017)
+
+* **What** — `panobbgo/heuristics/lshade.py`:
+  :class:`LSHADE` gains an opt-in ``F_schedule: Optional[bool] = None``
+  kwarg, a new :meth:`_progress` helper (returns ``None`` when the
+  budget is unknown so each schedule picks its own fall-back), and a
+  new :meth:`_apply_F_cap` helper that implements the three-phase
+  asymmetric cap.  The cap is keyed on
+  ``progress = len(strategy.results) / strategy.config.max_eval``::
+
+      F ≤ 0.7   if  progress < 0.6
+      F ≤ 0.8   if  progress < 0.9
+      F ≤ 1.0   otherwise (unclamped — sampler already enforces ≤ 1)
+
+  When ``F_schedule`` is ``None`` (default) or ``False`` the cap is
+  bypassed and :class:`LSHADE` reproduces the byte-identical
+  Tanabe-Fukunaga 2014 behaviour shipped 2026-05-10.
+  ``_sample_F_CR()`` consults ``_apply_F_cap()`` once on every draw so
+  the cap is shared infrastructure rather than per-subclass code.
+  :class:`~panobbgo.heuristics.jso.JSO` opts into the cap by
+  construction (passes ``F_schedule=True`` to ``super().__init__``)
+  and drops its own ``_progress`` / ``_sample_F_CR`` overrides in
+  favour of the inherited versions.  :func:`default_catalog` gains
+  one new :class:`MutationRule` (``LSHADE.F_schedule``,
+  ``categorical_choice`` over ``(True, False)``) so the loop driver
+  can flip an existing :class:`LSHADE` instance between the
+  Tanabe-Fukunaga and jSO regimes without dropping and re-adding the
+  heuristic.
+* **Why** — closes the *jSO asymmetric F-cap during early
+  generations* follow-up under the 2026-05-19 iLSHADE / jSO ``p_best``
+  entry.  jSO (Brest et al. 2017) ships with a **three-phase**
+  asymmetric F-cap as part of its winning CEC-2017 spec; the
+  2026-05-15 :class:`JSO` ship implemented only the *first* phase
+  (``F ≤ 0.7`` while ``progress < 0.6``) and left the middle phase
+  (``F ≤ 0.8`` while ``0.6 ≤ progress < 0.9``) absent — a literature
+  drift that this entry fixes.  Adding the same cap as an opt-in on
+  :class:`LSHADE` also gives the structural-mutation-free regime a
+  way to access the jSO refinement without dropping and re-adding
+  the heuristic: a single ``F_schedule`` flip lets the bandit move
+  L-SHADE between the Tanabe-Fukunaga and Brest regimes.  The cap is
+  Brest et al. (2017, §III-D) verbatim.
+* **Asynchronous adaptation** — the cap reads
+  ``progress = len(strategy.results) / max_eval`` — the same idiom
+  L-SHADE already uses for LPSR pacing — so the F-cap stays in
+  lock-step with the population shrink.  When the budget is unknown
+  (no ``max_eval``, zero, or non-numeric) the cap is bypassed,
+  matching the LPSR fallback: an unmeasured environment keeps the
+  heuristic in the unclamped Tanabe-Fukunaga regime rather than
+  guessing a horizon.
+* **Impact** — micro-benchmark on a single-LSHADE Rewarding strategy
+  (3 problems × 5 reps × 150 evaluations), comparing
+  ``F_schedule=False`` (legacy L-SHADE) vs ``F_schedule=True`` (jSO
+  F-cap) across three seeds:
+
+  * Seed 42 — 0.811 → **0.828** (+0.017)
+  * Seed 43 — **0.835** → 0.726 (-0.109)
+  * Seed 44 — 0.688 → **0.827** (+0.138)
+
+  Mean delta +0.015 across seeds, with high per-seed variance at
+  quick budgets — exactly the regime where the literature reports
+  L-SHADE's success-history adaptation is still warming up.  The
+  point of shipping this today is not the quick-mode delta (within
+  noise) but the *literature-faithful* completion of jSO: the
+  2026-05-15 :class:`JSO` ship was missing the second phase of the
+  asymmetric cap that won CEC-2017, and the structural-mutation
+  catalog now exposes the same opt-in on plain :class:`LSHADE`.
+* **Backwards compatibility** — strictly safe on L-SHADE.
+  ``F_schedule=None`` (default) bypasses the cap, so every existing
+  L-SHADE instance retains its prior behaviour bit-for-bit, including
+  all pre-existing tests in ``tests/test_heuristic_lshade.py``.  The
+  new ``LSHADE.F_schedule`` catalog rule only fires when a spec
+  explicitly sets the kwarg (per :func:`_find_targets`'s "param
+  already in kwargs" predicate), so a fresh ledger run on the
+  built-in factories sees no behavioural change.  Existing ledger
+  consumers parsing only numeric ``rule_kind`` strings see one extra
+  categorical rule they may ignore.  **jSO behaviour changes**: the
+  middle-phase cap (``F ≤ 0.8`` while ``0.6 ≤ progress < 0.9``) was
+  not active before this entry, so jSO instances will draw slightly
+  smaller ``F`` values in roughly 30% of the budget.  The change is
+  a literature-faithful completion rather than a behaviour
+  regression; the unit tests have been updated to reflect the
+  three-phase contract.
+* **Tests** — `tests/test_heuristic_lshade.py` (+15 tests, total 97):
+  default ``F_schedule`` is ``None``, custom construction with
+  ``True`` / ``False``, invalid type rejection, ``_apply_F_cap``
+  disabled-when-off paths (None and False), three-phase clamping
+  (phase 1 ≤ 0.7, phase 2 ≤ 0.8 and admits values > 0.7, phase 3
+  unclamped), phase-boundary inclusivity (progress = 0.6 → phase 2;
+  progress = 0.9 → phase 3), bypass when budget unknown, end-to-end
+  ``_sample_F_CR`` respects the cap across phases, ``_progress``
+  returns ``None`` without budget, ``_progress`` clipping, and a
+  catalog membership test confirming ``("LSHADE", "F_schedule")``
+  joins the default rule set.  `tests/test_heuristic_jso.py` (+3
+  tests, total 36): jSO opts into ``F_schedule=True`` by
+  construction; jSO ``_progress()`` returns ``None`` (not 0.0)
+  without budget; jSO ``_current_p_best`` / ``_current_F_weight``
+  fall back to the early-phase value when the budget is unknown.
+  Plus updated tests for the *three-phase* clamp on jSO (replacing
+  the old two-phase tests).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *jSO asymmetric F-cap during early generations* follow-up
+    promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: the L-SHADE / jSO entries
+    under the structural-catalog "Algorithms in the candidate pool"
+    section now mention the opt-in jSO F-cap on L-SHADE and the
+    literature-faithful three-phase cap on jSO.
+  - `AGENTS.md`: self-improvement loop subsection lists the new
+    catalog rule.
+
 ### 2026-05-19 — iLSHADE / jSO adaptive ``p_best`` schedule
 
 * **What** — `panobbgo/heuristics/lshade.py`:
@@ -1933,20 +2043,22 @@ trade-off is that this would shift the historical composite score
 baseline — needs an architectural decision record because existing
 ladders won't be directly comparable to the new battery.
 
-#### jSO asymmetric F-cap during early generations
+#### jSO asymmetric F-cap during early generations — shipped 2026-05-21
 
-jSO (Brest et al. 2017) builds on iLSHADE in two ways: (1) the
-linearly-decreasing ``p_best`` schedule (now shipped) and (2) an
-*asymmetric F cap* that limits ``F ≤ 0.7`` for the first 60% of
-the budget and ``F ≤ 0.8`` for the next 30%, only opening up to
-``F ≤ 1.0`` for the final 10%.  This prevents the swarm from
-exploring too aggressively early and over-exploiting late.
-Like the ``p_best_end`` schedule it drops in as a budget-aware
-modification inside ``_sample_F_CR`` and would compose naturally
-with the existing ``p_best_end`` opt-in.  A new ``F_schedule:
-Optional[bool] = None`` kwarg on :class:`LSHADE` plus a single
-``min(F, cap(progress))`` after the Cauchy redraw loop covers the
-implementation.
+Shipped 2026-05-21 as
+:attr:`panobbgo.heuristics.lshade.LSHADE.F_schedule` plus the
+inherited :meth:`~panobbgo.heuristics.lshade.LSHADE._apply_F_cap`
+that :class:`~panobbgo.heuristics.jso.JSO` opts into by
+construction.  The three-phase cap (``F ≤ 0.7`` while
+``progress < 0.6``, ``F ≤ 0.8`` while ``0.6 ≤ progress < 0.9``,
+unclamped in the final 10%) is now shared infrastructure rather
+than per-subclass code.  The 2026-05-15 :class:`JSO` ship had only
+the first phase of the cap implemented; this entry completes the
+literature-faithful three-phase cap from Brest et al. (2017,
+§III-D).  See the §13 entry above.  :func:`default_catalog` gains
+``LSHADE.F_schedule`` as a categorical rule so the loop can flip an
+existing L-SHADE instance between the Tanabe-Fukunaga and jSO
+regimes without dropping and re-adding the heuristic.
 
 #### Tighten `eps_accept` once paired bootstrap is the loop default
 
@@ -2204,6 +2316,32 @@ that observes ``add Sobol`` winning should still drive Sobol's
 arm up faster than Random's, while a brand-new candidate class
 starts with the op's empirical accept rate instead of the cold
 prior.
+
+#### Tunable F-cap breakpoints / cap values on `LSHADE.F_schedule`
+
+The F-cap shipped 2026-05-21 hard-codes the canonical Brest et al.
+2017 breakpoints (0.6 / 0.9) and cap values (0.7 / 0.8).  These are
+the literature defaults; other variants in the DE family use
+different settings.  Once enough ledger evidence has accumulated for
+the categorical ``LSHADE.F_schedule`` rule, a natural follow-up is to
+make the cap geometry tunable.  Two design sketches:
+
+* **Multiple categorical regimes.** Replace the binary
+  ``F_schedule = True / False`` with a categorical choice over
+  named regimes — ``"off"``, ``"jso"`` (current 0.6 / 0.7 + 0.9 / 0.8),
+  ``"ilshade"`` (different breakpoints / caps from Brest 2016),
+  ``"strict"`` (more aggressive — e.g., F ≤ 0.5 throughout the first
+  half).  Each regime ships as a module-level constant tuple so the
+  bandit can flip between them without touching the heuristic body.
+* **Continuous parameters.** Expose ``F_cap_phase1``, ``F_cap_phase2``,
+  ``F_cap_bound1``, ``F_cap_bound2`` as four kwargs with bounded
+  ``float_uniform`` perturbations.  Wider mutation space but lets the
+  bandit climb the cap surface continuously.  Risk: any cap above
+  0.85-ish probably no-ops because the L-SHADE Cauchy sampler rarely
+  draws ``F > 0.9`` from healthy memory bins.
+
+The categorical-regime approach has lower bandit dimension and is
+literature-grounded — pick that first if you ship the follow-up.
 
 #### Inactivity-guarded loop productivity
 

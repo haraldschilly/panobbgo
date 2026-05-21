@@ -1737,12 +1737,33 @@ class LoopConfig:
     holdout_iteration_offset: int = 0
     holdout_eps_overfit: float = 0.05
     paired: Optional[bool] = None
+    #: Which scoring metric drives accept/reject decisions.
+    #:
+    #: ``"composite"`` (default) — score on Panobbgo's own problem
+    #: battery using :class:`~panobbgo.harness.BenchmarkHarness`.  This
+    #: is the historical behaviour; ledger ``baseline_score`` /
+    #: ``candidate_score`` carry ``composite_score`` values.
+    #:
+    #: ``"aocc"`` — score on the IOH/MA-BBOB battery using
+    #: :func:`~panobbgo.harness_ioh.run_ioh_harness`.  Per-iteration
+    #: measurement runs :func:`~panobbgo.harness_ioh.make_quick_battery`
+    #: (mode-dependent — quick/standard/full map to the IOH battery of
+    #: the same name) and the result is adapted via
+    #: :func:`~panobbgo.harness_ioh.aocc_to_harness_result` so the
+    #: existing bootstrap CI / ledger / guard machinery works
+    #: unchanged.  Ledger scores carry **mean AOCC** in the same fields.
+    #:
+    #: Use ``"aocc"`` when the loop should optimise for the MA-BBOB
+    #: anytime competition rather than panobbgo's internal score.
+    metric: str = "composite"
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
             raise ValueError(f"iterations must be >= 0, got {self.iterations}")
         if self.mode not in {"quick", "standard", "full"}:
             raise ValueError(f"Unknown mode {self.mode!r}")
+        if self.metric not in {"composite", "aocc"}:
+            raise ValueError(f"metric must be 'composite' or 'aocc', got {self.metric!r}")
         if self.guard_interval < 0:
             raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
         if self.guard_eps_ladder < 0:
@@ -2596,8 +2617,17 @@ class SelfImprover:
     def _load_seed_strategies(self) -> List[StrategySpec]:
         if self._seed_strategies is not None:
             return list(self._seed_strategies)
-        cfg = HarnessConfig(mode=self.config.mode, strategies=self.config.strategy_names)
-        return self._harness_factory(cfg).get_strategies()
+        if self.config.metric == "aocc":
+            from panobbgo.harness_ioh import make_ioh_strategies
+
+            strats = make_ioh_strategies()
+        else:
+            cfg = HarnessConfig(mode=self.config.mode, strategies=self.config.strategy_names)
+            strats = self._harness_factory(cfg).get_strategies()
+        if self.config.strategy_names:
+            wanted = set(self.config.strategy_names)
+            strats = [s for s in strats if s.name in wanted]
+        return strats
 
     def _measure(
         self,
@@ -2606,10 +2636,51 @@ class SelfImprover:
         label: str,
         verbose: bool,
     ) -> HarnessResult:
+        if self.config.metric == "aocc":
+            return self._measure_aocc(specs, iteration, label, verbose)
         hc = self.config.harness_config(specs, iteration)
         if verbose:
             print(f"[self_improve] iter={iteration} measuring {label}")
         return self._harness_factory(hc).run(verbose=False)
+
+    def _measure_aocc(
+        self,
+        specs: List[StrategySpec],
+        iteration: int,
+        label: str,
+        verbose: bool,
+    ) -> HarnessResult:
+        """AOCC-metric variant of :meth:`_measure`.
+
+        Runs the IOH harness on a mode-mapped battery and adapts the
+        result so the rest of the loop (statistical_accept, ledger
+        writer, guard, hold-out) sees a :class:`HarnessResult` whose
+        ``composite_score`` is mean AOCC and whose per-pair ``score``
+        values are per-instance AOCC.  The bootstrap CI on the
+        composite delta then operates directly on AOCC values.
+        """
+        from panobbgo.harness_ioh import (
+            aocc_to_harness_result,
+            make_full_battery,
+            make_quick_battery,
+            make_standard_battery,
+            run_ioh_harness,
+        )
+
+        battery_factories = {
+            "quick": make_quick_battery,
+            "standard": make_standard_battery,
+            "full": make_full_battery,
+        }
+        battery = battery_factories[self.config.mode]()
+        if verbose:
+            print(f"[self_improve] iter={iteration} measuring {label} (AOCC, battery={battery.name})")
+        # Mix the iteration into the base seed so each iteration draws
+        # fresh-but-reproducible instance RNG seeds, matching the
+        # randomized composite-score path.
+        base_seed = self.config.base_seed + iteration if self.config.randomize else self.config.base_seed
+        ioh_result = run_ioh_harness(specs, battery, base_seed=base_seed, progress=False)
+        return aocc_to_harness_result(ioh_result, mode=self.config.mode, base_seed=self.config.base_seed)
 
     def _skip_record(self, iteration: int, start: float, reason: str) -> LoopIterationRecord:
         return LoopIterationRecord(

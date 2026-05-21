@@ -106,14 +106,22 @@ class Random(Heuristic):
             time.sleep(sleep_time)
 
     def on_restart(self, center, reason):
-        """
-        Respond to a restart event by resetting the search area to the leaf around the new center.
-        """
-        from panobbgo.lib import Point
+        """Reset search area after a restart event.
 
+        ``Splitter.get_leaf`` only locates leaves around *observed*
+        :class:`Result` objects.  A restart proposes an unobserved
+        ``center`` (a numpy array), so we cannot look up its leaf
+        directly.  Instead we fall back to the Splitter's current root
+        box — Random will then sample uniformly across the full search
+        space until the next split assigns a tighter leaf around the
+        new incumbent.  This is the safe default; it sacrifices a tiny
+        amount of geometric locality on the restart in exchange for not
+        crashing the eventbus thread.
+        """
         self.clear_output()
-        if center is not None:
-            self.leaf = self.strategy.analyzer("Splitter").get_leaf(Point(center, "dummy"))
+        splitter = self.strategy.analyzer("Splitter")
+        if hasattr(splitter, "root"):
+            self.leaf = splitter.root
             self.first_split.set()
 
     def on_new_split(self, box, children, dim):

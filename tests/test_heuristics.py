@@ -438,18 +438,20 @@ class HeuristicTests(PanobbgoTestCase):
         random_h.clear_output = mock.Mock()
         random_h.first_split.set = mock.Mock()
 
-        # Mock splitter
+        # Mock splitter — on_restart resets the search area to the
+        # splitter's root box rather than calling get_leaf, because a
+        # restart proposes an unobserved center and Splitter.get_leaf
+        # only locates leaves around observed Result objects.
         mock_splitter = mock.Mock()
-        mock_splitter.get_leaf.return_value = "mock_leaf"
+        mock_splitter.root = "mock_root_box"
         self.strategy.analyzer = mock.Mock(return_value=mock_splitter)
 
         center = np.array([0.5, 0.5])
         random_h.on_restart(center, "test_reason")
 
         random_h.clear_output.assert_called_once()
-        mock_splitter.get_leaf.assert_called_once()
         random_h.first_split.set.assert_called_once()
-        assert random_h.leaf == "mock_leaf"
+        assert random_h.leaf == "mock_root_box"
 
     def test_nelder_mead_restart(self):
         from panobbgo.heuristics.nelder_mead import NelderMead

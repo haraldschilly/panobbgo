@@ -33,6 +33,15 @@ jobs:
           restore-keys: |
             uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
+      - name: Cache IOH worker venv
+        id: cache-ioh-worker
+        uses: actions/cache@v4
+        with:
+          path: tools/ioh_worker/.venv
+          key: ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('tools/ioh_worker/pyproject.toml', 'tools/ioh_worker/uv.lock') }}
+          restore-keys: |
+            ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-
+
       - name: Install UV
         run: |
           if [ ! -f "$HOME/.cargo/bin/uv" ]; then
@@ -44,6 +53,14 @@ jobs:
         if: steps.cache-uv.outputs.cache-hit != 'true'
         run: |
           uv sync --extra dev
+
+      - name: Sync IOH worker venv
+        # Enables the IOH integration tests (`requires_worker` marker).
+        # The cp312 manylinux wheel downloads in seconds; no C++ compile.
+        if: steps.cache-ioh-worker.outputs.cache-hit != 'true'
+        run: |
+          cd tools/ioh_worker
+          uv sync
 
       - name: Run pytest
         run: |

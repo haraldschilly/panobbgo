@@ -1460,7 +1460,16 @@ leaf around the best point</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_restart" title="Link to this definition">¶</a></dt>
-<dd><p>Respond to a restart event by resetting the search area to the leaf around the new center.</p>
+<dd><p>Reset search area after a restart event.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf</span></code> only locates leaves around <em>observed</em>
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code> objects.  A restart proposes an unobserved
+<code class="docutils literal notranslate"><span class="pre">center</span></code> (a numpy array), so we cannot look up its leaf
+directly.  Instead we fall back to the Splitter’s current root
+box — Random will then sample uniformly across the full search
+space until the next split assigns a tighter leaf around the
+new incumbent.  This is the safe default; it sacrifices a tiny
+amount of geometric locality on the restart in exchange for not
+crashing the eventbus thread.</p>
 </dd></dl>
 
 <dl class="py method">

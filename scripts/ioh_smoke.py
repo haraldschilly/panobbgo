@@ -16,10 +16,8 @@ from __future__ import annotations
 import argparse
 import time
 
-import ioh
-
-from panobbgo.lib.ioh_wrapper import IOHProblem
 from panobbgo.ioh_runner import IOHTracker, _BudgetExhausted, aocc
+from panobbgo.lib.ioh_wrapper import IOHProblem
 
 
 def build_rewarding_strategy(problem):
@@ -74,36 +72,38 @@ def main() -> int:
 
     budget = args.max_eval if args.max_eval is not None else 2000 * args.dim
 
-    raw = ioh.problem.ManyAffine(instance=args.instance, n_variables=args.dim)
-    wrapped = IOHProblem(raw)
-    print(f"Problem: {wrapped}  f_opt={wrapped.optimum_y:.6f}  budget={budget}")
-
-    tracker = IOHTracker(wrapped, budget=budget)
-    factory = build_random_strategy if args.baseline else build_rewarding_strategy
-
-    t0 = time.time()
+    wrapped = IOHProblem(kind="MA-BBOB", instance=args.instance, dim=args.dim)
     try:
-        strategy = factory(wrapped)
-        if hasattr(strategy, "config"):
-            if hasattr(strategy.config, "max_eval"):
-                strategy.config.max_eval = budget
-            if hasattr(strategy.config, "stop_on_convergence"):
-                strategy.config.stop_on_convergence = False
-        try:
-            strategy.start()
-        except _BudgetExhausted:
-            pass
-    finally:
-        tracker.restore()
-    dt = time.time() - t0
+        print(f"Problem: {wrapped}  f_opt={wrapped.optimum_y:.6f}  budget={budget}")
 
-    score = aocc(tracker.best_so_far, f_opt=wrapped.optimum_y, budget=budget)
-    print(
-        f"n_evals={tracker.n_evals}/{budget}  best_fx={tracker.best_fx:.6f}  "
-        f"precision={tracker.best_fx - wrapped.optimum_y:.3e}  AOCC={score:.4f}  "
-        f"elapsed={dt:.1f}s"
-    )
-    return 0
+        tracker = IOHTracker(wrapped, budget=budget)
+        factory = build_random_strategy if args.baseline else build_rewarding_strategy
+
+        t0 = time.time()
+        try:
+            strategy = factory(wrapped)
+            if hasattr(strategy, "config"):
+                if hasattr(strategy.config, "max_eval"):
+                    strategy.config.max_eval = budget
+                if hasattr(strategy.config, "stop_on_convergence"):
+                    strategy.config.stop_on_convergence = False
+            try:
+                strategy.start()
+            except _BudgetExhausted:
+                pass
+        finally:
+            tracker.restore()
+        dt = time.time() - t0
+
+        score = aocc(tracker.best_so_far, f_opt=wrapped.optimum_y, budget=budget)
+        print(
+            f"n_evals={tracker.n_evals}/{budget}  best_fx={tracker.best_fx:.6f}  "
+            f"precision={tracker.best_fx - wrapped.optimum_y:.3e}  AOCC={score:.4f}  "
+            f"elapsed={dt:.1f}s"
+        )
+        return 0
+    finally:
+        wrapped.close()
 
 
 if __name__ == "__main__":

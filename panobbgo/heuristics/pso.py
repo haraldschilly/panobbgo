@@ -52,13 +52,28 @@ How ``sbest_i`` is determined depends on the *swarm topology*:
   per iteration, which is *slower* but lets multiple sub-swarms explore
   different basins in parallel.  Empirically beats ``gbest`` on
   multimodal problems (Kennedy & Mendes, 2002).
+* ``"vonneumann"`` — 2-D *toroidal grid* topology (Mendes 2004): each
+  particle is laid out on an ``R × C`` grid with ``R · C ≥ NP`` and
+  ``R ≈ √NP`` so the grid is as square as possible.  Its social
+  neighbourhood is the 4-connected wrap-around N/S/E/W set plus the
+  particle itself (size 5 on a full rectangular grid).  Information
+  diffuses two-dimensionally — *faster* than a 1-D ring of similar
+  fan-out but *slower* than ``gbest``'s instantaneous diffusion — and
+  it is widely cited as a stable middle ground that wins on a broader
+  range of multimodal problem classes than either pure ring or pure
+  star (Kennedy & Mendes, 2003; Mendes, 2004).  When ``NP`` does not
+  factor into a perfect rectangle, edge particles whose N/S/E/W cell
+  would land on a phantom (out-of-range) grid slot lose that
+  neighbour — so the neighbourhood size drops from 5 to 4 (or
+  occasionally 3) on the trailing partial row.
 
-The two topologies are *complementary*: ``gbest`` excels on unimodal /
+The three topologies are *complementary*: ``gbest`` excels on unimodal /
 weakly-multimodal problems where rapid exploitation pays off, ``lbest``
 on highly-multimodal landscapes where a swarm-wide attractor would lock
-all particles into the first decent basin.  Panobbgo's structural
-mutation catalog ships *both* variants so the self-improvement loop
-can pick whichever helps on a given problem family.
+all particles into the first decent basin, and ``vonneumann`` between
+the two.  Panobbgo's structural mutation catalog ships *all three*
+variants so the self-improvement loop can pick whichever helps on a
+given problem family.
 
 Adaptive inertia (Shi-Eberhart 1998)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,6 +127,13 @@ References
   Performance." *Proceedings of CEC 2002*, 1671–1676.
   Empirical study showing ``lbest`` beats ``gbest`` on multimodal
   benchmarks.
+* J. Kennedy & R. Mendes (2003). "Neighborhood Topologies in Fully
+  Informed and Best-of-Neighborhood Particle Swarms." *Proceedings of the
+  IEEE SMC Workshop on Soft Computing in Industrial Applications*.
+  Introduces the Von Neumann 2-D grid topology as a stable middle ground.
+* R. Mendes (2004). "Population Topologies and Their Influence in Particle
+  Swarm Performance." PhD thesis, Universidade do Minho.  Comprehensive
+  empirical study; identifies Von Neumann as a strong default.
 * R. Poli, J. Kennedy, T. Blackwell (2007). "Particle Swarm Optimization:
   An Overview." *Swarm Intelligence*, 1(1):33–57.
 """
@@ -136,7 +158,7 @@ _DEFAULT_C2: float = 1.49618  # χ · 2.05
 # Topologies controlling the *social* attraction term in the velocity
 # update.  Kept as a tuple for runtime introspection (``topology in
 # _TOPOLOGIES``).
-_TOPOLOGIES: tuple = ("gbest", "lbest")
+_TOPOLOGIES: tuple = ("gbest", "lbest", "vonneumann")
 
 
 class PSO(Heuristic):
@@ -168,13 +190,22 @@ class PSO(Heuristic):
             of width ``2 · k_neighbors + 1`` and pulls toward the best
             ``pbest`` in that ring; this slows information diffusion and
             is empirically stronger on multimodal problems
-            (Kennedy & Mendes, 2002).
+            (Kennedy & Mendes, 2002).  ``"vonneumann"`` arranges the
+            swarm on a 2-D toroidal grid of shape ``R × C`` with
+            ``R · C ≥ NP`` and ``R ≈ √NP`` so the grid is as square as
+            possible, and pulls each particle toward the best ``pbest``
+            among its 4-connected N/S/E/W neighbours plus itself
+            (size 5 on a full rectangular grid; size 4 or 3 on edge
+            particles when ``NP`` does not factor into a perfect
+            rectangle).  Empirically a stable middle ground that wins
+            on a broader range of problem classes than either pure ring
+            or pure star (Kennedy & Mendes 2003; Mendes 2004).
         k_neighbors: Half-width of the ``"lbest"`` neighbourhood.
             Default ``2`` (neighbourhood size 5, including self) which
             matches the recommendation in Kennedy & Mendes 2002.  Must
             be a positive integer; ``k_neighbors >= NP // 2`` makes the
             neighbourhood span the whole swarm and degenerates to
-            ``gbest``.  Ignored when ``topology == "gbest"``.
+            ``gbest``.  Ignored when ``topology != "lbest"``.
         w_end: Final inertia weight for the linearly-decreasing
             (Shi-Eberhart 1998) schedule.  When set, the inertia at
             evaluation count ``e`` (out of ``E = strategy.config.max_eval``)
@@ -320,6 +351,48 @@ class PSO(Heuristic):
         """
         return [(particle_idx + j) % self.NP for j in range(-self.k_neighbors, self.k_neighbors + 1)]
 
+    def _vonneumann_grid(self) -> tuple:
+        """Return ``(rows, cols)`` for the Von Neumann grid layout.
+
+        Chosen so that ``rows * cols >= NP`` and ``rows ≈ √NP`` — the
+        grid is as square as possible.  When ``NP`` does not factor into
+        a perfect rectangle (e.g. ``NP`` is prime), ``rows * cols > NP``
+        and the trailing ``rows * cols - NP`` cells are *phantom* slots
+        that :meth:`_vonneumann_neighbors` skips.
+        """
+        rows = max(1, int(round(float(self.NP) ** 0.5)))
+        cols = (self.NP + rows - 1) // rows  # ceil(NP / rows)
+        return rows, cols
+
+    def _vonneumann_neighbors(self, particle_idx: int) -> List[int]:
+        """Indices in the Von Neumann neighbourhood of ``particle_idx``.
+
+        Returns the 4-connected wrap-around N/S/E/W cells plus the
+        particle itself.  Phantom cells (grid slots whose flat index
+        is ``>= NP`` because the grid is not a perfect rectangle) are
+        skipped — edge particles on the trailing partial row therefore
+        lose 1 or 2 of their 4 neighbours.  Duplicates from very small
+        swarms (where wrap-around collapses two cells onto the same
+        index) are de-duplicated so the caller always sees a *set*.
+        """
+        rows, cols = self._vonneumann_grid()
+        r, c = divmod(particle_idx, cols)
+        candidates = (
+            particle_idx,
+            ((r - 1) % rows) * cols + c,  # north (wrap-around)
+            ((r + 1) % rows) * cols + c,  # south
+            r * cols + (c - 1) % cols,  # west
+            r * cols + (c + 1) % cols,  # east
+        )
+        seen: set = set()
+        out: List[int] = []
+        for idx in candidates:
+            if idx >= self.NP or idx in seen:
+                continue
+            seen.add(idx)
+            out.append(idx)
+        return out
+
     def _social_best_idx(self, particle_idx: int) -> Optional[int]:
         """Return the index of the social attractor for ``particle_idx``.
 
@@ -329,6 +402,12 @@ class PSO(Heuristic):
         ``2·k_neighbors + 1`` centred on ``particle_idx`` — slower
         information diffusion than the gbest variant but stronger on
         multimodal problems (Kennedy & Mendes, 2002).
+        For ``topology == "vonneumann"`` it is the index of the best
+        ``pbest`` among the 4-connected N/S/E/W cells (plus self) on a
+        toroidal 2-D grid — two-dimensional information diffusion, a
+        stable middle ground that wins on a broader range of problem
+        classes than either pure ring or pure star
+        (Kennedy & Mendes 2003; Mendes 2004).
 
         Returns ``None`` if no neighbour has accumulated a personal
         best yet, in which case :meth:`_generate_next` falls back to a
@@ -337,11 +416,15 @@ class PSO(Heuristic):
         if self.topology == "gbest":
             return self._gbest_idx
 
-        # lbest: scan the ring neighbourhood.
+        if self.topology == "lbest":
+            neighbour_idxs: List[int] = self._ring_neighbors(particle_idx)
+        else:  # "vonneumann"
+            neighbour_idxs = self._vonneumann_neighbors(particle_idx)
+
         handler = self.strategy.constraint_handler
         best_idx: Optional[int] = None
         best_result: Optional[Result] = None
-        for j in self._ring_neighbors(particle_idx):
+        for j in neighbour_idxs:
             pb = self._pbest_result[j]
             if pb is None:
                 continue

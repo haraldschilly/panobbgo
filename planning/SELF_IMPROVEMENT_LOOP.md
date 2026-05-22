@@ -613,6 +613,115 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-22 — Von Neumann (4-connected 2-D toroidal grid) PSO topology
+
+* **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a third
+  shipped topology, ``"vonneumann"``, via two new helpers
+  :meth:`_vonneumann_grid` (factors ``NP`` into ``R × C >= NP`` with
+  ``R ≈ √NP``) and :meth:`_vonneumann_neighbors` (returns the
+  4-connected wrap-around N/S/E/W indices plus the particle itself,
+  skipping phantom slots whose index is ``>= NP`` when the grid is
+  not a perfect rectangle).  :meth:`_social_best_idx` dispatches the
+  new topology onto the same scan-for-best-neighbour-pbest routine
+  already used by ``lbest``.  :func:`default_structural_catalog`
+  gains a third PSO entry — ``(PSO, {"NP": 20, "topology":
+  "vonneumann"})`` — alongside the existing ``gbest`` and ``lbest``
+  entries.  All three share ``cls = PSO`` so ``avoid_duplicates=True``
+  still prevents multiple PSO instances per strategy.  The default
+  catalog's existing ``PSO.topology`` categorical rule grows from
+  two choices to three (``("gbest", "lbest", "vonneumann")``) so the
+  bandit can flip an existing explicit-topology PSO between all three
+  regimes without dropping and re-adding the heuristic.
+* **Why** — closes the *Random / Von Neumann topologies* PSO follow-up
+  under the §13 entry from 2026-05-07.  ``gbest`` and ``lbest`` cover
+  the two extremes of the diffusion-speed spectrum (instantaneous
+  full-connect vs one-hop ring); Von Neumann's 4-connected grid sits
+  between them — two-dimensional information diffusion that gives
+  multiple sub-swarms room to probe distinct basins without the slow
+  linear chain of ``lbest``.  Mendes (2004) PhD thesis identifies Von
+  Neumann as a strong default across a wide problem battery; the
+  literature consensus (Kennedy & Mendes 2002, 2003) is that the
+  three topologies are *complementary* and the best choice depends
+  on the problem landscape.  Shipping all three in the structural
+  catalog gives the self-improvement loop a third PSO arm the bandit
+  can pick whichever wins on the current battery.
+* **Grid factoring** — ``rows = round(√NP)``, ``cols = ceil(NP/rows)``
+  so ``rows · cols >= NP`` and ``rows ≈ √NP``.  Perfect rectangles in
+  this scheme (``NP ∈ {4, 6, 9, 12, 16, 20, 25, …}``) leave no phantom
+  cells; non-square NPs (``NP ∈ {7, 8, 10, 11, 13, 17, 19, 23, …}``)
+  leave 1–3 phantom slots that :meth:`_vonneumann_neighbors` skips —
+  edge particles on the trailing partial row then have 3 or 4 real
+  neighbours instead of 5.  Wrap-around on very small swarms
+  (``NP=4``) collapses N/S to the same cell; :meth:`_vonneumann_neighbors`
+  de-duplicates so the caller always sees a *set*.
+* **Asynchronous adaptation** — Von Neumann is a *static* topology
+  (the grid layout is fixed at construction time, just like the ring
+  for ``lbest``).  No state changes between ``on_start`` /
+  ``on_new_results`` / ``on_restart``; the social-attractor lookup
+  is read-only.  PSO's per-particle pbest update path is unchanged,
+  so the existing IPOP-style warm restart works without modification.
+* **Impact** — the point of shipping today is to give the bandit a
+  third PSO arm with markedly different exploration dynamics to
+  choose between, rather than to claim a single-shipped-variant win.
+  The 2026-05-07 ``lbest`` entry's A/B benchmark already established
+  that no single PSO topology dominates at quick-mode noise levels
+  (~ ±0.05) — seeds 42 and 43 split the win between ``gbest`` and
+  ``lbest``.  The literature (Kennedy & Mendes 2002, 2003; Mendes
+  2004) predicts Von Neumann's two-hop planar diffusion sits between
+  gbest's instantaneous diffusion and lbest's one-hop linear
+  diffusion, and Mendes' PhD thesis identifies it as a stable
+  default across a broader battery than either extreme.  The
+  measurable signal will materialise once the self-improvement loop
+  has accumulated enough evidence from the bandit's per-arm reward
+  history to identify which topology wins on the current battery.
+* **Backwards compatibility** — strictly safe.  ``topology`` defaults
+  to ``"gbest"``; every existing PSO instance retains its prior
+  behaviour bit-for-bit, including the 56 pre-existing tests in
+  ``tests/test_heuristic_pso.py``.  The structural catalog gains one
+  extra ``add_heuristic`` candidate that shares ``cls = PSO`` with the
+  existing entries; under ``avoid_duplicates=True`` (default), only
+  one of the three is ever added per strategy.  The categorical
+  rule expansion is also safe: callers passing the prior choices
+  tuple get the same uniform-over-the-set draw (the cardinality just
+  bumps from 2 to 3), and the rule still fires only when a spec
+  sets ``topology`` explicitly.  Existing ledger consumers parsing
+  the rule's ``choices`` field see one extra string they may ignore.
+* **Tests** — `tests/test_heuristic_pso.py` (+11 new tests, total
+  67): vonneumann construction round-trip; grid factoring for
+  perfect rectangles (``NP ∈ {4, 9, 12, 16, 20, 25}`` — rows·cols
+  exactly equals ``NP``); grid factoring for primes / near-primes
+  (``NP ∈ {7, 11, 13, 17, 19, 23}`` — rows·cols > NP, rows ≈ √NP);
+  4-connected wrap-around correctness on a 4×5 grid (corner
+  particles 0, 12, 19 verified); phantom-cell skipping on a 3×4
+  grid with NP=10 (particles 7 and 2 each have 4 real neighbours
+  instead of 5); duplicate elimination on a 2×2 swarm (NP=4);
+  social attractor uses the 2-D neighbourhood, *not* the global
+  best, when a better pbest exists outside the N/S/E/W set;
+  social attractor returns ``None`` until at least one neighbour
+  has a pbest; velocity clamp invariant under vonneumann; an
+  end-to-end smoke run confirming the swarm strictly improves
+  on a quadratic; a categorical-rule membership test confirming
+  the default catalog now ships
+  ``choices=("gbest", "lbest", "vonneumann")``; an updated
+  structural-catalog test confirming all three PSO topology
+  variants appear among the ``add_heuristic`` candidates.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Random / Von Neumann topologies* PSO follow-up below the
+    2026-05-07 entry promoted from "open" to "shipped" for
+    Von Neumann.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    tri-topology PSO candidate pool.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog
+    section now describes the three PSO entries; the categorical
+    rule section lists ``vonneumann`` as a third PSO.topology
+    choice.
+  - `doc/source/guide_architecture.rst`: PSO description now
+    enumerates all three topologies.
+  - `doc/source/heuristics.rst`: PSO bullet updated to the
+    three-topology description.
+  - `AGENTS.md`: PSO.topology categorical rule entry updated.
+
 ### 2026-05-21 — jSO asymmetric F-cap (three-phase, Brest 2017)
 
 * **What** — `panobbgo/heuristics/lshade.py`:
@@ -2137,12 +2246,23 @@ and the optional Shi-Eberhart adaptive inertia (``w_end``) shipped
 2026-05-07.  Natural extensions when the loop has collected enough
 evidence to motivate the work:
 
-- **Random / Von Neumann topologies** — ring (``lbest``) gives
-  one-hop diffusion, gbest gives instantaneous diffusion.  Random
-  re-wired graphs and 2-D Von Neumann grids sit between the two and
-  have been shown to trade differently on different problem
-  classes (Mendes 2004); a third topology slot for ``random`` would
-  give the bandit a finer-grained choice.
+- **Von Neumann topology — shipped 2026-05-22**.
+  :attr:`panobbgo.heuristics.pso.PSO.topology = "vonneumann"` adds a
+  4-connected 2-D toroidal grid (Kennedy & Mendes 2003; Mendes 2004)
+  as a third topology slot — instantaneous (gbest) / one-hop ring
+  (lbest) / two-hop planar (vonneumann).  The structural catalog
+  ships all three PSO variants; the ``PSO.topology`` categorical rule
+  grows to ``("gbest", "lbest", "vonneumann")``.  See the §13 entry
+  above.
+- **Random re-wired topology** — the remaining slot in the
+  Mendes 2004 set.  Unlike gbest / lbest / vonneumann (all static
+  graphs computable from ``NP``), a *random* graph is rebuilt every
+  ``on_restart`` (or at construction time and persisted across
+  restarts — design decision).  Adds rng state per particle and an
+  adjacency-list field; the social-attractor lookup uses the
+  per-particle adjacency list instead of a closed-form neighbour
+  set.  Useful when the bandit evidence shows neither pure
+  structured topology consistently wins on a given battery.
 - **`StrategyPhased` integration** — pair PSO (global exploration
   phase) with NelderMead / LBFGSB (local refinement phase) on a
   single budget split, similar to the existing ``IPOP_CMAES``
@@ -2363,3 +2483,54 @@ defeating the point of adaptive sampling.  Two complementary moves:
   effective rule.  Care: the §11 success criteria pin ``eps_accept``
   at a fixed level so a chronic relaxation would silently shift the
   loop's "improvement" bar.
+
+#### NL-SHADE-RSP / NL-SHADE-LBC heuristic (CEC 2020 / 2022 winners)
+
+The DE-family arms shipped to date — basic DE (``DE/rand/1/bin``),
+L-SHADE (Tanabe-Fukunaga 2014, CEC 2014 winner) and jSO
+(Brest et al. 2017, CEC 2017 winner) — cover the high-water mark up
+to ~2017.  Stanovov-Akhmedova-Semenkin's **NL-SHADE-RSP** family
+(2020) won CEC 2020 and **NL-SHADE-LBC** (2022) won CEC 2022; both
+build directly on jSO with two refinements that the existing
+:class:`~panobbgo.heuristics.jso.JSO` does not have:
+
+* **Rank-based parent selection** — instead of uniformly sampling
+  ``r1`` from the population for the differential ``(x_r1 − x_r2)``
+  term, sample with probability inversely proportional to rank
+  (better individuals get picked more often).  Increases selective
+  pressure on the leading basin.  Subclass-friendly: only the
+  trial-generation path changes, the asynchronous pipeline and
+  memory machinery stay shared.
+* **Adaptive archive size** — instead of a fixed
+  ``A_n = round(NP * archive_factor)`` cap, draw the archive size
+  per generation uniformly from ``randint(0, A_max)``.  Slightly
+  randomises the diversity of replaced parents the archive holds.
+
+Subclassing :class:`JSO` is the obvious shape (it already inherits
+the L-SHADE pipeline correctly).  Adding NL-SHADE-RSP to the
+structural catalog gives the bandit a fourth DE-family arm that
+trades exploitation pressure (rank selection) against the broader
+mutation diversity of jSO's frozen-anchor memory bin.
+
+#### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann)
+
+Von Neumann shipped 2026-05-22 (see §13).  The literature predicts
+the three topologies are *complementary* — gbest wins on unimodal
+landscapes, lbest on highly-multimodal, vonneumann between the two —
+but the shipped entry did not include a measured benchmark because
+the impact at quick-mode budgets is within noise.  A natural
+follow-up is to run an explicit ``benchmark_harness.py compare``
+across the three Rewarding strategies (one per PSO topology) at
+``--standard`` mode (≥ 5 reps × ~8 problems × ~300 evaluations) so
+the *per-problem* per-topology winners are identified.  Use the
+paired-bootstrap CI (auto-selected on ``--randomize``) so the
+per-pair regressions are detected rigorously.  The output of this
+benchmark feeds two follow-ups:
+
+* If the data shows a per-problem-class winner pattern, encode it in
+  the structural catalog (e.g., add a ``StrategySpec`` that pre-pairs
+  ``vonneumann`` with Rastrigin / Ackley / Griewank-style problems
+  via the strategy-pattern matcher).
+* If no topology wins consistently across problem classes, leave the
+  current uniform-over-three catalog and let the bandit's per-arm
+  reward signal identify the winner online.

@@ -28,7 +28,7 @@ This resulted in ~30-60 seconds of redundant work per job.
 ```yaml
 - name: Cache UV and dependencies
   id: cache-uv
-  uses: actions/cache@v4
+  uses: actions/cache@v5
   with:
     path: |
       ~/.cargo/bin/uv
@@ -178,7 +178,7 @@ If cache becomes corrupted:
 
 ## Security Notes
 
-- All third-party actions pinned to specific versions (e.g., `actions/cache@v4`)
+- All third-party actions pinned to specific versions (e.g., `actions/cache@v5`)
 - Cache keys include dependency hash for security
 - No sensitive data in workflow files
 - Public repository with standard CI permissions

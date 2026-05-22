@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Shallow clone is enough to push fast-forward commits to
           # master.  fetch-depth: 0 listed every remote branch in the
@@ -46,13 +46,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python ${{ env.PYTHON }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
 
       - name: Cache UV and dependencies
         id: cache-uv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/uv
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload ledger as artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: self-improve-ledger-${{ github.run_id }}
           path: |

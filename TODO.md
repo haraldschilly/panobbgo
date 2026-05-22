@@ -2,6 +2,63 @@
 
 ## Recent Improvements (continued)
 
+### Von Neumann (4-connected 2-D toroidal grid) PSO topology — 2026-05-22
+- [x] **New `"vonneumann"` topology** in
+      `panobbgo/heuristics/pso.py`; closes the *Random / Von Neumann
+      topologies* PSO follow-up under the 2026-05-07 entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  :class:`PSO` gains two new
+      helpers — :meth:`_vonneumann_grid` (factors `NP` into
+      `R × C ≥ NP` with `R ≈ √NP`) and :meth:`_vonneumann_neighbors`
+      (returns the 4-connected wrap-around N/S/E/W indices plus
+      self, skipping phantom slots on non-rectangular grids).
+      :meth:`_social_best_idx` dispatches the new topology onto the
+      same scan-for-best-neighbour-pbest routine already used by
+      `lbest`.  :class:`PSO` now ships three complementary
+      information-diffusion regimes: instantaneous (`gbest`), one-hop
+      linear (`lbest`), and two-hop planar (`vonneumann`).
+  - **Why it matters.** Kennedy & Mendes (2003) and Mendes (2004)
+    identify the 4-connected 2-D toroidal grid as a stable middle
+    ground that wins on a broader range of problem classes than
+    either pure ring (`lbest`) or pure star (`gbest`).  Shipping all
+    three topologies in the structural catalog gives the
+    self-improvement loop a third PSO arm the bandit can pick
+    whichever wins on the current battery.
+- [x] **Default structural catalog grows to three PSO entries** —
+      `(PSO, {"NP": 20})`, `(PSO, {"NP": 20, "topology": "lbest",
+      "k_neighbors": 2})`, and `(PSO, {"NP": 20, "topology":
+      "vonneumann"})`.  All three share `cls = PSO` so
+      `avoid_duplicates=True` still prevents multiple PSO instances
+      per strategy; the catalog samples uniformly between them when
+      PSO is not yet present.
+- [x] **`PSO.topology` categorical rule grows from 2 to 3 choices** —
+      `("gbest", "lbest", "vonneumann")` so the bandit can flip an
+      existing explicit-topology PSO between all three regimes
+      without dropping and re-adding the heuristic.
+- [x] **Backwards compatibility** — strictly safe.  `topology`
+      defaults to `"gbest"`; every existing PSO instance retains
+      its prior behaviour bit-for-bit, including the 56 pre-existing
+      tests in `tests/test_heuristic_pso.py`.  The categorical rule
+      expansion adds one choice; callers passing the prior choices
+      tuple get the same uniform-over-the-set draw.
+- [x] **Tests** — `tests/test_heuristic_pso.py` (11 new tests, total
+      67): vonneumann construction round-trip; grid factoring for
+      perfect rectangles and primes / near-primes; 4-connected
+      wrap-around correctness on a 4×5 grid; phantom-cell skipping
+      on a 3×4 grid (NP=10); duplicate elimination on a 2×2 swarm
+      (NP=4); social attractor uses the 2-D neighbourhood, not the
+      global best, when a better pbest exists outside the N/S/E/W
+      set; social attractor returns None until at least one
+      neighbour has a pbest; velocity clamp invariant under
+      vonneumann; end-to-end smoke convergence on a quadratic;
+      categorical-rule membership test; updated structural-catalog
+      test confirming all three PSO topology variants appear among
+      the `add_heuristic` candidates.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOOP.md`,
+      `doc/source/guide.rst`, `doc/source/guide_benchmarking.rst`,
+      `doc/source/guide_architecture.rst`, `doc/source/heuristics.rst`,
+      and `AGENTS.md` all updated to reflect the tri-topology PSO
+      candidate pool.
+
 ### jSO Asymmetric F-cap (Three-Phase, Brest 2017) — 2026-05-21
 - [x] **New `LSHADE.F_schedule` opt-in kwarg** in
       `panobbgo/heuristics/lshade.py`; closes the *jSO asymmetric

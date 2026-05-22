@@ -709,12 +709,15 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *two* PSO
-  entries — the default fully-connected ``gbest`` topology
-  (Kennedy-Eberhart 1995) and the ring ``lbest`` topology with
-  ``k_neighbors=2`` (Kennedy & Mendes 2002) — so the bandit can pick
-  whichever exploration / exploitation trade-off helps on the current
-  battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
+  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *three*
+  PSO entries — the default fully-connected ``gbest`` topology
+  (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
+  ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
+  ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes 2003; Mendes
+  2004) — three complementary information-diffusion regimes
+  (instantaneous / one-hop linear / two-hop planar) so the bandit can
+  pick whichever exploration / exploitation trade-off helps on the
+  current battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
   adaptive Differential Evolution with linear population reduction
   and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
   2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``
@@ -856,7 +859,9 @@ Panobbgo's heuristic portfolio are **discrete** instead:
 
 * ``PSO.topology`` — ``"gbest"`` (fully-connected swarm,
   instantaneous diffusion) vs ``"lbest"`` (ring with one-hop
-  diffusion, better on multimodal landscapes).
+  diffusion, better on multimodal landscapes) vs ``"vonneumann"``
+  (4-connected 2-D toroidal grid, two-hop planar diffusion — Kennedy
+  & Mendes 2003 / Mendes 2004 — a stable middle ground).
 * ``Sobol.scramble`` — Owen scrambling on / off; trades a
   pseudo-random "freshness" against the classic Sobol' grid.
 * ``LSHADE.archive_factor`` — ``0.0`` (no archive, vanilla
@@ -890,7 +895,7 @@ The default catalog ships three categorical rules out-of-the-box:
        class_name="PSO",
        param_name="topology",
        kind="categorical_choice",
-       choices=("gbest", "lbest"),
+       choices=("gbest", "lbest", "vonneumann"),
        probability=0.3,
    ),
    MutationRule(

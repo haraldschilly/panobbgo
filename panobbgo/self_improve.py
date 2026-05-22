@@ -1032,11 +1032,12 @@ def default_catalog() -> MutationCatalog:
       ``LSHADE.p_best_end`` — L-SHADE population, success-history
       memory size, initial and (optional, iLSHADE / jSO) terminal
       pbest greediness.
-    * Categorical toggles — ``PSO.topology`` (``gbest`` ↔ ``lbest``),
-      ``Sobol.scramble`` (``True`` ↔ ``False``), and
-      ``LSHADE.archive_factor`` (``0.0`` / ``1.0`` / ``2.6``).  These
-      use the ``categorical_choice`` mutation kind so the loop can
-      flip discrete design knobs the same way it tunes numeric ones.
+    * Categorical toggles — ``PSO.topology``
+      (``gbest`` ↔ ``lbest`` ↔ ``vonneumann``), ``Sobol.scramble``
+      (``True`` ↔ ``False``), and ``LSHADE.archive_factor``
+      (``0.0`` / ``1.0`` / ``2.6``).  These use the
+      ``categorical_choice`` mutation kind so the loop can flip
+      discrete design knobs the same way it tunes numeric ones.
 
     Bounds are chosen so a single accept keeps the value in a sensible
     range (never zero, never pathologically large).
@@ -1211,20 +1212,22 @@ def default_catalog() -> MutationCatalog:
             ),
             # PSO topology toggle (categorical).  Flips an existing PSO
             # heuristic between the canonical Kennedy-Eberhart ``gbest``
-            # (fully-connected swarm, instantaneous diffusion) and the
+            # (fully-connected swarm, instantaneous diffusion), the
             # Kennedy-Mendes ``lbest`` (ring with one-hop diffusion,
-            # better on multimodal landscapes).  Only fires when the
-            # spec sets ``topology`` explicitly — the default PSO
-            # constructor leaves it implicit at ``"gbest"``.  The
-            # structural catalog ships an lbest variant, so this rule
-            # is immediately useful for any portfolio that has gained
-            # an explicit-topology PSO via ``add_heuristic``.
+            # better on multimodal landscapes), and ``vonneumann`` (a
+            # 4-connected 2-D toroidal grid that sits between the two
+            # extremes — Kennedy & Mendes 2003, Mendes 2004).  Only
+            # fires when the spec sets ``topology`` explicitly — the
+            # default PSO constructor leaves it implicit at ``"gbest"``.
+            # The structural catalog ships lbest and vonneumann variants,
+            # so this rule is immediately useful for any portfolio that
+            # has gained an explicit-topology PSO via ``add_heuristic``.
             MutationRule(
                 strategy_pattern="",
                 class_name="PSO",
                 param_name="topology",
                 kind="categorical_choice",
-                choices=("gbest", "lbest"),
+                choices=("gbest", "lbest", "vonneumann"),
                 probability=0.3,
             ),
             # Sobol' scrambling toggle (categorical).  ``scramble=True``
@@ -1389,11 +1392,14 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.jso import JSO
     from panobbgo.heuristics.cobyqa import COBYQA
 
-    # Two PSO entries cover the canonical ``gbest`` (default Kennedy-Eberhart
-    # 1995 swarm) and the ``lbest`` ring topology (Kennedy & Mendes 2002).
+    # Three PSO entries cover the canonical ``gbest`` (default
+    # Kennedy-Eberhart 1995 swarm), the ``lbest`` ring topology (Kennedy &
+    # Mendes 2002), and ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes
+    # 2003, Mendes 2004) — three complementary information-diffusion
+    # regimes (instantaneous, one-hop linear, two-hop planar).
     # ``avoid_duplicates=True`` ensures only one PSO variant ends up in any
-    # given strategy — the catalog picks gbest or lbest uniformly when PSO
-    # is not yet present, after which subsequent samples skip both.
+    # given strategy — the catalog picks one of the three uniformly when
+    # PSO is not yet present, after which subsequent samples skip them all.
     # L-SHADE (Tanabe-Fukunaga 2014) is the literature-best adaptive
     # Differential Evolution variant; the default ``NP_init=30`` matches
     # Panobbgo's typical max-eval budgets.  ``NP_min`` stays at the
@@ -1420,6 +1426,7 @@ def default_structural_catalog() -> MutationCatalog:
         (Extremal, {}),
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
+        (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer

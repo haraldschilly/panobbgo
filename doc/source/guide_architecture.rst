@@ -290,10 +290,12 @@ Implemented Heuristics
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).
   Each particle carries a position, a velocity, and a memory of its personal best; on every step
   the velocity is pulled toward the personal best and toward the *swarm best the particle is
-  allowed to see* with random per-component weights.  Two swarm topologies select that visible
-  attractor: ``"gbest"`` (default) — every particle sees the single global best; or ``"lbest"`` —
+  allowed to see* with random per-component weights.  Three swarm topologies select that visible
+  attractor: ``"gbest"`` (default) — every particle sees the single global best; ``"lbest"`` —
   a wrap-around ring of width ``2·k_neighbors + 1`` (Kennedy & Mendes 2002), trading slower
-  information diffusion for stronger multimodal exploration.  An opt-in ``w_end`` argument enables
+  information diffusion for stronger multimodal exploration; or ``"vonneumann"`` — a 4-connected
+  2-D toroidal grid (Kennedy & Mendes 2003; Mendes 2004) that sits between the two, widely cited
+  as a stable middle ground that wins on a broader range of problem classes.  An opt-in ``w_end`` argument enables
   the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy's evaluation
   budget; the default constant ``w`` reproduces the original Clerc-Kennedy behaviour.  PSO's
   *momentum* and *social* dynamics are markedly different from CMA-ES (covariance re-sampling) and

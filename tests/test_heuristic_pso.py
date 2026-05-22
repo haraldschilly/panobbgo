@@ -121,7 +121,7 @@ class PSOConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.heuristics.pso import PSO
 
         with pytest.raises(ValueError, match="topology must be one of"):
-            PSO(self.strategy, topology="random")  # type: ignore[arg-type]
+            PSO(self.strategy, topology="not-a-real-topology")  # type: ignore[arg-type]
 
     def test_invalid_k_neighbors_type(self):
         from panobbgo.heuristics.pso import PSO
@@ -579,6 +579,231 @@ class PSOLBestTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
+# Von Neumann (2-D toroidal grid) topology
+# ----------------------------------------------------------------------
+
+
+class PSOVonNeumannTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Verify the ``vonneumann`` (4-connected 2-D toroidal grid) topology."""
+
+    def test_vonneumann_construction(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=20, topology="vonneumann")
+        assert h.topology == "vonneumann"
+        # k_neighbors is preserved on the instance even though Von Neumann
+        # ignores it (the heuristic stores it for round-trip serialization).
+        assert isinstance(h.k_neighbors, int)
+
+    def test_vonneumann_grid_perfect_rectangle(self):
+        """20 = 4·5, 16 = 4·4, 12 = 3·4: rows · cols == NP exactly."""
+        from panobbgo.heuristics.pso import PSO
+
+        for NP, expected in (
+            (4, (2, 2)),
+            (9, (3, 3)),
+            (12, (3, 4)),
+            (16, (4, 4)),
+            (20, (4, 5)),
+            (25, (5, 5)),
+        ):
+            h = PSO(self.strategy, NP=NP, topology="vonneumann")
+            rows, cols = h._vonneumann_grid()
+            assert rows * cols == NP, f"NP={NP}: rows={rows} cols={cols}"
+            assert rows == expected[0] and cols == expected[1], f"NP={NP}: got ({rows},{cols})"
+
+    def test_vonneumann_grid_non_rectangular(self):
+        """When NP doesn't factor perfectly, rows·cols > NP and rows·cols - NP cells are phantom."""
+        from panobbgo.heuristics.pso import PSO
+
+        for NP in (7, 11, 13, 17, 19, 23):  # primes / near-primes
+            h = PSO(self.strategy, NP=NP, topology="vonneumann")
+            rows, cols = h._vonneumann_grid()
+            assert rows * cols >= NP, f"NP={NP}: rows={rows} cols={cols}"
+            # rows should be approximately sqrt(NP), within 1.
+            assert abs(rows - round(NP**0.5)) <= 1, f"NP={NP}: rows={rows} far from sqrt"
+
+    def test_vonneumann_neighbors_full_rectangle(self):
+        """On a 4x5 grid (NP=20), every particle has exactly 4+1=5 neighbours."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=20, topology="vonneumann")
+        rows, cols = h._vonneumann_grid()
+        assert (rows, cols) == (4, 5)
+        for i in range(20):
+            nbrs = h._vonneumann_neighbors(i)
+            assert len(nbrs) == 5, f"particle {i}: {nbrs}"
+            assert i in nbrs  # self is always in the neighbourhood
+
+    def test_vonneumann_neighbors_wrap_around(self):
+        """Wrap-around on a 4x5 grid: corner cells wrap to the opposite edge.
+
+        Layout (NP=20, 4 rows × 5 cols)::
+
+             0  1  2  3  4
+             5  6  7  8  9
+            10 11 12 13 14
+            15 16 17 18 19
+
+        Particle 0 (r=0, c=0):
+          N → (3, 0) = 15  (wrap top → bottom)
+          S → (1, 0) = 5
+          W → (0, 4) = 4   (wrap left → right)
+          E → (0, 1) = 1
+        """
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=20, topology="vonneumann")
+        nbrs0 = set(h._vonneumann_neighbors(0))
+        assert nbrs0 == {0, 15, 5, 4, 1}
+
+        # Particle 12 (r=2, c=2) — interior, no wrap needed.
+        # N=(1,2)=7, S=(3,2)=17, W=(2,1)=11, E=(2,3)=13
+        nbrs12 = set(h._vonneumann_neighbors(12))
+        assert nbrs12 == {12, 7, 17, 11, 13}
+
+        # Particle 19 (r=3, c=4) — corner with two wraps.
+        # N=(2,4)=14, S=(0,4)=4 (wrap), W=(3,3)=18, E=(3,0)=15 (wrap)
+        nbrs19 = set(h._vonneumann_neighbors(19))
+        assert nbrs19 == {19, 14, 4, 18, 15}
+
+    def test_vonneumann_neighbors_phantom_skipped(self):
+        """On a non-rectangular grid, neighbours mapping to phantom cells are skipped.
+
+        NP=10, rows=3, cols=4 → grid is::
+
+             0  1  2  3
+             4  5  6  7
+             8  9  .  .   (cells 10, 11 are phantom)
+
+        Particle 7 (r=1, c=3):
+          N=(0,3)=3,
+          S=(2,3)=11 PHANTOM → skipped,
+          W=(1,2)=6,
+          E=(1,0)=4 (wrap)
+        Result: {7, 3, 6, 4} — only 4 neighbours (not 5).
+        """
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="vonneumann")
+        rows, cols = h._vonneumann_grid()
+        assert (rows, cols) == (3, 4)
+        nbrs7 = h._vonneumann_neighbors(7)
+        assert set(nbrs7) == {7, 3, 6, 4}
+        # Particle 2 (r=0, c=2): N=(2,2)=phantom 10 → skipped
+        #                       S=(1,2)=6, W=(0,1)=1, E=(0,3)=3
+        nbrs2 = set(h._vonneumann_neighbors(2))
+        assert nbrs2 == {2, 6, 1, 3}
+
+    def test_vonneumann_neighbors_dedupe_small_swarms(self):
+        """On very small swarms, wrap-around collapses to duplicates — de-duped."""
+        from panobbgo.heuristics.pso import PSO
+
+        # NP=4 → 2x2 grid.  Each particle's N and S wrap to the same cell;
+        # W and E wrap to the same cell.  Result: 3 unique neighbours.
+        h = PSO(self.strategy, NP=4, topology="vonneumann")
+        for i in range(4):
+            nbrs = h._vonneumann_neighbors(i)
+            assert len(set(nbrs)) == len(nbrs), f"duplicate in {nbrs}"
+            assert i in nbrs
+
+    def test_vonneumann_social_best_uses_grid_neighbourhood(self):
+        """Under ``vonneumann`` the social attractor must come from the 2-D neighbourhood.
+
+        On a 4x5 grid, particle 0 sees {0, 15, 5, 4, 1}.  Plant a great pbest
+        at index 12 (interior, *not* in particle 0's neighbourhood) and a
+        mediocre pbest at index 5 (north of 0).  The social attractor for 0
+        must be 5, not 12.
+        """
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(self.strategy, NP=20, topology="vonneumann", seed=0)
+        h.on_start()
+        h.get_points(limit=200)
+
+        def feed(idx, fx):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, fx)])
+
+        feed(12, 0.001)  # excellent pbest — outside particle 0's neighbourhood
+        h.get_points(limit=200)
+        feed(5, 5.0)  # mediocre pbest — inside particle 0's neighbourhood
+        h.get_points(limit=200)
+
+        # _gbest_idx is the global best (used for reporting), points at 12.
+        assert h._gbest_idx == 12
+        # Social attractor for particle 0 under vonneumann should be 5,
+        # not 12 — particle 0 cannot "see" past its N/S/E/W neighbours.
+        assert h._social_best_idx(0) == 5
+
+    def test_vonneumann_social_best_none_until_neighbour_evaluated(self):
+        """If no neighbour in the Von Neumann set has a pbest yet, returns None."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="vonneumann")
+        h.on_start()
+        h.get_points(limit=100)
+        for i in range(h.NP):
+            assert h._social_best_idx(i) is None
+
+    def test_vonneumann_velocity_clamp(self):
+        """Von Neumann topology respects the same ``v_max`` clamp."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(
+            self.strategy,
+            NP=9,
+            topology="vonneumann",
+            w=0.9,
+            c1=2.0,
+            c2=2.0,
+            v_max_frac=0.2,
+            seed=99,
+        )
+        h.on_start()
+        h.get_points(limit=200)
+
+        # Feed two neighbours' results so particle 0's social attractor is non-None.
+        for idx in (1, 0):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, 1.0 + idx)])
+
+        ranges = self.problem.box[:, 1] - self.problem.box[:, 0]
+        v_max = 0.2 * ranges
+        assert np.all(np.abs(h._velocities) <= v_max + 1e-12)
+
+    def test_vonneumann_drives_toward_origin_on_quadratic(self):
+        """End-to-end: Von Neumann strictly improves on a quadratic."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Result
+
+        h = PSO(self.strategy, NP=12, topology="vonneumann", seed=2026)
+        h.on_start()
+        pts = h.get_points(limit=200)
+
+        def f(x):
+            return float(np.sum(x * x))
+
+        def evaluate_and_feed(points):
+            results = [Result(pt, f(pt.x)) for pt in points]
+            h.on_new_results(results)
+
+        evaluate_and_feed(pts)
+        best_fx = min(r.fx for r in h._pbest_result if r is not None)
+        for _ in range(20):
+            pts = h.get_points(limit=200)
+            if not pts:
+                break
+            evaluate_and_feed(pts)
+        new_best = min(r.fx for r in h._pbest_result if r is not None)
+        assert new_best <= best_fx + 1e-12
+
+
+# ----------------------------------------------------------------------
 # Module-level registration
 # ----------------------------------------------------------------------
 
@@ -604,12 +829,13 @@ def test_pso_in_default_structural_catalog():
 
 
 def test_pso_lbest_variant_in_default_structural_catalog():
-    """Both gbest (default) and lbest PSO variants appear in the structural catalog.
+    """The gbest, lbest, and vonneumann PSO variants all appear in the structural catalog.
 
-    The catalog ships *two* PSO entries — canonical gbest (Kennedy-Eberhart
-    1995) and lbest ring topology (Kennedy & Mendes 2002) — so the
+    The catalog ships *three* PSO entries — canonical gbest (Kennedy-Eberhart
+    1995), lbest ring topology (Kennedy & Mendes 2002), and vonneumann 2-D
+    toroidal grid (Kennedy & Mendes 2003; Mendes 2004) — so the
     self-improvement loop can pick whichever helps on the current battery.
-    Both share ``cls = PSO`` so ``avoid_duplicates=True`` still prevents
+    All three share ``cls = PSO`` so ``avoid_duplicates=True`` still prevents
     multiple PSO instances per strategy; instead the catalog samples
     uniformly between them when PSO is not yet present.
     """
@@ -619,9 +845,21 @@ def test_pso_lbest_variant_in_default_structural_catalog():
     catalog = default_structural_catalog()
     add_rules = [r for r in catalog.rules if getattr(r, "op", None) == "add_heuristic"]
     pso_entries = [kwargs for rule in add_rules for cls, kwargs in rule.candidate_classes if cls is PSO]
-    assert len(pso_entries) >= 2, f"expected ≥2 PSO entries, got {pso_entries!r}"
+    assert len(pso_entries) >= 3, f"expected ≥3 PSO entries, got {pso_entries!r}"
     topologies = {kwargs.get("topology", "gbest") for kwargs in pso_entries}
-    assert topologies == {"gbest", "lbest"}
+    assert topologies == {"gbest", "lbest", "vonneumann"}
+
+
+def test_pso_topology_categorical_rule_includes_vonneumann():
+    """The PSO.topology categorical rule covers all three shipped topologies."""
+    from panobbgo.self_improve import default_catalog
+
+    catalog = default_catalog()
+    topo_rules = [r for r in catalog.rules if r.class_name == "PSO" and r.param_name == "topology"]
+    assert len(topo_rules) == 1, f"expected exactly 1 PSO.topology rule, got {len(topo_rules)}"
+    rule = topo_rules[0]
+    assert rule.kind == "categorical_choice"
+    assert set(rule.choices) == {"gbest", "lbest", "vonneumann"}
 
 
 def test_pso_kwarg_rule_in_default_catalog():

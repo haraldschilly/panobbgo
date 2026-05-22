@@ -348,7 +348,7 @@ The harness is the measurement substrate for an autonomous
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
     ships four categorical rules out-of-the-box: `PSO.topology`
-    (`"gbest"` ↔ `"lbest"`), `Sobol.scramble` (`True` ↔ `False`),
+    (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"`), `Sobol.scramble` (`True` ↔ `False`),
     `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`), and
     `LSHADE.F_schedule` (`True` ↔ `False`).  Each fires only
     when the target spec sets the kwarg *explicitly* — the

@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    186  (decided=186, skipped=0)
-Accepts:       4  (2.2% of decided)
-Guards:        36  (rollbacks=12, total pops=1)
-Hold-outs:     12  (overfit=0)
+Iterations:    206  (decided=206, skipped=0)
+Accepts:       4  (1.9% of decided)
+Guards:        40  (rollbacks=13, total pops=1)
+Hold-outs:     13  (overfit=0)
 Best Δ seen:   +0.0883
 Accepted changes:
   iter=6  Δ=+0.0394  Rewarding_Diverse/Sensitivity.update_interval: 20 -> 25
@@ -22,6 +22,7 @@ Guard rollbacks:
   iter=19  pops=0  score=0.0456 vs stored 0.0767; new top iter=-1
   iter=14  pops=0  score=0.0089 vs stored 0.0400; new top iter=-1
   iter=14  pops=1  score=0.0067 vs stored 0.0294; new top iter=-1
+  iter=14  pops=0  score=0.0067 vs stored 0.0306; new top iter=-1
 Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -35,5 +36,6 @@ Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=-0.0486  holdout_gap=-0.0136 training_gap=+0.0350  top_iter=18  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=-0.0486  overfit=0/12  worst_seed=7
-  --> drift CI: OK_CI  mean=-0.0104  CI95%=[-0.0198, -0.0026]  n_samples=24  n_records=12
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=-0.0486  overfit=0/13  worst_seed=7
+  --> drift CI: OK_CI  mean=-0.0086  CI95%=[-0.0166, -0.0022]  n_samples=29  n_records=13

@@ -536,6 +536,8 @@ class NLSHADERSPRegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.self_improve import MutationRule, default_catalog
 
         rules = default_catalog().rules
-        params = {(r.class_name, r.param_name) for r in rules if isinstance(r, MutationRule) and r.class_name == "NLSHADERSP"}
+        params = {
+            (r.class_name, r.param_name) for r in rules if isinstance(r, MutationRule) and r.class_name == "NLSHADERSP"
+        }
         assert ("NLSHADERSP", "NP_init") in params
         assert ("NLSHADERSP", "archive_factor") in params

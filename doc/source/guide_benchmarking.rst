@@ -709,35 +709,42 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *three*
-  PSO entries — the default fully-connected ``gbest`` topology
-  (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
-  ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
-  ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes 2003; Mendes
-  2004) — three complementary information-diffusion regimes
-  (instantaneous / one-hop linear / two-hop planar) so the bandit can
-  pick whichever exploration / exploitation trade-off helps on the
-  current battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
-  adaptive Differential Evolution with linear population reduction
-  and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
-  2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``
-  on the spec to enable) and the jSO (Brest et al. 2017) three-phase
-  asymmetric F-cap (set ``F_schedule=True`` to enable — clamps
-  ``F ≤ 0.7`` while ``progress < 0.6``, ``F ≤ 0.8`` while
-  ``0.6 ≤ progress < 0.9``, unclamped in the final 10%);
-  jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner) refines L-SHADE
-  with a weighted ``current-to-pbest-w/1`` mutation, a linear
-  ``p_best`` schedule, the literature-faithful three-phase asymmetric
-  F-cap (opted into via the shared L-SHADE machinery by construction),
-  and a frozen anchor memory bin; both share the ``add_heuristic`` arm
-  so the bandit picks whichever DE-family variant wins on the current
-  battery.  COBYQA
-  (Ragonneau-Zhang 2023) brings the modern Powell-family
-  derivative-free trust-region local optimizer (BOBYQA / NEWUOA
-  successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
-  (default) skips classes that are already present in the strategy,
-  so the catalog cannot litter a portfolio with redundant copies (and
-  in particular only ever installs *one* PSO variant per strategy).
+  ``JSO``, ``NLSHADERSP``, ``COBYQA``) to a target strategy.  The
+  pool ships *three* PSO entries — the default fully-connected
+  ``gbest`` topology (Kennedy-Eberhart 1995), the ring ``lbest``
+  topology with ``k_neighbors=2`` (Kennedy & Mendes 2002), and the
+  4-connected ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes
+  2003; Mendes 2004) — three complementary information-diffusion
+  regimes (instantaneous / one-hop linear / two-hop planar) so the
+  bandit can pick whichever exploration / exploitation trade-off
+  helps on the current battery.  L-SHADE (Tanabe-Fukunaga 2014)
+  brings success-history adaptive Differential Evolution with linear
+  population reduction and two opt-in jSO refinements: the iLSHADE /
+  jSO (Brest 2016 / 2017) linearly-decreasing ``p_best`` schedule
+  (set ``p_best_end`` on the spec to enable) and the jSO (Brest et
+  al. 2017) three-phase asymmetric F-cap (set ``F_schedule=True`` to
+  enable — clamps ``F ≤ 0.7`` while ``progress < 0.6``,
+  ``F ≤ 0.8`` while ``0.6 ≤ progress < 0.9``, unclamped in the
+  final 10%); jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner)
+  refines L-SHADE with a weighted ``current-to-pbest-w/1`` mutation,
+  a linear ``p_best`` schedule, the literature-faithful three-phase
+  asymmetric F-cap (opted into via the shared L-SHADE machinery by
+  construction), and a frozen anchor memory bin;
+  NL-SHADE-RSP (Stanovov, Akhmedova & Semenkin 2021 — CEC-2021
+  winner) refines jSO with **rank-based selective pressure** on the
+  differential ``r1`` (weight ``∝ NP − rank`` so the best is picked
+  ``NP``× more often than the worst) and an **adaptive archive
+  size** drawn each generation from ``randint(0, A_max)`` (varies
+  the diversity of replaced parents the archive holds); all four
+  DE-family arms (L-SHADE, jSO, NL-SHADE-RSP, basic DE) share the
+  ``add_heuristic`` arm so the bandit picks whichever DE-family
+  variant wins on the current battery.  COBYQA (Ragonneau-Zhang
+  2023) brings the modern Powell-family derivative-free
+  trust-region local optimizer (BOBYQA / NEWUOA successor)
+  alongside Nelder-Mead.  ``avoid_duplicates=True`` (default) skips
+  classes that are already present in the strategy, so the catalog
+  cannot litter a portfolio with redundant copies (and in
+  particular only ever installs *one* PSO variant per strategy).
 * ``drop_heuristic`` — remove an existing heuristic, optionally
   restricted to a tuple of class names via
   ``StructuralMutationRule.droppable_classes``.  The

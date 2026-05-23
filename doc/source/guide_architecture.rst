@@ -286,6 +286,19 @@ Implemented Heuristics
   jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
   wins on the current battery.
 
+- :class:`~panobbgo.heuristics.nlshade_rsp.NLSHADERSP`: NL-SHADE-RSP refinement of jSO (Stanovov,
+  Akhmedova & Semenkin, CEC 2021 winner).  Direct subclass of :class:`~panobbgo.heuristics.jso.JSO`
+  that adds two literature-best refinements to jSO: *rank-based selective pressure* on the
+  differential ``r1`` (sampled with probability ``∝ NP − rank`` so the best individual is picked
+  ``NP``× more often than the worst, concentrating the differential search direction on the leading
+  basin) and *adaptive archive size* drawn each generation from ``randint(0, A_max)`` where
+  ``A_max = ceil(archive_factor · NP_current)`` (randomising the diversity of replaced parents the
+  archive holds).  Inherits jSO's weighted ``current-to-pbest-w/1`` mutation, linear ``p_best``
+  schedule, three-phase asymmetric F-cap, frozen-anchor memory bin, and L-SHADE asynchronous
+  pipeline unchanged.  Ships in the structural mutation catalog as a fourth DE-family arm
+  alongside basic DE, L-SHADE, and jSO so the bandit picks whichever DE-family variant wins on
+  the current battery.
+
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).
   Each particle carries a position, a velocity, and a memory of its personal best; on every step

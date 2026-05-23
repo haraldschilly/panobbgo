@@ -1310,6 +1310,35 @@ def default_catalog() -> MutationCatalog:
                 high=0.4,
                 probability=0.5,
             ),
+            # NL-SHADE-RSP (Stanovov, Akhmedova & Semenkin 2021) initial
+            # population size.  Shares the jSO / L-SHADE
+            # ``current-to-pbest-w/1`` mutation skeleton, so the same
+            # ``[10, 60]`` bracket applies.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADERSP",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP archive-factor knob (``A_max`` multiplier).  The
+            # per-generation adaptive cap is sampled from
+            # ``randint(0, ceil(archive_factor · NP_current))`` so this
+            # rule tunes the *maximum* archive size the bandit will ever
+            # see.  Bracket ``[0.5, 2.6]`` — the same range L-SHADE's
+            # ``archive_factor`` categorical rule probes.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADERSP",
+                param_name="archive_factor",
+                kind="float_uniform",
+                bounds=(0.5, 2.6),
+                low=0.5,
+                high=2.6,
+                probability=0.5,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1390,6 +1419,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
     from panobbgo.heuristics.jso import JSO
+    from panobbgo.heuristics.nlshade_rsp import NLSHADERSP
     from panobbgo.heuristics.cobyqa import COBYQA
 
     # Three PSO entries cover the canonical ``gbest`` (default
@@ -1407,11 +1437,15 @@ def default_structural_catalog() -> MutationCatalog:
     # jSO (Brest, Maučec & Bošković 2017) is the CEC-2017 winner, a
     # direct refinement of L-SHADE that adds a weighted ``current-to-pbest-w/1``
     # mutation, a linear ``p_best`` schedule, Cauchy-F clamping, and a
-    # frozen-anchor memory bin.  L-SHADE and jSO are listed as *separate*
-    # candidate classes — ``avoid_duplicates`` (the default) only filters
-    # exact-class matches, so a portfolio can end up with both arms.  The
-    # bandit then weighs whichever DE-family variant wins on the current
-    # battery via the per-heuristic reward signal.
+    # frozen-anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova &
+    # Semenkin 2021) is the CEC-2021 winner, a direct refinement of jSO
+    # that adds rank-based selective pressure on ``r1`` and an adaptive
+    # per-generation archive size sampled from ``randint(0, A_max)``.
+    # L-SHADE, jSO, and NL-SHADE-RSP are listed as *separate* candidate
+    # classes — ``avoid_duplicates`` (the default) only filters
+    # exact-class matches, so a portfolio can end up with all three
+    # arms.  The bandit then weighs whichever DE-family variant wins on
+    # the current battery via the per-heuristic reward signal.
     # COBYQA (Ragonneau-Zhang 2023) is Powell's BOBYQA / NEWUOA successor —
     # a derivative-free trust-region method with quadratic interpolation
     # models, dominant on smooth / near-smooth local refinement.  Defaults
@@ -1429,6 +1463,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
+        (NLSHADERSP, {"NP_init": 30}),  # CEC-2021 winner, rank-based r1 + adaptive archive
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [

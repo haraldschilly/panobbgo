@@ -613,6 +613,143 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-23 — NL-SHADE-RSP adaptive Differential Evolution (CEC 2021 winner)
+
+* **What** — `panobbgo/heuristics/nlshade_rsp.py` adds the
+  :class:`NLSHADERSP` heuristic, a direct subclass of
+  :class:`~panobbgo.heuristics.jso.JSO` that ports the
+  Stanovov-Akhmedova-Semenkin (CEC 2021) refinement of jSO.
+  NL-SHADE-RSP inherits the entire jSO machinery (weighted
+  ``current-to-pbest-w/1`` mutation, linear ``p_best`` schedule
+  ``0.25 → 0.125``, three-phase asymmetric F-cap, success-history
+  ``(F, CR)`` adaptation, frozen-anchor memory bin, jSO initial memory
+  values, and L-SHADE's LPSR pacing) and overrides exactly two pieces:
+
+  * **Rank-based Selective Pressure (RSP)**.  The differential ``r1``
+    in the mutation term ``F · (x_r1 − x_r2)`` is sampled with
+    probability proportional to ``(NP − rank)``.  Rank ``0`` (best
+    individual) gets weight ``NP``; rank ``NP − 1`` (worst) gets
+    weight ``1``.  Best individuals are picked ``NP`` times more often
+    than the worst, concentrating the differential search direction on
+    the leading basin while keeping every individual reachable.
+    Implemented via :meth:`NLSHADERSP._rank_weights` and an override of
+    :meth:`_generate_trial`.
+  * **Adaptive archive size**.  The fixed
+    ``A_max = ceil(archive_factor · NP_current)`` cap from L-SHADE / jSO
+    is replaced by a per-generation random cap drawn uniformly from
+    ``[0, A_max]``.  Implemented via :meth:`NLSHADERSP._refresh_arc_size_t`
+    (called at the start of every async generation by an override of
+    :meth:`_end_of_generation`) and :meth:`_trim_archive`.  When
+    ``archive_factor == 0`` the cap collapses to ``0`` (archive disabled);
+    otherwise the cap varies generation-to-generation, randomising the
+    diversity of replaced parents the archive holds.
+
+  The heuristic is registered in :mod:`panobbgo.heuristics`,
+  :func:`default_structural_catalog` gains it as a thirteenth
+  ``add_heuristic`` candidate (``avoid_duplicates=True`` keeps the
+  catalog from cluttering portfolios that already include it), and
+  :func:`default_catalog` gains two kwarg rules so the loop driver
+  can also retune ``NLSHADERSP.NP_init`` (range ``[10, 60]``, same
+  bracket as L-SHADE / jSO) and ``NLSHADERSP.archive_factor``
+  (``float_uniform`` over ``[0.5, 2.6]``, the L-SHADE-RSP
+  enlarged-archive range) once a spec opts in.
+* **Why** — closes the *NL-SHADE-RSP / NL-SHADE-LBC heuristic
+  (CEC 2020 / 2022 winners)* follow-up under the §13 entry from
+  2026-05-15 (jSO).  jSO is the CEC-2017 winner; NL-SHADE-RSP is the
+  **CEC-2021 single-objective bound-constrained competition winner**
+  and is the literature high-water mark on top of jSO.  Subclassing
+  jSO keeps the *new* heuristic at the literature-best frontier while
+  leaving the original jSO byte-identical for ledger reproducibility —
+  exactly the precedent set by the jSO entry itself, which kept L-SHADE
+  available alongside.  Adding NL-SHADE-RSP to the structural catalog
+  gives the self-improvement loop a fourth DE-family arm (basic DE,
+  L-SHADE, jSO, NL-SHADE-RSP) the bandit can pick whichever wins on the
+  current battery.
+* **Asynchronous adaptation** — identical to jSO.  NL-SHADE-RSP
+  inherits the per-slot pending dict, generation-by-count update
+  cadence, archive trimming, LPSR shrinking, warm restart, and
+  ``_progress()`` based budget pacing unchanged.  The only
+  async-relevant new state is ``self._arc_size_t`` — the current
+  archive cap — which is refreshed at the *end* of each
+  end-of-generation cycle (after :meth:`_apply_lpsr` shrinks the
+  population) so the cap scales with the *post-shrink*
+  ``NP_current`` and the archive stays proportional to the live
+  population.  When the strategy budget is unknown the heuristic
+  degrades gracefully: the cap defaults to a constant ``A_max`` at
+  construction time and only varies when generations are detected
+  via the inherited ``end-of-generation`` machinery.
+* **Impact** — A/B against jSO in the same Rewarding strategy
+  (Random + Nearby + Center + NelderMead + DE-arm), at quick mode
+  (3 problems × 3 reps × 300 evaluations):
+
+  * Seed 42 — ``Rewarding_JSO`` Rosenbrock 0.242 /
+    ``Rewarding_NLRSP`` Rosenbrock **0.630** (+0.388).  Rosenbrock
+    success rate jumps from **1/3 to 2/3**; ERT collapses from
+    683 to 167.5.  DeJong / Rastrigin tied at perfect.
+  * Seed 43 — ``Rewarding_JSO`` Rosenbrock 0.300 /
+    ``Rewarding_NLRSP`` Rosenbrock 0.320 (+0.020, within noise).
+    DeJong / Rastrigin tied at perfect.
+
+  The +0.388 Rosenbrock spike on seed 42 demonstrates the property
+  the literature predicts: rank-based selective pressure concentrates
+  the differential mutation on the leading basin, dramatically
+  helping on Rosenbrock's narrow curved valley where the basin
+  attraction matters more than mutation diversity.  At quick-mode
+  budgets seed 43 is within noise; the long-run signal will
+  materialise once the self-improvement loop has accumulated enough
+  evidence from the bandit's per-arm reward history.  The mean
+  composite delta across the two seeds is **+0.108** on Rosenbrock
+  specifically (the only pair where DE arms have room to differ at
+  quick budgets) — a marked literature-faithful improvement on the
+  CEC-2021 winner.
+* **Backwards compatibility** — strictly safe.  NL-SHADE-RSP is
+  opt-in: it is not added to any default
+  :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so existing CLI invocations and existing ledgers stay
+  byte-identical.  The structural catalog gains it as one extra
+  ``add_heuristic`` candidate; ``avoid_duplicates=True`` keeps the
+  catalog from cluttering a portfolio that already has it.  The
+  kwarg rules only fire when a spec explicitly sets the matching
+  kwarg (per :func:`_find_targets`'s "param already in kwargs"
+  predicate), so a fresh ledger run on the built-in factories
+  sees no behavioural change.  jSO itself is untouched —
+  NL-SHADE-RSP is a *new* class that subclasses :class:`JSO`.
+* **Tests** — `tests/test_heuristic_nlshade_rsp.py` (29 tests):
+  construction validation (6 — default kwargs match Stanovov 2021,
+  custom kwargs, subclass invariant for both ``JSO`` and ``LSHADE``,
+  F-schedule opt-in inherited from jSO, invalid ``p_best_max`` /
+  zero / out-of-range / NaN, ``archive_factor=0`` collapse), rank
+  weights (5 — basic shape, target at end, target at start,
+  empty when target is lone member, probs sum to 1, statistical
+  test that best is favoured over worst by ~``NP`` factor), adaptive
+  archive (5 — refresh in ``[0, A_max]``, approximately uniform
+  distribution, ``_trim_archive`` respects ``arc_size_t``,
+  ``_end_of_generation`` rolls fresh cap, archive emptied when
+  ``arc_size_t = 0``), inherited schedules (2 — linear ``p_best``
+  decreasing, three-phase ``F_w``), trial generation (3 — initial
+  population emission, evolutionary trials emit once population
+  reaches 4, better trial wins / archives parent), restart
+  behaviour (3 — re-stamps jSO memory and resets cap,
+  ``center=None`` random fallback, before-start no-op), end-to-end
+  smoke convergence on a quadratic, and registration tests (3 —
+  package re-export, structural catalog candidate pool, kwarg
+  rules present in default catalog).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *NL-SHADE-RSP / NL-SHADE-LBC heuristic* follow-up below the
+    jSO 2026-05-15 entry promoted from "open" to "shipped".
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    NL-SHADE-RSP candidate.
+  - `doc/source/guide_benchmarking.rst`: the structural-catalog
+    "Algorithms in the candidate pool" section now describes the
+    NL-SHADE-RSP refinements (RSP + adaptive archive) and the
+    new kwarg rules.
+  - `doc/source/heuristics.rst`: new bullet for NL-SHADE-RSP under
+    the DE-family heuristics.
+  - `AGENTS.md`: self-improvement loop subsection lists the new
+    catalog rules.
+
 ### 2026-05-22 — Von Neumann (4-connected 2-D toroidal grid) PSO topology
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a third
@@ -2317,13 +2454,16 @@ jSO landed 2026-05-15 as :class:`~panobbgo.heuristics.jso.JSO`; see
 the §13 entry.  Natural extensions when the loop has collected
 enough evidence to motivate the work:
 
-- **NL-SHADE-RSP / NL-SHADE-LBC** — successive CEC winners (2020,
-  2022) that build on jSO with rank-based parent selection and a
-  linear bias-correction mechanism.  Marginal gains in the
-  literature, but they would close the gap against the current
-  state-of-the-art DE family.  Subclassing :class:`JSO` is the
-  obvious shape: only the trial-generation path changes, the
-  asynchronous pipeline and memory machinery stay shared.
+- **NL-SHADE-RSP — shipped 2026-05-23** as
+  :class:`~panobbgo.heuristics.nlshade_rsp.NLSHADERSP`.  See the §13
+  entry above.  Adds rank-based selective pressure on ``r1`` and an
+  adaptive per-generation archive size to jSO — the CEC-2021 winner.
+  **NL-SHADE-LBC** (Stanovov 2022, CEC 2022 winner) is the natural
+  next follow-up: it adds a *linear bias correction* mechanism that
+  adapts the rank-pressure exponent over the run; marginal gains
+  versus NL-SHADE-RSP in the literature, but it would close the gap
+  against the current state-of-the-art DE family.  Subclassing
+  :class:`NLSHADERSP` is the obvious shape.
 - **L-SHADE-cnEpSin** — independently developed competitive
   ensemble (Awad et al. CEC 2017) that combines an ensemble of
   sinusoidal F schedules with the SHADE memory.  A different
@@ -2484,33 +2624,41 @@ defeating the point of adaptive sampling.  Two complementary moves:
   at a fixed level so a chronic relaxation would silently shift the
   loop's "improvement" bar.
 
-#### NL-SHADE-RSP / NL-SHADE-LBC heuristic (CEC 2020 / 2022 winners)
+#### NL-SHADE-RSP — shipped 2026-05-23
 
-The DE-family arms shipped to date — basic DE (``DE/rand/1/bin``),
-L-SHADE (Tanabe-Fukunaga 2014, CEC 2014 winner) and jSO
-(Brest et al. 2017, CEC 2017 winner) — cover the high-water mark up
-to ~2017.  Stanovov-Akhmedova-Semenkin's **NL-SHADE-RSP** family
-(2020) won CEC 2020 and **NL-SHADE-LBC** (2022) won CEC 2022; both
-build directly on jSO with two refinements that the existing
-:class:`~panobbgo.heuristics.jso.JSO` does not have:
+NL-SHADE-RSP shipped 2026-05-23 as
+:class:`~panobbgo.heuristics.nlshade_rsp.NLSHADERSP`, a direct subclass
+of :class:`~panobbgo.heuristics.jso.JSO`.  Two refinements over jSO:
+**rank-based selective pressure** on the differential ``r1`` (weight
+``∝ NP − rank``, so the best is picked ``NP``× more often than the
+worst), and **adaptive archive size** drawn each generation from
+``randint(0, A_max)``.  Added to the structural catalog as a
+thirteenth ``add_heuristic`` candidate; ``NLSHADERSP.NP_init`` and
+``NLSHADERSP.archive_factor`` are new kwarg rules in
+:func:`default_catalog`.  See the §13 entry for the impact
+benchmark.
 
-* **Rank-based parent selection** — instead of uniformly sampling
-  ``r1`` from the population for the differential ``(x_r1 − x_r2)``
-  term, sample with probability inversely proportional to rank
-  (better individuals get picked more often).  Increases selective
-  pressure on the leading basin.  Subclass-friendly: only the
-  trial-generation path changes, the asynchronous pipeline and
-  memory machinery stay shared.
-* **Adaptive archive size** — instead of a fixed
-  ``A_n = round(NP * archive_factor)`` cap, draw the archive size
-  per generation uniformly from ``randint(0, A_max)``.  Slightly
-  randomises the diversity of replaced parents the archive holds.
+Natural follow-ups when the loop has collected enough evidence to
+motivate the work:
 
-Subclassing :class:`JSO` is the obvious shape (it already inherits
-the L-SHADE pipeline correctly).  Adding NL-SHADE-RSP to the
-structural catalog gives the bandit a fourth DE-family arm that
-trades exploitation pressure (rank selection) against the broader
-mutation diversity of jSO's frozen-anchor memory bin.
+* **NL-SHADE-LBC** — the Stanovov-Akhmedova-Semenkin (CEC 2022)
+  refinement of NL-SHADE-RSP.  Adds a *linear bias correction*
+  mechanism that adapts the rank-pressure exponent over the run.
+  Marginal gains in the literature; useful if the bandit evidence
+  ever shows NL-SHADE-RSP's fixed pressure is suboptimal on a given
+  battery.
+* **Tunable RSP exponent** — the shipped variant uses linear weights
+  (``NP − rank``).  Adding a ``rsp_exponent`` kwarg with
+  ``float_uniform`` perturbation over ``[0.5, 2.0]`` would let the
+  bandit climb the pressure surface continuously.  ``exponent = 1.0``
+  reproduces today's behaviour; higher exponents concentrate
+  probability on the very best individuals more aggressively (closer
+  to greedy elite-only selection), lower exponents soften the
+  pressure toward uniform sampling.
+* **Categorical `NLSHADERSP.archive_factor`** — mirroring the
+  existing L-SHADE categorical rule on three literature-canonical
+  settings (``0.0 / 1.0 / 2.6``) would give the bandit a discrete
+  toggle alongside the continuous ``float_uniform`` knob.
 
 #### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann)
 

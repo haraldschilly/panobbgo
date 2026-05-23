@@ -360,6 +360,20 @@ The harness is the measurement substrate for an autonomous
     unclamped in the final 10%); jSO opts into the cap by
     construction so `JSO` is always literature-faithful regardless of
     the catalog rule's verdict on L-SHADE.
+*   NL-SHADE-RSP heuristic — **shipped 2026-05-23**, see
+    `panobbgo.heuristics.nlshade_rsp.NLSHADERSP`.  Direct subclass of
+    `JSO` that adds two literature-best refinements from Stanovov,
+    Akhmedova & Semenkin (CEC 2021 winner): **rank-based selective
+    pressure** on the differential `r1` (sampled with probability
+    `∝ NP − rank`, so the best individual is picked `NP`× more often
+    than the worst, concentrating mutations on the leading basin) and
+    **adaptive archive size** drawn each generation from
+    `randint(0, A_max)` (varies the diversity of replaced parents the
+    archive holds).  Inherits the entire jSO / L-SHADE asynchronous
+    pipeline unchanged.  Opt-in via the structural catalog as a
+    fourth DE-family arm alongside basic DE, L-SHADE, and jSO; two
+    new kwarg rules — `NLSHADERSP.NP_init` and
+    `NLSHADERSP.archive_factor` — in `default_catalog`.
 
 Run the loop:
 

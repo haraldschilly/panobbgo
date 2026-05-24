@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *three*
+  ``JSO``, ``NLSHADERSP``, ``COBYQA``) to a target strategy.  The pool ships *three*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
@@ -729,8 +729,16 @@ space with two new ops that change the *shape* of a
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
   ``p_best`` schedule, the literature-faithful three-phase asymmetric
   F-cap (opted into via the shared L-SHADE machinery by construction),
-  and a frozen anchor memory bin; both share the ``add_heuristic`` arm
-  so the bandit picks whichever DE-family variant wins on the current
+  and a frozen anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova
+  & Semenkin 2021 — CEC-2021 winner) refines jSO with **rank-based
+  selective pressure** on the differential donors
+  (``pr_i = Rank_i / Σ Rank_j``, ``Rank_i = k·(NP − i) + 1``,
+  greediness ``k = rank_greediness`` default ``3``, ``k = 0`` recovers
+  jSO's uniform draw) and a **non-linear population-size reduction**
+  (``NP = round(NP_init + (NP_min − NP_init)·progress^(1 − progress))``,
+  concave between the same endpoints as the linear law).  L-SHADE,
+  jSO, and NL-SHADE-RSP are separate ``add_heuristic`` candidates so
+  the bandit picks whichever DE-family variant wins on the current
   battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA

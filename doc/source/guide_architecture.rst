@@ -282,9 +282,21 @@ Implemented Heuristics
   memory uses ``M_F = 0.3`` / ``M_CR = 0.8`` initial values and reserves the last bin
   (``H − 1``) as a frozen anchor at ``0.9 / 0.9`` that ``_update_memory`` never overwrites.
   Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
-  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
-  jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
-  wins on the current battery.
+  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.
+
+- :class:`~panobbgo.heuristics.nlshadersp.NLSHADERSP`: NL-SHADE-RSP refinement of jSO
+  (Stanovov, Akhmedova & Semenkin, CEC 2021 winner).  Direct subclass of
+  :class:`~panobbgo.heuristics.jso.JSO` that adds the two refinements the name encodes:
+  *Rank-based Selective Pressure (RSP)* — the differential donors ``r1`` / ``r2`` are drawn
+  with rank-based probability ``pr_i = Rank_i / Σ Rank_j``, ``Rank_i = k·(NP − i) + 1``
+  (greediness ``k = rank_greediness``, default ``3``; ``k = 0`` recovers jSO's uniform draw),
+  so fitter individuals are preferred as mutation parents; and *Non-Linear Population Size
+  Reduction (NLPSR)* — the linear shrink law is replaced by
+  ``NP = round(NP_init + (NP_min − NP_init)·progress^(1 − progress))``, concave between the
+  same endpoints so the population shrinks faster than linear early and slower late.  Inherits
+  the entire jSO / L-SHADE asynchronous pipeline unchanged.  L-SHADE, jSO, and NL-SHADE-RSP all
+  ship in the structural mutation catalog so the bandit picks whichever DE-family variant wins
+  on the current battery.
 
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).

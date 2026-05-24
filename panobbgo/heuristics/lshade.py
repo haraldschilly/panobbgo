@@ -577,12 +577,23 @@ class LSHADE(Heuristic):
 
         self._mem_ptr = (self._mem_ptr + 1) % self.H
 
+    def _lpsr_target(self, progress: float) -> int:
+        """Population-size target for the given budget ``progress``.
+
+        L-SHADE uses the *linear* schedule of Tanabe-Fukunaga (2014):
+        ``NP = round(NP_init − (NP_init − NP_min) · progress)``.  Subclasses
+        (e.g. :class:`~panobbgo.heuristics.nlshadersp.NLSHADERSP`) override
+        this single method to install a different shrink law while reusing
+        the rest of :meth:`_apply_lpsr`.
+        """
+        return int(round(self.NP_init - (self.NP_init - self.NP_min) * progress))
+
     def _apply_lpsr(self) -> None:
         """Shrink the population to ``NP_target`` based on budget progress."""
         progress = self._progress()
         if progress is None:
             return
-        target = int(round(self.NP_init - (self.NP_init - self.NP_min) * progress))
+        target = self._lpsr_target(progress)
         target = max(target, self.NP_min)
         target = min(target, self._NP_current)
         if target >= self._NP_current:

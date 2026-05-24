@@ -1310,6 +1310,35 @@ def default_catalog() -> MutationCatalog:
                 high=0.4,
                 probability=0.5,
             ),
+            # NL-SHADE-RSP (Stanovov et al. 2021) initial population size.
+            # Shares the jSO / L-SHADE current-to-pbest mutation skeleton and
+            # the same ``[10, 60]`` population-sizing trade-off; the only
+            # difference is the non-linear shrink law and rank-based donor
+            # selection, neither of which changes the sensible NP envelope.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADERSP",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP rank greediness ``k`` in ``Rank_i = k·(NP−i)+1``.
+            # ``0`` recovers jSO's uniform donor selection; Stanovov et al.
+            # use ``3``.  Bracket ``[0, 6]`` so the loop can dial selective
+            # pressure from "off" up to roughly double the literature default
+            # without driving the algorithm into premature convergence.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADERSP",
+                param_name="rank_greediness",
+                kind="float_uniform",
+                bounds=(0.0, 6.0),
+                low=0.0,
+                high=6.0,
+                probability=0.5,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1390,6 +1419,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
     from panobbgo.heuristics.jso import JSO
+    from panobbgo.heuristics.nlshadersp import NLSHADERSP
     from panobbgo.heuristics.cobyqa import COBYQA
 
     # Three PSO entries cover the canonical ``gbest`` (default
@@ -1407,11 +1437,15 @@ def default_structural_catalog() -> MutationCatalog:
     # jSO (Brest, Maučec & Bošković 2017) is the CEC-2017 winner, a
     # direct refinement of L-SHADE that adds a weighted ``current-to-pbest-w/1``
     # mutation, a linear ``p_best`` schedule, Cauchy-F clamping, and a
-    # frozen-anchor memory bin.  L-SHADE and jSO are listed as *separate*
-    # candidate classes — ``avoid_duplicates`` (the default) only filters
-    # exact-class matches, so a portfolio can end up with both arms.  The
-    # bandit then weighs whichever DE-family variant wins on the current
-    # battery via the per-heuristic reward signal.
+    # frozen-anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova &
+    # Semenkin 2021) is the CEC-2021 winner, a direct refinement of jSO that
+    # adds rank-based selective pressure on the differential donors and a
+    # non-linear population-size reduction law.  L-SHADE, jSO, and
+    # NL-SHADE-RSP are listed as *separate* candidate classes —
+    # ``avoid_duplicates`` (the default) only filters exact-class matches,
+    # so a portfolio can end up with several DE arms.  The bandit then
+    # weighs whichever DE-family variant wins on the current battery via the
+    # per-heuristic reward signal.
     # COBYQA (Ragonneau-Zhang 2023) is Powell's BOBYQA / NEWUOA successor —
     # a derivative-free trust-region method with quadratic interpolation
     # models, dominant on smooth / near-smooth local refinement.  Defaults
@@ -1429,6 +1463,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
+        (NLSHADERSP, {"NP_init": 30}),  # CEC-2021 winner, rank-based selective pressure + non-linear LPSR
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [

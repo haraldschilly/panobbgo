@@ -2,6 +2,48 @@
 
 ## Recent Improvements (continued)
 
+### NL-SHADE-RSP adaptive DE (CEC 2021 winner) — 2026-05-24
+- [x] **New `NLSHADERSP` heuristic** in
+      `panobbgo/heuristics/nlshadersp.py`; closes the *NL-SHADE-RSP*
+      item under the *NL-SHADE-RSP / NL-SHADE-LBC* follow-up in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  Direct subclass of
+      :class:`~panobbgo.heuristics.jso.JSO` (Stanovov, Akhmedova &
+      Semenkin, CEC 2021).
+- [x] **Rank-based Selective Pressure (RSP)** — donors `r1` / `r2`
+      drawn with rank-based probability `pr_i = Rank_i / Σ Rank_j`,
+      `Rank_i = k·(NP − i) + 1` (greediness `k = rank_greediness`,
+      default `3`; `k = 0` recovers jSO's uniform draw).  Archive
+      members carry the minimum rank weight.
+- [x] **Non-Linear Population Size Reduction (NLPSR)** — linear shrink
+      law replaced by
+      `NP = round(NP_init + (NP_min − NP_init)·progress^(1 − progress))`
+      via a new `_lpsr_target` hook.  `LSHADE._apply_lpsr` refactored
+      to delegate to `_lpsr_target` (behaviour-preserving — linear
+      formula byte-identical).
+- [x] **Catalog wiring** — added to `default_structural_catalog`'s
+      `add_heuristic` pool (13th candidate, `avoid_duplicates=True`);
+      `default_catalog` gains `NLSHADERSP.NP_init` and
+      `NLSHADERSP.rank_greediness` kwarg rules.
+- [x] **A/B impact** — jSO vs NL-SHADE-RSP in an identical Rewarding
+      portfolio (fixed quick battery, 3×5×300): seed 42 0.878 → 0.777,
+      seed 43 0.725 → 0.738, seed 44 0.786 → 0.820.  Complementary
+      per-seed split (mean ≈ -0.018, within quick-mode ±0.05 noise) —
+      same pattern jSO / COBYQA showed when shipped.  Opt-in via the
+      structural catalog so the default composite cannot regress.
+- [x] **Tests** — `tests/test_heuristic_nlshadersp.py` (25 tests):
+      construction validation, rank-weight / `_rank_choice` behaviour,
+      non-linear LPSR endpoints + mid-run + monotonicity, generate-trial
+      path (including archive members as `r2`), restart, smoke
+      convergence, registration.  Full suite green (1170 passed).
+- [x] **Backwards compatible** — opt-in heuristic; not in any default
+      strategy factory.  jSO / L-SHADE untouched; the `_lpsr_target`
+      refactor passes all pre-existing LPSR tests.
+- [x] **Documentation** — `planning/SELF_IMPROVEMENT_LOOP.md` (§13
+      entry + follow-up promotion + new follow-ups note),
+      `doc/source/guide.rst`, `doc/source/guide_benchmarking.rst`,
+      `doc/source/guide_architecture.rst`, `doc/source/heuristics.rst`,
+      this entry.
+
 ### Von Neumann (4-connected 2-D toroidal grid) PSO topology — 2026-05-22
 - [x] **New `"vonneumann"` topology** in
       `panobbgo/heuristics/pso.py`; closes the *Random / Von Neumann

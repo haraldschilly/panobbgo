@@ -440,12 +440,37 @@ class LSHADE(Heuristic):
             return float(r.fx) if r.fx is not None else float("inf")
         return handler.get_penalty_value(r)
 
+    def _archive_cap(self) -> int:
+        """Maximum number of replaced parents the external archive retains.
+
+        Default is the fixed ``archive_factor · NP_current`` cap from
+        Tanabe-Fukunaga (2014).  Subclasses (e.g.
+        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override
+        this to randomise the cap per generation.
+        """
+        return max(int(round(self.archive_factor * self._NP_current)), 0)
+
     def _trim_archive(self) -> None:
-        """Cap the archive at ``archive_factor · NP_current`` (drop random)."""
-        cap = max(int(round(self.archive_factor * self._NP_current)), 0)
+        """Cap the archive at :meth:`_archive_cap` (drop random entries)."""
+        cap = self._archive_cap()
         while len(self._archive) > cap:
             j = int(self._rng.integers(0, len(self._archive)))
             self._archive.pop(j)
+
+    def _select_r1(self, live: List[int], target_idx: int) -> Optional[int]:
+        """Pick the index ``r1`` for the differential ``F · (x_r1 − x_r2)`` term.
+
+        Default: uniform over live slots excluding the target — the
+        Tanabe-Fukunaga / jSO behaviour.  Subclasses (e.g.
+        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override
+        this to bias the choice toward higher-ranked individuals
+        (rank-based selective pressure).  Returns ``None`` when no
+        candidate is available so the caller can abort the trial.
+        """
+        r1_pool = [i for i in live if i != target_idx]
+        if not r1_pool:
+            return None
+        return int(self._rng.choice(np.asarray(r1_pool)))
 
     def _sample_F_CR(self) -> tuple[float, float]:
         """Draw one ``(F, CR)`` pair from a random history bin."""
@@ -510,10 +535,9 @@ class LSHADE(Heuristic):
         x_pbest = np.asarray(pbest_slot.x, dtype=float)
 
         # r1 from live population, distinct from target.
-        r1_pool = [i for i in live if i != target_idx]
-        if not r1_pool:
+        r1 = self._select_r1(live, target_idx)
+        if r1 is None:
             return
-        r1 = int(self._rng.choice(np.asarray(r1_pool)))
         r1_slot = self._population[r1]
         if not isinstance(r1_slot, Result):
             return
@@ -577,12 +601,22 @@ class LSHADE(Heuristic):
 
         self._mem_ptr = (self._mem_ptr + 1) % self.H
 
+    def _lpsr_target(self, progress: float) -> int:
+        """Target population size at ``progress`` (Tanabe-Fukunaga 2014, linear).
+
+        Linear interpolation from ``NP_init`` (progress 0) down to
+        ``NP_min`` (progress 1).  Subclasses (e.g.
+        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override
+        this with a non-linear schedule.
+        """
+        return int(round(self.NP_init - (self.NP_init - self.NP_min) * progress))
+
     def _apply_lpsr(self) -> None:
         """Shrink the population to ``NP_target`` based on budget progress."""
         progress = self._progress()
         if progress is None:
             return
-        target = int(round(self.NP_init - (self.NP_init - self.NP_min) * progress))
+        target = self._lpsr_target(progress)
         target = max(target, self.NP_min)
         target = min(target, self._NP_current)
         if target >= self._NP_current:

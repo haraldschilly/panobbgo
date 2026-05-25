@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
 from .lshade import LSHADE
 from .jso import JSO
+from .nl_shade_rsp import NLSHADE_RSP
 from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
@@ -68,6 +69,7 @@ __all__ = [
     "DifferentialEvolution",
     "LSHADE",
     "JSO",
+    "NLSHADE_RSP",
     "ConstraintRepair",
     "CMAES",
     "PSO",

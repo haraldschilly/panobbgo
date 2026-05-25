@@ -347,10 +347,11 @@ The harness is the measurement substrate for an autonomous
     `kind="categorical_choice"`.  Picks uniformly from a discrete
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
-    ships four categorical rules out-of-the-box: `PSO.topology`
+    ships five categorical rules out-of-the-box: `PSO.topology`
     (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"`), `Sobol.scramble` (`True` ↔ `False`),
-    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`), and
-    `LSHADE.F_schedule` (`True` ↔ `False`).  Each fires only
+    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`),
+    `LSHADE.F_schedule` (`True` ↔ `False`), and
+    `NLSHADE_RSP.adaptive_archive` (`True` ↔ `False`).  Each fires only
     when the target spec sets the kwarg *explicitly* — the
     "param already in kwargs" predicate keeps the rule out of specs
     that left the kwarg at the heuristic's constructor default.

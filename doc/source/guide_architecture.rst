@@ -286,6 +286,21 @@ Implemented Heuristics
   jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
   wins on the current battery.
 
+- :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`: NL-SHADE-RSP refinement of jSO
+  (Stanovov, Akhmedova & Semenkin, CEC 2021 winner).  Direct subclass of
+  :class:`~panobbgo.heuristics.jso.JSO` that adds three further refinements: *Non-Linear
+  Population Size Reduction* (``NP(r) = round((NP_min − NP_init)·r^(1−r) + NP_init)``, which
+  reduces the population faster than L-SHADE's linear schedule in the early phase); *Rank-based
+  Selective Pressure* (the differential ``r1`` index is drawn with probability proportional to a
+  fitness rank weight ``k_rank·(n−i)/n + 1``, biasing the mutation toward better individuals —
+  ``k_rank`` default ``3``, ``0`` recovers uniform jSO selection); and a *randomised adaptive
+  archive* (the archive cap is resampled per generation in ``[0, round(archive_factor·NP)]``).
+  Inherits the jSO mutation / schedule / anchor-memory machinery and the asynchronous pipeline
+  unchanged.  The full CEC-2021 adaptive-crossover blend and success-ratio archive-probability
+  adaptation are intentionally not ported (the asynchronous generation model does not expose them
+  cleanly).  All four DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP) ship in the structural
+  catalog so the bandit picks whichever wins on the current battery.
+
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).
   Each particle carries a position, a velocity, and a memory of its personal best; on every step

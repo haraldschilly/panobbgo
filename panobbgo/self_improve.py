@@ -1310,6 +1310,49 @@ def default_catalog() -> MutationCatalog:
                 high=0.4,
                 probability=0.5,
             ),
+            # NL-SHADE-RSP (Stanovov et al. 2021) initial population size.
+            # Same ``[10, 60]`` bracket as L-SHADE / jSO — they share the
+            # ``current-to-pbest-w/1`` mutation skeleton and benefit from
+            # the same population sizing trade-off.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP rank-based selective-pressure coefficient.  The
+            # literature default is ``k_rank = 3``; bracket ``[1, 5]`` so
+            # the loop can probe weaker (closer to uniform ``r1`` selection)
+            # or stronger (greedier toward the leading basin) pressure.
+            # Fires whenever a spec sets ``k_rank`` explicitly — the
+            # structural-catalog candidate does, so this dial is live
+            # out-of-the-box once NL-SHADE-RSP is added to a portfolio.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="k_rank",
+                kind="float_uniform",
+                bounds=(1.0, 5.0),
+                low=1.0,
+                high=5.0,
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP randomised-archive toggle (categorical).  When
+            # ``True`` (the CEC-2021 behaviour) the archive cap is resampled
+            # per generation in ``[0, A_max]``; ``False`` recovers jSO's
+            # fixed cap.  Only fires when a spec sets ``adaptive_archive``
+            # explicitly (the constructor default is ``True``).
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="adaptive_archive",
+                kind="categorical_choice",
+                choices=(True, False),
+                probability=0.3,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1390,6 +1433,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
     from panobbgo.heuristics.jso import JSO
+    from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
     from panobbgo.heuristics.cobyqa import COBYQA
 
     # Three PSO entries cover the canonical ``gbest`` (default
@@ -1416,6 +1460,12 @@ def default_structural_catalog() -> MutationCatalog:
     # a derivative-free trust-region method with quadratic interpolation
     # models, dominant on smooth / near-smooth local refinement.  Defaults
     # to ``scale=True`` and the heuristic's auto-derived initial TR radius.
+    # NL-SHADE-RSP (Stanovov, Akhmedova & Semenkin 2021) is the CEC-2021
+    # winner, a direct refinement of jSO that adds non-linear population
+    # reduction, rank-based selective pressure (``k_rank``) on the
+    # differential ``r1`` draw, and a randomised adaptive archive.  Listed
+    # as a separate candidate class from L-SHADE / jSO so the bandit can
+    # weigh whichever DE-family arm wins on the current battery.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1429,6 +1479,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
+        (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [

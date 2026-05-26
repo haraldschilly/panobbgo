@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *three*
+  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``) to a target strategy.  The pool ships *three*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
@@ -729,9 +729,15 @@ space with two new ops that change the *shape* of a
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
   ``p_best`` schedule, the literature-faithful three-phase asymmetric
   F-cap (opted into via the shared L-SHADE machinery by construction),
-  and a frozen anchor memory bin; both share the ``add_heuristic`` arm
-  so the bandit picks whichever DE-family variant wins on the current
-  battery.  COBYQA
+  and a frozen anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova &
+  Semenkin 2020 — CEC-2020 winner) refines jSO further with rank-based
+  selective pressure (the ``r1`` donor is drawn with probability
+  ``exp(−kp·rank/N)`` so fitter individuals are picked more often;
+  ``kp = 3`` by default, ``kp → 0`` recovers jSO) and an adaptive
+  per-generation archive size (the cap is re-drawn each generation from
+  ``randint(0, A_max + 1)``).  All four DE-family arms share the
+  ``add_heuristic`` arm so the bandit picks whichever variant wins on
+  the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
@@ -875,6 +881,13 @@ Panobbgo's heuristic portfolio are **discrete** instead:
   the bandit move an existing :class:`LSHADE` instance between the
   two literature regimes without dropping and re-adding the
   heuristic.
+* ``NLSHADE_RSP.adaptive_archive`` — ``True`` (the NL-SHADE-RSP
+  behaviour: the external-archive cap is re-drawn each generation
+  from ``randint(0, A_max + 1)``) vs ``False`` (jSO's fixed
+  ``round(archive_factor · NP)`` cap).  Lets the bandit toggle the
+  CEC-2020 adaptive-archive refinement on an existing NL-SHADE-RSP
+  instance.  Paired with the numeric ``NLSHADE_RSP.kp`` rule that
+  tunes the rank-based selective-pressure strength.
 
 The :class:`~panobbgo.self_improve.MutationRule` ``categorical_choice``
 kind closes this gap.  The rule carries a ``choices`` tuple of

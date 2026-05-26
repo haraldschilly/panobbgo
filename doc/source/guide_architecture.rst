@@ -282,9 +282,21 @@ Implemented Heuristics
   memory uses ``M_F = 0.3`` / ``M_CR = 0.8`` initial values and reserves the last bin
   (``H − 1``) as a frozen anchor at ``0.9 / 0.9`` that ``_update_memory`` never overwrites.
   Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
-  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
-  jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
-  wins on the current battery.
+  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.
+
+- :class:`~panobbgo.heuristics.nlshade_rsp.NLSHADE_RSP`: NL-SHADE-RSP refinement of jSO
+  (Stanovov, Akhmedova & Semenkin, CEC 2020 winner).  Direct subclass of
+  :class:`~panobbgo.heuristics.jso.JSO` that adds two refinements: *rank-based selective
+  pressure* (RSP) — the differential donor ``r1`` is drawn with probability ``exp(−kp·i/N)``
+  decaying with fitness rank ``i`` (``kp = 3`` by default), biasing the ``(x_r1 − x_r2)`` term
+  toward fitter individuals; and an *adaptive archive size* — the archive cap is re-drawn each
+  generation from ``randint(0, A_max + 1)`` (default enlarged ``archive_factor = 2.6``) so the
+  ``r2`` donor diversity varies generation-to-generation.  ``kp → 0`` recovers jSO's uniform
+  selection exactly.  The ``r2`` donor stays uniform over the ``population ∪ archive`` union
+  (the base archive carries no fitness, so it cannot be ranked) — a faithful, well-scoped subset
+  of the full NL-SHADE-RSP.  Inherits the whole jSO / L-SHADE pipeline unchanged.  All four
+  DE-family arms (basic DE, L-SHADE, jSO, NL-SHADE-RSP) ship in the structural mutation catalog
+  so the bandit picks whichever wins on the current battery.
 
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).

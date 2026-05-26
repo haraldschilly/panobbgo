@@ -1339,6 +1339,50 @@ def default_catalog() -> MutationCatalog:
                 log_step=0.25,
                 probability=0.5,
             ),
+            # NL-SHADE-RSP (Stanovov et al., CEC-2020 winner) initial
+            # population size.  Same ``[10, 60]`` bracket as L-SHADE / jSO —
+            # they share the ``current-to-pbest`` mutation skeleton and the
+            # same population sizing trade-off.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP selective-pressure coefficient ``kp``.  Higher
+            # ``kp`` concentrates the rank-based ``r1`` draw on the leading
+            # individuals (more exploitation); ``kp → 0`` recovers jSO's
+            # uniform donor selection.  Brest-family literature uses
+            # ``kp = 3``; bracket the practical range ``[0.5, 6.0]`` so the
+            # loop can probe weaker / stronger pressure.  Always present
+            # (the constructor default is ``3.0``) so the rule fires
+            # out-of-the-box on any NL-SHADE-RSP spec.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="kp",
+                kind="float_uniform",
+                bounds=(0.5, 6.0),
+                low=0.5,
+                high=6.0,
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP adaptive-archive toggle (categorical).  ``True``
+            # re-draws the archive cap per generation from
+            # ``randint(0, A_max + 1)`` (the NL-SHADE-RSP behaviour);
+            # ``False`` keeps jSO's fixed ``round(archive_factor · NP)``
+            # cap.  Always present (constructor default ``True``).
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="adaptive_archive",
+                kind="categorical_choice",
+                choices=(True, False),
+                probability=0.3,
+            ),
         ]
     )
 
@@ -1390,6 +1434,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
     from panobbgo.heuristics.jso import JSO
+    from panobbgo.heuristics.nlshade_rsp import NLSHADE_RSP
     from panobbgo.heuristics.cobyqa import COBYQA
 
     # Three PSO entries cover the canonical ``gbest`` (default
@@ -1416,6 +1461,11 @@ def default_structural_catalog() -> MutationCatalog:
     # a derivative-free trust-region method with quadratic interpolation
     # models, dominant on smooth / near-smooth local refinement.  Defaults
     # to ``scale=True`` and the heuristic's auto-derived initial TR radius.
+    # NL-SHADE-RSP (Stanovov, Akhmedova & Semenkin, CEC-2020 winner) is the
+    # next rung up the DE-family ladder above jSO: it adds rank-based
+    # selective pressure on the ``r1`` donor and an adaptive per-generation
+    # archive size.  Listed alongside L-SHADE and jSO as a separate
+    # candidate class so the bandit can weigh all three DE variants.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1429,6 +1479,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
+        (NLSHADE_RSP, {"NP_init": 30}),  # CEC-2020 winner, rank-based selective pressure
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
     )
     structural_rules: List[CatalogRule] = [

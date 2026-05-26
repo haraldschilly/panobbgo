@@ -440,9 +440,19 @@ class LSHADE(Heuristic):
             return float(r.fx) if r.fx is not None else float("inf")
         return handler.get_penalty_value(r)
 
+    def _archive_cap(self) -> int:
+        """Maximum number of replaced parents the archive may hold.
+
+        L-SHADE caps the archive at ``round(archive_factor · NP_current)``.
+        Factored into its own method so subclasses (e.g. NL-SHADE-RSP's
+        adaptive archive) can vary the cap per generation without
+        re-implementing :meth:`_trim_archive`.
+        """
+        return max(int(round(self.archive_factor * self._NP_current)), 0)
+
     def _trim_archive(self) -> None:
-        """Cap the archive at ``archive_factor · NP_current`` (drop random)."""
-        cap = max(int(round(self.archive_factor * self._NP_current)), 0)
+        """Cap the archive at :meth:`_archive_cap` (drop random entries)."""
+        cap = self._archive_cap()
         while len(self._archive) > cap:
             j = int(self._rng.integers(0, len(self._archive)))
             self._archive.pop(j)
@@ -469,6 +479,23 @@ class LSHADE(Heuristic):
                 F = float(min(f, 1.0))
                 break
         return self._apply_F_cap(F), CR
+
+    def _select_r1(self, live: List[int], target_idx: int, sorted_live: List[int]) -> Optional[int]:
+        """Pick the ``r1`` donor index for the differential ``(x_r1 − x_r2)`` term.
+
+        L-SHADE / jSO draw ``r1`` uniformly from the live population
+        (excluding the target).  Factored into its own method so
+        subclasses (e.g. NL-SHADE-RSP's rank-based selective pressure)
+        can bias the draw toward fitter individuals while reusing the
+        rest of the trial-generation path.  ``sorted_live`` is the live
+        index list already sorted best-first by fitness — passed in so
+        rank-based overrides need not re-sort.  Returns ``None`` when no
+        eligible donor exists.
+        """
+        r1_pool = [i for i in live if i != target_idx]
+        if not r1_pool:
+            return None
+        return int(self._rng.choice(np.asarray(r1_pool)))
 
     def _reflect_bounds(self, v: np.ndarray, x_target: np.ndarray) -> np.ndarray:
         """Midpoint reflection bounds repair (Tanabe-Fukunaga §III-A)."""
@@ -510,10 +537,9 @@ class LSHADE(Heuristic):
         x_pbest = np.asarray(pbest_slot.x, dtype=float)
 
         # r1 from live population, distinct from target.
-        r1_pool = [i for i in live if i != target_idx]
-        if not r1_pool:
+        r1 = self._select_r1(live, target_idx, sorted_live)
+        if r1 is None:
             return
-        r1 = int(self._rng.choice(np.asarray(r1_pool)))
         r1_slot = self._population[r1]
         if not isinstance(r1_slot, Result):
             return

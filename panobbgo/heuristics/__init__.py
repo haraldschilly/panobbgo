@@ -43,6 +43,7 @@ from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
 from .lshade import LSHADE
 from .jso import JSO
+from .nlshade_rsp import NLSHADE_RSP
 from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
@@ -68,6 +69,7 @@ __all__ = [
     "DifferentialEvolution",
     "LSHADE",
     "JSO",
+    "NLSHADE_RSP",
     "ConstraintRepair",
     "CMAES",
     "PSO",

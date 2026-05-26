@@ -347,19 +347,31 @@ The harness is the measurement substrate for an autonomous
     `kind="categorical_choice"`.  Picks uniformly from a discrete
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
-    ships four categorical rules out-of-the-box: `PSO.topology`
+    ships five categorical rules out-of-the-box: `PSO.topology`
     (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"`), `Sobol.scramble` (`True` ↔ `False`),
-    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`), and
-    `LSHADE.F_schedule` (`True` ↔ `False`).  Each fires only
+    `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`),
+    `LSHADE.F_schedule` (`True` ↔ `False`), and
+    `NLSHADE_RSP.adaptive_archive` (`True` ↔ `False`).  Each fires only
     when the target spec sets the kwarg *explicitly* — the
     "param already in kwargs" predicate keeps the rule out of specs
-    that left the kwarg at the heuristic's constructor default.
+    that left the kwarg at the heuristic's constructor default
+    (`NLSHADE_RSP.adaptive_archive` is the exception: it is always
+    present because the constructor default is `True`).
     `LSHADE.F_schedule=True` enables the jSO (Brest et al. 2017)
     three-phase asymmetric F-cap on L-SHADE (`F ≤ 0.7` while
     `progress < 0.6`, `F ≤ 0.8` while `0.6 ≤ progress < 0.9`,
     unclamped in the final 10%); jSO opts into the cap by
     construction so `JSO` is always literature-faithful regardless of
     the catalog rule's verdict on L-SHADE.
+*   NL-SHADE-RSP heuristic (Stanovov, Akhmedova & Semenkin 2020,
+    CEC-2020 winner) — **shipped**, see
+    `panobbgo.heuristics.nlshade_rsp.NLSHADE_RSP`, a direct subclass of
+    `JSO` that adds rank-based selective pressure on the `r1` donor
+    (`kp` coefficient, default `3.0`; `kp → 0` recovers jSO) and an
+    adaptive per-generation archive size (`adaptive_archive`, default
+    `True`).  Ships in the structural `add_heuristic` candidate pool
+    and the kwarg catalog (`NLSHADE_RSP.NP_init`, `NLSHADE_RSP.kp`,
+    `NLSHADE_RSP.adaptive_archive`).
 
 Run the loop:
 

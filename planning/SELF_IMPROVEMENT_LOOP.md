@@ -561,6 +561,26 @@ Two loops feed the same ledger:
 
 Concrete checklist for whoever follows this plan:
 
+0. **Deduplicate before you pick a task — check what is already in
+   flight.** The nightly routine branches from `master` and has *no
+   memory of unmerged work*. An idea you implement but leave in an open
+   (or draft) PR is invisible to the next night's run, which will branch
+   from the same `master`, see the idea still listed under "Next
+   iteration ideas", and implement it again. This actually happened:
+   four near-identical NL-SHADE-RSP PRs (#227–#230) landed on four
+   consecutive nights (2026-05-23 … 2026-05-26) before being
+   consolidated into #229. To avoid repeating it, **before writing any
+   code**:
+   - Run `gh pr list --state open` (include drafts) and read the titles.
+     If your top-priority idea is already implemented in an open PR, do
+     **not** open a parallel one. Instead, *review, finish, or merge that
+     PR* — or pick the next idea.
+   - Skim §13 (Iteration log) and the "Next iteration ideas" section. An
+     idea marked "shipped <date>" is done; do not re-implement it.
+   - An entry under "Next iteration ideas" is only a *candidate*. Open
+     PRs — not this list — are the source of truth for what is already
+     in progress, because the list on `master` does not reflect unmerged
+     branches.
 1. **Skim `planning/self_improve_summary.txt`** before picking a task.
    Look for: which rules have systematically positive accept history,
    which strategies are climbing on the ladder, any guard rollbacks or
@@ -612,6 +632,32 @@ This section records direct algorithmic improvements applied to Panobbgo
 *outside* of the autonomous loop, so the human-in-the-loop history stays
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
+
+### 2026-05-26 — Loop deduplication guard (in-flight PR awareness)
+
+* **What** — Added §12.3 step 0 and a callout at the head of "Next
+  iteration ideas" instructing the daily routine to run
+  `gh pr list --state open` (drafts included) and consult §13 *before*
+  picking a task. No source code changed — this is a process fix to the
+  loop's own playbook.
+* **Why** — The nightly routine branches from `master` and has no memory
+  of unmerged work. NL-SHADE-RSP was listed under "Next iteration ideas"
+  as a high-priority candidate (the natural step after jSO, which shipped
+  2026-05-15). Each night 2026-05-23 … 2026-05-26 the routine branched
+  from `master`, saw the idea still unshipped (the prior night's PR was
+  open/draft, so it never updated `master`), and re-implemented it —
+  producing four near-identical PRs (#227, #228, #229, #230). Each burned
+  a full CI run (~21 min for the test job alone).
+* **Resolution** — #229 (the most complete: non-linear LPSR + rank-based
+  selective pressure + adaptive archive, clean base-class hooks, full
+  bandit integration) was merged; #227/#228/#230 were closed as
+  duplicates with their unique ideas captured as follow-ups (RSP on the
+  `r2` donor; `archive_factor=2.6` default; 3-arg `_select_r1` hook).
+* **Open / draft PRs are the source of truth for in-flight work** — the
+  candidate list on `master` is not, because it does not reflect unmerged
+  branches. The matching fix on the cron / routine side is to make the
+  routine *finish or close* its PR each run rather than leave drafts to
+  accumulate.
 
 ### 2026-05-25 — NL-SHADE-RSP adaptive DE (CEC 2021 winner)
 
@@ -2275,6 +2321,13 @@ the rationale, and a measured-impact number when available.
 
 Lightweight "next ticket" notes for follow-up agents — graduate them to
 a dated entry above when shipped.
+
+> **Before implementing any idea below, run `gh pr list --state open`
+> (drafts included).** These notes live on `master` and do not reflect
+> work that is already sitting in an unmerged PR. If a candidate is
+> already covered by an open PR, finish/merge that PR instead of opening
+> a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
+> #227–#230, were the cost of skipping this check.)
 
 #### Ship a jSO-tuned `LSHADE_jSO` strategy in `_make_standard_strategies`
 

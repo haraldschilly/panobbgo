@@ -298,10 +298,9 @@ class JSO(LSHADE):
         x_pbest = np.asarray(pbest_slot.x, dtype=float)
 
         # r1 from live population, distinct from target.
-        r1_pool = [i for i in live if i != target_idx]
-        if not r1_pool:
+        r1 = self._select_r1(live, target_idx)
+        if r1 is None:
             return
-        r1 = int(self._rng.choice(np.asarray(r1_pool)))
         r1_slot = self._population[r1]
         if not isinstance(r1_slot, Result):
             return

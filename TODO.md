@@ -2,6 +2,63 @@
 
 ## Recent Improvements (continued)
 
+### NL-SHADE-RSP adaptive DE (CEC 2021 winner) — 2026-05-25
+- [x] **New `NLSHADE_RSP` heuristic** in
+      `panobbgo/heuristics/nl_shade_rsp.py`; closes the *NL-SHADE-RSP /
+      NL-SHADE-LBC* DE-family follow-up in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  Direct subclass of
+      :class:`~panobbgo.heuristics.jso.JSO` (Stanovov, Akhmedova &
+      Semenkin, CEC 2021 winner) adding three refinements over jSO:
+      Non-Linear Population Size Reduction
+      (`NP(r) = round((NP_min − NP_init)·r^(1−r) + NP_init)`),
+      Rank-based Selective Pressure on the differential `r1` draw
+      (`k_rank` default `3`), and a randomised per-generation adaptive
+      archive cap (`adaptive_archive`).
+  - **Why it matters.** NL-SHADE-RSP won the CEC-2021 single-objective
+    bound-constrained competition and is the direct jSO descendant —
+    the natural fourth DE-family arm after basic DE / L-SHADE / jSO.
+    Gives the self-improvement loop a CEC-2021-class arm the bandit can
+    pick whichever wins on the current battery.
+- [x] **Behaviour-preserving base-class refactor** — extracted the
+      three jSO override points into `LSHADE._select_r1` (r1 selection),
+      `LSHADE._lpsr_target` (population-reduction schedule), and
+      `LSHADE._archive_cap` (archive cap).  L-SHADE and jSO consume them
+      with their exact prior RNG-draw sequence, so both stay
+      byte-identical (all 99 pre-existing L-SHADE / jSO tests pass
+      unchanged).
+- [x] **Catalog wiring** — `default_structural_catalog` gains
+      `(NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0})` as a fourteenth
+      `add_heuristic` candidate; `default_catalog` gains three rules
+      (`NLSHADE_RSP.NP_init` integer_add, `NLSHADE_RSP.k_rank`
+      float_uniform `[1, 5]`, `NLSHADE_RSP.adaptive_archive`
+      categorical).
+- [x] **Deviations from the full CEC-2021 paper** (documented for
+      honesty): the adaptive binomial / exponential crossover blend and
+      the success-ratio archive-probability (pA) adaptation are *not*
+      ported — they need per-trial bookkeeping the async pipeline does
+      not expose.  Binomial crossover (jSO) + randomised archive cap
+      used instead.  Both queued as follow-ups.
+- [x] **Impact** — A/B vs jSO in the same Rewarding strategy, fixed
+      battery, 12 reps × 3 problems × 1000 evals: mean composite delta
+      **+0.0004** (statistical tie), seed-dependent complementarity
+      (jSO wins seed 42; NL-SHADE-RSP wins 43 & 44).  Component
+      decomposition confirmed no bug (same basins as jSO).  The CEC-DE
+      refinements are large-budget specialists; within noise at
+      panobbgo's small composite-battery budgets.  Backwards-compatible:
+      opt-in only, composite baseline unchanged, queued for nightly
+      loop validation.
+- [x] **Tests** — `tests/test_heuristic_nl_shade_rsp.py` (34 tests):
+      construction validation, NLPSR (endpoints / monotonicity /
+      faster-than-linear / shrink), RSP (excludes target / empty pool /
+      rank bias / k_rank=0 uniform), adaptive archive (fixed when off /
+      within-bounds / clip / lazy / resample / never-exceeds), pipeline
+      (on_start / trials / win-and-archive / restart / smoke), base-class
+      hook safety, and registration.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOOP.md`,
+      `doc/source/guide.rst`, `doc/source/guide_benchmarking.rst`,
+      `doc/source/guide_architecture.rst`, `doc/source/heuristics.rst`,
+      and `AGENTS.md`.
+
 ### Von Neumann (4-connected 2-D toroidal grid) PSO topology — 2026-05-22
 - [x] **New `"vonneumann"` topology** in
       `panobbgo/heuristics/pso.py`; closes the *Random / Von Neumann

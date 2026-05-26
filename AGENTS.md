@@ -170,6 +170,14 @@ Per-pair metrics also reported: ``success_rate``, ``ert`` (BBOB standard),
 
 ### Agent-driven "improve X" PRs — evidence vs. CI
 
+**First, deduplicate.** Before implementing an improvement, run
+`gh pr list --state open` (drafts included) and skim the open PR titles.
+The nightly routine branches from `master` and cannot see unmerged work,
+so it will re-pick an idea whose PR is still open — this produced four
+duplicate NL-SHADE-RSP PRs (#227–#230) on consecutive nights. If your
+idea is already in an open PR, finish/merge that one instead of opening a
+duplicate. See `planning/SELF_IMPROVEMENT_LOOP.md` §12.3 step 0.
+
 A green PR proves the change does not break tests / lint / typecheck /
 docs / format / the micro pytest-benchmark suite.  **A green PR does NOT
 prove the change improved ``composite_score``** — none of the PR-side CI

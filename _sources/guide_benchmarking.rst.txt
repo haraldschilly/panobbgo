@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``COBYQA``) to a target strategy.  The pool ships *three*
+  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``) to a target strategy.  The pool ships *three*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
@@ -729,9 +729,14 @@ space with two new ops that change the *shape* of a
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
   ``p_best`` schedule, the literature-faithful three-phase asymmetric
   F-cap (opted into via the shared L-SHADE machinery by construction),
-  and a frozen anchor memory bin; both share the ``add_heuristic`` arm
-  so the bandit picks whichever DE-family variant wins on the current
-  battery.  COBYQA
+  and a frozen anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova
+  & Semenkin 2021 — CEC-2021 winner) refines jSO further with
+  Non-Linear Population Size Reduction (``NP(r) = round((NP_min −
+  NP_init)·r^(1−r) + NP_init)``), Rank-based Selective Pressure on the
+  differential ``r1`` draw (``k_rank`` default ``3``), and a randomised
+  per-generation archive cap.  All four DE-family arms share the
+  ``add_heuristic`` arm so the bandit picks whichever variant wins on
+  the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
   successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
@@ -886,7 +891,7 @@ as their own arm — distinct from any numeric rule on the same
 ``(class, param)`` slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.
 
-The default catalog ships three categorical rules out-of-the-box:
+The default catalog ships five categorical rules out-of-the-box:
 
 .. code-block:: python
 
@@ -918,6 +923,14 @@ The default catalog ships three categorical rules out-of-the-box:
        strategy_pattern="",
        class_name="LSHADE",
        param_name="F_schedule",
+       kind="categorical_choice",
+       choices=(True, False),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="NLSHADE_RSP",
+       param_name="adaptive_archive",
        kind="categorical_choice",
        choices=(True, False),
        probability=0.3,

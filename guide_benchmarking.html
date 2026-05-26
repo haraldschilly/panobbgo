@@ -922,7 +922,7 @@ space with two new ops that change the <em>shape</em> of a
 <li><p><code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> — append a heuristic from a curated pool
 (<code class="docutils literal notranslate"><span class="pre">Random</span></code>, <code class="docutils literal notranslate"><span class="pre">Nearby</span></code>, <code class="docutils literal notranslate"><span class="pre">NelderMead</span></code>, <code class="docutils literal notranslate"><span class="pre">Center</span></code>,
 <code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code>, <code class="docutils literal notranslate"><span class="pre">Sobol</span></code>, <code class="docutils literal notranslate"><span class="pre">Extremal</span></code>, <code class="docutils literal notranslate"><span class="pre">PSO</span></code>, <code class="docutils literal notranslate"><span class="pre">LSHADE</span></code>,
-<code class="docutils literal notranslate"><span class="pre">JSO</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>) to a target strategy.  The pool ships <em>three</em>
+<code class="docutils literal notranslate"><span class="pre">JSO</span></code>, <code class="docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>) to a target strategy.  The pool ships <em>three</em>
 PSO entries — the default fully-connected <code class="docutils literal notranslate"><span class="pre">gbest</span></code> topology
 (Kennedy-Eberhart 1995), the ring <code class="docutils literal notranslate"><span class="pre">lbest</span></code> topology with
 <code class="docutils literal notranslate"><span class="pre">k_neighbors=2</span></code> (Kennedy &amp; Mendes 2002), and the 4-connected
@@ -942,9 +942,14 @@ jSO (Brest, Maučec &amp; Bošković 2017 — CEC-2017 winner) refines L-SHADE
 with a weighted <code class="docutils literal notranslate"><span class="pre">current-to-pbest-w/1</span></code> mutation, a linear
 <code class="docutils literal notranslate"><span class="pre">p_best</span></code> schedule, the literature-faithful three-phase asymmetric
 F-cap (opted into via the shared L-SHADE machinery by construction),
-and a frozen anchor memory bin; both share the <code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> arm
-so the bandit picks whichever DE-family variant wins on the current
-battery.  COBYQA
+and a frozen anchor memory bin.  NL-SHADE-RSP (Stanovov, Akhmedova
+&amp; Semenkin 2021 — CEC-2021 winner) refines jSO further with
+Non-Linear Population Size Reduction (<code class="docutils literal notranslate"><span class="pre">NP(r)</span> <span class="pre">=</span> <span class="pre">round((NP_min</span> <span class="pre">−</span>
+<span class="pre">NP_init)·r^(1−r)</span> <span class="pre">+</span> <span class="pre">NP_init)</span></code>), Rank-based Selective Pressure on the
+differential <code class="docutils literal notranslate"><span class="pre">r1</span></code> draw (<code class="docutils literal notranslate"><span class="pre">k_rank</span></code> default <code class="docutils literal notranslate"><span class="pre">3</span></code>), and a randomised
+per-generation archive cap.  All four DE-family arms share the
+<code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> arm so the bandit picks whichever variant wins on
+the current battery.  COBYQA
 (Ragonneau-Zhang 2023) brings the modern Powell-family
 derivative-free trust-region local optimizer (BOBYQA / NEWUOA
 successor) alongside Nelder-Mead.  <code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code>
@@ -1085,7 +1090,7 @@ eliminated by construction).  The bandit treats categorical rules
 as their own arm — distinct from any numeric rule on the same
 <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param)</span></code> slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.</p>
-<p>The default catalog ships three categorical rules out-of-the-box:</p>
+<p>The default catalog ships five categorical rules out-of-the-box:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;PSO&quot;</span><span class="p">,</span>
@@ -1118,6 +1123,14 @@ flipping a discrete knob is worthwhile.</p>
 </span><span data-line="30">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
 </span><span data-line="31">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
 </span><span data-line="32"><span class="p">),</span>
+</span><span data-line="33"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="34">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="35">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;NLSHADE_RSP&quot;</span><span class="p">,</span>
+</span><span data-line="36">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;adaptive_archive&quot;</span><span class="p">,</span>
+</span><span data-line="37">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="38">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+</span><span data-line="39">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="40"><span class="p">),</span>
 </span></pre></div>
 </div>
 <p>Each fires only when the target spec sets the kwarg <em>explicitly</em>

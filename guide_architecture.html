@@ -465,6 +465,20 @@ Inherits L-SHADE’s asynchronous pipeline (per-slot pending dict, generation-by
 book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
 jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
 wins on the current battery.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.NLSHADE_RSP" title="panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code></a>: NL-SHADE-RSP refinement of jSO
+(Stanovov, Akhmedova &amp; Semenkin, CEC 2021 winner).  Direct subclass of
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.JSO" title="panobbgo.heuristics.jso.JSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">JSO</span></code></a> that adds three further refinements: <em>Non-Linear
+Population Size Reduction</em> (<code class="docutils literal notranslate"><span class="pre">NP(r)</span> <span class="pre">=</span> <span class="pre">round((NP_min</span> <span class="pre">−</span> <span class="pre">NP_init)·r^(1−r)</span> <span class="pre">+</span> <span class="pre">NP_init)</span></code>, which
+reduces the population faster than L-SHADE’s linear schedule in the early phase); <em>Rank-based
+Selective Pressure</em> (the differential <code class="docutils literal notranslate"><span class="pre">r1</span></code> index is drawn with probability proportional to a
+fitness rank weight <code class="docutils literal notranslate"><span class="pre">k_rank·(n−i)/n</span> <span class="pre">+</span> <span class="pre">1</span></code>, biasing the mutation toward better individuals —
+<code class="docutils literal notranslate"><span class="pre">k_rank</span></code> default <code class="docutils literal notranslate"><span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code> recovers uniform jSO selection); and a <em>randomised adaptive
+archive</em> (the archive cap is resampled per generation in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">round(archive_factor·NP)]</span></code>).
+Inherits the jSO mutation / schedule / anchor-memory machinery and the asynchronous pipeline
+unchanged.  The full CEC-2021 adaptive-crossover blend and success-ratio archive-probability
+adaptation are intentionally not ported (the asynchronous generation model does not expose them
+cleanly).  All four DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP) ship in the structural
+catalog so the bandit picks whichever wins on the current battery.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
 Clerc–Kennedy (2002) constriction-coefficient parameters (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>).
 Each particle carries a position, a velocity, and a memory of its personal best; on every step

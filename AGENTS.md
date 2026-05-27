@@ -317,9 +317,12 @@ The harness is the measurement substrate for an autonomous
 *   Strategy portfolio composition (§7.2) — **shipped**, see
     `panobbgo.self_improve.StructuralMutationRule` and the
     `default_structural_catalog()` factory.  Two ops join the mutation
-    catalog: `add_heuristic` (append from a curated pool such as
-    Random/Nearby/NelderMead/Sobol/...; `avoid_duplicates` skips
-    classes already present) and `drop_heuristic` (remove subject to a
+    catalog: `add_heuristic` (append from a curated pool —
+    Random/Nearby/NelderMead/Center/LatinHypercube/Sobol/Extremal,
+    the PSO topologies, the DE family L-SHADE/jSO/NL-SHADE-RSP, and the
+    local optimizers COBYQA and LBFGSB (the only gradient-based arm);
+    `avoid_duplicates` skips classes already present) and
+    `drop_heuristic` (remove subject to a
     `min_heuristics` post-drop floor).  Opt in via
     `scripts/self_improve.py run --structural` or
     `SelfImprover(catalog=default_structural_catalog())`.  Off by

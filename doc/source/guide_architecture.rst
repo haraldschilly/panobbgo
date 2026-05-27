@@ -225,7 +225,13 @@ Implemented Heuristics
 **Classical optimizers:**
 
 - :class:`~panobbgo.heuristics.nelder_mead.NelderMead`: Randomized simplex method
-- :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`: L-BFGS-B in subprocess
+- :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`: Multi-start, bound-constrained quasi-Newton
+  (L-BFGS-B) local optimizer in a subprocess.  The only *gradient-based* arm (finite-difference
+  gradients); restarts from fresh random points across the budget and warm-starts at the Restart
+  analyzer's centre.  Excels on smooth ill-conditioned valleys (Rosenbrock) where a single
+  dedicated descent reaches the optimum in a fraction of a population method's budget.
+- :class:`~panobbgo.heuristics.cobyqa.COBYQA`: Powell-family derivative-free trust-region local
+  optimizer (Ragonneau-Zhang 2023) — curvature-aware quadratic-model refinement in a subprocess.
 
 **Population-based (global search):**
 

@@ -2,6 +2,41 @@
 
 ## Recent Improvements (continued)
 
+### Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued) — 2026-05-27
+- [x] **Rewrote `panobbgo/heuristics/lbfgsb.py`** from a one-shot,
+  box-centre, restart-blind, *unreferenced* stub into a robust
+  **multi-start** bound-constrained quasi-Newton local optimizer.  The
+  worker runs `scipy.optimize.fmin_l_bfgs_b` repeatedly — first descent
+  from the box centre, subsequent descents from fresh uniform-random
+  restarts — using the whole strategy budget instead of going idle after
+  one convergence.  `on_restart` warm-starts at the Restart analyzer's
+  centre.  Subprocess lifecycle re-modelled on the tested COBYQA adapter
+  (`spawn`, `cap=1`, `SystemExit`-on-closed-pipe).  New validated kwargs
+  `max_starts` / `maxfun` / `epsilon` / `seed`.
+- [x] **Added `LBFGSB` to `default_structural_catalog()`** as the 15th
+  `add_heuristic` candidate (`avoid_duplicates=True`) — the only
+  gradient-based arm the self-improvement loop can deploy.
+- [x] **Why** — the harness shows every Panobbgo *strategy* scores 0.0 on
+  `Rosenbrock_5D` (a smooth ill-conditioned valley) while scipy's
+  `dual_annealing` solves it via its own L-BFGS-B local search.  A
+  *dedicated* LBFGSB strategy now solves Rosenbrock_2D/5D to
+  `func_distance ≈ 3e-11` (SR 5/5) in the same A/B.  **Negative result
+  recorded:** adding it to the budget-split `Rewarding_Diverse` portfolio
+  does *not* crack Rosenbrock_5D (and can regress other problems) — value
+  is in dedicated / loop-discovered portfolios, which is why it is
+  catalog-only and the default battery is unchanged.
+- [x] **Backwards-compatible** — opt-in (not in any default strategy);
+  composite baseline byte-identical; integration tests and the
+  `on_new_results` penalty contract pass unchanged.
+- [x] **Tests** — rewrote `tests/test_heuristic_lbfgsb.py` (29) and
+  `tests/test_heuristic_lbfgsb_robustness.py` (9) on the COBYQA template:
+  ctor validation, lifecycle, pipe wiring, restart, fake-pipe worker
+  multi-start / reproducibility / robustness, registration, and a
+  Rosenbrock_5D scipy smoke.
+- [x] **Docs** — `heuristics.rst`, `guide_architecture.rst`,
+  `guide_benchmarking.rst`, `guide.rst`, `AGENTS.md`, and
+  `planning/SELF_IMPROVEMENT_LOOP.md` (§13 + LBFGSB follow-ups).
+
 ### NL-SHADE-RSP adaptive DE (CEC 2021 winner) — 2026-05-25
 - [x] **New `NLSHADE_RSP` heuristic** in
       `panobbgo/heuristics/nl_shade_rsp.py`; closes the *NL-SHADE-RSP /

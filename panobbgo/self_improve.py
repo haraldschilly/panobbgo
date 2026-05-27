@@ -1435,6 +1435,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.jso import JSO
     from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
     from panobbgo.heuristics.cobyqa import COBYQA
+    from panobbgo.heuristics.lbfgsb import LBFGSB
 
     # Three PSO entries cover the canonical ``gbest`` (default
     # Kennedy-Eberhart 1995 swarm), the ``lbest`` ring topology (Kennedy &
@@ -1466,6 +1467,12 @@ def default_structural_catalog() -> MutationCatalog:
     # differential ``r1`` draw, and a randomised adaptive archive.  Listed
     # as a separate candidate class from L-SHADE / jSO so the bandit can
     # weigh whichever DE-family arm wins on the current battery.
+    # LBFGSB (Zhu-Byrd-Lu-Nocedal 1997) is the only *gradient-based*
+    # (finite-difference quasi-Newton) arm — a multi-start bound-constrained
+    # local optimizer.  It complements the derivative-free generators above
+    # on smooth ill-conditioned valleys (e.g. Rosenbrock), where a curvature
+    # estimate converges in a fraction of the evaluations a population method
+    # needs.  ``avoid_duplicates`` keeps at most one LBFGSB per strategy.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1481,6 +1488,7 @@ def default_structural_catalog() -> MutationCatalog:
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
+        (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
     )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(

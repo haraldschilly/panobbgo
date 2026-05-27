@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``) to a target strategy.  The pool ships *three*
+  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *three*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
@@ -739,7 +739,13 @@ space with two new ops that change the *shape* of a
   the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family
   derivative-free trust-region local optimizer (BOBYQA / NEWUOA
-  successor) alongside Nelder-Mead.  ``avoid_duplicates=True``
+  successor) alongside Nelder-Mead.  LBFGSB (Zhu-Byrd-Lu-Nocedal 1997)
+  adds the only *gradient-based* arm — a multi-start, bound-constrained
+  quasi-Newton local optimizer (finite-difference gradients) that
+  complements the derivative-free generators on smooth ill-conditioned
+  valleys (e.g. Rosenbrock), where a dedicated descent reaches the
+  optimum in a fraction of a population method's budget.
+  ``avoid_duplicates=True``
   (default) skips classes that are already present in the strategy,
   so the catalog cannot litter a portfolio with redundant copies (and
   in particular only ever installs *one* PSO variant per strategy).

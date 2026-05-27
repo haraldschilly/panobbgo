@@ -1,115 +1,149 @@
-import unittest
-import threading
-import time
-from unittest.mock import Mock, MagicMock
-from panobbgo.heuristics.lbfgsb import LBFGSB
+# -*- coding: utf8 -*-
+# Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Robustness tests for the multi-start L-BFGS-B heuristic.
+
+Complements ``test_heuristic_lbfgsb.py`` with the failure-mode paths:
+non-finite objective values, numerically broken descents, subprocess
+start failures, and pipe teardown during restart.
+"""
+
+from __future__ import annotations
+
 from unittest import mock
+
 import numpy as np
 
+from panobbgo.heuristics.lbfgsb import LBFGSB, _make_pipe_objective
+from panobbgo.utils import PanobbgoTestCase
 
-class TestLBFGSBRobustness(unittest.TestCase):
-    def setUp(self):
-        self.strategy = Mock()
-        self.strategy.config = Mock()
-        self.strategy.config.get_logger.return_value = Mock()
-        self.strategy.config.capacity = 10
-        self.strategy.problem = Mock()
-        self.strategy.problem.dim = 2
-        self.strategy.problem.box.box = [[0, 1], [0, 1]]
 
-        self.heuristic = LBFGSB(self.strategy)
-        # Mock pipes
-        self.heuristic.p1 = Mock()
-        self.heuristic.out1 = Mock()
-        # Mock emit to avoid errors
-        self.heuristic.emit = Mock()
+_BOUNDS = [(-1.0, 1.0), (-1.0, 1.0)]
+_LB = np.array([-1.0, -1.0])
+_UB = np.array([1.0, 1.0])
 
-    def test_lbfgsb_stops_cleanly(self):
-        # Setup: simulate stopped state
-        self.heuristic._stopped = True
 
-        # Mock poll to return False (no output from out1)
-        self.heuristic.out1.poll.return_value = False
+class _RecordingPipe:
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.sent = []
 
-        # Mock recv to return a dummy value (so it doesn't block)
-        self.heuristic.p1.recv.return_value = [0.5, 0.5]
+    def send(self, x):
+        self.sent.append(np.asarray(x, dtype=float))
 
-        # Configure mocks to allow poll on p1 (which we will add in the fix)
-        self.heuristic.p1.poll = Mock(return_value=True)
+    def recv(self):
+        if not self._responses:
+            raise EOFError
+        return self._responses.pop(0)
 
-        # Run on_start in a thread
-        t = threading.Thread(target=self.heuristic.on_start)
-        t.daemon = True
-        t.start()
 
-        # Wait for thread to finish
-        t.join(timeout=2.0)
+class PipeObjectiveTests(PanobbgoTestCase):
+    def test_non_finite_reply_becomes_inf(self):
+        f = _make_pipe_objective(_RecordingPipe([float("nan")]))
+        assert f(np.array([0.0, 0.0])) == float("inf")
 
-        if t.is_alive():
-            self.fail("LBFGSB.on_start did not stop when _stopped=True")
+    def test_none_reply_becomes_inf(self):
+        f = _make_pipe_objective(_RecordingPipe([None]))
+        assert f(np.array([0.0, 0.0])) == float("inf")
 
-    def test_lbfgsb_stop_method(self):
-        # Verify that __stop__ terminates the process
-        self.heuristic.lbfgsb = Mock()
-        self.heuristic.__stop__()
-
-        if hasattr(self.heuristic, "lbfgsb") and isinstance(self.heuristic.lbfgsb, Mock):
+    def test_closed_pipe_raises_systemexit(self):
+        f = _make_pipe_objective(_RecordingPipe([]))  # recv -> EOFError
+        try:
+            f(np.array([0.0, 0.0]))
+            assert False, "expected SystemExit"
+        except SystemExit:
             pass
 
-    def test_start_subprocess_exception(self):
-        strategy = mock.MagicMock()
-        lbfgsb = LBFGSB(strategy)
+    def test_finite_reply_passthrough(self):
+        f = _make_pipe_objective(_RecordingPipe([2.5]))
+        assert f(np.array([0.0, 0.0])) == 2.5
 
-        with mock.patch("multiprocessing.get_context", side_effect=Exception("Test Error")):
+
+class _FlakyPipe:
+    """Returns a non-finite value for the first descent, then a quadratic.
+
+    Forces the first L-BFGS-B start to encounter a degenerate objective so
+    the worker's per-start ``except`` path is exercised; the worker must
+    still advance to the next restart rather than crash.
+    """
+
+    def __init__(self, switch_after):
+        self.calls = 0
+        self.switch_after = switch_after
+        self.last = None
+
+    def send(self, x):
+        self.last = np.asarray(x, dtype=float)
+
+    def recv(self):
+        self.calls += 1
+        if self.calls <= self.switch_after:
+            return float("nan")
+        return float(np.sum((self.last - 0.3) ** 2))
+
+
+class WorkerRobustnessTests(PanobbgoTestCase):
+    def test_worker_survives_degenerate_first_descent(self):
+        pipe = _FlakyPipe(switch_after=3)
+        output = mock.MagicMock()
+        # Two starts: the first sees NaNs, the second a clean quadratic.
+        LBFGSB.worker(
+            pipe,
+            output,
+            np.zeros(2),
+            _BOUNDS,
+            _LB,
+            _UB,
+            seed=0,
+            max_starts=2,
+            maxfun=100,
+            epsilon=None,
+        )
+        output.send.assert_called_once_with({"done": 2})
+
+    def test_on_start_handles_unexpected_exception(self):
+        h = LBFGSB(self.strategy)
+        h.out1 = mock.MagicMock()
+        h.out1.poll.return_value = False
+        h.p1 = mock.MagicMock()
+        # A non-EOF error should be logged and break the loop, not propagate.
+        h.p1.poll.side_effect = RuntimeError("boom")
+        h._stopped = False
+        h.logger = mock.MagicMock()
+        h.on_start()
+        assert h.logger.error.called
+
+
+class StartFailureTests(PanobbgoTestCase):
+    def test_start_subprocess_exception_wrapped(self):
+        h = LBFGSB(self.strategy)
+        with mock.patch("multiprocessing.get_context", side_effect=Exception("boom")):
             with self.assertRaises(RuntimeError):
-                lbfgsb.__start__()
+                h.__start__()
 
-    def test_worker_logic(self):
-        pipe_mock = mock.MagicMock()
-        output_mock = mock.MagicMock()
-
-        # Test worker sets up starting point correctly
-        bounds = [(-5.0, 5.0), (-5.0, 5.0)]
-        dims = 2
-
-        pipe_mock.recv.return_value = 1.0  # return something for f()
-
-        with mock.patch("scipy.optimize.fmin_l_bfgs_b") as fmin_mock:
-            fmin_mock.return_value = "Test Solution"
-            LBFGSB.worker(pipe_mock, output_mock, dims, bounds)
-
-            fmin_mock.assert_called_once()
-            args, kwargs = fmin_mock.call_args
-
-            # check x0
-            np.testing.assert_array_equal(args[1], np.array([0.0, 0.0]))
-            self.assertEqual(kwargs["bounds"], bounds)
-
-            # call objective func
-            f = args[0]
-            val = f(np.array([1.0, 1.0]))
-            self.assertEqual(val, 1.0)
-
-            pipe_mock.send.assert_called_once()
-            np.testing.assert_array_equal(pipe_mock.send.call_args[0][0], np.array([1.0, 1.0]))
-
-            output_mock.send.assert_called_once_with("Test Solution")
-
-    def test_on_start_exception(self):
-        strategy = mock.MagicMock()
-        lbfgsb = LBFGSB(strategy)
-
-        lbfgsb.out1 = mock.MagicMock()
-        lbfgsb.out1.poll.return_value = False
-        lbfgsb.p1 = mock.MagicMock()
-        lbfgsb.p1.poll.side_effect = Exception("Test Exception")
-        lbfgsb._stopped = False
-        lbfgsb.logger = mock.MagicMock()
-
-        lbfgsb.on_start()
-
-        lbfgsb.logger.error.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()
+    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
+    def test_restart_teardown_failure_is_swallowed(self, _mock_setup):
+        h = LBFGSB(self.strategy)
+        h.__start__()
+        try:
+            # A teardown that raises must not propagate; on_restart should
+            # still spawn a fresh worker.
+            with mock.patch.object(h.lbfgsb, "terminate", side_effect=OSError("nope")):
+                old = h.lbfgsb
+                h.on_restart(center=None, reason="test")
+                assert h.lbfgsb is not old
+                assert h.lbfgsb.is_alive()
+        finally:
+            h.__stop__()

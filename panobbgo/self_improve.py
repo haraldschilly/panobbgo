@@ -1383,6 +1383,83 @@ def default_catalog() -> MutationCatalog:
                 choices=(True, False),
                 probability=0.3,
             ),
+            # NL-SHADE-LBC initial population size — same ``[10, 60]``
+            # bracket as the L-SHADE / jSO / NL-SHADE-RSP family.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # NL-SHADE-LBC F-memory initial Lehmer exponent.  Literature
+            # default ``3.5``; bracket ``[1.5, 5.0]`` so the loop can probe
+            # weaker (closer to the L-SHADE-style bias) or stronger
+            # (heavily weighting the largest successful F's at the start
+            # of the search) initial bias.  ``p_F_init`` only takes effect
+            # via the schedule when the strategy budget is known.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="p_F_init",
+                kind="float_uniform",
+                bounds=(1.5, 5.0),
+                low=1.5,
+                high=5.0,
+                probability=0.5,
+            ),
+            # NL-SHADE-LBC F-memory final Lehmer exponent.  Literature
+            # default ``1.5``; bracket ``[1.0, 3.0]`` so the loop can probe
+            # values bracketing the standard L-SHADE order-2 exponent.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="p_F_final",
+                kind="float_uniform",
+                bounds=(1.0, 3.0),
+                low=1.0,
+                high=3.0,
+                probability=0.5,
+            ),
+            # NL-SHADE-LBC CR-memory schedule (initial / final).  CR
+            # literature defaults are ``1.0 → 1.5``; bracket ``[0.5, 2.5]``
+            # so the loop can probe pure-arithmetic-mean-like behaviour
+            # (low exponent) as well as more biased regimes.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="p_CR_init",
+                kind="float_uniform",
+                bounds=(0.5, 2.5),
+                low=0.5,
+                high=2.5,
+                probability=0.5,
+            ),
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="p_CR_final",
+                kind="float_uniform",
+                bounds=(0.5, 2.5),
+                low=0.5,
+                high=2.5,
+                probability=0.5,
+            ),
+            # NL-SHADE-LBC Lehmer spread.  Default ``1.5`` (CEC-2022);
+            # ``1.0`` recovers the standard L-SHADE Lehmer-mean spread.
+            # Bracket ``[1.0, 2.0]`` so the loop can flip between them.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_LBC",
+                param_name="m_lbc",
+                kind="float_uniform",
+                bounds=(1.0, 2.0),
+                low=1.0,
+                high=2.0,
+                probability=0.5,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1464,6 +1541,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.lshade import LSHADE
     from panobbgo.heuristics.jso import JSO
     from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+    from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
     from panobbgo.heuristics.cobyqa import COBYQA
     from panobbgo.heuristics.lbfgsb import LBFGSB
 
@@ -1499,6 +1577,12 @@ def default_structural_catalog() -> MutationCatalog:
     # differential ``r1`` draw, and a randomised adaptive archive.  Listed
     # as a separate candidate class from L-SHADE / jSO so the bandit can
     # weigh whichever DE-family arm wins on the current battery.
+    # NL-SHADE-LBC (Stanovov, Akhmedova & Semenkin 2022) is the CEC-2022
+    # winner, a direct refinement of NL-SHADE-RSP that adds **Linear Bias
+    # Change** in the success-history memory update: the Lehmer-mean
+    # exponents for F and CR follow a budget-progress schedule.  Listed
+    # as a separate candidate class so the bandit can weigh whichever
+    # DE-family arm wins on the current battery.
     # LBFGSB (Zhu-Byrd-Lu-Nocedal 1997) is the only *gradient-based*
     # (finite-difference quasi-Newton) arm — a multi-start bound-constrained
     # local optimizer.  It complements the derivative-free generators above
@@ -1520,6 +1604,7 @@ def default_structural_catalog() -> MutationCatalog:
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
+        (NLSHADE_LBC, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2022 winner, NLPSR + RSP + LBC
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
         (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
     )

@@ -108,6 +108,62 @@
       `doc/source/guide.rst`, `doc/source/guide_benchmarking.rst`,
       `doc/source/guide_architecture.rst`, `doc/source/heuristics.rst`,
       `AGENTS.md`, and this `TODO.md` entry.
+### NL-SHADE-LBC adaptive DE (CEC 2022 winner) — 2026-05-28
+- [x] **New `NLSHADE_LBC` heuristic** in
+      `panobbgo/heuristics/nl_shade_lbc.py`; closes the *NL-SHADE-LBC*
+      DE-family follow-up in `planning/SELF_IMPROVEMENT_LOOP.md`.
+      Direct subclass of
+      :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` (Stanovov,
+      Akhmedova & Semenkin, CEC 2022 winner) adding **Linear Bias
+      Change** in the success-history memory update: the F / CR
+      Lehmer-mean order ``p`` is linearly scheduled across budget
+      progress instead of fixed at 2.  Literature defaults
+      ``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``, spread ``m_lbc = 1.5``;
+      at ``p = 2, m = 1`` the formula recovers the standard L-SHADE
+      Lehmer mean.
+  - **Why it matters.** NL-SHADE-LBC won the CEC-2022 single-objective
+    bound-constrained competition and is the direct NL-SHADE-RSP
+    descendant — the literature frontier as of the most recent CEC
+    competition we can mirror.  Adds a fifth DE-family arm the bandit
+    can pick whichever wins on the current battery.
+- [x] **Catalog wiring** — `default_structural_catalog` gains
+      `(NLSHADE_LBC, {"NP_init": 30, "k_rank": 3.0})` as a fifteenth
+      `add_heuristic` candidate; `default_catalog` gains six
+      LBC-specific rules (`NLSHADE_LBC.NP_init` integer_add,
+      `NLSHADE_LBC.p_F_init` / `p_F_final` / `p_CR_init` / `p_CR_final`
+      float_uniform, `NLSHADE_LBC.m_lbc` float_uniform).
+- [x] **Deviations from the full CEC-2022 paper** (documented for
+      honesty): the adaptive binomial / exponential crossover blend
+      and the repetitive-generation bound-constraint handling are
+      *not* ported — the same async-pipeline limitations that motivated
+      omitting them from NL-SHADE-RSP apply here.  Both queued as
+      follow-ups.
+- [x] **CR-zero handling** — preserves the L-SHADE terminal sentinel
+      rule and filters strict zeros out of the LBC sum (because
+      ``s^(p−m)`` with ``p < m`` is undefined at ``s = 0``).
+- [x] **Backwards compatibility** — strictly safe.  NLSHADE_LBC is
+      opt-in: not added to any default battery, so existing composite
+      baselines stay byte-identical.  NL-SHADE-RSP / jSO / L-SHADE
+      base classes are untouched — only the LBC subclass overrides
+      `_update_memory`; verified by a regression test that
+      ``NLSHADE_RSP._update_memory`` still produces the standard
+      L-SHADE Lehmer mean output.
+- [x] **Tests** — `tests/test_heuristic_nl_shade_lbc.py` (30 tests):
+      construction validation, LBC schedule (endpoints, linear
+      midpoint, clipping, budget-unknown fallback), memory update
+      (anchor-bin skip, pointer mod (H-1), no-op on empty buffer,
+      [0,1] clamping, formula recovers Σ(w·F^3.5)/Σ(w·F^2.0) at
+      progress=0, p=2/m=1 recovers L-SHADE for both F and CR, CR=0
+      terminal sentinel, terminal-bin stays terminal, mixed-zero CR
+      filtered, uniform weights on zero-delta), pipeline (on_start,
+      smoke convergence, restart resets), inheritance safety
+      (NLSHADE_RSP unchanged), and registration.
+- [x] **Documentation updated** —
+      `planning/SELF_IMPROVEMENT_LOOP.md` (new §13 entry, follow-up
+      idea seeded), `doc/source/guide.rst`,
+      `doc/source/guide_benchmarking.rst`,
+      `doc/source/guide_architecture.rst`,
+      `doc/source/heuristics.rst`, and this TODO entry.
 ### Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued) — 2026-05-27
 - [x] **Rewrote `panobbgo/heuristics/lbfgsb.py`** from a one-shot,
   box-centre, restart-blind, *unreferenced* stub into a robust

@@ -871,6 +871,130 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: categorical-rules list adds ``"random"`` to
     ``PSO.topology`` (cardinality three → four).
   - `TODO.md`: new entry at the head of "Recent Improvements".
+### 2026-05-28 — NL-SHADE-LBC adaptive DE (CEC 2022 winner)
+
+* **What** — `panobbgo/heuristics/nl_shade_lbc.py` adds the
+  :class:`NLSHADE_LBC` heuristic, a direct subclass of
+  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` (CEC 2021
+  winner) that ports the Stanovov-Akhmedova-Semenkin (CEC 2022)
+  "NL-SHADE-LBC" refinement.  NL-SHADE-LBC inherits the entire
+  NL-SHADE-RSP / jSO / L-SHADE asynchronous pipeline (per-slot pending
+  dict, generation-by-count book-keeping, archive of replaced parents,
+  success-history memory with the frozen jSO anchor bin, weighted
+  ``current-to-pbest-w/1`` mutation, linear ``p_best`` schedule,
+  asymmetric F-cap, NLPSR, RSP r1 selection, randomised adaptive
+  archive, warm restart) and adds **Linear Bias Change** in the
+  memory update:
+
+  The standard L-SHADE / jSO / NL-SHADE-RSP memory update uses a fixed
+  Lehmer mean of order 2 with spread 1 (``Σ(w·s²) / Σ(w·s)``).
+  NL-SHADE-LBC generalises this to::
+
+      L_{p,m}(s, w) = Σ(w_i · s_i^p) / Σ(w_i · s_i^{p − m})
+
+  with the **order** ``p`` linearly scheduled across budget progress
+  ``r = len(strategy.results) / max_eval``::
+
+      p_F(r)  = (1 − r) · p_F_init  + r · p_F_final
+      p_CR(r) = (1 − r) · p_CR_init + r · p_CR_final
+
+  Literature defaults from Stanovov et al. (2022) — verified against
+  the MetaBox reference implementation: ``p_F_init = 3.5``,
+  ``p_F_final = 1.5``, ``p_CR_init = 1.0``, ``p_CR_final = 1.5``,
+  ``m_lbc = 1.5``.  The F-bias starts high (concentrating memory on
+  the *largest* successful F's, encouraging exploration) and decays;
+  the CR-bias starts low (preserving CR diversity) and grows.  At
+  ``p = 2, m = 1`` the formula recovers the L-SHADE Lehmer mean — both
+  regimes are reachable from the default catalog so the bandit can
+  flip between them.
+
+  CR-zero handling preserves the L-SHADE terminal sentinel rule and
+  filters strict zeros out of the LBC sum (because ``s^(p − m)`` with
+  ``p < m`` blows up at ``s = 0``).  Registered in
+  :mod:`panobbgo.heuristics`; :func:`default_structural_catalog` gains
+  it as a fifteenth ``add_heuristic`` candidate
+  (``avoid_duplicates=True``); :func:`default_catalog` gains six rules
+  — ``NLSHADE_LBC.NP_init`` (integer_add), ``NLSHADE_LBC.p_F_init``
+  (float_uniform ``[1.5, 5.0]``), ``NLSHADE_LBC.p_F_final``
+  (float_uniform ``[1.0, 3.0]``), ``NLSHADE_LBC.p_CR_init``
+  (float_uniform ``[0.5, 2.5]``), ``NLSHADE_LBC.p_CR_final``
+  (float_uniform ``[0.5, 2.5]``), and ``NLSHADE_LBC.m_lbc``
+  (float_uniform ``[1.0, 2.0]``).
+* **Why** — closes the *NL-SHADE-LBC* DE-family follow-up listed under
+  the NL-SHADE-RSP entry above.  NL-SHADE-LBC won the **CEC-2022**
+  single-objective bound-constrained competition and is the direct
+  NL-SHADE-RSP descendant; it represents the literature frontier as of
+  the most recent CEC competition we can mirror.  Subclassing
+  NL-SHADE-RSP keeps the new heuristic at the literature frontier
+  while leaving NL-SHADE-RSP / jSO / L-SHADE byte-identical for
+  ledger reproducibility — the precedent set by the NL-SHADE-RSP entry
+  itself.  Adds a fifth DE-family arm the bandit can pick whichever
+  wins on the current battery.
+* **Deviations from the full CEC-2022 paper** — for honesty (the
+  Panobbgo norm is literature-faithful ports): two NL-SHADE-LBC
+  mechanisms are intentionally **not** ported because they interact
+  with the synchronous generation model in ways the asynchronous
+  pipeline does not expose cleanly: the *adaptive binomial /
+  exponential crossover blend* (also intentionally not ported from
+  NL-SHADE-RSP — see the same caveat there), and the *repetitive
+  generation* bound-constraint handling (Panobbgo uses
+  ``strategy.constraint_handler`` and L-SHADE midpoint-reflection
+  repair instead).  Both are queued as follow-ups below.
+* **Impact** — the value of shipping this today is to give the
+  self-improvement loop a CEC-2022-class DE arm the bandit can select
+  once it has accumulated per-arm reward history.  Like NL-SHADE-RSP
+  before it, the LBC refinements are **large-budget specialists**: at
+  panobbgo's small composite-battery budgets (75–500 evals) the
+  bias-change schedule barely warms up, so the quick-mode signal is
+  expected within noise.  *Evidence form (per AGENTS.md "Agent-driven
+  improve X PRs"): catalog-only addition; backwards-compatible
+  (composite baseline byte-identical, existing ledgers stay valid);
+  queued for nightly loop validation via the structural catalog.*
+* **Backwards compatibility** — strictly safe.  NLSHADE_LBC is opt-in:
+  it is not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so the composite baseline on every default battery is
+  byte-identical and existing ledgers stay valid.  The structural
+  catalog gains it as one extra ``add_heuristic`` candidate
+  (``avoid_duplicates=True``).  The kwarg rules fire only when a spec
+  sets the matching kwarg explicitly.  NL-SHADE-RSP / jSO / L-SHADE
+  are untouched — only the LBC subclass overrides
+  :meth:`_update_memory`; the base classes' ``_update_memory`` methods
+  are byte-identical, verified by a regression test that
+  ``NLSHADE_RSP._update_memory`` still produces the standard L-SHADE
+  Lehmer mean output.
+* **Tests** — `tests/test_heuristic_nl_shade_lbc.py` (30 tests):
+  construction validation (defaults, custom kwargs, subclass invariant
+  spanning NLSHADE_RSP / JSO / LSHADE, invalid / inf / NaN p_F_init /
+  p_F_final / p_CR_init / p_CR_final / m_lbc, m_lbc=0 and m_lbc<0
+  rejection, inherited NLSHADE_RSP / jSO ``H >= 2`` / ``p_best``
+  ordering / ``k_rank`` rules); LBC schedule (endpoints
+  progress=0/progress=1, linear midpoint, clipping at progress > 1,
+  fallback to p_init when budget unknown); memory update (no write to
+  the anchor bin H-1, pointer advances ``% (H-1)``, no-op on empty
+  buffer, F memory clamped to [0,1], LBC formula at progress=0 with
+  custom exponents matches Σ(w·F^3.5)/Σ(w·F^2.0), p=2/m=1 recovers the
+  standard L-SHADE Lehmer mean for *both* F and CR, CR=0 plants the
+  terminal sentinel, terminal-bin stays terminal, mixed-zero CR values
+  filtered before LBC computation, zero-delta successes fall back to
+  uniform weights); pipeline (on_start emits NP_init, smoke
+  convergence on a quadratic with no negative global progress, restart
+  resets archive and pending); inheritance safety (NLSHADE_RSP
+  ``_update_memory`` still produces standard L-SHADE mean); and
+  registration (package re-export + ``__all__``, structural catalog
+  membership, six kwarg catalog dials).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *NL-SHADE-LBC* next-iteration idea promoted to "shipped".
+  - `doc/source/heuristics.rst`: new ``NLSHADE_LBC`` bullet; the
+    DE-family complementarity bullet now names all five arms.
+  - `doc/source/guide_architecture.rst`: new ``NLSHADE_LBC``
+    description after NLSHADE_RSP.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog candidate
+    pool lists ``NLSHADE_LBC``; the DE-family complementarity blurb
+    extends to five arms.
+  - `doc/source/guide.rst`: quick-nav entry mentions NL-SHADE-LBC and
+    the Linear Bias Change mechanism.
 ### 2026-05-27 — Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued)
 
 * **What** — Rewrote `panobbgo/heuristics/lbfgsb.py` from a one-shot,
@@ -2852,13 +2976,15 @@ motivate the work:
   (Zhang-Sanderson 2009) uses a slightly different rule that
   weights archive entries by recency; this could be a small
   per-step refinement.
-- **L-SHADE-RSP / NL-SHADE-RSP follow-on variants** — NL-SHADE-RSP
-  (CEC 2021 winner) shipped 2026-05-25 as
+- **L-SHADE-RSP / NL-SHADE-RSP / NL-SHADE-LBC follow-on variants** —
+  NL-SHADE-RSP (CEC 2021 winner) shipped 2026-05-25 as
   :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` (rank-based
   selective pressure, non-linear population reduction, randomised
-  adaptive archive); see the §13 entry.  The remaining successor,
-  NL-SHADE-LBC (CEC 2022), is queued under the *NL-SHADE-RSP
-  heuristic* next-iteration idea below.
+  adaptive archive); see the §13 entry.  NL-SHADE-LBC (CEC 2022
+  winner) shipped 2026-05-28 as
+  :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC` (Linear Bias
+  Change in the success-history Lehmer-mean memory update); see the
+  §13 entry above.
 - **iLSHADE / jSO adaptive p_best schedule** — shipped 2026-05-19
   as the opt-in ``LSHADE.p_best_end`` kwarg plus the
   :meth:`LSHADE._current_p_best` helper.  See the §13 entry.
@@ -3075,10 +3201,14 @@ motivate the work:
   trial used) that the current ``_TrialMeta`` does not carry; adding
   two optional fields to ``_TrialMeta`` and the matching success
   accounting in ``on_new_results`` is the clean shape.
-* **NL-SHADE-LBC** (CEC 2022 winner) — the successor that adds a
-  *linear bias-correction* mechanism on top of NL-SHADE-RSP.
-  Subclassing :class:`NLSHADE_RSP` is the obvious shape now that the
-  RSP / NLPSR / archive hooks exist.
+* **NL-SHADE-LBC** (CEC 2022 winner) — **shipped 2026-05-28** as
+  :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`, a direct
+  :class:`NLSHADE_RSP` subclass that adds Linear Bias Change in the
+  F / CR Lehmer-mean memory update: the order ``p`` is linearly
+  scheduled across budget progress instead of fixed at ``2`` (defaults
+  ``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``, spread ``m_lbc = 1.5``).
+  At ``p = 2, m = 1`` the formula recovers the standard L-SHADE
+  Lehmer mean.  See the §13 entry.
 * **Categorical ``k_rank`` regimes** — the ``NLSHADE_RSP.k_rank``
   rule is currently ``float_uniform [1, 5]``.  A ``categorical_choice``
   over the literature-canonical settings (``0`` = uniform, ``3`` =
@@ -3086,6 +3216,54 @@ motivate the work:
   selective-pressure regime discretely, the same way
   ``LSHADE.archive_factor`` flips archive on / off / RSP.
 
+#### NL-SHADE-LBC follow-ups (after 2026-05-28 ship)
+
+NL-SHADE-LBC shipped 2026-05-28 as
+:class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`; see the §13
+entry above.  Natural extensions when the loop has collected enough
+evidence to motivate the work:
+
+* **Categorical LBC regimes** — the four LBC schedule kwargs
+  (``p_F_init``, ``p_F_final``, ``p_CR_init``, ``p_CR_final``) and the
+  spread ``m_lbc`` are exposed as ``float_uniform`` rules today.  A
+  set of literature-canonical *named* regimes — ``"cec2022"`` (the
+  Stanovov defaults 3.5/1.5/1.0/1.5/1.5), ``"lshade"``
+  (2/2/2/2/1 — recovers standard L-SHADE), ``"flat"``
+  (1/1/1/1/1.5 — pure arithmetic mean), ``"aggressive"``
+  (5/3/3/5/1.5 — strongly biased throughout) — wrapped as one
+  ``categorical_choice`` per slot would give the bandit a discrete
+  arm to flip the bias regime cleanly, the same way
+  ``LSHADE.F_schedule`` flips the jSO F-cap on / off.  Implementation
+  shape: a single composite kwarg ``lbc_regime`` whose setter applies
+  the named tuple to the five fields, plus the categorical rule.
+* **Per-CR / per-F sub-regime A/B** — the literature defaults flow
+  F-bias from high to low while CR-bias does the opposite.  The
+  motivation in the paper is qualitative; nightly evidence may reveal
+  problem classes where *both* should decrease (or both increase).  A
+  measured A/B at ``--standard`` mode with the bandit constrained to
+  the LBC arm would identify whether the paper's asymmetric schedule
+  generalises beyond the CEC battery.
+* **Adaptive bias bounds from the success history** — instead of
+  using the static linear schedule, infer the schedule from the
+  observed variance of successful F / CR values.  When the success
+  variance is low (memory is converging), more bias is helpful;
+  when high (exploration still useful), less bias.  Speculative —
+  the paper's static schedule is well-tuned; a learned schedule
+  would need to clearly beat it on cross-problem averages.
+
+#### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann)
+
+Von Neumann shipped 2026-05-22 (see §13).  The literature predicts
+the three topologies are *complementary* — gbest wins on unimodal
+landscapes, lbest on highly-multimodal, vonneumann between the two —
+but the shipped entry did not include a measured benchmark because
+the impact at quick-mode budgets is within noise.  A natural
+follow-up is to run an explicit ``benchmark_harness.py compare``
+across the three Rewarding strategies (one per PSO topology) at
+``--standard`` mode (≥ 5 reps × ~8 problems × ~300 evaluations) so
+the *per-problem* per-topology winners are identified.  Use the
+paired-bootstrap CI (auto-selected on ``--randomize``) so the
+per-pair regressions are detected rigorously.  The output of this
 #### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann / random)
 
 Von Neumann shipped 2026-05-22; the random informer graph shipped

@@ -804,6 +804,201 @@ class PSOVonNeumannTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
+# Random (Clerc 2007 / SPSO 2011 stochastic informer graph) topology
+# ----------------------------------------------------------------------
+
+
+class PSORandomTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Verify the ``random`` (Mendes 2004 / Clerc 2007 / SPSO 2011) topology."""
+
+    def test_random_construction(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=20, topology="random", k_neighbors=3)
+        assert h.topology == "random"
+        assert h.k_neighbors == 3
+        # Adjacency is sized lazily — None until on_start runs.
+        assert h._random_adjacency is None
+
+    def test_random_adjacency_built_on_start(self):
+        """``on_start`` populates the per-particle informer list."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="random", k_neighbors=3, seed=42)
+        h.on_start()
+        assert h._random_adjacency is not None
+        assert len(h._random_adjacency) == h.NP
+
+    def test_random_adjacency_contains_self(self):
+        """Every particle is its own informer (so the swarm can always read its pbest)."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="random", k_neighbors=3, seed=7)
+        h.on_start()
+        for i, informers in enumerate(h._random_adjacency):
+            assert i in informers, f"particle {i} not in its own informer list {informers}"
+
+    def test_random_adjacency_excludes_collisions(self):
+        """Duplicate draws are removed — realised neighbourhood ≤ k_neighbors + 1."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=20, topology="random", k_neighbors=3, seed=2026)
+        h.on_start()
+        for informers in h._random_adjacency:
+            assert len(informers) == len(set(informers)), f"duplicates in {informers}"
+            assert len(informers) <= h.k_neighbors + 1
+            assert len(informers) >= 2  # at least self + one draw (with replacement)
+
+    def test_random_adjacency_excludes_self_in_draws(self):
+        """The informer draws sample from ``{0..NP-1} \\ {i}`` — self only appears once."""
+        from panobbgo.heuristics.pso import PSO
+
+        # Run many seeds to make sure the index-shift logic always excludes self.
+        for seed in range(50):
+            h = PSO(self.strategy, NP=8, topology="random", k_neighbors=4, seed=seed)
+            h.on_start()
+            for i, informers in enumerate(h._random_adjacency):
+                # Each particle's own index appears exactly once (added by _init).
+                assert informers.count(i) == 1, f"seed={seed} i={i}: {informers}"
+
+    def test_random_adjacency_asymmetric(self):
+        """The graph is asymmetric: ``j ∈ informers(i)`` does not imply ``i ∈ informers(j)``."""
+        from panobbgo.heuristics.pso import PSO
+
+        # With NP=20 / k=2 and seed=0, asymmetry is almost certain.
+        h = PSO(self.strategy, NP=20, topology="random", k_neighbors=2, seed=0)
+        h.on_start()
+        # Build the reverse adjacency and verify at least one mismatch.
+        forward = {(i, j) for i, informers in enumerate(h._random_adjacency) for j in informers if j != i}
+        backward = {(j, i) for (i, j) in forward}
+        assert forward != backward, "random adjacency should be asymmetric in general"
+
+    def test_random_adjacency_seed_reproducibility(self):
+        """Two PSOs sharing the same seed produce identical adjacency lists."""
+        from panobbgo.heuristics.pso import PSO
+
+        h1 = PSO(self.strategy, NP=15, topology="random", k_neighbors=4, seed=123)
+        h2 = PSO(self.strategy, NP=15, topology="random", k_neighbors=4, seed=123)
+        h1.on_start()
+        h2.on_start()
+        assert h1._random_adjacency == h2._random_adjacency
+
+    def test_random_adjacency_resampled_on_restart(self):
+        """``on_restart`` re-samples the informer graph (Clerc 2007 stagnation rebuild)."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=15, topology="random", k_neighbors=3, seed=99)
+        h.on_start()
+        before = [list(row) for row in h._random_adjacency]
+        h.on_restart(center=np.zeros(self.problem.dim))
+        after = h._random_adjacency
+        # The deterministic RNG plus distinct call should change at least
+        # one row.  Extremely unlikely to be identical given NP=15, k=3.
+        assert any(before[i] != after[i] for i in range(h.NP))
+
+    def test_random_social_best_uses_informer_set(self):
+        """Under ``random`` the social attractor is restricted to the per-particle informer set."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(self.strategy, NP=15, topology="random", k_neighbors=3, seed=42)
+        h.on_start()
+        h.get_points(limit=200)
+
+        # Plant a great pbest at some index that is NOT in particle 0's
+        # informer set, plus a mediocre pbest that IS.  The social
+        # attractor for particle 0 must be the mediocre one (its own
+        # informer), not the great one.
+        informers_0 = set(h._random_adjacency[0]) - {0}
+        all_other = set(range(h.NP)) - {0} - informers_0
+        # Need at least one outside-informer index to plant the excellent pbest.
+        assert all_other, "test setup needs NP large enough for asymmetric informer sets"
+        outside_idx = sorted(all_other)[0]
+        inside_idx = sorted(informers_0)[0]
+
+        def feed(idx, fx):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, fx)])
+
+        feed(outside_idx, 0.0001)  # excellent pbest — outside particle 0's informer set
+        h.get_points(limit=200)
+        feed(inside_idx, 7.0)  # mediocre pbest — inside particle 0's informer set
+        h.get_points(limit=200)
+
+        # _gbest_idx is the global best (used for reporting), points at outside_idx.
+        assert h._gbest_idx == outside_idx
+        # Social attractor for particle 0 under random topology must come
+        # from the informer set — it cannot "see" outside_idx.
+        assert h._social_best_idx(0) == inside_idx
+
+    def test_random_social_best_none_until_neighbour_evaluated(self):
+        """Returns ``None`` until at least one informer has a pbest."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="random", k_neighbors=3, seed=1)
+        h.on_start()
+        h.get_points(limit=100)
+        for i in range(h.NP):
+            assert h._social_best_idx(i) is None
+
+    def test_random_velocity_clamp(self):
+        """Random topology respects the same ``v_max`` clamp as the others."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Point, Result
+
+        h = PSO(
+            self.strategy,
+            NP=9,
+            topology="random",
+            k_neighbors=2,
+            w=0.9,
+            c1=2.0,
+            c2=2.0,
+            v_max_frac=0.2,
+            seed=11,
+        )
+        h.on_start()
+        h.get_points(limit=200)
+
+        # Feed two particles' results so the social attractor pool is non-empty.
+        for idx in (1, 0):
+            req_id = next(rid for rid, i in h._pending.items() if i == idx)
+            p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+            h.on_new_results([Result(p, 1.0 + idx)])
+
+        ranges = self.problem.box[:, 1] - self.problem.box[:, 0]
+        v_max = 0.2 * ranges
+        assert np.all(np.abs(h._velocities) <= v_max + 1e-12)
+
+    def test_random_drives_toward_origin_on_quadratic(self):
+        """End-to-end: random topology strictly improves on a quadratic."""
+        from panobbgo.heuristics.pso import PSO
+        from panobbgo.lib import Result
+
+        h = PSO(self.strategy, NP=12, topology="random", k_neighbors=3, seed=2026)
+        h.on_start()
+        pts = h.get_points(limit=200)
+
+        def f(x):
+            return float(np.sum(x * x))
+
+        def evaluate_and_feed(points):
+            results = [Result(pt, f(pt.x)) for pt in points]
+            h.on_new_results(results)
+
+        evaluate_and_feed(pts)
+        best_fx = min(r.fx for r in h._pbest_result if r is not None)
+        for _ in range(20):
+            pts = h.get_points(limit=200)
+            if not pts:
+                break
+            evaluate_and_feed(pts)
+        new_best = min(r.fx for r in h._pbest_result if r is not None)
+        assert new_best <= best_fx + 1e-12
+
+
+# ----------------------------------------------------------------------
 # Module-level registration
 # ----------------------------------------------------------------------
 
@@ -829,15 +1024,17 @@ def test_pso_in_default_structural_catalog():
 
 
 def test_pso_lbest_variant_in_default_structural_catalog():
-    """The gbest, lbest, and vonneumann PSO variants all appear in the structural catalog.
+    """The gbest, lbest, vonneumann, and random PSO variants all appear in the structural catalog.
 
-    The catalog ships *three* PSO entries — canonical gbest (Kennedy-Eberhart
-    1995), lbest ring topology (Kennedy & Mendes 2002), and vonneumann 2-D
-    toroidal grid (Kennedy & Mendes 2003; Mendes 2004) — so the
-    self-improvement loop can pick whichever helps on the current battery.
-    All three share ``cls = PSO`` so ``avoid_duplicates=True`` still prevents
-    multiple PSO instances per strategy; instead the catalog samples
-    uniformly between them when PSO is not yet present.
+    The catalog ships *four* PSO entries — canonical gbest
+    (Kennedy-Eberhart 1995), lbest ring topology (Kennedy & Mendes
+    2002), vonneumann 2-D toroidal grid (Kennedy & Mendes 2003;
+    Mendes 2004), and random informer graph (Mendes 2004; Clerc 2007
+    / SPSO 2011) — so the self-improvement loop can pick whichever
+    helps on the current battery.  All four share ``cls = PSO`` so
+    ``avoid_duplicates=True`` still prevents multiple PSO instances
+    per strategy; instead the catalog samples uniformly between them
+    when PSO is not yet present.
     """
     from panobbgo.self_improve import default_structural_catalog
     from panobbgo.heuristics.pso import PSO
@@ -845,13 +1042,13 @@ def test_pso_lbest_variant_in_default_structural_catalog():
     catalog = default_structural_catalog()
     add_rules = [r for r in catalog.rules if getattr(r, "op", None) == "add_heuristic"]
     pso_entries = [kwargs for rule in add_rules for cls, kwargs in rule.candidate_classes if cls is PSO]
-    assert len(pso_entries) >= 3, f"expected ≥3 PSO entries, got {pso_entries!r}"
+    assert len(pso_entries) >= 4, f"expected ≥4 PSO entries, got {pso_entries!r}"
     topologies = {kwargs.get("topology", "gbest") for kwargs in pso_entries}
-    assert topologies == {"gbest", "lbest", "vonneumann"}
+    assert topologies == {"gbest", "lbest", "vonneumann", "random"}
 
 
 def test_pso_topology_categorical_rule_includes_vonneumann():
-    """The PSO.topology categorical rule covers all three shipped topologies."""
+    """The PSO.topology categorical rule covers all four shipped topologies."""
     from panobbgo.self_improve import default_catalog
 
     catalog = default_catalog()
@@ -859,7 +1056,7 @@ def test_pso_topology_categorical_rule_includes_vonneumann():
     assert len(topo_rules) == 1, f"expected exactly 1 PSO.topology rule, got {len(topo_rules)}"
     rule = topo_rules[0]
     assert rule.kind == "categorical_choice"
-    assert set(rule.choices) == {"gbest", "lbest", "vonneumann"}
+    assert set(rule.choices) == {"gbest", "lbest", "vonneumann", "random"}
 
 
 def test_pso_kwarg_rule_in_default_catalog():

@@ -1214,20 +1214,24 @@ def default_catalog() -> MutationCatalog:
             # heuristic between the canonical Kennedy-Eberhart ``gbest``
             # (fully-connected swarm, instantaneous diffusion), the
             # Kennedy-Mendes ``lbest`` (ring with one-hop diffusion,
-            # better on multimodal landscapes), and ``vonneumann`` (a
+            # better on multimodal landscapes), ``vonneumann`` (a
             # 4-connected 2-D toroidal grid that sits between the two
-            # extremes — Kennedy & Mendes 2003, Mendes 2004).  Only
-            # fires when the spec sets ``topology`` explicitly — the
-            # default PSO constructor leaves it implicit at ``"gbest"``.
-            # The structural catalog ships lbest and vonneumann variants,
-            # so this rule is immediately useful for any portfolio that
-            # has gained an explicit-topology PSO via ``add_heuristic``.
+            # extremes — Kennedy & Mendes 2003, Mendes 2004), and
+            # ``random`` (the Mendes 2004 / Clerc 2007 / SPSO 2011
+            # stochastic-informer graph — structure-free middle ground
+            # whose diffusion speed depends on the realised graph).
+            # Only fires when the spec sets ``topology`` explicitly —
+            # the default PSO constructor leaves it implicit at
+            # ``"gbest"``.  The structural catalog ships lbest,
+            # vonneumann, and random variants, so this rule is
+            # immediately useful for any portfolio that has gained an
+            # explicit-topology PSO via ``add_heuristic``.
             MutationRule(
                 strategy_pattern="",
                 class_name="PSO",
                 param_name="topology",
                 kind="categorical_choice",
-                choices=("gbest", "lbest", "vonneumann"),
+                choices=("gbest", "lbest", "vonneumann", "random"),
                 probability=0.3,
             ),
             # Sobol' scrambling toggle (categorical).  ``scramble=True``
@@ -1437,13 +1441,15 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.cobyqa import COBYQA
     from panobbgo.heuristics.lbfgsb import LBFGSB
 
-    # Three PSO entries cover the canonical ``gbest`` (default
+    # Four PSO entries cover the canonical ``gbest`` (default
     # Kennedy-Eberhart 1995 swarm), the ``lbest`` ring topology (Kennedy &
-    # Mendes 2002), and ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes
-    # 2003, Mendes 2004) — three complementary information-diffusion
-    # regimes (instantaneous, one-hop linear, two-hop planar).
+    # Mendes 2002), ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes
+    # 2003, Mendes 2004), and ``random`` stochastic-informer graph
+    # (Mendes 2004; Clerc 2007 / SPSO 2011) — four complementary
+    # information-diffusion regimes (instantaneous, one-hop linear,
+    # two-hop planar, stochastic asymmetric).
     # ``avoid_duplicates=True`` ensures only one PSO variant ends up in any
-    # given strategy — the catalog picks one of the three uniformly when
+    # given strategy — the catalog picks one of the four uniformly when
     # PSO is not yet present, after which subsequent samples skip them all.
     # L-SHADE (Tanabe-Fukunaga 2014) is the literature-best adaptive
     # Differential Evolution variant; the default ``NP_init=30`` matches
@@ -1484,6 +1490,7 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20}),  # canonical Clerc-Kennedy global-best swarm
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
+        (PSO, {"NP": 20, "topology": "random", "k_neighbors": 3}),  # Clerc 2007 / SPSO 2011 (K=3)
         (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP

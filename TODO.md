@@ -2,6 +2,64 @@
 
 ## Recent Improvements (continued)
 
+### Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011) — 2026-05-29
+- [x] **New `"random"` topology** in `panobbgo/heuristics/pso.py`;
+      closes the *Random re-wired topology* PSO follow-up under the
+      2026-05-22 entry in `planning/SELF_IMPROVEMENT_LOOP.md`.  Each
+      particle is connected to itself plus `k_neighbors` random
+      *informers* drawn uniformly with replacement from
+      `{0..NP-1} \ {i}`; duplicates are removed so the realised
+      neighbourhood size lies in `[2, k_neighbors + 1]`.  Implemented
+      via `_init_random_adjacency` (sample the per-particle adjacency
+      list once at start) and `_random_neighbors` (lookup helper).
+      `_social_best_idx` dispatches the new topology onto the same
+      scan-for-best-neighbour-pbest routine already used by `lbest` /
+      `vonneumann`.  The adjacency is re-sampled at `on_restart`
+      (Clerc 2007 / SPSO 2011 stagnation-rebuild convention).
+  - **Why it matters.** Completes the canonical Mendes 2004 topology
+    set (gbest / lbest / vonneumann / random); the three geometric
+    topologies are all closed-form functions of `NP`, while `random`
+    is the structure-free alternative whose diffusion speed depends
+    on the realised graph.  Useful when the bandit evidence shows
+    neither pure structured topology consistently wins on a given
+    battery.  Clerc reports `K=3` as the SPSO 2011 default — matches
+    the structural-catalog entry below.
+- [x] **Catalog wiring** — `default_structural_catalog` ships a
+      fourth PSO entry `(PSO, {"NP": 20, "topology": "random",
+      "k_neighbors": 3})` alongside the existing `gbest` / `lbest` /
+      `vonneumann` triples.  All four share `cls = PSO` so
+      `avoid_duplicates=True` still prevents multiple PSO instances
+      per strategy.  `default_catalog`'s `PSO.topology` categorical
+      rule grows from three choices to four (`("gbest", "lbest",
+      "vonneumann", "random")`) so the bandit can flip an existing
+      explicit-topology PSO between all four regimes without dropping
+      and re-adding the heuristic.
+- [x] **Backwards compatibility** — strictly safe.  `topology`
+      defaults to `"gbest"` so every existing PSO instance retains
+      its prior behaviour bit-for-bit (all 56 pre-existing PSO tests
+      pass unchanged).  The new informer-adjacency field is `None`
+      under any other topology, so memory / RNG draws are unchanged
+      for `gbest` / `lbest` / `vonneumann`.  The structural catalog
+      gains one extra `add_heuristic` candidate; the categorical
+      rule's cardinality bumps from 3 to 4 (callers parsing
+      `rule.choices` see one extra string they may ignore).
+- [x] **Tests** — `tests/test_heuristic_pso.py` (+12 tests, total
+      80): random construction round-trip; adjacency built on start;
+      every particle is its own informer; realised neighbourhood
+      ≤ k+1 with no duplicates; self appears exactly once (i.e. the
+      index-shift logic excludes self from the random draws across 50
+      seeds); asymmetric graph in general; seed reproducibility;
+      adjacency re-sampled on restart; social-best limited to
+      informer set (planted-pbest invariant); none-until-evaluated;
+      velocity clamp invariant; end-to-end smoke convergence on a
+      quadratic; updated structural-catalog test confirming all four
+      PSO topology variants appear among `add_heuristic` candidates;
+      updated categorical-rule test confirming `default_catalog` now
+      ships `choices=("gbest", "lbest", "vonneumann", "random")`.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOOP.md`,
+      `doc/source/guide.rst`, `doc/source/guide_benchmarking.rst`,
+      `doc/source/guide_architecture.rst`, `doc/source/heuristics.rst`,
+      `AGENTS.md`, and this `TODO.md` entry.
 ### Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued) — 2026-05-27
 - [x] **Rewrote `panobbgo/heuristics/lbfgsb.py`** from a one-shot,
   box-centre, restart-blind, *unreferenced* stub into a robust

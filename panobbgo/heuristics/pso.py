@@ -66,14 +66,31 @@ How ``sbest_i`` is determined depends on the *swarm topology*:
   would land on a phantom (out-of-range) grid slot lose that
   neighbour — so the neighbourhood size drops from 5 to 4 (or
   occasionally 3) on the trailing partial row.
+* ``"random"`` — *random informer graph* (Mendes 2004; Clerc 2007 /
+  SPSO 2011).  Each particle ``i`` is connected to itself plus
+  ``k_neighbors`` *informers* picked uniformly from
+  ``{0..NP-1} \\ {i}`` *with replacement*; duplicates are removed
+  so the actual neighbourhood size is between ``2`` (worst case, all
+  draws collided) and ``k_neighbors + 1`` (no collisions).  Unlike
+  the three geometric topologies — whose adjacency is a closed-form
+  function of ``NP`` — the random graph is sampled at ``on_start``
+  (and re-sampled at ``on_restart``) from the heuristic's RNG.  The
+  graph is *asymmetric*: ``j`` being in ``i``'s informer set does not
+  imply the reverse.  Practical role: when neither ``gbest`` (too
+  greedy), ``lbest`` (too slow to diffuse), nor ``vonneumann`` (locked
+  to a fixed 2-D grid geometry) consistently wins, the random graph
+  picks up some of the diffusion-speed flexibility of all three
+  without committing to a structural prior.  Clerc reports the random
+  topology with ``K=3`` as the SPSO 2011 default.
 
-The three topologies are *complementary*: ``gbest`` excels on unimodal /
+The four topologies are *complementary*: ``gbest`` excels on unimodal /
 weakly-multimodal problems where rapid exploitation pays off, ``lbest``
 on highly-multimodal landscapes where a swarm-wide attractor would lock
-all particles into the first decent basin, and ``vonneumann`` between
-the two.  Panobbgo's structural mutation catalog ships *all three*
-variants so the self-improvement loop can pick whichever helps on a
-given problem family.
+all particles into the first decent basin, ``vonneumann`` between the
+two with a fixed 2-D geometry, and ``random`` as a structure-free
+alternative whose diffusion speed depends on the realised graph.
+Panobbgo's structural mutation catalog ships *all four* variants so the
+self-improvement loop can pick whichever helps on a given problem family.
 
 Adaptive inertia (Shi-Eberhart 1998)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -133,7 +150,13 @@ References
   Introduces the Von Neumann 2-D grid topology as a stable middle ground.
 * R. Mendes (2004). "Population Topologies and Their Influence in Particle
   Swarm Performance." PhD thesis, Universidade do Minho.  Comprehensive
-  empirical study; identifies Von Neumann as a strong default.
+  empirical study; identifies Von Neumann as a strong default and
+  introduces the random-graph topology as a structure-free alternative.
+* M. Clerc (2007). "Stagnation Analysis in Particle Swarm Optimisation
+  or What Happens When Nothing Happens." *Technical Report*, CSM-460,
+  Department of Computer Science, University of Essex.  Standardises
+  the random informer graph for SPSO 2007 / 2011 with ``K=3`` informers
+  per particle drawn uniformly with replacement.
 * R. Poli, J. Kennedy, T. Blackwell (2007). "Particle Swarm Optimization:
   An Overview." *Swarm Intelligence*, 1(1):33–57.
 """
@@ -158,7 +181,7 @@ _DEFAULT_C2: float = 1.49618  # χ · 2.05
 # Topologies controlling the *social* attraction term in the velocity
 # update.  Kept as a tuple for runtime introspection (``topology in
 # _TOPOLOGIES``).
-_TOPOLOGIES: tuple = ("gbest", "lbest", "vonneumann")
+_TOPOLOGIES: tuple = ("gbest", "lbest", "vonneumann", "random")
 
 
 class PSO(Heuristic):
@@ -200,12 +223,27 @@ class PSO(Heuristic):
             rectangle).  Empirically a stable middle ground that wins
             on a broader range of problem classes than either pure ring
             or pure star (Kennedy & Mendes 2003; Mendes 2004).
-        k_neighbors: Half-width of the ``"lbest"`` neighbourhood.
-            Default ``2`` (neighbourhood size 5, including self) which
-            matches the recommendation in Kennedy & Mendes 2002.  Must
-            be a positive integer; ``k_neighbors >= NP // 2`` makes the
+            ``"random"`` connects each particle to itself plus
+            ``k_neighbors`` *informers* drawn uniformly with replacement
+            from the other particles, dropping duplicates so the actual
+            neighbourhood size lies in ``[2, k_neighbors + 1]``.  The
+            adjacency is sampled at ``on_start`` and re-sampled at
+            ``on_restart`` from the heuristic's RNG (Mendes 2004;
+            Clerc 2007 / SPSO 2011 — Clerc reports ``K=3`` as the
+            standard default).
+        k_neighbors: Size knob for the neighbourhood.  Under
+            ``"lbest"`` it is the *half-width* of the ring — the
+            neighbourhood spans ``2 · k_neighbors + 1`` particles
+            including the centre — and the default ``2`` matches
+            Kennedy & Mendes 2002 (neighbourhood size 5).  Under
+            ``"random"`` it is the *number of random informers*
+            drawn per particle (in addition to self); after
+            de-duplication the realised neighbourhood size lies in
+            ``[2, k_neighbors + 1]``.  Must be a positive integer;
+            ``k_neighbors >= NP // 2`` under ``"lbest"`` makes the
             neighbourhood span the whole swarm and degenerates to
-            ``gbest``.  Ignored when ``topology != "lbest"``.
+            ``"gbest"``.  Ignored when ``topology in {"gbest",
+            "vonneumann"}``.
         w_end: Final inertia weight for the linearly-decreasing
             (Shi-Eberhart 1998) schedule.  When set, the inertia at
             evaluation count ``e`` (out of ``E = strategy.config.max_eval``)
@@ -289,6 +327,11 @@ class PSO(Heuristic):
         # this id arrives we know which particle slot to update.  A
         # particle has at most one trial pending at any time.
         self._pending: Dict[str, int] = {}
+
+        # Per-particle random informer adjacency list, sized once at
+        # ``on_start`` and re-sampled at ``on_restart``.  Only populated
+        # when ``topology == "random"``; ``None`` otherwise.
+        self._random_adjacency: Optional[List[List[int]]] = None
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -393,6 +436,47 @@ class PSO(Heuristic):
             out.append(idx)
         return out
 
+    def _init_random_adjacency(self) -> None:
+        """Sample one random informer set per particle.
+
+        Each particle ``i`` is connected to itself plus
+        :attr:`k_neighbors` *informers* drawn uniformly from
+        ``{0..NP-1} \\ {i}`` *with replacement*.  Duplicates are
+        removed so the realised neighbourhood lies in
+        ``[2, k_neighbors + 1]`` — at the lower end if all draws
+        happened to collide on a single index (or with self), at the
+        upper end if every draw landed on a distinct non-self
+        particle.
+
+        Matches the Clerc 2007 / SPSO 2011 convention: stochastic and
+        asymmetric (``j ∈ informers(i)`` does not imply
+        ``i ∈ informers(j)``).  Re-sampled every :meth:`on_restart`.
+        """
+        if self.NP < 2:
+            # Pathological — the constructor already rejects NP < 2,
+            # but be defensive in case some subclass bypasses it.
+            self._random_adjacency = [[0]] * self.NP
+            return
+        adjacency: List[List[int]] = []
+        for i in range(self.NP):
+            picks = self._rng.integers(low=0, high=self.NP - 1, size=self.k_neighbors)
+            # Shift past ``i`` so the informer pool excludes self.
+            informers = set(int(p if p < i else p + 1) for p in picks)
+            informers.add(i)
+            adjacency.append(sorted(informers))
+        self._random_adjacency = adjacency
+
+    def _random_neighbors(self, particle_idx: int) -> List[int]:
+        """Return the random informer list for ``particle_idx``.
+
+        Falls back to ``[particle_idx]`` if :attr:`_random_adjacency`
+        has not been initialised (e.g. ``on_start`` has not run yet);
+        callers then degrade gracefully through ``_social_best_idx``.
+        """
+        if self._random_adjacency is None:
+            return [particle_idx]
+        return self._random_adjacency[particle_idx]
+
     def _social_best_idx(self, particle_idx: int) -> Optional[int]:
         """Return the index of the social attractor for ``particle_idx``.
 
@@ -408,6 +492,10 @@ class PSO(Heuristic):
         stable middle ground that wins on a broader range of problem
         classes than either pure ring or pure star
         (Kennedy & Mendes 2003; Mendes 2004).
+        For ``topology == "random"`` it is the index of the best
+        ``pbest`` among the per-particle random informer set sampled
+        at :meth:`on_start` / :meth:`on_restart` (Mendes 2004; Clerc
+        2007 / SPSO 2011).
 
         Returns ``None`` if no neighbour has accumulated a personal
         best yet, in which case :meth:`_generate_next` falls back to a
@@ -418,8 +506,10 @@ class PSO(Heuristic):
 
         if self.topology == "lbest":
             neighbour_idxs: List[int] = self._ring_neighbors(particle_idx)
-        else:  # "vonneumann"
+        elif self.topology == "vonneumann":
             neighbour_idxs = self._vonneumann_neighbors(particle_idx)
+        else:  # "random"
+            neighbour_idxs = self._random_neighbors(particle_idx)
 
         handler = self.strategy.constraint_handler
         best_idx: Optional[int] = None
@@ -505,6 +595,8 @@ class PSO(Heuristic):
         self._pbest_result = [None] * self.NP
         self._gbest_idx = None
         self._pending = {}
+        if self.topology == "random":
+            self._init_random_adjacency()
 
         # Initial velocities are drawn uniformly inside the velocity
         # clamp.  This avoids the "stalled at zero velocity for the
@@ -562,6 +654,12 @@ class PSO(Heuristic):
         self._pending.clear()
         if self._positions is None or self._velocities is None or self._pbest_x is None:
             return  # not started yet — nothing to reset
+
+        # Re-sample the random informer graph on restart (matches the
+        # Clerc 2007 / SPSO 2011 convention: when the swarm loses
+        # cohesion, the social network is rebuilt to break stagnation).
+        if self.topology == "random":
+            self._init_random_adjacency()
 
         dim = self.problem.dim
         v_max = self._v_max()

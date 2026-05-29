@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    306  (decided=306, skipped=0)
-Accepts:       15  (4.9% of decided)
-Guards:        60  (rollbacks=22, total pops=10)
-Hold-outs:     18  (overfit=0)
+Iterations:    326  (decided=326, skipped=0)
+Accepts:       15  (4.6% of decided)
+Guards:        64  (rollbacks=22, total pops=10)
+Hold-outs:     19  (overfit=0)
 Best Δ seen:   +0.1061
 Accepted changes:
   iter=6  Δ=+0.0394  Rewarding_Diverse/Sensitivity.update_interval: 20 -> 25
@@ -62,5 +62,6 @@ Hold-out validation:
   OK  drift=-0.0081  holdout_gap=+0.0091 training_gap=+0.0172  top_iter=12  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=-0.0486  overfit=0/18  worst_seed=7
-  --> drift CI: OK_CI  mean=-0.0053  CI95%=[-0.0104, -0.0008]  n_samples=54  n_records=18
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=-0.0486  overfit=0/19  worst_seed=7
+  --> drift CI: OK_CI  mean=-0.0049  CI95%=[-0.0095, -0.0008]  n_samples=59  n_records=19

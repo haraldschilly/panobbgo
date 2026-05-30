@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    326  (decided=326, skipped=0)
-Accepts:       15  (4.6% of decided)
-Guards:        64  (rollbacks=22, total pops=10)
-Hold-outs:     19  (overfit=0)
+Iterations:    346  (decided=346, skipped=0)
+Accepts:       17  (4.9% of decided)
+Guards:        68  (rollbacks=24, total pops=11)
+Hold-outs:     20  (overfit=0)
 Best Δ seen:   +0.1061
 Accepted changes:
   iter=6  Δ=+0.0394  Rewarding_Diverse/Sensitivity.update_interval: 20 -> 25
@@ -20,6 +20,8 @@ Accepted changes:
   iter=6  Δ=+0.0867  Rewarding_Diverse/Nearby.radius: 0.10888201348698814 -> 0.09588246862642831
   iter=10  Δ=+0.0494  Rewarding_Diverse/NelderMead.: None -> None
   iter=19  Δ=+0.0344  Rewarding_Diverse/Sobol.n: 16 -> 24
+  iter=12  Δ=+0.0356  Rewarding_Diverse/Sobol.n: 16 -> 12
+  iter=17  Δ=+0.0317  Rewarding_Diverse/Sobol.scramble: True -> False
 Guard rollbacks:
   iter=9  pops=0  score=0.0117 vs stored 0.0339; new top iter=-1
   iter=14  pops=0  score=0.0067 vs stored 0.0339; new top iter=-1
@@ -43,6 +45,8 @@ Guard rollbacks:
   iter=9  pops=1  score=0.0333 vs stored 0.0883; new top iter=1
   iter=14  pops=2  score=0.0456 vs stored 0.0889; new top iter=-1
   iter=19  pops=1  score=0.0444 vs stored 0.1194; new top iter=-1
+  iter=9  pops=0  score=0.0111 vs stored 0.0417; new top iter=-1
+  iter=19  pops=1  score=0.0272 vs stored 0.0794; new top iter=12
 Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -63,5 +67,6 @@ Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=-0.0486  overfit=0/19  worst_seed=7
-  --> drift CI: OK_CI  mean=-0.0049  CI95%=[-0.0095, -0.0008]  n_samples=59  n_records=19
+  OK  drift=+0.0297  holdout_gap=-0.0009 training_gap=-0.0306  top_iter=12  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=-0.0486  overfit=0/20  worst_seed=7
+  --> drift CI: OK_CI  mean=-0.0022  CI95%=[-0.0074, +0.0028]  n_samples=64  n_records=20

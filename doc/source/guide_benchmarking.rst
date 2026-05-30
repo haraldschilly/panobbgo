@@ -619,6 +619,76 @@ Programmatic use:
    )
    iter_records, guard_records = SelfImprover(cfg).run_with_guard_records()
 
+Inactivity-guarded eps_accept relaxation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Long unattended ledgers tend to show very low accept rates (the cron
+that motivated this knob recently recorded *1 accept in 86 iterations*).
+That is small enough that the adaptive sampler's posterior remains
+close to its prior for most arms — defeating the point of bandit
+sampling.  The mitigation is to temporarily lower the accept threshold
+after the loop has gone too long without an accept, then re-tighten on
+the next accept.
+
+Three knobs on :class:`~panobbgo.self_improve.LoopConfig` (mirrored as
+``--inactivity-relax-after`` / ``--inactivity-relax-factor`` /
+``--inactivity-min-eps-accept`` on the CLI):
+
+* :attr:`~panobbgo.self_improve.LoopConfig.inactivity_relax_after`
+  (default ``0`` = disabled).  Number of consecutive non-accept
+  iterations after which the relax rule starts to fire.  Both
+  *skip*-iterations (no applicable mutation) and *reject*-iterations
+  count toward the streak — the bandit cares about observed accepts,
+  not about how the loop reached "no accept".
+* :attr:`~panobbgo.self_improve.LoopConfig.inactivity_relax_factor`
+  (default ``0.5``).  Multiplicative factor applied to
+  ``eps_accept`` per relaxation step.  Each additional
+  ``inactivity_relax_after`` block of non-accepts halves the threshold
+  again, so after ``k`` blocks the effective threshold is
+  ``eps_accept · factor^k``.
+* :attr:`~panobbgo.self_improve.LoopConfig.inactivity_min_eps_accept`
+  (default ``0.001``).  Floor on the relaxed threshold so a relaxed
+  accept still beats a baseline-grade signal.  Picked to match the
+  bootstrap CI's noise floor at typical quick-mode rep counts.
+
+Behaviour:
+
+* Disabled (``inactivity_relax_after = 0``) ⇒
+  :func:`~panobbgo.self_improve.LoopConfig.effective_eps_accept` is a
+  constant equal to ``eps_accept``, byte-identical to the historical
+  behaviour.
+* Streak length ``s`` ⇒ effective threshold is
+  ``max(eps_accept · factor^(s // after), min_eps_accept)``.
+* On every accept the streak resets to ``0`` and the next iteration
+  starts again at the full ``eps_accept`` — the relaxation is
+  genuinely temporary.
+
+Each iteration records both
+:attr:`~panobbgo.self_improve.LoopIterationRecord.effective_eps_accept`
+and :attr:`~panobbgo.self_improve.LoopIterationRecord.iters_since_accept`
+so an auditor can replay the relax rule deterministically.  Old
+records (written before the feature shipped) carry ``None`` for both
+fields and continue to load unchanged.
+
+Recommended unattended preset, mirroring the planning doc's §10
+"inactivity-guarded loop productivity" sketch:
+
+.. code-block:: bash
+
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --adaptive --adaptive-prime-from-ledger --structural \
+       --guard-interval 10 \
+       --inactivity-relax-after 10 \
+       --inactivity-relax-factor 0.5 \
+       --inactivity-min-eps-accept 0.001
+
+The §11 success criteria pin ``eps_accept`` at a fixed level, so a
+chronic relaxation would silently shift the loop's "improvement" bar.
+The floor + per-iteration ledger field keep this honest: a reviewer
+can grep the ledger for any record whose
+``effective_eps_accept`` is below ``eps_accept`` and audit those
+accepts separately.
+
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

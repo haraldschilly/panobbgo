@@ -451,6 +451,20 @@ uv run python scripts/self_improve.py run --iterations 100 \
     --mode standard --holdout-base-seeds 1234,5678,9012 \
     --fail-on-overfit-ci --holdout-ci-confidence 0.95
 
+# Inactivity-guarded eps_accept relaxation (shipped 2026-05-30).  Break
+# out of long accept droughts by geometrically decaying eps_accept
+# after every N consecutive non-accepts, floored at min_eps_accept,
+# re-tightened on the next accept.  Each iteration ledger record
+# persists the effective threshold + streak so the rule is auditable.
+# Recommended for the unattended nightly cron where the documented
+# accept rate is 1–5%.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --adaptive --adaptive-prime-from-ledger --structural \
+    --guard-interval 10 \
+    --inactivity-relax-after 10 \
+    --inactivity-relax-factor 0.5 \
+    --inactivity-min-eps-accept 0.001
+
 # Inspect the ledger
 uv run python scripts/self_improve.py summary
 ```

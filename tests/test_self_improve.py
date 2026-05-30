@@ -4445,3 +4445,331 @@ class TestSelfImproverPersistsPerIterScores:
         assert len(holdout) == 1
         assert holdout[0]["seed_iteration_scores"] == [0.5, 0.5]
         assert holdout[0]["top_iteration_scores"] == [0.5, 0.5]
+
+
+# ===========================================================================
+# Inactivity-guarded eps_accept relaxation
+# ===========================================================================
+
+
+class TestInactivityRelaxConfig:
+    """Validation and effective-threshold maths for the inactivity-relax knobs."""
+
+    def test_disabled_by_default(self):
+        cfg = LoopConfig()
+        assert cfg.inactivity_relax_after == 0
+        # Disabled ⇒ effective threshold is the configured eps_accept for
+        # any streak length.
+        for streak in (0, 1, 10, 1000):
+            assert cfg.effective_eps_accept(streak) == cfg.eps_accept
+
+    def test_negative_relax_after_raises(self):
+        with pytest.raises(ValueError, match="inactivity_relax_after must be >= 0"):
+            LoopConfig(inactivity_relax_after=-1)
+
+    def test_factor_must_be_in_open_unit_interval(self):
+        # 1.0 doesn't relax — pointless and almost certainly a typo.
+        with pytest.raises(ValueError, match="inactivity_relax_factor"):
+            LoopConfig(inactivity_relax_after=5, inactivity_relax_factor=1.0)
+        # 0.0 collapses the threshold to the floor instantly — pointless.
+        with pytest.raises(ValueError, match="inactivity_relax_factor"):
+            LoopConfig(inactivity_relax_after=5, inactivity_relax_factor=0.0)
+        # > 1 would amplify — opposite of the knob's intent.
+        with pytest.raises(ValueError, match="inactivity_relax_factor"):
+            LoopConfig(inactivity_relax_after=5, inactivity_relax_factor=1.5)
+
+    def test_floor_must_be_non_negative(self):
+        with pytest.raises(ValueError, match="inactivity_min_eps_accept must be >= 0"):
+            LoopConfig(inactivity_relax_after=5, inactivity_min_eps_accept=-0.001)
+
+    def test_floor_must_not_exceed_eps_accept(self):
+        with pytest.raises(ValueError, match="inactivity_min_eps_accept must be <= eps_accept"):
+            LoopConfig(
+                inactivity_relax_after=5,
+                eps_accept=0.005,
+                inactivity_min_eps_accept=0.01,
+            )
+
+    def test_no_relax_before_threshold(self):
+        cfg = LoopConfig(
+            eps_accept=0.005,
+            inactivity_relax_after=10,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+        )
+        for streak in range(10):
+            assert cfg.effective_eps_accept(streak) == 0.005
+
+    def test_geometric_decay_steps(self):
+        cfg = LoopConfig(
+            eps_accept=0.008,
+            inactivity_relax_after=4,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+        )
+        # After 4 misses → 1 step of decay (0.5x).
+        assert cfg.effective_eps_accept(4) == pytest.approx(0.004)
+        # After 7 misses still 1 step (integer division 7 // 4 = 1).
+        assert cfg.effective_eps_accept(7) == pytest.approx(0.004)
+        # After 8 misses → 2 steps (0.25x).
+        assert cfg.effective_eps_accept(8) == pytest.approx(0.002)
+        # After 12 misses → 3 steps (0.125x).
+        assert cfg.effective_eps_accept(12) == pytest.approx(0.001)
+
+    def test_floor_clamps_decay(self):
+        cfg = LoopConfig(
+            eps_accept=0.008,
+            inactivity_relax_after=4,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.002,
+        )
+        # Step 1 (4 misses): 0.004, above floor.
+        assert cfg.effective_eps_accept(4) == pytest.approx(0.004)
+        # Step 2 (8 misses): 0.002 — exactly the floor.
+        assert cfg.effective_eps_accept(8) == pytest.approx(0.002)
+        # Step 3 (12 misses) would be 0.001 < floor: clamped to floor.
+        assert cfg.effective_eps_accept(12) == pytest.approx(0.002)
+        # Step 10 still floor.
+        assert cfg.effective_eps_accept(40) == pytest.approx(0.002)
+
+
+class TestInactivityRelaxIntegration:
+    """End-to-end loop behaviour under inactivity-relaxed eps_accept."""
+
+    def _radius_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicA",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+            ]
+        )
+
+    def test_records_carry_effective_eps_and_streak(self, tmp_path):
+        # Score function: baseline 0.5, candidate 0.5 → delta 0, every
+        # iteration rejected.  Streak grows monotonically; threshold
+        # decays once we cross inactivity_relax_after.
+        cfg = LoopConfig(
+            iterations=6,
+            n_boot=50,
+            eps_accept=0.010,
+            inactivity_relax_after=2,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert len(records) == 6
+        # No accepts at delta=0 (regardless of relaxation, the bootstrap
+        # CI on a zero-delta sample brackets zero so the lower-bound gate
+        # rejects it).  Streak therefore grows 0, 1, 2, 3, 4, 5.
+        assert all(not r.accepted for r in records)
+        assert [r.iters_since_accept for r in records] == [0, 1, 2, 3, 4, 5]
+        # eps_accept=0.010 at streak 0/1 (no relax yet), 0.005 at 2/3
+        # (1 step), 0.0025 at 4/5 (2 steps).
+        expected = [0.010, 0.010, 0.005, 0.005, 0.0025, 0.0025]
+        for r, e in zip(records, expected):
+            assert r.effective_eps_accept == pytest.approx(e)
+
+    def test_streak_resets_on_accept(self, tmp_path):
+        # First two iters: baseline 0.3, candidate 0.7 (strong accept);
+        # then baseline=candidate=0.5 (reject); then strong accept again.
+        # Alternate the runs: each iteration runs baseline then candidate.
+        # We want: iter 0 = accept, iter 1 = reject, iter 2 = reject,
+        # iter 3 = accept.  So we serve baseline/candidate pairs
+        # (0.3, 0.7), (0.5, 0.5), (0.5, 0.5), (0.3, 0.7).
+        baseline_candidate_pairs = [(0.3, 0.7), (0.5, 0.5), (0.5, 0.5), (0.3, 0.7)]
+        flat = [v for pair in baseline_candidate_pairs for v in pair]
+        counter = {"n": 0}
+
+        def score_fn(config):
+            n = counter["n"]
+            counter["n"] += 1
+            return flat[n]
+
+        cfg = LoopConfig(
+            iterations=4,
+            n_boot=200,
+            eps_accept=0.005,
+            inactivity_relax_after=10,  # high enough not to fire in 4 iters
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        # iter 0 accepts → streak entering iter 0 = 0
+        # iter 1 rejects → streak entering iter 1 = 0 (just reset)
+        # iter 2 rejects → streak entering iter 2 = 1
+        # iter 3 accepts → streak entering iter 3 = 2
+        assert records[0].accepted is True
+        assert records[1].accepted is False
+        assert records[2].accepted is False
+        assert records[3].accepted is True
+        assert [r.iters_since_accept for r in records] == [0, 0, 1, 2]
+        # eps_accept is constant 0.005 across the four because the relax
+        # threshold of 10 was never crossed.
+        assert all(r.effective_eps_accept == pytest.approx(0.005) for r in records)
+
+    def test_skip_iterations_count_toward_streak(self, tmp_path):
+        # A catalog targeting a class that does not exist will always
+        # produce skip records, so iters_since_accept must climb through
+        # them.
+        empty_catalog = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="DoesNotExist",
+                    param_name="x",
+                    kind="float_uniform",
+                    bounds=(0.0, 1.0),
+                ),
+            ]
+        )
+        cfg = LoopConfig(
+            iterations=4,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            inactivity_relax_after=2,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+        )
+        si = SelfImprover(cfg, catalog=empty_catalog, seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        # All four iterations are skipped (no applicable mutations).
+        assert all(r.proposal is None for r in records)
+        assert [r.iters_since_accept for r in records] == [0, 1, 2, 3]
+        # effective_eps_accept tracks the decay: 0.005, 0.005, 0.0025, 0.0025.
+        expected = [0.005, 0.005, 0.0025, 0.0025]
+        for r, e in zip(records, expected):
+            assert r.effective_eps_accept == pytest.approx(e)
+
+    def test_relaxation_can_accept_borderline_delta(self, tmp_path):
+        # With eps_accept=0.05 a +0.04 lift is rejected; after relaxing
+        # one step to 0.025 the same lift accepts.  The fake harness
+        # returns 0.5 then 0.54 on alternate calls so every iteration
+        # sees the same delta — the only thing that changes is the
+        # threshold.
+        baseline = 0.50
+        cand = 0.54
+        counter = {"n": 0}
+
+        def score_fn(config):
+            n = counter["n"]
+            counter["n"] += 1
+            return baseline if n % 2 == 0 else cand
+
+        cfg = LoopConfig(
+            iterations=5,
+            n_boot=500,
+            eps_accept=0.05,
+            eps_regress=0.5,
+            inactivity_relax_after=2,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        # iter 0 (eps=0.05): +0.04 < 0.05 → reject (delta-gate)
+        # iter 1 (eps=0.05, streak entering=1): same → reject
+        # iter 2 (eps=0.025, streak entering=2 → 1 step): +0.04 > 0.025 → accept
+        assert records[0].accepted is False
+        assert records[0].effective_eps_accept == pytest.approx(0.05)
+        assert records[1].accepted is False
+        assert records[1].effective_eps_accept == pytest.approx(0.05)
+        assert records[2].accepted is True
+        assert records[2].effective_eps_accept == pytest.approx(0.025)
+        # After the accept the streak resets so iter 3 is back to 0.05
+        # and rejects again, iter 4 (streak 1) still 0.05 and rejects.
+        assert records[3].effective_eps_accept == pytest.approx(0.05)
+        assert records[3].accepted is False
+        assert records[4].effective_eps_accept == pytest.approx(0.05)
+        assert records[4].accepted is False
+
+    def test_disabled_keeps_eps_constant_and_records_field_set(self, tmp_path):
+        # With relaxation disabled the field is still populated (it
+        # equals the constant eps_accept) so summary tooling can rely
+        # on the field always being present in newly-written records.
+        cfg = LoopConfig(
+            iterations=3,
+            n_boot=50,
+            eps_accept=0.005,
+            inactivity_relax_after=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert all(r.effective_eps_accept == pytest.approx(0.005) for r in records)
+        # Streak still tracked so an auditor can see drought length even
+        # without relaxation enabled.
+        assert [r.iters_since_accept for r in records] == [0, 1, 2]
+
+    def test_ledger_round_trip_preserves_relax_fields(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=3,
+            n_boot=50,
+            eps_accept=0.010,
+            inactivity_relax_after=2,
+            inactivity_relax_factor=0.5,
+            inactivity_min_eps_accept=0.0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        si.run()
+        records = load_ledger(cfg.ledger_path)
+        iter_recs = [r for r in records if r.get("record_type") == "iteration"]
+        assert len(iter_recs) == 3
+        assert iter_recs[0]["effective_eps_accept"] == pytest.approx(0.010)
+        assert iter_recs[1]["effective_eps_accept"] == pytest.approx(0.010)
+        assert iter_recs[2]["effective_eps_accept"] == pytest.approx(0.005)
+        assert iter_recs[0]["iters_since_accept"] == 0
+        assert iter_recs[1]["iters_since_accept"] == 1
+        assert iter_recs[2]["iters_since_accept"] == 2
+
+    def test_legacy_record_loads_with_none_relax_fields(self):
+        # Records written before the 2026-05-30 ship don't carry the
+        # two new fields.  Direct dataclass construction (with omitted
+        # kwargs) must default them to None so the JSONL load path
+        # continues to work against historical ledgers.
+        rec = LoopIterationRecord(
+            iteration=0,
+            timestamp="2026-01-01T00:00:00+00:00",
+            duration_seconds=0.0,
+            proposal=None,
+            accepted=False,
+            baseline_score=0.0,
+            candidate_score=0.0,
+            delta=0.0,
+            ci_low=0.0,
+            ci_high=0.0,
+            worst_pair_regression=0.0,
+            worst_pair=None,
+        )
+        assert rec.effective_eps_accept is None
+        assert rec.iters_since_accept is None
+        d = rec.to_dict()
+        assert d["effective_eps_accept"] is None
+        assert d["iters_since_accept"] is None

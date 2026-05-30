@@ -412,6 +412,43 @@ def _build_parser() -> argparse.ArgumentParser:
         default=10_000,
         help="Bootstrap resamples for the hold-out drift CI (default: 10000)",
     )
+    run_p.add_argument(
+        "--inactivity-relax-after",
+        dest="inactivity_relax_after",
+        type=int,
+        default=0,
+        help=(
+            "Relax eps_accept after N consecutive non-accept iterations to"
+            " break out of long droughts (0 = disabled, default).  Each"
+            " additional block of N non-accepts halves the threshold by"
+            " --inactivity-relax-factor, floored at"
+            " --inactivity-min-eps-accept.  Resets on the next accept."
+            " Typical unattended value: 10."
+        ),
+    )
+    run_p.add_argument(
+        "--inactivity-relax-factor",
+        dest="inactivity_relax_factor",
+        type=float,
+        default=0.5,
+        help=(
+            "Multiplicative factor applied to eps_accept per relaxation"
+            " step (default: 0.5).  Must be in (0, 1).  Ignored when"
+            " --inactivity-relax-after is 0."
+        ),
+    )
+    run_p.add_argument(
+        "--inactivity-min-eps-accept",
+        dest="inactivity_min_eps_accept",
+        type=float,
+        default=0.001,
+        help=(
+            "Floor on the relaxed eps_accept (default: 0.001 — matches"
+            " the bootstrap CI noise floor at typical quick-mode rep"
+            " counts).  Must be <= --eps-accept.  Ignored when"
+            " --inactivity-relax-after is 0."
+        ),
+    )
     paired_grp = run_p.add_mutually_exclusive_group()
     paired_grp.add_argument(
         "--paired",
@@ -513,6 +550,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             holdout_eps_overfit=args.holdout_eps_overfit,
             paired=args.paired,
             metric=args.metric,
+            inactivity_relax_after=args.inactivity_relax_after,
+            inactivity_relax_factor=args.inactivity_relax_factor,
+            inactivity_min_eps_accept=args.inactivity_min_eps_accept,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

@@ -1285,6 +1285,110 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: self-improvement loop subsection lists the new
     feature with a run-the-loop bash example.
 
+### 2026-05-31 — Codify `Sobol.scramble=False` in `Rewarding_Diverse` (first ledger-evidence-driven default change)
+
+* **What** — `panobbgo/harness.py` :func:`_make_quick_strategies` now
+  ships ``Rewarding_Diverse`` with ``(Sobol, {"n": 16, "scramble":
+  False})`` instead of ``scramble=True``.  This is the **first
+  application of the planning doc §12.3 step 2 codification rule** —
+  "if a rule keeps winning, change the default" — driven by
+  three independent positive accepts in the archived ledger
+  (``planning/done/self_improve_ledger_2026-05-31.jsonl`` iter 9 / 15
+  / 17 in the 2026-05 ledger window):
+
+      iter=9   Δ=+0.0511  CI=[+0.0089, +0.0933]  worst=+0.0000
+      iter=15  Δ=+0.0217  CI=[+0.0056, +0.0433]  worst=+0.0000
+      iter=17  Δ=+0.0317  CI=[+0.0050, +0.0583]  worst=+0.0000
+
+  Every accept had its bootstrap-CI lower bound strictly above zero
+  and zero per-pair regression — clean wins under the §6.2 statistical
+  rule.  All three accepts proposed ``True → False`` (the catalog
+  rule always excludes the current value), so the data is consistent
+  about the direction.  The ``Sobol.scramble`` ``categorical_choice``
+  rule (shipped 2026-05-13) still applies to the codified spec: it
+  now proposes ``False → True``, so the bandit is free to flip back
+  if a future battery prefers the scrambled regime.
+  ``BayesOpt_Sobol`` (a standard-mode strategy the quick-mode cron
+  never exercises) keeps ``scramble=True`` — there is no ledger
+  evidence on that strategy yet, so the conservative move is to leave
+  it alone and let the bandit explore.  ``panobbgo/harness_ioh.py``
+  is similarly untouched (the IOH track shipped 2026-05 with
+  ``scramble=True``; codification waits on IOH-specific evidence).
+  The archived ledger is preserved at
+  ``planning/done/self_improve_ledger_2026-05-31.jsonl`` so the
+  bandit can prime from a clean slate on the next nightly run; the
+  archived summary lives at
+  ``planning/done/self_improve_summary_2026-05-31.txt``.
+* **Why** — The nightly loop has been re-discovering this same
+  improvement on every run and then throwing it away when the in-
+  memory ladder dies at end-of-loop (the cron persists evidence, not
+  source edits — see §12.2).  Codifying the win permanently lifts the
+  quick-mode composite baseline by the same ~+0.035 the loop kept
+  measuring, freeing the bandit to spend future cycles on other
+  rules.  The change also closes the loop on the original §11 success
+  criterion ("a sustained positive trend means the framework really
+  got better") for the first time end-to-end: measurement → repeated
+  accept → human review → codification → archive → re-baseline.
+* **Why ``scramble=False`` beats ``True`` at quick mode (literature
+  reasoning consistent with the empirical signal)** — At ``n=16`` in
+  the quick-mode 2-D battery, the deterministic Sobol' sequence
+  places its first 16 points at fixed, provably space-filling
+  locations of the unit hypercube (the digit-shifted construction is
+  *exactly* a low-discrepancy net at ``n = 2^k``).  Owen scrambling
+  preserves the equidistribution property *in expectation* but
+  perturbs the specific positions — at small ``n`` the variance this
+  introduces in coverage quality dominates the gain from breaking
+  axis-aligned correlations.  The downstream local heuristics
+  (Random, Nearby, NelderMead) all start from those Sobol' points,
+  so a more uniform "first looks" grid pays compound returns.  At
+  larger ``n`` (BayesOpt_Sobol ships ``n=16`` in 5-D / standard
+  mode, where Owen scrambling's projection guarantees matter more)
+  the trade-off may flip — which is exactly why the catalog rule
+  stays live.
+* **Why archive the ledger** — The categorical rule's bandit arm
+  key is ``("Sobol", "scramble", "categorical_choice")``, which does
+  not distinguish proposal direction.  After the codification, every
+  fresh proposal on ``Rewarding_Diverse`` flips ``False → True``;
+  if the new bandit primed from the archived ledger, its Beta
+  posterior would carry stale "True → False good" history into a
+  "False → True ?" sampling regime.  Archiving the ledger and
+  letting the next nightly cron rebuild the posterior on the post-
+  codification accept stream keeps the bandit's beliefs honest, per
+  §12.3 step 5.
+* **Impact** — Expected +~0.03 to +~0.05 composite on the
+  ``Rewarding_Diverse`` arm of the standard quick-mode battery,
+  matching the three observed accept deltas.  Because the composite
+  averages over the two quick-mode strategies (``RoundRobin_Random``
+  unaffected, ``Rewarding_Diverse`` lifted), the all-strategy
+  composite gains roughly half of that.  The historical ledger
+  (in ``planning/done/``) is not directly comparable to post-
+  codification ledgers — see the archive note above and §12.3 step
+  5.
+* **Backwards compatibility** — Strictly safe at the heuristic
+  level: :class:`panobbgo.heuristics.sobol.Sobol` still defaults to
+  ``scramble=True`` (the literature default), and only the
+  ``Rewarding_Diverse`` spec in :func:`_make_quick_strategies`
+  changes.  ``BayesOpt_Sobol``, ``harness_ioh.py``, and every other
+  call site remain bit-for-bit identical.  Tests that construct
+  Sobol directly with explicit kwargs are unaffected.
+  ``BenchmarkHarness.composite_score`` on the historical seed=42
+  baseline shifts up by the codified margin — see the *historical
+  baseline shift* note under §11.
+* **Tests** — No new tests required.  The :class:`Sobol` class's
+  unit tests are construction-level and pass arguments explicitly.
+  The composite-score round-trip tests in
+  ``tests/test_harness.py`` are seed-deterministic but do not pin
+  the composite *value*, only the schema and reproducibility.  Full
+  pytest suite still passes (~1100+ tests).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; *Next
+    iteration ideas* §12.3 step 2 example refreshed.
+  - `doc/source/guide_benchmarking.rst`: codification callout under
+    the §12.3 daily-routine description.
+  - `panobbgo/harness.py`: ``_make_quick_strategies`` docstring
+    cites the codification.
+  - `panobbgo/self_improve.py`: catalog rule comment refreshed.
+
 ### 2026-05-30 — Inactivity-guarded ``eps_accept`` relaxation
 
 * **What** — `panobbgo/self_improve.py`: :class:`LoopConfig` gains

@@ -262,11 +262,17 @@ def _make_quick_strategies() -> List[StrategySpec]:
     same evaluation count — the same rationale the standard-mode
     ``BayesOpt_Sobol`` / ``CMAES_Portfolio`` strategies use — giving the
     downstream local heuristics a higher-quality grid of "first looks" at
-    the landscape.  The :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
-    analyzer feeds dimension importances to ``Nearby`` once enough
-    evaluations have accumulated; ``update_interval=25`` was selected by
-    the self-improvement loop as a small but reproducible gain over the
-    earlier ``20`` (see ``planning/self_improve_ledger.jsonl`` iter 6).
+    the landscape.  ``scramble=False`` was selected by the self-improvement
+    loop as a robust win over the literature-default ``True`` (three
+    independent accepts with bootstrap CIs strictly above zero — see the
+    ``planning/done/`` ledger archive); at the quick-mode budget the
+    unscrambled Sobol' grid is already optimally space-filling and Owen
+    scrambling adds variance the local heuristics then have to absorb.
+    The :class:`~panobbgo.analyzers.sensitivity.Sensitivity` analyzer feeds
+    dimension importances to ``Nearby`` once enough evaluations have
+    accumulated; ``update_interval=25`` was selected by the self-
+    improvement loop as a small but reproducible gain over the earlier
+    ``20`` (see ``planning/self_improve_ledger.jsonl`` iter 6).
 
     CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
     its covariance adaptation has too little data to converge, and the population overhead
@@ -287,7 +293,19 @@ def _make_quick_strategies() -> List[StrategySpec]:
             name="Rewarding_Diverse",
             strategy_class=StrategyRewarding,
             heuristics=[
-                (Sobol, {"n": 16, "scramble": True}),
+                # ``scramble=False`` codified 2026-05-31 from three independent
+                # self-improvement loop accepts (deltas +0.022 / +0.051 / +0.032,
+                # each with bootstrap-CI lower bound > 0 and no per-pair
+                # regression — see planning/self_improve_ledger.jsonl iter=9 /
+                # iter=15 / iter=17 in the 2026-05 ledger window).  At n=16 in
+                # the quick-mode 2-D battery, the deterministic Sobol' grid is
+                # already optimally space-filling; Owen scrambling perturbs
+                # those grid points and slightly degrades the "first looks"
+                # the downstream local heuristics build on.  The catalog rule
+                # ``Sobol.scramble`` (kind=categorical_choice) keeps the
+                # bandit free to flip back to ``True`` once enough fresh
+                # evidence accumulates.
+                (Sobol, {"n": 16, "scramble": False}),
                 (Random, {}),
                 (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
                 (Center, {}),

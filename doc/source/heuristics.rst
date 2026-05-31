@@ -7,7 +7,7 @@ Point generation algorithms (heuristics):
 - **Zero**: Generates the zero vector point.
 - **Random**: Uniform random sampling within the best leaf box.
 - **LatinHypercube**: Stratified sampling (Space-filling).
-- **Sobol**: Low-discrepancy quasi-random sequence (Sobol') for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count, scrambled for per-rep variance.
+- **Sobol**: Low-discrepancy quasi-random sequence (Sobol') for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count.  Owen-scrambled by default (``scramble=True``); the quick-mode ``Rewarding_Diverse`` strategy ships ``scramble=False`` after a 2026-05-31 ledger-evidence-driven codification — at ``n=16`` in the 2-D battery the deterministic Sobol' grid is optimally space-filling.  See ``planning/SELF_IMPROVEMENT_LOOP.md`` §13 "Codify ``Sobol.scramble=False`` in ``Rewarding_Diverse``".
 - **Extremal**: Samples from the boundaries of the search space.
 - **Nearby**: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).
 - **WeightedAverage**: Averages points in the best region.

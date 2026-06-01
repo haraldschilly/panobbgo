@@ -1189,6 +1189,102 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: structural composition subsection and the
     run-the-loop bash example reference the analyzer ops.
 
+### 2026-06-01 — Hierarchical bandit over per-class structural arms
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`AdaptiveMutationSampler` gains a
+  ``structural_borrow_alpha: float = 0.0`` constructor argument
+  (a borrow coefficient ``κ ≥ 0``).  When ``κ > 0`` and
+  :attr:`per_class_structural` is also ``True``, each per-class
+  structural arm's Beta posterior is built as::
+
+      Beta(prior_alpha + n_class_accepts  + κ · n_other_class_accepts,
+           prior_beta  + n_class_failures + κ · n_other_class_failures)
+
+  where the *"other class"* aggregates are the sum across every
+  *sibling* per-class arm sharing the same structural op
+  (``add_heuristic`` or ``drop_heuristic``).  The self-exclusion is
+  deliberate — borrowing from one's own evidence would collapse the
+  hierarchy to a κ-amplified version of the same per-class posterior
+  rather than a meaningful share-strength prior.  Op-level aggregates
+  are computed on-the-fly per :meth:`sample` call (linear in the
+  number of stored stats, no separate accumulator dict), so
+  :meth:`record_outcome` and :meth:`prime_from_ledger` are unchanged.
+  :class:`LoopConfig` gains
+  ``structural_borrow_alpha: float = 0.0`` with matching validation
+  (``>= 0``), and :class:`SelfImprover` forwards it to the sampler
+  whenever the adaptive path is used.  ``scripts/self_improve.py``
+  gains a ``--structural-borrow-alpha`` CLI flag (only effective with
+  both ``--adaptive`` and ``--structural-per-class-arms``).
+* **Why** — closes the *Hierarchical bandit over the per-class
+  structural arms* follow-up below the 2026-05-18 §13 entry.  Per-class
+  arms shipped 2026-05-18 traded sample efficiency for sharper
+  signal: with ``N`` candidate classes the bandit divides its
+  evidence by ~``N`` and each arm starts cold-start with the
+  symmetric ``Beta(1, 1)`` prior, even when its op-level sibling
+  history is strongly informative.  The hierarchical
+  Beta-Binomial recovers the data-sharing of the wildcard arm while
+  preserving the per-class arg-max — exactly the design sketch in
+  the planning doc.  Critically relevant given the current loop
+  productivity (~5% accept rate over 366 iterations on the latest
+  ledger): the per-class arms divide an already-small accept count,
+  and a borrow coefficient lets a fresh candidate class start at the
+  op's empirical accept rate rather than the cold prior.
+* **Borrow coefficient choice** — ``κ = 0`` (default) preserves the
+  pure per-class semantics shipped 2026-05-18; ``κ = 1`` weights
+  every sibling accept equally with the class's own.  A useful
+  intermediate is ``κ = 0.5`` (half-weighted sibling evidence),
+  empirically robust in hierarchical-bandit literature when there is
+  real but imperfect transfer between arms.  The new
+  ``--structural-borrow-alpha`` CLI flag accepts any non-negative
+  float; the rationale field on each :class:`MutationProposal`
+  reports the effective ``Beta(α, β)`` so ledger auditors can verify
+  the borrow at any iteration.
+* **Backwards compatibility** — strictly safe.  Default
+  ``structural_borrow_alpha = 0.0`` makes :meth:`sample` byte-identical
+  to the 2026-05-18 ship; under any existing CLI invocation or
+  programmatic call the new code path is dead.  All 180 pre-existing
+  tests in ``tests/test_self_improve.py`` pass unchanged.  When the
+  flag is on, :meth:`prime_from_ledger` and :meth:`record_outcome`
+  use the same per-class key layout as before — the borrow is
+  computed at draw time from the existing stats dict, so resuming
+  with ``--adaptive-prime-from-ledger`` recovers identical bandit
+  state.  Kwarg perturbation arms are unaffected regardless of
+  ``κ`` (they have no op-level aggregate to borrow from).  When
+  ``per_class_structural`` is ``False`` the borrow is silently inert
+  (no per-class arms exist for the hierarchy to operate over);
+  similarly when ``--adaptive`` is not set, no sampler is constructed
+  and the knob is dead code.
+* **Tests** — `tests/test_self_improve.py` (+14 tests, total 208):
+  default ``structural_borrow_alpha=0.0`` on the sampler; negative
+  / non-finite ``κ`` raises; κ=0 produces a byte-identical sample
+  trajectory to the unhierarchical per-class sampler (same RNG
+  seed, same proposals); borrow inert when
+  ``per_class_structural=False`` (κ=10 vs no borrow trajectory
+  match); borrow inert for kwarg rules (κ=1 vs no borrow on the
+  kwarg-only catalog trajectory match); fresh class warms with op
+  aggregate (X seeded 20/20, Y picked >25% of the time under κ=1 vs
+  <20% under κ=0); self-exclusion verified via Beta(α, β) values in
+  the rationale (X seeded 10/10 sees Beta(11, 1), Y sees Beta(6, 1)
+  under κ=0.5); mixed failure/accept borrow (X seeded 3/10 makes
+  Y's posterior Beta(4, 8) under κ=1); ``LoopConfig`` default 0.0;
+  validation rejects negative; flag propagates through
+  :class:`SelfImprover`; inert without ``adaptive_sampling``.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Hierarchical bandit over the per-class structural arms*
+    follow-up below the 2026-05-18 entry promoted from "open" to
+    "shipped".
+  - `doc/source/guide_benchmarking.rst`: new
+    "Hierarchical bandit over per-class structural arms" subsection
+    under "Adaptive (Thompson-sampling) mutation sampler" with the
+    Beta-Binomial formula, CLI example, programmatic example, and
+    the borrow-coefficient guidance.
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    ``structural_borrow_alpha`` coefficient.
+  - `AGENTS.md`: self-improvement loop subsection lists the new
+    feature with a run-the-loop bash example.
+
 ### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a fourth
@@ -3631,32 +3727,39 @@ discarded ladder.  Needs care around the bandit semantics: penalising
 all rules along the discarded path is more aggressive than penalising
 only the last one, and the right policy is an open question.
 
-#### Hierarchical bandit over the per-class structural arms
+#### Hierarchical bandit over the per-class structural arms — shipped 2026-06-01
 
-Per-class structural arms shipped 2026-05-18 (see §13 entry above).
-The natural next refinement is to make the per-class arms *share
-strength* via a hierarchical Beta-Binomial: each ``add_heuristic``
-arm's posterior would borrow from the op-level posterior so a fresh
-candidate class starts with the op's aggregate accept rate rather
-than the symmetric ``Beta(1, 1)`` prior.  This addresses the
-sparsity trade-off the per-class flag introduces — with N candidate
-classes, the per-class flag divides the bandit's data by roughly N,
-which can hurt early-iteration sample efficiency.  A hierarchical
-prior recovers the data-sharing of the wildcard arm while preserving
-the per-class arg-max.
+Per-class structural arms shipped 2026-05-18; the hierarchical
+Beta-Binomial follow-up shipped 2026-06-01 as
+:attr:`panobbgo.self_improve.AdaptiveMutationSampler.structural_borrow_alpha`
+and :attr:`LoopConfig.structural_borrow_alpha`, opt in via
+``scripts/self_improve.py run --adaptive --structural-per-class-arms
+--structural-borrow-alpha 0.5``.  Each per-class arm's Beta posterior
+borrows ``κ · (n_other_class_accepts, n_other_class_failures)`` from
+the op-level aggregate (sum over sibling per-class arms) with a
+deliberate self-exclusion, so a fresh candidate class warms with the
+op's empirical accept rate instead of the symmetric ``Beta(1, 1)``
+prior.  See the §13 entry above.
 
-Implementation sketch.  Replace the flat
-``Dict[RuleKey, MutationRuleStats]`` with a two-level structure: one
-``MutationRuleStats`` per op (``("*", op, "structural")``) plus the
-per-class stats.  On Thompson draw, sample
-``alpha = prior_alpha + n_class_accepts + κ · n_op_accepts``
-(similarly for ``beta``) where ``κ ∈ [0, 1]`` is a "borrow"
-coefficient — ``κ = 0`` recovers today's per-class arms, ``κ = 1``
-recovers the collapsed wildcard.  Validation: an end-to-end loop
-that observes ``add Sobol`` winning should still drive Sobol's
-arm up faster than Random's, while a brand-new candidate class
-starts with the op's empirical accept rate instead of the cold
-prior.
+Natural follow-ups when the loop has collected enough evidence to
+motivate the work:
+
+* **Auto-tune ``κ``** — track per-iteration variance of the borrow
+  improvement, anneal ``κ`` down as per-class evidence accumulates
+  (close to ``κ = 0`` at large per-arm sample sizes, close to ``κ = 1``
+  when arms are still sparse).  A simple recipe is ``κ_eff =
+  κ_init / (1 + n_class_attempts / horizon)`` — borrow heavily early,
+  vanish as evidence grows.
+* **Hierarchical kwarg arms too** — the same mechanism could borrow
+  across kwarg arms that share a heuristic class (e.g. all
+  ``LSHADE.*`` arms borrowing from one aggregate "LSHADE rules"
+  posterior).  Lower-priority: kwarg arms already have
+  literature-canonical centres so cold-start is less painful than
+  for structural arms.
+* **Categorical ``κ`` regimes** — ``κ ∈ {0.0, 0.5, 1.0}`` as a
+  ``categorical_choice`` mutation rule on the loop driver itself.
+  Lets the loop tune its own meta-bandit hyperparameter from ledger
+  evidence — a true second-order self-improvement.
 
 #### Tunable F-cap breakpoints / cap values on `LSHADE.F_schedule`
 

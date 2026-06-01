@@ -2364,6 +2364,285 @@ class TestStructuralPerClassArms:
         assert si.sampler is None
 
 
+class TestHierarchicalStructuralBandit:
+    """Hierarchical Beta-Binomial over per-class structural arms.
+
+    Closes the *Hierarchical bandit over the per-class structural arms*
+    follow-up below the 2026-05-18 §13 entry.  Each per-class arm's Beta
+    posterior borrows ``κ · (n_other_class_accepts, ...)`` from the
+    op-level aggregate, so a fresh candidate class warms with the op's
+    empirical accept rate instead of the symmetric ``Beta(1, 1)`` prior.
+    """
+
+    def _add_only_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_heuristic",
+                    candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+                ),
+            ]
+        )
+
+    # ---- defaults / validation ---------------------------------------
+
+    def test_default_borrow_is_zero(self):
+        samp = AdaptiveMutationSampler(self._add_only_catalog())
+        assert samp.structural_borrow_alpha == 0.0
+
+    def test_negative_borrow_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_alpha"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_alpha=-0.1)
+
+    def test_non_finite_borrow_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_alpha"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_alpha=float("inf"))
+        with pytest.raises(ValueError, match="structural_borrow_alpha"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_alpha=float("nan"))
+
+    def test_zero_borrow_recovers_per_class_behaviour(self):
+        """κ=0 must produce a byte-identical sample trajectory to the
+        unhierarchical per-class sampler.  Equal seed, equal catalog,
+        equal flag → equal proposals.
+        """
+        cat = self._add_only_catalog()
+        a = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=0.0)
+        b = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng_a = np.random.default_rng(7)
+        rng_b = np.random.default_rng(7)
+        for _ in range(40):
+            pa = a.sample(rng_a, _make_specs())
+            pb = b.sample(rng_b, _make_specs())
+            assert pa is not None and pb is not None
+            assert pa.class_name == pb.class_name
+            a.record_outcome(pa.class_name == "_NewHeuristicX")
+            b.record_outcome(pb.class_name == "_NewHeuristicX")
+        assert {s.rule_key for s in a.stats_snapshot()} == {s.rule_key for s in b.stats_snapshot()}
+
+    # ---- mechanics ---------------------------------------------------
+
+    def test_borrow_inert_without_per_class_flag(self):
+        """``per_class_structural=False`` collapses to one arm per op,
+        so there are no sibling arms to borrow from.  The α/β draw must
+        be identical to the κ=0 case.
+        """
+        cat = self._add_only_catalog()
+        # Sampler 1: hierarchical but per-class is off — borrow is dead code.
+        a = AdaptiveMutationSampler(cat, per_class_structural=False, structural_borrow_alpha=10.0)
+        # Sampler 2: per-class off, no borrow.
+        b = AdaptiveMutationSampler(cat, per_class_structural=False)
+        rng_a = np.random.default_rng(11)
+        rng_b = np.random.default_rng(11)
+        for _ in range(20):
+            pa = a.sample(rng_a, _make_specs())
+            pb = b.sample(rng_b, _make_specs())
+            assert pa is not None and pb is not None
+            assert pa.class_name == pb.class_name
+            a.record_outcome(True)
+            b.record_outcome(True)
+
+    def test_borrow_inert_for_kwarg_rules(self):
+        """Kwarg perturbations are not grouped by an op; the borrow must
+        not touch their α/β.  Compare the kwarg-only catalog trajectory
+        with and without κ — they must be byte-identical.
+        """
+        cat = _two_rule_catalog()
+        a = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=1.0)
+        b = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng_a = np.random.default_rng(5)
+        rng_b = np.random.default_rng(5)
+        for _ in range(20):
+            pa = a.sample(rng_a, _make_specs())
+            pb = b.sample(rng_b, _make_specs())
+            assert pa is not None and pb is not None
+            assert pa.class_name == pb.class_name
+            a.record_outcome(True)
+            b.record_outcome(True)
+
+    def test_fresh_class_warms_with_op_aggregate(self):
+        """A class with zero history but a sibling with strong history
+        must have its draw centred on the op's accept rate, not the
+        symmetric prior.
+
+        Test: hand-seed sibling X's stats with 20 accepts out of 20.
+        Sibling Y has no stats.  Under κ = 1, Y's posterior should be
+        ``Beta(1 + 0 + 1·20, 1 + 0 + 1·0) = Beta(21, 1)``, which draws
+        far closer to 1 than the symmetric ``Beta(1, 1)`` would.
+        """
+        from panobbgo.self_improve import MutationRuleStats
+
+        cat = self._add_only_catalog()
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=1.0)
+        # Plant X's history without changing Y's.
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        samp._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=20, n_accepts=20)
+
+        rng = np.random.default_rng(31)
+        # Sample 200 times *without* updating stats so the posterior stays
+        # frozen, and check Y is drawn from a high-mean posterior.
+        y_draws_above_half = 0
+        n_samples = 200
+        for _ in range(n_samples):
+            # Force a fresh Beta draw per loop iteration via the public
+            # sample() path — we count how often the sampler picks Y at
+            # all, which it can only do when Y's draw beats X's.  With
+            # X's posterior Beta(21, 1) (~0.95) and Y's Beta(21, 1) under
+            # the borrow, the two arms have equal mean, so we should see
+            # Y win ~50% of the time.  Without the borrow, Y is Beta(1, 1)
+            # (uniform), which wins X's near-1 draw far less often.
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicY":
+                y_draws_above_half += 1
+            # Discard the recorded last_rule_key so the next sample is
+            # against the same frozen posterior.
+            samp._last_rule_key = None
+        # With borrow=1, X and Y are both ~Beta(21, 1) → roughly equal
+        # win rate.  Without borrow, Y is uniform(0,1) and X is Beta(21,1)
+        # → Y wins ~5-10% of the time.  Threshold conservatively at >25%
+        # for the borrowed sampler.
+        rate = y_draws_above_half / n_samples
+        assert rate > 0.25, (
+            f"Y should warm to the op's empirical accept rate under borrow=1, "
+            f"got y_pick_rate={rate:.3f} (expected ~0.5)"
+        )
+
+    def test_fresh_class_cold_without_borrow(self):
+        """Inverse check: without κ borrow, a sibling with no history
+        keeps the symmetric prior and loses most arg-max contests to a
+        strongly-positive sibling.
+        """
+        from panobbgo.self_improve import MutationRuleStats
+
+        cat = self._add_only_catalog()
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=0.0)
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        samp._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=20, n_accepts=20)
+        rng = np.random.default_rng(31)
+        y_draws = 0
+        n_samples = 200
+        for _ in range(n_samples):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicY":
+                y_draws += 1
+            samp._last_rule_key = None
+        rate = y_draws / n_samples
+        # Y should rarely win the arg-max — Beta(1, 1) vs Beta(21, 1).
+        assert rate < 0.20, f"Y should be cold without borrow, got y_pick_rate={rate:.3f} (expected ~0.05)"
+
+    def test_borrow_excludes_self_contribution(self):
+        """The borrow must aggregate *other* sibling arms, not include
+        the arm's own contribution — otherwise the hierarchy collapses
+        to a κ-amplified version of the same per-class posterior.
+
+        With only one per-class arm (X) seeded with 10/10 and Y absent,
+        Y's borrowed alpha must be ``prior + 0 + κ · 10`` and X's must be
+        ``prior + 10 + κ · 0`` (since X has no *other* siblings).  We
+        verify by inspecting the rationale field, which prints the
+        effective α/β.
+        """
+        from panobbgo.self_improve import MutationRuleStats
+
+        cat = self._add_only_catalog()
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=0.5)
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        samp._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=10, n_accepts=10)
+
+        # Force X's selection by lots of draws and check the rationale
+        # text reports Beta(prior + 10 + κ·0, prior + 0 + κ·0) for X
+        # — i.e. no self-borrow.
+        rng = np.random.default_rng(0)
+        x_rationale = None
+        y_rationale = None
+        for _ in range(200):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicX" and x_rationale is None:
+                x_rationale = prop.rationale
+            elif prop.class_name == "_NewHeuristicY" and y_rationale is None:
+                y_rationale = prop.rationale
+            samp._last_rule_key = None
+            if x_rationale and y_rationale:
+                break
+
+        assert x_rationale is not None, "X should be sampled at least once"
+        assert y_rationale is not None, "Y should be sampled at least once"
+        # X's draw is Beta(1 + 10 + 0.5·0, 1 + 0 + 0.5·0) = Beta(11, 1).
+        assert "Beta(11.0, 1.0)" in x_rationale, (
+            f"X should see only its own evidence under self-exclusion; got rationale={x_rationale!r}"
+        )
+        # Y's draw is Beta(1 + 0 + 0.5·10, 1 + 0 + 0.5·0) = Beta(6, 1).
+        assert "Beta(6.0, 1.0)" in y_rationale, f"Y should borrow from X's accepts only; got rationale={y_rationale!r}"
+
+    def test_borrow_mixed_failures_and_accepts(self):
+        """When the sibling has mixed history, both α and β borrow."""
+        from panobbgo.self_improve import MutationRuleStats
+
+        cat = self._add_only_catalog()
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True, structural_borrow_alpha=1.0)
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        samp._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=10, n_accepts=3)
+
+        rng = np.random.default_rng(2)
+        y_rationale = None
+        for _ in range(300):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicY":
+                y_rationale = prop.rationale
+                break
+            samp._last_rule_key = None
+        assert y_rationale is not None
+        # Y's draw is Beta(1 + 0 + 1·3, 1 + 0 + 1·7) = Beta(4, 8).
+        assert "Beta(4.0, 8.0)" in y_rationale, (
+            f"Y should borrow both accept and failure counts; got rationale={y_rationale!r}"
+        )
+
+    # ---- LoopConfig + SelfImprover integration -----------------------
+
+    def test_loop_config_default_borrow_zero(self):
+        cfg = LoopConfig()
+        assert cfg.structural_borrow_alpha == 0.0
+
+    def test_loop_config_negative_borrow_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_alpha"):
+            LoopConfig(structural_borrow_alpha=-0.1)
+
+    def test_loop_config_propagates_borrow_to_sampler(self, tmp_path):
+        from panobbgo.self_improve import SelfImprover
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            adaptive_sampling=True,
+            structural_per_class_arms=True,
+            structural_borrow_alpha=0.7,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is not None
+        assert si.sampler.structural_borrow_alpha == 0.7
+
+    def test_loop_config_borrow_inert_without_adaptive(self, tmp_path):
+        """Without --adaptive there is no sampler to take the borrow,
+        so the knob is silently inert — same pattern as
+        ``structural_per_class_arms``.
+        """
+        from panobbgo.self_improve import SelfImprover
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            adaptive_sampling=False,
+            structural_borrow_alpha=0.5,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is None
+
+
 class TestDefaultStructuralCatalog:
     def test_returns_catalog_with_structural_rules(self):
         cat = default_structural_catalog()

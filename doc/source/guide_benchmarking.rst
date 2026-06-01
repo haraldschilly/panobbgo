@@ -865,6 +865,80 @@ constructed) but tolerated, which keeps a config-driven workflow
 that toggles ``adaptive_sampling`` independently from
 ``structural_per_class_arms`` safe.
 
+Hierarchical bandit over per-class structural arms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The per-class arms above pay for sharper signal with sparser data: a
+candidate pool of ``N`` classes divides the bandit's structural
+evidence by roughly ``N``, so a fresh class starts with the symmetric
+``Beta(1, 1)`` prior even when its op-level sibling history is
+strongly informative.
+:attr:`~panobbgo.self_improve.LoopConfig.structural_borrow_alpha`
+(``κ ≥ 0``) closes the gap with a **hierarchical Beta-Binomial**:
+each per-class arm's Beta posterior borrows
+``κ · (n_other_class_accepts, n_other_class_failures)`` from the
+op-level aggregate (the sum across every *sibling* per-class arm with
+the same op).  The leaf posterior becomes:
+
+.. math::
+
+   \mathrm{Beta}\bigl(
+     \alpha_0 + n_{\text{class}}^{\text{accepts}}
+              + \kappa \cdot n_{\text{other-class}}^{\text{accepts}},\;
+     \beta_0  + n_{\text{class}}^{\text{failures}}
+              + \kappa \cdot n_{\text{other-class}}^{\text{failures}}
+   \bigr)
+
+The self-exclusion is deliberate: borrowing from one's own evidence
+would collapse the hierarchy to a ``κ``-amplified version of the same
+per-class posterior.  ``κ = 0`` (default) recovers the pure per-class
+semantics shipped 2026-05-18; ``κ = 1`` weights every sibling accept
+equally with the class's own.  A useful intermediate is ``κ = 0.5``,
+which discounts sibling evidence by half — empirically a robust
+default in hierarchical-bandit literature when there is real but
+imperfect transfer between arms.
+
+Concretely: with one sibling that has accepted 20/20 times, a fresh
+class under ``κ = 1`` starts with effective posterior
+``Beta(1 + 0 + 20, 1 + 0 + 0) = Beta(21, 1)`` — mean ≈ 0.95.  The
+unhierarchical sampler would start the same class at
+``Beta(1, 1)`` (mean 0.5), needing many more arg-max contests to
+catch up.
+
+The borrow is **inert** when:
+
+* :attr:`~panobbgo.self_improve.LoopConfig.structural_per_class_arms`
+  is ``False`` (no per-class arms exist to borrow between), or
+* :attr:`~panobbgo.self_improve.LoopConfig.adaptive_sampling` is
+  ``False`` (no :class:`~panobbgo.self_improve.AdaptiveMutationSampler`
+  is constructed), or
+* the proposed rule is a kwarg perturbation (kwarg arms are not
+  grouped by an "op", so there is no aggregate to borrow from).
+
+CLI:
+
+.. code-block:: bash
+
+   # Per-class structural arms with hierarchical borrow (κ = 0.5).
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --structural --adaptive --structural-per-class-arms \
+       --structural-borrow-alpha 0.5 \
+       --adaptive-prime-from-ledger
+
+Programmatic:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover, default_structural_catalog
+
+   cfg = LoopConfig(
+       iterations=100,
+       adaptive_sampling=True,
+       structural_per_class_arms=True,
+       structural_borrow_alpha=0.5,  # half-weight sibling evidence
+   )
+   SelfImprover(cfg, catalog=default_structural_catalog()).run()
+
 CLI:
 
 .. code-block:: bash

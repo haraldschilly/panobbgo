@@ -269,19 +269,36 @@ class MutationRule:
 
 # Op values accepted by :class:`StructuralMutationRule`.  Kept as a tuple
 # rather than a Literal for runtime introspection (``op in _STRUCTURAL_OPS``).
-_STRUCTURAL_OPS: Tuple[str, ...] = ("add_heuristic", "drop_heuristic")
+# Heuristic ops shipped 2026-05-03; analyzer ops shipped 2026-06-02 — the
+# four cover the §7.2 portfolio-composition mutation class fully.
+_STRUCTURAL_HEURISTIC_OPS: Tuple[str, ...] = ("add_heuristic", "drop_heuristic")
+_STRUCTURAL_ANALYZER_OPS: Tuple[str, ...] = ("add_analyzer", "drop_analyzer")
+_STRUCTURAL_OPS: Tuple[str, ...] = _STRUCTURAL_HEURISTIC_OPS + _STRUCTURAL_ANALYZER_OPS
+
+
+def _is_analyzer_op(op: Optional[str]) -> bool:
+    """True for analyzer-bucket structural ops; False otherwise (heuristic or kwarg)."""
+    return op in _STRUCTURAL_ANALYZER_OPS
 
 
 @dataclass
 class StructuralMutationRule:
-    """Add or drop a heuristic from a strategy's portfolio.
+    """Add or drop a heuristic or analyzer from a strategy's portfolio.
 
     Implements the *Strategy portfolio composition* mutation class from
     §7.2 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Where
     :class:`MutationRule` only retunes existing kwargs, this rule changes
-    the *shape* of a :class:`StrategySpec`'s ``heuristics`` list — the
-    loop can therefore discover whether dropping a heuristic, or adding a
-    fresh one, generalises better than the seed composition.
+    the *shape* of a :class:`StrategySpec`'s ``heuristics`` or
+    ``analyzers`` list — the loop can therefore discover whether
+    dropping an existing entry, or adding a fresh one, generalises
+    better than the seed composition.
+
+    Heuristic ops (``add_heuristic`` / ``drop_heuristic``) shipped
+    2026-05-03; analyzer ops (``add_analyzer`` / ``drop_analyzer``)
+    shipped 2026-06-02 and mirror the heuristic semantics — same
+    ``candidate_classes`` / ``droppable_classes`` / ``avoid_duplicates``
+    fields, the analyzer-specific safety floor lives on the sibling
+    :attr:`min_analyzers`.
 
     Args:
         strategy_pattern: Substring matched against
@@ -301,32 +318,51 @@ class StructuralMutationRule:
               always has *something* to emit points.  When
               :attr:`droppable_classes` is non-empty, only heuristics
               whose ``__name__`` is in the set are eligible.
-        candidate_classes: Sequence of ``(HeuristicClass, default_kwargs)``
-            pairs the rule may pull from for ``add_heuristic``.  Ignored
-            for ``drop_heuristic``.  Each tuple's ``default_kwargs`` is
-            shallow-copied into the new spec so subsequent kwarg-tune
-            mutations can perturb it independently.
-        droppable_classes: Optional restriction for ``drop_heuristic``.
-            When provided (a tuple of class ``__name__``s), only matching
-            heuristics may be dropped.  Empty tuple means "any heuristic
-            in the strategy is eligible (subject to :attr:`min_heuristics`)".
+            * ``"add_analyzer"`` — append an analyzer from
+              :attr:`candidate_classes` to a target strategy.  Same
+              duplicate-avoidance semantics as ``add_heuristic``.
+              Useful for letting the loop discover whether adding
+              ``Restart`` (warm restarts) or ``Sensitivity`` (adaptive
+              tracking) helps a given seed composition.
+            * ``"drop_analyzer"`` — remove an existing analyzer from a
+              target strategy.  Subject to the :attr:`min_analyzers`
+              floor (default ``0`` — analyzers are non-essential, unlike
+              heuristics, so an empty analyzer list is a valid spec).
+        candidate_classes: Sequence of ``(Class, default_kwargs)``
+            pairs the rule may pull from for ``add_heuristic`` /
+            ``add_analyzer``.  Ignored for drop ops.  Each tuple's
+            ``default_kwargs`` is shallow-copied into the new spec so
+            subsequent kwarg-tune mutations can perturb it independently.
+        droppable_classes: Optional restriction for ``drop_heuristic`` /
+            ``drop_analyzer``.  When provided (a tuple of class
+            ``__name__``s), only matching entries may be dropped.  Empty
+            tuple means "any entry in the strategy is eligible (subject
+            to :attr:`min_heuristics` / :attr:`min_analyzers`)".
         min_heuristics: Lower bound on the size of the heuristics list
             after a drop.  Default ``2`` keeps every strategy with at
             least one diversity slot beyond the bare minimum.  ``1`` is
-            the absolute floor; ``0`` is rejected.
-        avoid_duplicates: For ``add_heuristic``, skip candidates whose
-            class is already present in the strategy.  Default ``True``.
-            Set to ``False`` when intentional duplicates are desirable
-            (e.g. two :class:`Nearby` instances at different radii).
+            the absolute floor; ``0`` is rejected.  Only consulted for
+            ``drop_heuristic`` ops.
+        min_analyzers: Lower bound on the size of the analyzers list
+            after a drop.  Default ``0`` because analyzers are
+            non-essential — most strategies in the default battery do
+            ship one (typically :class:`Sensitivity`) but stripping it
+            yields a valid, runnable spec.  Set to ``1`` if the rule
+            should preserve at least one analyzer.  Only consulted for
+            ``drop_analyzer`` ops.
+        avoid_duplicates: For ``add_heuristic`` / ``add_analyzer``, skip
+            candidates whose class is already present in the matching
+            bucket.  Default ``True``.  Set to ``False`` when intentional
+            duplicates are desirable.
         probability: Relative weight when the catalog picks among
             multiple applicable rules; normalised automatically.  Same
             semantics as :class:`MutationRule`.
 
     Raises:
         ValueError: If ``op`` is not one of :data:`_STRUCTURAL_OPS`,
-            ``min_heuristics`` is below ``1``, ``probability`` is
-            non-positive, or ``op == "add_heuristic"`` is paired with an
-            empty :attr:`candidate_classes`.
+            ``min_heuristics`` is below ``1``, ``min_analyzers`` is
+            below ``0``, ``probability`` is non-positive, or an add op
+            is paired with an empty :attr:`candidate_classes`.
     """
 
     strategy_pattern: str
@@ -334,6 +370,7 @@ class StructuralMutationRule:
     candidate_classes: Tuple[Tuple[type, Dict[str, Any]], ...] = ()
     droppable_classes: Tuple[str, ...] = ()
     min_heuristics: int = 2
+    min_analyzers: int = 0
     avoid_duplicates: bool = True
     probability: float = 1.0
 
@@ -342,10 +379,12 @@ class StructuralMutationRule:
             raise ValueError(f"Unknown structural op: {self.op!r}; expected one of {_STRUCTURAL_OPS}")
         if self.min_heuristics < 1:
             raise ValueError(f"min_heuristics must be >= 1, got {self.min_heuristics}")
+        if self.min_analyzers < 0:
+            raise ValueError(f"min_analyzers must be >= 0, got {self.min_analyzers}")
         if self.probability <= 0:
             raise ValueError(f"probability must be > 0, got {self.probability}")
-        if self.op == "add_heuristic" and not self.candidate_classes:
-            raise ValueError("add_heuristic requires at least one entry in candidate_classes")
+        if self.op in ("add_heuristic", "add_analyzer") and not self.candidate_classes:
+            raise ValueError(f"{self.op} requires at least one entry in candidate_classes")
 
     def rule_key(self) -> "RuleKey":
         """Return the bandit-arm key for this rule.
@@ -353,8 +392,10 @@ class StructuralMutationRule:
         All structural rules with the same ``op`` share one arm by
         default — this keeps the bandit space small and matches the
         coarsest reasonable taxonomy ("does adding heuristics help?",
-        "does dropping help?").  Per-class arms are a future refinement
-        (see §10 ledger note in the plan).
+        "does dropping help?", and the symmetric questions about
+        analyzers).  Per-class arms split each op into one arm per
+        candidate class — see
+        :attr:`AdaptiveMutationSampler.per_class_structural`.
         """
         return ("*", self.op, "structural")
 
@@ -472,39 +513,47 @@ def _find_structural_hits(
 
     The set differs by ``op``:
 
-    * ``add_heuristic`` — Cartesian product of matching strategies and
-      :attr:`candidate_classes`, optionally pruned by
-      :attr:`avoid_duplicates`.  Each candidate's ``default_kwargs`` is
-      shallow-copied so two hits never share a mutable dict.
-    * ``drop_heuristic`` — every existing ``(spec, heuristic)`` pair
-      whose strategy matches :attr:`strategy_pattern`, the heuristic's
-      class is in :attr:`droppable_classes` (or any, if empty), and the
-      strategy currently has more than :attr:`min_heuristics` heuristics
-      so removal would not violate the safety floor.
+    * ``add_heuristic`` / ``add_analyzer`` — Cartesian product of
+      matching strategies and :attr:`candidate_classes`, optionally
+      pruned by :attr:`avoid_duplicates`.  Each candidate's
+      ``default_kwargs`` is shallow-copied so two hits never share a
+      mutable dict.  The bucket (``heuristics`` vs ``analyzers``)
+      determines which list ``avoid_duplicates`` compares against.
+    * ``drop_heuristic`` / ``drop_analyzer`` — every existing
+      ``(spec, entry)`` pair whose strategy matches
+      :attr:`strategy_pattern`, the entry's class is in
+      :attr:`droppable_classes` (or any, if empty), and the strategy
+      currently has more than :attr:`min_heuristics` /
+      :attr:`min_analyzers` entries in the matching bucket so removal
+      would not violate the safety floor.
 
     Returning an empty list signals "rule not applicable to current
     specs"; the catalog uses that to skip the rule entirely (and so the
     bandit does not waste an iteration on a no-op).
     """
     hits: List[_StructuralHit] = []
-    if rule.op == "add_heuristic":
+    analyzer_op = _is_analyzer_op(rule.op)
+    floor = rule.min_analyzers if analyzer_op else rule.min_heuristics
+    if rule.op in ("add_heuristic", "add_analyzer"):
         for si, spec in enumerate(specs):
             if rule.strategy_pattern and rule.strategy_pattern not in spec.name:
                 continue
-            present = {cls.__name__ for cls, _ in spec.heuristics}
+            bucket = spec.analyzers if analyzer_op else spec.heuristics
+            present = {cls.__name__ for cls, _ in bucket}
             for cls, default_kwargs in rule.candidate_classes:
                 if rule.avoid_duplicates and cls.__name__ in present:
                     continue
                 hits.append((si, cls, dict(default_kwargs)))
-    elif rule.op == "drop_heuristic":
+    elif rule.op in ("drop_heuristic", "drop_analyzer"):
         droppable = set(rule.droppable_classes)
         for si, spec in enumerate(specs):
             if rule.strategy_pattern and rule.strategy_pattern not in spec.name:
                 continue
-            if len(spec.heuristics) <= rule.min_heuristics:
+            bucket = spec.analyzers if analyzer_op else spec.heuristics
+            if len(bucket) <= floor:
                 # Dropping any one would breach the safety floor.
                 continue
-            for cls, kwargs in spec.heuristics:
+            for cls, kwargs in bucket:
                 if droppable and cls.__name__ not in droppable:
                     continue
                 hits.append((si, cls, dict(kwargs)))
@@ -641,25 +690,17 @@ def _make_structural_proposal(
     information :func:`apply_mutation` needs; the legacy
     ``class_name`` / ``rule_kind`` fields stay populated so existing
     ledger consumers (and the bandit's :func:`_proposal_rule_key`)
-    continue to work without special-casing.
+    continue to work without special-casing.  Heuristic and analyzer
+    ops share the same proposal shape — they differ only in which
+    bucket :func:`apply_mutation` mutates.
     """
     si, cls, kwargs = hit
     strategy_name = specs[si].name
-    if rule.op == "add_heuristic":
-        rationale = f"add_heuristic {cls.__name__}({kwargs!r}) to {strategy_name}"
-        return MutationProposal(
-            strategy_name=strategy_name,
-            class_name=cls.__name__,
-            param_name="",
-            old_value=None,
-            new_value=None,
-            rule_kind=rule.op,
-            rationale=rationale,
-            op=rule.op,
-            structural_kwargs=dict(kwargs),
-        )
-    # drop_heuristic
-    rationale = f"drop_heuristic {cls.__name__}({kwargs!r}) from {strategy_name}"
+    if rule.op in ("add_heuristic", "add_analyzer"):
+        rationale = f"{rule.op} {cls.__name__}({kwargs!r}) to {strategy_name}"
+    else:
+        # drop_heuristic / drop_analyzer
+        rationale = f"{rule.op} {cls.__name__}({kwargs!r}) from {strategy_name}"
     return MutationProposal(
         strategy_name=strategy_name,
         class_name=cls.__name__,
@@ -732,19 +773,21 @@ def _proposal_rule_key(
 ) -> RuleKey:
     """Map a proposal triple to the bandit's arm key.
 
-    Structural ops (``add_heuristic``, ``drop_heuristic``) collapse
-    onto a single arm per op type by default — see
-    :meth:`StructuralMutationRule.rule_key`.  Kwarg perturbations keep
-    the natural one-arm-per-(class, param, kind) granularity.  The two
-    paths must agree because :meth:`AdaptiveMutationSampler.prime_from_ledger`
-    rebuilds the bandit history from JSONL records that only carry the
-    proposal triple — never the original rule object.
+    Structural ops (``add_heuristic`` / ``drop_heuristic`` /
+    ``add_analyzer`` / ``drop_analyzer``) collapse onto a single arm
+    per op type by default — see :meth:`StructuralMutationRule.rule_key`.
+    Kwarg perturbations keep the natural one-arm-per-(class, param,
+    kind) granularity.  The two paths must agree because
+    :meth:`AdaptiveMutationSampler.prime_from_ledger` rebuilds the
+    bandit history from JSONL records that only carry the proposal
+    triple — never the original rule object.
 
     When ``per_class_structural`` is ``True``, structural ops are
-    further split by the target heuristic's class name so each
-    (op, class) pair gets its own bandit arm.  For example, adding
-    ``Sobol`` lives on ``("Sobol", "add_heuristic", "structural")``
-    while adding ``Random`` lives on ``("Random", "add_heuristic",
+    further split by the target class's name so each (op, class) pair
+    gets its own bandit arm.  For example, adding ``Sobol`` lives on
+    ``("Sobol", "add_heuristic", "structural")`` while adding
+    ``Random`` lives on ``("Random", "add_heuristic", "structural")``,
+    and adding ``Restart`` lives on ``("Restart", "add_analyzer",
     "structural")``.  This trades sparser data per arm for the ability
     to distinguish which class wins / loses inside a structural op.
     The flag must be passed consistently with
@@ -1610,22 +1653,33 @@ def default_structural_catalog() -> MutationCatalog:
     """Return :func:`default_catalog` extended with portfolio-shape rules.
 
     Implements the *Strategy portfolio composition* mutation class from
-    §7.2 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Two structural rules
+    §7.2 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Four structural rules
     sit alongside the existing kwarg perturbations:
 
     * ``add_heuristic`` from a curated pool of unconditionally-safe
       generators (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
-      ``LatinHypercube``, ``Sobol``, ``Extremal``).  ``avoid_duplicates=True``
-      so the catalog never proposes a duplicate of a class already in the
+      ``LatinHypercube``, ``Sobol``, ``Extremal``, plus the strong
+      population variants PSO ``gbest`` / ``lbest`` / ``vonneumann``,
+      LSHADE, jSO, NLSHADE_RSP, COBYQA).  ``avoid_duplicates=True`` so
+      the catalog never proposes a duplicate of a class already in the
       strategy.
     * ``drop_heuristic`` with ``min_heuristics=2`` so no strategy is
       ever stripped down past the diversity floor.
+    * ``add_analyzer`` from a curated pool of analyzers (``Sensitivity``,
+      ``Restart``).  Shipped 2026-06-02 — extends the loop's reach
+      beyond heuristics so the bandit can also discover whether the
+      ``Restart`` analyzer (warm restarts) or the ``Sensitivity``
+      analyzer (adaptive tracking) helps a given seed composition.
+      ``avoid_duplicates=True`` skips analyzer classes already attached.
+    * ``drop_analyzer`` with ``min_analyzers=0`` because analyzers are
+      non-essential — stripping :class:`Sensitivity` from a Rewarding
+      strategy yields a valid, slightly faster spec.
 
-    Both rules carry a low probability (``0.3``) relative to the kwarg
-    rules — structural changes are higher-variance than retunes, so the
-    loop should sample them sparingly.  The overall acceptance rate stays
-    in the same neighbourhood as :func:`default_catalog`'s while
-    expanding the search space the loop can explore.
+    All four rules carry a low probability (``0.3``) relative to the
+    kwarg rules — structural changes are higher-variance than retunes,
+    so the loop should sample them sparingly.  The overall acceptance
+    rate stays in the same neighbourhood as :func:`default_catalog`'s
+    while expanding the search space the loop can explore.
 
     Opt-in via :class:`SelfImprover`'s ``catalog=`` argument or
     ``scripts/self_improve.py run --structural``.  The default
@@ -1641,6 +1695,7 @@ def default_structural_catalog() -> MutationCatalog:
         Random,
         Sobol,
     )
+    from panobbgo.analyzers import Restart, Sensitivity
 
     base_rules = list(default_catalog().rules)
     # PSO and L-SHADE are loaded lazily because they use a slightly
@@ -1735,6 +1790,23 @@ def default_structural_catalog() -> MutationCatalog:
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
         (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
     )
+    # Analyzer candidate pool — narrowly curated.  ``Sensitivity``
+    # (cheap adaptive tracking) and ``Restart`` (warm restarts on
+    # stagnation) are the two analyzers most strategies in the default
+    # battery already use; adding them to bare strategies is the
+    # natural shipping target.  The remaining analyzers
+    # (``Best`` / ``Convergence`` are auto-attached by the strategy
+    # base class; ``Splitter`` / ``Grid`` / ``Dedensifyer`` are
+    # research-grade special-purpose tools) are intentionally
+    # excluded — the bandit should not add experimental analyzers
+    # to a working spec without explicit opt-in.  ``Restart``'s
+    # default kwargs match the canonical IPOP-CMA-ES wiring in
+    # :func:`_make_standard_strategies`.  ``Sensitivity``'s
+    # ``update_interval`` matches the standard-mode default.
+    analyzer_candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
+        (Sensitivity, {"update_interval": 20}),
+        (Restart, {"patience": None, "restart_strategy": "diverse", "max_restarts": 5}),
+    )
     structural_rules: List[CatalogRule] = [
         StructuralMutationRule(
             strategy_pattern="",
@@ -1746,6 +1818,19 @@ def default_structural_catalog() -> MutationCatalog:
             strategy_pattern="",
             op="drop_heuristic",
             min_heuristics=2,
+            probability=0.3,
+        ),
+        StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=analyzer_candidates,
+            probability=0.3,
+        ),
+        StructuralMutationRule(
+            strategy_pattern="",
+            op="drop_analyzer",
+            # Analyzers are non-essential — an empty list is valid.
+            min_analyzers=0,
             probability=0.3,
         ),
     ]
@@ -1769,7 +1854,7 @@ def apply_mutation(
     input list is untouched — this lets the loop keep the prior spec
     list around as the "fallback" when a proposal is rejected.
 
-    Three proposal flavours are supported:
+    Five proposal flavours are supported:
 
     * Hyperparameter retune (``proposal.op is None``) — overwrite the
       existing kwarg value at ``(class_name, param_name)``.
@@ -1785,6 +1870,13 @@ def apply_mutation(
       *sample* time (in :func:`_find_structural_hits`); apply trusts the
       catalog and only re-checks the trivial "≥ 1 entry remains" floor
       so this function still refuses to produce an empty strategy.
+    * ``proposal.op == "add_analyzer"`` — same as ``add_heuristic`` but
+      targets the analyzers bucket.  The class object is resolved from
+      :mod:`panobbgo.analyzers` via :func:`_resolve_analyzer_class`.
+    * ``proposal.op == "drop_analyzer"`` — same as ``drop_heuristic``
+      but targets the analyzers bucket.  The analyzers list is allowed
+      to become empty (unlike heuristics) — strategies with no
+      analyzers still run cleanly.
 
     Raises:
         ValueError: If the target strategy is absent, the target class
@@ -1819,6 +1911,23 @@ def apply_mutation(
             if len(new_heuristics) <= 1:
                 raise ValueError(f"drop_heuristic on {spec.name!r} would leave the strategy with no heuristics")
             new_heuristics.pop(drop_idx)
+        elif proposal.op == "add_analyzer":
+            cls_obj = _resolve_analyzer_class(proposal, spec)
+            new_kwargs = dict(proposal.structural_kwargs or {})
+            new_analyzers.append((cls_obj, new_kwargs))
+        elif proposal.op == "drop_analyzer":
+            drop_idx = next(
+                (i for i, (cls, _) in enumerate(new_analyzers) if cls.__name__ == proposal.class_name),
+                None,
+            )
+            if drop_idx is None:
+                raise ValueError(
+                    f"drop_analyzer proposal targets class {proposal.class_name!r}"
+                    f" but no analyzer of that name exists in {spec.name!r}"
+                )
+            # Unlike heuristics, an empty analyzers list is a valid spec
+            # — Sensitivity etc. are non-essential to running the strategy.
+            new_analyzers.pop(drop_idx)
         else:
             hit = False
             for cls, kw in new_heuristics:
@@ -1881,6 +1990,32 @@ def _resolve_heuristic_class(proposal: MutationProposal, spec: StrategySpec) -> 
     raise ValueError(
         f"add_heuristic proposal references class {name!r} which is not present in"
         f" strategy {spec.name!r} and not exported from panobbgo.heuristics"
+    )
+
+
+def _resolve_analyzer_class(proposal: MutationProposal, spec: StrategySpec) -> type:
+    """Recover the actual class object for an ``add_analyzer`` proposal.
+
+    Mirror of :func:`_resolve_heuristic_class` for the analyzers bucket.
+    Looks up the class by name on the spec's existing analyzers first
+    (covers the ``avoid_duplicates=False`` case), then falls back to
+    :mod:`panobbgo.analyzers`'s registered re-exports.
+    """
+    name = proposal.class_name
+    for cls, _ in spec.analyzers:
+        if cls.__name__ == name:
+            return cls
+    # Fallback: import from the analyzers package by name.  Restrict to
+    # names actually registered there to avoid eval-style class lookup.
+    import panobbgo.analyzers as _a
+
+    if hasattr(_a, name):
+        candidate = getattr(_a, name)
+        if isinstance(candidate, type):
+            return candidate
+    raise ValueError(
+        f"add_analyzer proposal references class {name!r} which is not present in"
+        f" strategy {spec.name!r} and not exported from panobbgo.analyzers"
     )
 
 

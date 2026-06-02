@@ -316,14 +316,17 @@ The harness is the measurement substrate for an autonomous
     `--adaptive`).
 *   Strategy portfolio composition (§7.2) — **shipped**, see
     `panobbgo.self_improve.StructuralMutationRule` and the
-    `default_structural_catalog()` factory.  Two ops join the mutation
+    `default_structural_catalog()` factory.  Four ops join the mutation
     catalog: `add_heuristic` (append from a curated pool —
     Random/Nearby/NelderMead/Center/LatinHypercube/Sobol/Extremal,
     the PSO topologies, the DE family L-SHADE/jSO/NL-SHADE-RSP, and the
     local optimizers COBYQA and LBFGSB (the only gradient-based arm);
-    `avoid_duplicates` skips classes already present) and
+    `avoid_duplicates` skips classes already present),
     `drop_heuristic` (remove subject to a
-    `min_heuristics` post-drop floor).  Opt in via
+    `min_heuristics` post-drop floor), plus the symmetric analyzer ops
+    `add_analyzer` and `drop_analyzer` (**shipped 2026-06-02** —
+    candidates `Sensitivity` / `Restart`, `min_analyzers=0` since
+    analyzers are non-essential).  Opt in via
     `scripts/self_improve.py run --structural` or
     `SelfImprover(catalog=default_structural_catalog())`.  Off by
     default so existing CLI invocations remain byte-identical.
@@ -403,14 +406,18 @@ uv run python scripts/self_improve.py run --iterations 100 \
 uv run python scripts/self_improve.py run --iterations 100 \
     --adaptive --adaptive-prime-from-ledger
 
-# Structural catalog: kwarg perturbations + add_heuristic / drop_heuristic ops
+# Structural catalog: kwarg perturbations + four structural ops
+# (add_heuristic / drop_heuristic / add_analyzer / drop_analyzer).
+# The analyzer ops shipped 2026-06-02 — Sensitivity / Restart candidate
+# pool — extend the loop's reach beyond the heuristics bucket.
 uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive
 
-# Per-class structural bandit arms — splits each add_heuristic /
-# drop_heuristic op into one arm per candidate class so the bandit
-# can distinguish "add Sobol" from "add Random".  Only effective
-# with --adaptive.
+# Per-class structural bandit arms — splits each structural op
+# (add_heuristic / drop_heuristic / add_analyzer / drop_analyzer) into
+# one arm per candidate class so the bandit can distinguish "add Sobol"
+# from "add Random", or "add Restart" from "add Sensitivity".  Only
+# effective with --adaptive.
 uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive --structural-per-class-arms \
     --adaptive-prime-from-ledger

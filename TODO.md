@@ -50,6 +50,51 @@
       `guide.rst`, `guide_benchmarking.rst`, `guide_architecture.rst`,
       `heuristics.rst`, `AGENTS.md`.
 
+### Analyzer add/drop structural mutations — 2026-06-02
+- [x] **New ops** `add_analyzer` / `drop_analyzer` on
+      :class:`panobbgo.self_improve.StructuralMutationRule`, symmetric
+      to the existing `add_heuristic` / `drop_heuristic` ops.  Closes
+      the *Analyzer add/drop* follow-up below the 2026-05-03
+      structural-catalog §13 entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.
+  - **Why it matters.** Before this ship, the loop's reach into the
+    strategy spec was asymmetric: it could mutate the *heuristics*
+    portfolio but not the *analyzers* — even though analyzers carry
+    materially different behaviour (most notably the :class:`Restart`
+    analyzer's IPOP-style warm restarts).  Adding the symmetric ops
+    extends the bandit's reach without disturbing any existing ledger.
+- [x] **`min_analyzers` field** (default `0`) replaces `min_heuristics`
+      as the post-drop safety floor for analyzer ops.  Unlike
+      heuristics, an empty analyzers list is a valid spec (analyzers
+      are non-essential).
+- [x] **Catalog wiring** — `default_structural_catalog` gains two new
+      rules: `add_analyzer` with candidates
+      `(Sensitivity, {"update_interval": 20})` and
+      `(Restart, {"patience": None, "restart_strategy": "diverse", "max_restarts": 5})`;
+      and `drop_analyzer` with `min_analyzers=0`.  Both at probability
+      `0.3` — structural ops sample sparingly relative to kwarg
+      retunes.
+- [x] **Per-class bandit arms** work identically for the new ops —
+      :func:`_proposal_rule_key` keys analyzer ops by their op name in
+      :data:`_STRUCTURAL_OPS`.  Setting
+      :attr:`LoopConfig.structural_per_class_arms=True` (or
+      `--structural-per-class-arms`) splits ``add_analyzer`` into
+      `(Sensitivity, add_analyzer, structural)` /
+      `(Restart, add_analyzer, structural)` arms.
+- [x] **Backwards-compatible.** All 180 pre-existing
+      `tests.test_self_improve` tests pass unchanged; the only edit
+      was the `TestDefaultStructuralCatalog` expected ops set (two →
+      four).  Existing ledger consumers see the two new `rule_kind`
+      strings as additional values they may ignore.
+- [x] **Tests** — `tests/test_self_improve.py` (+34 tests, total 214):
+      validation (5), structural-hit enumeration (6), catalog sampling
+      (4), apply-side dispatch (7), per-class bandit arms (5), proposal
+      serialisation (2), default catalog (4), end-to-end (1).
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOOP.md`
+      (§13 entry, §2 missing-pieces list, §7 change catalog, §9 Phase 6
+      checklist), `doc/source/guide.rst`,
+      `doc/source/guide_benchmarking.rst`, and `AGENTS.md`.
+
 ### Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011) — 2026-05-29
 - [x] **New `"random"` topology** in `panobbgo/heuristics/pso.py`;
       closes the *Random re-wired topology* PSO follow-up under the

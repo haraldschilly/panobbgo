@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``NLSHADE_RSP``, ``NLSHADE_LBC``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *four*
+  ``JSO``, ``NLSHADE_RSP``, ``NLSHADE_LBC``, ``LSHADE_EpSin``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *four*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), the 4-connected
@@ -750,7 +750,14 @@ space with two new ops that change the *shape* of a
   progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) instead of fixed
   at ``2``; the numerator / denominator exponent spread ``m_lbc`` is
   held constant at ``1.5`` (``m = 1`` and ``p = 2`` everywhere recovers
-  the standard L-SHADE Lehmer mean).  All five DE-family arms share the
+  the standard L-SHADE Lehmer mean).  LSHADE-EpSin (Awad, Ali & Suganthan
+  2016) is the *orthogonal* CEC-2016 sinusoidal-F branch — it replaces
+  SHADE Cauchy-from-memory ``F`` sampling with an ensemble of two
+  sinusoidal candidates (fixed-frequency / decreasing-envelope vs
+  adaptive-frequency / increasing-envelope, mixed by an adaptive
+  Sinusoid-1 selection probability ``p_s``) during the first half of the
+  search, reverting to SHADE Cauchy in the second half; precursor of the
+  CEC-2017 co-winner LSHADE-cnEpSin.  All six DE-family arms share the
   ``add_heuristic`` arm so the bandit picks whichever variant wins on
   the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family

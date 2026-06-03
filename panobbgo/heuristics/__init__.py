@@ -42,6 +42,7 @@ from .local_penalty_search import LocalPenaltySearch
 from .claude_heuristic import ClaudeHeuristic
 from .differential_evolution import DifferentialEvolution
 from .lshade import LSHADE
+from .lshade_ep_sin import LSHADE_EpSin
 from .jso import JSO
 from .nl_shade_rsp import NLSHADE_RSP
 from .nl_shade_lbc import NLSHADE_LBC
@@ -69,6 +70,7 @@ __all__ = [
     "ClaudeHeuristic",
     "DifferentialEvolution",
     "LSHADE",
+    "LSHADE_EpSin",
     "JSO",
     "NLSHADE_RSP",
     "NLSHADE_LBC",

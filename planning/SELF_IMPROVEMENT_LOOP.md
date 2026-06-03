@@ -745,6 +745,187 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: self-improvement loop subsection adds the
     ``PSO.stagnation_threshold`` rule to the kwarg-rules list.
 
+### 2026-06-03 — LSHADE-EpSin adaptive DE (CEC 2016, sinusoidal-F branch)
+
+* **What** — `panobbgo/heuristics/lshade_ep_sin.py` adds the
+  :class:`LSHADE_EpSin` heuristic, a direct subclass of
+  :class:`~panobbgo.heuristics.lshade.LSHADE` that ports the Awad-Ali-
+  Suganthan (CEC 2016) "LSHADE-EpSin" refinement.  LSHADE-EpSin inherits
+  the entire L-SHADE asynchronous pipeline (per-slot pending dict,
+  generation-by-count book-keeping, archive of replaced parents,
+  success-history Normal CR sampling, ``current-to-pbest/1`` mutation
+  skeleton, linear population reduction, midpoint-reflection bounds
+  repair, warm restart) and replaces only the ``F`` sampler with an
+  ensemble of two sinusoidal candidates during the first half of the
+  search:
+
+  * **Sinusoid 1** (fixed frequency, *decreasing* envelope)::
+
+        F = 0.5 · ( sin(2π · freq_fixed · g) · (G_max − g)/G_max + 1 )
+
+    with ``freq_fixed = 0.5``.  Sinusoid 1 starts at the top of its
+    range (``F = 1.0`` when ``sin(·) = 1`` and the envelope is
+    near-1) and decays its amplitude over the search.
+
+  * **Sinusoid 2** (variable frequency, *increasing* envelope)::
+
+        F = 0.5 · ( sin(2π · freq_i · g + π) · g/G_max + 1 )
+
+    with ``freq_i ~ Cauchy(μ_freq, 0.1)`` clamped to ``(0, 1]``.
+    Sinusoid 2 starts small and grows its amplitude over the search;
+    the ``+π`` phase shift puts it in opposite phase to Sinusoid 1
+    when ``freq_i = freq_fixed``.  ``μ_freq`` adapts each generation
+    via the *unweighted* Lehmer mean
+    (``Σ freq² / Σ freq``) of successful Sinusoid-2 frequencies.
+
+  Selection between the two sinusoids is controlled by ``p_s``, the
+  probability of picking Sinusoid 1, updated each generation from a
+  *Laplace-smoothed* Sinusoid-1 success rate::
+
+        p_s = (ns_1 + 1) / (ns_1 + ns_2 + 2)
+
+  — same monotonic direction as the paper's ranking-selection formula,
+  smaller state, identical behaviour in the corners that motivated the
+  smoothing in the first place (no successes ⇒ ``p_s = 0.5``).  In the
+  second half of the search (``progress ≥ 0.5``) the heuristic reverts
+  to the standard SHADE Cauchy-from-memory ``F`` sampling — byte-
+  identical to L-SHADE.  ``CR`` is *always* drawn from a SHADE Normal
+  memory bin (unchanged from L-SHADE in both phases) — only ``F``
+  switches mechanisms across the phase split.
+
+  Two small behaviour-preserving hooks were added to L-SHADE to enable
+  the subclass cleanly (mirroring the NL-SHADE-RSP precedent):
+
+  * :meth:`LSHADE._make_trial_meta` — factory for the ``_pending``
+    record.  Default returns a plain :class:`_TrialMeta`; EpSin
+    overrides to return :class:`_EpSinTrialMeta` carrying the sin
+    choice + freq used by the trial.
+  * :meth:`LSHADE._record_success` — hook invoked once per successful
+    competitive trial after the parent's SHADE memory update.  Default
+    is a no-op; EpSin counts ``ns_1`` / ``ns_2`` and stashes the
+    Sinusoid-2 ``freq`` for the end-of-generation Lehmer mean.
+
+  L-SHADE, jSO, and NL-SHADE-RSP keep their byte-identical behaviour —
+  the hooks' default implementations reproduce the prior code path
+  exactly (verified: all 133 pre-existing L-SHADE / jSO / NL-SHADE-RSP
+  tests pass unchanged).
+
+* **Why** — closes the *L-SHADE-cnEpSin* DE-family follow-up below
+  (the §13 entry from 2026-05-15 jSO ship lists EpSin under "Next
+  iteration ideas" as a different *branch* of the DE family tree from
+  jSO).  All DE arms shipped to date — basic DE, L-SHADE (CEC 2014),
+  jSO (CEC 2017), NL-SHADE-RSP (CEC 2021) — adapt ``F`` via the SHADE
+  *Cauchy memory*.  LSHADE-EpSin's deterministic-amplitude sinusoid is
+  algorithmically distinct: it produces ``F`` values from a
+  *time-varying deterministic schedule* rather than from a noisy
+  memory-based posterior.  The two adaptation mechanisms have
+  complementary strengths — Cauchy-memory tracks per-problem optimal
+  ``F`` when the landscape has a clear "best ``F``" attractor; sinusoid
+  schedules force ``F`` variability in both magnitude and direction
+  regardless of landscape, which helps on landscapes where any single
+  ``F`` posterior gets stuck.  Adds a *fifth* DE-family arm the bandit
+  can pick whichever wins on the current battery.  Direct precursor of
+  the CEC-2017 co-winner LSHADE-cnEpSin (the same sinusoidal ensemble
+  plus a covariance-matrix mutation step — not ported here; CMA-ES is
+  already a separate heuristic in Panobbgo).
+* **Deviations from the paper** — for honesty (the Panobbgo norm is
+  literature-faithful ports): three small deviations needed for the
+  async pipeline:
+
+  * **Generation-budget estimate.**  The paper uses the canonical
+    synchronous generation count ``g`` and a known ``G_max`` (the
+    total generations the loop will run).  Our async port has neither
+    exactly — generations complete by count rather than by sync
+    barrier, and ``G_max`` is unknowable until ``max_eval`` is
+    reached.  We estimate ``G_max ≈ max_eval / ((NP_init + NP_min) / 2)``
+    (average population size under LPSR) and gate the phase split on
+    ``progress = len(results) / max_eval`` rather than ``g / G_max``.
+    This keeps the schedule in lock-step with how L-SHADE already
+    paces LPSR.  Unknown-budget fallback: ``G_max = 10 · NP_init``,
+    ``sinusoidal phase`` always (so the heuristic still produces a
+    varied ``F`` distribution).
+  * **Selection-probability formula.**  The paper uses a more elaborate
+    ranking-selection formula incorporating both success counts
+    (``ns_1``, ``ns_2``) and failure counts (``nf_1``, ``nf_2``).  We
+    use the simpler Laplace-smoothed
+    ``p_s = (ns_1 + 1) / (ns_1 + ns_2 + 2)`` — same monotonic
+    direction, smaller state, identical behaviour in the
+    ``ns_1 = ns_2 = 0`` and ``ns_2 = 0`` corners that motivated the
+    smoothing.
+  * **F-cap is opt-in.**  The sinusoidal envelopes already provide a
+    time-varying ``F`` magnitude; composing them with the jSO
+    asymmetric F-cap (Brest 2017) is usually counter-productive in
+    the first half.  The default is ``F_schedule=None`` (off);
+    callers who want the cap can set ``F_schedule=True`` explicitly.
+* **Impact** — the point of shipping is to give the bandit a fifth
+  DE-family arm with markedly different ``F``-adaptation dynamics to
+  choose between, rather than to claim a single-shipped-variant win.
+  The §13 entries for L-SHADE, jSO, and NL-SHADE-RSP all report the
+  same pattern: the CEC-DE refinements are *large-budget specialists*
+  and at Panobbgo's small composite-battery budgets (75–500 evals)
+  they measure within noise of each other on a single A/B.  The value
+  of shipping today is to expand the bandit's catalog with a
+  literature-grounded *F*-adaptation variant that is algorithmically
+  distinct from every other arm shipped so far; the per-arm reward
+  signal will identify the winner online once enough nights of the
+  cron have accumulated.  *Evidence form (per AGENTS.md "Agent-driven
+  improve X PRs"): change is backwards-compatible — the composite
+  baseline on every default battery is byte-identical because
+  LSHADE_EpSin is opt-in via the structural catalog and not added to
+  any default ``_make_quick_strategies`` / ``_make_standard_strategies``
+  / ``_make_full_strategies`` spec.*
+* **Backwards compatibility** — strictly safe.  LSHADE-EpSin is opt-in:
+  it is not added to any default :func:`_make_quick_strategies` /
+  :func:`_make_standard_strategies` / :func:`_make_full_strategies`
+  spec, so the composite baseline on every default battery is
+  byte-identical and existing ledgers stay valid.  The structural
+  catalog gains it as one extra ``add_heuristic`` candidate
+  (``avoid_duplicates=True``).  The two kwarg rules
+  (``LSHADE_EpSin.NP_init``, ``LSHADE_EpSin.mu_freq_init``) fire only
+  when a spec sets the matching kwarg explicitly.  The L-SHADE
+  base-class hook additions (:meth:`_make_trial_meta`,
+  :meth:`_record_success`) are behaviour-preserving: their default
+  implementations reproduce the prior code path exactly — all 133
+  pre-existing L-SHADE / jSO / NL-SHADE-RSP tests pass unchanged.
+* **Tests** — `tests/test_heuristic_lshade_ep_sin.py` (44 tests):
+  construction validation (defaults, custom kwargs, subclass invariant,
+  invalid ``mu_freq_init``, inherited L-SHADE validation rules);
+  phase split (gate at ``progress < 0.5``, unknown-budget fallback to
+  sinusoidal, ``G_max`` estimate + fallback); sinusoidal sampling
+  (Sinusoid 1 / 2 returns ``F ∈ [0, 1]``, envelope behaviour at
+  endpoints, ``freq`` Cauchy clamping, ``sin_choice ∈ {1, 2}``,
+  ``CR`` sampling unchanged, phase-routed ``_sample_F_CR``, balanced
+  cold-start selection); ensemble update (cold-start ``p_s = 0.5``,
+  bias toward winning sinusoid, ``p_s`` strictly in ``(0, 1)``,
+  Lehmer-mean ``μ_freq`` update, ``μ_freq`` untouched without
+  Sinusoid-2 successes, counters cleared, ``_end_of_generation`` bumps
+  ``_gen_count``); trial meta (sticky-reset ``_last_sin``,
+  ``_EpSinTrialMeta`` carries sin choice, ``_record_success`` routes
+  ``ns_1`` / ``ns_2`` / ``_gen_success_freq`` correctly, defensive on
+  plain ``_TrialMeta``, no-op in Cauchy phase); pipeline (``on_start``
+  emits ``NP_init``, resets ensemble state, initial fills carry
+  ``sin_choice = 0``, evolutionary trials, sinusoidal success
+  registered when better trial wins, restart resets state, end-to-end
+  smoke convergence on a quadratic); base-class hook safety (L-SHADE
+  / jSO / NL-SHADE-RSP all return plain ``_TrialMeta`` from
+  ``_make_trial_meta``, ``_record_success`` is a no-op); and
+  registration (package re-export + ``__all__``, structural catalog
+  membership, kwarg catalog dials).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *L-SHADE-cnEpSin* next-iteration idea promoted to "shipped
+    (LSHADE-EpSin precursor; cnEpSin adds a CMA-style step on top —
+    CMA-ES is already a separate Panobbgo heuristic)".
+  - `doc/source/heuristics.rst`: new ``LSHADE_EpSin`` bullet; the
+    DE-family complementarity bullet now names all five arms.
+  - `doc/source/guide_architecture.rst`: new ``LSHADE_EpSin``
+    description after NL-SHADE-RSP.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog candidate
+    pool lists ``LSHADE_EpSin``; the description of the DE-family
+    portfolio names all five arms.
+  - `doc/source/guide.rst`: quick-nav entry mentions LSHADE-EpSin and
+    the sinusoidal-F branch of the DE family tree.
+
 ### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a fourth
@@ -3016,12 +3197,21 @@ enough evidence to motivate the work:
   §13 entry.  The CEC-2022 successor **NL-SHADE-LBC** (adds a linear
   bias-correction mechanism) is queued under the *NL-SHADE-RSP
   heuristic* next-iteration idea.
-- **L-SHADE-cnEpSin** — independently developed competitive
-  ensemble (Awad et al. CEC 2017) that combines an ensemble of
-  sinusoidal F schedules with the SHADE memory.  A different
-  branch of the DE family tree from jSO; useful if the bandit
-  evidence ever shows neither jSO nor vanilla L-SHADE consistently
-  wins on noisy / multi-modal landscapes.
+- **L-SHADE-cnEpSin** — *partial ship 2026-06-03*: the precursor
+  **LSHADE-EpSin** (Awad, Ali & Suganthan CEC 2016) shipped as
+  :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`, an
+  L-SHADE subclass that replaces SHADE Cauchy-from-memory ``F``
+  sampling with an ensemble of two sinusoidal candidates during
+  the first half of the search (revertion to SHADE Cauchy in the
+  second half).  See the §13 entry above.  The CEC-2017 successor
+  *LSHADE-cnEpSin* adds a covariance-matrix mutation step on top
+  of EpSin; that step is **not** ported because CMA-ES is already
+  available as a separate Panobbgo heuristic
+  (:class:`~panobbgo.heuristics.cma_es.CMAES`).  If the bandit
+  evidence ever shows a covariance-aware sinusoidal arm winning
+  on a battery (which would be evidence neither pure CMA-ES nor
+  pure EpSin captures the right dynamic), a future ship could
+  port the cnEpSin covariance-mutation step explicitly.
 - **Auto-tuned ``H``** — Brest et al. report ``H = 5`` as best for
   the CEC battery; the loop currently has no rule for ``JSO.H``
   because the constructor enforces ``H >= 2`` (anchor bin

@@ -316,9 +316,27 @@ Implemented Heuristics
   are reachable from the default catalog so the bandit can flip between them.  Inherits NL-SHADE-RSP's
   NLPSR / RSP / adaptive-archive machinery and the asynchronous pipeline unchanged.  The CEC-2022
   adaptive crossover blend and repetitive-generation bound-constraint handling are intentionally not
-  ported (see the heuristic docstring).  All five DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
-  NL-SHADE-LBC) ship in the structural catalog so the bandit picks whichever wins on the current
-  battery.
+  ported (see the heuristic docstring).
+
+- :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`: LSHADE-EpSin refinement of L-SHADE
+  (Awad, Ali & Suganthan, CEC 2016).  Direct subclass of
+  :class:`~panobbgo.heuristics.lshade.LSHADE` that replaces the SHADE Cauchy-from-memory ``F``
+  sampler with an *ensemble of two sinusoidal candidates* during the first half of the search.
+  Sinusoid 1 uses a fixed frequency (``0.5``) with a decreasing amplitude envelope
+  ``(G_max − g) / G_max``; Sinusoid 2 draws its frequency from an adaptive
+  ``Cauchy(μ_freq, 0.1)`` clamped to ``(0, 1]`` and pairs it with an increasing envelope
+  ``g / G_max`` and a ``+π`` phase shift.  Each trial picks one of the two sinusoids with
+  probability ``p_s`` updated each generation from a Laplace-smoothed Sinusoid-1 success rate;
+  ``μ_freq`` updates via the unweighted Lehmer mean of successful Sinusoid-2 frequencies.  In the
+  second half (``progress ≥ 0.5``) EpSin reverts to the SHADE Cauchy-from-memory ``F`` sampling
+  — byte-identical to L-SHADE.  ``CR`` is always sampled from a SHADE Normal bin (unchanged in
+  both phases).  Different *branch* of the DE family tree from jSO / NL-SHADE-RSP — all the other
+  DE arms adapt ``F`` via the Cauchy memory; EpSin's deterministic-amplitude sinusoid is
+  algorithmically distinct.  All six DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
+  NL-SHADE-LBC / LSHADE-EpSin) ship in the structural catalog so the bandit picks whichever wins
+  on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
+  ensemble plus a covariance-matrix step — not ported here; CMA-ES is a separate Panobbgo
+  heuristic).
 
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).

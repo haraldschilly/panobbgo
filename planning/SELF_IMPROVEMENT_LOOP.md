@@ -633,6 +633,132 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
+
+* **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a fourth
+  shipped topology, ``"random"``, via two new helpers
+  :meth:`_init_random_adjacency` (samples one informer set per particle:
+  ``k_neighbors`` draws *with replacement* from ``{0..NP-1} \ {i}`` plus
+  the particle itself, dedup'd so the realised neighbourhood lies in
+  ``[2, k_neighbors + 1]``) and :meth:`_random_neighbors` (lookup helper
+  that falls back to ``[i]`` when ``on_start`` has not run yet).
+  :meth:`_social_best_idx` dispatches the new topology onto the same
+  scan-for-best-neighbour-pbest routine already used by ``lbest`` and
+  ``vonneumann``.  Adjacency is built at :meth:`on_start` and re-sampled
+  at :meth:`on_restart` — the Clerc 2007 / SPSO 2011 convention: when
+  the swarm loses cohesion, the social network is rebuilt to break
+  stagnation.  :func:`default_structural_catalog` gains a fourth PSO
+  entry — ``(PSO, {"NP": 20, "topology": "random", "k_neighbors": 3})``
+  — alongside the existing ``gbest`` / ``lbest`` / ``vonneumann``
+  entries.  All four share ``cls = PSO`` so ``avoid_duplicates=True``
+  still prevents multiple PSO instances per strategy.  The default
+  catalog's existing ``PSO.topology`` categorical rule grows from
+  three choices to four (``("gbest", "lbest", "vonneumann",
+  "random")``) so the bandit can flip an existing explicit-topology
+  PSO between all four regimes without dropping and re-adding the
+  heuristic.
+* **Why** — closes the *Random re-wired topology* PSO follow-up under
+  the §13 entry from 2026-05-22.  ``gbest`` / ``lbest`` / ``vonneumann``
+  are all closed-form functions of ``NP`` — instantaneous full-connect,
+  one-hop ring, two-hop planar.  The fourth slot in the canonical
+  Mendes 2004 set is the *random* graph: structure-free, asymmetric
+  (``j ∈ informers(i)`` does not imply ``i ∈ informers(j)``), with
+  diffusion speed determined by the realised graph rather than a
+  fixed geometric prior.  Clerc (2007) standardises this as the SPSO
+  2007 / 2011 default with ``K = 3`` informers per particle drawn
+  uniformly with replacement; we match that convention in the
+  structural-catalog entry.  Useful when the bandit evidence shows
+  neither pure structured topology consistently wins on a given
+  battery — the random graph picks up some of the flexibility of all
+  three without committing to a structural prior.
+* **Asymmetric adjacency** — unlike ``lbest`` (symmetric ring) and
+  ``vonneumann`` (symmetric grid), the random topology is
+  *asymmetric*: an informer relationship is one-way.  This matches
+  the Mendes 2004 / SPSO 2011 convention and is what gives the
+  topology its structure-free character.  The test suite verifies
+  asymmetry on a representative seed (``NP=20, k=2, seed=0``).
+* **Index-shift logic** — draws come from ``rng.integers(0, NP-1, k)``
+  then shift past ``i`` (``p if p < i else p + 1``) so the informer
+  pool deterministically excludes self.  Verified across 50 seeds:
+  every particle's own index appears in its informer list *exactly
+  once* — added by :meth:`_init_random_adjacency`, never re-injected
+  by a self-collision in the draws.
+* **Restart re-sampling** — the Clerc 2007 stagnation-rebuild
+  convention: a restart re-samples the entire informer graph from the
+  heuristic's RNG.  Verified by an explicit before/after test
+  (``NP=15, k=3, seed=99``): the deterministic RNG plus the distinct
+  re-init call changes at least one row of the adjacency matrix (the
+  probability of all 15 rows reproducing exactly is vanishingly
+  small).
+* **Impact** — the point of shipping today is to give the bandit a
+  fourth PSO arm with markedly different exploration dynamics to
+  choose between, rather than to claim a single-shipped-variant win.
+  The 2026-05-07 ``lbest`` and 2026-05-22 ``vonneumann`` entries
+  already established that no single PSO topology dominates at
+  quick-mode noise levels (~ ±0.05) — seeds 42 and 43 split the win
+  between ``gbest`` and ``lbest``.  The literature (Mendes 2004;
+  Clerc 2007) predicts the random graph sits between the structured
+  topologies in expected diffusion speed but with much higher
+  variance — sometimes the realised graph is near-fully-connected,
+  sometimes near-disconnected.  The measurable signal will
+  materialise once the self-improvement loop has accumulated enough
+  evidence from the bandit's per-arm reward history to identify
+  which topology wins on the current battery.  *Evidence form (per
+  AGENTS.md "Agent-driven improve X PRs"): catalog-only addition;
+  backwards-compatible (composite baseline byte-identical, existing
+  ledgers stay valid); queued for nightly loop validation via the
+  structural catalog.*
+* **Backwards compatibility** — strictly safe.  ``topology`` defaults
+  to ``"gbest"``; every existing PSO instance retains its prior
+  behaviour bit-for-bit, including the 56 pre-existing tests in
+  ``tests/test_heuristic_pso.py``.  The structural catalog gains one
+  extra ``add_heuristic`` candidate that shares ``cls = PSO`` with
+  the existing entries; under ``avoid_duplicates=True`` (default),
+  only one of the four is ever added per strategy.  The categorical
+  rule expansion is also safe: callers passing the prior choices
+  tuple get the same uniform-over-the-set draw (the cardinality just
+  bumps from 3 to 4), and the rule still fires only when a spec
+  sets ``topology`` explicitly.  Existing ledger consumers parsing
+  the rule's ``choices`` field see one extra string they may ignore.
+  The new ``_random_adjacency`` field is ``None`` for any topology
+  other than ``"random"``, so memory / RNG draws on ``gbest`` /
+  ``lbest`` / ``vonneumann`` paths are byte-identical.
+* **Tests** — `tests/test_heuristic_pso.py` (+12 new tests, total
+  80): random construction round-trip; adjacency built on start;
+  every particle is its own informer (``i ∈ informers(i)`` for all
+  ``i``); realised neighbourhood ≤ k+1 with no duplicates; self
+  appears exactly once across 50 seeds (the index-shift logic
+  excludes self from random draws); asymmetric graph in general
+  (``forward != backward`` on ``NP=20, k=2, seed=0``); seed
+  reproducibility (two PSOs sharing the same seed produce identical
+  adjacency); adjacency re-sampled on restart (at least one row
+  differs); social-best limited to informer set (planted-pbest
+  invariant: ``_gbest_idx`` points at an outside-informer better
+  pbest while ``_social_best_idx(0)`` returns the inside-informer
+  worse pbest); none-until-evaluated; velocity clamp invariant under
+  random topology; end-to-end smoke convergence on a quadratic;
+  updated structural-catalog test confirming all four PSO topology
+  variants appear among ``add_heuristic`` candidates; updated
+  categorical-rule test confirming ``default_catalog`` now ships
+  ``choices=("gbest", "lbest", "vonneumann", "random")``.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Random re-wired topology* PSO follow-up below the 2026-05-22
+    entry promoted from "open" to "shipped".  A new follow-up
+    *Stochastic-K random topology (per-iteration re-sampling)* left
+    for the next iteration.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    four-topology PSO candidate pool.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog section
+    now describes the four PSO entries; the categorical-rules
+    section lists ``random`` as a fourth ``PSO.topology`` value.
+  - `doc/source/guide_architecture.rst`: PSO description gains the
+    ``"random"`` topology paragraph after ``"vonneumann"``.
+  - `doc/source/heuristics.rst`: PSO bullet expanded to the
+    four-topology set; Mendes 2004 / Clerc 2007 citations added.
+  - `AGENTS.md`: categorical-rules list adds ``"random"`` to
+    ``PSO.topology`` (cardinality three → four).
+  - `TODO.md`: new entry at the head of "Recent Improvements".
 ### 2026-05-27 — Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued)
 
 * **What** — Rewrote `panobbgo/heuristics/lbfgsb.py` from a one-shot,
@@ -2579,15 +2705,17 @@ evidence to motivate the work:
   ships all three PSO variants; the ``PSO.topology`` categorical rule
   grows to ``("gbest", "lbest", "vonneumann")``.  See the §13 entry
   above.
-- **Random re-wired topology** — the remaining slot in the
-  Mendes 2004 set.  Unlike gbest / lbest / vonneumann (all static
-  graphs computable from ``NP``), a *random* graph is rebuilt every
-  ``on_restart`` (or at construction time and persisted across
-  restarts — design decision).  Adds rng state per particle and an
-  adjacency-list field; the social-attractor lookup uses the
-  per-particle adjacency list instead of a closed-form neighbour
-  set.  Useful when the bandit evidence shows neither pure
-  structured topology consistently wins on a given battery.
+- **Random re-wired topology — shipped 2026-05-29**.
+  :attr:`panobbgo.heuristics.pso.PSO.topology = "random"` adds the
+  Mendes 2004 / Clerc 2007 / SPSO 2011 stochastic informer graph as
+  a fourth topology slot.  Each particle is connected to itself plus
+  ``k_neighbors`` random informers drawn uniformly with replacement
+  from the rest of the swarm; the adjacency is built at ``on_start``
+  and re-sampled at ``on_restart`` (Clerc 2007 stagnation-rebuild
+  convention).  The structural catalog ships all four PSO variants
+  (``gbest`` / ``lbest`` / ``vonneumann`` / ``random``); the
+  ``PSO.topology`` categorical rule grows to ``("gbest", "lbest",
+  "vonneumann", "random")``.  See the §13 entry above.
 - **`StrategyPhased` integration** — pair PSO (global exploration
   phase) with NelderMead / LBFGSB (local refinement phase) on a
   single budget split, similar to the existing ``IPOP_CMAES``
@@ -2846,25 +2974,47 @@ motivate the work:
   selective-pressure regime discretely, the same way
   ``LSHADE.archive_factor`` flips archive on / off / RSP.
 
-#### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann)
+#### Run a measured A/B across PSO topologies (gbest / lbest / vonneumann / random)
 
-Von Neumann shipped 2026-05-22 (see §13).  The literature predicts
-the three topologies are *complementary* — gbest wins on unimodal
-landscapes, lbest on highly-multimodal, vonneumann between the two —
-but the shipped entry did not include a measured benchmark because
-the impact at quick-mode budgets is within noise.  A natural
-follow-up is to run an explicit ``benchmark_harness.py compare``
-across the three Rewarding strategies (one per PSO topology) at
-``--standard`` mode (≥ 5 reps × ~8 problems × ~300 evaluations) so
-the *per-problem* per-topology winners are identified.  Use the
-paired-bootstrap CI (auto-selected on ``--randomize``) so the
-per-pair regressions are detected rigorously.  The output of this
-benchmark feeds two follow-ups:
+Von Neumann shipped 2026-05-22; the random informer graph shipped
+2026-05-29 (see §13).  The literature predicts the four topologies
+are *complementary* — gbest wins on unimodal landscapes, lbest on
+highly-multimodal, vonneumann between the two, and random's
+diffusion speed depends on the realised graph.  None of the shipped
+entries included a measured benchmark because the impact at
+quick-mode budgets is within noise.  A natural follow-up is to run
+an explicit ``benchmark_harness.py compare`` across four Rewarding
+strategies (one per PSO topology) at ``--standard`` mode (≥ 5 reps
+× ~8 problems × ~300 evaluations) so the *per-problem*
+per-topology winners are identified.  Use the paired-bootstrap CI
+(auto-selected on ``--randomize``) so the per-pair regressions are
+detected rigorously.  The output of this benchmark feeds two
+follow-ups:
 
 * If the data shows a per-problem-class winner pattern, encode it in
   the structural catalog (e.g., add a ``StrategySpec`` that pre-pairs
   ``vonneumann`` with Rastrigin / Ackley / Griewank-style problems
   via the strategy-pattern matcher).
 * If no topology wins consistently across problem classes, leave the
-  current uniform-over-three catalog and let the bandit's per-arm
+  current uniform-over-four catalog and let the bandit's per-arm
   reward signal identify the winner online.
+
+#### Per-iteration re-sampled random PSO topology (stochastic-K)
+
+The random topology shipped 2026-05-29 re-samples the informer graph
+at ``on_start`` and ``on_restart`` only — the adjacency is *static*
+between restarts.  Clerc 2007 / SPSO 2011 also describes a stricter
+"stochastic-K" variant where the graph is rebuilt every iteration
+where the swarm fails to improve the global best (the "stagnation
+trigger") — a finer-grained stagnation-rebuild policy than restart-
+gated re-sampling.  Implementation sketch: in
+:meth:`~panobbgo.heuristics.pso.PSO.on_new_results`, check whether the
+result improved ``_gbest_idx``; if not for K consecutive incoming
+results (or fraction of swarm cycles), call
+:meth:`_init_random_adjacency` to re-sample the graph.  Adds one
+counter to the heuristic state and one knob (``stagnation_threshold``,
+default ``NP``).  Useful when the bandit evidence shows the
+restart-gated re-sampling is too coarse — under
+:class:`~panobbgo.analyzers.restart.Restart`, restarts are rare and
+the stochastic graph can stay locked into a bad realisation for
+hundreds of iterations.

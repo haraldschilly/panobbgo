@@ -314,9 +314,12 @@ Implemented Heuristics
   allowed to see* with random per-component weights.  Three swarm topologies select that visible
   attractor: ``"gbest"`` (default) — every particle sees the single global best; ``"lbest"`` —
   a wrap-around ring of width ``2·k_neighbors + 1`` (Kennedy & Mendes 2002), trading slower
-  information diffusion for stronger multimodal exploration; or ``"vonneumann"`` — a 4-connected
+  information diffusion for stronger multimodal exploration; ``"vonneumann"`` — a 4-connected
   2-D toroidal grid (Kennedy & Mendes 2003; Mendes 2004) that sits between the two, widely cited
-  as a stable middle ground that wins on a broader range of problem classes.  An opt-in ``w_end`` argument enables
+  as a stable middle ground that wins on a broader range of problem classes; or ``"random"`` — a
+  stochastic informer graph (Mendes 2004; Clerc 2007 / SPSO 2011) where each particle is connected
+  to itself plus ``k_neighbors`` random informers re-sampled at ``on_start`` and ``on_restart``,
+  a structure-free middle ground whose diffusion speed depends on the realised graph.  An opt-in ``w_end`` argument enables
   the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy's evaluation
   budget; the default constant ``w`` reproduces the original Clerc-Kennedy behaviour.  PSO's
   *momentum* and *social* dynamics are markedly different from CMA-ES (covariance re-sampling) and

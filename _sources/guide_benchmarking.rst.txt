@@ -709,15 +709,17 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *three*
+  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *four*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
-  ``k_neighbors=2`` (Kennedy & Mendes 2002), and the 4-connected
+  ``k_neighbors=2`` (Kennedy & Mendes 2002), the 4-connected
   ``vonneumann`` 2-D toroidal grid (Kennedy & Mendes 2003; Mendes
-  2004) — three complementary information-diffusion regimes
-  (instantaneous / one-hop linear / two-hop planar) so the bandit can
-  pick whichever exploration / exploitation trade-off helps on the
-  current battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
+  2004), and the ``random`` stochastic informer graph with
+  ``k_neighbors=3`` (Mendes 2004; Clerc 2007 / SPSO 2011) — four
+  complementary information-diffusion regimes (instantaneous /
+  one-hop linear / two-hop planar / asymmetric stochastic) so the
+  bandit can pick whichever exploration / exploitation trade-off
+  helps on the current battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
   adaptive Differential Evolution with linear population reduction
   and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
   2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``
@@ -872,7 +874,10 @@ Panobbgo's heuristic portfolio are **discrete** instead:
   instantaneous diffusion) vs ``"lbest"`` (ring with one-hop
   diffusion, better on multimodal landscapes) vs ``"vonneumann"``
   (4-connected 2-D toroidal grid, two-hop planar diffusion — Kennedy
-  & Mendes 2003 / Mendes 2004 — a stable middle ground).
+  & Mendes 2003 / Mendes 2004 — a stable middle ground) vs
+  ``"random"`` (Mendes 2004 / Clerc 2007 / SPSO 2011 stochastic
+  informer graph — structure-free middle ground whose diffusion
+  speed depends on the realised graph).
 * ``Sobol.scramble`` — Owen scrambling on / off; trades a
   pseudo-random "freshness" against the classic Sobol' grid.
 * ``LSHADE.archive_factor`` — ``0.0`` (no archive, vanilla
@@ -906,7 +911,7 @@ The default catalog ships five categorical rules out-of-the-box:
        class_name="PSO",
        param_name="topology",
        kind="categorical_choice",
-       choices=("gbest", "lbest", "vonneumann"),
+       choices=("gbest", "lbest", "vonneumann", "random"),
        probability=0.3,
    ),
    MutationRule(

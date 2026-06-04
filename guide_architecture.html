@@ -492,9 +492,12 @@ the velocity is pulled toward the personal best and toward the <em>swarm best th
 allowed to see</em> with random per-component weights.  Three swarm topologies select that visible
 attractor: <code class="docutils literal notranslate"><span class="pre">&quot;gbest&quot;</span></code> (default) — every particle sees the single global best; <code class="docutils literal notranslate"><span class="pre">&quot;lbest&quot;</span></code> —
 a wrap-around ring of width <code class="docutils literal notranslate"><span class="pre">2·k_neighbors</span> <span class="pre">+</span> <span class="pre">1</span></code> (Kennedy &amp; Mendes 2002), trading slower
-information diffusion for stronger multimodal exploration; or <code class="docutils literal notranslate"><span class="pre">&quot;vonneumann&quot;</span></code> — a 4-connected
+information diffusion for stronger multimodal exploration; <code class="docutils literal notranslate"><span class="pre">&quot;vonneumann&quot;</span></code> — a 4-connected
 2-D toroidal grid (Kennedy &amp; Mendes 2003; Mendes 2004) that sits between the two, widely cited
-as a stable middle ground that wins on a broader range of problem classes.  An opt-in <code class="docutils literal notranslate"><span class="pre">w_end</span></code> argument enables
+as a stable middle ground that wins on a broader range of problem classes; or <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> — a
+stochastic informer graph (Mendes 2004; Clerc 2007 / SPSO 2011) where each particle is connected
+to itself plus <code class="docutils literal notranslate"><span class="pre">k_neighbors</span></code> random informers re-sampled at <code class="docutils literal notranslate"><span class="pre">on_start</span></code> and <code class="docutils literal notranslate"><span class="pre">on_restart</span></code>,
+a structure-free middle ground whose diffusion speed depends on the realised graph.  An opt-in <code class="docutils literal notranslate"><span class="pre">w_end</span></code> argument enables
 the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy’s evaluation
 budget; the default constant <code class="docutils literal notranslate"><span class="pre">w</span></code> reproduces the original Clerc-Kennedy behaviour.  PSO’s
 <em>momentum</em> and <em>social</em> dynamics are markedly different from CMA-ES (covariance re-sampling) and

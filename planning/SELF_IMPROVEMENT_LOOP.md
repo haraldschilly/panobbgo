@@ -633,6 +633,103 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-05-27 — Multi-start L-BFGS-B gradient local optimizer (rescued + catalogued)
+
+* **What** — Rewrote `panobbgo/heuristics/lbfgsb.py` from a one-shot,
+  box-centre, restart-blind, **unreferenced** stub into a robust
+  *multi-start* bound-constrained quasi-Newton local optimizer, and
+  added it to :func:`default_structural_catalog`'s ``add_heuristic``
+  candidate pool (the 15th candidate, ``avoid_duplicates=True``).  The
+  worker now runs :func:`scipy.optimize.fmin_l_bfgs_b` **repeatedly** —
+  the first descent from the box centre (deterministic / reproducible),
+  every subsequent descent from a fresh uniform-random restart — using
+  the entire strategy budget instead of going idle after the first
+  convergence.  ``on_restart`` warm-starts the next descent at the
+  Restart analyzer's centre (clipped into the box).  The subprocess
+  lifecycle was re-modelled on the well-tested
+  :class:`~panobbgo.heuristics.cobyqa.COBYQA` adapter (shared
+  ``_make_pipe_objective`` / ``_safe_send`` shape, ``spawn`` context,
+  ``cap=1``, graceful ``SystemExit``-on-closed-pipe shutdown).  New
+  ctor kwargs ``max_starts`` / ``maxfun`` / ``epsilon`` / ``seed`` are
+  all validated.
+* **Why** — LBFGSB is the *only* gradient-based arm in a portfolio that
+  is otherwise entirely derivative-free (DE family, PSO, CMA-ES,
+  Nelder-Mead, COBYQA).  On smooth, ill-conditioned *valleys* a
+  finite-difference quasi-Newton method converges in a fraction of the
+  evaluations a population method needs.  The harness made the gap
+  unmistakable: on a fresh ``--standard --baselines`` run, **every
+  Panobbgo strategy scores 0.0 on ``Rosenbrock_5D``** (composite 0.26),
+  while ``scipy``'s ``dual_annealing`` solves it (its win owes to its
+  *own* L-BFGS-B local-search step).  The pre-existing LBFGSB could
+  have closed this gap but was wired into neither the default
+  strategies nor the structural catalog *and* ran only a single descent
+  from the box centre — effectively dead code.
+* **Impact** — A/B with the harness (`_run_single`, base_seed 42,
+  budget 200):
+  * A *dedicated* LBFGSB strategy (RoundRobin, single LBFGSB arm) solves
+    **Rosenbrock_2D and Rosenbrock_5D to ``func_distance ≈ 3e-11``,
+    SR 5/5** — where every default strategy scores 0.0.  A standalone
+    ``scipy`` check confirms a single centre descent reaches
+    ``Rosenbrock_5D`` ``f < 0.02`` in ~210 evals.
+  * **Negative result worth recording:** simply *adding* LBFGSB (or
+    COBYQA) to the existing 5-heuristic ``Rewarding_Diverse`` portfolio
+    does **not** crack Rosenbrock_5D and can *regress* other problems
+    (e.g. StyblinskiTang) — the bandit splits the 200-eval budget across
+    6 arms, so no single gradient descent gets enough evaluations.  The
+    value is in *dedicated* / loop-discovered portfolios where the
+    gradient arm carries enough budget, which is exactly what the
+    structural catalog lets the loop search for.  *This is why the
+    change is catalog-only and does not touch the default battery —
+    adding a gradient arm to a budget-split portfolio is not an
+    unconditional win, and the loop's accept/reject + bootstrap-CI
+    guard is the right place to decide it per battery.*
+  * *Evidence form (per AGENTS.md "Agent-driven improve X PRs"): local
+    A/B with the harness; backwards-compatible (no default battery
+    change — composite baseline byte-identical, existing ledgers stay
+    valid); queued for nightly loop validation via the structural
+    catalog.*
+* **Backwards compatibility** — strictly safe.  LBFGSB is opt-in (not in
+  any ``_make_quick`` / ``_make_standard`` / ``_make_full`` strategy),
+  so the composite baseline on every default battery is byte-identical.
+  The first descent still starts from the box centre exactly as before,
+  so the existing integration tests (`test_lbfgsb_integration`,
+  `test_lbfgsb_constrained_integration`) and the ``on_new_results``
+  penalty-value contract (`test_heuristics_lbfgsb_constraints.py`) pass
+  unchanged.  The structural catalog gains one extra ``add_heuristic``
+  candidate.
+* **Tests** — Rewrote `tests/test_heuristic_lbfgsb.py` (29 tests) and
+  `tests/test_heuristic_lbfgsb_robustness.py` (9 tests) on the COBYQA
+  template: ctor validation (defaults, custom kwargs, invalid /
+  bool-rejected ``max_starts`` / ``maxfun`` / ``epsilon``), subprocess
+  lifecycle (spawn / stop / force-kill), pipe wiring (penalty routing,
+  foreign-who ignore, pipe-closed exit, status logging, emit-on-poll),
+  restart (relaunch, ``center=None`` box centre, out-of-box clip,
+  stopped no-op, teardown-failure swallowed), worker behaviour through a
+  fake pipe (completes all ``max_starts``, first start is box centre,
+  clean ``SystemExit`` on closed pipe, seed-reproducible restarts,
+  minimises a quadratic, survives a degenerate first descent), the
+  ``_make_pipe_objective`` contract (NaN / None → ``inf``,
+  passthrough, ``SystemExit``), registration (package re-export,
+  structural-catalog membership), and an end-to-end ``scipy`` smoke
+  proving a single descent cracks ``Rosenbrock_5D``.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; a new
+    *LBFGSB follow-ups* block under "Next iteration ideas" (dedicated
+    gradient-local-search default strategy — needs ADR; warm-start
+    restarts from the portfolio best; ``LBFGSB.max_starts`` catalog
+    rule).
+  - `doc/source/heuristics.rst`: rewrote the ``LBFGSB`` bullet
+    (multi-start, gradient-based, valley specialist, catalog opt-in).
+  - `doc/source/guide_architecture.rst`: expanded the ``LBFGSB``
+    classical-optimizer description and added the missing ``COBYQA``
+    line beside it.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog candidate
+    pool lists ``LBFGSB`` with its gradient-arm rationale.
+  - `doc/source/guide.rst`: quick-nav entry mentions the multi-start
+    L-BFGS-B candidate.
+  - `AGENTS.md`: structural-catalog ``add_heuristic`` pool description
+    now enumerates the DE family + COBYQA + LBFGSB.
+
 ### 2026-05-26 — Loop deduplication guard (in-flight PR awareness)
 
 * **What** — Added §12.3 step 0 and a callout at the head of "Next
@@ -2328,6 +2425,41 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### LBFGSB follow-ups (after 2026-05-27 ship)
+
+Multi-start L-BFGS-B shipped 2026-05-27 (see §13) and joined the
+structural ``add_heuristic`` pool.  The A/B showed a *dedicated* LBFGSB
+strategy cracks ``Rosenbrock_5D`` (≈3e-11) where every default strategy
+scores 0.0, but *adding* it to the budget-split ``Rewarding_Diverse``
+portfolio does not (and can regress other problems).  Natural
+follow-ups:
+
+- **Dedicated gradient-local-search default strategy (needs ADR).**
+  Add a ``LocalSearch_LBFGSB`` (or ``StrategyPhased`` global→local) spec
+  to ``_make_standard_strategies`` / ``_make_full_strategies`` so the
+  *default battery* gains a strategy that actually solves smooth
+  valleys.  This shifts the historical composite baseline, so it needs
+  an architectural decision record (existing ladders are not directly
+  comparable to the new battery) — the same gate the ``LSHADE_jSO``
+  idea below carries.  Measure with `compare --statistical
+  --fail-on-regression` first: a gradient arm helps the smooth /
+  ill-conditioned problems (Rosenbrock, DixonPrice, Zakharov) but is
+  useless on the multimodal ones (Rastrigin, Ackley, Schwefel), so the
+  *net* composite effect must be measured, not assumed.
+- **Warm-start restarts from the portfolio best.** Today the worker's
+  restarts (after the first box-centre descent) are pure uniform-random.
+  A refiner that warm-starts each restart from a perturbation of
+  ``strategy.best`` would exploit the basin the rest of the portfolio
+  has found — turning random multi-start into basin-hopping refinement.
+  Needs a small protocol extension (the worker requests an ``x0`` from
+  the parent at the start of each round rather than drawing it locally),
+  because the global best is only known parent-side.
+- **`LBFGSB.max_starts` catalog rule.** ``max_starts`` defaults to
+  ``None`` (unlimited until budget).  An ``integer_add`` or
+  ``categorical_choice`` rule that fires when a spec sets it explicitly
+  would let the loop tune the exploration / exploitation balance of the
+  multi-start schedule, the same way ``LSHADE.archive_factor`` is tuned.
 
 #### Ship a jSO-tuned `LSHADE_jSO` strategy in `_make_standard_strategies`
 

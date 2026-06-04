@@ -922,7 +922,7 @@ space with two new ops that change the <em>shape</em> of a
 <li><p><code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> — append a heuristic from a curated pool
 (<code class="docutils literal notranslate"><span class="pre">Random</span></code>, <code class="docutils literal notranslate"><span class="pre">Nearby</span></code>, <code class="docutils literal notranslate"><span class="pre">NelderMead</span></code>, <code class="docutils literal notranslate"><span class="pre">Center</span></code>,
 <code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code>, <code class="docutils literal notranslate"><span class="pre">Sobol</span></code>, <code class="docutils literal notranslate"><span class="pre">Extremal</span></code>, <code class="docutils literal notranslate"><span class="pre">PSO</span></code>, <code class="docutils literal notranslate"><span class="pre">LSHADE</span></code>,
-<code class="docutils literal notranslate"><span class="pre">JSO</span></code>, <code class="docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>) to a target strategy.  The pool ships <em>three</em>
+<code class="docutils literal notranslate"><span class="pre">JSO</span></code>, <code class="docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>, <code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>) to a target strategy.  The pool ships <em>three</em>
 PSO entries — the default fully-connected <code class="docutils literal notranslate"><span class="pre">gbest</span></code> topology
 (Kennedy-Eberhart 1995), the ring <code class="docutils literal notranslate"><span class="pre">lbest</span></code> topology with
 <code class="docutils literal notranslate"><span class="pre">k_neighbors=2</span></code> (Kennedy &amp; Mendes 2002), and the 4-connected
@@ -952,7 +952,13 @@ per-generation archive cap.  All four DE-family arms share the
 the current battery.  COBYQA
 (Ragonneau-Zhang 2023) brings the modern Powell-family
 derivative-free trust-region local optimizer (BOBYQA / NEWUOA
-successor) alongside Nelder-Mead.  <code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code>
+successor) alongside Nelder-Mead.  LBFGSB (Zhu-Byrd-Lu-Nocedal 1997)
+adds the only <em>gradient-based</em> arm — a multi-start, bound-constrained
+quasi-Newton local optimizer (finite-difference gradients) that
+complements the derivative-free generators on smooth ill-conditioned
+valleys (e.g. Rosenbrock), where a dedicated descent reaches the
+optimum in a fraction of a population method’s budget.
+<code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code>
 (default) skips classes that are already present in the strategy,
 so the catalog cannot litter a portfolio with redundant copies (and
 in particular only ever installs <em>one</em> PSO variant per strategy).</p></li>

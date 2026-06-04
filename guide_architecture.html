@@ -409,7 +409,13 @@ optimization — builds an accurate probabilistic model and queries it via the a
 <p><strong>Classical optimizers:</strong></p>
 <ul class="simple">
 <li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead" title="panobbgo.heuristics.nelder_mead.NelderMead"><code class="xref py py-class docutils literal notranslate"><span class="pre">NelderMead</span></code></a>: Randomized simplex method</p></li>
-<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>: L-BFGS-B in subprocess</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>: Multi-start, bound-constrained quasi-Newton
+(L-BFGS-B) local optimizer in a subprocess.  The only <em>gradient-based</em> arm (finite-difference
+gradients); restarts from fresh random points across the budget and warm-starts at the Restart
+analyzer’s centre.  Excels on smooth ill-conditioned valleys (Rosenbrock) where a single
+dedicated descent reaches the optimum in a fraction of a population method’s budget.</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>: Powell-family derivative-free trust-region local
+optimizer (Ragonneau-Zhang 2023) — curvature-aware quadratic-model refinement in a subprocess.</p></li>
 </ul>
 <p><strong>Population-based (global search):</strong></p>
 <ul>

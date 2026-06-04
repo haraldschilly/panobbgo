@@ -386,14 +386,19 @@ class TestMutationCatalog:
         assert len(cat.rules) >= 5
 
     def test_default_catalog_has_categorical_rules(self):
-        """Default catalog should ship PSO.topology / Sobol.scramble /
-        LSHADE.archive_factor as categorical_choice rules."""
+        """Default catalog ships the full set of categorical mutation rules."""
         cat = default_catalog()
         cat_rules = [r for r in cat.rules if getattr(r, "kind", None) == "categorical_choice"]
         keys = {(r.class_name, r.param_name) for r in cat_rules}
         assert ("PSO", "topology") in keys
         assert ("Sobol", "scramble") in keys
         assert ("LSHADE", "archive_factor") in keys
+        assert ("LSHADE", "F_schedule") in keys
+        assert ("NLSHADE_RSP", "adaptive_archive") in keys
+        # Added: literature regimes for the RSP coefficient.
+        assert ("NLSHADE_RSP", "k_rank") in keys
+        # Added: COBYQA box-rescaling toggle.
+        assert ("COBYQA", "scale") in keys
 
     def test_sample_categorical_choice_picks_different_value(self):
         """Categorical mutation always proposes a value != current."""

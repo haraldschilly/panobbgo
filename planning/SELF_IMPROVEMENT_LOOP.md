@@ -745,6 +745,123 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: self-improvement loop subsection adds the
     ``PSO.stagnation_threshold`` rule to the kwarg-rules list.
 
+### 2026-06-04 — Catalog completion for jSO / NL-SHADE-RSP / COBYQA dials
+
+* **What** — `panobbgo/self_improve.py`: :func:`default_catalog` gains
+  four new :class:`MutationRule` entries that close known gaps in the
+  per-heuristic dial coverage:
+
+  * ``JSO.H`` — ``integer_add`` with ``bounds=(4, 12)``.  Mirrors the
+    existing ``LSHADE.H`` rule for the subclass.  Brest et al. (2017)
+    report ``H = 5`` as best for the CEC battery (vs L-SHADE's
+    ``H = 6``); previously the catalog had no way to tune ``H`` on a
+    jSO instance because the rule's exact-class-name match
+    (``cls.__name__ == "JSO"``) did not inherit the L-SHADE rule.
+  * ``NLSHADE_RSP.H`` — ``integer_add`` with ``bounds=(4, 12)``.
+    Symmetric with the new ``JSO.H`` rule; inherits the
+    ``H >= 2`` anchor-bin constraint from jSO.  Same motivation
+    (per-class match does not inherit).
+  * ``NLSHADE_RSP.k_rank`` (categorical) — ``("0.0", "3.0", "5.0")``
+    literature regimes, sitting *alongside* the existing
+    ``float_uniform`` rule (``bounds=(1.0, 5.0)``).  Two distinct
+    bandit arms by construction (different ``rule_kind`` → different
+    `_proposal_rule_key`), so the Thompson sampler can learn whether
+    the continuous walk or the regime jump pays off on the current
+    battery.  ``0.0`` is unreachable from the continuous rule and
+    gives the loop a way to switch off rank-based pressure entirely
+    (= jSO recovery) on portfolios that opted into NL-SHADE-RSP.
+  * ``COBYQA.scale`` (categorical) — ``(True, False)``.  Flips the
+    box-rescaling behaviour: ``True`` (the COBYQA default) rescales
+    variables to ``[-1, 1]`` to keep the Powell interpolation
+    geometry well-conditioned; ``False`` runs COBYQA on the raw box.
+    Useful when the problem's box is already isotropic and the
+    rescale adds rounding noise that hurts the quadratic-model fit.
+
+  Each fires only when a spec sets the matching kwarg *explicitly*
+  (the existing :func:`_find_targets` "param already in kwargs"
+  predicate), so a fresh ledger run on the built-in factories sees
+  no behavioural change.  Of the shipped strategies, the structural
+  catalog's NL-SHADE-RSP candidate sets ``k_rank=3.0`` explicitly so
+  the new categorical rule fires out-of-the-box once a portfolio
+  gains the heuristic via ``add_heuristic``; the jSO ``H`` and
+  ``NLSHADE_RSP.H`` rules and ``COBYQA.scale`` become applicable
+  whenever a spec opts in.
+* **Why** — closes three of the "Next iteration ideas" tickets in
+  one focused PR:
+
+  * *Auto-tuned ``H``* under the jSO follow-ups — Brest et al. report
+    ``H = 5`` best; the constructor enforces ``H >= 2`` (anchor bin
+    separation).
+  * *Categorical ``k_rank`` regimes* under the NL-SHADE-RSP
+    follow-ups — three literature-canonical settings give the bandit
+    a way to flip the selective-pressure regime discretely, the same
+    way ``LSHADE.archive_factor`` flips archive on / off / RSP.
+  * *Categorical mutation rule for ``scale`` on/off* under the COBYQA
+    follow-ups — a discrete toggle the bandit can flip without going
+    through the full ``add_heuristic`` / ``drop_heuristic`` cycle.
+
+  All three fit the established 2026-05-13 categorical-rule pattern
+  (5 categorical rules already shipped) and the
+  ``LSHADE.H`` / ``LSHADE.NP_init`` numeric-rule pattern.  Per-class
+  ``__name__`` matching means each catalog rule lives in exactly one
+  ``(class, param, kind)`` bandit arm, so the per-class structural
+  bandit arms (shipped 2026-05-18) can learn each independently.
+* **Impact** — pure catalog expansion: four new bandit arms.  No
+  behavioural change to existing strategies (kwarg-explicit
+  predicate), no shifts to the historical composite-score baseline,
+  no new dependencies.  The value is unlocked once the bandit
+  accumulates per-arm reward history — the same delayed-payoff
+  shape every prior catalog expansion has shown (cf. the structural
+  catalog's per-class arms shipped 2026-05-18).  *Evidence form
+  (per AGENTS.md "Agent-driven improve X PRs"): the change is
+  strictly additive — pure bandit-vocabulary expansion with no
+  alteration to the default battery — and queued for nightly loop
+  validation.*
+* **Backwards compatibility** — strictly safe.  Each new rule fires
+  only when the target spec sets the matching kwarg explicitly
+  (existing :func:`_find_targets` semantics); no default
+  ``_make_quick_strategies`` / ``_make_standard_strategies`` /
+  ``_make_full_strategies`` spec is modified.  Existing ledgers are
+  untouched.  Existing tests for the per-heuristic catalog rules
+  continue to pass; the matching membership tests are extended to
+  cover the new rules.  The bandit arm layout follows
+  :func:`_proposal_rule_key` — distinct ``(class, param, kind)``
+  tuples — so the new arms are independent of any existing rule
+  even when they share a slot (``NLSHADE_RSP.k_rank`` carries both
+  a ``float_uniform`` and a ``categorical_choice`` arm).
+* **Tests** — 5 new tests covering the new rules:
+  ``tests/test_heuristic_jso.py`` (+1 — ``JSO.H`` kind / bounds);
+  ``tests/test_heuristic_nl_shade_rsp.py`` (+3 — ``NLSHADE_RSP.H``
+  kind / bounds, ``NLSHADE_RSP.k_rank`` has both kinds, the
+  categorical choices include ``0.0`` and ``3.0`` and are
+  non-negative floats);
+  ``tests/test_heuristic_cobyqa.py`` (+1 — ``COBYQA.scale`` kind /
+  choices).  Plus existing membership assertions extended:
+  ``tests/test_heuristic_jso.py::test_kwarg_catalog_has_jso_dials``
+  (adds ``("JSO", "H")``);
+  ``tests/test_heuristic_nl_shade_rsp.py::test_kwarg_catalog_has_rsp_dials``
+  (adds ``("NLSHADE_RSP", "H")``);
+  ``tests/test_heuristic_cobyqa.py::test_kwarg_rules_present`` (adds
+  ``("COBYQA", "scale")``);
+  ``tests/test_self_improve.py::test_default_catalog_has_categorical_rules``
+  (asserts the categorical rule set now contains
+  ``("NLSHADE_RSP", "k_rank")`` and ``("COBYQA", "scale")`` along
+  with the prior five).  Full suite: 1158 passed, 11 skipped.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Auto-tuned ``H``* and *Categorical mutation rule for
+    ``JSO.p_best_max``* / *Categorical ``k_rank`` regimes* /
+    *Categorical mutation rule for ``scale`` on/off* follow-ups
+    updated.
+  - `doc/source/guide_benchmarking.rst`: categorical-rule section
+    expanded to cover ``NLSHADE_RSP.k_rank`` and ``COBYQA.scale``;
+    "ships seven categorical rules" replaces the "five" count.
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    categorical knobs.
+  - `AGENTS.md`: categorical-rules list bumped from five to seven;
+    the new ``NLSHADE_RSP.k_rank`` literature-regime entry and
+    ``COBYQA.scale`` toggle are listed.
+
 ### 2026-06-03 — LSHADE-EpSin adaptive DE (CEC 2016, sinusoidal-F branch)
 
 * **What** — `panobbgo/heuristics/lshade_ep_sin.py` adds the
@@ -3004,6 +3121,24 @@ follow-ups:
   would let the loop tune the exploration / exploitation balance of the
   multi-start schedule, the same way ``LSHADE.archive_factor`` is tuned.
 
+#### `Restart.patience` mutation rule
+
+The :class:`~panobbgo.analyzers.restart.Restart` analyzer takes both a
+``max_restarts`` knob (currently in :func:`default_catalog` as an
+``integer_add`` rule) and a ``patience`` knob (consecutive
+non-improvement evaluations before a restart fires, default ``5 · dim``).
+``patience`` is the more impactful of the two — it controls how
+aggressively the optimizer restarts when stuck — but the catalog has
+no rule for it.  A natural follow-up after the 2026-06-04 catalog-
+completion ship is to add ``MutationRule(class_name="Restart",
+param_name="patience", kind="integer_add", bounds=(3, 200),
+delta_choices=(-20, -10, -5, 5, 10, 20))`` so the loop can probe
+the restart cadence.  Fires whenever a spec sets ``patience``
+explicitly — currently no built-in factory does, so it stays opt-in.
+Could pair with a categorical option for the auto-defaulted
+``5 · dim`` rule (``None`` ↔ explicit values) once the dependent-
+kwarg pattern lands.
+
 #### Ship a jSO-tuned `LSHADE_jSO` strategy in `_make_standard_strategies`
 
 The iLSHADE / jSO adaptive ``p_best`` schedule shipped 2026-05-19 is
@@ -3212,17 +3347,25 @@ enough evidence to motivate the work:
   on a battery (which would be evidence neither pure CMA-ES nor
   pure EpSin captures the right dynamic), a future ship could
   port the cnEpSin covariance-mutation step explicitly.
-- **Auto-tuned ``H``** — Brest et al. report ``H = 5`` as best for
-  the CEC battery; the loop currently has no rule for ``JSO.H``
-  because the constructor enforces ``H >= 2`` (anchor bin
-  separation).  A rule with ``bounds=(2, 10)`` would expose this
-  knob on opt-in specs the same way ``LSHADE.H`` does.
+- **Auto-tuned ``H`` — shipped 2026-06-04**.  ``default_catalog``
+  gains a ``JSO.H`` ``integer_add`` rule (``bounds=(4, 12)``) so the
+  loop can probe the success-history memory size on opt-in jSO specs
+  the same way ``LSHADE.H`` does for L-SHADE.  See the §13 entry.
+  The symmetric ``NLSHADE_RSP.H`` rule shipped in the same change.
 - **Categorical mutation rule for ``JSO.p_best_max``** — three
   literature-canonical settings (0.11 from L-SHADE, 0.25 from jSO,
   0.4 from iLSHADE) make a natural ``categorical_choice`` slot
   alongside the existing ``float_uniform`` rule.  Would let the
   loop flip between the three regimes the same way
   ``LSHADE.archive_factor`` flips between archive on / off / RSP.
+  *Subtlety*: the L-SHADE-style ``0.11`` is below jSO's default
+  ``p_best_min = 0.125`` and would fail the constructor's
+  ``p_best_min <= p_best_max`` check; a categorical-only fix
+  would have to use ``(0.15, 0.25, 0.4)`` instead, or be paired
+  with a coordinated rule that lowers ``p_best_min`` when
+  ``p_best_max < 0.125`` is proposed.  Currently deferred until
+  the categorical-with-dependent-kwarg pattern is needed elsewhere
+  too.
 
 #### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 
@@ -3247,11 +3390,13 @@ motivate the work:
   warm-start the interpolation set from the last successful
   iterate — saving the first ``2·n`` evaluations on every
   restart.
-- **Categorical mutation rule for ``scale`` on/off** — see the
-  PSO-follow-up entry above; the same ``categorical_choice``
-  mutation rule would let the loop flip an existing COBYQA
-  instance's ``scale`` kwarg without going through the full
-  ``add_heuristic`` / ``drop_heuristic`` cycle.
+- **Categorical mutation rule for ``scale`` on/off — shipped
+  2026-06-04**.  ``default_catalog`` gains a
+  ``COBYQA.scale`` ``categorical_choice`` rule with
+  ``choices=(True, False)``.  Lets the bandit flip an existing
+  COBYQA instance's box-rescaling regime without going through the
+  full ``add_heuristic`` / ``drop_heuristic`` cycle.  See the §13
+  entry.
 
 #### Multi-seed hold-out for robust drift estimation — shipped 2026-05-16
 
@@ -3399,12 +3544,14 @@ motivate the work:
   ``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``, spread ``m_lbc = 1.5``).
   At ``p = 2, m = 1`` the formula recovers the standard L-SHADE
   Lehmer mean.  See the §13 entry.
-* **Categorical ``k_rank`` regimes** — the ``NLSHADE_RSP.k_rank``
-  rule is currently ``float_uniform [1, 5]``.  A ``categorical_choice``
-  over the literature-canonical settings (``0`` = uniform, ``3`` =
-  RSP default, higher = aggressive) would let the bandit flip the
-  selective-pressure regime discretely, the same way
-  ``LSHADE.archive_factor`` flips archive on / off / RSP.
+* **Categorical ``k_rank`` regimes — shipped 2026-06-04**.
+  ``default_catalog`` gains a ``categorical_choice`` rule with
+  ``choices=(0.0, 3.0, 5.0)`` (uniform/jSO recovery / Stanovov
+  default / aggressive) sitting alongside the existing
+  ``float_uniform`` rule on the same ``(NLSHADE_RSP, k_rank)``
+  slot.  The two live on distinct bandit arms (different
+  ``rule_kind`` → different ``_proposal_rule_key``).  See the §13
+  entry.
 
 #### NL-SHADE-LBC follow-ups (after 2026-05-28 ship)
 

@@ -315,6 +315,22 @@ class COBYQARegistrationTests(PanobbgoTestCase):
         names = {(getattr(r, "class_name", None), getattr(r, "param_name", None)) for r in cat.rules}
         assert ("COBYQA", "initial_tr_radius") in names
         assert ("COBYQA", "final_tr_radius") in names
+        assert ("COBYQA", "scale") in names
+
+    def test_kwarg_catalog_cobyqa_scale_is_categorical(self):
+        """``COBYQA.scale`` is a ``categorical_choice`` toggle over the
+        two valid box-rescaling regimes (``True`` / ``False``)."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "COBYQA" and r.param_name == "scale"
+        ]
+        assert len(rules) == 1
+        rule = rules[0]
+        assert rule.kind == "categorical_choice"
+        assert set(rule.choices) == {True, False}
 
 
 # ----------------------------------------------------------------------

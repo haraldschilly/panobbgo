@@ -525,3 +525,59 @@ class NLSHADERSPRegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         assert ("NLSHADE_RSP", "NP_init") in params
         assert ("NLSHADE_RSP", "k_rank") in params
         assert ("NLSHADE_RSP", "adaptive_archive") in params
+        # H rule mirrors LSHADE.H / JSO.H; inherits the H >= 2 anchor-bin
+        # constraint from JSO.
+        assert ("NLSHADE_RSP", "H") in params
+
+    def test_kwarg_catalog_nlshade_rsp_k_rank_has_both_kinds(self):
+        """``NLSHADE_RSP.k_rank`` ships both a continuous ``float_uniform``
+        rule (for fine-tuning around the literature default) and a
+        ``categorical_choice`` rule (for jumping between qualitatively
+        different RSP regimes — off / default / aggressive).  The two
+        live on distinct bandit arms by construction."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        kinds = {
+            r.kind
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "NLSHADE_RSP" and r.param_name == "k_rank"
+        }
+        assert "float_uniform" in kinds
+        assert "categorical_choice" in kinds
+
+    def test_kwarg_catalog_nlshade_rsp_k_rank_categorical_choices(self):
+        """The categorical ``k_rank`` rule must include ``0.0`` (= jSO /
+        RSP-off recovery) and ``3.0`` (Stanovov et al. default)."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        cat_rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule)
+            and r.class_name == "NLSHADE_RSP"
+            and r.param_name == "k_rank"
+            and r.kind == "categorical_choice"
+        ]
+        assert len(cat_rules) == 1
+        choices = cat_rules[0].choices
+        assert 0.0 in choices
+        assert 3.0 in choices
+        # All choices must be non-negative floats (k_rank constructor).
+        assert all(isinstance(c, float) and c >= 0.0 for c in choices)
+
+    def test_kwarg_catalog_nlshade_rsp_H_is_integer_add(self):
+        """``NLSHADE_RSP.H`` is an integer-add rule with sensible bounds."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "NLSHADE_RSP" and r.param_name == "H"
+        ]
+        assert len(rules) == 1
+        rule = rules[0]
+        assert rule.kind == "integer_add"
+        lo, hi = rule.bounds
+        # H >= 2 is the jSO-inherited constructor floor.
+        assert lo >= 2
+        assert hi <= 20

@@ -912,6 +912,20 @@ Panobbgo's heuristic portfolio are **discrete** instead:
   the bandit move an existing :class:`LSHADE` instance between the
   two literature regimes without dropping and re-adding the
   heuristic.
+* ``NLSHADE_RSP.k_rank`` — ``0.0`` (uniform ``r1`` selection,
+  recovers jSO behaviour) vs ``3.0`` (Stanovov et al. 2018 / 2021
+  RSP default) vs ``5.0`` (aggressive rank pressure).  Sits
+  alongside the ``float_uniform`` rule (``bounds=(1.0, 5.0)``) so
+  the bandit can either continuously walk ``k_rank`` or jump
+  between qualitatively distinct regimes.  In particular ``0.0``
+  is unreachable from the continuous rule and gives the loop a way
+  to switch off the rank-based pressure entirely on portfolios
+  that opt into NL-SHADE-RSP.
+* ``COBYQA.scale`` — ``True`` (box variables rescaled to
+  ``[-1, 1]``, keeping the Powell interpolation geometry
+  well-conditioned) vs ``False`` (raw box).  Useful when the
+  problem's box is already isotropic and the rescale adds
+  rounding noise that hurts the quadratic-model fit.
 
 The :class:`~panobbgo.self_improve.MutationRule` ``categorical_choice``
 kind closes this gap.  The rule carries a ``choices`` tuple of
@@ -923,7 +937,7 @@ as their own arm — distinct from any numeric rule on the same
 ``(class, param)`` slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.
 
-The default catalog ships five categorical rules out-of-the-box:
+The default catalog ships seven categorical rules out-of-the-box:
 
 .. code-block:: python
 
@@ -963,6 +977,23 @@ The default catalog ships five categorical rules out-of-the-box:
        strategy_pattern="",
        class_name="NLSHADE_RSP",
        param_name="adaptive_archive",
+       kind="categorical_choice",
+       choices=(True, False),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="NLSHADE_RSP",
+       param_name="k_rank",
+       kind="categorical_choice",
+       # 0.0 = uniform r1 / jSO recovery; 3.0 = RSP default; 5.0 = aggressive.
+       choices=(0.0, 3.0, 5.0),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="COBYQA",
+       param_name="scale",
        kind="categorical_choice",
        choices=(True, False),
        probability=0.3,

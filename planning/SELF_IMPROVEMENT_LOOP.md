@@ -1285,6 +1285,120 @@ the rationale, and a measured-impact number when available.
   - `AGENTS.md`: self-improvement loop subsection lists the new
     feature with a run-the-loop bash example.
 
+### 2026-05-30 — Inactivity-guarded ``eps_accept`` relaxation
+
+* **What** — `panobbgo/self_improve.py`: :class:`LoopConfig` gains
+  three knobs — :attr:`~LoopConfig.inactivity_relax_after` (default
+  ``0`` = disabled), :attr:`~LoopConfig.inactivity_relax_factor`
+  (default ``0.5``) and :attr:`~LoopConfig.inactivity_min_eps_accept`
+  (default ``0.001``).  When enabled, the loop's accept gate decays
+  the configured :attr:`~LoopConfig.eps_accept` geometrically by
+  ``factor`` for every additional ``after``-block of consecutive
+  non-accepts, floored at ``min_eps_accept``.  The decay resets to
+  the configured ``eps_accept`` on the next accept.  Both
+  *skip*-iterations (no applicable mutation) and *reject*-iterations
+  contribute to the streak — the bandit cares about observed
+  accepts, not how the loop got there.  A new helper
+  :meth:`LoopConfig.effective_eps_accept` computes the threshold for
+  any streak length.  Two fields land on
+  :class:`LoopIterationRecord`:
+  :attr:`~LoopIterationRecord.effective_eps_accept` (the threshold
+  :func:`~panobbgo.harness.statistical_accept` actually saw) and
+  :attr:`~LoopIterationRecord.iters_since_accept` (the streak length
+  consulted to compute it).  Both default to ``None`` on legacy
+  records so the JSONL load path keeps working.  CLI:
+  ``scripts/self_improve.py run --inactivity-relax-after 10
+  --inactivity-relax-factor 0.5 --inactivity-min-eps-accept 0.001``.
+* **Why** — closes the *Inactivity-guarded loop productivity*
+  follow-up in "Next iteration ideas".  The most recent unattended
+  ledger (``planning/self_improve_summary.txt``) records *15 accepts
+  in 326 decided iterations (4.6 %)*; one of the earlier nightly
+  windows produced 1 accept in 86 iterations (~1.2 %).  At those
+  accept rates the Thompson sampler's Beta posteriors barely move
+  off the prior, so the *point* of having an adaptive sampler is
+  defeated.  A geometric relaxation gives the loop a principled way
+  to "lower the bar a little after a long drought" without
+  permanently moving the bar — the decay resets the moment a real
+  accept lands.  The floor keeps a relaxed accept above the
+  bootstrap CI's noise floor; the per-iteration ledger fields
+  keep the rule auditable.
+* **Algorithm** — :func:`LoopConfig.effective_eps_accept` returns
+  ``max(eps_accept · factor^(s // after), min_eps_accept)`` where
+  ``s`` is the streak length.  Examples:
+
+  * ``eps_accept=0.005, after=10, factor=0.5, min=0.001``: streak
+    0 → 0.005, streak 10 → 0.0025, streak 20 → 0.00125, streak 30
+    → 0.001 (floor), all subsequent streaks stay at 0.001.
+  * ``after=0`` (disabled): constant ``eps_accept`` regardless of
+    streak — byte-identical to the historical behaviour.
+* **Validation** — ``inactivity_relax_after >= 0``; when
+  positive, ``0 < factor < 1`` (``1.0`` doesn't relax, ``> 1``
+  would amplify — both pointless) and
+  ``0 <= min_eps_accept <= eps_accept`` (a floor above the
+  configured threshold would be a no-op or worse).
+* **Backwards compatibility** — strictly safe.  The defaults
+  (``after=0``, ``factor=0.5``, ``min=0.001``) leave the loop's
+  accept gate byte-identical to the prior behaviour: when
+  ``after = 0`` the relaxation helper short-circuits to a constant
+  ``eps_accept`` and the loop passes the same value to
+  :func:`statistical_accept` as before.  Legacy ledger records that
+  pre-date the two new :class:`LoopIterationRecord` fields load
+  with ``None`` defaults; existing reader code paths (the CLI
+  summary, hold-out replays, ``aggregate_holdout_drift``) never
+  reference the new fields, so they continue to work unchanged.
+  The ledger's JSONL schema is purely additive: old consumers can
+  ignore the new keys, new consumers can rely on their presence on
+  records written by the 2026-05-30 ship or later.
+* **Impact** — closes the documented productivity bottleneck.  At
+  4.6 % accept rate over 326 iterations, halving the threshold
+  after a drought of 10 lets the loop reach for borderline
+  improvements (delta between 0.0025 and 0.005) that the
+  paired-bootstrap CI rules in as statistically distinguishable
+  from zero — exactly the regime where the historical
+  ``eps_accept = 0.005`` point-gate was leaving signal on the
+  floor.  The Beta posteriors update sooner, so the bandit
+  identifies its winning arms faster, which compounds across
+  later iterations.  *Evidence form (per AGENTS.md "Agent-driven
+  improve X PRs"): inspect-by-construction (the geometric decay's
+  end states are exact and tested); queued for nightly loop
+  validation via the cron — opt in by adding
+  ``--inactivity-relax-after 10`` to the workflow's run-command.*
+* **Tests** — `tests/test_self_improve.py` (+15 tests, total 210):
+
+  * :class:`TestInactivityRelaxConfig` (8 tests) — disabled by
+    default, validation errors on negative ``after`` / out-of-range
+    ``factor`` / negative-or-too-large floor; threshold maths for
+    no-relax-before-threshold, geometric decay across steps, floor
+    clamping past the floor.
+  * :class:`TestInactivityRelaxIntegration` (7 tests) —
+    records carry the effective threshold and streak; streak
+    resets on accept; skip-iterations count toward the streak; a
+    borderline +0.04 delta that the configured 0.05 gate rejects
+    is accepted by the relaxed 0.025 gate after one decay step
+    (and is rejected again on the iteration following the accept,
+    confirming the reset); disabled mode populates the fields with
+    the constant ``eps_accept``; ledger round-trip preserves both
+    new fields; legacy records construct cleanly with ``None``
+    for both fields.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Inactivity-guarded loop productivity* next-iteration idea
+    promoted to "shipped (eps_accept relaxation)"; the unshipped
+    half (*Bump the harness mode for the cron*) explicitly left
+    open under the same heading.  A new follow-up
+    *Inactivity-relax telemetry in summary view* left for the next
+    iteration.
+  - `doc/source/guide_benchmarking.rst`: new
+    *Inactivity-guarded eps_accept relaxation* subsection under
+    the loop-driver writeup, with the three-knob description,
+    the geometric-decay maths, the recommended unattended preset,
+    and the §11 honesty rationale (floor + per-iteration ledger
+    fields).
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    relaxation knob.
+  - `AGENTS.md`: brief note pointing to the new feature for the
+    nightly cron operators.
+
 ### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a fourth
@@ -3787,26 +3901,41 @@ make the cap geometry tunable.  Two design sketches:
 The categorical-regime approach has lower bandit dimension and is
 literature-grounded — pick that first if you ship the follow-up.
 
-#### Inactivity-guarded loop productivity
+#### Inactivity-guarded loop productivity — eps_accept relaxation shipped 2026-05-30
 
-The most recent unattended ledger (planning/self_improve_summary.txt)
-shows 1 accept in 86 iterations (~1.2 %).  That is small enough that
-the bandit's posterior remains close to the prior for most arms —
-defeating the point of adaptive sampling.  Two complementary moves:
-
+* **Relax ``eps_accept`` adaptively** — **shipped 2026-05-30** as
+  :attr:`panobbgo.self_improve.LoopConfig.inactivity_relax_after` /
+  :attr:`~panobbgo.self_improve.LoopConfig.inactivity_relax_factor` /
+  :attr:`~panobbgo.self_improve.LoopConfig.inactivity_min_eps_accept`
+  and the matching ``--inactivity-relax-after`` family of CLI flags.
+  Each :attr:`LoopIterationRecord` now persists the *effective*
+  ``eps_accept`` and the inactivity-streak length, so an auditor can
+  replay the loop with the exact rule that produced any given
+  accept.  See the §13 entry.  Disabled by default
+  (``inactivity_relax_after = 0``) so existing ledgers and CI
+  invocations stay byte-identical.
 * **Bump the harness mode for the cron** — quick mode at 3 reps is
   the noise floor.  A 30-iteration loop at ``--standard`` (5 reps,
   larger budget) may produce more genuine accepts than 100
   iterations at ``--quick``.  Needs a self-hosted runner because
-  GitHub-hosted runners are 2 cores.
-* **Relax ``eps_accept`` adaptively** — if the loop has gone N
-  iterations without an accept, temporarily lower ``eps_accept`` to
-  half the configured value (or use the bootstrap CI alone, with no
-  point-delta gate).  Re-tighten on the next accept.  Documented in
-  the ledger record so an auditor can replay the loop with the
-  effective rule.  Care: the §11 success criteria pin ``eps_accept``
-  at a fixed level so a chronic relaxation would silently shift the
-  loop's "improvement" bar.
+  GitHub-hosted runners are 2 cores.  Still open.
+* **Use the bootstrap CI alone** (no point-delta gate) — alternative
+  to the geometric relaxation above; pair the
+  :func:`statistical_accept` rule with ``eps_accept = 0`` while
+  keeping the CI-lower-bound gate.  Equivalent, in the relaxed-floor
+  limit, to setting ``inactivity_min_eps_accept = 0`` and a large
+  ``inactivity_relax_after`` — left as an open variant for the next
+  iteration if the relaxation knob proves too coarse.
+* **Care for §11**: the success criteria pin ``eps_accept`` at a
+  fixed level so a chronic relaxation would silently shift the
+  loop's "improvement" bar.  The 2026-05-30 ship mitigates this by
+  (1) flooring the threshold at
+  ``inactivity_min_eps_accept`` (default ``0.001``, matching the
+  bootstrap CI's noise floor) and (2) recording both the effective
+  threshold and the streak length on every iteration record so a
+  reviewer can grep the ledger for any accept whose
+  ``effective_eps_accept < eps_accept`` and audit those entries
+  separately.
 
 #### NL-SHADE-RSP heuristic (CEC 2021 winner) — shipped 2026-05-25
 
@@ -3922,6 +4051,30 @@ follow-ups:
 * If no topology wins consistently across problem classes, leave the
   current uniform-over-four catalog and let the bandit's per-arm
   reward signal identify the winner online.
+
+#### Inactivity-relax telemetry in the summary view
+
+The 2026-05-30 ship persists ``effective_eps_accept`` and
+``iters_since_accept`` on every iteration record but the
+``scripts/self_improve.py summary`` view does not yet surface them.
+A small follow-up is to extend the summary to report:
+
+* The longest drought (max ``iters_since_accept`` across all records)
+  so an operator can see at a glance whether the loop is starving
+  the bandit.
+* How many accepts were *relaxed* — those whose
+  ``effective_eps_accept < eps_accept`` — and the average decay
+  factor at the moment of accept.  Tells the operator whether the
+  knob is fixing the productivity bottleneck the §13 entry
+  identified, or whether the relaxation is doing nothing because the
+  threshold was never reached.
+
+Implementation is local to ``_cmd_summary``: walk the iteration
+records once, accumulate the streak / relax statistics, render a new
+``Inactivity:`` block alongside the existing ``Accepts``, ``Guards``,
+``Hold-outs`` lines.  Safe under back-compat because the fields
+default to ``None`` on legacy records — the new block is suppressed
+when ``effective_eps_accept`` is ``None`` on all records.
 
 #### Per-iteration re-sampled random PSO topology (stochastic-K) — shipped 2026-06-05
 

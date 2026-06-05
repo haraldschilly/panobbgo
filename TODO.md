@@ -124,6 +124,65 @@
       `doc/source/guide.rst` quick-nav mention; `AGENTS.md`
       run-the-loop bash example.
 
+### Inactivity-guarded eps_accept relaxation — 2026-05-30
+- [x] **Three new `LoopConfig` knobs** in `panobbgo/self_improve.py`:
+      `inactivity_relax_after` (default `0` = disabled),
+      `inactivity_relax_factor` (default `0.5`), and
+      `inactivity_min_eps_accept` (default `0.001`).  When enabled, the
+      loop's accept gate decays the configured `eps_accept`
+      geometrically by `factor` for every additional `after`-block of
+      consecutive non-accepts, floored at `min_eps_accept`, re-tightened
+      on the next accept.  Closes the *Inactivity-guarded loop
+      productivity* follow-up in `planning/SELF_IMPROVEMENT_LOOP.md`.
+  - **Why it matters.** The most recent unattended ledger
+    (`planning/self_improve_summary.txt`) records 15 accepts in 326
+    decided iterations (4.6%); earlier windows produced 1 accept in 86
+    iterations (~1.2%).  At those rates the Thompson sampler's Beta
+    posteriors barely move off the prior — defeating the point of
+    adaptive sampling.  A geometric relaxation lets the loop reach for
+    borderline improvements (delta between `min_eps_accept` and
+    `eps_accept`) that the paired-bootstrap CI rules in as
+    statistically distinguishable from zero — exactly the regime where
+    the historical point-gate was leaving signal on the floor.
+- [x] **New `LoopConfig.effective_eps_accept(iters_since_accept)` helper**
+      returning `max(eps_accept · factor^(s // after), min_eps_accept)`
+      so the rule is callable directly from tests / callers without
+      reaching into the loop driver.
+- [x] **Two new `LoopIterationRecord` fields** — `effective_eps_accept`
+      and `iters_since_accept` — persist the threshold that
+      `statistical_accept` actually saw and the streak length consulted
+      to compute it.  Both default to `None` on legacy records so the
+      JSONL load path keeps working against historical ledgers.
+- [x] **CLI flags** on `scripts/self_improve.py run` —
+      `--inactivity-relax-after`, `--inactivity-relax-factor`, and
+      `--inactivity-min-eps-accept` — mirror the `LoopConfig` knobs
+      with the same defaults (`0`, `0.5`, `0.001`).
+- [x] **15 new tests in `tests/test_self_improve.py`** (total 210):
+      `TestInactivityRelaxConfig` covers validation (negative `after`,
+      out-of-range `factor`, negative / too-large floor) and the
+      threshold maths (no-relax before threshold, geometric decay,
+      floor clamping); `TestInactivityRelaxIntegration` covers
+      end-to-end loop behaviour (records carry effective threshold +
+      streak, streak resets on accept, skip-iterations count toward
+      streak, borderline +0.04 delta is accepted by relaxed 0.025 gate
+      and rejected again after reset, disabled mode populates fields
+      with constant `eps_accept`, ledger round-trip, legacy record
+      construction).
+- [x] **Backwards compatibility** — strictly safe.  Defaults disable
+      the feature; when `after = 0`, `effective_eps_accept` is a
+      constant equal to `eps_accept` and the loop passes the same
+      value to `statistical_accept` as before.  Composite baseline on
+      every default battery is byte-identical and existing ledgers
+      stay valid (the two new record fields default to `None` for
+      legacy records).
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOOP.md`
+      (§13 entry, follow-up promoted to "shipped" with the unshipped
+      half left open, new "Inactivity-relax telemetry in summary view"
+      follow-up), `doc/source/guide_benchmarking.rst` (new subsection
+      with the geometric-decay maths and recommended unattended
+      preset), `doc/source/guide.rst` (quick-nav entry), and
+      `AGENTS.md` (run-the-loop bash example).
+
 ### Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011) — 2026-05-29
 - [x] **New `"random"` topology** in `panobbgo/heuristics/pso.py`;
       closes the *Random re-wired topology* PSO follow-up under the

@@ -2225,6 +2225,41 @@ class LoopConfig:
             candidate and shrinks the CI substantially compared to the
             independent-resample scheme.  Set to ``False`` to force the
             historical unpaired sampler.
+        inactivity_relax_after: When positive, the loop temporarily
+            relaxes :attr:`eps_accept` after this many consecutive
+            non-accept iterations to break out of long droughts.  The
+            effective threshold decays geometrically by
+            :attr:`inactivity_relax_factor` for every additional
+            :attr:`inactivity_relax_after` non-accepts, floored at
+            :attr:`inactivity_min_eps_accept`.  The decay resets to the
+            configured :attr:`eps_accept` on the next accept.  ``0``
+            (default) disables relaxation, preserving the historical
+            behaviour byte-for-byte.  Skip-iterations (no applicable
+            mutation) count toward the inactivity streak.  See §6.2 /
+            §10 "inactivity-guarded loop productivity" in the planning
+            doc for the rationale: the bandit's posterior only updates
+            on observed accepts/rejects, so very long droughts leave
+            the sampler effectively uninformed.  Recommended values for
+            an unattended cron: ``inactivity_relax_after=10`` (start
+            relaxing after a typical iteration window worth of misses),
+            ``inactivity_relax_factor=0.5`` (halve each step), and
+            ``inactivity_min_eps_accept=0.001`` (don't drop below the
+            statistical-accept noise floor).
+        inactivity_relax_factor: Multiplicative factor applied to
+            :attr:`eps_accept` for each :attr:`inactivity_relax_after`
+            block of consecutive non-accepts.  Must satisfy
+            ``0 < factor < 1`` — values outside this range either don't
+            relax at all (``1.0``) or amplify the threshold (``> 1``)
+            which would be the opposite of what this knob is for.
+            Ignored when :attr:`inactivity_relax_after` ``= 0``.
+        inactivity_min_eps_accept: Lower bound on the relaxed
+            :attr:`eps_accept`.  The geometric decay never drops the
+            effective threshold below this floor, so reviewers can be
+            sure a relaxed accept still beats a baseline-grade signal.
+            Must be non-negative and ``<= eps_accept``.  Default
+            ``0.001`` matches the noise floor the bootstrap CI can
+            reliably resolve at typical quick-mode rep counts.  Ignored
+            when :attr:`inactivity_relax_after` ``= 0``.
     """
 
     iterations: int = 5
@@ -2258,6 +2293,9 @@ class LoopConfig:
     holdout_iteration_offset: int = 0
     holdout_eps_overfit: float = 0.05
     paired: Optional[bool] = None
+    inactivity_relax_after: int = 0
+    inactivity_relax_factor: float = 0.5
+    inactivity_min_eps_accept: float = 0.001
     #: Which scoring metric drives accept/reject decisions.
     #:
     #: ``"composite"`` (default) — score on Panobbgo's own problem
@@ -2332,6 +2370,50 @@ class LoopConfig:
                     f"holdout_base_seeds must be distinct, got {list(self.holdout_base_seeds)};"
                     " duplicates would just re-measure the same SHA-256 stream"
                 )
+        # Inactivity-relax knobs.  The three parameters interact, so we
+        # validate them together: ``inactivity_relax_after = 0`` disables
+        # the feature and the other two are unused; once enabled we
+        # require ``0 < factor < 1`` (anything else either doesn't relax
+        # or amplifies, both pointless) and a non-negative floor that
+        # doesn't already exceed the configured threshold.
+        if self.inactivity_relax_after < 0:
+            raise ValueError(f"inactivity_relax_after must be >= 0, got {self.inactivity_relax_after}")
+        if self.inactivity_relax_after > 0:
+            if not (0.0 < self.inactivity_relax_factor < 1.0):
+                raise ValueError(
+                    "inactivity_relax_factor must be in (0, 1) when relaxation is enabled,"
+                    f" got {self.inactivity_relax_factor}"
+                )
+            if self.inactivity_min_eps_accept < 0:
+                raise ValueError(f"inactivity_min_eps_accept must be >= 0, got {self.inactivity_min_eps_accept}")
+            if self.inactivity_min_eps_accept > self.eps_accept:
+                raise ValueError(
+                    "inactivity_min_eps_accept must be <= eps_accept"
+                    f" (floor={self.inactivity_min_eps_accept} > eps={self.eps_accept});"
+                    " the floor exists so a relaxed accept still beats a baseline-grade signal"
+                )
+
+    def effective_eps_accept(self, iters_since_accept: int) -> float:
+        """Return the eps_accept that the loop should use right now.
+
+        ``iters_since_accept`` is the number of consecutive iterations
+        without an accept *before* the current one (so on the first
+        iteration the counter is 0 and the full :attr:`eps_accept` is
+        used).  Every full :attr:`inactivity_relax_after` block of
+        non-accepts halves the threshold by
+        :attr:`inactivity_relax_factor`, floored at
+        :attr:`inactivity_min_eps_accept`.  When
+        :attr:`inactivity_relax_after` ``= 0`` this is a constant
+        :attr:`eps_accept`, which preserves the historical behaviour
+        byte-for-byte.
+        """
+        if self.inactivity_relax_after <= 0:
+            return float(self.eps_accept)
+        if iters_since_accept < self.inactivity_relax_after:
+            return float(self.eps_accept)
+        steps = iters_since_accept // self.inactivity_relax_after
+        relaxed = self.eps_accept * (self.inactivity_relax_factor**steps)
+        return float(max(relaxed, self.inactivity_min_eps_accept))
 
     def harness_config(
         self,
@@ -2416,6 +2498,23 @@ class LoopIterationRecord:
     mode: str = "quick"
     reason_skipped: Optional[str] = None
     record_type: str = "iteration"
+    #: Effective ``eps_accept`` used for this iteration's accept gate.
+    #:
+    #: ``None`` (default) on records produced before the
+    #: 2026-05-30 inactivity-relax ship — the threshold was always
+    #: :attr:`LoopConfig.eps_accept` so the field was implicit.  On
+    #: newer records this carries the actual value
+    #: :func:`panobbgo.harness.statistical_accept` saw, which can be
+    #: lower than ``LoopConfig.eps_accept`` when relaxation kicked in
+    #: after :attr:`LoopConfig.inactivity_relax_after` consecutive
+    #: non-accepts.  Persisted so an auditor can replay the loop with
+    #: the same effective rule.
+    effective_eps_accept: Optional[float] = None
+    #: Consecutive non-accept iterations seen *before* this iteration
+    #: started (i.e. the streak that the relax rule consulted to compute
+    #: :attr:`effective_eps_accept`).  ``0`` on the very first iteration
+    #: of a run.  ``None`` on legacy records.
+    iters_since_accept: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -2437,6 +2536,8 @@ class LoopIterationRecord:
             "randomize_iteration": self.randomize_iteration,
             "mode": self.mode,
             "reason_skipped": self.reason_skipped,
+            "effective_eps_accept": self.effective_eps_accept,
+            "iters_since_accept": self.iters_since_accept,
         }
         return d
 
@@ -2994,6 +3095,13 @@ class SelfImprover:
             LadderEntry(iteration=-1, specs=list(current), last_validated_score=float("nan"), proposal=None)
         ]
         ledger = _LedgerWriter(self.config.ledger_path)
+        # Inactivity-relax bookkeeping: count consecutive non-accept
+        # iterations (both skip and reject contribute) so the effective
+        # eps_accept can decay during droughts.  Reset to 0 on every
+        # accept — the planning doc requires the loop to re-tighten the
+        # threshold as soon as a real improvement lands so the relaxation
+        # is genuinely temporary.
+        iters_since_accept = 0
 
         for iteration in range(self.config.iterations):
             if self._stop_requested():
@@ -3005,14 +3113,31 @@ class SelfImprover:
                 break
 
             start = time.time()
+            # Compute the eps_accept this iteration will see *now*, before
+            # any side-effect (skip-record, statistical_accept call).  The
+            # counter snapshot is what we persist alongside the record so
+            # an auditor can replay the relax rule deterministically.
+            eps_for_iter = self.config.effective_eps_accept(iters_since_accept)
+            streak_for_iter = iters_since_accept
 
             proposal = self._sample_proposal(rng, current)
             if proposal is None:
-                rec = self._skip_record(iteration, start, "no applicable mutations for current specs")
+                rec = self._skip_record(
+                    iteration,
+                    start,
+                    "no applicable mutations for current specs",
+                    effective_eps_accept=eps_for_iter,
+                    iters_since_accept=streak_for_iter,
+                )
                 records.append(rec)
                 ledger.write(rec)
                 if verbose:
                     self._print_iteration(rec)
+                # Skip-iterations count toward the inactivity streak —
+                # they're observationally indistinguishable from "no
+                # candidate worth proposing", which is exactly the
+                # signal the relax rule exists to break out of.
+                iters_since_accept += 1
                 # Guard still runs on skip iterations — it validates the
                 # ladder, which is independent of whether this iteration
                 # produced a proposal.
@@ -3032,7 +3157,7 @@ class SelfImprover:
             decision = statistical_accept(
                 baseline_result,
                 candidate_result,
-                eps_accept=self.config.eps_accept,
+                eps_accept=eps_for_iter,
                 eps_regress=self.config.eps_regress,
                 n_boot=self.config.n_boot,
                 confidence=self.config.confidence,
@@ -3061,6 +3186,8 @@ class SelfImprover:
                 base_seed=self.config.base_seed,
                 randomize_iteration=iteration,
                 mode=self.config.mode,
+                effective_eps_accept=eps_for_iter,
+                iters_since_accept=streak_for_iter,
             )
             records.append(rec)
             ledger.write(rec)
@@ -3090,6 +3217,13 @@ class SelfImprover:
                         proposal=proposal.to_dict(),
                     )
                 )
+                # Real accept ends the drought; re-tighten the threshold
+                # on the next iteration.  Done after the ladder append so
+                # the snapshot recorded above still reflects the relax
+                # rule that produced this accept.
+                iters_since_accept = 0
+            else:
+                iters_since_accept += 1
 
             # Anti-cherry-pick guard (§6.3 of the plan).  Run after the
             # iteration so a freshly accepted entry can be challenged.
@@ -3206,7 +3340,14 @@ class SelfImprover:
         ioh_result = run_ioh_harness(specs, battery, base_seed=base_seed, progress=False)
         return aocc_to_harness_result(ioh_result, mode=self.config.mode, base_seed=self.config.base_seed)
 
-    def _skip_record(self, iteration: int, start: float, reason: str) -> LoopIterationRecord:
+    def _skip_record(
+        self,
+        iteration: int,
+        start: float,
+        reason: str,
+        effective_eps_accept: Optional[float] = None,
+        iters_since_accept: Optional[int] = None,
+    ) -> LoopIterationRecord:
         return LoopIterationRecord(
             iteration=iteration,
             timestamp=datetime.now(tz=timezone.utc).isoformat(),
@@ -3225,6 +3366,8 @@ class SelfImprover:
             randomize_iteration=iteration,
             mode=self.config.mode,
             reason_skipped=reason,
+            effective_eps_accept=effective_eps_accept,
+            iters_since_accept=iters_since_accept,
         )
 
     def _stop_requested(self) -> bool:

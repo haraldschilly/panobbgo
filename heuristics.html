@@ -290,7 +290,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Zero</strong>: Generates the zero vector point.</p></li>
 <li><p><strong>Random</strong>: Uniform random sampling within the best leaf box.</p></li>
 <li><p><strong>LatinHypercube</strong>: Stratified sampling (Space-filling).</p></li>
-<li><p><strong>Sobol</strong>: Low-discrepancy quasi-random sequence (Sobol’) for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count, scrambled for per-rep variance.</p></li>
+<li><p><strong>Sobol</strong>: Low-discrepancy quasi-random sequence (Sobol’) for one-shot space-filling initial designs — better uniformity than random or Latin Hypercube at the same sample count.  Owen-scrambled by default (<code class="docutils literal notranslate"><span class="pre">scramble=True</span></code>); the quick-mode <code class="docutils literal notranslate"><span class="pre">Rewarding_Diverse</span></code> strategy ships <code class="docutils literal notranslate"><span class="pre">scramble=False</span></code> after a 2026-05-31 ledger-evidence-driven codification — at <code class="docutils literal notranslate"><span class="pre">n=16</span></code> in the 2-D battery the deterministic Sobol’ grid is optimally space-filling.  See <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §13 “Codify <code class="docutils literal notranslate"><span class="pre">Sobol.scramble=False</span></code> in <code class="docutils literal notranslate"><span class="pre">Rewarding_Diverse</span></code>”.</p></li>
 <li><p><strong>Extremal</strong>: Samples from the boundaries of the search space.</p></li>
 <li><p><strong>Nearby</strong>: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).</p></li>
 <li><p><strong>WeightedAverage</strong>: Averages points in the best region.</p></li>
@@ -1794,6 +1794,17 @@ same number of i.i.d. uniform samples.  By default the sequence is
 <em>scrambled</em> (Owen-style) so that across reps we still get statistical
 independence — without that, every run would produce the same points
 and there would be no per-rep variance to average over.</p>
+<p>Note: the quick-mode <code class="docutils literal notranslate"><span class="pre">Rewarding_Diverse</span></code> strategy ships
+<code class="docutils literal notranslate"><span class="pre">scramble=False</span></code> after a 2026-05-31 ledger-evidence-driven
+codification (three independent self-improvement loop accepts with
+bootstrap-CI lower bound &gt; 0; see
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §13).  At <code class="docutils literal notranslate"><span class="pre">n=16</span></code> in the 2-D
+quick-mode battery the deterministic Sobol’ grid is already
+optimally space-filling, and Owen scrambling adds variance the local
+heuristics then have to absorb — the per-rep “different points”
+benefit is dominated by the randomized harness’s per-rep instance
+translation / rotation, which already provides the statistical
+independence scramble normally supplies.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

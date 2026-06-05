@@ -192,90 +192,102 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="56"><span class="sd">    independence — without that, every run would produce the same points</span>
 </span><span data-line="57"><span class="sd">    and there would be no per-rep variance to average over.</span>
 </span><span data-line="58">
-</span><span data-line="59"><span class="sd">    Args:</span>
-</span><span data-line="60"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="61"><span class="sd">        n: Number of points to emit.  Sobol&#39; uniformity is best at powers</span>
-</span><span data-line="62"><span class="sd">            of two (``2^k``); the heuristic accepts any positive integer</span>
-</span><span data-line="63"><span class="sd">            and warns when ``n`` is not a power of two.  Default ``16``.</span>
-</span><span data-line="64"><span class="sd">        scramble: If ``True`` (default), apply Owen scrambling so different</span>
-</span><span data-line="65"><span class="sd">            seeds produce statistically independent point sets while</span>
-</span><span data-line="66"><span class="sd">            preserving the low-discrepancy property within each set.</span>
-</span><span data-line="67"><span class="sd">        seed: Optional seed for reproducibility.  ``None`` (default) uses</span>
-</span><span data-line="68"><span class="sd">            ``numpy.random``&#39;s global state, which the harness seeds via</span>
-</span><span data-line="69"><span class="sd">            ``np.random.seed``.</span>
-</span><span data-line="70"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
-</span><span data-line="71">
-</span><span data-line="72"><span class="sd">    Notes:</span>
-</span><span data-line="73"><span class="sd">        - Heuristic is &quot;one-shot&quot;: after emitting ``n`` points it stops.</span>
-</span><span data-line="74"><span class="sd">          That matches the role of an initial-design heuristic feeding a</span>
-</span><span data-line="75"><span class="sd">          downstream local/model-based optimizer.</span>
-</span><span data-line="76"><span class="sd">        - The output queue capacity is set to ``n`` so all points are</span>
-</span><span data-line="77"><span class="sd">          enqueued at once; the strategy pulls them as evaluation budget</span>
-</span><span data-line="78"><span class="sd">          allows.</span>
-</span><span data-line="79"><span class="sd">        - Re-uses :func:`scipy.stats.qmc.Sobol`; no new dependency.</span>
-</span><span data-line="80"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="81">
-</span><span data-line="82">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="83">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="84">        <span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;Any&quot;</span><span class="p">,</span>
-</span><span data-line="85">        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
-</span><span data-line="86">        <span class="n">scramble</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="87">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="88">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="89">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="90">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="91">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: n must be an integer, got </span><span class="si">{</span><span class="n">n</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="92">        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="93">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: n must be positive, got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="94">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scramble</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="95">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: scramble must be a bool, got </span><span class="si">{</span><span class="n">scramble</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="96">
-</span><span data-line="97">        <span class="n">cap</span> <span class="o">=</span> <span class="n">n</span>
-</span><span data-line="98">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="n">cap</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;Sobol&quot;</span><span class="p">)</span>
-</span><span data-line="99">        <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">n</span>
-</span><span data-line="100">        <span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">scramble</span>
-</span><span data-line="101">        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
-</span><span data-line="102">
-</span><span data-line="103">        <span class="c1"># Warn (but don&#39;t fail) when n is not a power of two — Sobol&#39; has</span>
-</span><span data-line="104">        <span class="c1"># the strongest uniformity guarantees at 2^k.  We still permit</span>
-</span><span data-line="105">        <span class="c1"># arbitrary n because budgets are not always powers of two.</span>
-</span><span data-line="106">        <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="107">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-</span><span data-line="108">                <span class="sa">f</span><span class="s2">&quot;Sobol: n=</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> is not a power of two; uniformity is best at the next 2^k.  Consider n=16, 32, 64, …&quot;</span>
-</span><span data-line="109">            <span class="p">)</span>
-</span><span data-line="110">
-</span><span data-line="111">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="112"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample ``self.n`` Sobol&#39; points, scaled to ``problem.box``.</span>
-</span><span data-line="113">
-</span><span data-line="114"><span class="sd">        Split out as a separate method so it&#39;s directly testable without</span>
-</span><span data-line="115"><span class="sd">        starting the heuristic&#39;s emit thread.</span>
-</span><span data-line="116"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="117">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">qmc</span>
-</span><span data-line="118">
-</span><span data-line="119">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="120">        <span class="c1"># qmc.Sobol(rng=...) accepts None, an int, or a Generator.  We use</span>
-</span><span data-line="121">        <span class="c1"># ``rng`` (modern scipy keyword) instead of the deprecated ``seed``.</span>
-</span><span data-line="122">        <span class="n">sampler</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="123">
-</span><span data-line="124">        <span class="c1"># Use random_base2 when n is a power of two — preserves Sobol&#39;s</span>
-</span><span data-line="125">        <span class="c1"># balance properties.  Otherwise fall back to .random(n).</span>
-</span><span data-line="126">        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="127">            <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">))</span>
-</span><span data-line="128">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random_base2</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">)</span>
-</span><span data-line="129">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="130">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="131">
-</span><span data-line="132">        <span class="c1"># Map [0, 1)^d → box.</span>
-</span><span data-line="133">        <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="134">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="135">        <span class="k">return</span> <span class="n">unit</span> <span class="o">*</span> <span class="n">ranges</span> <span class="o">+</span> <span class="n">lower</span>
-</span><span data-line="136">
+</span><span data-line="59"><span class="sd">    Note: the quick-mode ``Rewarding_Diverse`` strategy ships</span>
+</span><span data-line="60"><span class="sd">    ``scramble=False`` after a 2026-05-31 ledger-evidence-driven</span>
+</span><span data-line="61"><span class="sd">    codification (three independent self-improvement loop accepts with</span>
+</span><span data-line="62"><span class="sd">    bootstrap-CI lower bound &gt; 0; see</span>
+</span><span data-line="63"><span class="sd">    ``planning/SELF_IMPROVEMENT_LOOP.md`` §13).  At ``n=16`` in the 2-D</span>
+</span><span data-line="64"><span class="sd">    quick-mode battery the deterministic Sobol&#39; grid is already</span>
+</span><span data-line="65"><span class="sd">    optimally space-filling, and Owen scrambling adds variance the local</span>
+</span><span data-line="66"><span class="sd">    heuristics then have to absorb — the per-rep &quot;different points&quot;</span>
+</span><span data-line="67"><span class="sd">    benefit is dominated by the randomized harness&#39;s per-rep instance</span>
+</span><span data-line="68"><span class="sd">    translation / rotation, which already provides the statistical</span>
+</span><span data-line="69"><span class="sd">    independence scramble normally supplies.</span>
+</span><span data-line="70">
+</span><span data-line="71"><span class="sd">    Args:</span>
+</span><span data-line="72"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="73"><span class="sd">        n: Number of points to emit.  Sobol&#39; uniformity is best at powers</span>
+</span><span data-line="74"><span class="sd">            of two (``2^k``); the heuristic accepts any positive integer</span>
+</span><span data-line="75"><span class="sd">            and warns when ``n`` is not a power of two.  Default ``16``.</span>
+</span><span data-line="76"><span class="sd">        scramble: If ``True`` (default), apply Owen scrambling so different</span>
+</span><span data-line="77"><span class="sd">            seeds produce statistically independent point sets while</span>
+</span><span data-line="78"><span class="sd">            preserving the low-discrepancy property within each set.</span>
+</span><span data-line="79"><span class="sd">        seed: Optional seed for reproducibility.  ``None`` (default) uses</span>
+</span><span data-line="80"><span class="sd">            ``numpy.random``&#39;s global state, which the harness seeds via</span>
+</span><span data-line="81"><span class="sd">            ``np.random.seed``.</span>
+</span><span data-line="82"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="83">
+</span><span data-line="84"><span class="sd">    Notes:</span>
+</span><span data-line="85"><span class="sd">        - Heuristic is &quot;one-shot&quot;: after emitting ``n`` points it stops.</span>
+</span><span data-line="86"><span class="sd">          That matches the role of an initial-design heuristic feeding a</span>
+</span><span data-line="87"><span class="sd">          downstream local/model-based optimizer.</span>
+</span><span data-line="88"><span class="sd">        - The output queue capacity is set to ``n`` so all points are</span>
+</span><span data-line="89"><span class="sd">          enqueued at once; the strategy pulls them as evaluation budget</span>
+</span><span data-line="90"><span class="sd">          allows.</span>
+</span><span data-line="91"><span class="sd">        - Re-uses :func:`scipy.stats.qmc.Sobol`; no new dependency.</span>
+</span><span data-line="92"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="93">
+</span><span data-line="94">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="95">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="96">        <span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;Any&quot;</span><span class="p">,</span>
+</span><span data-line="97">        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
+</span><span data-line="98">        <span class="n">scramble</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="99">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="100">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="101">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="102">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="103">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: n must be an integer, got </span><span class="si">{</span><span class="n">n</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="104">        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="105">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: n must be positive, got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="106">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scramble</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+</span><span data-line="107">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol: scramble must be a bool, got </span><span class="si">{</span><span class="n">scramble</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="108">
+</span><span data-line="109">        <span class="n">cap</span> <span class="o">=</span> <span class="n">n</span>
+</span><span data-line="110">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="n">cap</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;Sobol&quot;</span><span class="p">)</span>
+</span><span data-line="111">        <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">n</span>
+</span><span data-line="112">        <span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">scramble</span>
+</span><span data-line="113">        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+</span><span data-line="114">
+</span><span data-line="115">        <span class="c1"># Warn (but don&#39;t fail) when n is not a power of two — Sobol&#39; has</span>
+</span><span data-line="116">        <span class="c1"># the strongest uniformity guarantees at 2^k.  We still permit</span>
+</span><span data-line="117">        <span class="c1"># arbitrary n because budgets are not always powers of two.</span>
+</span><span data-line="118">        <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="119">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+</span><span data-line="120">                <span class="sa">f</span><span class="s2">&quot;Sobol: n=</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> is not a power of two; uniformity is best at the next 2^k.  Consider n=16, 32, 64, …&quot;</span>
+</span><span data-line="121">            <span class="p">)</span>
+</span><span data-line="122">
+</span><span data-line="123">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="124"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample ``self.n`` Sobol&#39; points, scaled to ``problem.box``.</span>
+</span><span data-line="125">
+</span><span data-line="126"><span class="sd">        Split out as a separate method so it&#39;s directly testable without</span>
+</span><span data-line="127"><span class="sd">        starting the heuristic&#39;s emit thread.</span>
+</span><span data-line="128"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="129">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">qmc</span>
+</span><span data-line="130">
+</span><span data-line="131">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="132">        <span class="c1"># qmc.Sobol(rng=...) accepts None, an int, or a Generator.  We use</span>
+</span><span data-line="133">        <span class="c1"># ``rng`` (modern scipy keyword) instead of the deprecated ``seed``.</span>
+</span><span data-line="134">        <span class="n">sampler</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="135">
+</span><span data-line="136">        <span class="c1"># Use random_base2 when n is a power of two — preserves Sobol&#39;s</span>
+</span><span data-line="137">        <span class="c1"># balance properties.  Otherwise fall back to .random(n).</span>
+</span><span data-line="138">        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="139">            <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">))</span>
+</span><span data-line="140">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random_base2</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">)</span>
+</span><span data-line="141">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="142">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="143">
+</span><span data-line="144">        <span class="c1"># Map [0, 1)^d → box.</span>
+</span><span data-line="145">        <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="146">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="147">        <span class="k">return</span> <span class="n">unit</span> <span class="o">*</span> <span class="n">ranges</span> <span class="o">+</span> <span class="n">lower</span>
+</span><span data-line="148">
 <div class="viewcode-block" id="Sobol.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Sobol.on_start">[docs]</a>
-</span><span data-line="137">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="138"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and emit the full Sobol&#39; batch once.&quot;&quot;&quot;</span>
-</span><span data-line="139">        <span class="n">pts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate</span><span class="p">()</span>
-</span><span data-line="140">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span></div>
+</span><span data-line="149">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="150"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and emit the full Sobol&#39; batch once.&quot;&quot;&quot;</span>
+</span><span data-line="151">        <span class="n">pts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate</span><span class="p">()</span>
+</span><span data-line="152">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span></div>
 </div>
 
 </span></pre></div>

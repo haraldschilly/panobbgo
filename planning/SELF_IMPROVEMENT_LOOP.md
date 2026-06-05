@@ -67,6 +67,10 @@ What's missing for a true self-improvement loop:
       `panobbgo.self_improve.SelfImprover` and `scripts/self_improve.py`.
 - [x] A change catalog — `panobbgo.self_improve.MutationCatalog` and
       `default_catalog()` cover hyperparameter retunes from §7.1.
+      `default_structural_catalog()` extends this with the four
+      structural ops from §7.2: ``add_heuristic`` /
+      ``drop_heuristic`` (shipped 2026-05-03) plus ``add_analyzer`` /
+      ``drop_analyzer`` (shipped 2026-06-02).
 - [x] Persistence of the running "ladder" of best composite scores
       over time — `LadderEntry` + JSONL ledger
       (`planning/self_improve_ledger.jsonl`).  Each entry stores its
@@ -288,12 +292,17 @@ The mutation space the loop may sample from, in rough order of safety:
 1. **Hyperparameter retunes** — `Nearby.radius`, `CMAES.sigma0`,
    `Sensitivity.update_interval`, bandit temperatures. Bounded perturbation
    of current value (log-uniform ±30%).
-2. **Strategy portfolio composition** — add/drop a heuristic from a
-   strategy, reweight initial priors.  *(Shipped 2026-05-03 as
+2. **Strategy portfolio composition** — add/drop a heuristic or
+   analyzer from a strategy, reweight initial priors.  *(Heuristic
+   ops shipped 2026-05-03; analyzer ops shipped 2026-06-02 — see
    :class:`panobbgo.self_improve.StructuralMutationRule` and
-   :func:`panobbgo.self_improve.default_structural_catalog`.  Two ops:
-   ``add_heuristic`` from a curated pool, ``drop_heuristic`` with a
-   ``min_heuristics`` safety floor.  See §13 entry.)*
+   :func:`panobbgo.self_improve.default_structural_catalog`.  Four
+   ops total: ``add_heuristic`` from a curated pool,
+   ``drop_heuristic`` with a ``min_heuristics`` safety floor,
+   ``add_analyzer`` from a curated pool of ``Sensitivity`` /
+   ``Restart``, and ``drop_analyzer`` with a ``min_analyzers``
+   floor (default ``0`` because analyzers are non-essential).  See
+   §13 entries.)*
 3. **Analyzer parameters** — `Restart.patience`, `Sensitivity` window.
 4. **Heuristic code edits** — delegated to a coding agent with a narrow
    task description; applied behind a feature flag if the change is
@@ -430,14 +439,19 @@ Each phase is independently deliverable and keeps the framework usable.
       when resuming a long run.
 - [x] Strategy portfolio composition (§7.2) — shipped 2026-05-03 as
       :class:`panobbgo.self_improve.StructuralMutationRule` and
-      :func:`panobbgo.self_improve.default_structural_catalog`.  Two ops
-      land: ``add_heuristic`` (append a heuristic from a curated pool to
-      a strategy, ``avoid_duplicates`` by default) and
+      :func:`panobbgo.self_improve.default_structural_catalog`.  Four
+      ops total: ``add_heuristic`` (append a heuristic from a curated
+      pool to a strategy, ``avoid_duplicates`` by default),
       ``drop_heuristic`` (remove a heuristic subject to a
-      ``min_heuristics`` safety floor).  ``apply_mutation`` dispatches on
-      ``proposal.op`` so the rest of the loop driver — ledger,
+      ``min_heuristics`` safety floor), plus the analyzer-bucket
+      siblings ``add_analyzer`` / ``drop_analyzer`` shipped 2026-06-02
+      — ``Sensitivity`` / ``Restart`` as the default candidate pool;
+      ``min_analyzers`` defaults to ``0`` because analyzers are
+      non-essential (a strategy with an empty analyzers list is a
+      valid spec, unlike heuristics).  ``apply_mutation`` dispatches
+      on ``proposal.op`` so the rest of the loop driver — ledger,
       anti-cherry-pick guard, statistical acceptance — is unchanged.
-      The Thompson sampler collapses both ops onto one arm per
+      The Thompson sampler collapses all four ops onto one arm per
       ``op`` so cold-start variance stays bounded.  CLI:
       ``scripts/self_improve.py run --structural``.
 - [x] Hold-out validation set (§10) — shipped 2026-05-08 as
@@ -454,8 +468,13 @@ Each phase is independently deliverable and keeps the framework usable.
       ``--holdout-base-seeds 1234,5678,9012``; the CLI aggregates
       per-seed records with worst-case drift / any-overfit
       semantics (see §13 entry).
-- [ ] Broaden further: analyzer add/drop, swapping a strategy class
-      itself (e.g., ``StrategyRewarding`` → ``StrategyUCB``).
+- [x] Analyzer add/drop — shipped 2026-06-02 (rolled into the §7.2
+      Strategy portfolio composition entry above).  Both
+      ``add_analyzer`` and ``drop_analyzer`` ops live alongside the
+      heuristic ops; the structural catalog now exposes four
+      structural rules instead of two.  See §13 entry for details.
+- [ ] Broaden further: swapping a strategy class itself
+      (e.g., ``StrategyRewarding`` → ``StrategyUCB``).
 - [x] Stratified dimension sampling (§10) for cross-iteration score
       stability — shipped 2026-05-02 as
       :attr:`panobbgo.harness_randomized.ProblemFamily.stratify_dims`
@@ -1042,6 +1061,133 @@ the rationale, and a measured-impact number when available.
     portfolio names all five arms.
   - `doc/source/guide.rst`: quick-nav entry mentions LSHADE-EpSin and
     the sinusoidal-F branch of the DE family tree.
+
+### 2026-06-02 — Analyzer add/drop structural mutations
+
+* **What** — `panobbgo/self_improve.py`:
+  :class:`StructuralMutationRule` gains two new ops —
+  ``"add_analyzer"`` and ``"drop_analyzer"`` — that mirror the
+  existing ``add_heuristic`` / ``drop_heuristic`` semantics on the
+  :attr:`StrategySpec.analyzers` bucket instead of ``heuristics``.  A
+  sibling :attr:`StructuralMutationRule.min_analyzers` field (default
+  ``0``) replaces :attr:`min_heuristics` as the post-drop safety floor
+  for analyzer ops — analyzers are non-essential (unlike heuristics, a
+  spec with an empty analyzers list is perfectly runnable), so the
+  natural floor is *no analyzers required at all*.
+
+  :func:`_find_structural_hits` consults the matching bucket
+  (``spec.analyzers`` vs ``spec.heuristics``) based on the rule's op,
+  reusing the existing ``avoid_duplicates`` / ``droppable_classes`` /
+  ``strategy_pattern`` filters byte-identically.
+  :func:`_make_structural_proposal` reuses the same
+  :class:`MutationProposal` shape — analyzer ops differ only in the
+  ``op`` / ``rule_kind`` strings.  :func:`apply_mutation` dispatches
+  on ``proposal.op`` to either heuristic or analyzer branch; the new
+  ``add_analyzer`` branch resolves the class object via the new
+  :func:`_resolve_analyzer_class` helper (mirror of
+  :func:`_resolve_heuristic_class`, but looks up against
+  :mod:`panobbgo.analyzers` instead of :mod:`panobbgo.heuristics`).
+
+  :func:`default_structural_catalog` gains two new
+  :class:`StructuralMutationRule` instances — one ``add_analyzer``
+  with a narrowly curated candidate pool (:class:`Sensitivity` with
+  ``update_interval=20``; :class:`Restart` with the canonical
+  IPOP-CMA-ES kwargs ``patience=None``, ``restart_strategy="diverse"``,
+  ``max_restarts=5``) and one ``drop_analyzer`` with
+  ``min_analyzers=0``.  Both carry the same low probability (``0.3``)
+  as the heuristic ops, so the bandit samples structural mutations
+  sparingly relative to kwarg retunes.  Per-class bandit arms
+  (:attr:`AdaptiveMutationSampler.per_class_structural` shipped
+  2026-05-18) work identically for the new ops — the existing
+  :func:`_proposal_rule_key` logic checks membership in
+  :data:`_STRUCTURAL_OPS` (now extended to include the analyzer ops),
+  so ``("Restart", "add_analyzer", "structural")`` and
+  ``("Sensitivity", "add_analyzer", "structural")`` are distinct
+  per-class arms when the flag is on.
+* **Why** — closes the *Analyzer add/drop* follow-up below the
+  2026-05-03 structural-catalog entry.  Before this ship, the loop's
+  reach into the strategy spec was asymmetric: it could change the
+  *heuristics* portfolio (add Sobol' / drop NelderMead / etc.) but
+  could not change the *analyzers* attached to a strategy, even
+  though analyzers carry materially different behaviour — most
+  conspicuously the :class:`Restart` analyzer's IPOP-style warm
+  restarts, which the standard battery only uses on
+  :func:`_make_standard_strategies`'s ``IPOP_CMAES`` /
+  ``BIPOP_CMAES`` specs.  The loop could not discover, e.g., that
+  attaching :class:`Restart` to a Rewarding strategy with a CMA-ES
+  heuristic helps a particular battery — the analyzer slot was
+  invisible to the bandit.
+
+  Symmetrically, the loop could not learn that stripping
+  :class:`Sensitivity` from a strategy that doesn't actually consume
+  its outputs is a net win at quick budgets (Sensitivity's
+  fixed-cost overhead, however small, eats into the eval budget).
+
+  Adding analyzer ops closes the gap with a single self-contained
+  piece of infrastructure that extends the bandit's reach by two
+  ops at once (one add, one drop) without disturbing any existing
+  ledger or behaviour.  This pairs naturally with the
+  *Strategy-class swap* follow-up below — together those two would
+  bring all three architectural axes of a :class:`StrategySpec`
+  (``strategy_class`` / ``heuristics`` / ``analyzers``) under the
+  loop's autonomous control.
+* **Backwards compatibility** — strictly safe.  The two new
+  ``_STRUCTURAL_OPS`` strings are additive — existing catalog code
+  (validators, hit enumerators, proposal serialisers) treats them as
+  uniformly as the heuristic ops.  The new
+  :attr:`StructuralMutationRule.min_analyzers` field defaults to
+  ``0``; every existing :class:`StructuralMutationRule` construction
+  in the codebase (and in user catalogs) keeps its prior behaviour
+  bit-for-bit.  The default :func:`default_catalog` is unchanged
+  (analyzer ops only land in :func:`default_structural_catalog`,
+  which itself is opt-in via ``--structural``).  Every prior ledger
+  record parses identically — the new ``rule_kind`` strings are just
+  additional values an existing consumer may ignore.
+
+  All 180 pre-existing :mod:`tests.test_self_improve` tests pass
+  unchanged; the only edit was the
+  :class:`TestDefaultStructuralCatalog.test_returns_catalog_with_structural_rules`
+  expected ``ops`` set, which now contains the four ops instead of
+  two.
+* **Cost** — zero at sample time when no spec has analyzers
+  (``_find_structural_hits`` returns empty and the catalog skips the
+  rule).  When the rule fires, the cost is a single list append /
+  pop in :func:`apply_mutation`, identical to the heuristic path.
+  The two analyzer rules in :func:`default_structural_catalog` add
+  ~20 µs to catalog construction (two extra
+  :class:`StructuralMutationRule` instances) — negligible relative
+  to the loop's per-iteration harness cost.
+* **Tests** — `tests/test_self_improve.py` (+34 new tests, total
+  214): rule validation (5 — defaults, drop-without-candidates,
+  add-requires-candidates, negative ``min_analyzers``, zero floor
+  allowed); structural-hit enumeration (6 — avoid-duplicates,
+  no-avoid-duplicates, drop floor=1 forbids strip, drop floor=0
+  allows strip, droppable_classes filter, strategy_pattern filter);
+  catalog sampling (4 — add proposal shape, drop proposal shape,
+  unapplicable returns ``None``, default-kwargs-independent-per-hit);
+  apply-side dispatch (7 — add appends to analyzers bucket, add
+  falls back to package, add unknown class raises, drop removes,
+  drop allows empty result, drop missing class raises, drop
+  preserves heuristics-bucket independence); per-class bandit arms
+  (5 — proposal_rule_key collapse, per-class key layout, sampler
+  default collapse, sampler buckets per class with the flag, total
+  attempts conserved); proposal serialisation (2 — add round-trip,
+  drop round-trip); default catalog (4 — includes analyzer ops,
+  candidate pool contents, drop floor is 0, applicable on the
+  standard quick-mode battery); end-to-end (1 — SelfImprover
+  accepts a drop_analyzer mutation that improves the score).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Analyzer add/drop* follow-up below the 2026-05-03 entry
+    promoted from "open" to "shipped".
+  - `doc/source/guide_benchmarking.rst`: the structural-catalog
+    section now documents all four ops; the Thompson-sampler
+    paragraph and the per-class-arms subsection both name the
+    analyzer ops.
+  - `doc/source/guide.rst`: quick-nav entry mentions
+    ``add_analyzer`` / ``drop_analyzer``.
+  - `AGENTS.md`: structural composition subsection and the
+    run-the-loop bash example reference the analyzer ops.
 
 ### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
 
@@ -3121,6 +3267,48 @@ follow-ups:
   would let the loop tune the exploration / exploitation balance of the
   multi-start schedule, the same way ``LSHADE.archive_factor`` is tuned.
 
+#### Analyzer add/drop follow-ups (after 2026-06-02 ship)
+
+Analyzer add/drop shipped 2026-06-02 (see §13).  The candidate pool
+is narrowly curated — only :class:`Sensitivity` and :class:`Restart`,
+the two analyzers most strategies in the default battery already use.
+Natural follow-ups when the loop has collected enough evidence to
+motivate the work:
+
+* **Categorical ``Restart.restart_strategy`` regimes** — the
+  :class:`Restart` analyzer's ``restart_strategy`` kwarg accepts
+  ``"diverse"`` (the default, max-distance from prior restarts) and
+  alternatives like ``"random"`` (uniform within the box) or
+  ``"sphere"`` (Gaussian around the box centre).  A
+  ``categorical_choice`` rule (see the existing infrastructure
+  shipped 2026-05-13) would let the bandit flip an existing
+  :class:`Restart` instance's strategy without dropping and
+  re-adding the analyzer.
+* **Tunable ``Sensitivity.update_interval``** — the structural
+  catalog ships :class:`Sensitivity` with the standard-mode default
+  ``update_interval=20``.  Adding a kwarg ``MutationRule`` (kind
+  ``integer_add`` with bounds ``[5, 60]``) would let the loop tune
+  the update cadence — higher values reduce overhead, lower values
+  give more responsive sensitivity tracking.  Only fires on specs
+  that explicitly set the kwarg (the existing predicate), so
+  byte-safe to add.
+* **Expand the candidate pool** — research-grade analyzers
+  (``Splitter``, ``Grid``, ``Dedensifyer``) are excluded from the
+  current pool to avoid unconditionally proposing experimental
+  analyzers.  Once the loop has accumulated evidence that the
+  conservative pool wins consistently, broadening the pool is a
+  natural follow-up.  Same shape as the heuristic-pool expansion
+  pattern (one new ``add_analyzer`` candidate per analyzer class,
+  ``avoid_duplicates=True``).
+* **Strategy-class swap** — the third axis of the
+  :class:`StrategySpec` (alongside heuristics and analyzers).
+  Replace ``StrategyRewarding`` with ``StrategyUCB`` etc. without
+  touching the heuristics list.  Requires a translation table for
+  strategy-specific kwargs because the strategy classes do not
+  share an interface.  Bigger scope than analyzer add/drop; ship
+  after the analyzer ops have accumulated ledger evidence and
+  motivated the cost.
+
 #### `Restart.patience` mutation rule
 
 The :class:`~panobbgo.analyzers.restart.Restart` analyzer takes both a
@@ -3234,9 +3422,15 @@ the §13 entry.  Natural next refinements:
   Pairs naturally with the *contextual / hierarchical bandit* idea
   above — per-class arms are exactly the leaf nodes a hierarchical
   posterior would share strength across.
-- **Analyzer add/drop** — symmetric to the heuristic ops; the
-  ``Sensitivity`` / ``Restart`` analyzers are obvious candidates because
-  they already opt in via ``StrategySpec.analyzers``.
+- **Analyzer add/drop — shipped 2026-06-02**.  Extends the structural
+  mutation catalog with ``add_analyzer`` / ``drop_analyzer`` ops that
+  mirror the heuristic versions but target
+  :attr:`StrategySpec.analyzers` rather than ``heuristics``.  The
+  default candidate pool is :class:`Sensitivity` (with
+  ``update_interval=20``) and :class:`Restart` (with the IPOP-style
+  ``diverse`` strategy and ``max_restarts=5``).  ``min_analyzers``
+  defaults to ``0`` — unlike heuristics, an empty analyzers list is a
+  valid spec.  See the §13 entry.
 - **Strategy-class swap** — replace ``StrategyRewarding`` with
   ``StrategyUCB`` etc. without touching the heuristics list.  Requires
   every accepted swap to keep the strategy's hyperparameters either

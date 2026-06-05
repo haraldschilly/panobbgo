@@ -2370,9 +2370,10 @@ class TestDefaultStructuralCatalog:
         kinds = {type(r).__name__ for r in cat.rules}
         assert "MutationRule" in kinds
         assert "StructuralMutationRule" in kinds
-        # At least the two structural rules from §7.2 — add + drop.
+        # Four structural rules from §7.2 — heuristic add/drop (shipped
+        # 2026-05-03) plus analyzer add/drop (shipped 2026-06-02).
         ops = {r.op for r in cat.rules if isinstance(r, StructuralMutationRule)}
-        assert ops == {"add_heuristic", "drop_heuristic"}
+        assert ops == {"add_heuristic", "drop_heuristic", "add_analyzer", "drop_analyzer"}
 
     def test_structural_catalog_is_superset_of_default(self):
         base = default_catalog()
@@ -2454,6 +2455,637 @@ class TestStructuralEndToEnd:
         assert len(records) == 2
         assert all(r.proposal is None for r in records)
         assert all(r.reason_skipped is not None for r in records)
+
+
+# ===========================================================================
+# Analyzer add/drop structural mutations (shipped 2026-06-02)
+# ===========================================================================
+
+
+class _DummyAnalyzerD:
+    """Second fake analyzer used as an add-analyzer candidate."""
+
+    pass
+
+
+class _DummyAnalyzerE:
+    """Third fake analyzer used to test duplicate avoidance / drop filters."""
+
+    pass
+
+
+class TestAnalyzerStructuralRuleValidation:
+    """Construction-time validation of analyzer ops on :class:`StructuralMutationRule`."""
+
+    def test_add_analyzer_constructs(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=((_DummyAnalyzerD, {"interval": 10}),),
+        )
+        assert rule.op == "add_analyzer"
+        assert rule.min_analyzers == 0  # default
+
+    def test_drop_analyzer_constructs_without_candidates(self):
+        rule = StructuralMutationRule(strategy_pattern="", op="drop_analyzer")
+        assert rule.op == "drop_analyzer"
+        assert rule.candidate_classes == ()
+
+    def test_add_analyzer_requires_candidates(self):
+        with pytest.raises(ValueError, match="add_analyzer requires"):
+            StructuralMutationRule(strategy_pattern="", op="add_analyzer", candidate_classes=())
+
+    def test_min_analyzers_negative_raises(self):
+        with pytest.raises(ValueError, match="min_analyzers"):
+            StructuralMutationRule(strategy_pattern="", op="drop_analyzer", min_analyzers=-1)
+
+    def test_min_analyzers_zero_allowed(self):
+        # Unlike min_heuristics (floor 1), an empty analyzers list is a
+        # valid spec — analyzers are non-essential.
+        rule = StructuralMutationRule(strategy_pattern="", op="drop_analyzer", min_analyzers=0)
+        assert rule.min_analyzers == 0
+
+    def test_rule_key_collapses_by_op(self):
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=((_DummyAnalyzerD, {}),),
+        )
+        rule_drop = StructuralMutationRule(strategy_pattern="", op="drop_analyzer")
+        assert rule_add.rule_key() == ("*", "add_analyzer", "structural")
+        assert rule_drop.rule_key() == ("*", "drop_analyzer", "structural")
+
+
+class TestAnalyzerStructuralHits:
+    """:func:`_find_structural_hits` enumeration on analyzer buckets."""
+
+    def test_add_analyzer_skips_existing(self):
+        # StratX already has _DummyAnalyzerC.  With avoid_duplicates=True,
+        # the candidate _DummyAnalyzerC should be skipped on StratX but
+        # available on StratY (which has no analyzers).
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=(
+                (_DummyAnalyzerC, {"update_interval": 25}),
+                (_DummyAnalyzerD, {"interval": 10}),
+            ),
+            avoid_duplicates=True,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(_make_specs(), rule)
+        # StratX: only _DummyAnalyzerD eligible (C is a duplicate)
+        # StratY: both C and D eligible (no analyzers to dedup against)
+        # Total: 3 hits.
+        assert len(hits) == 3
+        classes = {(si, cls.__name__) for si, cls, _ in hits}
+        assert classes == {(0, "_DummyAnalyzerD"), (1, "_DummyAnalyzerC"), (1, "_DummyAnalyzerD")}
+
+    def test_add_analyzer_without_avoid_duplicates(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=((_DummyAnalyzerC, {"update_interval": 5}),),
+            avoid_duplicates=False,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(_make_specs(), rule)
+        # Both StratX and StratY get the candidate even though StratX
+        # already has _DummyAnalyzerC.
+        spec_idxs = {si for si, _, _ in hits}
+        assert spec_idxs == {0, 1}
+
+    def test_drop_analyzer_respects_min_floor(self):
+        # StratX has 1 analyzer; min_analyzers=1 forbids dropping (would
+        # breach the floor).  StratY has 0 analyzers, also ineligible.
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="drop_analyzer",
+            min_analyzers=1,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(_make_specs(), rule)
+        assert hits == []
+
+    def test_drop_analyzer_floor_zero_allows_strip(self):
+        # min_analyzers=0 means "post-drop count may be 0" — StratX (1 → 0)
+        # qualifies; StratY (0 → would be -1) does not.
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="drop_analyzer",
+            min_analyzers=0,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(_make_specs(), rule)
+        assert len(hits) == 1
+        si, cls, _kw = hits[0]
+        assert si == 0  # only StratX qualifies
+        assert cls.__name__ == "_DummyAnalyzerC"
+
+    def test_droppable_classes_filter_on_analyzers(self):
+        # A spec with two analyzers; the rule restricts drops to
+        # _DummyAnalyzerD only.
+        fat = [
+            StrategySpec(
+                name="Fat",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+                analyzers=[
+                    (_DummyAnalyzerC, {"update_interval": 20}),
+                    (_DummyAnalyzerD, {"interval": 10}),
+                ],
+            ),
+        ]
+        rule = StructuralMutationRule(
+            strategy_pattern="",
+            op="drop_analyzer",
+            droppable_classes=("_DummyAnalyzerD",),
+            min_analyzers=0,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(fat, rule)
+        names = {cls.__name__ for _, cls, _ in hits}
+        assert names == {"_DummyAnalyzerD"}
+
+    def test_strategy_pattern_filters_analyzer_ops(self):
+        rule = StructuralMutationRule(
+            strategy_pattern="StratX",
+            op="drop_analyzer",
+            min_analyzers=0,
+        )
+        from panobbgo.self_improve import _find_structural_hits
+
+        hits = _find_structural_hits(_make_specs(), rule)
+        # Only StratX matches the pattern (StratY would be ineligible anyway
+        # since it has zero analyzers, but the pattern filter must run
+        # before the bucket check).
+        spec_idxs = {si for si, _, _ in hits}
+        assert spec_idxs == {0}
+
+
+class TestAnalyzerStructuralCatalogSampling:
+    """End-to-end sampling through :meth:`MutationCatalog.sample`."""
+
+    def test_add_analyzer_proposal_shape(self):
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_analyzer",
+                    candidate_classes=((_DummyAnalyzerD, {"interval": 7}),),
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.op == "add_analyzer"
+        assert prop.rule_kind == "add_analyzer"
+        assert prop.class_name == "_DummyAnalyzerD"
+        assert prop.param_name == ""
+        assert prop.structural_kwargs == {"interval": 7}
+
+    def test_drop_analyzer_proposal_shape(self):
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_analyzer",
+                    min_analyzers=0,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        prop = cat.sample(rng, _make_specs())
+        assert prop is not None
+        assert prop.op == "drop_analyzer"
+        assert prop.rule_kind == "drop_analyzer"
+        # The only droppable analyzer in _make_specs() is on StratX.
+        assert prop.strategy_name == "StratX"
+        assert prop.class_name == "_DummyAnalyzerC"
+
+    def test_no_applicable_returns_none(self):
+        # Every spec has zero analyzers and the rule requires ≥1 to drop.
+        bare = [
+            StrategySpec(
+                name="Bare",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+                analyzers=[],
+            ),
+        ]
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_analyzer",
+                    min_analyzers=0,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        assert cat.sample(rng, bare) is None
+
+    def test_default_kwargs_independent_per_hit(self):
+        """Mutating one proposal's structural_kwargs must not leak into others."""
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_analyzer",
+                    candidate_classes=((_DummyAnalyzerD, {"interval": 7}),),
+                    avoid_duplicates=False,
+                ),
+            ]
+        )
+        rng = np.random.default_rng(0)
+        props = [cat.sample(rng, _make_specs()) for _ in range(8)]
+        assert all(p is not None for p in props)
+        # Mutate the first; the rest must keep the original default.
+        props[0].structural_kwargs["interval"] = 999
+        for p in props[1:]:
+            assert p.structural_kwargs["interval"] == 7
+
+
+class TestAnalyzerApplyMutation:
+    """:func:`apply_mutation` dispatch on analyzer ops."""
+
+    def test_add_analyzer_appends_to_analyzers_bucket(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratY",
+            class_name="_DummyAnalyzerD",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_analyzer",
+            rationale="t",
+            op="add_analyzer",
+            structural_kwargs={"interval": 13},
+        )
+        # Make the class resolvable: register it on StratY itself first by
+        # giving the spec a placeholder _DummyAnalyzerD entry that the
+        # resolver can find.  Use a fresh spec with the analyzer already
+        # present.
+        specs[1] = StrategySpec(
+            name="StratY",
+            strategy_class=_DummyStrategy,
+            heuristics=[(_DummyHeuristicA, {"radius": 0.05})],
+            analyzers=[(_DummyAnalyzerD, {})],
+        )
+        out = apply_mutation(specs, proposal)
+        new_y = next(s for s in out if s.name == "StratY")
+        # The append produces a *second* _DummyAnalyzerD entry (with the
+        # proposed kwargs) — _resolve_analyzer_class found the first one
+        # to recover the class object.
+        analyzer_kwargs = [kw for cls, kw in new_y.analyzers if cls is _DummyAnalyzerD]
+        assert {"interval": 13} in analyzer_kwargs
+
+    def test_add_analyzer_falls_back_to_package(self):
+        from panobbgo.analyzers import Sensitivity
+
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+                analyzers=[],
+            ),
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Sensitivity",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_analyzer",
+            rationale="t",
+            op="add_analyzer",
+            structural_kwargs={"update_interval": 15},
+        )
+        out = apply_mutation(specs, proposal)
+        assert len(out[0].analyzers) == 1
+        cls, kw = out[0].analyzers[0]
+        assert cls is Sensitivity
+        assert kw == {"update_interval": 15}
+
+    def test_add_analyzer_unknown_class_raises(self):
+        specs = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {})],
+                analyzers=[],
+            ),
+        ]
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="DoesNotExistAnalyzer",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_analyzer",
+            rationale="t",
+            op="add_analyzer",
+            structural_kwargs={},
+        )
+        with pytest.raises(ValueError, match="panobbgo.analyzers"):
+            apply_mutation(specs, proposal)
+
+    def test_drop_analyzer_removes_first_match(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyAnalyzerC",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_analyzer",
+            rationale="t",
+            op="drop_analyzer",
+            structural_kwargs={"update_interval": 20},
+        )
+        out = apply_mutation(specs, proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert all(cls.__name__ != "_DummyAnalyzerC" for cls, _ in new_x.analyzers)
+        # Original spec untouched.
+        assert any(cls.__name__ == "_DummyAnalyzerC" for cls, _ in specs[0].analyzers)
+        # Heuristics bucket completely unaffected.
+        assert [cls.__name__ for cls, _ in new_x.heuristics] == [cls.__name__ for cls, _ in specs[0].heuristics]
+
+    def test_drop_analyzer_allows_empty_result(self):
+        # Drop the only analyzer in StratX — analyzers list becomes [].
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyAnalyzerC",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_analyzer",
+            rationale="t",
+            op="drop_analyzer",
+            structural_kwargs={},
+        )
+        out = apply_mutation(specs, proposal)
+        new_x = next(s for s in out if s.name == "StratX")
+        assert new_x.analyzers == []  # empty allowed
+
+    def test_drop_analyzer_missing_class_raises(self):
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="DoesNotExistAnalyzer",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_analyzer",
+            rationale="t",
+            op="drop_analyzer",
+            structural_kwargs={},
+        )
+        with pytest.raises(ValueError, match="no analyzer"):
+            apply_mutation(specs, proposal)
+
+    def test_analyzer_op_preserves_heuristics_independence(self):
+        # Applying an analyzer mutation must not touch the heuristics
+        # bucket of the matched spec, nor any other spec entirely.
+        specs = _make_specs()
+        proposal = MutationProposal(
+            strategy_name="StratX",
+            class_name="_DummyAnalyzerC",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_analyzer",
+            rationale="t",
+            op="drop_analyzer",
+            structural_kwargs={},
+        )
+        out = apply_mutation(specs, proposal)
+        # StratY unchanged.
+        new_y = next(s for s in out if s.name == "StratY")
+        orig_y = specs[1]
+        assert [cls for cls, _ in new_y.heuristics] == [cls for cls, _ in orig_y.heuristics]
+        assert new_y.analyzers == orig_y.analyzers
+        # StratX heuristics untouched.
+        new_x = next(s for s in out if s.name == "StratX")
+        assert [cls for cls, _ in new_x.heuristics] == [cls for cls, _ in specs[0].heuristics]
+
+
+class TestAnalyzerRuleKey:
+    """Bandit arm key behaviour for analyzer ops."""
+
+    def test_proposal_rule_key_collapses_analyzer_ops(self):
+        from panobbgo.self_improve import _proposal_rule_key
+
+        assert _proposal_rule_key("Sensitivity", "", "add_analyzer") == (
+            "*",
+            "add_analyzer",
+            "structural",
+        )
+        assert _proposal_rule_key("Restart", "", "drop_analyzer") == (
+            "*",
+            "drop_analyzer",
+            "structural",
+        )
+
+    def test_proposal_rule_key_per_class_for_analyzer_ops(self):
+        from panobbgo.self_improve import _proposal_rule_key
+
+        assert _proposal_rule_key("Sensitivity", "", "add_analyzer", per_class_structural=True) == (
+            "Sensitivity",
+            "add_analyzer",
+            "structural",
+        )
+        assert _proposal_rule_key("Restart", "", "drop_analyzer", per_class_structural=True) == (
+            "Restart",
+            "drop_analyzer",
+            "structural",
+        )
+
+    def test_adaptive_sampler_buckets_analyzer_history(self):
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=((_DummyAnalyzerD, {}), (_DummyAnalyzerE, {})),
+        )
+        cat = MutationCatalog([rule_add])
+        samp = AdaptiveMutationSampler(cat)
+        rng = np.random.default_rng(0)
+        for _ in range(10):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        # All 10 attempts/accepts collapse into one arm per default.
+        assert len(snap) == 1
+        assert snap[0].rule_key == ("*", "add_analyzer", "structural")
+        assert snap[0].n_attempts == 10
+        assert snap[0].n_accepts == 10
+
+    def test_adaptive_sampler_per_class_for_analyzer_ops(self):
+        """With per_class_structural=True the bandit can distinguish
+        adding Sensitivity-vs-Restart-style analyzers."""
+        rule_add = StructuralMutationRule(
+            strategy_pattern="",
+            op="add_analyzer",
+            candidate_classes=((_DummyAnalyzerD, {}), (_DummyAnalyzerE, {})),
+        )
+        cat = MutationCatalog([rule_add])
+        samp = AdaptiveMutationSampler(cat, per_class_structural=True)
+        rng = np.random.default_rng(0)
+        for _ in range(50):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        keys = {s.rule_key for s in snap}
+        # Both classes observed as distinct arms.
+        assert ("_DummyAnalyzerD", "add_analyzer", "structural") in keys
+        assert ("_DummyAnalyzerE", "add_analyzer", "structural") in keys
+        # Total attempts conserved across the two arms.
+        total_attempts = sum(s.n_attempts for s in snap)
+        assert total_attempts == 50
+
+
+class TestAnalyzerProposalToDict:
+    """JSONL ledger round-trip for analyzer-op proposals."""
+
+    def test_add_analyzer_round_trip(self):
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Restart",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="add_analyzer",
+            rationale="t",
+            op="add_analyzer",
+            structural_kwargs={"patience": None, "max_restarts": np.int64(5)},
+        )
+        d = proposal.to_dict()
+        assert d["op"] == "add_analyzer"
+        assert d["structural_kwargs"]["patience"] is None
+        assert d["structural_kwargs"]["max_restarts"] == 5
+        assert isinstance(d["structural_kwargs"]["max_restarts"], int)
+        # JSON-serialisable.
+        assert json.loads(json.dumps(d))
+
+    def test_drop_analyzer_round_trip(self):
+        proposal = MutationProposal(
+            strategy_name="S",
+            class_name="Sensitivity",
+            param_name="",
+            old_value=None,
+            new_value=None,
+            rule_kind="drop_analyzer",
+            rationale="t",
+            op="drop_analyzer",
+            structural_kwargs={"update_interval": 25},
+        )
+        d = proposal.to_dict()
+        assert d["op"] == "drop_analyzer"
+        assert d["structural_kwargs"] == {"update_interval": 25}
+        assert json.loads(json.dumps(d))
+
+
+class TestAnalyzerDefaultStructuralCatalog:
+    """The default structural catalog includes analyzer ops with literature-grounded candidates."""
+
+    def test_includes_analyzer_ops(self):
+        cat = default_structural_catalog()
+        ops = {r.op for r in cat.rules if isinstance(r, StructuralMutationRule)}
+        assert "add_analyzer" in ops
+        assert "drop_analyzer" in ops
+
+    def test_analyzer_candidate_pool_contents(self):
+        from panobbgo.analyzers import Restart, Sensitivity
+
+        cat = default_structural_catalog()
+        add_rules = [r for r in cat.rules if isinstance(r, StructuralMutationRule) and r.op == "add_analyzer"]
+        assert len(add_rules) == 1
+        candidate_classes = {cls for cls, _kw in add_rules[0].candidate_classes}
+        assert candidate_classes == {Sensitivity, Restart}
+
+    def test_drop_analyzer_min_floor_is_zero(self):
+        cat = default_structural_catalog()
+        drop_rules = [r for r in cat.rules if isinstance(r, StructuralMutationRule) and r.op == "drop_analyzer"]
+        assert len(drop_rules) == 1
+        assert drop_rules[0].min_analyzers == 0
+
+    def test_analyzer_ops_applicable_on_default_battery(self):
+        """The default structural catalog must produce ≥1 analyzer hit
+        on the standard quick-mode battery."""
+        from panobbgo.harness import _make_quick_strategies
+        from panobbgo.self_improve import _find_structural_hits
+
+        specs = _make_quick_strategies()
+        cat = default_structural_catalog()
+        add_rules = [r for r in cat.rules if isinstance(r, StructuralMutationRule) and r.op == "add_analyzer"]
+        drop_rules = [r for r in cat.rules if isinstance(r, StructuralMutationRule) and r.op == "drop_analyzer"]
+        # At least one add_analyzer hit on Rewarding_Diverse (it has Sensitivity, so
+        # avoid_duplicates filters Sensitivity but allows Restart).  Also one on
+        # RoundRobin_Random which has no analyzers (both candidates eligible).
+        add_hits = _find_structural_hits(specs, add_rules[0])
+        assert len(add_hits) >= 1
+        # At least one drop_analyzer hit on Rewarding_Diverse (has Sensitivity).
+        drop_hits = _find_structural_hits(specs, drop_rules[0])
+        assert len(drop_hits) >= 1
+
+
+class TestAnalyzerEndToEnd:
+    """End-to-end SelfImprover run with an analyzer structural mutation."""
+
+    def test_loop_accepts_analyzer_drop(self, tmp_path):
+        """The loop drives a fake harness that rewards the candidate;
+        the analyzer-drop proposal must round-trip through apply and
+        end up as an accept."""
+        counter = {"n": 0}
+
+        def score_fn(config):
+            n = counter["n"]
+            counter["n"] += 1
+            # Baseline runs are at even calls (0.3); candidate runs at odd (0.8).
+            return 0.3 if n % 2 == 0 else 0.8
+
+        # Seed strategy has one analyzer — drop_analyzer must be applicable.
+        seed = [
+            StrategySpec(
+                name="S",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"radius": 0.1})],
+                analyzers=[(_DummyAnalyzerC, {"update_interval": 20})],
+            ),
+        ]
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="drop_analyzer",
+                    min_analyzers=0,
+                ),
+            ]
+        )
+        cfg = LoopConfig(
+            iterations=1,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=cat, seed_strategies=seed)
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert len(records) == 1
+        rec = records[0]
+        assert rec.proposal is not None
+        assert rec.proposal["op"] == "drop_analyzer"
+        assert rec.accepted is True
 
 
 # ===========================================================================

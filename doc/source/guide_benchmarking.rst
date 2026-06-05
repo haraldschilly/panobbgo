@@ -778,18 +778,40 @@ space with two new ops that change the *shape* of a
   ``min_heuristics`` field (default ``2``) is the floor of the
   *post-drop* heuristic count, so the strategy always keeps at least
   one diversity slot beyond the bare minimum.
+* ``add_analyzer`` — append an analyzer from the curated pool
+  (``Sensitivity`` with ``update_interval=20``, ``Restart`` with the
+  IPOP-style ``diverse`` strategy and ``max_restarts=5``) to a target
+  strategy.  Shipped 2026-06-02 — mirrors ``add_heuristic`` but
+  targets :attr:`~panobbgo.benchmark.StrategySpec.analyzers` rather
+  than ``heuristics``.  Useful for letting the loop discover whether
+  attaching ``Restart`` (warm restarts on stagnation) or
+  ``Sensitivity`` (adaptive sensitivity tracking) helps a given seed
+  composition.  ``avoid_duplicates=True`` (default) skips analyzer
+  classes already attached.
+* ``drop_analyzer`` — remove an existing analyzer, with the same
+  optional ``droppable_classes`` filter as ``drop_heuristic``.  The
+  matching safety floor is :attr:`StructuralMutationRule.min_analyzers`
+  (default ``0`` — analyzers are non-essential, unlike heuristics, so
+  stripping :class:`~panobbgo.analyzers.Sensitivity` from a Rewarding
+  strategy yields a valid, slightly faster spec).
 
-Both flavours land as one
+All four flavours land as one
 :class:`~panobbgo.self_improve.MutationProposal` carrying ``op`` and
 ``structural_kwargs``; :func:`~panobbgo.self_improve.apply_mutation`
 dispatches on ``proposal.op`` so the rest of the loop driver — the
 ledger, the anti-cherry-pick guard, the statistical acceptance rule —
 is unchanged and the JSONL ledger remains backwards compatible.
+Analyzer ops use the same ``MutationProposal`` fields and the same
+``rule_kind`` namespace (``"add_analyzer"`` / ``"drop_analyzer"``) so
+existing ledger consumers see one extra ``rule_kind`` they may
+ignore.
 
 The Thompson sampler maps every structural rule onto **one arm per
-op** (key ``("*", op, "structural")``) by default.  This keeps
-cold-start variance bounded — a freshly enabled adaptive sampler on
-a structural catalog has the same uniform-mix behaviour as on the
+op** (key ``("*", op, "structural")``) by default — the same flat
+collapse for all four ops (``add_heuristic`` / ``drop_heuristic`` /
+``add_analyzer`` / ``drop_analyzer``).  This keeps cold-start
+variance bounded — a freshly enabled adaptive sampler on a
+structural catalog has the same uniform-mix behaviour as on the
 kwarg catalog.
 
 Per-class structural bandit arms
@@ -798,16 +820,19 @@ Per-class structural bandit arms
 Once a structural catalog has accumulated evidence, the coarse
 one-arm-per-op layout becomes the limiting factor: the bandit cannot
 distinguish ``add Sobol`` (which may be a consistent winner) from
-``add Random`` (which may not).  Setting
+``add Random`` (which may not), nor ``add Restart`` (which may help
+a multi-modal landscape) from ``add Sensitivity`` (which is mostly
+diagnostic).  Setting
 :attr:`~panobbgo.self_improve.LoopConfig.structural_per_class_arms`
 (or passing ``per_class_structural=True`` to
 :class:`~panobbgo.self_improve.AdaptiveMutationSampler` directly)
 splits the structural arms by **target candidate class**.  ``add
 Sobol`` then lives on the bandit arm
 ``("Sobol", "add_heuristic", "structural")``; ``add Random`` lives
-on ``("Random", "add_heuristic", "structural")``; the Thompson
-posterior on each arm tracks how often *that specific add* (or
-drop) is accepted.
+on ``("Random", "add_heuristic", "structural")``; ``add Restart``
+lives on ``("Restart", "add_analyzer", "structural")``; the
+Thompson posterior on each arm tracks how often *that specific add*
+(or drop) is accepted.
 
 The trade-off is the canonical bandit one: sharper signal vs sparser
 per-arm data.  With ``N`` candidate classes in the structural

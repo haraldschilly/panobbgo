@@ -991,17 +991,39 @@ restricted to a tuple of class names via
 <code class="docutils literal notranslate"><span class="pre">min_heuristics</span></code> field (default <code class="docutils literal notranslate"><span class="pre">2</span></code>) is the floor of the
 <em>post-drop</em> heuristic count, so the strategy always keeps at least
 one diversity slot beyond the bare minimum.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code> — append an analyzer from the curated pool
+(<code class="docutils literal notranslate"><span class="pre">Sensitivity</span></code> with <code class="docutils literal notranslate"><span class="pre">update_interval=20</span></code>, <code class="docutils literal notranslate"><span class="pre">Restart</span></code> with the
+IPOP-style <code class="docutils literal notranslate"><span class="pre">diverse</span></code> strategy and <code class="docutils literal notranslate"><span class="pre">max_restarts=5</span></code>) to a target
+strategy.  Shipped 2026-06-02 — mirrors <code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> but
+targets <code class="xref py py-attr docutils literal notranslate"><span class="pre">analyzers</span></code> rather
+than <code class="docutils literal notranslate"><span class="pre">heuristics</span></code>.  Useful for letting the loop discover whether
+attaching <code class="docutils literal notranslate"><span class="pre">Restart</span></code> (warm restarts on stagnation) or
+<code class="docutils literal notranslate"><span class="pre">Sensitivity</span></code> (adaptive sensitivity tracking) helps a given seed
+composition.  <code class="docutils literal notranslate"><span class="pre">avoid_duplicates=True</span></code> (default) skips analyzer
+classes already attached.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">drop_analyzer</span></code> — remove an existing analyzer, with the same
+optional <code class="docutils literal notranslate"><span class="pre">droppable_classes</span></code> filter as <code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code>.  The
+matching safety floor is <code class="xref py py-attr docutils literal notranslate"><span class="pre">StructuralMutationRule.min_analyzers</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">0</span></code> — analyzers are non-essential, unlike heuristics, so
+stripping <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> from a Rewarding
+strategy yields a valid, slightly faster spec).</p></li>
 </ul>
-<p>Both flavours land as one
+<p>All four flavours land as one
 <code class="xref py py-class docutils literal notranslate"><span class="pre">MutationProposal</span></code> carrying <code class="docutils literal notranslate"><span class="pre">op</span></code> and
 <code class="docutils literal notranslate"><span class="pre">structural_kwargs</span></code>; <code class="xref py py-func docutils literal notranslate"><span class="pre">apply_mutation()</span></code>
 dispatches on <code class="docutils literal notranslate"><span class="pre">proposal.op</span></code> so the rest of the loop driver — the
 ledger, the anti-cherry-pick guard, the statistical acceptance rule —
-is unchanged and the JSONL ledger remains backwards compatible.</p>
+is unchanged and the JSONL ledger remains backwards compatible.
+Analyzer ops use the same <code class="docutils literal notranslate"><span class="pre">MutationProposal</span></code> fields and the same
+<code class="docutils literal notranslate"><span class="pre">rule_kind</span></code> namespace (<code class="docutils literal notranslate"><span class="pre">&quot;add_analyzer&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;drop_analyzer&quot;</span></code>) so
+existing ledger consumers see one extra <code class="docutils literal notranslate"><span class="pre">rule_kind</span></code> they may
+ignore.</p>
 <p>The Thompson sampler maps every structural rule onto <strong>one arm per
-op</strong> (key <code class="docutils literal notranslate"><span class="pre">(&quot;*&quot;,</span> <span class="pre">op,</span> <span class="pre">&quot;structural&quot;)</span></code>) by default.  This keeps
-cold-start variance bounded — a freshly enabled adaptive sampler on
-a structural catalog has the same uniform-mix behaviour as on the
+op</strong> (key <code class="docutils literal notranslate"><span class="pre">(&quot;*&quot;,</span> <span class="pre">op,</span> <span class="pre">&quot;structural&quot;)</span></code>) by default — the same flat
+collapse for all four ops (<code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> / <code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> /
+<code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code> / <code class="docutils literal notranslate"><span class="pre">drop_analyzer</span></code>).  This keeps cold-start
+variance bounded — a freshly enabled adaptive sampler on a
+structural catalog has the same uniform-mix behaviour as on the
 kwarg catalog.</p>
 </section>
 <section id="per-class-structural-bandit-arms">
@@ -1009,16 +1031,19 @@ kwarg catalog.</p>
 <p>Once a structural catalog has accumulated evidence, the coarse
 one-arm-per-op layout becomes the limiting factor: the bandit cannot
 distinguish <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Sobol</span></code> (which may be a consistent winner) from
-<code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Random</span></code> (which may not).  Setting
+<code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Random</span></code> (which may not), nor <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Restart</span></code> (which may help
+a multi-modal landscape) from <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Sensitivity</span></code> (which is mostly
+diagnostic).  Setting
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">structural_per_class_arms</span></code>
 (or passing <code class="docutils literal notranslate"><span class="pre">per_class_structural=True</span></code> to
 <code class="xref py py-class docutils literal notranslate"><span class="pre">AdaptiveMutationSampler</span></code> directly)
 splits the structural arms by <strong>target candidate class</strong>.  <code class="docutils literal notranslate"><span class="pre">add</span>
 <span class="pre">Sobol</span></code> then lives on the bandit arm
 <code class="docutils literal notranslate"><span class="pre">(&quot;Sobol&quot;,</span> <span class="pre">&quot;add_heuristic&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Random</span></code> lives
-on <code class="docutils literal notranslate"><span class="pre">(&quot;Random&quot;,</span> <span class="pre">&quot;add_heuristic&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; the Thompson
-posterior on each arm tracks how often <em>that specific add</em> (or
-drop) is accepted.</p>
+on <code class="docutils literal notranslate"><span class="pre">(&quot;Random&quot;,</span> <span class="pre">&quot;add_heuristic&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Restart</span></code>
+lives on <code class="docutils literal notranslate"><span class="pre">(&quot;Restart&quot;,</span> <span class="pre">&quot;add_analyzer&quot;,</span> <span class="pre">&quot;structural&quot;)</span></code>; the
+Thompson posterior on each arm tracks how often <em>that specific add</em>
+(or drop) is accepted.</p>
 <p>The trade-off is the canonical bandit one: sharper signal vs sparser
 per-arm data.  With <code class="docutils literal notranslate"><span class="pre">N</span></code> candidate classes in the structural
 catalog, the bandit arm space grows by a factor of <code class="docutils literal notranslate"><span class="pre">N</span></code> (for each

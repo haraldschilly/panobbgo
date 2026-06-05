@@ -230,3 +230,30 @@ def test_check_dependencies_failure():
 
     with pytest.raises(Exception, match="depends on.*but missing"):
         strategy.check_dependencies()
+
+
+def test_stall_guard_aborts_starved_run():
+    """A starved strategy (heuristic that stops emitting) must abort after
+    ``config.max_stall_seconds`` — not spin through 10000 no-progress loops
+    (which took ~16 minutes before the time-based guard existed)."""
+    import time
+
+    from panobbgo.strategies import StrategyRewarding
+
+    class Silent(Heuristic):
+        """Emits a single point on start, then nothing — starving the strategy."""
+
+        def on_start(self):
+            self.emit([np.zeros(self.problem.dim)])
+
+    problem = Rosenbrock(2)
+    t0 = time.time()
+    with StrategyRewarding(problem, max_evaluations=50, evaluation_method="threaded") as strategy:
+        strategy.config.max_stall_seconds = 1.0
+        strategy.add(Silent)
+        strategy.start()
+    elapsed = time.time() - t0
+
+    # Guard must trip ~1s after starvation begins; generous bound for slow CI.
+    assert elapsed < 20, f"stall guard too slow: {elapsed:.1f}s"
+    assert len(strategy.results) < 50

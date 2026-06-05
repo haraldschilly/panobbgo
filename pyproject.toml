@@ -52,6 +52,9 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-xdist>=3.6",
     "pytest-benchmark>=4.0",
+    # pytest-retry powers @pytest.mark.flaky — without it here, the markers
+    # are a silent no-op in CI (which installs via `uv sync --extra dev`).
+    "pytest-retry>=1.7.0",
     "flake8>=7.3",
     "ruff>=0.14.13",
     "mypy>=1.19",

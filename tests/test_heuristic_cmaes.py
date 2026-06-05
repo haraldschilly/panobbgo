@@ -116,6 +116,50 @@ class TestCMAES(PanobbgoTestCase):
         assert len(points) == cma._lam
         assert all(isinstance(p, Point) for p in points)
 
+    def test_emit_generation_grows_queue_beyond_cap(self):
+        """IPOP restarts grow λ beyond the default queue capacity (20).
+
+        The full generation must still reach the output queue — points
+        silently dropped by ``put_nowait`` on a full queue starved the
+        heuristic and made the strategy spin for ~16 minutes (regression
+        test for the 971s CI hang of ``test_ipop_cmaes_restarts_triggered``).
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        cma.get_points()  # drain the initial generation
+
+        cma._lam = 48  # λ after several IPOP restarts, > default cap of 20
+        cma._emit_generation()
+
+        assert cma._gen_emitted[cma._gen] == 48
+        assert len(cma.get_points()) == 48
+
+    def test_partial_generation_triggers_update(self):
+        """A clipped generation must not deadlock the update trigger.
+
+        The quorum is based on the actually-emitted count, not λ — if the
+        output queue clipped the generation, waiting for a λ-based quorum
+        would wait forever.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        gen = cma._gen
+
+        # Simulate a clipped emission: only 3 of λ points made it out.
+        pending = list(cma._pending.items())[:3]
+        cma._pending = dict(pending)
+        cma._gen_emitted[gen] = 3
+
+        results = [make_result(np.array([0.1 * i, 0.2 * i]), float(i), who=who) for i, (who, _) in enumerate(pending)]
+        cma.on_new_results(results)
+
+        assert gen not in cma._gen_results, "update did not consume the clipped generation"
+        assert cma._gen == gen + 1, "next generation was not emitted"
+
     def test_emitted_points_within_box(self):
         from panobbgo.heuristics import CMAES
 
@@ -699,8 +743,13 @@ def test_ipop_cmaes_restarts_triggered():
 
     # At least one restart should have occurred given the short patience
     assert len(cma_ref) > 0, "CMAES heuristic not found in strategy"
-    # With patience=15 and 120 evals we expect at least 1 restart
+    # With patience=10 and 60 evals we expect at least 1 restart
     assert cma_ref[0] >= 1, f"Expected at least 1 IPOP restart, got {cma_ref[0]}"
+    # The run must actually complete its evaluation budget. Before the
+    # queue-capacity fix, IPOP restarts grew λ past the output-queue cap,
+    # the overflow was silently dropped, and the strategy starved at 58/60
+    # results — spinning in the no-progress loop for ~16 minutes (971s in CI).
+    assert len(strategy.results) >= 60, f"Run stalled at {len(strategy.results)}/60 results"
 
 
 # ---------------------------------------------------------------------------

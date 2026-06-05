@@ -625,6 +625,23 @@ class Heuristic(Module):
             q.queue.clear()  # Queue
             q.not_full.notify()  # to wakeup "put()"
 
+    def ensure_output_capacity(self, n: int) -> None:
+        """
+        Grow the output queue so that at least ``n`` *additional* points fit.
+
+        Heuristics that emit points in batches whose size can exceed the
+        configured queue capacity (e.g. CMA-ES after IPOP restarts double λ)
+        must call this before emitting, otherwise ``put_nowait`` silently
+        drops the overflow and the heuristic deadlocks waiting for results
+        that will never arrive.
+        """
+        q = self._output
+        with q.mutex:
+            needed = len(q.queue) + n
+            if 0 < q.maxsize < needed:
+                q.maxsize = needed
+                q.not_full.notify_all()
+
     def emit(self, points: Union[np.ndarray, List[np.ndarray], "Point", List["Point"], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.
@@ -953,6 +970,26 @@ class EventBus:
             event.terminate = terminate
             # logger.info("EventBus: publishing %s -> %s" % (key, event))
             target.eventbus_events[key].put(event)
+
+    def shutdown(self) -> None:
+        """
+        Terminate *all* dispatcher threads by sending a terminate event to
+        every subscribed (key, target) pair.
+
+        Without this, only subscribers of the ``finished`` key stop at
+        cleanup — every other ``on_<key>`` dispatcher thread stays blocked
+        on its queue forever. The threads are daemons, so they don't block
+        interpreter exit, but long-lived processes that create many
+        strategies (e.g. a test suite) accumulate thousands of them.
+        """
+        for key, targets in list(self._subs.items()):
+            for target in list(targets):
+                try:
+                    event = Event()
+                    event.terminate = True
+                    target.eventbus_events[key].put(event)
+                except Exception:
+                    pass
 
 
 class StrategyBase:
@@ -1489,7 +1526,9 @@ class StrategyBase:
         self.loops = 0
         self._last_results_count = 0
         self._loops_without_progress = 0
-        self._max_loops_without_progress = 10000  # More generous
+        self._max_loops_without_progress = 10000  # backstop; the time-based guard below trips first
+        self._stall_started: Optional[float] = None
+        self._max_stall_seconds = float(getattr(self.config, "max_stall_seconds", 30.0))
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
         self._max_total_loops = max_eval_int * 10000  # Much more headroom
 
@@ -1507,21 +1546,6 @@ class StrategyBase:
             # execute the actual strategy
             points = self.execute()
 
-            # Check for progress (points generated)
-            if len(points) == 0:
-                # Only increment if we also don't have pending tasks
-                if len(self.pending) == 0:
-                    self._loops_without_progress += 1
-                    if self._loops_without_progress > self._max_loops_without_progress:
-                        self.logger.warning(
-                            f"No points generated and no pending tasks for {self._loops_without_progress} consecutive loops. "
-                            f"This may indicate a configuration issue or exhausted search space. "
-                            f"Results so far: {len(self.results)}/{self.config.max_eval}. Stopping optimization."
-                        )
-                        break
-            else:
-                self._loops_without_progress = 0
-
             # Update progress status
             self._update_progress_status()
 
@@ -1538,15 +1562,34 @@ class StrategyBase:
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
             # heurs)))
 
-            # Check for additional progress (results added)
+            # Progress check: new points, in-flight tasks, or new results all count.
+            # A loop with none of those is "stalled" — e.g. a starved heuristic that
+            # waits for results which will never arrive. Bail out after
+            # config.max_stall_seconds instead of spinning for minutes.
             current_results_count = len(self.results)
-            if current_results_count == self._last_results_count:
-                # Only increment if we are not generating points either
-                if len(points) == 0 and len(self.pending) == 0:
-                    self._loops_without_progress += 1
-            else:
+            progressed = len(points) > 0 or len(self.pending) > 0 or current_results_count != self._last_results_count
+            if progressed:
                 self._loops_without_progress = 0
+                self._stall_started = None
                 self._last_results_count = current_results_count
+            else:
+                self._loops_without_progress += 1
+                now = time_module.time()
+                if self._stall_started is None:
+                    self._stall_started = now
+                stalled_for = now - self._stall_started
+                if (
+                    stalled_for > self._max_stall_seconds
+                    or self._loops_without_progress > self._max_loops_without_progress
+                ):
+                    self.logger.warning(
+                        f"No progress (no new points, no pending tasks, no new results) for "
+                        f"{stalled_for:.1f}s ({self._loops_without_progress} consecutive loops). "
+                        f"This may indicate a starved/deadlocked heuristic, a configuration issue, "
+                        f"or an exhausted search space. "
+                        f"Results so far: {len(self.results)}/{self.config.max_eval}. Stopping optimization."
+                    )
+                    break
 
             # stopping criteria
             if len(self.results) >= self.config.max_eval:
@@ -1916,6 +1959,9 @@ with open('{result_file.name}', 'wb') as f:
         self.info()
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
+        # Stop ALL eventbus dispatcher threads, not just 'finished' subscribers —
+        # otherwise ~20 daemon threads leak per strategy instance.
+        self.eventbus.shutdown()
         self.results.close()
 
         # Close Dask client and cluster

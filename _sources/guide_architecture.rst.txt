@@ -319,7 +319,14 @@ Implemented Heuristics
   as a stable middle ground that wins on a broader range of problem classes; or ``"random"`` — a
   stochastic informer graph (Mendes 2004; Clerc 2007 / SPSO 2011) where each particle is connected
   to itself plus ``k_neighbors`` random informers re-sampled at ``on_start`` and ``on_restart``,
-  a structure-free middle ground whose diffusion speed depends on the realised graph.  An opt-in ``w_end`` argument enables
+  a structure-free middle ground whose diffusion speed depends on the realised graph.  Under
+  ``topology="random"``, an optional ``stagnation_threshold`` (Clerc 2007 / SPSO 2011 stochastic-K)
+  re-samples the informer graph mid-run when the swarm fails to lift its global best for
+  ``stagnation_threshold`` consecutive incoming results — a finer-grained stagnation rebuild than
+  restart-gated re-sampling alone (under the :class:`~panobbgo.analyzers.restart.Restart` analyzer
+  restarts are rare, so a bad realised graph can otherwise stay locked in for hundreds of
+  iterations).  ``stagnation_threshold=None`` (default) preserves the static-between-restarts
+  behaviour.  An opt-in ``w_end`` argument enables
   the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy's evaluation
   budget; the default constant ``w`` reproduces the original Clerc-Kennedy behaviour.  PSO's
   *momentum* and *social* dynamics are markedly different from CMA-ES (covariance re-sampling) and

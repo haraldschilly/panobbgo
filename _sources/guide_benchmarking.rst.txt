@@ -719,7 +719,14 @@ space with two new ops that change the *shape* of a
   complementary information-diffusion regimes (instantaneous /
   one-hop linear / two-hop planar / asymmetric stochastic) so the
   bandit can pick whichever exploration / exploitation trade-off
-  helps on the current battery.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
+  helps on the current battery.  The ``random`` variant additionally
+  exposes an optional ``stagnation_threshold`` kwarg that triggers a
+  Clerc 2007 / SPSO 2011 stochastic-K stagnation rebuild — the
+  informer graph is re-sampled mid-run whenever the swarm fails to
+  lift its global best for ``N`` consecutive incoming results — and
+  the default catalog exposes this knob via the ``PSO.stagnation_threshold``
+  ``integer_add`` rule so the loop can tune the rebuild cadence on
+  any spec that opts in.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
   adaptive Differential Evolution with linear population reduction
   and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
   2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``

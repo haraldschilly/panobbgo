@@ -497,7 +497,14 @@ information diffusion for stronger multimodal exploration; <code class="docutils
 as a stable middle ground that wins on a broader range of problem classes; or <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> — a
 stochastic informer graph (Mendes 2004; Clerc 2007 / SPSO 2011) where each particle is connected
 to itself plus <code class="docutils literal notranslate"><span class="pre">k_neighbors</span></code> random informers re-sampled at <code class="docutils literal notranslate"><span class="pre">on_start</span></code> and <code class="docutils literal notranslate"><span class="pre">on_restart</span></code>,
-a structure-free middle ground whose diffusion speed depends on the realised graph.  An opt-in <code class="docutils literal notranslate"><span class="pre">w_end</span></code> argument enables
+a structure-free middle ground whose diffusion speed depends on the realised graph.  Under
+<code class="docutils literal notranslate"><span class="pre">topology=&quot;random&quot;</span></code>, an optional <code class="docutils literal notranslate"><span class="pre">stagnation_threshold</span></code> (Clerc 2007 / SPSO 2011 stochastic-K)
+re-samples the informer graph mid-run when the swarm fails to lift its global best for
+<code class="docutils literal notranslate"><span class="pre">stagnation_threshold</span></code> consecutive incoming results — a finer-grained stagnation rebuild than
+restart-gated re-sampling alone (under the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer
+restarts are rare, so a bad realised graph can otherwise stay locked in for hundreds of
+iterations).  <code class="docutils literal notranslate"><span class="pre">stagnation_threshold=None</span></code> (default) preserves the static-between-restarts
+behaviour.  An opt-in <code class="docutils literal notranslate"><span class="pre">w_end</span></code> argument enables
 the Shi–Eberhart (1998) linearly-decreasing inertia schedule paced by the strategy’s evaluation
 budget; the default constant <code class="docutils literal notranslate"><span class="pre">w</span></code> reproduces the original Clerc-Kennedy behaviour.  PSO’s
 <em>momentum</em> and <em>social</em> dynamics are markedly different from CMA-ES (covariance re-sampling) and

@@ -50,6 +50,7 @@ benchmark = [
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=5.0",
+    "pytest-xdist>=3.6",
     "pytest-benchmark>=4.0",
     "flake8>=7.3",
     "ruff>=0.14.13",
@@ -67,6 +68,15 @@ include = ["panobbgo*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `--durations` surfaces the slowest tests on every run so we keep timing
+# data to spot long-running integration drivers (e.g. the CMA-ES IPOP/BIPOP
+# `.start()` tests, which are wall-clock/event-loop bound, not CPU bound).
+# Parallelism is opt-in via the CLI: `pytest-xdist` is installed, so
+# `uv run pytest -n auto --dist loadscope` parallelises the suite locally
+# for a large wall-clock win. It is not yet wired into CI — see
+# planning/TEST_PERFORMANCE.md for the two blockers (end-of-run teardown
+# hang + flaky tests under contention). A plain `pytest` stays serial.
+addopts = "--durations=25 -ra"
 
 [tool.ruff]
 line-length = 120
@@ -93,6 +103,7 @@ dev = [
     "pyright>=1.1.407",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.6",
     "pytest-retry>=1.7.0",
     "pytest-benchmark>=4.0",
     "shibuya>=2026.1.9",

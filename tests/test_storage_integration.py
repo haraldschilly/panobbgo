@@ -8,8 +8,10 @@ from panobbgo.heuristics import Random
 
 
 @pytest.fixture
-def storage_uri():
-    uri = "test_integration.db"
+def storage_uri(tmp_path):
+    # Per-test temp dir keeps parallel workers (pytest-xdist) from colliding
+    # on a shared on-disk filename.
+    uri = str(tmp_path / "test_integration.db")
     yield uri
     if os.path.exists(uri):
         os.unlink(uri)

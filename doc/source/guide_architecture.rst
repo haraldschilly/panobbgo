@@ -304,8 +304,21 @@ Implemented Heuristics
   Inherits the jSO mutation / schedule / anchor-memory machinery and the asynchronous pipeline
   unchanged.  The full CEC-2021 adaptive-crossover blend and success-ratio archive-probability
   adaptation are intentionally not ported (the asynchronous generation model does not expose them
-  cleanly).  All four DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP) ship in the structural
-  catalog so the bandit picks whichever wins on the current battery.
+  cleanly).
+
+- :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`: NL-SHADE-LBC refinement of NL-SHADE-RSP
+  (Stanovov, Akhmedova & Semenkin, CEC 2022 winner).  Direct subclass of
+  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` that adds *Linear Bias Change* in the
+  success-history memory update: the F / CR Lehmer-mean order ``p`` is linearly scheduled across
+  budget progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) instead of fixed at ``2``; the spread
+  between numerator and denominator exponents is held constant at ``m_lbc = 1.5``.  At
+  ``p = 2, m = 1`` the formula recovers the standard L-SHADE weighted Lehmer mean — both regimes
+  are reachable from the default catalog so the bandit can flip between them.  Inherits NL-SHADE-RSP's
+  NLPSR / RSP / adaptive-archive machinery and the asynchronous pipeline unchanged.  The CEC-2022
+  adaptive crossover blend and repetitive-generation bound-constraint handling are intentionally not
+  ported (see the heuristic docstring).  All five DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
+  NL-SHADE-LBC) ship in the structural catalog so the bandit picks whichever wins on the current
+  battery.
 
 - :class:`~panobbgo.heuristics.pso.PSO`: Asynchronous Particle Swarm Optimization with the canonical
   Clerc–Kennedy (2002) constriction-coefficient parameters (``w = χ ≈ 0.7298``, ``c1 = c2 ≈ 1.49618``).

@@ -44,6 +44,7 @@ from .differential_evolution import DifferentialEvolution
 from .lshade import LSHADE
 from .jso import JSO
 from .nl_shade_rsp import NLSHADE_RSP
+from .nl_shade_lbc import NLSHADE_LBC
 from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
@@ -70,6 +71,7 @@ __all__ = [
     "LSHADE",
     "JSO",
     "NLSHADE_RSP",
+    "NLSHADE_LBC",
     "ConstraintRepair",
     "CMAES",
     "PSO",

@@ -317,7 +317,17 @@ def _make_quick_strategies() -> List[StrategySpec]:
 
 
 def _make_standard_strategies() -> List[StrategySpec]:
-    """Six strategies: baseline, adaptive, UCB bandit, Bayesian GP, CMA-ES portfolio, IPOP-CMA-ES.
+    """Seven strategies: baseline, adaptive, region bandit, UCB bandit, Bayesian GP, CMA-ES portfolio, IPOP-CMA-ES.
+
+    Rewarding_RegionUCB is ``Rewarding_Diverse`` plus the
+    :class:`~panobbgo.heuristics.RegionUCB` arm (UCB1 allocation over
+    Splitter leaves with in-leaf sampling), so the per-strategy score delta
+    between the two isolates the effect of region-level allocation.
+    Registered in standard mode (not quick) because at 75 evals the
+    Splitter produces too few leaves for region allocation to matter
+    (measured 2026-06-05: quick A/B with 15 reps was a tie; standard A/B
+    with 10 reps gave +0.30 on StyblinskiTang_2D, -0.17 on Rosenbrock_2D,
+    net +0.02 — the classic multimodal-win / unimodal-tax signature).
 
     BayesOpt_GP uses a Gaussian Process surrogate (Expected Improvement acquisition)
     paired with LatinHypercube initialization.  With 200 evaluations the GP model
@@ -342,10 +352,27 @@ def _make_standard_strategies() -> List[StrategySpec]:
         Sobol,
         GaussianProcessHeuristic,
         CMAES,
+        Center,
+        RegionUCB,
     )
     from panobbgo.analyzers import Sensitivity, Restart
 
     quick = _make_quick_strategies()
+    region_ucb = StrategySpec(
+        name="Rewarding_RegionUCB",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            # Identical pool to ``Rewarding_Diverse`` plus the RegionUCB arm —
+            # see the docstring above and panobbgo/heuristics/region_ucb.py.
+            (Sobol, {"n": 16, "scramble": False}),
+            (Random, {}),
+            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (Center, {}),
+            (NelderMead, {}),
+            (RegionUCB, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 25})],
+    )
     ucb = StrategySpec(
         name="UCB_Diverse",
         strategy_class=StrategyUCB,
@@ -413,7 +440,7 @@ def _make_standard_strategies() -> List[StrategySpec]:
             (Sensitivity, {"update_interval": 20}),
         ],
     )
-    return quick + [ucb, bayes_gp, bayes_sobol, cmaes_portfolio, ipop_cmaes]
+    return quick + [region_ucb, ucb, bayes_gp, bayes_sobol, cmaes_portfolio, ipop_cmaes]
 
 
 def _make_full_strategies() -> List[StrategySpec]:

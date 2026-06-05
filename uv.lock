@@ -1159,7 +1159,6 @@ version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "cocopp" },
-    { name = "dask", extra = ["distributed"] },
     { name = "future" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1176,7 +1175,11 @@ dependencies = [
 benchmark = [
     { name = "coco-experiment" },
 ]
+dask = [
+    { name = "dask", extra = ["distributed"] },
+]
 dev = [
+    { name = "dask", extra = ["distributed"] },
     { name = "flake8" },
     { name = "mypy" },
     { name = "pandas-stubs" },
@@ -1195,6 +1198,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "dask", extra = ["distributed"] },
     { name = "flake8" },
     { name = "pyright" },
     { name = "pytest-benchmark" },
@@ -1210,7 +1214,8 @@ dev = [
 requires-dist = [
     { name = "coco-experiment", marker = "extra == 'benchmark'", specifier = ">=2.6" },
     { name = "cocopp", specifier = ">=2.8.2" },
-    { name = "dask", extras = ["distributed"], specifier = ">=2026.1.1" },
+    { name = "dask", extras = ["distributed"], marker = "extra == 'dask'", specifier = ">=2026.1.1" },
+    { name = "dask", extras = ["distributed"], marker = "extra == 'dev'", specifier = ">=2026.1.1" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=7.3" },
     { name = "future" },
     { name = "matplotlib", specifier = ">=3.10" },
@@ -1235,10 +1240,11 @@ requires-dist = [
     { name = "statsmodels", specifier = ">=0.14.6" },
     { name = "types-setuptools", marker = "extra == 'dev'" },
 ]
-provides-extras = ["benchmark", "dev"]
+provides-extras = ["dask", "benchmark", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "dask", extras = ["distributed"], specifier = ">=2026.1.1" },
     { name = "flake8", specifier = ">=7.3.0" },
     { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest-benchmark", specifier = ">=4.0" },

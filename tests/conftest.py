@@ -1,5 +1,4 @@
 import pytest
-from dask.distributed import LocalCluster, Client
 
 
 @pytest.fixture
@@ -7,7 +6,11 @@ def dask_cluster():
     """
     Fixture that provides an isolated Dask cluster for testing.
     Ensures cleanup of workers to prevent memory leaks across tests.
+    Skips the test when the optional dask extra is not installed.
     """
+    distributed = pytest.importorskip("dask.distributed", reason="optional dask extra not installed")
+    LocalCluster, Client = distributed.LocalCluster, distributed.Client
+
     # Start a clean cluster
     # Use different dashboard port to avoid conflicts
     cluster = LocalCluster(n_workers=2, threads_per_worker=1, dashboard_address=":0", silence_logs=True)
@@ -27,6 +30,14 @@ def dask_cluster():
     import time
 
     time.sleep(0.5)
+
+    # Tests using this fixture mutate the singleton Config
+    # (evaluation_method="dask", dashboard_address=<full URL>). Reset it so a
+    # later test's strategy constructor doesn't try to start a LocalCluster
+    # with the stale URL as dashboard_address (order-dependent RuntimeError).
+    from panobbgo.config import Config
+
+    Config._instance = None
 
 
 @pytest.fixture

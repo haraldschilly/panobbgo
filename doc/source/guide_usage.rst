@@ -9,13 +9,13 @@ Installation
 Requirements
 ~~~~~~~~~~~~
 
-- Python ≥ 3.8
+- Python ≥ 3.11
 - NumPy ≥ 2.0
 - SciPy ≥ 1.16
 - matplotlib ≥ 3.0
 - pandas ≥ 2.0
 - statsmodels ≥ 0.14
-- Dask ≥ 2023.0
+- Dask ≥ 2026.1 (optional — only for ``evaluation: method: dask``; install via the ``dask`` extra)
 
 Using UV (Recommended)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -52,10 +52,12 @@ By default, Panobbgo uses local threads for evaluation. This requires no additio
 
 For large-scale distributed optimization, you can use a Dask cluster:
 
-1. **Install Dask**:
+1. **Install the dask extra** (Dask is not a core dependency; the backend
+   lives in :mod:`panobbgo.dask_evaluation` and is imported lazily):
+
    .. code-block:: bash
 
-      pip install dask[distributed]
+      pip install "panobbgo[dask]"     # or: uv sync --extra dask
 
 2. **Start Cluster**:
    .. code-block:: bash

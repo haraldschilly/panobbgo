@@ -1013,6 +1013,13 @@ class StrategyBase:
     # constant reference id for sending the evaluation code to workers
     PROBLEM_KEY = "problem"
 
+    # Dask backend state — assigned lazily by panobbgo.dask_evaluation when
+    # evaluation_method == "dask" (and directly by some tests); declared here
+    # for static checkers only.
+    _client: Any
+    _cluster: Any
+    _problem_future: Any
+
     def __init__(self, problem, parse_args=False, testing_mode=False, **kwargs):
         """
 
@@ -1048,7 +1055,7 @@ class StrategyBase:
         pd.set_option("display.precision", 2)  # default 7
 
         # statistics
-        self.show_last = 0  # for printing the info line in _add_tasks()
+        self.show_last = 0.0  # for throttling the info line (see dask_evaluation._add_tasks)
         self._last_status_update = 0  # for throttling _update_progress_status
         self.time_start = time_module.time()
         self.tasks_walltimes = {}
@@ -1376,43 +1383,17 @@ class StrategyBase:
         - 'dask': Distributed evaluation for heavy workloads
         """
         if self.config.evaluation_method == "dask":
-            self._setup_dask_cluster(problem)
+            # Dask is fully isolated in its own module and imported lazily —
+            # see panobbgo/dask_evaluation.py
+            from . import dask_evaluation
+
+            dask_evaluation.setup_cluster(self, problem)
         elif self.config.evaluation_method == "processes":
             self._setup_process_evaluation(problem)
         elif self.config.evaluation_method == "threaded":
             self._setup_threaded_evaluation(problem)
         else:
             raise ValueError(f"Unknown evaluation method: {self.config.evaluation_method}")
-
-    def _setup_dask_cluster(self, problem):
-        """
-        Set up a Dask cluster based on configuration.
-        Supports both local and remote clusters.
-        """
-        from dask.distributed import Client, LocalCluster
-
-        if self.config.dask_cluster_type == "local":
-            # Create a local cluster
-            self.logger.info("Setting up local Dask cluster with %d workers" % self.config.dask_n_workers)
-            self._cluster = LocalCluster(
-                n_workers=int(self.config.dask_n_workers),
-                threads_per_worker=int(self.config.dask_threads_per_worker),
-                memory_limit=str(self.config.dask_memory_limit),
-                dashboard_address=str(self.config.dask_dashboard_address),
-                silence_logs=False,
-            )
-            self._client = Client(self._cluster)
-        else:
-            # Connect to remote cluster
-            self.logger.info("Connecting to remote Dask cluster at %s" % self.config.dask_scheduler_address)
-            self._client = Client(self.config.dask_scheduler_address)
-
-        # Scatter the problem to all workers
-        self._problem_future = self._client.scatter(problem, broadcast=True)
-
-        self.logger.info("Dask cluster ready with %d workers" % len(self._client.scheduler_info()["workers"]))
-        if self.config.dask_cluster_type == "local":
-            self.logger.info("Dashboard available at: http://localhost%s" % self.config.dask_dashboard_address)
 
     def _setup_process_evaluation(self, problem):
         """
@@ -1483,23 +1464,9 @@ class StrategyBase:
         Returns a mock object with attributes needed by strategies.
         """
         if self.config.evaluation_method == "dask":
+            from . import dask_evaluation
 
-            class DaskEvaluatorsMock:
-                def __init__(self, strategy):
-                    self.strategy = strategy
-
-                @property
-                def outstanding(self):
-                    # Return list of pending task keys
-                    return list(self.strategy.pending.keys())
-
-                def __len__(self):
-                    # Return number of Dask workers
-                    if hasattr(self.strategy, "_client"):
-                        return len(self.strategy._client.scheduler_info()["workers"])
-                    return 0
-
-            return DaskEvaluatorsMock(self)
+            return dask_evaluation.DaskEvaluators(self)
         else:  # process or threaded evaluation
 
             class DirectEvaluatorsMock:
@@ -1550,7 +1517,9 @@ class StrategyBase:
             self._update_progress_status()
 
             if self.config.evaluation_method == "dask":
-                self._run_dask_evaluation(points)
+                from . import dask_evaluation
+
+                self.results += dask_evaluation.run_evaluation(self, points)
             elif self.config.evaluation_method == "processes":
                 self._run_process_evaluation(points)
             elif self.config.evaluation_method == "threaded":
@@ -1605,45 +1574,6 @@ class StrategyBase:
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
         self._cleanup()
-
-    def _run_dask_evaluation(self, points):
-        """Run evaluation using Dask distributed computing."""
-
-        # Helper function to evaluate a point using the problem
-        def evaluate_point(problem, point):
-            """Evaluate a single point using the problem instance"""
-            return problem(point)
-
-        # distribute work using Dask futures
-        # Submit each point as a separate task
-        new_futures = []
-        for point in points:
-            future = self._client.submit(
-                evaluate_point,
-                self._problem_future,
-                point,
-                pure=False,  # Function may have side effects
-            )
-            new_futures.append(future)
-
-        # and don't forget, this updates the statistics
-        self._add_tasks(new_futures)
-
-        # collect new results for each finished task, hand them over to result DB
-        new_results = []
-        for future_id in self.new_finished:
-            future = self.pending.pop(future_id, None)
-            if future is not None:
-                try:
-                    result = future.result()
-                    if isinstance(result, list):
-                        new_results.extend(result)
-                    else:
-                        new_results.append(result)
-                except Exception as e:
-                    self.logger.error("Task failed with error: %s" % e)
-
-        self.results += new_results
 
     def _run_process_evaluation(self, points):
         """Run evaluation using subprocess calls."""
@@ -1924,18 +1854,10 @@ with open('{result_file.name}', 'wb') as f:
         self._end = time_module.time()
 
         if self.config.evaluation_method == "dask":
-            # Cancel any outstanding Dask futures
-            for future in list(self.pending.values()):
-                try:
-                    future.cancel()
-                except:
-                    pass
+            from . import dask_evaluation
 
-            # Close Dask client and cluster
-            if hasattr(self, "_client"):
-                self._client.close()
-            if hasattr(self, "_cluster"):
-                self._cluster.close()
+            # Cancel outstanding futures, close client + cluster
+            dask_evaluation.close(self)
         elif self.config.evaluation_method == "processes":
             # Clean up problem file for process evaluation
             if hasattr(self, "_problem_file"):
@@ -1978,39 +1900,6 @@ with open('{result_file.name}', 'wb') as f:
         if stop_on_conv:
             self.logger.info(f"Convergence detected: {reason}. Stopping strategy.")
             self._stop_requested = True
-
-    def _add_tasks(self, new_futures):
-        """
-        Accounting routine for the parallel tasks, only used by :meth:`.run`.
-        Adapted for Dask futures.
-        """
-        if new_futures is not None:
-            for future in new_futures:
-                # Use future.key as identifier
-                self.pending[future.key] = future
-
-        # Find completed futures
-        self.new_finished = []
-        completed_keys = []
-
-        for future_id, future in list(self.pending.items()):
-            if future.done():
-                self.new_finished.append(future_id)
-                completed_keys.append(future_id)
-                self.finished.append(future_id)
-
-                # Calculate elapsed time if available
-                if hasattr(future, "done") and future.done():
-                    try:
-                        # Get task duration from Dask
-                        # Note: This is approximate, based on completion time
-                        self.tasks_walltimes[future_id] = 0.1  # placeholder
-                    except:
-                        pass
-
-        if time_module.time() - self.show_last > float(self.config.show_interval):
-            self.info()
-            self.show_last = time_module.time()
 
     def info(self):
         """ """

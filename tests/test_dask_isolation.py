@@ -1,7 +1,10 @@
 import psutil
+import pytest
 from panobbgo.lib.classic import Rosenbrock
 from panobbgo.core import StrategyBase
-from dask.distributed import Client
+
+distributed = pytest.importorskip("dask.distributed", reason="optional dask extra not installed")
+Client = distributed.Client
 
 
 class DummyStrategy(StrategyBase):

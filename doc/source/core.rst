@@ -14,3 +14,14 @@ The core module provides the fundamental building blocks:
    :undoc-members:
    :show-inheritance:
 
+
+Dask Evaluation Backend
+-----------------------
+
+Optional distributed-evaluation backend (``evaluation_method = "dask"``),
+imported lazily so the core carries no Dask dependency. Install the
+``dask`` extra to use it.
+
+.. automodule:: panobbgo.dask_evaluation
+   :members:
+   :undoc-members:

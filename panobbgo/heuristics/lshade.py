@@ -405,6 +405,29 @@ class LSHADE(Heuristic):
             return min(F, _F_SCHEDULE_PHASE2_CAP)
         return F
 
+    def _make_trial_meta(self, slot_idx: int, F: float, CR: float) -> "_TrialMeta":
+        """Construct the per-trial bookkeeping record for ``_pending``.
+
+        Default returns a plain :class:`_TrialMeta`.  Subclasses (e.g.
+        :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`) override
+        this to attach per-trial metadata (e.g. which sinusoid produced
+        ``F``) needed by their adaptation rules.
+        """
+        return _TrialMeta(slot_idx=slot_idx, F=F, CR=CR)
+
+    def _record_success(self, meta: "_TrialMeta", delta: float) -> None:
+        """Hook called for every successful competitive trial.
+
+        Default is a no-op.  Subclasses that adapt per-trial metadata
+        (e.g. :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`'s
+        sinusoidal-ensemble success counters and frequency memory) extend
+        this without having to override the whole :meth:`on_new_results`
+        loop.  ``meta`` is the trial's ``_pending`` record (post-pop),
+        ``delta`` is the absolute fitness improvement that survived the
+        constraint handler.
+        """
+        return
+
     def _emit_trial(self, x: np.ndarray, slot_idx: int, F: float, CR: float) -> bool:
         """Project, queue, and book-keep one candidate point."""
         if self._stopped:
@@ -422,7 +445,7 @@ class LSHADE(Heuristic):
         except Exception as exc:  # queue full or shutdown
             self.logger.debug(f"LSHADE: emit failed: {exc}")
             return False
-        self._pending[req_id] = _TrialMeta(slot_idx=slot_idx, F=F, CR=CR)
+        self._pending[req_id] = self._make_trial_meta(slot_idx, F, CR)
         return True
 
     def _live_indices(self) -> List[int]:
@@ -724,6 +747,7 @@ class LSHADE(Heuristic):
                         # Floor delta so an unweighted-but-real success
                         # still influences the Lehmer mean.
                         self._success_delta.append(max(float(delta), 1e-30))
+                        self._record_success(meta, float(delta))
                 self._gen_completed += 1
 
                 if self._gen_completed >= max(self._NP_current, 1):

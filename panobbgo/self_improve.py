@@ -1460,6 +1460,39 @@ def default_catalog() -> MutationCatalog:
                 high=2.0,
                 probability=0.5,
             ),
+            # LSHADE-EpSin (Awad, Ali, Suganthan 2016) initial population
+            # size — same ``[10, 60]`` bracket as L-SHADE / jSO / NL-SHADE-RSP.
+            # The EpSin sinusoidal-ensemble adaptation operates on top of
+            # the same ``current-to-pbest/1`` mutation skeleton, so the
+            # NP_init sweet spot is dictated by the same exploration /
+            # LPSR trade-off rather than the F-adaptation mechanism.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE_EpSin",
+                param_name="NP_init",
+                kind="integer_add",
+                bounds=(10, 60),
+                delta_choices=(-10, -5, 5, 10),
+                probability=0.5,
+            ),
+            # LSHADE-EpSin initial mean frequency for Sinusoid 2 (variable-
+            # frequency, increasing-envelope ``F`` sampler).  Awad et al.
+            # report ``mu_freq_init = 0.5`` as the default; bracket
+            # ``[0.1, 0.9]`` so the loop can probe slower oscillations
+            # (closer to 0.1, ``F`` shifts slowly with the generation
+            # count) or faster ones (closer to 0.9, more variation per
+            # generation).  Stays well clear of ``0`` and ``1`` where
+            # the sinusoidal envelope degenerates.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LSHADE_EpSin",
+                param_name="mu_freq_init",
+                kind="float_uniform",
+                bounds=(0.1, 0.9),
+                low=0.1,
+                high=0.9,
+                probability=0.5,
+            ),
             # COBYQA (Ragonneau-Zhang 2023) initial trust-region radius —
             # log-uniform around the literature default (0.1).  Only fires
             # when a spec explicitly sets ``initial_tr_radius`` (the
@@ -1539,6 +1572,7 @@ def default_structural_catalog() -> MutationCatalog:
     # actually selected.
     from panobbgo.heuristics.pso import PSO
     from panobbgo.heuristics.lshade import LSHADE
+    from panobbgo.heuristics.lshade_ep_sin import LSHADE_EpSin
     from panobbgo.heuristics.jso import JSO
     from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
     from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
@@ -1589,6 +1623,18 @@ def default_structural_catalog() -> MutationCatalog:
     # on smooth ill-conditioned valleys (e.g. Rosenbrock), where a curvature
     # estimate converges in a fraction of the evaluations a population method
     # needs.  ``avoid_duplicates`` keeps at most one LBFGSB per strategy.
+    # LSHADE-EpSin (Awad, Ali & Suganthan 2016) is the direct precursor of
+    # the CEC-2017 co-winner LSHADE-cnEpSin.  It replaces the SHADE
+    # Cauchy-from-memory ``F`` sampling with an ensemble of two sinusoidal
+    # candidates during the first half of the search (Sinusoid 1 = fixed
+    # frequency, decreasing envelope; Sinusoid 2 = variable frequency from
+    # an adaptive Cauchy mean, increasing envelope), reverting to
+    # SHADE Cauchy in the second half.  Different *branch* of the DE
+    # family tree from jSO / NL-SHADE-RSP — all current arms adapt ``F``
+    # via the SHADE Cauchy memory; EpSin's deterministic-amplitude
+    # sinusoid is algorithmically distinct.  Listed as a separate
+    # candidate class so the bandit can weigh whichever ``F``-adaptation
+    # mechanism wins on the current battery.
     candidates: Tuple[Tuple[type, Dict[str, Any]], ...] = (
         (Random, {}),
         (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
@@ -1605,6 +1651,7 @@ def default_structural_catalog() -> MutationCatalog:
         (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
         (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
         (NLSHADE_LBC, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2022 winner, NLPSR + RSP + LBC
+        (LSHADE_EpSin, {"NP_init": 30, "mu_freq_init": 0.5}),  # ensemble-sinusoid F
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
         (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
     )

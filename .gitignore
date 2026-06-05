@@ -26,3 +26,4 @@ before.json
 after.json
 harness_*.json
 ioh_*.json
+.claude/scheduled_tasks.lock

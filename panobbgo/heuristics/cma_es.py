@@ -185,6 +185,10 @@ class CMAES(Heuristic):
         self._gen: int = 0
         self._pending: Dict[str, dict] = {}
         self._gen_results: Dict[int, List[dict]] = {}
+        # How many points of each generation actually made it into the output
+        # queue — the update trigger must be based on this, not on λ, or a
+        # partially-emitted generation deadlocks the heuristic.
+        self._gen_emitted: Dict[int, int] = {}
 
         # Box bounds (set in on_start)
         self._lo: Optional[np.ndarray] = None
@@ -317,12 +321,17 @@ class CMAES(Heuristic):
             )
 
         # Check if we can perform an update for the oldest open generation.
-        min_needed = max(2, int(self._lam * self._min_results_fraction))
+        # Base the trigger on the number of points actually emitted for that
+        # generation, not on λ — if the output queue clipped the generation,
+        # waiting for a λ-based quorum would deadlock.
         for gen in sorted(self._gen_results.keys()):
             bucket = self._gen_results[gen]
+            emitted = self._gen_emitted.get(gen, self._lam)
+            min_needed = max(2, int(min(self._lam, emitted) * self._min_results_fraction))
             if len(bucket) >= min_needed:
                 self._update(bucket)
                 del self._gen_results[gen]
+                self._gen_emitted.pop(gen, None)
                 self._emit_generation()
                 break
 
@@ -492,9 +501,13 @@ class CMAES(Heuristic):
         self._eigeneval = 0
         self._counteval = 0
 
-        # Flush stale generation tracking
+        # Flush stale generation tracking and stale queued points — results for
+        # pre-restart points are ignored anyway, and clearing frees queue
+        # capacity for the (typically larger) new generation.
         self._pending.clear()
         self._gen_results.clear()
+        self._gen_emitted.clear()
+        self.clear_output()
 
         # Emit the first generation from the new distribution
         self._emit_generation()
@@ -536,6 +549,12 @@ class CMAES(Heuristic):
         gen = self._gen
         self._gen_results[gen] = []
 
+        # IPOP/BIPOP restarts grow λ beyond the default queue capacity (20);
+        # without this, put_nowait drops the overflow and the generation can
+        # never collect enough results to trigger the next update (deadlock).
+        self.ensure_output_capacity(self._lam)
+
+        emitted = 0
         for i in range(self._lam):
             z = np.random.randn(n)
             # y = B D z  →  covariance = B D² Bᵀ = C
@@ -544,13 +563,24 @@ class CMAES(Heuristic):
             x = self.problem.project(x)
 
             who = f"CMAES:g{gen}:i{i}"
-            self._pending[who] = {"gen": gen, "i": i, "y": y}
             # Put directly to bypass emit()'s ndarray-only check,
             # preserving the custom 'who' tag needed for generation tracking.
             try:
                 self._output.put_nowait(Point(x, who))
             except Exception:
-                pass
+                # Track only points that will actually be evaluated.
+                continue
+            self._pending[who] = {"gen": gen, "i": i, "y": y}
+            emitted += 1
+
+        self._gen_emitted[gen] = emitted
+        if emitted < self._lam:
+            self.logger.warning(
+                "CMA-ES generation %d: only %d/%d points emitted (output queue full)",
+                gen,
+                emitted,
+                self._lam,
+            )
 
     def _update(self, collected: List[dict]) -> None:
         """Perform one CMA-ES parameter update from a set of evaluated offspring."""

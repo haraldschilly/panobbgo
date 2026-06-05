@@ -268,6 +268,10 @@ class Config:
         self.smooth = get_config("core.smooth", "core", "smooth", 0.5, float)
         self.capacity = get_config("heuristic.capacity", "heuristic", "capacity", 20, int)
         self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", True, bool)
+        # Abort the main loop if no progress (no new points, no pending tasks,
+        # no new results) for this many seconds. Guards against starved/deadlocked
+        # heuristics burning CPU for minutes before the loop-count guard trips.
+        self.max_stall_seconds = get_config("core.max_stall_seconds", "core", "max_stall_seconds", 30.0, float)
 
         # Evaluation method configuration (YAML only)
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)

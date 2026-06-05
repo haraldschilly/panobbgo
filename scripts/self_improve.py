@@ -300,6 +300,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(structural_per_class_arms=False)
     run_p.add_argument(
+        "--structural-borrow-alpha",
+        dest="structural_borrow_alpha",
+        type=float,
+        default=0.0,
+        help=(
+            "Hierarchical 'borrow' coefficient kappa >= 0 for per-class "
+            "structural arms.  When > 0, each per-class arm's Beta "
+            "posterior borrows kappa * (n_other_class_accepts, ...) from "
+            "the op-level aggregate (sum across sibling per-class arms), "
+            "so a fresh candidate class warms with the op's empirical "
+            "accept rate instead of the symmetric Beta(1, 1) prior.  "
+            "0.0 (default) keeps the pure per-class semantics.  Only "
+            "effective with both --adaptive and --structural-per-class-arms."
+        ),
+    )
+    run_p.add_argument(
         "--structural",
         dest="structural",
         action="store_true",
@@ -489,6 +505,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             adaptive_prior_beta=args.adaptive_prior_beta,
             adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
             structural_per_class_arms=args.structural_per_class_arms,
+            structural_borrow_alpha=args.structural_borrow_alpha,
             holdout_base_seed=args.holdout_base_seed,
             holdout_base_seeds=holdout_seeds,
             holdout_iterations=args.holdout_iterations,

@@ -95,6 +95,35 @@
       checklist), `doc/source/guide.rst`,
       `doc/source/guide_benchmarking.rst`, and `AGENTS.md`.
 
+### Hierarchical bandit over per-class structural arms — 2026-06-01
+- [x] **`AdaptiveMutationSampler.structural_borrow_alpha`** — a
+      ``κ ≥ 0`` "borrow" coefficient that turns the per-class
+      structural arms (shipped 2026-05-18) into a hierarchical
+      Beta-Binomial.  Each per-class arm's Beta posterior borrows
+      ``κ · (n_other_class_accepts, n_other_class_failures)`` from the
+      op-level aggregate (sum across sibling per-class arms with the
+      same op), with deliberate self-exclusion so a per-class arm
+      never borrows from itself.  ``κ = 0`` (default) recovers the
+      pure per-class semantics; ``κ = 0.5`` is the recommended
+      starting point for unattended runs.
+- [x] **`LoopConfig.structural_borrow_alpha`** and matching CLI flag
+      `--structural-borrow-alpha`, both opt-in.  Only effective with
+      both ``--adaptive`` and ``--structural-per-class-arms``;
+      otherwise silently inert.
+- [x] **14 new tests** in
+      `tests/test_self_improve.py::TestHierarchicalStructuralBandit`:
+      validation, ``κ = 0`` recovers per-class behaviour, borrow inert
+      when ``per_class_structural=False`` or for kwarg rules, fresh
+      class warms with op aggregate, self-exclusion verified via the
+      rationale-reported ``Beta(α, β)``, ``LoopConfig`` propagation,
+      etc.
+- [x] **Docs updated**: `planning/SELF_IMPROVEMENT_LOOP.md` §13 entry
+      + idea promoted from "open" to "shipped";
+      `doc/source/guide_benchmarking.rst` new "Hierarchical bandit
+      over per-class structural arms" subsection;
+      `doc/source/guide.rst` quick-nav mention; `AGENTS.md`
+      run-the-loop bash example.
+
 ### Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011) — 2026-05-29
 - [x] **New `"random"` topology** in `panobbgo/heuristics/pso.py`;
       closes the *Random re-wired topology* PSO follow-up under the

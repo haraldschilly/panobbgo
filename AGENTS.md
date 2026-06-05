@@ -422,6 +422,16 @@ uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive --structural-per-class-arms \
     --adaptive-prime-from-ledger
 
+# Hierarchical bandit over per-class structural arms (kappa = 0.5):
+# each per-class arm's Beta posterior borrows half-weighted strength
+# from the op-level aggregate so a fresh candidate class warms with
+# the op's empirical accept rate instead of the symmetric Beta(1, 1)
+# prior.  Only effective with both --adaptive and
+# --structural-per-class-arms.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --structural --adaptive --structural-per-class-arms \
+    --structural-borrow-alpha 0.5 --adaptive-prime-from-ledger
+
 # End-of-loop hold-out validation against an independent base_seed,
 # fail with exit code 3 if the ladder is flagged as overfit
 uv run python scripts/self_improve.py run --iterations 100 \

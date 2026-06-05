@@ -850,14 +850,36 @@ class AdaptiveMutationSampler:
             ``add Sobol`` wins while ``add Random`` loses (instead of
             pooling them).  Default ``False`` keeps the coarse one-arm-
             per-op semantics that have been the published behaviour
-            since 2026-05-03.  Pairs naturally with the next-iteration
-            hierarchical-bandit idea: per-class arms are the leaf nodes
-            a hierarchical posterior would share strength across.  Must
+            since 2026-05-03.  Pairs naturally with
+            :attr:`structural_borrow_alpha`: per-class arms are the leaf
+            nodes a hierarchical posterior shares strength across.  Must
             match :func:`_proposal_rule_key`'s ``per_class_structural``
             flag for ledger priming to recover the same arms.
+        structural_borrow_alpha: Hierarchical "borrow" coefficient
+            ``κ ≥ 0`` for per-class structural arms.  When > 0 (and
+            :attr:`per_class_structural` is also ``True``) each per-class
+            arm's Beta posterior is built as::
+
+                Beta(prior_alpha + n_class_accepts + κ · n_op_accepts,
+                     prior_beta  + n_class_failures + κ · n_op_failures)
+
+            where ``(n_op_accepts, n_op_failures)`` is the aggregate
+            over every per-class arm sharing the same structural op.  A
+            fresh candidate class therefore starts with the op's
+            empirical accept rate rather than the symmetric
+            :math:`\\mathrm{Beta}(1, 1)` prior — closing the
+            sample-efficiency gap that per-class arms introduce when the
+            candidate pool is large.  ``κ = 0`` (default) recovers the
+            pure per-class semantics shipped 2026-05-18; ``κ = 1``
+            weights every accept across the op equally with the
+            class's own accepts.  Inert when
+            :attr:`per_class_structural` is ``False`` or when the rule
+            being sampled is a kwarg perturbation (kwarg arms are not
+            grouped by an "op" so there is nothing to borrow from).
 
     Raises:
-        ValueError: If either prior is non-positive.
+        ValueError: If either prior is non-positive, or if
+            ``structural_borrow_alpha`` is negative.
     """
 
     def __init__(
@@ -866,13 +888,17 @@ class AdaptiveMutationSampler:
         prior_alpha: float = 1.0,
         prior_beta: float = 1.0,
         per_class_structural: bool = False,
+        structural_borrow_alpha: float = 0.0,
     ) -> None:
         if prior_alpha <= 0 or prior_beta <= 0:
             raise ValueError(f"prior_alpha and prior_beta must be > 0, got {prior_alpha!r}, {prior_beta!r}")
+        if structural_borrow_alpha < 0 or not np.isfinite(structural_borrow_alpha):
+            raise ValueError(f"structural_borrow_alpha must be >= 0 and finite, got {structural_borrow_alpha!r}")
         self.catalog = catalog
         self.prior_alpha = float(prior_alpha)
         self.prior_beta = float(prior_beta)
         self.per_class_structural = bool(per_class_structural)
+        self.structural_borrow_alpha = float(structural_borrow_alpha)
         self._stats: Dict[RuleKey, MutationRuleStats] = {}
         self._last_rule_key: Optional[RuleKey] = None
 
@@ -962,19 +988,51 @@ class AdaptiveMutationSampler:
             else:
                 arms.append((rule, self._rule_key(rule), list(hits)))
 
+        # Op-level aggregates are needed for hierarchical borrowing.  Build
+        # them once per :meth:`sample` call rather than per arm so the
+        # cost stays linear in the number of stored stats rather than
+        # quadratic in the arm count.  Only used when both
+        # ``per_class_structural`` and a positive borrow coefficient
+        # opt-in to the hierarchy.
+        borrow_enabled = self.per_class_structural and self.structural_borrow_alpha > 0
+        op_aggregate: Dict[str, Tuple[int, int]] = {}
+        if borrow_enabled:
+            for k, stats in self._stats.items():
+                if k[2] != "structural" or k[0] == "*":
+                    continue
+                op_name = k[1]
+                a, n = op_aggregate.get(op_name, (0, 0))
+                op_aggregate[op_name] = (a + stats.n_accepts, n + stats.n_attempts)
+
         # Thompson: one Beta draw per arm, pick the arg-max.
         n = len(arms)
         sampled = np.empty(n, dtype=np.float64)
-        for i, (_, key, _) in enumerate(arms):
+        alpha_eff_arr = np.empty(n, dtype=np.float64)
+        beta_eff_arr = np.empty(n, dtype=np.float64)
+        for i, (rule, key, _) in enumerate(arms):
             stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
             alpha = self.prior_alpha + stats.n_accepts
             beta_param = self.prior_beta + (stats.n_attempts - stats.n_accepts)
+            if borrow_enabled and isinstance(rule, StructuralMutationRule):
+                op_accepts, op_attempts = op_aggregate.get(rule.op, (0, 0))
+                # Exclude this arm's own contribution so the borrow is
+                # over *other* classes' evidence — the leaf posterior is
+                # ``Beta(α₀ + n_class + κ·n_other_class_accepts, ...)``.
+                # Otherwise an arm with lots of evidence would borrow from
+                # itself and the hierarchy would collapse to a κ-amplified
+                # version of the same per-class posterior.
+                other_accepts = op_accepts - stats.n_accepts
+                other_failures = (op_attempts - stats.n_attempts) - other_accepts
+                alpha += self.structural_borrow_alpha * other_accepts
+                beta_param += self.structural_borrow_alpha * other_failures
+            alpha_eff_arr[i] = alpha
+            beta_eff_arr[i] = beta_param
             sampled[i] = float(rng.beta(alpha, beta_param))
         chosen_idx = int(np.argmax(sampled))
         rule, chosen_key, hits = arms[chosen_idx]
         chosen_stats = self._stats[chosen_key]
-        alpha_eff = self.prior_alpha + chosen_stats.n_accepts
-        beta_eff = self.prior_beta + (chosen_stats.n_attempts - chosen_stats.n_accepts)
+        alpha_eff = float(alpha_eff_arr[chosen_idx])
+        beta_eff = float(beta_eff_arr[chosen_idx])
         thompson_tag = (
             f"[Thompson Beta({alpha_eff:.1f}, {beta_eff:.1f}); "
             f"draw={sampled[chosen_idx]:.3f}; "
@@ -2107,6 +2165,22 @@ class LoopConfig:
             ``False`` keeps the published 2026-05-03 semantics.
             Only takes effect when :attr:`adaptive_sampling` is also
             ``True``; the uniform-sampler path is unchanged.
+        structural_borrow_alpha: Hierarchical "borrow" coefficient
+            ``κ ≥ 0`` for per-class structural arms.  When > 0 and
+            :attr:`structural_per_class_arms` is also ``True``, each
+            per-class arm's Beta posterior borrows
+            ``κ · (n_other_class_accepts, n_other_class_failures)``
+            from the op-level aggregate (sum over all sibling per-class
+            arms with the same op).  This closes the sample-efficiency
+            gap that per-class arms introduce: a fresh candidate class
+            starts with the op's empirical accept rate rather than the
+            symmetric :math:`\\mathrm{Beta}(1, 1)` prior.  ``0.0``
+            (default) keeps the pure per-class semantics shipped
+            2026-05-18; ``0.5`` weights each sibling accept at half a
+            local accept; ``1.0`` weights them equally.  Inert when
+            :attr:`structural_per_class_arms` is ``False`` (no per-class
+            arms exist to borrow from each other) or when
+            :attr:`adaptive_sampling` is ``False``.
         holdout_base_seed: Independent ``base_seed`` used for the
             end-of-loop hold-out validation.  ``0`` (default) disables
             hold-out entirely (unless :attr:`holdout_base_seeds` is set).
@@ -2177,6 +2251,7 @@ class LoopConfig:
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
     structural_per_class_arms: bool = False
+    structural_borrow_alpha: float = 0.0
     holdout_base_seed: int = 0
     holdout_base_seeds: Tuple[int, ...] = ()
     holdout_iterations: int = 5
@@ -2218,6 +2293,8 @@ class LoopConfig:
             raise ValueError(f"adaptive_prior_alpha must be > 0, got {self.adaptive_prior_alpha}")
         if self.adaptive_prior_beta <= 0:
             raise ValueError(f"adaptive_prior_beta must be > 0, got {self.adaptive_prior_beta}")
+        if self.structural_borrow_alpha < 0:
+            raise ValueError(f"structural_borrow_alpha must be >= 0, got {self.structural_borrow_alpha}")
         if self.holdout_iterations < 0:
             raise ValueError(f"holdout_iterations must be >= 0, got {self.holdout_iterations}")
         if self.holdout_eps_overfit < 0:
@@ -2856,6 +2933,7 @@ class SelfImprover:
                 prior_alpha=self.config.adaptive_prior_alpha,
                 prior_beta=self.config.adaptive_prior_beta,
                 per_class_structural=self.config.structural_per_class_arms,
+                structural_borrow_alpha=self.config.structural_borrow_alpha,
             )
             if self.config.adaptive_prime_from_ledger:
                 self.sampler.prime_from_ledger(self.config.ledger_path)

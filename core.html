@@ -109,6 +109,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.EventBus.keys"><code class="docutils literal notranslate">keys</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.publish"><code class="docutils literal notranslate">publish()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.register"><code class="docutils literal notranslate">register()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.EventBus.shutdown"><code class="docutils literal notranslate">shutdown()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.subscribe"><code class="docutils literal notranslate">subscribe()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.unsubscribe"><code class="docutils literal notranslate">unsubscribe()</span></code></a></li>
 </ul>
@@ -118,6 +119,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.cap"><code class="docutils literal notranslate">cap</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.clear_output"><code class="docutils literal notranslate">clear_output()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.emit"><code class="docutils literal notranslate">emit()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.ensure_output_capacity"><code class="docutils literal notranslate">ensure_output_capacity()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.get_points"><code class="docutils literal notranslate">get_points()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.performance"><code class="docutils literal notranslate">performance</span></code></a></li>
 </ul>
@@ -329,6 +331,18 @@ For each of them, a <a class="reference external" href="https://docs.python.org/
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.shutdown" title="Link to this definition">¶</a></dt>
+<dd><p>Terminate <em>all</em> dispatcher threads by sending a terminate event to
+every subscribed (key, target) pair.</p>
+<p>Without this, only subscribers of the <code class="docutils literal notranslate"><span class="pre">finished</span></code> key stop at
+cleanup — every other <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> dispatcher thread stays blocked
+on its queue forever. The threads are daemons, so they don’t block
+interpreter exit, but long-lived processes that create many
+strategies (e.g. a test suite) accumulate thousands of them.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.subscribe">
 <span class="sig-name descname"><span class="pre">subscribe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.subscribe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.subscribe" title="Link to this definition">¶</a></dt>
 <dd><p>Called by <a class="reference internal" href="#panobbgo.core.EventBus.register" title="panobbgo.core.EventBus.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>.</p>
@@ -408,6 +422,17 @@ Args:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">points</span></code>: Either a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">float64</span></code> or preferrably a list of them.</p></li>
 </ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.ensure_output_capacity">
+<span class="sig-name descname"><span class="pre">ensure_output_capacity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.ensure_output_capacity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.ensure_output_capacity" title="Link to this definition">¶</a></dt>
+<dd><p>Grow the output queue so that at least <code class="docutils literal notranslate"><span class="pre">n</span></code> <em>additional</em> points fit.</p>
+<p>Heuristics that emit points in batches whose size can exceed the
+configured queue capacity (e.g. CMA-ES after IPOP restarts double λ)
+must call this before emitting, otherwise <code class="docutils literal notranslate"><span class="pre">put_nowait</span></code> silently
+drops the overflow and the heuristic deadlocks waiting for results
+that will never arrive.</p>
 </dd></dl>
 
 <dl class="py method">

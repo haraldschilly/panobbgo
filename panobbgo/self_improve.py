@@ -1028,6 +1028,8 @@ def default_catalog() -> MutationCatalog:
     * ``Restart.max_restarts`` — restart budget.
     * ``PSO.NP`` / ``PSO.w`` / ``PSO.w_end`` — swarm size, initial /
       terminal inertia (Clerc-Kennedy and Shi-Eberhart parameters).
+    * ``PSO.stagnation_threshold`` — stochastic-K stagnation rebuild
+      cadence for the ``random`` topology (Clerc 2007 / SPSO 2011).
     * ``LSHADE.NP_init`` / ``LSHADE.H`` / ``LSHADE.p_best`` /
       ``LSHADE.p_best_end`` — L-SHADE population, success-history
       memory size, initial and (optional, iLSHADE / jSO) terminal
@@ -1143,6 +1145,30 @@ def default_catalog() -> MutationCatalog:
                 bounds=(0.2, 0.6),
                 low=0.2,
                 high=0.6,
+                probability=0.5,
+            ),
+            # PSO stochastic-K stagnation-rebuild threshold (Clerc 2007
+            # / SPSO 2011).  Re-samples the random adjacency when the
+            # swarm fails to lift its global best for ``N`` consecutive
+            # incoming results.  Bounds bracket the literature: ``NP``
+            # (one swarm cycle) is the SPSO 2011 default at NP=20, so
+            # the [5, 60] range covers half-cycle through triple-cycle
+            # for typical swarm sizes.  Only fires when the spec sets
+            # ``stagnation_threshold`` explicitly — the default kwarg
+            # on :class:`PSO` is ``None`` and not present in the spec
+            # dict.  Only meaningful with ``topology="random"`` (the
+            # heuristic ignores the kwarg under the three geometric
+            # topologies whose adjacency is deterministic), so the
+            # rule pairs naturally with the structural-catalog
+            # ``add_heuristic`` candidate that ships
+            # ``topology="random"``.
+            MutationRule(
+                strategy_pattern="",
+                class_name="PSO",
+                param_name="stagnation_threshold",
+                kind="integer_add",
+                bounds=(5, 60),
+                delta_choices=(-10, -5, 5, 10),
                 probability=0.5,
             ),
             # L-SHADE (Tanabe-Fukunaga 2014) initial population size.

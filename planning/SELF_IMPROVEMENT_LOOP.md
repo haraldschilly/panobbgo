@@ -633,6 +633,118 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-06-05 — Stochastic-K stagnation rebuild for the random PSO topology (Clerc 2007 / SPSO 2011)
+
+* **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains an
+  opt-in ``stagnation_threshold: Optional[int] = None`` kwarg, an
+  ``_stagnation_counter`` attribute, and a new
+  :meth:`_maybe_rebuild_random_adjacency` helper that wraps the
+  Clerc 2007 / SPSO 2011 stochastic-K stagnation-rebuild policy.
+  When set to a positive integer and the topology is ``"random"``,
+  the counter ticks on every incoming result that does *not* lift
+  ``_gbest_idx``; once it reaches ``stagnation_threshold`` the
+  adjacency is re-sampled from the heuristic's RNG and the counter
+  resets.  The counter also resets on every strict global-best
+  improvement, on :meth:`on_start`, and on :meth:`on_restart`.
+  ``stagnation_threshold=None`` (default) bypasses the policy
+  entirely so existing :class:`PSO` instances retain their prior
+  static-between-restarts behaviour bit-for-bit.
+  :func:`default_catalog` gains a matching
+  ``PSO.stagnation_threshold`` ``integer_add`` rule
+  (``bounds=(5, 60)``, ``delta_choices=(-10, -5, 5, 10)``) so the
+  loop can tune the rebuild cadence on any spec that opts in.  The
+  rule fires only when a spec sets the kwarg explicitly (per
+  :func:`_find_targets`'s "param already in kwargs" predicate), so
+  the built-in factories that leave ``stagnation_threshold=None``
+  see no behavioural change.
+* **Why** — closes the *Per-iteration re-sampled random PSO
+  topology (stochastic-K)* follow-up below the 2026-05-29 random
+  PSO topology entry.  The random topology shipped 2026-05-29
+  re-samples the informer graph only at ``on_start`` and
+  ``on_restart``.  Under :class:`~panobbgo.analyzers.restart.Restart`
+  restarts are rare — the stochastic graph can otherwise stay locked
+  into a bad realised adjacency for hundreds of incoming results,
+  defeating the structure-free flexibility motivation for the random
+  topology in the first place.  Clerc 2007 / SPSO 2011 standardises
+  a stricter "stochastic-K" variant that rebuilds the graph on
+  stagnation; this is the literature-faithful completion.  The
+  rebuild trigger uses the *constraint handler's* ``is_better``
+  predicate (the strict improvement gate already used by
+  :meth:`_update_global_best`) so the stagnation count tracks the
+  global-best lift even under penalty-based constraints.
+* **Asynchronous adaptation** — the policy lives in the
+  ``on_new_results`` path and reads the swarm's true
+  ``_gbest_idx`` lift on every result, so it stays in lock-step
+  with the panobbgo async pipeline (one trial per particle pending
+  at a time; rebuild fires lazily as misses accumulate).  No
+  state changes between ``on_start`` / ``on_restart``;
+  :meth:`_maybe_rebuild_random_adjacency` is a no-op for any
+  topology other than ``"random"`` and for ``stagnation_threshold
+  = None`` (the default).
+* **Impact** — the value of shipping today is to give the bandit a
+  knob it currently lacks for the random topology: per-arm reward
+  history can identify whether mid-run rebuilds help on a given
+  battery.  At quick-mode budgets the immediate signal is within
+  noise (single-rebuild bursts that fire late in the budget barely
+  matter for AOCC / composite_score on a 75-eval / 300-eval run),
+  but the literature (Clerc 2007; SPSO 2011) reports the
+  stochastic-K rebuild as the dominant ingredient that lets random
+  topologies match the structured variants on long-budget runs
+  where restart-gated re-sampling is too coarse.  *Evidence form
+  (per AGENTS.md "Agent-driven improve X PRs"): catalog-only
+  addition with default kwarg ``None``; backwards-compatible
+  (composite baseline byte-identical, existing ledgers stay valid);
+  queued for nightly loop validation via the default catalog's
+  ``PSO.stagnation_threshold`` rule and the structural catalog's
+  ``random`` PSO entry.*
+* **Backwards compatibility** — strictly safe.
+  ``stagnation_threshold`` defaults to ``None``; every existing
+  PSO instance retains its prior behaviour bit-for-bit, including
+  all 68 pre-existing tests in ``tests/test_heuristic_pso.py``.
+  ``_stagnation_counter`` is initialised to ``0`` and never read
+  unless the policy is opted in and the topology is ``"random"``,
+  so memory / RNG draws on every other code path are byte-identical.
+  The new ``PSO.stagnation_threshold`` catalog rule only fires
+  when a spec explicitly sets the kwarg (per :func:`_find_targets`'s
+  "param already in kwargs" predicate), so the built-in
+  ``_make_quick_strategies`` / ``_make_standard_strategies`` /
+  ``_make_full_strategies`` factories see no behavioural change.
+  Existing ledger consumers parsing only known kinds see one extra
+  ``integer_add`` rule they may ignore.
+* **Tests** — `tests/test_heuristic_pso.py` (+13 new tests, total
+  81): default ``stagnation_threshold`` is ``None``, custom
+  round-trip, ctor rejects non-integer and bool, ctor rejects
+  zero / negative; counter starts at zero after ``on_start``;
+  counter resets on every strict global-best improvement; rebuild
+  fires exactly at the threshold and resets the counter; below the
+  threshold the adjacency is untouched; ``None`` default never
+  rebuilds the adjacency mid-run even under many non-improvements;
+  no-op for ``gbest`` / ``lbest`` / ``vonneumann`` topologies
+  (the three geometric variants have no random graph);
+  ``on_restart`` resets the counter even mid-stagnation; the very
+  first global-best observation does not tick the counter.  Plus a
+  catalog membership test confirming
+  ``("PSO", "stagnation_threshold")`` joins the default rule set
+  with the documented ``integer_add`` kind and bounds.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Per-iteration re-sampled random PSO topology (stochastic-K)*
+    next-iteration idea promoted from "open" to "shipped".
+  - `doc/source/guide.rst`: quick-nav entry mentions the optional
+    stochastic-K stagnation-rebuild ``PSO.stagnation_threshold``
+    knob for the ``random`` PSO topology.
+  - `doc/source/guide_benchmarking.rst`: structural-catalog PSO
+    paragraph now describes the ``random`` variant's
+    ``stagnation_threshold`` knob and the matching default-catalog
+    rule.
+  - `doc/source/guide_architecture.rst`: PSO description gains the
+    stochastic-K stagnation rebuild paragraph after the random
+    topology description.
+  - `doc/source/heuristics.rst`: PSO bullet mentions the optional
+    ``stagnation_threshold`` for the random topology.
+  - `AGENTS.md`: self-improvement loop subsection adds the
+    ``PSO.stagnation_threshold`` rule to the kwarg-rules list.
+
 ### 2026-05-29 — Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains a fourth
@@ -2999,22 +3111,15 @@ follow-ups:
   current uniform-over-four catalog and let the bandit's per-arm
   reward signal identify the winner online.
 
-#### Per-iteration re-sampled random PSO topology (stochastic-K)
+#### Per-iteration re-sampled random PSO topology (stochastic-K) — shipped 2026-06-05
 
-The random topology shipped 2026-05-29 re-samples the informer graph
-at ``on_start`` and ``on_restart`` only — the adjacency is *static*
-between restarts.  Clerc 2007 / SPSO 2011 also describes a stricter
-"stochastic-K" variant where the graph is rebuilt every iteration
-where the swarm fails to improve the global best (the "stagnation
-trigger") — a finer-grained stagnation-rebuild policy than restart-
-gated re-sampling.  Implementation sketch: in
-:meth:`~panobbgo.heuristics.pso.PSO.on_new_results`, check whether the
-result improved ``_gbest_idx``; if not for K consecutive incoming
-results (or fraction of swarm cycles), call
-:meth:`_init_random_adjacency` to re-sample the graph.  Adds one
-counter to the heuristic state and one knob (``stagnation_threshold``,
-default ``NP``).  Useful when the bandit evidence shows the
-restart-gated re-sampling is too coarse — under
-:class:`~panobbgo.analyzers.restart.Restart`, restarts are rare and
-the stochastic graph can stay locked into a bad realisation for
-hundreds of iterations.
+Shipped 2026-06-05 as
+:attr:`panobbgo.heuristics.pso.PSO.stagnation_threshold` plus the
+matching :meth:`PSO._maybe_rebuild_random_adjacency` helper and the
+``PSO.stagnation_threshold`` ``integer_add`` rule on
+:func:`default_catalog`.  See the §13 entry above.  When set to a
+positive integer, the random adjacency is re-sampled mid-run after
+``N`` consecutive incoming results land without lifting the global
+best — finer-grained than the restart-gated rebuild that ships
+under :class:`~panobbgo.analyzers.restart.Restart`.  Default is
+``None`` (off), so existing PSO behaviour is byte-identical.

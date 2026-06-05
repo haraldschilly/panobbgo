@@ -1112,6 +1112,20 @@ on top of L-SHADE’s success-history adaptation; flipping it lets
 the bandit move an existing <code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code> instance between the
 two literature regimes without dropping and re-adding the
 heuristic.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_RSP.k_rank</span></code> — <code class="docutils literal notranslate"><span class="pre">0.0</span></code> (uniform <code class="docutils literal notranslate"><span class="pre">r1</span></code> selection,
+recovers jSO behaviour) vs <code class="docutils literal notranslate"><span class="pre">3.0</span></code> (Stanovov et al. 2018 / 2021
+RSP default) vs <code class="docutils literal notranslate"><span class="pre">5.0</span></code> (aggressive rank pressure).  Sits
+alongside the <code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> rule (<code class="docutils literal notranslate"><span class="pre">bounds=(1.0,</span> <span class="pre">5.0)</span></code>) so
+the bandit can either continuously walk <code class="docutils literal notranslate"><span class="pre">k_rank</span></code> or jump
+between qualitatively distinct regimes.  In particular <code class="docutils literal notranslate"><span class="pre">0.0</span></code>
+is unreachable from the continuous rule and gives the loop a way
+to switch off the rank-based pressure entirely on portfolios
+that opt into NL-SHADE-RSP.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">COBYQA.scale</span></code> — <code class="docutils literal notranslate"><span class="pre">True</span></code> (box variables rescaled to
+<code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]</span></code>, keeping the Powell interpolation geometry
+well-conditioned) vs <code class="docutils literal notranslate"><span class="pre">False</span></code> (raw box).  Useful when the
+problem’s box is already isotropic and the rescale adds
+rounding noise that hurts the quadratic-model fit.</p></li>
 </ul>
 <p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">MutationRule</span></code> <code class="docutils literal notranslate"><span class="pre">categorical_choice</span></code>
 kind closes this gap.  The rule carries a <code class="docutils literal notranslate"><span class="pre">choices</span></code> tuple of
@@ -1122,7 +1136,7 @@ eliminated by construction).  The bandit treats categorical rules
 as their own arm — distinct from any numeric rule on the same
 <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param)</span></code> slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.</p>
-<p>The default catalog ships five categorical rules out-of-the-box:</p>
+<p>The default catalog ships seven categorical rules out-of-the-box:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;PSO&quot;</span><span class="p">,</span>
@@ -1163,6 +1177,23 @@ flipping a discrete knob is worthwhile.</p>
 </span><span data-line="38">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
 </span><span data-line="39">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
 </span><span data-line="40"><span class="p">),</span>
+</span><span data-line="41"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="42">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="43">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;NLSHADE_RSP&quot;</span><span class="p">,</span>
+</span><span data-line="44">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;k_rank&quot;</span><span class="p">,</span>
+</span><span data-line="45">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="46">    <span class="c1"># 0.0 = uniform r1 / jSO recovery; 3.0 = RSP default; 5.0 = aggressive.</span>
+</span><span data-line="47">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+</span><span data-line="48">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="49"><span class="p">),</span>
+</span><span data-line="50"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="51">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="52">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span>
+</span><span data-line="53">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span>
+</span><span data-line="54">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="55">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+</span><span data-line="56">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="57"><span class="p">),</span>
 </span></pre></div>
 </div>
 <p>Each fires only when the target spec sets the kwarg <em>explicitly</em>

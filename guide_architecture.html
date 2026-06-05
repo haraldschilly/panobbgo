@@ -494,9 +494,26 @@ between numerator and denominator exponents is held constant at <code class="doc
 are reachable from the default catalog so the bandit can flip between them.  Inherits NL-SHADE-RSP’s
 NLPSR / RSP / adaptive-archive machinery and the asynchronous pipeline unchanged.  The CEC-2022
 adaptive crossover blend and repetitive-generation bound-constraint handling are intentionally not
-ported (see the heuristic docstring).  All five DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
-NL-SHADE-LBC) ship in the structural catalog so the bandit picks whichever wins on the current
-battery.</p></li>
+ported (see the heuristic docstring).</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE_EpSin" title="panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE_EpSin</span></code></a>: LSHADE-EpSin refinement of L-SHADE
+(Awad, Ali &amp; Suganthan, CEC 2016).  Direct subclass of
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a> that replaces the SHADE Cauchy-from-memory <code class="docutils literal notranslate"><span class="pre">F</span></code>
+sampler with an <em>ensemble of two sinusoidal candidates</em> during the first half of the search.
+Sinusoid 1 uses a fixed frequency (<code class="docutils literal notranslate"><span class="pre">0.5</span></code>) with a decreasing amplitude envelope
+<code class="docutils literal notranslate"><span class="pre">(G_max</span> <span class="pre">−</span> <span class="pre">g)</span> <span class="pre">/</span> <span class="pre">G_max</span></code>; Sinusoid 2 draws its frequency from an adaptive
+<code class="docutils literal notranslate"><span class="pre">Cauchy(μ_freq,</span> <span class="pre">0.1)</span></code> clamped to <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code> and pairs it with an increasing envelope
+<code class="docutils literal notranslate"><span class="pre">g</span> <span class="pre">/</span> <span class="pre">G_max</span></code> and a <code class="docutils literal notranslate"><span class="pre">+π</span></code> phase shift.  Each trial picks one of the two sinusoids with
+probability <code class="docutils literal notranslate"><span class="pre">p_s</span></code> updated each generation from a Laplace-smoothed Sinusoid-1 success rate;
+<code class="docutils literal notranslate"><span class="pre">μ_freq</span></code> updates via the unweighted Lehmer mean of successful Sinusoid-2 frequencies.  In the
+second half (<code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">≥</span> <span class="pre">0.5</span></code>) EpSin reverts to the SHADE Cauchy-from-memory <code class="docutils literal notranslate"><span class="pre">F</span></code> sampling
+— byte-identical to L-SHADE.  <code class="docutils literal notranslate"><span class="pre">CR</span></code> is always sampled from a SHADE Normal bin (unchanged in
+both phases).  Different <em>branch</em> of the DE family tree from jSO / NL-SHADE-RSP — all the other
+DE arms adapt <code class="docutils literal notranslate"><span class="pre">F</span></code> via the Cauchy memory; EpSin’s deterministic-amplitude sinusoid is
+algorithmically distinct.  All six DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
+NL-SHADE-LBC / LSHADE-EpSin) ship in the structural catalog so the bandit picks whichever wins
+on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
+ensemble plus a covariance-matrix step — not ported here; CMA-ES is a separate Panobbgo
+heuristic).</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
 Clerc–Kennedy (2002) constriction-coefficient parameters (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>).
 Each particle carries a position, a velocity, and a memory of its personal best; on every step

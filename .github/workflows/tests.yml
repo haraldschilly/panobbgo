@@ -63,6 +63,20 @@ jobs:
           uv sync
 
       - name: Run pytest
+        # `--durations=25` (from pyproject `addopts`) prints the slowest 25
+        # tests so every CI run records where the ~20 min wall-clock goes —
+        # the suite is dominated by latency-bound `.start()` integration
+        # tests (threaded event loop, not CPU).
+        #
+        # NOTE: the suite is NOT yet run in parallel here. `pytest-xdist` is
+        # installed and `-n auto --dist loadscope` works locally with a large
+        # wall-clock win, but two issues must be fixed first (see
+        # planning/TEST_PERFORMANCE.md): (1) one worker hangs in teardown at
+        # end-of-run (a non-daemon background thread left by a strategy/dask
+        # test), which would trip the 25 min job timeout; (2) a couple of
+        # timing-sensitive `@pytest.mark.flaky` tests fail under heavy
+        # CPU contention because `pytest-retry` is not installed in the
+        # `--extra dev` set CI uses, so the flaky markers are currently no-ops.
         run: |
           uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
           uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY

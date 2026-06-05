@@ -7,8 +7,10 @@ from panobbgo.lib import Result, Point
 
 
 @pytest.fixture
-def storage_uri():
-    uri = "test_storage.db"
+def storage_uri(tmp_path):
+    # Per-test temp dir keeps parallel workers (pytest-xdist) from colliding
+    # on a shared on-disk filename.
+    uri = str(tmp_path / "test_storage.db")
     yield uri
     if os.path.exists(uri):
         os.unlink(uri)

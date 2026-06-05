@@ -999,6 +999,176 @@ class PSORandomTopologyTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
+# Stochastic-K stagnation rebuild (Clerc 2007 / SPSO 2011)
+# ----------------------------------------------------------------------
+
+
+class PSOStochasticKTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Verify the stochastic-K stagnation-rebuild policy on the random topology."""
+
+    def test_default_stagnation_threshold_is_none(self):
+        """The kwarg defaults to ``None`` so existing behaviour is byte-identical."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="random", k_neighbors=3)
+        assert h.stagnation_threshold is None
+        assert h._stagnation_counter == 0
+
+    def test_custom_stagnation_threshold_round_trip(self):
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=12, topology="random", k_neighbors=3, stagnation_threshold=8)
+        assert h.stagnation_threshold == 8
+
+    def test_invalid_stagnation_threshold_type(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="stagnation_threshold must be a positive integer"):
+            PSO(self.strategy, topology="random", stagnation_threshold=5.0)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="stagnation_threshold must be a positive integer"):
+            PSO(self.strategy, topology="random", stagnation_threshold=True)  # type: ignore[arg-type]
+
+    def test_invalid_stagnation_threshold_value(self):
+        from panobbgo.heuristics.pso import PSO
+
+        with pytest.raises(ValueError, match="stagnation_threshold must be >= 1"):
+            PSO(self.strategy, topology="random", stagnation_threshold=0)
+        with pytest.raises(ValueError, match="stagnation_threshold must be >= 1"):
+            PSO(self.strategy, topology="random", stagnation_threshold=-3)
+
+    def _feed(self, h, idx, fx):
+        """Feed a result for the *pending* trial of particle ``idx``."""
+        from panobbgo.lib import Point, Result
+
+        req_id = next(rid for rid, i in h._pending.items() if i == idx)
+        p = Point(h._positions[idx].copy(), f"PSO:{req_id}")
+        h.on_new_results([Result(p, fx)])
+
+    def test_stagnation_counter_starts_at_zero(self):
+        """``on_start`` resets the counter to zero."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="random", k_neighbors=3, stagnation_threshold=5, seed=1)
+        h.on_start()
+        assert h._stagnation_counter == 0
+
+    def test_stagnation_counter_resets_on_improvement(self):
+        """Each strict improvement of the global best resets the counter."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=8, topology="random", k_neighbors=2, stagnation_threshold=5, seed=42)
+        h.on_start()
+        # First result establishes the global best — counter stays at 0.
+        self._feed(h, 0, 5.0)
+        assert h._stagnation_counter == 0
+        # A worse result does not improve the global best — counter ticks up.
+        self._feed(h, 1, 7.0)
+        assert h._stagnation_counter == 1
+        # A strictly-better result improves the global best — counter resets.
+        self._feed(h, 2, 1.0)
+        assert h._stagnation_counter == 0
+
+    def test_stagnation_rebuilds_after_threshold_consecutive_misses(self):
+        """When the counter hits the threshold, the adjacency is rebuilt and the counter resets."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="random", k_neighbors=3, stagnation_threshold=3, seed=99)
+        h.on_start()
+        before = [list(row) for row in h._random_adjacency]
+
+        # Establish a global best at particle 0 with a very low fx so
+        # later feeds cannot improve it.
+        self._feed(h, 0, -100.0)
+        assert h._stagnation_counter == 0
+
+        # Three consecutive non-improving results trigger the rebuild.
+        self._feed(h, 1, 50.0)
+        self._feed(h, 2, 50.0)
+        self._feed(h, 3, 50.0)
+        # Counter must reset on rebuild.
+        assert h._stagnation_counter == 0
+        after = h._random_adjacency
+        # Adjacency must have changed (NP=10 / k=3 makes identity vanishingly improbable).
+        assert any(before[i] != after[i] for i in range(h.NP))
+
+    def test_stagnation_no_rebuild_before_threshold(self):
+        """Below the threshold, the adjacency is untouched."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="random", k_neighbors=3, stagnation_threshold=5, seed=77)
+        h.on_start()
+        before = [list(row) for row in h._random_adjacency]
+
+        self._feed(h, 0, -10.0)  # establishes gbest
+        for idx in (1, 2, 3, 4):  # 4 consecutive non-improvements, below threshold of 5
+            self._feed(h, idx, 50.0)
+        assert h._stagnation_counter == 4
+        # Adjacency unchanged.
+        assert h._random_adjacency == before
+
+    def test_stagnation_noop_when_threshold_none(self):
+        """``stagnation_threshold=None`` (default) never rebuilds the adjacency mid-run."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=8, topology="random", k_neighbors=3, seed=2026)
+        h.on_start()
+        before = [list(row) for row in h._random_adjacency]
+        self._feed(h, 0, 1.0)
+        # Long stretch of non-improvements: counter remains at 0 because the policy is off.
+        for idx in range(1, h.NP):
+            self._feed(h, idx, 50.0)
+        assert h._stagnation_counter == 0
+        assert h._random_adjacency == before
+
+    def test_stagnation_noop_for_non_random_topology(self):
+        """``stagnation_threshold`` is ignored for ``gbest`` / ``lbest`` / ``vonneumann``."""
+        from panobbgo.heuristics.pso import PSO
+
+        for topo in ("gbest", "lbest", "vonneumann"):
+            h = PSO(
+                self.strategy,
+                NP=12,
+                topology=topo,
+                k_neighbors=2,
+                stagnation_threshold=2,
+                seed=5,
+            )
+            h.on_start()
+            # No random adjacency exists — only the random topology
+            # allocates one.
+            assert h._random_adjacency is None
+            self._feed(h, 0, -1.0)  # establishes gbest
+            self._feed(h, 1, 100.0)
+            self._feed(h, 2, 100.0)
+            self._feed(h, 3, 100.0)
+            # The counter advances but nothing else changes — there is
+            # no adjacency to rebuild under these topologies.
+            assert h._random_adjacency is None
+
+    def test_stagnation_counter_resets_on_restart(self):
+        """``on_restart`` zeros the stagnation counter even if mid-stagnation."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=10, topology="random", k_neighbors=3, stagnation_threshold=10, seed=33)
+        h.on_start()
+        self._feed(h, 0, -5.0)
+        for idx in range(1, 5):  # four non-improvements, well below threshold
+            self._feed(h, idx, 50.0)
+        assert h._stagnation_counter == 4
+        h.on_restart(center=np.zeros(self.problem.dim), reason="test")
+        assert h._stagnation_counter == 0
+
+    def test_stagnation_does_not_double_count_first_global_best(self):
+        """The very first global-best observation must not tick the counter."""
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=8, topology="random", k_neighbors=2, stagnation_threshold=2, seed=8)
+        h.on_start()
+        self._feed(h, 0, 5.0)
+        assert h._stagnation_counter == 0
+
+
+# ----------------------------------------------------------------------
 # Module-level registration
 # ----------------------------------------------------------------------
 
@@ -1066,6 +1236,24 @@ def test_pso_kwarg_rule_in_default_catalog():
     catalog = default_catalog()
     keys = {(r.class_name, r.param_name) for r in catalog.rules}
     assert ("PSO", "NP") in keys
+
+
+def test_pso_stagnation_threshold_rule_in_default_catalog():
+    """default_catalog ships a kwarg rule for ``PSO.stagnation_threshold``.
+
+    The rule fires only when a spec sets the kwarg explicitly (per
+    ``_find_targets``'s "param already in kwargs" predicate), so the
+    built-in factories that leave ``stagnation_threshold=None`` see no
+    behavioural change.
+    """
+    from panobbgo.self_improve import default_catalog
+
+    catalog = default_catalog()
+    rules = [r for r in catalog.rules if r.class_name == "PSO" and r.param_name == "stagnation_threshold"]
+    assert len(rules) == 1, f"expected exactly 1 stagnation_threshold rule, got {len(rules)}"
+    rule = rules[0]
+    assert rule.kind == "integer_add"
+    assert rule.bounds == (5, 60)
 
 
 # ----------------------------------------------------------------------

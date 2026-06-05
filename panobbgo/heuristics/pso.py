@@ -83,6 +83,19 @@ How ``sbest_i`` is determined depends on the *swarm topology*:
   without committing to a structural prior.  Clerc reports the random
   topology with ``K=3`` as the SPSO 2011 default.
 
+  An optional **stochastic-K** (Clerc 2007 / SPSO 2011 stagnation
+  rebuild) variant re-samples the informer graph mid-run when the
+  swarm fails to improve the global best for ``stagnation_threshold``
+  consecutive results.  Restart-gated re-sampling is too coarse under
+  the :class:`~panobbgo.analyzers.restart.Restart` analyzer, which
+  fires rarely — the stochastic graph can otherwise stay locked into
+  a bad realisation for hundreds of iterations.  Opt in via
+  ``stagnation_threshold=NP`` (the SPSO 2011 setting): when ``NP``
+  consecutive incoming results land without lifting ``_gbest_idx``,
+  the adjacency is rebuilt from the heuristic's RNG and the counter
+  resets.  ``stagnation_threshold=None`` (default) preserves the
+  static-between-restarts behaviour shipped 2026-05-29.
+
 The four topologies are *complementary*: ``gbest`` excels on unimodal /
 weakly-multimodal problems where rapid exploitation pays off, ``lbest``
 on highly-multimodal landscapes where a swarm-wide attractor would lock
@@ -252,6 +265,17 @@ class PSO(Heuristic):
             Clerc-Kennedy behaviour.  Common choice: ``w = 0.9``,
             ``w_end = 0.4``.  Falls back to constant ``w`` whenever the
             strategy budget is unknown (no ``max_eval`` configured).
+        stagnation_threshold: Optional stochastic-K stagnation rebuild
+            threshold (Clerc 2007 / SPSO 2011) for the random topology.
+            When a positive integer, the random adjacency is re-sampled
+            mid-run after ``stagnation_threshold`` consecutive incoming
+            results land without lifting the global best.  The Clerc /
+            SPSO 2011 default is ``NP`` (one swarm-cycle's worth of
+            evaluations).  ``None`` (default) preserves the static-
+            between-restarts behaviour shipped 2026-05-29.  Ignored
+            for ``topology in {"gbest", "lbest", "vonneumann"}`` — the
+            three geometric topologies are deterministic functions of
+            ``NP`` and have no stochastic graph to rebuild.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             seeds from ``np.random.default_rng()``.
         name: Override the heuristic's display name.
@@ -280,6 +304,7 @@ class PSO(Heuristic):
         topology: str = "gbest",
         k_neighbors: int = 2,
         w_end: Optional[float] = None,
+        stagnation_threshold: Optional[int] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -303,6 +328,13 @@ class PSO(Heuristic):
             raise ValueError(f"PSO: k_neighbors must be >= 1, got {k_neighbors}")
         if w_end is not None and not np.isfinite(w_end):
             raise ValueError(f"PSO: w_end must be finite when set, got {w_end}")
+        if stagnation_threshold is not None:
+            if isinstance(stagnation_threshold, bool) or not isinstance(stagnation_threshold, int):
+                raise ValueError(
+                    f"PSO: stagnation_threshold must be a positive integer or None, got {stagnation_threshold!r}"
+                )
+            if stagnation_threshold < 1:
+                raise ValueError(f"PSO: stagnation_threshold must be >= 1 when set, got {stagnation_threshold}")
 
         super().__init__(strategy, name=name or "PSO")
         self.NP: int = NP
@@ -313,6 +345,7 @@ class PSO(Heuristic):
         self.topology: str = topology
         self.k_neighbors: int = int(k_neighbors)
         self.w_end: Optional[float] = None if w_end is None else float(w_end)
+        self.stagnation_threshold: Optional[int] = None if stagnation_threshold is None else int(stagnation_threshold)
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
@@ -332,6 +365,13 @@ class PSO(Heuristic):
         # ``on_start`` and re-sampled at ``on_restart``.  Only populated
         # when ``topology == "random"``; ``None`` otherwise.
         self._random_adjacency: Optional[List[List[int]]] = None
+
+        # Stochastic-K stagnation counter (Clerc 2007 / SPSO 2011).
+        # Counts consecutive incoming results that did *not* lift
+        # ``_gbest_idx``.  Reset on improvement, on_start, and
+        # on_restart.  Only consulted when
+        # ``topology == "random"`` and ``stagnation_threshold`` is set.
+        self._stagnation_counter: int = 0
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -466,6 +506,49 @@ class PSO(Heuristic):
             adjacency.append(sorted(informers))
         self._random_adjacency = adjacency
 
+    def _maybe_rebuild_random_adjacency(self, prev_gbest_result) -> None:
+        """Apply the stochastic-K stagnation-rebuild policy if active.
+
+        Increments :attr:`_stagnation_counter` when the most recent
+        global-best update did **not** strictly improve the previous
+        global best.  When the counter reaches
+        :attr:`stagnation_threshold` (and the topology is ``"random"``),
+        the adjacency is rebuilt from the heuristic's RNG and the
+        counter resets.  No-op for any other topology, when the
+        threshold is ``None`` (default), or when the swarm has not
+        seen any global best yet.
+
+        Args:
+            prev_gbest_result: The :class:`~panobbgo.lib.Result`
+                attached to ``_gbest_idx`` *before*
+                :meth:`_update_global_best` was last called.  ``None``
+                if no global best had been observed yet.
+        """
+        if self.topology != "random" or self.stagnation_threshold is None:
+            return
+        if self._gbest_idx is None:
+            return  # no swarm-wide signal yet
+
+        current = self._pbest_result[self._gbest_idx]
+        improved = False
+        if prev_gbest_result is None and current is not None:
+            improved = True
+        elif current is not None and prev_gbest_result is not None:
+            # ``is_better(a, b)`` returns True iff ``b`` strictly beats
+            # ``a`` under the constraint handler's ordering — exactly
+            # the "global best moved" predicate we need.
+            handler = self.strategy.constraint_handler
+            improved = handler.is_better(prev_gbest_result, current)
+
+        if improved:
+            self._stagnation_counter = 0
+            return
+
+        self._stagnation_counter += 1
+        if self._stagnation_counter >= self.stagnation_threshold:
+            self._init_random_adjacency()
+            self._stagnation_counter = 0
+
     def _random_neighbors(self, particle_idx: int) -> List[int]:
         """Return the random informer list for ``particle_idx``.
 
@@ -595,6 +678,7 @@ class PSO(Heuristic):
         self._pbest_result = [None] * self.NP
         self._gbest_idx = None
         self._pending = {}
+        self._stagnation_counter = 0
         if self.topology == "random":
             self._init_random_adjacency()
 
@@ -634,7 +718,10 @@ class PSO(Heuristic):
             # Refresh global best after every update so the next
             # particle to move can immediately benefit from the new
             # information.  Cheap: O(NP) per result.
+            prev_gbest_idx = self._gbest_idx
+            prev_gbest_result = self._pbest_result[prev_gbest_idx] if prev_gbest_idx is not None else None
             self._update_global_best()
+            self._maybe_rebuild_random_adjacency(prev_gbest_result)
 
             # Emit the next trial for this particle.
             self._generate_next(particle_idx)
@@ -652,6 +739,7 @@ class PSO(Heuristic):
             return
         self.clear_output()
         self._pending.clear()
+        self._stagnation_counter = 0
         if self._positions is None or self._velocities is None or self._pbest_x is None:
             return  # not started yet — nothing to reset
 

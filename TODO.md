@@ -2,6 +2,54 @@
 
 ## Recent Improvements (continued)
 
+### Stochastic-K stagnation rebuild for the random PSO topology — 2026-06-05
+- [x] **Opt-in `PSO.stagnation_threshold` kwarg** in
+      `panobbgo/heuristics/pso.py`; closes the *Per-iteration
+      re-sampled random PSO topology (stochastic-K)* follow-up below
+      the 2026-05-29 random-topology entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`.  When set to a positive
+      integer and the topology is `"random"`, the informer adjacency
+      is re-sampled mid-run after `N` consecutive incoming results
+      land without lifting the global best — a finer-grained
+      stagnation rebuild than the restart-gated re-sampling that
+      shipped 2026-05-29.  Default `None` preserves the prior
+      behaviour bit-for-bit.  Implemented via
+      `_maybe_rebuild_random_adjacency` (called from
+      `on_new_results` after every global-best refresh) and an
+      `_stagnation_counter` reset on improvement, `on_start`, and
+      `on_restart`.
+  - **Why it matters.**  Under
+    :class:`~panobbgo.analyzers.restart.Restart` restarts are rare,
+    so the random adjacency can stay locked into a bad realisation
+    for hundreds of incoming results without the stochastic-K
+    rebuild.  Clerc 2007 / SPSO 2011 standardises this as the
+    stagnation-trigger rebuild policy for the random topology.
+- [x] **Catalog wiring** — `default_catalog` ships a new
+      `PSO.stagnation_threshold` `integer_add` rule
+      (`bounds=(5, 60)`, `delta_choices=(-10, -5, 5, 10)`).  Only
+      fires when a spec sets the kwarg explicitly (per
+      `_find_targets`'s "param already in kwargs" predicate), so the
+      built-in `_make_quick_strategies` /
+      `_make_standard_strategies` / `_make_full_strategies`
+      factories see no behavioural change.
+- [x] **Backwards compatibility** — strictly safe.
+      `stagnation_threshold=None` (default) bypasses the policy
+      entirely; every existing PSO instance retains its prior
+      behaviour bit-for-bit (all 68 pre-existing PSO tests pass
+      unchanged).  The helper is a no-op for `gbest` / `lbest` /
+      `vonneumann` topologies.
+- [x] **Tests** — 13 new tests in
+      `tests/test_heuristic_pso.py::PSOStochasticKTests` (total 81):
+      ctor validation, counter starts at zero, resets on
+      improvement, rebuild fires at threshold, no rebuild below
+      threshold, no rebuild when policy is off, no rebuild for
+      non-random topologies, `on_restart` zeros the counter, first
+      global best does not tick the counter.  Plus a catalog
+      membership test.
+- [x] **Documentation updated** — planning doc §13 entry,
+      `guide.rst`, `guide_benchmarking.rst`, `guide_architecture.rst`,
+      `heuristics.rst`, `AGENTS.md`.
+
 ### Random PSO topology (Mendes 2004 / Clerc 2007 / SPSO 2011) — 2026-05-29
 - [x] **New `"random"` topology** in `panobbgo/heuristics/pso.py`;
       closes the *Random re-wired topology* PSO follow-up under the

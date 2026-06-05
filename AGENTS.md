@@ -372,6 +372,18 @@ The harness is the measurement substrate for an autonomous
     unclamped in the final 10%); jSO opts into the cap by
     construction so `JSO` is always literature-faithful regardless of
     the catalog rule's verdict on L-SHADE.
+*   Numeric `PSO.stagnation_threshold` rule (`integer_add`,
+    `bounds=(5, 60)`) — **shipped 2026-06-05**, see
+    :attr:`panobbgo.heuristics.pso.PSO.stagnation_threshold`.
+    Enables the Clerc 2007 / SPSO 2011 stochastic-K stagnation
+    rebuild for the ``random`` PSO topology: the informer graph is
+    re-sampled mid-run when the swarm fails to lift its global best
+    for ``N`` consecutive incoming results (finer-grained than the
+    restart-gated rebuild).  Fires only when a spec sets the kwarg
+    explicitly; the default `None` value bypasses the policy and
+    preserves the static-between-restarts behaviour shipped
+    2026-05-29.  Pairs naturally with the structural-catalog
+    ``random`` PSO entry.
 
 Run the loop:
 

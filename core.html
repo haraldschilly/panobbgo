@@ -178,6 +178,17 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.validate_setup"><code class="docutils literal notranslate">validate_setup()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#dask-evaluation-backend">Dask Evaluation Backend</a><ul>
+<li><a class="reference internal" href="#dask-based-distributed-evaluation-backend">Dask-based distributed evaluation backend</a></li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.DaskEvaluators"><code class="docutils literal notranslate"><span class="pre">DaskEvaluators</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.DaskEvaluators.outstanding"><code class="docutils literal notranslate">outstanding</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.close"><code class="docutils literal notranslate"><span class="pre">close()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.run_evaluation"><code class="docutils literal notranslate"><span class="pre">run_evaluation()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.setup_cluster"><code class="docutils literal notranslate"><span class="pre">setup_cluster()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -823,6 +834,55 @@ that would cause the optimization to fail or behave unexpectedly.</p>
 
 </dd></dl>
 
+<section id="dask-evaluation-backend">
+<h2>Dask Evaluation Backend<a class="headerlink" href="#dask-evaluation-backend" title="Link to this heading">¶</a></h2>
+<p>Optional distributed-evaluation backend (<code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;dask&quot;</span></code>),
+imported lazily so the core carries no Dask dependency. Install the
+<code class="docutils literal notranslate"><span class="pre">dask</span></code> extra to use it.</p>
+<section id="dask-based-distributed-evaluation-backend">
+<span id="module-panobbgo.dask_evaluation"></span><h3>Dask-based distributed evaluation backend<a class="headerlink" href="#dask-based-distributed-evaluation-backend" title="Link to this heading">¶</a></h3>
+<p>Everything Dask-specific that used to live inline in <a class="reference internal" href="#module-panobbgo.core" title="panobbgo.core"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.core</span></code></a>.
+<code class="docutils literal notranslate"><span class="pre">dask</span></code> is imported lazily — only when a strategy actually runs with
+<code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;dask&quot;</span></code> — so the rest of the framework carries no
+Dask code paths or import-time dependency.</p>
+<p>The functions operate on a <a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> instance and
+use the strategy’s <code class="docutils literal notranslate"><span class="pre">_client</span></code> / <code class="docutils literal notranslate"><span class="pre">_cluster</span></code> / <code class="docutils literal notranslate"><span class="pre">_problem_future</span></code>
+attributes, which tests and external code set/inspect directly.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.DaskEvaluators">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">DaskEvaluators</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#DaskEvaluators"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.DaskEvaluators" title="Link to this definition">¶</a></dt>
+<dd><p>Evaluators view for the Dask backend (compatibility object for strategies
+that reference <code class="docutils literal notranslate"><span class="pre">strategy.evaluators</span></code>).</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.DaskEvaluators.outstanding">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">outstanding</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.dask_evaluation.DaskEvaluators.outstanding" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.close">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.close" title="Link to this definition">¶</a></dt>
+<dd><p>Cancel any outstanding Dask futures and close client + cluster.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.run_evaluation">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">run_evaluation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#run_evaluation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.run_evaluation" title="Link to this definition">¶</a></dt>
+<dd><p>Run evaluation using Dask distributed computing.</p>
+<p>Submits each point as a Dask future, updates the strategy’s task
+accounting, and returns the newly finished results.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.setup_cluster">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">setup_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#setup_cluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.setup_cluster" title="Link to this definition">¶</a></dt>
+<dd><p>Set up a Dask cluster based on configuration.
+Supports both local and remote clusters.</p>
+</dd></dl>
+
+</section>
 </section>
 
         </article><button class="back-to-top" type="button">

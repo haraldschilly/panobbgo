@@ -657,6 +657,9 @@ Function evaluations can run in parallel using different engines:
 
 - **Threaded (Default)**: Evaluations run in a local thread pool. Suitable for lightweight functions or when running on a single machine.
 - **Dask Distributed**: Connects to a Dask cluster for large-scale distributed evaluation.
+  All Dask-specific code lives in :mod:`panobbgo.dask_evaluation` and is imported
+  lazily — install the optional extra (``pip install panobbgo[dask]`` or
+  ``uv sync --extra dask``) to use it.
 
 **Dask setup (optional):**
 

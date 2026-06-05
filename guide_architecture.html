@@ -807,7 +807,10 @@ by focused exploitation).</p>
 <p>Function evaluations can run in parallel using different engines:</p>
 <ul class="simple">
 <li><p><strong>Threaded (Default)</strong>: Evaluations run in a local thread pool. Suitable for lightweight functions or when running on a single machine.</p></li>
-<li><p><strong>Dask Distributed</strong>: Connects to a Dask cluster for large-scale distributed evaluation.</p></li>
+<li><p><strong>Dask Distributed</strong>: Connects to a Dask cluster for large-scale distributed evaluation.
+All Dask-specific code lives in <a class="reference internal" href="core.html#module-panobbgo.dask_evaluation" title="panobbgo.dask_evaluation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.dask_evaluation</span></code></a> and is imported
+lazily — install the optional extra (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">panobbgo[dask]</span></code> or
+<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span> <span class="pre">--extra</span> <span class="pre">dask</span></code>) to use it.</p></li>
 </ul>
 <p><strong>Dask setup (optional):</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Start local cluster with 4 workers</span>

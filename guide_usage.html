@@ -212,13 +212,13 @@ data-aria-dark="Switch to auto color mode">
 <section id="requirements">
 <h3>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p>Python ≥ 3.8</p></li>
+<li><p>Python ≥ 3.11</p></li>
 <li><p>NumPy ≥ 2.0</p></li>
 <li><p>SciPy ≥ 1.16</p></li>
 <li><p>matplotlib ≥ 3.0</p></li>
 <li><p>pandas ≥ 2.0</p></li>
 <li><p>statsmodels ≥ 0.14</p></li>
-<li><p>Dask ≥ 2023.0</p></li>
+<li><p>Dask ≥ 2026.1 (optional — only for <code class="docutils literal notranslate"><span class="pre">evaluation:</span> <span class="pre">method:</span> <span class="pre">dask</span></code>; install via the <code class="docutils literal notranslate"><span class="pre">dask</span></code> extra)</p></li>
 </ul>
 </section>
 <section id="using-uv-recommended">
@@ -249,11 +249,11 @@ data-aria-dark="Switch to auto color mode">
 <p><strong>Dask Cluster (Optional):</strong></p>
 <p>For large-scale distributed optimization, you can use a Dask cluster:</p>
 <ol class="arabic">
-<li><p><strong>Install Dask</strong>:
-.. code-block:: bash</p>
-<blockquote>
-<div><p>pip install dask[distributed]</p>
-</div></blockquote>
+<li><p><strong>Install the dask extra</strong> (Dask is not a core dependency; the backend
+lives in <a class="reference internal" href="core.html#module-panobbgo.dask_evaluation" title="panobbgo.dask_evaluation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.dask_evaluation</span></code></a> and is imported lazily):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;panobbgo[dask]&quot;</span><span class="w">     </span><span class="c1"># or: uv sync --extra dask</span>
+</span></pre></div>
+</div>
 </li>
 <li><p><strong>Start Cluster</strong>:
 .. code-block:: bash</p>

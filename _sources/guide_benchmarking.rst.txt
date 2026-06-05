@@ -709,7 +709,7 @@ space with two new ops that change the *shape* of a
 * ``add_heuristic`` — append a heuristic from a curated pool
   (``Random``, ``Nearby``, ``NelderMead``, ``Center``,
   ``LatinHypercube``, ``Sobol``, ``Extremal``, ``PSO``, ``LSHADE``,
-  ``JSO``, ``NLSHADE_RSP``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *four*
+  ``JSO``, ``NLSHADE_RSP``, ``NLSHADE_LBC``, ``COBYQA``, ``LBFGSB``) to a target strategy.  The pool ships *four*
   PSO entries — the default fully-connected ``gbest`` topology
   (Kennedy-Eberhart 1995), the ring ``lbest`` topology with
   ``k_neighbors=2`` (Kennedy & Mendes 2002), the 4-connected
@@ -743,7 +743,14 @@ space with two new ops that change the *shape* of a
   Non-Linear Population Size Reduction (``NP(r) = round((NP_min −
   NP_init)·r^(1−r) + NP_init)``), Rank-based Selective Pressure on the
   differential ``r1`` draw (``k_rank`` default ``3``), and a randomised
-  per-generation archive cap.  All four DE-family arms share the
+  per-generation archive cap.  NL-SHADE-LBC (Stanovov, Akhmedova &
+  Semenkin 2022 — CEC-2022 winner) refines NL-SHADE-RSP further with
+  **Linear Bias Change** in the success-history memory update: the F /
+  CR Lehmer-mean order ``p`` is linearly scheduled across budget
+  progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) instead of fixed
+  at ``2``; the numerator / denominator exponent spread ``m_lbc`` is
+  held constant at ``1.5`` (``m = 1`` and ``p = 2`` everywhere recovers
+  the standard L-SHADE Lehmer mean).  All five DE-family arms share the
   ``add_heuristic`` arm so the bandit picks whichever variant wins on
   the current battery.  COBYQA
   (Ragonneau-Zhang 2023) brings the modern Powell-family

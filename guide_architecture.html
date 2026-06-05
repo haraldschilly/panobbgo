@@ -483,8 +483,20 @@ archive</em> (the archive cap is resampled per generation in <code class="docuti
 Inherits the jSO mutation / schedule / anchor-memory machinery and the asynchronous pipeline
 unchanged.  The full CEC-2021 adaptive-crossover blend and success-ratio archive-probability
 adaptation are intentionally not ported (the asynchronous generation model does not expose them
-cleanly).  All four DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP) ship in the structural
-catalog so the bandit picks whichever wins on the current battery.</p></li>
+cleanly).</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.NLSHADE_LBC" title="panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC"><code class="xref py py-class docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code></a>: NL-SHADE-LBC refinement of NL-SHADE-RSP
+(Stanovov, Akhmedova &amp; Semenkin, CEC 2022 winner).  Direct subclass of
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.NLSHADE_RSP" title="panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code></a> that adds <em>Linear Bias Change</em> in the
+success-history memory update: the F / CR Lehmer-mean order <code class="docutils literal notranslate"><span class="pre">p</span></code> is linearly scheduled across
+budget progress (<code class="docutils literal notranslate"><span class="pre">p_F:</span> <span class="pre">3.5</span> <span class="pre">→</span> <span class="pre">1.5</span></code>, <code class="docutils literal notranslate"><span class="pre">p_CR:</span> <span class="pre">1.0</span> <span class="pre">→</span> <span class="pre">1.5</span></code>) instead of fixed at <code class="docutils literal notranslate"><span class="pre">2</span></code>; the spread
+between numerator and denominator exponents is held constant at <code class="docutils literal notranslate"><span class="pre">m_lbc</span> <span class="pre">=</span> <span class="pre">1.5</span></code>.  At
+<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">2,</span> <span class="pre">m</span> <span class="pre">=</span> <span class="pre">1</span></code> the formula recovers the standard L-SHADE weighted Lehmer mean — both regimes
+are reachable from the default catalog so the bandit can flip between them.  Inherits NL-SHADE-RSP’s
+NLPSR / RSP / adaptive-archive machinery and the asynchronous pipeline unchanged.  The CEC-2022
+adaptive crossover blend and repetitive-generation bound-constraint handling are intentionally not
+ported (see the heuristic docstring).  All five DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
+NL-SHADE-LBC) ship in the structural catalog so the bandit picks whichever wins on the current
+battery.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
 Clerc–Kennedy (2002) constriction-coefficient parameters (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">χ</span> <span class="pre">≈</span> <span class="pre">0.7298</span></code>, <code class="docutils literal notranslate"><span class="pre">c1</span> <span class="pre">=</span> <span class="pre">c2</span> <span class="pre">≈</span> <span class="pre">1.49618</span></code>).
 Each particle carries a position, a velocity, and a memory of its personal best; on every step

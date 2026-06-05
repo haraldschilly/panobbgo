@@ -2,6 +2,40 @@
 
 ## Recent Improvements (continued)
 
+### RegionUCB heuristic — UCB1 allocation over Splitter leaves — 2026-06-05
+- [x] **New heuristic `panobbgo/heuristics/region_ucb.py`** (`RegionUCB`):
+      treats the Splitter tree's leaves as bandit arms (LA-MCTS / DIRECT
+      spirit), selects a leaf via a UCB1-style score
+      (rank-based quality from the leaf's best penalty + `ucb_c *
+      sqrt(log N / n_leaf)`; empty leaves first), and samples
+      candidates *inside* the chosen box (uniform + Gaussian around the
+      leaf best, clipped).  Because placement is steered by the heuristic
+      itself, the existing strategy-level bandits handle credit
+      assignment with no core changes.
+- [x] **Harness wiring** — `Rewarding_RegionUCB` spec in
+      `_make_standard_strategies()` (= `Rewarding_Diverse` pool +
+      `RegionUCB` arm, so the score delta isolates region allocation).
+      Deliberately *not* in quick mode: at 75 evals the Splitter yields
+      too few leaves to matter (15-rep quick A/B was a tie), and
+      `test_quick_strategies_unchanged` guards quick mode at 2 specs.
+- [x] **Measured (standard mode, 10 reps, seed 42)** —
+      StyblinskiTang_2D +0.302 score (SR 0.20→0.50), Rosenbrock_2D
+      −0.167 (exploration tax on a unimodal valley), others tied;
+      net per-strategy mean +0.019 vs `Rewarding_Diverse`.  Rosenbrock_5D
+      median distance halved (9.64→4.97) without reaching tolerance.
+      Artifacts: `ab_region_ucb_standard.json`.
+- **Design rationale.**  Replaces the per-region *strategy* prototype
+  (parked in `sketchpad/grok_per_region_bandit_strategy.py`): a
+  strategy-level per-leaf bandit cannot steer point placement because
+  heuristics autonomously push into their output queues — the strategy
+  only chooses whose queue to drain — and selection/reward then operate
+  on different leaves.  Inverting the decomposition (bandit over
+  *regions* inside a heuristic, strategy bandit over *heuristics* as
+  before) keeps statistics dense and needs no `StrategyBase` changes.
+- **Follow-ups**: tune `ucb_c` / `gauss_fraction` via the
+  self-improvement catalog; consider volume-aware exploration term
+  (DIRECT-style) and parent-posterior inheritance on splits.
+
 ### Stochastic-K stagnation rebuild for the random PSO topology — 2026-06-05
 - [x] **Opt-in `PSO.stagnation_threshold` kwarg** in
       `panobbgo/heuristics/pso.py`; closes the *Per-iteration

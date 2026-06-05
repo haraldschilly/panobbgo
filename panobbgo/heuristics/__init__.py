@@ -50,6 +50,7 @@ from .repair import ConstraintRepair
 from .cma_es import CMAES
 from .pso import PSO
 from .cobyqa import COBYQA
+from .region_ucb import RegionUCB
 
 __all__ = [
     "Center",
@@ -78,4 +79,5 @@ __all__ = [
     "CMAES",
     "PSO",
     "COBYQA",
+    "RegionUCB",
 ]

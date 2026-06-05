@@ -27,7 +27,6 @@ dependencies = [
     "pandas>=2.3",
     "scikit-learn>=1.8",
     "statsmodels>=0.14.6",
-    "dask[distributed]>=2026.1.1",
     "pyyaml>=6.0.3",
     "future",
     "rich>=14.2.0",
@@ -40,6 +39,11 @@ requires-python = ">=3.11"
 "Homepage" = "http://github.com/haraldschilly/panobbgo"
 
 [project.optional-dependencies]
+# Distributed evaluation backend (evaluation_method = "dask") — optional
+# since the framework only imports it lazily via panobbgo/dask_evaluation.py.
+dask = [
+    "dask[distributed]>=2026.1.1",
+]
 benchmark = [
     "coco-experiment>=2.6",
     # IOH (ioh>=0.3.22) lives in the isolated `tools/ioh_worker/` uv
@@ -55,6 +59,8 @@ dev = [
     # pytest-retry powers @pytest.mark.flaky — without it here, the markers
     # are a silent no-op in CI (which installs via `uv sync --extra dev`).
     "pytest-retry>=1.7.0",
+    # dask is an optional runtime extra; the dask backend tests need it.
+    "dask[distributed]>=2026.1.1",
     "flake8>=7.3",
     "ruff>=0.14.13",
     "mypy>=1.19",
@@ -102,6 +108,7 @@ reportPrivateImportUsage = "warning"
 
 [dependency-groups]
 dev = [
+    "dask[distributed]>=2026.1.1",
     "flake8>=7.3.0",
     "pyright>=1.1.407",
     "pytest-benchmark>=5.2.3",

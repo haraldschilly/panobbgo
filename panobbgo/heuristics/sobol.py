@@ -56,6 +56,18 @@ class Sobol(Heuristic):
     independence — without that, every run would produce the same points
     and there would be no per-rep variance to average over.
 
+    Note: the quick-mode ``Rewarding_Diverse`` strategy ships
+    ``scramble=False`` after a 2026-05-31 ledger-evidence-driven
+    codification (three independent self-improvement loop accepts with
+    bootstrap-CI lower bound > 0; see
+    ``planning/SELF_IMPROVEMENT_LOOP.md`` §13).  At ``n=16`` in the 2-D
+    quick-mode battery the deterministic Sobol' grid is already
+    optimally space-filling, and Owen scrambling adds variance the local
+    heuristics then have to absorb — the per-rep "different points"
+    benefit is dominated by the randomized harness's per-rep instance
+    translation / rotation, which already provides the statistical
+    independence scramble normally supplies.
+
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         n: Number of points to emit.  Sobol' uniformity is best at powers

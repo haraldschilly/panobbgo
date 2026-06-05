@@ -1171,11 +1171,17 @@ The default catalog ships seven categorical rules out-of-the-box:
 Each fires only when the target spec sets the kwarg *explicitly*
 — the catalog's "param already in kwargs" predicate filters out
 specs that left the kwarg implicit (the heuristic's constructor
-default).  Of the shipped strategies, ``BayesOpt_Sobol`` sets
-``scramble=True`` so the Sobol' rule fires straight away; the
-PSO and LSHADE rules become applicable once the structural
-catalog adds an opt-in PSO / LSHADE entry with the matching
-kwarg present.
+default).  Of the shipped strategies, ``Rewarding_Diverse``
+(quick mode) sets ``scramble=False`` and ``BayesOpt_Sobol``
+(standard mode) sets ``scramble=True`` — both fire the Sobol'
+rule out of the box, so the bandit can flip either spec.  The
+``False`` setting on ``Rewarding_Diverse`` was **codified
+2026-05-31** after three independent positive accepts in the
+self-improvement loop's archived ledger — see the §13 entry
+"Codify ``Sobol.scramble=False`` in ``Rewarding_Diverse``" for
+the evidence trail.  The PSO and LSHADE rules become applicable
+once the structural catalog adds an opt-in PSO / LSHADE entry
+with the matching kwarg present.
 
 Adding more categorical rules is a one-liner:
 

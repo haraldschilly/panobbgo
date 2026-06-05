@@ -124,6 +124,39 @@
       `doc/source/guide.rst` quick-nav mention; `AGENTS.md`
       run-the-loop bash example.
 
+### Codify `Sobol.scramble=False` in `Rewarding_Diverse` — 2026-05-31
+- [x] **First ledger-evidence-driven default change in the panobbgo
+      self-improvement loop.**  `panobbgo/harness.py`
+      :func:`_make_quick_strategies` now ships ``Rewarding_Diverse``
+      with ``(Sobol, {"n": 16, "scramble": False})`` instead of the
+      historical ``scramble=True``.  Driven by three independent
+      self-improvement loop accepts (iter=9 Δ=+0.0511, iter=15
+      Δ=+0.0217, iter=17 Δ=+0.0317), each with a bootstrap-CI lower
+      bound strictly above zero and zero per-pair regression — clean
+      wins under the §6.2 statistical acceptance rule.
+- [x] **Archived the training ledger** at
+      `planning/done/self_improve_ledger_2026-05-31.jsonl` and the
+      training summary at
+      `planning/done/self_improve_summary_2026-05-31.txt` per
+      `planning/SELF_IMPROVEMENT_LOOP.md` §12.3 step 5, so the
+      bandit primes from a clean slate on the next nightly run
+      without conflating the pre- and post-codification accept
+      regimes.
+- [x] **Catalog rule preserved.**  The
+      :class:`~panobbgo.self_improve.MutationRule`
+      ``("Sobol", "scramble", "categorical_choice")`` still applies
+      to the codified spec (the predicate is "kwarg explicitly set",
+      not "kwarg value is True"); the bandit can flip back to
+      ``True`` if a future battery prefers Owen scrambling.
+- [x] **`BayesOpt_Sobol` (standard) and `harness_ioh.py` unchanged.**
+      No ledger evidence on those strategies yet — conservative move
+      is to wait for the loop to gather signal before propagating.
+- [x] **Documentation** — new §13 entry in
+      `planning/SELF_IMPROVEMENT_LOOP.md`,
+      `doc/source/guide_benchmarking.rst` categorical-rule section
+      callout, `doc/source/guide.rst` quick-nav mention, and this
+      TODO entry.
+
 ### Inactivity-guarded eps_accept relaxation — 2026-05-30
 - [x] **Three new `LoopConfig` knobs** in `panobbgo/self_improve.py`:
       `inactivity_relax_after` (default `0` = disabled),

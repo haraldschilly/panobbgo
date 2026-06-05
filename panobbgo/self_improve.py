@@ -1380,12 +1380,13 @@ def default_catalog() -> MutationCatalog:
             # Sobol' scrambling toggle (categorical).  ``scramble=True``
             # (Owen-style) keeps draws low-discrepancy but breaks the
             # exact deterministic grid; ``scramble=False`` reproduces
-            # the classic Sobol' sequence verbatim.  Different problems
-            # respond differently — scramble helps when the true
-            # optimum is *not* axis-aligned with the box, hurts when
-            # it is.  ``BayesOpt_Sobol`` sets ``scramble=True``
-            # explicitly so this rule fires out-of-the-box on the
-            # standard battery.
+            # the classic Sobol' sequence verbatim.  ``Rewarding_Diverse``
+            # was codified to ``scramble=False`` on 2026-05-31 after
+            # three independent self-improvement loop accepts (see the
+            # archived ledger in ``planning/done/``); ``BayesOpt_Sobol``
+            # still ships ``scramble=True`` so this rule fires
+            # out-of-the-box on both the quick and standard battery and
+            # the bandit is free to flip either spec.
             MutationRule(
                 strategy_pattern="",
                 class_name="Sobol",

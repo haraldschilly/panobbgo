@@ -647,3 +647,22 @@ class JSORegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         params = {(r.class_name, r.param_name) for r in rules if isinstance(r, MutationRule) and r.class_name == "JSO"}
         assert ("JSO", "NP_init") in params
         assert ("JSO", "p_best_max") in params
+        # H rule mirrors LSHADE.H; Brest et al. (2017) report H = 5 best.
+        assert ("JSO", "H") in params
+
+    def test_kwarg_catalog_jso_H_is_integer_add(self):
+        """``JSO.H`` is an integer-add rule with sensible bounds."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "JSO" and r.param_name == "H"
+        ]
+        assert len(rules) == 1
+        rule = rules[0]
+        assert rule.kind == "integer_add"
+        lo, hi = rule.bounds
+        # H >= 2 is the constructor floor; bounds must stay clear of it.
+        assert lo >= 2
+        assert hi <= 20

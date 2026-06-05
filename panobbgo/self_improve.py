@@ -1034,10 +1034,26 @@ def default_catalog() -> MutationCatalog:
       ``LSHADE.p_best_end`` — L-SHADE population, success-history
       memory size, initial and (optional, iLSHADE / jSO) terminal
       pbest greediness.
+    * ``JSO.NP_init`` / ``JSO.H`` / ``JSO.p_best_max`` — jSO
+      population, success-history memory size, and upper bound of the
+      linear ``p_best`` schedule.  Brest et al. (2017) report
+      ``H = 5`` as best for the CEC battery.
+    * ``NLSHADE_RSP.NP_init`` / ``NLSHADE_RSP.H`` /
+      ``NLSHADE_RSP.k_rank`` — NL-SHADE-RSP population,
+      success-history memory size (inherits the ``H >= 2`` anchor-bin
+      constraint from jSO), and rank-based selective-pressure
+      coefficient.
+    * ``COBYQA.initial_tr_radius`` / ``COBYQA.final_tr_radius`` —
+      Powell-family trust-region radii.
     * Categorical toggles — ``PSO.topology``
       (``gbest`` ↔ ``lbest`` ↔ ``vonneumann``), ``Sobol.scramble``
-      (``True`` ↔ ``False``), and ``LSHADE.archive_factor``
-      (``0.0`` / ``1.0`` / ``2.6``).  These use the
+      (``True`` ↔ ``False``), ``LSHADE.archive_factor``
+      (``0.0`` / ``1.0`` / ``2.6``), ``LSHADE.F_schedule``
+      (``True`` ↔ ``False``), ``NLSHADE_RSP.adaptive_archive``
+      (``True`` ↔ ``False``), ``NLSHADE_RSP.k_rank``
+      (``0.0`` / ``3.0`` / ``5.0`` — RSP-off / default / aggressive
+      regimes, alongside the continuous ``float_uniform`` rule),
+      and ``COBYQA.scale`` (``True`` ↔ ``False``).  These use the
       ``categorical_choice`` mutation kind so the loop can flip
       discrete design knobs the same way it tunes numeric ones.
 
@@ -1340,6 +1356,22 @@ def default_catalog() -> MutationCatalog:
                 high=0.4,
                 probability=0.5,
             ),
+            # jSO history memory size H.  Brest et al. report ``H = 5`` as
+            # best for the CEC battery (vs L-SHADE's H = 6).  The constructor
+            # enforces ``H >= 2`` (anchor bin requires at least one writable
+            # bin); bracket ``[4, 12]`` so the loop probes the smoothness
+            # of the success-history update without straying outside the
+            # well-behaved regime.  Mirrors the ``LSHADE.H`` rule for the
+            # subclass.
+            MutationRule(
+                strategy_pattern="",
+                class_name="JSO",
+                param_name="H",
+                kind="integer_add",
+                bounds=(4, 12),
+                delta_choices=(-2, -1, 1, 2),
+                probability=0.5,
+            ),
             # NL-SHADE-RSP (Stanovov et al. 2021) initial population size.
             # Same ``[10, 60]`` bracket as L-SHADE / jSO — they share the
             # ``current-to-pbest-w/1`` mutation skeleton and benefit from
@@ -1368,6 +1400,37 @@ def default_catalog() -> MutationCatalog:
                 bounds=(1.0, 5.0),
                 low=1.0,
                 high=5.0,
+                probability=0.5,
+            ),
+            # NL-SHADE-RSP ``k_rank`` regime toggle (categorical).  Three
+            # literature-canonical settings: ``0.0`` (uniform ``r1``
+            # selection, recovers jSO behaviour and lets the bandit flip
+            # an RSP-on instance to RSP-off without dropping the heuristic),
+            # ``3.0`` (the Stanovov et al. 2018 / 2021 RSP default), and
+            # ``5.0`` (more aggressive rank pressure for highly multi-modal
+            # landscapes).  Sits alongside the ``float_uniform`` rule so
+            # the bandit can either continuously walk ``k_rank`` or jump
+            # between qualitatively distinct regimes.  Fires whenever a
+            # spec sets ``k_rank`` explicitly — the structural-catalog
+            # candidate does.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="k_rank",
+                kind="categorical_choice",
+                choices=(0.0, 3.0, 5.0),
+                probability=0.3,
+            ),
+            # NL-SHADE-RSP history memory size H.  Symmetric with the
+            # ``LSHADE.H`` / ``JSO.H`` rules; bracket ``[4, 12]``.  Fires
+            # whenever a spec sets ``H`` explicitly.
+            MutationRule(
+                strategy_pattern="",
+                class_name="NLSHADE_RSP",
+                param_name="H",
+                kind="integer_add",
+                bounds=(4, 12),
+                delta_choices=(-2, -1, 1, 2),
                 probability=0.5,
             ),
             # NL-SHADE-RSP randomised-archive toggle (categorical).  When
@@ -1521,6 +1584,23 @@ def default_catalog() -> MutationCatalog:
                 bounds=(1e-8, 1e-4),
                 log_step=0.25,
                 probability=0.5,
+            ),
+            # COBYQA box-rescaling toggle (categorical).  ``True`` (the
+            # default) rescales the variables to ``[-1, 1]`` based on the
+            # box bounds so the interpolation geometry stays
+            # well-conditioned on boxes whose axes span very different
+            # magnitudes; ``False`` runs COBYQA on the raw box.  Useful
+            # when the problem's box is already isotropic and the rescale
+            # adds rounding noise that hurts the quadratic-model fit.
+            # Only fires when a spec sets ``scale`` explicitly (the
+            # default kwarg is ``True``).
+            MutationRule(
+                strategy_pattern="",
+                class_name="COBYQA",
+                param_name="scale",
+                kind="categorical_choice",
+                choices=(True, False),
+                probability=0.3,
             ),
         ]
     )

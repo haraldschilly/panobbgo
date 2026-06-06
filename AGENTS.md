@@ -379,6 +379,22 @@ The harness is the measurement substrate for an autonomous
     unclamped in the final 10%); jSO opts into the cap by
     construction so `JSO` is always literature-faithful regardless of
     the catalog rule's verdict on L-SHADE.
+*   Numeric `Restart.patience` rule (`integer_add`,
+    `bounds=(3, 200)`) — **shipped 2026-06-06**, the more
+    impactful of the two :class:`Restart` knobs (alongside
+    the existing `Restart.max_restarts`).  Fires only when a
+    spec sets `patience` to a concrete integer; the `None`
+    auto-default sentinel (= `5 · dim`) is filtered by
+    :func:`_find_targets`'s `None`-skip predicate.  Pairs
+    with the symmetric `LBFGSB.max_starts` rule shipped in
+    the same change.
+*   Numeric `LBFGSB.max_starts` rule (`integer_add`,
+    `bounds=(1, 50)`) — **shipped 2026-06-06**, caps the
+    multi-start L-BFGS-B restart budget.  Fires only when a
+    spec sets `max_starts` to a concrete integer; the `None`
+    auto-default sentinel (= unlimited until budget) is
+    filtered by :func:`_find_targets`'s `None`-skip
+    predicate.
 *   Numeric `PSO.stagnation_threshold` rule (`integer_add`,
     `bounds=(5, 60)`) — **shipped 2026-06-05**, see
     :attr:`panobbgo.heuristics.pso.PSO.stagnation_threshold`.

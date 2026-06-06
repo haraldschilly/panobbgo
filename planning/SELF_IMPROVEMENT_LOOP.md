@@ -652,6 +652,113 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-06-06 — Catalog rules for the under-tuned Restart.patience and LBFGSB.max_starts dials
+
+* **What** — `panobbgo/self_improve.py`: :func:`default_catalog` gains two
+  ``integer_add`` :class:`MutationRule` entries that fill known gaps in
+  the analyzer / local-optimizer dial coverage:
+
+  * ``Restart.patience`` — ``integer_add`` with ``bounds=(3, 200)`` and
+    ``delta_choices=(-20, -10, -5, 5, 10, 20)``.  Counts consecutive
+    non-improvement evaluations before a restart fires; the more
+    impactful of the two :class:`~panobbgo.analyzers.restart.Restart`
+    dials (alongside the existing ``Restart.max_restarts`` rule).  The
+    analyzer's default is ``5 · dim`` (auto-derived at ``__start__``);
+    the built-in factories (``IPOP_CMAES`` in the standard battery,
+    ``BIPOP_CMAES`` in the full battery) deliberately ship
+    ``patience=None`` to opt into the auto-default.
+  * ``LBFGSB.max_starts`` — ``integer_add`` with ``bounds=(1, 50)`` and
+    ``delta_choices=(-5, -2, -1, 1, 2, 5)``.  Caps the multi-start
+    L-BFGS-B restart budget; ``1`` reduces the heuristic to a pure
+    box-centre descent, larger values give the random-restart layer
+    more chances to find a different basin.  The heuristic's default
+    is ``None`` (= unlimited until the strategy budget is exhausted);
+    the structural catalog's ``add_heuristic`` candidate ships
+    ``{}`` (also auto-default).
+
+  Both rules fire only when a spec sets the matching kwarg to a
+  *concrete non-``None`` value*.  This required a one-line change to
+  :func:`_find_targets`: the "param already in kwargs" predicate now
+  also requires ``kwargs[param_name] is not None`` — ``None`` is the
+  auto-default sentinel a number of heuristics use, and numeric
+  mutation kinds (``integer_add`` / ``float_uniform`` /
+  ``log_uniform_perturb``) cannot meaningfully perturb it.  The
+  ``None``-skip is uniform across rule kinds and applies to every
+  catalog rule, not just the two new ones, but is behaviourally inert
+  for the previously-shipped catalog because no prior rule's target
+  spec carried a ``None``-valued kwarg.
+* **Why** — closes two of the *Next iteration ideas* tickets in one
+  focused PR:
+
+  * *``Restart.patience`` mutation rule* (the most-impactful Restart
+    knob — controls how aggressively the optimizer restarts when stuck).
+  * *``LBFGSB.max_starts`` catalog rule* under the *LBFGSB follow-ups*
+    block — lets the loop tune the multi-start exploration /
+    exploitation balance the same way ``LSHADE.archive_factor`` is
+    tuned.
+
+  Both fit the established opt-in catalog pattern (the kwarg-explicit
+  predicate from :func:`_find_targets`) and the ``integer_add`` numeric-
+  rule shape shared by ``LSHADE.NP_init`` / ``LSHADE.H`` /
+  ``Restart.max_restarts`` / ``Sensitivity.update_interval``.  Per-class
+  ``__name__`` matching means each rule lives in exactly one
+  ``(class, param, kind)`` bandit arm, so the per-class structural
+  bandit arms (shipped 2026-05-18) can learn each independently.
+* **Impact** — pure catalog expansion: two new bandit arms.  No
+  behavioural change to existing strategies (kwarg-explicit predicate),
+  no shifts to the historical composite-score baseline, no new
+  dependencies.  The value is unlocked once a spec explicitly sets the
+  kwarg or once the bandit accumulates per-arm reward history — the
+  same delayed-payoff shape every prior catalog expansion has shown
+  (cf. the 2026-06-04 ship for ``JSO.H`` /
+  ``NLSHADE_RSP.H`` / ``NLSHADE_RSP.k_rank`` / ``COBYQA.scale``).
+  *Evidence form (per AGENTS.md "Agent-driven improve X PRs"): the
+  change is strictly additive — pure bandit-vocabulary expansion with
+  no alteration to the default battery — and queued for nightly loop
+  validation.*
+* **Backwards compatibility** — strictly safe.  Each new rule fires
+  only when the target spec sets the matching kwarg to a concrete
+  non-``None`` integer (existing :func:`_find_targets` semantics
+  extended with the ``None``-skip); no default
+  ``_make_quick_strategies`` / ``_make_standard_strategies`` /
+  ``_make_full_strategies`` spec is modified.  The :class:`Restart`
+  analyzer instances in ``IPOP_CMAES`` / ``BIPOP_CMAES`` ship
+  ``patience=None`` so they remain inert under the new rule.  Existing
+  ledgers are untouched.  The ``None``-skip is behaviourally inert for
+  all previously-shipped catalog rules (no prior rule's target spec
+  carries a ``None``-valued kwarg, as verified by the existing
+  ``test_default_catalog_has_*`` tests).
+* **Tests** — 5 new tests:
+  ``tests/test_analyzer_restart.py`` (+2 —
+  ``test_kwarg_catalog_has_restart_patience_rule`` asserts the rule
+  is present with the documented ``integer_add`` kind, bounds, and a
+  symmetric ``delta_choices`` cone;
+  ``test_restart_patience_rule_skips_none_sentinel`` asserts the rule
+  never proposes against a ``patience=None`` spec and always
+  proposes against a ``patience=25`` spec, with the new value clamped
+  to bounds);
+  ``tests/test_heuristic_lbfgsb.py`` (+2 — symmetric pair for
+  ``LBFGSB.max_starts``);
+  ``tests/test_self_improve.py`` (+1 —
+  ``test_applicable_rules_skips_none_value`` asserts the
+  :func:`_find_targets` predicate change is uniform across rule
+  kinds, not just for the two new rules).  Full suite still passes
+  on the touched files (286 tests).
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *``Restart.patience`` mutation rule* and *``LBFGSB.max_starts``
+    catalog rule* next-iteration entries promoted from "open" to
+    "shipped".
+  - `panobbgo/self_improve.py`: :func:`default_catalog` docstring
+    lists the two new entries alongside the existing dials.
+  - `doc/source/guide.rst`: quick-nav entry mentions the
+    catalog-completion ``Restart.patience`` and ``LBFGSB.max_starts``
+    rules.
+  - `doc/source/guide_benchmarking.rst`: kwarg catalog list extended
+    with the two new entries.
+  - `AGENTS.md`: kwarg catalog rule list bumped with the two new
+    entries.
+
 ### 2026-06-05 — Stochastic-K stagnation rebuild for the random PSO topology (Clerc 2007 / SPSO 2011)
 
 * **What** — `panobbgo/heuristics/pso.py`: :class:`PSO` gains an
@@ -3575,11 +3682,13 @@ follow-ups:
   Needs a small protocol extension (the worker requests an ``x0`` from
   the parent at the start of each round rather than drawing it locally),
   because the global best is only known parent-side.
-- **`LBFGSB.max_starts` catalog rule.** ``max_starts`` defaults to
-  ``None`` (unlimited until budget).  An ``integer_add`` or
-  ``categorical_choice`` rule that fires when a spec sets it explicitly
-  would let the loop tune the exploration / exploitation balance of the
-  multi-start schedule, the same way ``LSHADE.archive_factor`` is tuned.
+- **`LBFGSB.max_starts` catalog rule — shipped 2026-06-06**.
+  ``default_catalog`` gains an ``integer_add`` rule with
+  ``bounds=(1, 50)`` that fires when a spec sets ``max_starts`` to a
+  concrete positive integer (the ``None`` auto-default sentinel is
+  skipped by :func:`_find_targets`).  Lets the loop tune the
+  exploration / exploitation balance of the multi-start schedule, the
+  same way ``LSHADE.archive_factor`` is tuned.  See the §13 entry.
 
 #### Analyzer add/drop follow-ups (after 2026-06-02 ship)
 
@@ -3623,23 +3732,23 @@ motivate the work:
   after the analyzer ops have accumulated ledger evidence and
   motivated the cost.
 
-#### `Restart.patience` mutation rule
+#### `Restart.patience` mutation rule — shipped 2026-06-06
 
-The :class:`~panobbgo.analyzers.restart.Restart` analyzer takes both a
-``max_restarts`` knob (currently in :func:`default_catalog` as an
-``integer_add`` rule) and a ``patience`` knob (consecutive
-non-improvement evaluations before a restart fires, default ``5 · dim``).
-``patience`` is the more impactful of the two — it controls how
-aggressively the optimizer restarts when stuck — but the catalog has
-no rule for it.  A natural follow-up after the 2026-06-04 catalog-
-completion ship is to add ``MutationRule(class_name="Restart",
-param_name="patience", kind="integer_add", bounds=(3, 200),
-delta_choices=(-20, -10, -5, 5, 10, 20))`` so the loop can probe
-the restart cadence.  Fires whenever a spec sets ``patience``
-explicitly — currently no built-in factory does, so it stays opt-in.
-Could pair with a categorical option for the auto-defaulted
-``5 · dim`` rule (``None`` ↔ explicit values) once the dependent-
-kwarg pattern lands.
+``default_catalog`` gains an ``integer_add`` rule with
+``bounds=(3, 200)`` and ``delta_choices=(-20, -10, -5, 5, 10, 20)``
+that fires whenever a spec sets ``patience`` to a concrete positive
+integer (the ``None`` auto-default sentinel is skipped by
+:func:`_find_targets`).  See the §13 entry.  Currently no built-in
+factory ships an explicit ``patience`` value — the structural catalog's
+``add_analyzer`` Restart candidate and the standard / full battery's
+``IPOP_CMAES`` / ``BIPOP_CMAES`` specs all ship ``patience=None`` and
+inherit the ``5 · dim`` auto-default — so the rule stays opt-in until
+a future spec or mutation sets ``patience`` explicitly.  Natural
+follow-up: a *categorical-with-dependent-kwarg* rule pattern that
+would let the loop flip between ``None`` (auto-default) and a curated
+discrete pool (e.g. ``{5, 10, 25, 50}``), bringing the auto-default
+sentinel inside the bandit's reach.  Speculative — none of the
+existing categorical rules need a dependent-kwarg shape.
 
 #### Ship a jSO-tuned `LSHADE_jSO` strategy in `_make_standard_strategies`
 

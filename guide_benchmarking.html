@@ -1371,6 +1371,32 @@ self-improvement loop’s archived ledger — see the §13 entry
 the evidence trail.  The PSO and LSHADE rules become applicable
 once the structural catalog adds an opt-in PSO / LSHADE entry
 with the matching kwarg present.</p>
+<p>Likewise, the kwarg catalog also covers two under-tuned
+analyzer / local-optimizer dials whose default values are the
+<code class="docutils literal notranslate"><span class="pre">None</span></code> sentinel for the heuristic-internal auto-default:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Restart.patience</span></code> (<code class="docutils literal notranslate"><span class="pre">integer_add</span></code>, <code class="docutils literal notranslate"><span class="pre">bounds=(3,</span> <span class="pre">200)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">delta_choices=(-20,</span> <span class="pre">-10,</span> <span class="pre">-5,</span> <span class="pre">5,</span> <span class="pre">10,</span> <span class="pre">20)</span></code>) — the more
+impactful of the two <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>
+knobs, controlling how aggressively the optimizer restarts when
+stuck.  The analyzer’s default is <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">·</span> <span class="pre">dim</span></code> (auto-derived at
+<code class="docutils literal notranslate"><span class="pre">__start__</span></code>); the built-in factories ship <code class="docutils literal notranslate"><span class="pre">patience=None</span></code> and
+inherit the auto-default, so the rule stays opt-in until a future
+spec or mutation sets <code class="docutils literal notranslate"><span class="pre">patience</span></code> to a concrete integer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LBFGSB.max_starts</span></code> (<code class="docutils literal notranslate"><span class="pre">integer_add</span></code>, <code class="docutils literal notranslate"><span class="pre">bounds=(1,</span> <span class="pre">50)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">delta_choices=(-5,</span> <span class="pre">-2,</span> <span class="pre">-1,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">5)</span></code>) — caps the multi-start
+L-BFGS-B restart budget; <code class="docutils literal notranslate"><span class="pre">1</span></code> reduces the heuristic to a pure
+box-centre descent, larger values give the random-restart layer
+more chances to find a different basin.  The heuristic’s default
+is <code class="docutils literal notranslate"><span class="pre">None</span></code> (unlimited until the strategy budget is exhausted).</p></li>
+</ul>
+<p>Both rules require <code class="xref py py-func docutils literal notranslate"><span class="pre">_find_targets()</span></code>’s
+<strong>``None``-skip</strong> — the “param already in kwargs” predicate also
+demands that the value is not <code class="docutils literal notranslate"><span class="pre">None</span></code>, so a spec that ships the
+auto-default sentinel is filtered out instead of crashing
+<code class="docutils literal notranslate"><span class="pre">int(None)</span> <span class="pre">+</span> <span class="pre">delta</span></code>.  The <code class="docutils literal notranslate"><span class="pre">None</span></code>-skip is uniform across all
+rule kinds (not just <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>) and is behaviourally inert
+for every previously-shipped catalog rule.</p>
 <p>Adding more categorical rules is a one-liner:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">MutationRule</span><span class="p">,</span> <span class="n">MutationCatalog</span><span class="p">,</span> <span class="n">default_catalog</span>
 </span><span data-line="2">

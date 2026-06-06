@@ -2,6 +2,37 @@
 
 ## Recent Improvements (continued)
 
+### Catalog rules for `Restart.patience` and `LBFGSB.max_starts` — 2026-06-06
+- [x] **Two new `integer_add` `MutationRule` entries on
+      `default_catalog`** (`panobbgo/self_improve.py`):
+      - `Restart.patience` (`bounds=(3, 200)`,
+        `delta_choices=(-20, -10, -5, 5, 10, 20)`) — the more
+        impactful of the two `Restart` knobs, alongside the existing
+        `Restart.max_restarts` rule.  Closes the *Restart.patience
+        mutation rule* next-iteration ticket.
+      - `LBFGSB.max_starts` (`bounds=(1, 50)`,
+        `delta_choices=(-5, -2, -1, 1, 2, 5)`) — multi-start L-BFGS-B
+        restart budget cap.  Closes the *LBFGSB.max_starts catalog
+        rule* next-iteration ticket under the *LBFGSB follow-ups*
+        block.
+- [x] **`_find_targets` None-skip** — the "param already in kwargs"
+      predicate now also requires `kwargs[param_name] is not None`.
+      `None` is the auto-default sentinel a number of heuristics use
+      (`Restart.patience → 5·dim`, `LBFGSB.max_starts → unlimited`),
+      and numeric mutation kinds cannot meaningfully perturb it.
+      Behaviourally inert for every previously-shipped catalog rule
+      (no prior rule's target spec carries a `None`-valued kwarg).
+- [x] **Tests** — 5 new tests:
+      - `tests/test_self_improve.py::TestMutationCatalog::test_applicable_rules_skips_none_value`
+      - `tests/test_analyzer_restart.py::test_kwarg_catalog_has_restart_patience_rule`
+      - `tests/test_analyzer_restart.py::test_restart_patience_rule_skips_none_sentinel`
+      - `tests/test_heuristic_lbfgsb.py::LBFGSBRegistrationTests::test_kwarg_catalog_has_max_starts_rule`
+      - `tests/test_heuristic_lbfgsb.py::LBFGSBRegistrationTests::test_max_starts_rule_skips_none_sentinel`
+- [x] **Docs**: `planning/SELF_IMPROVEMENT_LOOP.md` §13 entry +
+      promoted next-iteration tickets; `doc/source/guide.rst`
+      quick-nav; `doc/source/guide_benchmarking.rst` kwarg-catalog
+      list; `AGENTS.md` rule list.
+
 ### RegionUCB heuristic — UCB1 allocation over Splitter leaves — 2026-06-05
 - [x] **New heuristic `panobbgo/heuristics/region_ucb.py`** (`RegionUCB`):
       treats the Splitter tree's leaves as bandit arms (LA-MCTS / DIRECT

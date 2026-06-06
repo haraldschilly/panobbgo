@@ -209,3 +209,83 @@ def test_restart_with_constraint_handler():
     r2 = Result(Point(np.array([0.0, 0.0]), "test"), fx=10.0, cv_vec=np.array([1.0]))
     r.on_new_results([r2])
     assert r.restart_count == 1
+
+
+# ----------------------------------------------------------------------
+# Self-improvement loop catalog rules
+# ----------------------------------------------------------------------
+
+
+def test_kwarg_catalog_has_restart_patience_rule():
+    """``default_catalog`` ships a ``Restart.patience`` integer_add rule.
+
+    The rule lets the autonomous loop tune the restart cadence on specs
+    that opt into a concrete ``patience`` value; the structural catalog
+    and the built-in factories that ship ``patience=None`` (the
+    auto-default sentinel) are filtered out by :func:`_find_targets`'s
+    ``None``-skip predicate.
+    """
+    from panobbgo.self_improve import MutationRule, default_catalog
+
+    rules = [
+        r
+        for r in default_catalog().rules
+        if isinstance(r, MutationRule) and r.class_name == "Restart" and r.param_name == "patience"
+    ]
+    assert len(rules) == 1, "expected exactly one Restart.patience rule"
+    rule = rules[0]
+    assert rule.kind == "integer_add"
+    assert rule.bounds == (3, 200)
+    # Both halves of the perturbation cone should be reachable.
+    assert any(d < 0 for d in rule.delta_choices)
+    assert any(d > 0 for d in rule.delta_choices)
+
+
+def test_restart_patience_rule_skips_none_sentinel():
+    """The ``Restart.patience`` rule must skip specs that ship
+    ``patience=None`` — i.e. the heuristic-internal auto-default — so
+    the loop cannot try to perturb a sentinel value.
+
+    Without the ``None``-skip in :func:`_find_targets` the integer_add
+    rule would attempt ``int(None) + delta`` and crash mid-run on the
+    IPOP_CMAES / BIPOP_CMAES strategies in the default battery.
+    """
+    import numpy as np
+
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.self_improve import MutationCatalog, MutationRule
+    from panobbgo.strategies.rewarding import StrategyRewarding
+    from panobbgo.analyzers.restart import Restart as RestartAnalyzer
+
+    rule = MutationRule(
+        strategy_pattern="",
+        class_name="Restart",
+        param_name="patience",
+        kind="integer_add",
+        bounds=(3, 200),
+        delta_choices=(-20, -10, -5, 5, 10, 20),
+        probability=1.0,
+    )
+
+    spec_none = StrategySpec(
+        name="StratNone",
+        strategy_class=StrategyRewarding,
+        heuristics=[],
+        analyzers=[(RestartAnalyzer, {"patience": None})],
+    )
+    spec_int = StrategySpec(
+        name="StratInt",
+        strategy_class=StrategyRewarding,
+        heuristics=[],
+        analyzers=[(RestartAnalyzer, {"patience": 25})],
+    )
+    cat = MutationCatalog([rule])
+    rng = np.random.default_rng(0)
+
+    # Only the int-valued spec should ever be mutated.
+    for _ in range(30):
+        prop = cat.sample(rng, [spec_none, spec_int])
+        assert prop is not None
+        assert prop.strategy_name == "StratInt"
+        assert prop.old_value == 25
+        assert 3 <= int(prop.new_value) <= 200

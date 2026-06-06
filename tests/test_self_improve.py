@@ -280,6 +280,36 @@ class TestMutationCatalog:
         cat = MutationCatalog(rules)
         assert cat.applicable_rules(_make_specs()) == []
 
+    def test_applicable_rules_skips_none_value(self):
+        """Rule for an existing kwarg explicitly set to ``None`` should be
+        skipped — ``None`` is the sentinel a number of heuristics use
+        ("use the auto-default") and numeric mutation kinds cannot
+        perturb it.
+
+        Concretely, the ``Restart.patience`` and ``LBFGSB.max_starts``
+        rules in :func:`default_catalog` rely on this so they can
+        co-exist with built-in specs that ship the kwarg as ``None``.
+        """
+        rules = [
+            MutationRule(
+                strategy_pattern="",
+                class_name="_DummyHeuristicA",
+                param_name="radius",
+                kind="float_uniform",
+                bounds=(0.0, 1.0),
+            ),
+        ]
+        # Build a spec where ``radius`` is explicitly None (the sentinel).
+        specs = [
+            StrategySpec(
+                name="StratNone",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"radius": None})],
+            )
+        ]
+        cat = MutationCatalog(rules)
+        assert cat.applicable_rules(specs) == []
+
     def test_strategy_pattern_filters(self):
         rules = [
             MutationRule(

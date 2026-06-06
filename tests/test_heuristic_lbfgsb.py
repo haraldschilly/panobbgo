@@ -393,6 +393,76 @@ class LBFGSBRegistrationTests(PanobbgoTestCase):
                     candidate_classes.append(cls)
         assert LBFGSB in candidate_classes
 
+    def test_kwarg_catalog_has_max_starts_rule(self):
+        """``default_catalog`` ships an ``LBFGSB.max_starts`` integer_add rule.
+
+        The rule lets the autonomous loop tune the multi-start restart
+        budget on specs that opt into a concrete ``max_starts`` value;
+        the heuristic's ``None`` default (= unlimited until budget) is
+        filtered out by :func:`_find_targets`'s ``None``-skip predicate.
+        """
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "LBFGSB" and r.param_name == "max_starts"
+        ]
+        assert len(rules) == 1, "expected exactly one LBFGSB.max_starts rule"
+        rule = rules[0]
+        assert rule.kind == "integer_add"
+        assert rule.bounds == (1, 50)
+        # Both halves of the perturbation cone should be reachable.
+        assert any(d < 0 for d in rule.delta_choices)
+        assert any(d > 0 for d in rule.delta_choices)
+
+    def test_max_starts_rule_skips_none_sentinel(self):
+        """The ``LBFGSB.max_starts`` rule must skip specs that ship
+        ``max_starts=None`` — i.e. the heuristic-internal auto-default
+        (unlimited until budget) — so the loop cannot try to perturb
+        the sentinel value.
+
+        Without the ``None``-skip in :func:`_find_targets` the
+        integer_add rule would attempt ``int(None) + delta`` and crash
+        when applied to the structural catalog's bare LBFGSB candidate.
+        """
+        import numpy as np
+
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.self_improve import MutationCatalog, MutationRule
+        from panobbgo.strategies.rewarding import StrategyRewarding
+
+        rule = MutationRule(
+            strategy_pattern="",
+            class_name="LBFGSB",
+            param_name="max_starts",
+            kind="integer_add",
+            bounds=(1, 50),
+            delta_choices=(-5, -2, -1, 1, 2, 5),
+            probability=1.0,
+        )
+
+        spec_none = StrategySpec(
+            name="StratNone",
+            strategy_class=StrategyRewarding,
+            heuristics=[(LBFGSB, {"max_starts": None})],
+        )
+        spec_int = StrategySpec(
+            name="StratInt",
+            strategy_class=StrategyRewarding,
+            heuristics=[(LBFGSB, {"max_starts": 10})],
+        )
+        cat = MutationCatalog([rule])
+        rng = np.random.default_rng(0)
+
+        # Only the int-valued spec should ever be mutated.
+        for _ in range(30):
+            prop = cat.sample(rng, [spec_none, spec_int])
+            assert prop is not None
+            assert prop.strategy_name == "StratInt"
+            assert prop.old_value == 10
+            assert 1 <= int(prop.new_value) <= 50
+
 
 # ----------------------------------------------------------------------
 # End-to-end smoke: a dedicated L-BFGS-B descent cracks Rosenbrock,

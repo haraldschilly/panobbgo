@@ -1183,6 +1183,33 @@ the evidence trail.  The PSO and LSHADE rules become applicable
 once the structural catalog adds an opt-in PSO / LSHADE entry
 with the matching kwarg present.
 
+Likewise, the kwarg catalog also covers two under-tuned
+analyzer / local-optimizer dials whose default values are the
+``None`` sentinel for the heuristic-internal auto-default:
+
+* ``Restart.patience`` (``integer_add``, ``bounds=(3, 200)``,
+  ``delta_choices=(-20, -10, -5, 5, 10, 20)``) — the more
+  impactful of the two :class:`~panobbgo.analyzers.restart.Restart`
+  knobs, controlling how aggressively the optimizer restarts when
+  stuck.  The analyzer's default is ``5 · dim`` (auto-derived at
+  ``__start__``); the built-in factories ship ``patience=None`` and
+  inherit the auto-default, so the rule stays opt-in until a future
+  spec or mutation sets ``patience`` to a concrete integer.
+* ``LBFGSB.max_starts`` (``integer_add``, ``bounds=(1, 50)``,
+  ``delta_choices=(-5, -2, -1, 1, 2, 5)``) — caps the multi-start
+  L-BFGS-B restart budget; ``1`` reduces the heuristic to a pure
+  box-centre descent, larger values give the random-restart layer
+  more chances to find a different basin.  The heuristic's default
+  is ``None`` (unlimited until the strategy budget is exhausted).
+
+Both rules require :func:`~panobbgo.self_improve._find_targets`'s
+**``None``-skip** — the "param already in kwargs" predicate also
+demands that the value is not ``None``, so a spec that ships the
+auto-default sentinel is filtered out instead of crashing
+``int(None) + delta``.  The ``None``-skip is uniform across all
+rule kinds (not just ``integer_add``) and is behaviourally inert
+for every previously-shipped catalog rule.
+
 Adding more categorical rules is a one-liner:
 
 .. code-block:: python

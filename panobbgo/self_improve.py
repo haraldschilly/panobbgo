@@ -476,8 +476,22 @@ def _find_targets(
     A hit is produced iff the spec name contains ``strategy_pattern`` (or
     the pattern is empty), the heuristic / analyzer class name equals
     ``class_name``, *and* ``param_name`` is already present in the kwargs
-    dict.  Locations where the class matches but the kwarg is missing are
-    intentionally skipped — we only tune existing parameters.
+    dict **with a non-``None`` value**.  Locations where the class matches
+    but the kwarg is missing are intentionally skipped — we only tune
+    existing parameters.
+
+    Kwargs explicitly set to ``None`` are also skipped: ``None`` is the
+    sentinel a number of heuristics use to mean "use the heuristic-internal
+    auto-default" (e.g. :class:`~panobbgo.analyzers.restart.Restart`
+    resolves ``patience=None`` to ``5 * dim`` at ``__start__`` time,
+    :class:`~panobbgo.heuristics.lbfgsb.LBFGSB` resolves ``max_starts=None``
+    to "unlimited until budget").  Numeric mutation kinds (``integer_add``
+    / ``float_uniform`` / ``log_uniform_perturb``) cannot meaningfully
+    perturb the ``None`` sentinel, and categorical rules typically do not
+    list ``None`` as a value either — skipping at ``_find_targets`` keeps
+    the predicate uniform across kinds and lets the catalog include
+    ``patience``- / ``max_starts``-style rules without crashing on specs
+    that opted into the auto-default sentinel.
     """
     hits: List[Tuple[int, str, int, Any]] = []
     for si, spec in enumerate(specs):
@@ -490,8 +504,12 @@ def _find_targets(
             for ei, (cls, kwargs) in enumerate(entries):
                 if cls.__name__ != class_name:
                     continue
-                if param_name in kwargs:
-                    hits.append((si, bucket_name, ei, kwargs[param_name]))
+                if param_name not in kwargs:
+                    continue
+                value = kwargs[param_name]
+                if value is None:
+                    continue
+                hits.append((si, bucket_name, ei, value))
     return hits
 
 
@@ -1127,6 +1145,14 @@ def default_catalog() -> MutationCatalog:
     * ``LatinHypercube.div`` — initial-sample coarseness.
     * ``Sobol.n`` — Sobol' initial-design sample count (powers of two).
     * ``Restart.max_restarts`` — restart budget.
+    * ``Restart.patience`` — consecutive non-improvement evaluations
+      before a restart fires.  Only fires when a spec sets ``patience``
+      to a concrete integer; the ``None`` auto-default (``5 * dim``) is
+      skipped by :func:`_find_targets`.
+    * ``LBFGSB.max_starts`` — multi-start L-BFGS-B restart budget cap.
+      Only fires when a spec sets ``max_starts`` to a concrete integer;
+      the ``None`` auto-default (unlimited until budget) is skipped by
+      :func:`_find_targets`.
     * ``PSO.NP`` / ``PSO.w`` / ``PSO.w_end`` — swarm size, initial /
       terminal inertia (Clerc-Kennedy and Shi-Eberhart parameters).
     * ``PSO.stagnation_threshold`` — stochastic-K stagnation rebuild
@@ -1218,6 +1244,53 @@ def default_catalog() -> MutationCatalog:
                 kind="integer_add",
                 bounds=(1, 20),
                 delta_choices=(-2, -1, 1, 2),
+                probability=0.5,
+            ),
+            # Restart patience — the more impactful of the two Restart
+            # dials.  Counts the number of consecutive non-improvement
+            # evaluations before a restart is triggered.  The analyzer's
+            # default is ``5 * dim`` (auto-derived at ``__start__``);
+            # the built-in factories deliberately ship ``patience=None``
+            # to opt into the auto-default, so this rule only fires when
+            # a spec sets ``patience`` to a concrete integer
+            # (the ``None``-skip in :func:`_find_targets`).  Bounds
+            # ``[3, 200]`` bracket the practical range: 3 is the
+            # smallest useful value (trigger restarts as soon as
+            # stagnation is detected on tiny problems), 200 keeps the
+            # restart cadence above the per-evaluation tick rate even
+            # on the longest-budget runs.  Delta choices are
+            # asymmetric-by-magnitude so the bandit can probe both
+            # nearby and farther-away cadences.
+            MutationRule(
+                strategy_pattern="",
+                class_name="Restart",
+                param_name="patience",
+                kind="integer_add",
+                bounds=(3, 200),
+                delta_choices=(-20, -10, -5, 5, 10, 20),
+                probability=0.5,
+            ),
+            # LBFGSB multi-start budget cap.  ``max_starts`` defaults to
+            # ``None`` (= unlimited until the strategy budget is
+            # exhausted) and is auto-resolved on the heuristic; this
+            # rule only fires when a spec sets ``max_starts`` to a
+            # concrete positive integer (the ``None``-skip in
+            # :func:`_find_targets`).  Bounds ``[1, 50]`` bracket the
+            # exploration / exploitation trade-off: 1 = pure box-centre
+            # descent (no random restarts; useful on smooth unimodal
+            # problems), 50 = highly aggressive multi-start (useful on
+            # multi-modal problems where a single basin is unlikely to
+            # win the run).  Step sizes mirror ``Restart.max_restarts``
+            # — small enough that one accept does not catapult the dial
+            # across regimes, large enough that the bandit can climb the
+            # surface in a handful of accepts.
+            MutationRule(
+                strategy_pattern="",
+                class_name="LBFGSB",
+                param_name="max_starts",
+                kind="integer_add",
+                bounds=(1, 50),
+                delta_choices=(-5, -2, -1, 1, 2, 5),
                 probability=0.5,
             ),
             # PSO swarm size — too small starves the social attraction

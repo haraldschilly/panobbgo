@@ -768,8 +768,18 @@ systematic escape from local optima while the full result history is retained.</
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">patience</span></code> (int | None): evaluations without improvement before restart.
 <code class="docutils literal notranslate"><span class="pre">None</span></code> uses <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">*</span> <span class="pre">problem.dim</span></code> (recommended).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">restart_strategy</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> picks the new center to maximize
-distance from all previous restart centers — better coverage than random.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">restart_strategy</span></code>: one of:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> — uniform draw inside the box (default).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> — picks the new center to maximize the minimum
+distance to all previous restart centers — better coverage than
+random after a few restarts have fired.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;sphere&quot;</span></code> — Gaussian draw centered at the box centre with
+<code class="docutils literal notranslate"><span class="pre">std</span> <span class="pre">=</span> <span class="pre">ranges</span> <span class="pre">/</span> <span class="pre">6</span></code> (clipped to the box).  Biases the restart
+cloud toward the centroid; useful when the optimum is expected to
+lie in the box interior rather than near its boundary.</p></li>
+</ul>
+</li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_restarts</span></code>: cap on total restarts to prevent budget exhaustion.</p></li>
 </ul>
 <p><strong>Highly multimodal problems with BIPOP-CMA-ES (BBOB-2009 winner):</strong></p>

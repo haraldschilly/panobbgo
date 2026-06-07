@@ -1106,7 +1106,7 @@ as their own arm — distinct from any numeric rule on the same
 ``(class, param)`` slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.
 
-The default catalog ships seven categorical rules out-of-the-box:
+The default catalog ships eight categorical rules out-of-the-box:
 
 .. code-block:: python
 
@@ -1165,6 +1165,18 @@ The default catalog ships seven categorical rules out-of-the-box:
        param_name="scale",
        kind="categorical_choice",
        choices=(True, False),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="Restart",
+       param_name="restart_strategy",
+       kind="categorical_choice",
+       # "random" = uniform-in-box; "diverse" = max-min distance from
+       # previous restart centres; "sphere" = Gaussian around the box
+       # centre with std = ranges / 6 (clipped to the box).  Shipped
+       # 2026-06-07 — see §13 entry.
+       choices=("random", "diverse", "sphere"),
        probability=0.3,
    ),
 

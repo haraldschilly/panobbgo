@@ -190,6 +190,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart"><code class="docutils literal notranslate"><span class="pre">Restart</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES"><code class="docutils literal notranslate">SUPPORTED_RESTART_STRATEGIES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart.restart_count"><code class="docutils literal notranslate">restart_count</span></code></a></li>
 </ul>
@@ -888,7 +889,18 @@ and fires a <code class="docutils literal notranslate"><span class="pre">restart
 <li><p><code class="docutils literal notranslate"><span class="pre">patience</span></code> (int): Evaluations without improvement before restart (default: 5 * dim).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">improvement_threshold</span></code> (float): Minimum relative improvement to reset counter (default: 1e-6).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_restarts</span></code> (int): Stop restarting after this many (default: 10).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">strategy</span></code> (str): How to pick new center — <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">restart_strategy</span></code> (str): How to pick the new center.  One of:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> — uniform draw inside the box (default).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> — uniform draw inside the box, picked from 20
+candidates to maximize the minimum distance to previous restart
+centers.  Strong coverage signal once a few restarts have fired.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;sphere&quot;</span></code> — Gaussian draw centered at the box centre with
+<code class="docutils literal notranslate"><span class="pre">std</span> <span class="pre">=</span> <span class="pre">ranges</span> <span class="pre">/</span> <span class="pre">6</span></code> (clipped to the box).  Useful when the
+optimum is expected to lie inside the box rather than near its
+boundary; biases the restart cloud toward the centroid.</p></li>
+</ul>
+</li>
 </ul>
 <p>Events published:</p>
 <ul class="simple">
@@ -903,6 +915,11 @@ and fires a <code class="docutils literal notranslate"><span class="pre">restart
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES">
+<span class="sig-name descname"><span class="pre">SUPPORTED_RESTART_STRATEGIES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'diverse',</span> <span class="pre">'sphere')</span></span><a class="headerlink" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart.on_new_results" title="Link to this definition">¶</a></dt>

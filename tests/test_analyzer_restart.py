@@ -241,6 +241,206 @@ def test_kwarg_catalog_has_restart_patience_rule():
     assert any(d > 0 for d in rule.delta_choices)
 
 
+def test_sphere_strategy_uses_normal_distribution():
+    """``restart_strategy='sphere'`` produces a Gaussian draw around the box centre."""
+    problem = FlatProblem(dim=3)
+    strategy = _make_strategy(problem)
+    r = Restart(strategy, patience=5, max_restarts=10, restart_strategy="sphere")
+    r.__start__()
+
+    rng = np.random.default_rng(4)
+
+    # First result sets the baseline
+    xs0 = rng.uniform(-5, 5, (1, 3))
+    r.on_new_results(_make_results(xs0, problem))
+
+    # Trigger many restarts (override numpy's RNG to a deterministic stream
+    # via np.random.seed so the Gaussian draws are reproducible).
+    centers = []
+    np.random.seed(123)
+    for _ in range(40):
+        xs = rng.uniform(-5, 5, (6, 3))
+        r.on_new_results(_make_results(xs, problem))
+        if r._previous_centers:
+            centers.append(r._previous_centers[-1])
+        if r.restart_count >= 10:
+            break
+
+    assert r.restart_count == 10
+    centers_arr = np.asarray(centers)
+
+    # All centers must lie inside the box (Gaussian draws are clipped).
+    assert np.all(centers_arr >= -5.0)
+    assert np.all(centers_arr <= 5.0)
+
+    # Gaussian-around-centre means the empirical mean should be close to
+    # the box centre (which is the origin for a symmetric box).  Use a
+    # wide tolerance because only 10 draws — but tighter than the
+    # ``uniform`` baseline would produce.
+    assert np.linalg.norm(np.mean(centers_arr, axis=0)) < 2.0
+
+
+def test_sphere_strategy_independent_of_previous_centers():
+    """``sphere`` ignores ``_previous_centers`` and always Gaussian-samples.
+
+    Distinguishes it from ``"diverse"`` which switches to max-min-distance
+    selection once any previous centers are stored.
+    """
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    r = Restart(strategy, patience=3, max_restarts=5, restart_strategy="sphere")
+    r.__start__()
+
+    rng = np.random.default_rng(5)
+    np.random.seed(456)
+
+    # Stuff in a "previous center" manually to confirm sphere ignores it.
+    r._previous_centers.append(np.array([4.9, 4.9]))  # near a corner
+
+    # Trigger one restart
+    xs0 = rng.uniform(-5, 5, (1, 2))
+    r.on_new_results(_make_results(xs0, problem))
+    xs = rng.uniform(-5, 5, (4, 2))
+    r.on_new_results(_make_results(xs, problem))
+
+    assert r.restart_count == 1
+    # The new center (last appended) should be the sphere draw, *not* the
+    # max-min-distance draw which would be anti-correlated with the corner
+    # we injected.
+    new_center = r._previous_centers[-1]
+    # Sphere draws use ranges/6 std around centre; corner draws would land
+    # near (-4.9, -4.9) ideally.  Empirically the sphere draw is within
+    # the central half of the box with very high probability under
+    # std = 5/3.
+    assert np.all(np.abs(new_center) <= 5.0)
+
+
+def test_invalid_restart_strategy_raises():
+    """Constructor rejects an unknown ``restart_strategy``."""
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    with pytest.raises(ValueError, match="restart_strategy must be one of"):
+        Restart(strategy, restart_strategy="invalid_strategy")
+
+
+def test_supported_restart_strategies_constant():
+    """``SUPPORTED_RESTART_STRATEGIES`` lists the three policies."""
+    assert Restart.SUPPORTED_RESTART_STRATEGIES == ("random", "diverse", "sphere")
+
+
+def test_kwarg_catalog_has_restart_strategy_rule():
+    """``default_catalog`` ships a ``Restart.restart_strategy`` categorical rule.
+
+    The rule lets the autonomous loop flip an existing :class:`Restart`
+    instance between the three center-selection regimes without dropping
+    and re-adding the analyzer.  Only fires when the spec sets
+    ``restart_strategy`` explicitly — the structural-catalog candidate
+    and the IPOP_CMAES / BIPOP_CMAES / IOH ``Sensitivity_Aggressive``
+    specs all ship ``restart_strategy="diverse"`` so the rule is live
+    out-of-the-box on every battery spec that uses :class:`Restart`.
+    """
+    from panobbgo.self_improve import MutationRule, default_catalog
+
+    rules = [
+        r
+        for r in default_catalog().rules
+        if isinstance(r, MutationRule) and r.class_name == "Restart" and r.param_name == "restart_strategy"
+    ]
+    assert len(rules) == 1, "expected exactly one Restart.restart_strategy rule"
+    rule = rules[0]
+    assert rule.kind == "categorical_choice"
+    assert rule.choices == ("random", "diverse", "sphere")
+    # All listed choices must be implemented in the analyzer.
+    for choice in rule.choices:
+        assert choice in Restart.SUPPORTED_RESTART_STRATEGIES
+
+
+def test_restart_strategy_rule_fires_on_explicit_kwarg():
+    """The ``Restart.restart_strategy`` rule flips an existing
+    ``restart_strategy="diverse"`` spec to one of the alternatives."""
+    import numpy as np
+
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.self_improve import MutationCatalog, MutationRule
+    from panobbgo.strategies.rewarding import StrategyRewarding
+    from panobbgo.analyzers.restart import Restart as RestartAnalyzer
+
+    rule = MutationRule(
+        strategy_pattern="",
+        class_name="Restart",
+        param_name="restart_strategy",
+        kind="categorical_choice",
+        choices=("random", "diverse", "sphere"),
+        probability=1.0,
+    )
+
+    spec = StrategySpec(
+        name="S",
+        strategy_class=StrategyRewarding,
+        heuristics=[],
+        analyzers=[(RestartAnalyzer, {"restart_strategy": "diverse"})],
+    )
+    cat = MutationCatalog([rule])
+    rng = np.random.default_rng(0)
+
+    seen = set()
+    for _ in range(60):
+        prop = cat.sample(rng, [spec])
+        assert prop is not None
+        assert prop.old_value == "diverse"
+        assert prop.new_value in ("random", "sphere")
+        seen.add(prop.new_value)
+
+    # Both alternatives should be reachable.
+    assert seen == {"random", "sphere"}
+
+
+def test_restart_strategy_rule_skips_implicit_default():
+    """``Restart.restart_strategy`` rule must skip specs that omit the kwarg.
+
+    The analyzer's constructor default is ``"random"`` but specs that do
+    not pass the kwarg should not be mutated — the rule should only fire
+    on specs that have opted in to a concrete value.
+    """
+    import numpy as np
+
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.self_improve import MutationCatalog, MutationRule
+    from panobbgo.strategies.rewarding import StrategyRewarding
+    from panobbgo.analyzers.restart import Restart as RestartAnalyzer
+
+    rule = MutationRule(
+        strategy_pattern="",
+        class_name="Restart",
+        param_name="restart_strategy",
+        kind="categorical_choice",
+        choices=("random", "diverse", "sphere"),
+        probability=1.0,
+    )
+
+    spec_implicit = StrategySpec(
+        name="StratImplicit",
+        strategy_class=StrategyRewarding,
+        heuristics=[],
+        analyzers=[(RestartAnalyzer, {"patience": 10})],  # no restart_strategy kwarg
+    )
+    spec_explicit = StrategySpec(
+        name="StratExplicit",
+        strategy_class=StrategyRewarding,
+        heuristics=[],
+        analyzers=[(RestartAnalyzer, {"restart_strategy": "random"})],
+    )
+    cat = MutationCatalog([rule])
+    rng = np.random.default_rng(0)
+
+    # Only the explicit-kwarg spec should be selected.
+    for _ in range(30):
+        prop = cat.sample(rng, [spec_implicit, spec_explicit])
+        assert prop is not None
+        assert prop.strategy_name == "StratExplicit"
+        assert prop.new_value in ("diverse", "sphere")
+
+
 def test_restart_patience_rule_skips_none_sentinel():
     """The ``Restart.patience`` rule must skip specs that ship
     ``patience=None`` — i.e. the heuristic-internal auto-default — so

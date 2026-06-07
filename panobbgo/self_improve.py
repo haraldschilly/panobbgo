@@ -1180,7 +1180,10 @@ def default_catalog() -> MutationCatalog:
       (``True`` ↔ ``False``), ``NLSHADE_RSP.k_rank``
       (``0.0`` / ``3.0`` / ``5.0`` — RSP-off / default / aggressive
       regimes, alongside the continuous ``float_uniform`` rule),
-      and ``COBYQA.scale`` (``True`` ↔ ``False``).  These use the
+      ``COBYQA.scale`` (``True`` ↔ ``False``), and
+      ``Restart.restart_strategy`` (``"random"`` / ``"diverse"`` /
+      ``"sphere"`` — uniform-in-box / max-min-distance / Gaussian-
+      around-centre center-selection regimes).  These use the
       ``categorical_choice`` mutation kind so the loop can flip
       discrete design knobs the same way it tunes numeric ones.
 
@@ -1269,6 +1272,34 @@ def default_catalog() -> MutationCatalog:
                 bounds=(3, 200),
                 delta_choices=(-20, -10, -5, 5, 10, 20),
                 probability=0.5,
+            ),
+            # Restart center-picking regime (categorical).  Flips an
+            # existing :class:`~panobbgo.analyzers.restart.Restart`
+            # instance between the three supported center-selection
+            # policies: ``"random"`` (uniform draw inside the box),
+            # ``"diverse"`` (max-min distance from previous restart
+            # centers — strongest coverage signal after several
+            # restarts), and ``"sphere"`` (Gaussian around the box
+            # centre with ``std = ranges / 6`` — biases the restart
+            # cloud toward the centroid, useful when the optimum lies
+            # in the box interior rather than near its boundary).
+            # Only fires when the spec sets ``restart_strategy``
+            # explicitly — the analyzer's default is ``"random"`` and
+            # specs that omit the kwarg are skipped.  The structural
+            # catalog's ``add_analyzer`` candidate, ``IPOP_CMAES`` /
+            # ``BIPOP_CMAES`` in :mod:`panobbgo.harness`, and the
+            # ``Sensitivity_Aggressive`` spec in
+            # :mod:`panobbgo.harness_ioh` all ship
+            # ``restart_strategy="diverse"`` so this rule fires
+            # out-of-the-box on every batter spec that uses
+            # :class:`Restart`.
+            MutationRule(
+                strategy_pattern="",
+                class_name="Restart",
+                param_name="restart_strategy",
+                kind="categorical_choice",
+                choices=("random", "diverse", "sphere"),
+                probability=0.3,
             ),
             # LBFGSB multi-start budget cap.  ``max_starts`` defaults to
             # ``None`` (= unlimited until the strategy budget is

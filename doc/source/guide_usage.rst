@@ -604,8 +604,16 @@ Key parameters of :class:`~panobbgo.analyzers.restart.Restart`:
 
 - ``patience`` (int | None): evaluations without improvement before restart.
   ``None`` uses ``5 * problem.dim`` (recommended).
-- ``restart_strategy``: ``"diverse"`` picks the new center to maximize
-  distance from all previous restart centers — better coverage than random.
+- ``restart_strategy``: one of:
+
+  * ``"random"`` — uniform draw inside the box (default).
+  * ``"diverse"`` — picks the new center to maximize the minimum
+    distance to all previous restart centers — better coverage than
+    random after a few restarts have fired.
+  * ``"sphere"`` — Gaussian draw centered at the box centre with
+    ``std = ranges / 6`` (clipped to the box).  Biases the restart
+    cloud toward the centroid; useful when the optimum is expected to
+    lie in the box interior rather than near its boundary.
 - ``max_restarts``: cap on total restarts to prevent budget exhaustion.
 
 **Highly multimodal problems with BIPOP-CMA-ES (BBOB-2009 winner):**

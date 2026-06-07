@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    20  (decided=20, skipped=0)
-Accepts:       1  (5.0% of decided)
-Guards:        4  (rollbacks=4, total pops=1)
-Hold-outs:     1  (overfit=0)
+Iterations:    40  (decided=40, skipped=0)
+Accepts:       1  (2.5% of decided)
+Guards:        8  (rollbacks=7, total pops=1)
+Hold-outs:     2  (overfit=0)
 Best Δ seen:   +0.0667
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -11,6 +11,11 @@ Guard rollbacks:
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
   iter=14  pops=0  score=0.0289 vs stored 0.0794; new top iter=-1
   iter=19  pops=0  score=0.0111 vs stored 0.0794; new top iter=-1
+  iter=9  pops=0  score=0.0139 vs stored 0.0633; new top iter=-1
+  iter=14  pops=0  score=0.0067 vs stored 0.0633; new top iter=-1
+  iter=19  pops=0  score=0.0111 vs stored 0.0633; new top iter=-1
 Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> drift CI: OK_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=5  n_records=1
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=+0.0000  overfit=0/2  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=10  n_records=2

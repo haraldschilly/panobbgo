@@ -55,12 +55,23 @@ class Restart(Analyzer):
     - ``patience`` (int): Evaluations without improvement before restart (default: 5 * dim).
     - ``improvement_threshold`` (float): Minimum relative improvement to reset counter (default: 1e-6).
     - ``max_restarts`` (int): Stop restarting after this many (default: 10).
-    - ``strategy`` (str): How to pick new center — ``"random"`` or ``"diverse"`` (default: ``"random"``).
+    - ``restart_strategy`` (str): How to pick the new center.  One of:
+
+      * ``"random"`` — uniform draw inside the box (default).
+      * ``"diverse"`` — uniform draw inside the box, picked from 20
+        candidates to maximize the minimum distance to previous restart
+        centers.  Strong coverage signal once a few restarts have fired.
+      * ``"sphere"`` — Gaussian draw centered at the box centre with
+        ``std = ranges / 6`` (clipped to the box).  Useful when the
+        optimum is expected to lie inside the box rather than near its
+        boundary; biases the restart cloud toward the centroid.
 
     Events published:
 
     - ``restart(center=ndarray, reason=str)``: Suggested new center for search.
     """
+
+    SUPPORTED_RESTART_STRATEGIES = ("random", "diverse", "sphere")
 
     def __init__(
         self,
@@ -72,6 +83,11 @@ class Restart(Analyzer):
     ):
         super().__init__(strategy)
         self.logger = self.config.get_logger("RSTAR")
+
+        if restart_strategy not in self.SUPPORTED_RESTART_STRATEGIES:
+            raise ValueError(
+                f"restart_strategy must be one of {self.SUPPORTED_RESTART_STRATEGIES!r}, got {restart_strategy!r}"
+            )
 
         self._patience_cfg = patience
         self._patience: int = 0  # resolved in __start__
@@ -135,6 +151,8 @@ class Restart(Analyzer):
     def _pick_new_center(self) -> np.ndarray:
         if self._restart_strategy == "diverse" and self._previous_centers:
             return self._diverse_center()
+        if self._restart_strategy == "sphere":
+            return self.problem.random_point(distribution="normal")
         return self.problem.random_point()
 
     def _diverse_center(self) -> np.ndarray:

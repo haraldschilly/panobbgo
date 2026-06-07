@@ -429,6 +429,8 @@ class TestMutationCatalog:
         assert ("NLSHADE_RSP", "k_rank") in keys
         # Added: COBYQA box-rescaling toggle.
         assert ("COBYQA", "scale") in keys
+        # Added: Restart center-picking regimes.
+        assert ("Restart", "restart_strategy") in keys
 
     def test_sample_categorical_choice_picks_different_value(self):
         """Categorical mutation always proposes a value != current."""

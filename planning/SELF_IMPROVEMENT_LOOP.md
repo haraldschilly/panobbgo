@@ -652,6 +652,143 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-06-07 — Categorical `Restart.restart_strategy` rule + `"sphere"` regime
+
+* **What** — Two coordinated additions:
+
+  * `panobbgo/analyzers/restart.py`:
+    :class:`~panobbgo.analyzers.restart.Restart` gains support for a
+    third ``restart_strategy`` value, ``"sphere"`` — picks the new
+    center via :meth:`Problem.random_point(distribution="normal")`,
+    i.e. a Gaussian draw centered at the box centre with
+    ``std = ranges / 6`` (clipped to the box).  Biases the restart
+    cloud toward the centroid; complements the two existing
+    policies ``"random"`` (uniform-in-box) and ``"diverse"``
+    (max-min-distance from previous restart centres).  The
+    constructor now validates ``restart_strategy`` against the new
+    :attr:`Restart.SUPPORTED_RESTART_STRATEGIES` class constant and
+    raises ``ValueError`` on unknown values — guards future catalog
+    expansions against accidental typos.  No change to the default
+    (``"random"``).
+  * `panobbgo/self_improve.py`: :func:`default_catalog` gains a
+    ``categorical_choice`` :class:`MutationRule` for the
+    ``(Restart, restart_strategy)`` slot with
+    ``choices=("random", "diverse", "sphere")`` and the standard
+    structural-rule probability ``0.3``.  Fires only when a spec
+    sets ``restart_strategy`` explicitly (the existing
+    "param already in kwargs" predicate); the analyzer's
+    constructor default ``"random"`` is filtered out so specs that
+    omit the kwarg are never mutated.  Joins the seven existing
+    categorical rules (``PSO.topology`` / ``Sobol.scramble`` /
+    ``LSHADE.archive_factor`` / ``LSHADE.F_schedule`` /
+    ``NLSHADE_RSP.adaptive_archive`` / ``NLSHADE_RSP.k_rank`` /
+    ``COBYQA.scale``).
+* **Why** — closes the *Categorical ``Restart.restart_strategy``
+  regimes* ticket under *Analyzer add/drop follow-ups (after
+  2026-06-02 ship)*.  Previously the only way for the loop to
+  reconsider an existing :class:`Restart` instance's
+  ``restart_strategy`` was to drop the analyzer (via the structural
+  catalog's ``drop_analyzer`` op) and re-add it with a different
+  kwarg dict — two iterations of mutation budget for one effective
+  knob flip.  The categorical rule collapses that to one
+  iteration, the same pattern that ``PSO.topology`` /
+  ``Sobol.scramble`` already use for their respective heuristics.
+  The new ``"sphere"`` regime adds a genuinely distinct
+  center-selection bias — uniform-in-box gives no information
+  about where the optimum is expected; max-min-distance is purely
+  geometric (only relevant once multiple restarts have fired);
+  Gaussian-around-centre is the first regime that encodes a prior
+  on where the optimum is *likely* to live (the centroid of the
+  box), which is the right prior on problems where the
+  experimenter has centred the box on a domain of interest.
+* **Impact** — pure catalog expansion: one new bandit arm covering
+  three regimes.  All four built-in factory spots that ship a
+  :class:`Restart` instance with an explicit
+  ``restart_strategy="diverse"`` (``IPOP_CMAES`` and
+  ``BIPOP_CMAES`` in :mod:`panobbgo.harness`,
+  ``Sensitivity_Aggressive`` in :mod:`panobbgo.harness_ioh`, and
+  the structural catalog's ``add_analyzer`` candidate) become
+  applicable to the new rule out-of-the-box, so the bandit can
+  immediately learn whether the IPOP-style ``"diverse"`` default
+  is in fact best on the standard / IOH battery or whether one of
+  the alternatives wins.  *Evidence form (per AGENTS.md
+  "Agent-driven improve X PRs"): catalog-only addition with the
+  default behaviour preserved (``"diverse"`` is still the seed
+  composition's pick); backwards-compatible (composite baseline
+  byte-identical, existing ledgers stay valid); queued for nightly
+  loop validation via the default catalog's
+  ``Restart.restart_strategy`` arm.*
+* **Backwards compatibility** — strictly safe.  The constructor
+  default for ``restart_strategy`` remains ``"random"``; every
+  existing :class:`Restart` instance retains its prior behaviour
+  bit-for-bit.  The new ``"sphere"`` regime is reachable only by
+  passing it explicitly to the constructor or via the new
+  categorical rule's draw.  The new validation in
+  :meth:`Restart.__init__` is strict-superset compatible — it
+  accepts every value the prior code accepted (the two-element
+  ``"random"`` / ``"diverse"`` set) plus the new ``"sphere"``
+  entry, and rejects values the prior code would have silently
+  treated as "uniform random" (the ``else`` branch in
+  :meth:`_pick_new_center`); the only behavioural change is that
+  invalid values now raise instead of silently falling through.
+  Existing ledger consumers parsing only known
+  ``rule_kind=categorical_choice`` entries see one extra rule key
+  they may ignore.
+* **Tests** — `tests/test_analyzer_restart.py` (+6 new tests, total
+  23):
+  * ``test_sphere_strategy_uses_normal_distribution`` —
+    ``restart_strategy='sphere'`` produces Gaussian draws around the
+    box centre (empirical mean within tolerance of the centroid,
+    all draws inside the box).
+  * ``test_sphere_strategy_independent_of_previous_centers`` —
+    distinguishes ``"sphere"`` from ``"diverse"`` by injecting a
+    fake corner-anchored previous centre and confirming the new
+    center is still centroid-biased rather than anti-correlated
+    with the injected corner.
+  * ``test_invalid_restart_strategy_raises`` — constructor rejects
+    unknown ``restart_strategy`` with a clear ``ValueError``.
+  * ``test_supported_restart_strategies_constant`` — the
+    ``SUPPORTED_RESTART_STRATEGIES`` class constant lists exactly
+    the three implemented policies.
+  * ``test_kwarg_catalog_has_restart_strategy_rule`` — catalog
+    membership test that asserts the rule's kind, choices, and
+    that every choice is in
+    ``Restart.SUPPORTED_RESTART_STRATEGIES`` — guards against
+    catalog / analyzer drift.
+  * ``test_restart_strategy_rule_fires_on_explicit_kwarg`` —
+    end-to-end catalog sample test confirming the rule emits
+    proposals that flip an existing ``"diverse"`` spec to one of
+    ``"random"`` or ``"sphere"``, and that both alternatives are
+    reachable.
+  * ``test_restart_strategy_rule_skips_implicit_default`` — the
+    rule must not fire on specs that omit
+    ``restart_strategy`` from the kwargs dict (the implicit
+    constructor default ``"random"``).
+  * `tests/test_self_improve.py::test_default_catalog_has_categorical_rules`
+    extended with the new ``("Restart", "restart_strategy")``
+    membership assertion.
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Categorical ``Restart.restart_strategy`` regimes*
+    next-iteration entry under *Analyzer add/drop follow-ups*
+    promoted from "open" to "shipped" with the §13 reference.
+  - `panobbgo/analyzers/restart.py`: class docstring expanded
+    with the three-way ``restart_strategy`` list.
+  - `panobbgo/self_improve.py`: :func:`default_catalog`
+    docstring lists the new categorical rule alongside the
+    seven existing ones.
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    categorical ``Restart.restart_strategy`` rule and the
+    ``"sphere"`` regime.
+  - `doc/source/guide_benchmarking.rst`: categorical-rules
+    section bumped to "eight" with the new rule code-block
+    entry.
+  - `doc/source/guide_usage.rst`: ``Restart`` parameter list
+    expanded with the three ``restart_strategy`` regimes.
+  - `AGENTS.md`: self-improvement loop subsection adds the
+    ``Restart.restart_strategy`` rule to the categorical
+    list.
+
 ### 2026-06-06 — Catalog rules for the under-tuned Restart.patience and LBFGSB.max_starts dials
 
 * **What** — `panobbgo/self_improve.py`: :func:`default_catalog` gains two
@@ -3698,15 +3835,21 @@ the two analyzers most strategies in the default battery already use.
 Natural follow-ups when the loop has collected enough evidence to
 motivate the work:
 
-* **Categorical ``Restart.restart_strategy`` regimes** — the
-  :class:`Restart` analyzer's ``restart_strategy`` kwarg accepts
-  ``"diverse"`` (the default, max-distance from prior restarts) and
-  alternatives like ``"random"`` (uniform within the box) or
-  ``"sphere"`` (Gaussian around the box centre).  A
-  ``categorical_choice`` rule (see the existing infrastructure
-  shipped 2026-05-13) would let the bandit flip an existing
-  :class:`Restart` instance's strategy without dropping and
-  re-adding the analyzer.
+* **Categorical ``Restart.restart_strategy`` regimes — shipped
+  2026-06-07**.  :class:`Restart` gains a third center-selection
+  policy ``"sphere"`` (Gaussian around the box centre, ``std =
+  ranges / 6``, clipped to the box) alongside the existing
+  ``"random"`` (uniform-in-box) and ``"diverse"`` (max-min
+  distance from previous restart centres) regimes.
+  :func:`default_catalog` gains a matching ``categorical_choice``
+  rule with ``choices=("random", "diverse", "sphere")`` and the
+  standard structural-rule probability ``0.3``.  The rule fires
+  only when a spec sets ``restart_strategy`` explicitly — the four
+  built-in factory spots that ship
+  ``restart_strategy="diverse"`` (``IPOP_CMAES`` /
+  ``BIPOP_CMAES`` / IOH ``Sensitivity_Aggressive`` / the
+  structural-catalog ``add_analyzer`` candidate) become applicable
+  to the new rule out-of-the-box.  See the §13 entry.
 * **Tunable ``Sensitivity.update_interval``** — the structural
   catalog ships :class:`Sensitivity` with the standard-mode default
   ``update_interval=20``.  Adding a kwarg ``MutationRule`` (kind
@@ -3731,6 +3874,21 @@ motivate the work:
   share an interface.  Bigger scope than analyzer add/drop; ship
   after the analyzer ops have accumulated ledger evidence and
   motivated the cost.
+* **Tunable ``sphere`` std-deviation kwarg on :class:`Restart`** —
+  the ``"sphere"`` regime shipped 2026-06-07 currently uses the
+  hard-coded ``Problem.random_point(distribution="normal")`` spread
+  of ``ranges / 6`` (so 3σ covers half the box; ~99.7% of draws fall
+  inside).  A natural follow-up is to expose a ``sphere_std_frac``
+  kwarg on :class:`Restart` (defaulting to ``None``, which preserves
+  the existing ``1/6`` scale) and a matching ``float_uniform``
+  :class:`MutationRule` with ``bounds=(0.05, 0.4)`` so the bandit
+  can tune the centroid-bias strength: small values (≤ 0.1)
+  concentrate restarts very tightly around the box centre — useful
+  on problems where the optimum is known to lie near the centroid —
+  while larger values (≥ 0.3) approach the uniform-in-box behaviour
+  of ``"random"``.  Speculative until the categorical rule shipped
+  2026-06-07 has accumulated ledger evidence that ``"sphere"`` is
+  the right regime for any subset of the battery.
 
 #### `Restart.patience` mutation rule — shipped 2026-06-06
 

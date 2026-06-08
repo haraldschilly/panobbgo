@@ -1409,6 +1409,44 @@ auto-default sentinel is filtered out instead of crashing
 <code class="docutils literal notranslate"><span class="pre">int(None)</span> <span class="pre">+</span> <span class="pre">delta</span></code>.  The <code class="docutils literal notranslate"><span class="pre">None</span></code>-skip is uniform across all
 rule kinds (not just <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>) and is behaviourally inert
 for every previously-shipped catalog rule.</p>
+<p>The 2026-06-05 <a class="reference internal" href="heuristics.html#panobbgo.heuristics.RegionUCB" title="panobbgo.heuristics.region_ucb.RegionUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">RegionUCB</span></code></a>
+leaf-bandit heuristic also has three catalog rules covering its
+exploration / exploitation dials, shipped 2026-06-08 together
+with the byte-identical seed-spec activation of
+<code class="docutils literal notranslate"><span class="pre">Rewarding_RegionUCB</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RegionUCB.ucb_c</span></code> (<code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>,
+<code class="docutils literal notranslate"><span class="pre">bounds=(0.1,</span> <span class="pre">4.0)</span></code>, <code class="docutils literal notranslate"><span class="pre">log_step=0.15</span></code>) — the UCB1
+exploration weight in the leaf score
+<code class="docutils literal notranslate"><span class="pre">quality</span> <span class="pre">+</span> <span class="pre">ucb_c</span> <span class="pre">·</span> <span class="pre">sqrt(log(N)</span> <span class="pre">/</span> <span class="pre">n_leaf)</span></code>.  The bounds
+bracket the literature default of <code class="docutils literal notranslate"><span class="pre">1.0</span></code> (Auer et al. 2002)
+so a single perturbation can probe both the exploit-heavy
+(<code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">1</span></code>) and explore-heavy (<code class="docutils literal notranslate"><span class="pre">&gt;</span> <span class="pre">1</span></code>) regimes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RegionUCB.gauss_fraction</span></code> (<code class="docutils literal notranslate"><span class="pre">float_uniform</span></code>,
+<code class="docutils literal notranslate"><span class="pre">bounds=(0.0,</span> <span class="pre">1.0)</span></code>) — fraction of in-leaf candidates
+drawn from a Gaussian around the leaf’s best point instead
+of uniformly over the leaf box.  The full <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> range
+is bandit-reachable so the loop can probe the LA-MCTS
+pure-uniform regime (<code class="docutils literal notranslate"><span class="pre">0.0</span></code>) and the pure-local-refinement
+regime (<code class="docutils literal notranslate"><span class="pre">1.0</span></code>) symmetrically.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RegionUCB.gauss_scale</span></code> (<code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>,
+<code class="docutils literal notranslate"><span class="pre">bounds=(0.05,</span> <span class="pre">0.5)</span></code>, <code class="docutils literal notranslate"><span class="pre">log_step=0.15</span></code>) — Gaussian
+std-dev as a fraction of the leaf’s per-axis ranges.  The
+constructor default <code class="docutils literal notranslate"><span class="pre">0.25</span></code> sits near the geometric centre
+of the log-uniform window so symmetric perturbations can
+both shrink (Nearby-style tight refinement) and widen
+(uniform-leaf baseline) the in-leaf Gaussian cloud.</p></li>
+</ul>
+<p>All three rules fire only when a spec sets the matching kwarg
+explicitly.  The seed <code class="docutils literal notranslate"><span class="pre">Rewarding_RegionUCB</span></code> spec in
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_make_standard_strategies()</span></code> ships
+<code class="docutils literal notranslate"><span class="pre">(RegionUCB,</span> <span class="pre">{&quot;ucb_c&quot;:</span> <span class="pre">1.0,</span> <span class="pre">&quot;gauss_fraction&quot;:</span> <span class="pre">0.5,</span>
+<span class="pre">&quot;gauss_scale&quot;:</span> <span class="pre">0.25})</span></code> — the three values match the
+constructor defaults so RegionUCB construction is byte-
+identical to the prior <code class="docutils literal notranslate"><span class="pre">(RegionUCB,</span> <span class="pre">{})</span></code> form, but the
+kwarg dict’s membership now activates the catalog rules on
+the standard-mode battery rather than letting them sit
+dormant.</p>
 <p>Adding more categorical rules is a one-liner:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">MutationRule</span><span class="p">,</span> <span class="n">MutationCatalog</span><span class="p">,</span> <span class="n">default_catalog</span>
 </span><span data-line="2">

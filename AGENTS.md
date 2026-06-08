@@ -398,6 +398,22 @@ The harness is the measurement substrate for an autonomous
     auto-default sentinel (= unlimited until budget) is
     filtered by :func:`_find_targets`'s `None`-skip
     predicate.
+*   Numeric `RegionUCB.ucb_c` / `RegionUCB.gauss_fraction` /
+    `RegionUCB.gauss_scale` rules — **shipped 2026-06-08**, see
+    :class:`panobbgo.heuristics.region_ucb.RegionUCB`.  Three
+    catalog arms covering the leaf-bandit knobs of the 2026-06-05
+    RegionUCB heuristic: `ucb_c` (`log_uniform_perturb`,
+    `bounds=(0.1, 4.0)`) is the UCB1 exploration weight;
+    `gauss_fraction` (`float_uniform`, `bounds=(0.0, 1.0)`) is
+    the fraction of in-leaf draws taken as Gaussian-around-best
+    instead of uniform-over-leaf; `gauss_scale`
+    (`log_uniform_perturb`, `bounds=(0.05, 0.5)`) is the Gaussian
+    std-dev as a fraction of the leaf's ranges.  All three fire
+    only when a spec sets the matching kwarg explicitly; the
+    seed `Rewarding_RegionUCB` spec ships them at the constructor
+    defaults (`{"ucb_c": 1.0, "gauss_fraction": 0.5,
+    "gauss_scale": 0.25}`) so the rules become applicable on the
+    standard-mode battery rather than staying dormant.
 *   Numeric `PSO.stagnation_threshold` rule (`integer_add`,
     `bounds=(5, 60)`) — **shipped 2026-06-05**, see
     :attr:`panobbgo.heuristics.pso.PSO.stagnation_threshold`.

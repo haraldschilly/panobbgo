@@ -369,7 +369,15 @@ def _make_standard_strategies() -> List[StrategySpec]:
             (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
             (Center, {}),
             (NelderMead, {}),
-            (RegionUCB, {}),
+            # Explicit kwargs match the constructor defaults
+            # (``ucb_c=1.0`` / ``gauss_fraction=0.5`` /
+            # ``gauss_scale=0.25``) so RegionUCB construction is
+            # byte-identical to the prior ``(RegionUCB, {})`` form;
+            # the explicit dict makes the ``default_catalog``
+            # mutation rules (shipped as a follow-up to the
+            # 2026-06-05 RegionUCB entry) immediately applicable to
+            # this seed spec rather than dormant.
+            (RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25}),
         ],
         analyzers=[(Sensitivity, {"update_interval": 25})],
     )

@@ -2,6 +2,46 @@
 
 ## Recent Improvements (continued)
 
+### Catalog rules for `RegionUCB.ucb_c` / `gauss_fraction` / `gauss_scale` — 2026-06-08
+- [x] **Three new `MutationRule` entries on `default_catalog`**
+      (`panobbgo/self_improve.py`) covering the three leaf-bandit
+      knobs of the 2026-06-05 RegionUCB heuristic:
+      - `RegionUCB.ucb_c` (`log_uniform_perturb`,
+        `bounds=(0.1, 4.0)`, `log_step=0.15`) — UCB1 exploration
+        weight, brackets the literature default of 1.0.
+      - `RegionUCB.gauss_fraction` (`float_uniform`,
+        `bounds=(0.0, 1.0)`) — fraction of in-leaf draws taken
+        as Gaussian around the leaf best (the rest are uniform
+        over the leaf box); the full ``[0, 1]`` range
+        symmetrically covers the LA-MCTS pure-uniform regime and
+        the pure-local-refinement regime.
+      - `RegionUCB.gauss_scale` (`log_uniform_perturb`,
+        `bounds=(0.05, 0.5)`, `log_step=0.15`) — Gaussian
+        std-dev as a fraction of the leaf's ranges; the
+        constructor default ``0.25`` lives near the geometric
+        centre of the log-uniform window.
+- [x] **Seed-spec activation** — `Rewarding_RegionUCB` in
+      `_make_standard_strategies()` now ships
+      `(RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5,
+      "gauss_scale": 0.25})` instead of `(RegionUCB, {})`.  All
+      three values match the constructor defaults so RegionUCB
+      construction is byte-identical — only the kwarg dict's
+      *membership* changes, which is exactly what activates the
+      new catalog rules on the standard-mode battery rather than
+      letting them sit dormant.  Closes the *Follow-ups: tune
+      `ucb_c` / `gauss_fraction` via the self-improvement
+      catalog* note in the 2026-06-05 RegionUCB ship.
+- [x] **Tests** — 5 new tests in
+      `tests/test_heuristic_region_ucb.py`:
+      - `test_kwarg_catalog_has_region_ucb_ucb_c_rule`
+      - `test_kwarg_catalog_has_region_ucb_gauss_fraction_rule`
+      - `test_kwarg_catalog_has_region_ucb_gauss_scale_rule`
+      - `test_region_ucb_rules_skip_implicit_default`
+      - `test_rewarding_region_ucb_seed_spec_has_explicit_region_ucb_kwargs`
+- [x] **Docs**: `planning/SELF_IMPROVEMENT_LOOP.md` §13 entry;
+      `doc/source/guide.rst` quick-nav; `doc/source/guide_benchmarking.rst`
+      kwarg-catalog list; `AGENTS.md` rule list.
+
 ### Catalog rules for `Restart.patience` and `LBFGSB.max_starts` — 2026-06-06
 - [x] **Two new `integer_add` `MutationRule` entries on
       `default_catalog`** (`panobbgo/self_improve.py`):

@@ -652,6 +652,133 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-06-08 — Catalog rules for `RegionUCB.ucb_c` / `gauss_fraction` / `gauss_scale`
+
+* **What** — Two coordinated additions:
+
+  * `panobbgo/self_improve.py`: :func:`default_catalog` gains three
+    new :class:`MutationRule` entries on the RegionUCB
+    leaf-bandit knobs:
+
+    * ``RegionUCB.ucb_c`` — ``log_uniform_perturb`` with
+      ``bounds=(0.1, 4.0)`` and ``log_step=0.15``.  Controls the
+      UCB1 exploration weight in the leaf-bandit score
+      ``quality + ucb_c · sqrt(log(N) / n_leaf)``: lower values
+      favour exploitation of the currently-best leaf, higher values
+      favour uniform-ish allocation across leaves.  The bounds
+      bracket the literature default of ``1.0`` (Auer et al.
+      2002's canonical UCB1 setting) so a single perturbation can
+      probe both regimes.
+    * ``RegionUCB.gauss_fraction`` — ``float_uniform`` with
+      ``bounds=(0.0, 1.0)``.  Fraction of in-leaf candidates drawn
+      from a Gaussian around the leaf's best point instead of
+      uniformly over the leaf box.  ``0.0`` reduces RegionUCB to
+      a pure uniform-in-leaf sampler (LA-MCTS style); ``1.0``
+      makes every draw a local refinement around the leaf best
+      (no in-leaf exploration); the constructor default ``0.5``
+      balances both modes.
+    * ``RegionUCB.gauss_scale`` — ``log_uniform_perturb`` with
+      ``bounds=(0.05, 0.5)``.  Standard deviation of the
+      Gaussian-around-best draw, expressed as a fraction of the
+      leaf's per-axis ranges.  Smaller values produce tighter
+      local refinement (close to a Nearby-style neighbourhood),
+      larger values approach the uniform-leaf baseline.  The
+      constructor default ``0.25`` sits near the geometric centre
+      of the log-uniform window.
+
+    All three rules fire only when a spec sets the matching kwarg
+    explicitly (the existing :func:`_find_targets` "param already
+    in kwargs" predicate); the heuristic constructor defaults
+    (``ucb_c=1.0`` / ``gauss_fraction=0.5`` / ``gauss_scale=0.25``)
+    remain unchanged and continue to govern specs that leave the
+    kwargs at their defaults.
+
+  * `panobbgo/harness.py`: ``Rewarding_RegionUCB`` in
+    :func:`_make_standard_strategies` now ships
+    ``(RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25})``
+    instead of ``(RegionUCB, {})``.  All three values match the
+    constructor defaults so RegionUCB construction is
+    byte-identical to the prior form — only the kwarg dict's
+    *membership* changes, which is exactly what activates the new
+    catalog rules on this seed spec.  Without this change the
+    rules would be dormant until a future ship or structural
+    mutation explicitly sets them.
+
+* **Why** — closes the *Follow-ups: tune ``ucb_c`` /
+  ``gauss_fraction`` via the self-improvement catalog* note in the
+  2026-06-05 RegionUCB §13 entry.  Before this ship, RegionUCB's
+  three leaf-bandit knobs were tunable only by hand-editing the
+  source: the autonomous loop had no vocabulary to perturb them,
+  even though they materially affect the exploration / exploitation
+  balance of the per-region allocator that ``Rewarding_RegionUCB``
+  ships in the standard battery.  The standard-mode A/B measured
+  on 2026-06-05 showed RegionUCB +0.302 on ``StyblinskiTang_2D``
+  and −0.167 on ``Rosenbrock_2D`` — a per-problem signature
+  consistent with a "more exploration" knob having different
+  optima on multimodal vs unimodal landscapes.  Adding the three
+  kwarg rules lets the bandit learn problem-class-conditional
+  settings via the standard per-rule reward signal.
+
+* **Impact** — pure catalog expansion: three new bandit arms,
+  zero behavioural change to the existing default battery.  The
+  byte-identical seed-spec edit means the historical composite
+  baseline is preserved; only the loop's catalog vocabulary grows.
+  *Evidence form (per AGENTS.md "Agent-driven improve X PRs"):
+  catalog-only addition with default behaviour preserved
+  (constructor defaults are the spec values); queued for nightly
+  loop validation via the default catalog's three RegionUCB arms
+  on the ``Rewarding_RegionUCB`` standard-mode spec.*
+
+* **Backwards compatibility** — strictly safe.  The three kwarg
+  values ``ucb_c=1.0`` / ``gauss_fraction=0.5`` /
+  ``gauss_scale=0.25`` are the constructor defaults, so
+  RegionUCB instances constructed from the updated spec carry
+  identical attribute values to before.  The rules use the
+  established kwarg-explicit predicate so they cannot fire on
+  any spec that omits the kwarg from its dict.  Existing ledgers
+  stay valid; the bandit picks up the new arms as fresh
+  ``Beta(1, 1)`` posteriors (or, with
+  ``--adaptive-prime-from-ledger``, with the inherited op-level
+  prior if the hierarchical-borrow knob is in use).
+
+* **Tests** — 5 new tests in
+  ``tests/test_heuristic_region_ucb.py``:
+
+  * ``test_kwarg_catalog_has_region_ucb_ucb_c_rule`` — asserts the
+    rule is present with the documented ``log_uniform_perturb``
+    kind, the ``(0.1, 4.0)`` bounds bracket the literature default
+    of ``1.0``.
+  * ``test_kwarg_catalog_has_region_ucb_gauss_fraction_rule`` —
+    asserts the rule is present with ``float_uniform`` kind and
+    the full ``[0, 1]`` range is bandit-reachable (so the LA-MCTS
+    pure-uniform regime at ``0.0`` and the pure-local-refinement
+    regime at ``1.0`` are symmetrically reachable).
+  * ``test_kwarg_catalog_has_region_ucb_gauss_scale_rule`` —
+    asserts the rule is present with ``log_uniform_perturb`` and
+    the ``(0.05, 0.5)`` bounds.
+  * ``test_region_ucb_rules_skip_implicit_default`` — confirms
+    the rule fires only on specs that explicitly set ``ucb_c``;
+    a spec with ``(RegionUCB, {})`` is never selected.
+  * ``test_rewarding_region_ucb_seed_spec_has_explicit_region_ucb_kwargs``
+    — asserts the seed ``Rewarding_RegionUCB`` spec ships the
+    three explicit kwargs at the constructor defaults so the
+    new catalog rules become applicable to the standard-mode
+    battery rather than staying dormant.
+
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Follow-ups* note in the 2026-06-05 RegionUCB entry updated
+    to reference the new catalog rules.
+  - `panobbgo/self_improve.py`: :func:`default_catalog`
+    docstring lists the three new RegionUCB rules.
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    RegionUCB catalog rules.
+  - `doc/source/guide_benchmarking.rst`: kwarg-catalog section
+    bumped with the three new rules.
+  - `AGENTS.md`: rule list bumped with the three new RegionUCB
+    arms.
+  - `TODO.md`: "Recent Improvements" entry.
+
 ### 2026-06-07 — Categorical `Restart.restart_strategy` rule + `"sphere"` regime
 
 * **What** — Two coordinated additions:

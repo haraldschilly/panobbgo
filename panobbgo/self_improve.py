@@ -1172,6 +1172,12 @@ def default_catalog() -> MutationCatalog:
       coefficient.
     * ``COBYQA.initial_tr_radius`` / ``COBYQA.final_tr_radius`` —
       Powell-family trust-region radii.
+    * ``RegionUCB.ucb_c`` / ``RegionUCB.gauss_fraction`` /
+      ``RegionUCB.gauss_scale`` — UCB1 exploration weight, fraction
+      of in-leaf draws taken as Gaussian-around-leaf-best instead of
+      uniform, and the Gaussian's relative std-dev.  Closes the
+      *Follow-ups: tune ``ucb_c`` / ``gauss_fraction`` via the
+      self-improvement catalog* note in the RegionUCB ship entry.
     * Categorical toggles — ``PSO.topology``
       (``gbest`` ↔ ``lbest`` ↔ ``vonneumann``), ``Sobol.scramble``
       (``True`` ↔ ``False``), ``LSHADE.archive_factor``
@@ -1807,6 +1813,61 @@ def default_catalog() -> MutationCatalog:
                 kind="categorical_choice",
                 choices=(True, False),
                 probability=0.3,
+            ),
+            # RegionUCB UCB1 exploration weight — controls the
+            # exploration / exploitation balance of the leaf-bandit
+            # score ``quality + ucb_c * sqrt(log(N) / n_leaf)``.
+            # Bounds bracket the literature range: ``0.1`` strongly
+            # favours exploitation of the currently-best leaf, ``4.0``
+            # favours uniform-ish allocation across leaves.  The
+            # heuristic default of ``1.0`` matches Auer et al. 2002's
+            # canonical UCB1 setting and lives near the centre of the
+            # log-uniform window.  Only fires when a spec sets
+            # ``ucb_c`` explicitly.
+            MutationRule(
+                strategy_pattern="",
+                class_name="RegionUCB",
+                param_name="ucb_c",
+                kind="log_uniform_perturb",
+                bounds=(0.1, 4.0),
+                log_step=0.15,
+                probability=0.5,
+            ),
+            # RegionUCB fraction of in-leaf draws taken as Gaussian
+            # around the leaf's best point instead of uniform over the
+            # leaf box.  ``0.0`` reduces RegionUCB to a pure
+            # in-leaf uniform sampler (LA-MCTS style); ``1.0`` makes
+            # every draw a local refinement around the leaf best (no
+            # in-leaf exploration).  The constructor default of
+            # ``0.5`` balances both modes.  Only fires when a spec
+            # sets ``gauss_fraction`` explicitly.
+            MutationRule(
+                strategy_pattern="",
+                class_name="RegionUCB",
+                param_name="gauss_fraction",
+                kind="float_uniform",
+                bounds=(0.0, 1.0),
+                low=0.0,
+                high=1.0,
+                probability=0.5,
+            ),
+            # RegionUCB Gaussian-around-best std-dev, expressed as a
+            # fraction of the leaf's per-axis ranges.  Smaller values
+            # produce tighter local refinement (close to a Nearby-style
+            # neighbourhood), larger values approach the uniform-leaf
+            # baseline.  The constructor default of ``0.25`` sits
+            # near the geometric middle of the log-uniform window so a
+            # symmetric perturbation can both shrink and widen the
+            # Gaussian.  Only fires when a spec sets ``gauss_scale``
+            # explicitly.
+            MutationRule(
+                strategy_pattern="",
+                class_name="RegionUCB",
+                param_name="gauss_scale",
+                kind="log_uniform_perturb",
+                bounds=(0.05, 0.5),
+                log_step=0.15,
+                probability=0.5,
             ),
         ]
     )

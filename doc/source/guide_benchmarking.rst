@@ -1222,6 +1222,45 @@ auto-default sentinel is filtered out instead of crashing
 rule kinds (not just ``integer_add``) and is behaviourally inert
 for every previously-shipped catalog rule.
 
+The 2026-06-05 :class:`~panobbgo.heuristics.region_ucb.RegionUCB`
+leaf-bandit heuristic also has three catalog rules covering its
+exploration / exploitation dials, shipped 2026-06-08 together
+with the byte-identical seed-spec activation of
+``Rewarding_RegionUCB``:
+
+* ``RegionUCB.ucb_c`` (``log_uniform_perturb``,
+  ``bounds=(0.1, 4.0)``, ``log_step=0.15``) — the UCB1
+  exploration weight in the leaf score
+  ``quality + ucb_c · sqrt(log(N) / n_leaf)``.  The bounds
+  bracket the literature default of ``1.0`` (Auer et al. 2002)
+  so a single perturbation can probe both the exploit-heavy
+  (``< 1``) and explore-heavy (``> 1``) regimes.
+* ``RegionUCB.gauss_fraction`` (``float_uniform``,
+  ``bounds=(0.0, 1.0)``) — fraction of in-leaf candidates
+  drawn from a Gaussian around the leaf's best point instead
+  of uniformly over the leaf box.  The full ``[0, 1]`` range
+  is bandit-reachable so the loop can probe the LA-MCTS
+  pure-uniform regime (``0.0``) and the pure-local-refinement
+  regime (``1.0``) symmetrically.
+* ``RegionUCB.gauss_scale`` (``log_uniform_perturb``,
+  ``bounds=(0.05, 0.5)``, ``log_step=0.15``) — Gaussian
+  std-dev as a fraction of the leaf's per-axis ranges.  The
+  constructor default ``0.25`` sits near the geometric centre
+  of the log-uniform window so symmetric perturbations can
+  both shrink (Nearby-style tight refinement) and widen
+  (uniform-leaf baseline) the in-leaf Gaussian cloud.
+
+All three rules fire only when a spec sets the matching kwarg
+explicitly.  The seed ``Rewarding_RegionUCB`` spec in
+:func:`~panobbgo.harness._make_standard_strategies` ships
+``(RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5,
+"gauss_scale": 0.25})`` — the three values match the
+constructor defaults so RegionUCB construction is byte-
+identical to the prior ``(RegionUCB, {})`` form, but the
+kwarg dict's membership now activates the catalog rules on
+the standard-mode battery rather than letting them sit
+dormant.
+
 Adding more categorical rules is a one-liner:
 
 .. code-block:: python

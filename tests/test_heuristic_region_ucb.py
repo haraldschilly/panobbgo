@@ -121,3 +121,149 @@ class RegionUCBTest(PanobbgoTestCase):
         h.on_new_results([])
         pts = h.get_points()
         assert len(pts) == 5
+
+
+# ----------------------------------------------------------------------
+# Self-improvement loop catalog rules
+# ----------------------------------------------------------------------
+
+
+def test_kwarg_catalog_has_region_ucb_ucb_c_rule():
+    """``default_catalog`` ships a ``RegionUCB.ucb_c`` log-uniform rule.
+
+    The rule lets the autonomous loop tune the UCB1 exploration weight
+    on specs that opt into a concrete ``ucb_c`` value.  The seed
+    :func:`~panobbgo.harness._make_standard_strategies`
+    ``Rewarding_RegionUCB`` spec sets the kwarg explicitly (matching
+    the constructor default of ``1.0``) so the rule fires on the
+    standard-mode battery out-of-the-box.
+    """
+    from panobbgo.self_improve import MutationRule, default_catalog
+
+    rules = [
+        r
+        for r in default_catalog().rules
+        if isinstance(r, MutationRule) and r.class_name == "RegionUCB" and r.param_name == "ucb_c"
+    ]
+    assert len(rules) == 1, "expected exactly one RegionUCB.ucb_c rule"
+    rule = rules[0]
+    assert rule.kind == "log_uniform_perturb"
+    assert rule.bounds == (0.1, 4.0)
+    # Bounds bracket the literature default of 1.0.
+    assert rule.bounds[0] < 1.0 < rule.bounds[1]
+
+
+def test_kwarg_catalog_has_region_ucb_gauss_fraction_rule():
+    """``default_catalog`` ships a ``RegionUCB.gauss_fraction`` float_uniform rule.
+
+    ``gauss_fraction`` is the fraction of in-leaf draws taken as a
+    Gaussian around the leaf's best point instead of uniform over the
+    leaf box.  The full ``[0, 1]`` range is bandit-reachable so the
+    loop can probe the LA-MCTS-style pure-uniform regime
+    (``gauss_fraction = 0.0``) and the pure-local-refinement regime
+    (``gauss_fraction = 1.0``) symmetrically.
+    """
+    from panobbgo.self_improve import MutationRule, default_catalog
+
+    rules = [
+        r
+        for r in default_catalog().rules
+        if isinstance(r, MutationRule) and r.class_name == "RegionUCB" and r.param_name == "gauss_fraction"
+    ]
+    assert len(rules) == 1, "expected exactly one RegionUCB.gauss_fraction rule"
+    rule = rules[0]
+    assert rule.kind == "float_uniform"
+    assert rule.bounds == (0.0, 1.0)
+    assert rule.low == 0.0 and rule.high == 1.0
+
+
+def test_kwarg_catalog_has_region_ucb_gauss_scale_rule():
+    """``default_catalog`` ships a ``RegionUCB.gauss_scale`` log_uniform rule.
+
+    ``gauss_scale`` is the Gaussian-around-best std-dev expressed as a
+    fraction of the leaf's ranges; ``0.25`` (the constructor default)
+    lives near the geometric centre of the ``[0.05, 0.5]`` log-uniform
+    window so symmetric perturbations can both shrink and widen the
+    in-leaf Gaussian cloud.
+    """
+    from panobbgo.self_improve import MutationRule, default_catalog
+
+    rules = [
+        r
+        for r in default_catalog().rules
+        if isinstance(r, MutationRule) and r.class_name == "RegionUCB" and r.param_name == "gauss_scale"
+    ]
+    assert len(rules) == 1, "expected exactly one RegionUCB.gauss_scale rule"
+    rule = rules[0]
+    assert rule.kind == "log_uniform_perturb"
+    assert rule.bounds == (0.05, 0.5)
+
+
+def test_region_ucb_rules_skip_implicit_default():
+    """The ``RegionUCB.*`` rules must not fire on specs that omit the
+    kwarg from the kwargs dict (i.e. specs that left the kwarg at the
+    heuristic's constructor default).  The ``_find_targets`` "param
+    already in kwargs" predicate keeps the rule out of those specs.
+    """
+    import numpy as np
+
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.heuristics import RegionUCB
+    from panobbgo.self_improve import MutationCatalog, MutationRule
+    from panobbgo.strategies.rewarding import StrategyRewarding
+
+    rule = MutationRule(
+        strategy_pattern="",
+        class_name="RegionUCB",
+        param_name="ucb_c",
+        kind="log_uniform_perturb",
+        bounds=(0.1, 4.0),
+        log_step=0.15,
+        probability=1.0,
+    )
+
+    spec_implicit = StrategySpec(
+        name="StratImplicit",
+        strategy_class=StrategyRewarding,
+        heuristics=[(RegionUCB, {})],
+        analyzers=[],
+    )
+    spec_explicit = StrategySpec(
+        name="StratExplicit",
+        strategy_class=StrategyRewarding,
+        heuristics=[(RegionUCB, {"ucb_c": 1.0})],
+        analyzers=[],
+    )
+    cat = MutationCatalog([rule])
+    rng = np.random.default_rng(0)
+
+    for _ in range(30):
+        prop = cat.sample(rng, [spec_implicit, spec_explicit])
+        assert prop is not None
+        assert prop.strategy_name == "StratExplicit"
+
+
+def test_rewarding_region_ucb_seed_spec_has_explicit_region_ucb_kwargs():
+    """The seed ``Rewarding_RegionUCB`` spec in
+    :func:`~panobbgo.harness._make_standard_strategies` must ship the
+    catalog-discoverable kwargs explicitly so the
+    ``RegionUCB.ucb_c`` / ``RegionUCB.gauss_fraction`` /
+    ``RegionUCB.gauss_scale`` rules become applicable on the
+    standard-mode battery rather than staying dormant.
+
+    The explicit values match the constructor defaults so RegionUCB
+    construction stays byte-identical — only the kwarg dict's
+    *membership* changes.
+    """
+    from panobbgo.harness import _make_standard_strategies
+    from panobbgo.heuristics import RegionUCB
+
+    specs = {s.name: s for s in _make_standard_strategies()}
+    assert "Rewarding_RegionUCB" in specs
+    spec = specs["Rewarding_RegionUCB"]
+    region_kwargs = [kw for cls, kw in spec.heuristics if cls is RegionUCB]
+    assert len(region_kwargs) == 1
+    kw = region_kwargs[0]
+    assert kw["ucb_c"] == 1.0
+    assert kw["gauss_fraction"] == 0.5
+    assert kw["gauss_scale"] == 0.25

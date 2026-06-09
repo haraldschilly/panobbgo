@@ -652,6 +652,142 @@ This section records direct algorithmic improvements applied to Panobbgo
 greppable.  Each entry should reference the PR / commit that landed it,
 the rationale, and a measured-impact number when available.
 
+### 2026-06-09 — Categorical `JSO.p_best_max` rule (literature regimes)
+
+* **What** — `panobbgo/self_improve.py`: :func:`default_catalog`
+  gains a ``categorical_choice`` :class:`MutationRule` for the
+  ``(JSO, p_best_max)`` slot with ``choices=(0.15, 0.25, 0.4)`` and
+  the standard structural-rule probability ``0.3``.  The three
+  values are the literature-canonical jSO ``p_best_max`` regimes:
+
+  * ``0.15`` — close to the Tanabe-Fukunaga L-SHADE setting
+    ``p_best = 0.11`` (raised above jSO's default
+    ``p_best_min = 0.125`` so the constructor's
+    ``p_best_min <= p_best_max`` invariant passes without any
+    dependent-kwarg coordination).  Greedy regime — the
+    ``current-to-pbest`` mutation pulls toward a narrow top slice.
+  * ``0.25`` — the Brest et al. (CEC 2017) jSO default.  The
+    bandit needs this in the choice set so it can flip *back* to
+    the literature setting from any of the alternates.
+  * ``0.4`` — the iLSHADE / Brest et al. 2016 broader-pool
+    setting.  Broader regime — useful on highly multi-modal
+    landscapes where a narrow ``pbest`` slice can lock onto the
+    wrong basin.
+
+  Sits alongside the existing ``float_uniform`` rule on the same
+  ``(JSO, p_best_max)`` slot (shipped 2026-05-15 with the JSO
+  ship); the two rules occupy distinct bandit arms because
+  ``_proposal_rule_key`` keys on ``(class_name, param_name,
+  rule_kind)``.  The bandit can either continuously walk
+  ``p_best_max`` via the float rule or jump between the
+  qualitatively distinct regimes via this categorical one.
+  Fires only when a spec sets ``p_best_max`` explicitly — the
+  constructor default ``0.25`` is filtered out by the established
+  opt-in predicate in :func:`_find_targets`, so the rule is
+  dormant on the built-in ``add_heuristic`` JSO candidate
+  (``{"NP_init": 30}``) and on every other spec that omits the
+  kwarg.
+
+* **Why** — closes the *Categorical mutation rule for
+  ``JSO.p_best_max``* ticket under *jSO follow-ups (after
+  2026-05-15 ship)*.  Before this ship, the only way for the loop
+  to reconsider an existing :class:`JSO` instance's
+  ``p_best_max`` was the continuous ``float_uniform`` rule, which
+  walks the value in ±-style perturbations and cannot reliably
+  jump between the three qualitatively distinct regimes.  The
+  categorical rule collapses what would otherwise be many
+  ``float_uniform`` accepts into a single bandit arm — the same
+  pattern that ``LSHADE.archive_factor``, ``LSHADE.F_schedule``,
+  and ``NLSHADE_RSP.k_rank`` already use for their respective
+  heuristics.  The CEC-2017 (jSO) and CEC-2016 (iLSHADE)
+  competition winners disagree on the right setting; letting the
+  bandit learn the problem-class-conditional preference from
+  ledger evidence is the right policy when the literature is
+  itself divided.
+
+  The subtle 0.11 ↦ 0.15 substitution is the dependent-kwarg
+  workaround flagged in the planning idea: the L-SHADE-style
+  ``0.11`` lies below jSO's default ``p_best_min = 0.125`` and
+  would trip the constructor invariant.  Raising to ``0.15``
+  preserves the "greedy-regime" semantics (still narrower than
+  the jSO ``0.25`` default by a meaningful margin) without
+  requiring a coordinated rule that lowers ``p_best_min``
+  alongside.  Per the planning doc, the categorical-with-dependent-
+  kwarg pattern is deferred until it is needed elsewhere too.
+
+* **Impact** — pure catalog expansion: one new bandit arm covering
+  three regimes.  No behavioural change to existing strategies
+  (kwarg-explicit predicate); no shifts to the historical
+  composite-score baseline; no new dependencies.  The value is
+  unlocked once a spec explicitly sets ``p_best_max`` — currently
+  none of the built-in factory specs do, so the rule is staged for
+  a future hand-tuned ``LSHADE_jSO`` spec (queued under *Ship a
+  jSO-tuned ``LSHADE_jSO`` strategy in
+  ``_make_standard_strategies``*) or for any structural mutation
+  that grows a JSO spec with an explicit ``p_best_max`` kwarg.
+  *Evidence form (per AGENTS.md "Agent-driven improve X PRs"):
+  catalog-only addition with default behaviour preserved (the jSO
+  constructor default ``0.25`` is in the choice set, and the rule
+  is dormant on every default spec because none set the kwarg
+  explicitly); queued for nightly loop validation via the
+  default catalog's new JSO ``p_best_max`` categorical arm.*
+
+* **Backwards compatibility** — strictly safe.  Existing
+  :class:`JSO` instances are unaffected: the constructor default
+  ``p_best_max = 0.25`` remains unchanged, and the rule cannot
+  fire on specs that omit the kwarg from their dict.  All three
+  choices satisfy the constructor's ``p_best_min <= p_best_max``
+  invariant against jSO's default ``p_best_min = 0.125`` so the
+  rule never produces a proposal the constructor would reject.
+  Existing ledgers stay valid; the bandit picks up the new arm as
+  a fresh ``Beta(1, 1)`` posterior (or, with
+  ``--adaptive-prime-from-ledger``, with the inherited op-level
+  prior if the hierarchical-borrow knob is in use).
+
+* **Tests** — 4 new tests in
+  ``tests/test_heuristic_jso.py::JSORegistrationTests``:
+
+  * ``test_kwarg_catalog_jso_p_best_max_has_both_kinds`` — asserts
+    both the ``float_uniform`` and ``categorical_choice`` rules
+    are present on the ``(JSO, p_best_max)`` slot (the dual-rule
+    invariant that mirrors ``NLSHADE_RSP.k_rank``).
+  * ``test_kwarg_catalog_jso_p_best_max_categorical_choices`` —
+    asserts exactly three regimes, that ``0.25`` (the jSO
+    default) is reachable, and that every choice respects the
+    ``p_best_min = 0.125`` floor — guards against any future
+    expansion that would re-introduce the 0.11 invariant
+    violation.
+  * ``test_p_best_max_rule_fires_on_explicit_kwarg`` — end-to-end
+    catalog sample test: a spec with ``p_best_max=0.25``
+    explicit gets proposals flipping it to ``0.15`` or ``0.4``,
+    and both alternates are reachable across 40 draws.
+  * ``test_p_best_max_rule_skips_implicit_default`` — confirms
+    the rule does not fire on specs that omit ``p_best_max``
+    from kwargs (the constructor default ``0.25`` is implicit
+    and filtered out by the kwarg-explicit predicate); matches
+    the structural catalog's ``add_heuristic`` JSO candidate
+    pattern (``{"NP_init": 30}``).
+  * ``tests/test_self_improve.py::test_default_catalog_has_categorical_rules``
+    extended with the new ``("JSO", "p_best_max")`` membership
+    assertion.
+
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: this §13 entry; the
+    *Categorical mutation rule for ``JSO.p_best_max``*
+    next-iteration entry under *jSO follow-ups (after 2026-05-15
+    ship)* promoted from "open" to "shipped" with the §13
+    reference.
+  - `panobbgo/self_improve.py`: :func:`default_catalog`
+    docstring lists the new categorical rule under "Categorical
+    toggles" alongside the eight existing ones.
+  - `doc/source/guide.rst`: quick-nav entry mentions the new
+    categorical ``JSO.p_best_max`` rule.
+  - `doc/source/guide_benchmarking.rst`: categorical-rules
+    section bumped to "nine" with the new rule code-block
+    entry.
+  - `AGENTS.md`: self-improvement loop subsection adds the
+    ``JSO.p_best_max`` rule to the categorical list.
+
 ### 2026-06-08 — Catalog rules for `RegionUCB.ucb_c` / `gauss_fraction` / `gauss_scale`
 
 * **What** — Two coordinated additions:
@@ -4254,20 +4390,21 @@ enough evidence to motivate the work:
   loop can probe the success-history memory size on opt-in jSO specs
   the same way ``LSHADE.H`` does for L-SHADE.  See the §13 entry.
   The symmetric ``NLSHADE_RSP.H`` rule shipped in the same change.
-- **Categorical mutation rule for ``JSO.p_best_max``** — three
-  literature-canonical settings (0.11 from L-SHADE, 0.25 from jSO,
-  0.4 from iLSHADE) make a natural ``categorical_choice`` slot
-  alongside the existing ``float_uniform`` rule.  Would let the
-  loop flip between the three regimes the same way
-  ``LSHADE.archive_factor`` flips between archive on / off / RSP.
-  *Subtlety*: the L-SHADE-style ``0.11`` is below jSO's default
-  ``p_best_min = 0.125`` and would fail the constructor's
-  ``p_best_min <= p_best_max`` check; a categorical-only fix
-  would have to use ``(0.15, 0.25, 0.4)`` instead, or be paired
-  with a coordinated rule that lowers ``p_best_min`` when
-  ``p_best_max < 0.125`` is proposed.  Currently deferred until
-  the categorical-with-dependent-kwarg pattern is needed elsewhere
-  too.
+- **Categorical mutation rule for ``JSO.p_best_max`` — shipped
+  2026-06-09**.  ``default_catalog`` gains a ``categorical_choice``
+  :class:`MutationRule` on the ``(JSO, p_best_max)`` slot with
+  ``choices=(0.15, 0.25, 0.4)`` — the L-SHADE-like / jSO default /
+  iLSHADE-like regimes, with the L-SHADE setting raised from the
+  literature ``0.11`` to ``0.15`` so it clears jSO's default
+  ``p_best_min = 0.125`` floor (the dependent-kwarg workaround the
+  earlier entry flagged).  Sits alongside the existing
+  ``float_uniform`` rule on the same slot — distinct bandit arms
+  by construction.  See the §13 entry.  Follow-up: a
+  *categorical-with-dependent-kwarg* rule pattern that lowers
+  ``p_best_min`` to ``0.05`` when ``p_best_max < 0.125`` is proposed
+  would let the L-SHADE-canonical ``0.11`` (and even narrower
+  settings) become reachable; currently deferred until the
+  dependent-kwarg pattern is motivated by a second slot too.
 
 #### BOBYQA / NEWUOA / COBYQA local optimizer — shipped 2026-05-12
 
@@ -4586,3 +4723,55 @@ positive integer, the random adjacency is re-sampled mid-run after
 best — finer-grained than the restart-gated rebuild that ships
 under :class:`~panobbgo.analyzers.restart.Restart`.  Default is
 ``None`` (off), so existing PSO behaviour is byte-identical.
+
+#### Categorical-with-dependent-kwarg rule pattern
+
+The 2026-06-09 ``JSO.p_best_max`` categorical ship had to substitute
+``0.15`` for the literature-canonical L-SHADE ``p_best = 0.11`` because
+the latter would violate jSO's constructor invariant
+``p_best_min <= p_best_max`` (default ``p_best_min = 0.125``).  A
+*categorical-with-dependent-kwarg* rule pattern — one mutation rule
+that, when proposing a new value for ``param_a``, also coordinates a
+matching value for ``param_b`` on the same heuristic instance — would
+let the loop reach genuinely L-SHADE-canonical jSO settings (and a
+half-dozen other constrained pairs across the catalog).  Design sketch:
+
+* New :class:`MutationRule` subtype ``DependentKwargRule`` (or extend
+  :class:`MutationRule` with an optional ``co_params`` field) that
+  carries a list of ``(param_name, value_fn)`` pairs.  When the rule
+  fires, ``apply_mutation`` updates *all* listed kwargs atomically so
+  the constructor sees a consistent state.
+* Bandit-arm key continues to live on the *primary* slot (e.g.,
+  ``(JSO, p_best_max, categorical_choice)``), so the existing per-arm
+  posterior bookkeeping survives unchanged.
+* Tests: round-trip through the JSONL ledger must preserve the
+  coordinated update so a ``--adaptive-prime-from-ledger`` resume
+  re-creates the dependent-kwarg state.
+
+Motivation accumulates beyond the jSO slot: ``LSHADE_LBC.p_F_init`` /
+``p_F_final`` are paired; ``Restart.sphere_std_frac`` (queued under
+"Tunable sphere std-deviation kwarg on :class:`Restart`") would pair
+with the ``"sphere"`` regime of ``restart_strategy``; future
+``StrategyRewarding`` ↔ ``StrategyUCB`` swaps will need a small
+kwarg-translation table that is structurally the same pattern.  Ship
+once two of these are on the table — one slot is not enough motivation
+for the new rule subtype.
+
+#### Categorical regimes for `LSHADE.F_schedule` (named cap regimes)
+
+The 2026-05-21 jSO ship made ``LSHADE.F_schedule`` a bool
+(``True`` → Brest et al. 2017 three-phase cap, ``False`` → unclamped
+L-SHADE).  ``default_catalog`` already exposes it as a binary
+``categorical_choice``.  A natural follow-up — flagged under
+*Tunable F-cap breakpoints / cap values on ``LSHADE.F_schedule``* — is
+to broaden the bool into a string-valued categorical over named
+regimes ``("off", "jso", "ilshade", "strict")``.  The two
+already-shipped categorical rules with multi-string choices
+(``PSO.topology``, ``Restart.restart_strategy``) provide the wire
+shape; the work is mostly heuristic-side (adding three module-level
+constant tuples for the breakpoints / caps of each named regime) plus
+a backwards-compat layer that maps the old ``True`` / ``False`` values
+to ``"jso"`` / ``"off"`` so existing specs and ledgers keep working.
+Picks up where the 2026-06-09 jSO ``p_best_max`` ship left off: the
+same shape — collapse a continuous-or-binary knob into a small fixed
+set of literature regimes — applied to the next under-catalogued dial.

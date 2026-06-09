@@ -666,3 +666,126 @@ class JSORegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         # H >= 2 is the constructor floor; bounds must stay clear of it.
         assert lo >= 2
         assert hi <= 20
+
+    def test_kwarg_catalog_jso_p_best_max_has_both_kinds(self):
+        """``JSO.p_best_max`` ships both a continuous ``float_uniform``
+        rule (for fine-tuning around the Brest et al. 2017 default of
+        ``0.25``) and a ``categorical_choice`` rule (for jumping between
+        the three literature-canonical regimes — L-SHADE-like / jSO
+        default / iLSHADE-like).  The two live on distinct bandit arms
+        by construction."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        kinds = {
+            r.kind
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "JSO" and r.param_name == "p_best_max"
+        }
+        assert "float_uniform" in kinds
+        assert "categorical_choice" in kinds
+
+    def test_kwarg_catalog_jso_p_best_max_categorical_choices(self):
+        """The categorical ``p_best_max`` rule must include ``0.25``
+        (the jSO default) and exactly three regimes total, all of which
+        respect the jSO ``p_best_min = 0.125`` floor so the constructor's
+        ``p_best_min <= p_best_max`` check never trips."""
+        from panobbgo.heuristics.jso import _DEFAULT_P_BEST_MIN
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        cat_rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule)
+            and r.class_name == "JSO"
+            and r.param_name == "p_best_max"
+            and r.kind == "categorical_choice"
+        ]
+        assert len(cat_rules) == 1
+        choices = cat_rules[0].choices
+        # jSO default must be reachable so the bandit can flip *back* to
+        # it from any of the alternate regimes.
+        assert 0.25 in choices
+        # L-SHADE-like (0.15, above the 0.125 ``p_best_min`` floor) and
+        # iLSHADE-like (0.4) must also be reachable.
+        assert 0.15 in choices
+        assert 0.4 in choices
+        # All choices must be strictly above the jSO default
+        # ``p_best_min`` so the constructor's ``p_best_min <= p_best_max``
+        # check passes for every draw without requiring a coordinated
+        # ``p_best_min`` rule.
+        assert all(isinstance(c, float) and c >= _DEFAULT_P_BEST_MIN for c in choices)
+        # All choices must lie in (0, 1] (the constructor's hard bound).
+        assert all(0.0 < c <= 1.0 for c in choices)
+
+    def test_p_best_max_rule_fires_on_explicit_kwarg(self):
+        """End-to-end: the categorical rule emits proposals that flip
+        an existing spec's ``p_best_max`` to one of the alternate
+        regimes, and the alternates are both reachable across draws."""
+        from panobbgo.core import StrategyBase
+        from panobbgo.heuristics.jso import JSO
+        from panobbgo.self_improve import MutationRule, StrategySpec, default_catalog
+
+        # Pick the categorical p_best_max rule from the default catalog.
+        cat_rule = next(
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule)
+            and r.class_name == "JSO"
+            and r.param_name == "p_best_max"
+            and r.kind == "categorical_choice"
+        )
+
+        # Seed a spec with the jSO default explicitly set.
+        spec = StrategySpec(
+            name="JSO_explicit",
+            strategy_class=StrategyBase,
+            heuristics=[(JSO, {"NP_init": 30, "p_best_max": 0.25})],
+        )
+
+        from panobbgo.self_improve import MutationCatalog
+
+        sampler_catalog = MutationCatalog([cat_rule])
+        seen_values: set[float] = set()
+        rng = np.random.default_rng(0)
+        for _ in range(40):
+            prop = sampler_catalog.sample(rng, [spec])
+            assert prop is not None
+            assert prop.old_value == 0.25
+            assert prop.new_value != 0.25
+            assert prop.new_value in cat_rule.choices
+            seen_values.add(prop.new_value)
+        # Both alternates must be reachable across the 40 draws.
+        assert seen_values == {0.15, 0.4}
+
+    def test_p_best_max_rule_skips_implicit_default(self):
+        """The categorical rule must not fire on specs that omit
+        ``p_best_max`` from the kwargs dict — the constructor default
+        ``0.25`` is matched implicitly and is filtered out by the
+        established kwarg-explicit predicate in :func:`_find_targets`."""
+        from panobbgo.core import StrategyBase
+        from panobbgo.heuristics.jso import JSO
+        from panobbgo.self_improve import MutationCatalog, MutationRule, StrategySpec, default_catalog
+
+        cat_rule = next(
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule)
+            and r.class_name == "JSO"
+            and r.param_name == "p_best_max"
+            and r.kind == "categorical_choice"
+        )
+
+        # A spec that does *not* set ``p_best_max`` — matches the
+        # structural catalog's ``add_heuristic`` JSO candidate which
+        # ships ``{"NP_init": 30}``.
+        spec = StrategySpec(
+            name="JSO_implicit",
+            strategy_class=StrategyBase,
+            heuristics=[(JSO, {"NP_init": 30})],
+        )
+
+        sampler_catalog = MutationCatalog([cat_rule])
+        rng = np.random.default_rng(0)
+        for _ in range(40):
+            prop = sampler_catalog.sample(rng, [spec])
+            assert prop is None

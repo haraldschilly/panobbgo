@@ -2,6 +2,47 @@
 
 ## Recent Improvements (continued)
 
+### Categorical `JSO.p_best_max` rule (literature regimes) — 2026-06-09
+- [x] **New `categorical_choice` `MutationRule` entry on
+      `default_catalog`** (`panobbgo/self_improve.py`):
+      `(JSO, p_best_max)` with `choices=(0.15, 0.25, 0.4)` —
+      three literature-canonical jSO ``p_best_max`` regimes
+      (L-SHADE-like / Brest et al. 2017 jSO default /
+      iLSHADE-like).  Probability `0.3` (matches all other
+      categorical rules).  Closes the *Categorical mutation rule
+      for ``JSO.p_best_max``* next-iteration ticket under *jSO
+      follow-ups (after 2026-05-15 ship)*.
+- [x] **0.11 → 0.15 substitution** — the L-SHADE-canonical
+      ``p_best = 0.11`` lies below jSO's default
+      ``p_best_min = 0.125`` and would trip the constructor
+      invariant ``p_best_min <= p_best_max``.  Raising to ``0.15``
+      preserves the "greedy-regime" semantics (still meaningfully
+      narrower than the jSO ``0.25`` default) without requiring a
+      coordinated rule that lowers ``p_best_min`` alongside.  The
+      planning doc flags the *categorical-with-dependent-kwarg*
+      pattern as a future generalisation when motivated by a
+      second slot too.
+- [x] **Dual-rule shape on the same slot** — the categorical
+      rule sits alongside the existing `float_uniform` rule on
+      the same `(JSO, p_best_max)` slot (shipped 2026-05-15 with
+      the JSO ship).  The two live on distinct bandit arms by
+      construction (`_proposal_rule_key` includes `rule_kind`),
+      so the bandit can either continuously walk the value or
+      jump between regimes — the same pattern that
+      `NLSHADE_RSP.k_rank` already uses.
+- [x] **Tests** — 4 new tests in
+      `tests/test_heuristic_jso.py::JSORegistrationTests`:
+      - `test_kwarg_catalog_jso_p_best_max_has_both_kinds`
+      - `test_kwarg_catalog_jso_p_best_max_categorical_choices`
+      - `test_p_best_max_rule_fires_on_explicit_kwarg`
+      - `test_p_best_max_rule_skips_implicit_default`
+      Plus `tests/test_self_improve.py::test_default_catalog_has_categorical_rules`
+      extended with the `("JSO", "p_best_max")` membership assertion.
+- [x] **Docs**: `planning/SELF_IMPROVEMENT_LOOP.md` §13 entry +
+      promoted next-iteration ticket; `doc/source/guide.rst`
+      quick-nav; `doc/source/guide_benchmarking.rst` categorical-
+      rules section bumped to "nine"; `AGENTS.md` rule list.
+
 ### Catalog rules for `RegionUCB.ucb_c` / `gauss_fraction` / `gauss_scale` — 2026-06-08
 - [x] **Three new `MutationRule` entries on `default_catalog`**
       (`panobbgo/self_improve.py`) covering the three leaf-bandit

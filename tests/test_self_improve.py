@@ -431,6 +431,9 @@ class TestMutationCatalog:
         assert ("COBYQA", "scale") in keys
         # Added: Restart center-picking regimes.
         assert ("Restart", "restart_strategy") in keys
+        # Added: literature regimes for the jSO p_best schedule's upper
+        # bound, alongside the continuous ``float_uniform`` rule.
+        assert ("JSO", "p_best_max") in keys
 
     def test_sample_categorical_choice_picks_different_value(self):
         """Categorical mutation always proposes a value != current."""

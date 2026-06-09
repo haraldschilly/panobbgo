@@ -1182,7 +1182,10 @@ def default_catalog() -> MutationCatalog:
       (``gbest`` ↔ ``lbest`` ↔ ``vonneumann``), ``Sobol.scramble``
       (``True`` ↔ ``False``), ``LSHADE.archive_factor``
       (``0.0`` / ``1.0`` / ``2.6``), ``LSHADE.F_schedule``
-      (``True`` ↔ ``False``), ``NLSHADE_RSP.adaptive_archive``
+      (``True`` ↔ ``False``), ``JSO.p_best_max``
+      (``0.15`` / ``0.25`` / ``0.4`` — L-SHADE-like / jSO default /
+      iLSHADE-like greediness regimes, alongside the continuous
+      ``float_uniform`` rule), ``NLSHADE_RSP.adaptive_archive``
       (``True`` ↔ ``False``), ``NLSHADE_RSP.k_rank``
       (``0.0`` / ``3.0`` / ``5.0`` — RSP-off / default / aggressive
       regimes, alongside the continuous ``float_uniform`` rule),
@@ -1567,6 +1570,32 @@ def default_catalog() -> MutationCatalog:
                 low=0.15,
                 high=0.4,
                 probability=0.5,
+            ),
+            # jSO ``p_best_max`` regime toggle (categorical).  Three
+            # literature-canonical settings collapsed onto one bandit
+            # arm: ``0.15`` (close to the Tanabe-Fukunaga L-SHADE
+            # ``0.11`` setting, raised above jSO's default
+            # ``p_best_min = 0.125`` so the constructor's
+            # ``p_best_min <= p_best_max`` check passes), ``0.25``
+            # (the Brest et al. 2017 jSO default), and ``0.4`` (the
+            # iLSHADE / Brest et al. 2016 broader pool — useful on
+            # highly multi-modal landscapes where a narrow ``pbest``
+            # slice can lock onto the wrong basin).  Sits alongside
+            # the ``float_uniform`` rule above so the bandit can either
+            # continuously walk ``p_best_max`` or jump between the
+            # qualitatively distinct regimes; the two rules occupy
+            # distinct ``(class, param, rule_kind)`` arms.  Fires only
+            # when a spec sets ``p_best_max`` explicitly — the
+            # constructor default ``0.25`` is filtered out by the
+            # established opt-in predicate so this rule is dormant
+            # on specs that omit the kwarg.
+            MutationRule(
+                strategy_pattern="",
+                class_name="JSO",
+                param_name="p_best_max",
+                kind="categorical_choice",
+                choices=(0.15, 0.25, 0.4),
+                probability=0.3,
             ),
             # jSO history memory size H.  Brest et al. report ``H = 5`` as
             # best for the CEC battery (vs L-SHADE's H = 6).  The constructor

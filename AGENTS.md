@@ -361,14 +361,20 @@ The harness is the measurement substrate for an autonomous
     `kind="categorical_choice"`.  Picks uniformly from a discrete
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
-    ships eight categorical rules out-of-the-box: `PSO.topology`
+    ships nine categorical rules out-of-the-box: `PSO.topology`
     (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"` ↔ `"random"`), `Sobol.scramble` (`True` ↔ `False`),
     `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`),
     `LSHADE.F_schedule` (`True` ↔ `False`),
     `NLSHADE_RSP.adaptive_archive` (`True` ↔ `False`),
     `NLSHADE_RSP.k_rank` (`0.0` / `3.0` / `5.0` — RSP-off /
     Stanovov default / aggressive regimes, sitting alongside the
-    continuous `float_uniform` rule), `COBYQA.scale`
+    continuous `float_uniform` rule),
+    `JSO.p_best_max` (`0.15` / `0.25` / `0.4` — L-SHADE-like /
+    jSO default / iLSHADE-like greediness regimes, also sitting
+    alongside the continuous `float_uniform` rule on the same
+    slot; the L-SHADE setting is raised from the canonical `0.11`
+    to `0.15` so it clears jSO's default `p_best_min = 0.125`
+    floor — shipped 2026-06-09), `COBYQA.scale`
     (`True` ↔ `False`), and `Restart.restart_strategy`
     (`"random"` / `"diverse"` / `"sphere"` — uniform-in-box /
     max-min-distance / Gaussian-around-centre center-selection

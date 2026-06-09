@@ -1297,7 +1297,7 @@ eliminated by construction).  The bandit treats categorical rules
 as their own arm — distinct from any numeric rule on the same
 <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param)</span></code> slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.</p>
-<p>The default catalog ships eight categorical rules out-of-the-box:</p>
+<p>The default catalog ships nine categorical rules out-of-the-box:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;PSO&quot;</span><span class="p">,</span>
@@ -1349,24 +1349,38 @@ flipping a discrete knob is worthwhile.</p>
 </span><span data-line="49"><span class="p">),</span>
 </span><span data-line="50"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="51">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-</span><span data-line="52">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span>
-</span><span data-line="53">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span>
+</span><span data-line="52">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;JSO&quot;</span><span class="p">,</span>
+</span><span data-line="53">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;p_best_max&quot;</span><span class="p">,</span>
 </span><span data-line="54">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
-</span><span data-line="55">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
-</span><span data-line="56">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-</span><span data-line="57"><span class="p">),</span>
-</span><span data-line="58"><span class="n">MutationRule</span><span class="p">(</span>
-</span><span data-line="59">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-</span><span data-line="60">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span>
-</span><span data-line="61">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;restart_strategy&quot;</span><span class="p">,</span>
-</span><span data-line="62">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
-</span><span data-line="63">    <span class="c1"># &quot;random&quot; = uniform-in-box; &quot;diverse&quot; = max-min distance from</span>
-</span><span data-line="64">    <span class="c1"># previous restart centres; &quot;sphere&quot; = Gaussian around the box</span>
-</span><span data-line="65">    <span class="c1"># centre with std = ranges / 6 (clipped to the box).  Shipped</span>
-</span><span data-line="66">    <span class="c1"># 2026-06-07 — see §13 entry.</span>
-</span><span data-line="67">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="s2">&quot;diverse&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">),</span>
-</span><span data-line="68">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-</span><span data-line="69"><span class="p">),</span>
+</span><span data-line="55">    <span class="c1"># 0.15 ≈ L-SHADE-like (raised from the literature 0.11 so it</span>
+</span><span data-line="56">    <span class="c1"># clears jSO&#39;s default p_best_min = 0.125 floor); 0.25 = Brest</span>
+</span><span data-line="57">    <span class="c1"># et al. 2017 jSO default; 0.4 = iLSHADE-like broader pool.</span>
+</span><span data-line="58">    <span class="c1"># Shipped 2026-06-09 — see §13 entry.  Sits alongside the</span>
+</span><span data-line="59">    <span class="c1"># ``float_uniform`` rule on the same slot for continuous /</span>
+</span><span data-line="60">    <span class="c1"># categorical complementarity.</span>
+</span><span data-line="61">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">),</span>
+</span><span data-line="62">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="63"><span class="p">),</span>
+</span><span data-line="64"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="65">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="66">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span>
+</span><span data-line="67">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span>
+</span><span data-line="68">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="69">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+</span><span data-line="70">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="71"><span class="p">),</span>
+</span><span data-line="72"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="73">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="74">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span>
+</span><span data-line="75">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;restart_strategy&quot;</span><span class="p">,</span>
+</span><span data-line="76">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="77">    <span class="c1"># &quot;random&quot; = uniform-in-box; &quot;diverse&quot; = max-min distance from</span>
+</span><span data-line="78">    <span class="c1"># previous restart centres; &quot;sphere&quot; = Gaussian around the box</span>
+</span><span data-line="79">    <span class="c1"># centre with std = ranges / 6 (clipped to the box).  Shipped</span>
+</span><span data-line="80">    <span class="c1"># 2026-06-07 — see §13 entry.</span>
+</span><span data-line="81">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="s2">&quot;diverse&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">),</span>
+</span><span data-line="82">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="83"><span class="p">),</span>
 </span></pre></div>
 </div>
 <p>Each fires only when the target spec sets the kwarg <em>explicitly</em>

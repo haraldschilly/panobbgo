@@ -1106,7 +1106,7 @@ as their own arm — distinct from any numeric rule on the same
 ``(class, param)`` slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.
 
-The default catalog ships eight categorical rules out-of-the-box:
+The default catalog ships nine categorical rules out-of-the-box:
 
 .. code-block:: python
 
@@ -1157,6 +1157,20 @@ The default catalog ships eight categorical rules out-of-the-box:
        kind="categorical_choice",
        # 0.0 = uniform r1 / jSO recovery; 3.0 = RSP default; 5.0 = aggressive.
        choices=(0.0, 3.0, 5.0),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="JSO",
+       param_name="p_best_max",
+       kind="categorical_choice",
+       # 0.15 ≈ L-SHADE-like (raised from the literature 0.11 so it
+       # clears jSO's default p_best_min = 0.125 floor); 0.25 = Brest
+       # et al. 2017 jSO default; 0.4 = iLSHADE-like broader pool.
+       # Shipped 2026-06-09 — see §13 entry.  Sits alongside the
+       # ``float_uniform`` rule on the same slot for continuous /
+       # categorical complementarity.
+       choices=(0.15, 0.25, 0.4),
        probability=0.3,
    ),
    MutationRule(

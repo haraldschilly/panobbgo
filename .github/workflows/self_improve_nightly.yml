@@ -1,7 +1,7 @@
 name: Nightly Self-Improvement Loop
 
 # Runs the autonomous self-improvement loop (planning/SELF_IMPROVEMENT_LOOP.md
-# §9 / §13) once per day.  Appends to planning/self_improve_ledger.jsonl and
+# §9 / §12) once per day.  Appends to planning/self_improve_ledger.jsonl and
 # regenerates planning/self_improve_summary.txt, then commits both back to
 # master with [skip ci] so the daily Claude routine has fresh trend data.
 

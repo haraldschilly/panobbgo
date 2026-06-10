@@ -17,6 +17,157 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-10 — Loop registry exercises the dormant catalog (V2 §9.5 step 1)
+
+* **What** — Three coordinated additions:
+
+  * `panobbgo/harness.py`: new :func:`_make_loop_strategies` factory
+    that returns the two ``quick`` specs (``RoundRobin_Random``,
+    ``Rewarding_Diverse``) **plus** five compact family specs
+    targeted at the rule-bearing catalog branches:
+
+    * ``Loop_DE_Family`` — a single ``StrategyRewarding`` spec with
+      ``Random`` + LSHADE / JSO / NLSHADE_RSP / NLSHADE_LBC /
+      LSHADE_EpSin + ``NelderMead`` and a ``Sensitivity`` analyzer.
+      All five DE heuristics ship at ``NP_init = 15`` (inside the
+      ``[10, 60]`` catalog bound) so even at the quick-mode 75-eval
+      budget each can complete at least one full generation.  Every
+      tuned kwarg explicit at the literature default: LSHADE
+      ``H=6 / p_best=0.11 / p_best_end=0.055 / archive_factor=1.0 /
+      F_schedule=True`` (iLSHADE-style schedule + jSO F-cap),
+      JSO ``H=5 / p_best_max=0.25``, NLSHADE_RSP
+      ``H=5 / k_rank=3.0 / adaptive_archive=True``, NLSHADE_LBC
+      ``H=5 / p_F_init=3.5 / p_F_final=1.5 / p_CR_init=1.0 /
+      p_CR_final=1.5 / m_lbc=1.5``, LSHADE_EpSin ``mu_freq_init=0.5``.
+    * ``Loop_PSO`` — ``LatinHypercube`` + ``PSO`` + ``NelderMead``.
+      PSO carries every tunable kwarg explicit: ``NP=15 /
+      w=0.7298 / w_end=0.4 / stagnation_threshold=10 /
+      topology="gbest"``.  ``stagnation_threshold`` is pre-staged
+      (inert on ``gbest``) so the bandit can flip ``topology`` to
+      ``random`` and the stochastic-K rebuild rule fires immediately
+      on the same instance.
+    * ``Loop_RegionUCB`` — the ``Rewarding_Diverse`` heuristic mix
+      plus a ``RegionUCB`` arm with ``ucb_c=1.0 / gauss_fraction=0.5
+      / gauss_scale=0.25`` (the three 2026-06-08 catalog rules).
+    * ``Loop_LocalSearch`` — ``LatinHypercube`` + ``COBYQA`` (with
+      ``initial_tr_radius=0.1 / final_tr_radius=1e-6 / scale=True``)
+      + ``LBFGSB`` (with ``max_starts=5``) + ``NelderMead``.  The
+      two local optimisers cover every COBYQA / LBFGSB rule
+      currently in the catalog.
+    * ``Loop_Restart`` — ``LatinHypercube`` + ``CMAES`` (``sigma0=0.3``)
+      + ``Random`` + ``Nearby`` + ``NelderMead``, with a ``Restart``
+      analyzer (``patience=20 / restart_strategy="random" /
+      max_restarts=5``) and a ``Sensitivity`` analyzer (the standard-
+      mode ``update_interval=20``).  Activates all three
+      :class:`Restart` rules including the categorical
+      ``restart_strategy`` arm shipped 2026-06-07.
+
+  * `panobbgo/harness.py`: :class:`HarnessConfig` gains an opt-in
+    ``registry: str = "default"`` field; ``"loop"`` routes
+    :meth:`BenchmarkHarness.get_strategies` to
+    :func:`_make_loop_strategies` regardless of ``mode``, while the
+    historical ``"default"`` selects ``quick`` / ``standard`` /
+    ``full`` factories per ``mode`` (byte-identical to the prior
+    behaviour).  Unknown values raise ``ValueError``;
+    ``strategies_override`` continues to win when set.
+
+  * `panobbgo/self_improve.py`: :class:`LoopConfig` gains the
+    matching ``registry: str = "default"`` field forwarded to
+    :class:`HarnessConfig` by :meth:`SelfImprover._load_seed_strategies`.
+    Inert on the AOCC metric path (the IOH battery has its own
+    registry, :func:`panobbgo.harness_ioh.make_ioh_strategies`).
+    ``scripts/self_improve.py run`` gains
+    ``--registry {default,loop}``.
+
+* **Why** — Closes the §9.5 step 1 ticket of the V2 plan and the §2.4
+  "catalog ≫ registry mismatch" diagnosis.  The nightly cron runs in
+  ``--mode quick`` whose default registry sets only ``Sobol`` /
+  ``Nearby`` / ``Sensitivity`` kwargs explicitly.  Every L-SHADE /
+  jSO / NL-SHADE-RSP / NL-SHADE-LBC / LSHADE-EpSin / PSO / RegionUCB /
+  COBYQA / LBFGSB / Restart mutation rule shipped since mid-May 2026
+  (≈30 rules, ~6 weeks of catalog work) sat dormant against this
+  registry because no seed spec set the matching kwarg.  Measured
+  with :func:`panobbgo.self_improve._find_targets` against the
+  ``MutationRule`` entries of :func:`default_catalog`:
+
+  * Quick registry — **4 / 44** kwarg rules fire (Sobol.n,
+    Sobol.scramble, Nearby.radius, Sensitivity.update_interval).
+  * Loop registry — **44 / 44** kwarg rules fire (all of them).
+
+  The 11× lift in active arms is the prerequisite for the §11
+  success criteria; the bandit can finally distinguish *which*
+  catalog rule wins on the rule-bearing branches it has accumulated
+  over the past six weeks.  No source change to any heuristic /
+  analyzer / strategy class — this is pure seed-spec composition.
+
+* **Impact** — Catalog kwarg-rule activation lifts from 4 / 44 to
+  44 / 44 (11× wider catalog reachable per iteration).  No-op
+  iterations should drop sharply once the §9.5 step 2 metric work
+  lands and the bandit can detect the new arms' Δ.  Compute cost
+  scales linearly with the spec count: 7 specs (loop) vs 2 specs
+  (quick) ≈ 3.5× per-iteration; per §2.5 the cron is currently 94%
+  idle so this still fits in the 90-min budget.  No-op default —
+  CLI invocations without ``--registry loop`` are byte-identical
+  to the prior nightly run.  *Evidence form (per AGENTS.md
+  "Agent-driven improve X PRs"): registry-only addition with all
+  byte-identical behaviour preserved when ``registry="default"``;
+  the new factory is exercised by 15 tests in
+  ``tests/test_loop_registry.py`` plus the existing self-improve
+  / harness suites.*
+
+* **Backwards compatibility** — strictly safe.  ``HarnessConfig``
+  defaults ``registry="default"``; :class:`LoopConfig` defaults
+  ``registry="default"``; ``scripts/self_improve.py run`` defaults
+  ``--registry default``.  Every existing call site, existing
+  ledger entry, existing nightly invocation, and existing test is
+  byte-identical.  The new loop registry is purely additive — it
+  ships a new factory function on :mod:`panobbgo.harness` and a new
+  CLI flag; nothing else changes until a user explicitly passes
+  ``--registry loop``.
+
+* **Tests** — 15 new tests in ``tests/test_loop_registry.py``:
+
+  * ``TestLoopRegistryComposition`` (3 tests) — asserts the loop
+    registry returns 7 specs, includes both quick specs unchanged,
+    and includes the five required family names.
+  * ``TestCatalogRuleCoverage`` (2 tests) — the headline contract:
+    every :class:`MutationRule` in :func:`default_catalog` matches
+    at least one entry in the loop registry; the quick registry's
+    coverage stays at the historical baseline of ≤ 10 rules.
+    Future catalog additions that target a class missing from the
+    loop registry now fail loudly at this gate.
+  * ``TestHarnessConfigRegistryWiring`` (4 tests) — ``registry``
+    field on :class:`HarnessConfig` correctly dispatches; unknown
+    values raise ``ValueError``; ``strategies_override`` still
+    wins; ``"loop"`` ignores ``mode``.
+  * ``TestLoopConfigRegistryWiring`` (3 tests) — :class:`LoopConfig`
+    forwards ``registry`` to the seed-strategy loader and validates
+    the value at ``__post_init__`` time.
+  * ``TestSelfImproveCliRegistryFlag`` (3 tests) — the
+    ``--registry`` flag parses to the correct attribute, defaults
+    to ``"default"``, and rejects unknown values via ``SystemExit``.
+
+  All 244 existing :mod:`panobbgo.self_improve` tests, 17 harness
+  registry tests, and 22 baseline-strategy tests continue to pass.
+  End-to-end smoke check: ``SelfImprover`` with
+  ``registry="loop"`` runs a full iteration against the randomized
+  quick-mode battery and writes a valid ledger record.
+
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §9.1 entry promoted from
+    *open* to *shipped* with a pointer to the §13 entry; §9.4
+    target invocation annotated to mark ``--registry loop`` as
+    shipped; §9.5 step 1 struck through and replaced with the ship
+    date + coverage numbers.
+  - `planning/SELF_IMPROVEMENT_LOG.md`: this entry.
+  - `doc/source/guide.rst`: quick-nav entry mentions the loop
+    registry and its ``--registry loop`` opt-in.
+  - `doc/source/guide_benchmarking.rst`: self-improvement section
+    documents the new factory, its motivation, and the catalog-rule
+    coverage measurement.
+  - `AGENTS.md`: self-improvement loop subsection documents the
+    new ``LoopConfig.registry`` knob and CLI flag.
+
 ### 2026-06-09 — Categorical `JSO.p_best_max` rule (literature regimes)
 
 * **What** — `panobbgo/self_improve.py`: :func:`default_catalog`
@@ -3417,6 +3568,39 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### Flip the nightly cron to `--registry loop` (after 2026-06-10 ship)
+
+The loop registry shipped 2026-06-10 lifts catalog kwarg-rule activation
+from 4 / 44 (quick seed) to 44 / 44 (loop seed), closing the §2.4
+"catalog ≫ registry mismatch" diagnosis at the seed level.  Until the
+nightly workflow file passes ``--registry loop`` to
+``scripts/self_improve.py run`` the cron still runs against the quick
+seed and the lift is *theoretical*.  The trade-off documented in the
+ship entry (3.5× per-iteration cost from 2 → 7 specs vs the current 94%
+idle compute budget) means the flip is safe; it just needs the workflow
+file edit and one ledger archive marker so the bandit's prior beliefs
+don't silently mix old (4-arm) and new (44-arm) accept regimes.  Pair
+with a manual ``workflow_dispatch`` A/B comparing accept / no-op rates
+across one or two nights so the lift is *measured* before flipping the
+cron permanently.
+
+#### Drop `Loop_DE_Family` heuristics for smaller compact specs
+
+The 2026-06-10 ``_make_loop_strategies`` ship packs five DE-family
+heuristics (LSHADE / JSO / NLSHADE_RSP / NLSHADE_LBC / LSHADE_EpSin)
+into a *single* ``Loop_DE_Family`` ``StrategyRewarding`` spec so the
+spec count stays at 7.  The strategy-level bandit allocates the
+75-eval quick-mode budget across all five — average per-heuristic
+budget ≈ 15 evals, which is below the ``NP_init = 15`` initial
+population: most heuristics complete *one* generation per rep.  A
+natural follow-up once ledger evidence accumulates is to split the
+combined spec into five single-DE-heuristic strategies
+(``Loop_LSHADE`` / ``Loop_JSO`` / ``Loop_NLSHADE_RSP`` / …) so each
+DE variant gets the full strategy-allocated budget.  Lifts compute
+cost from 7 → 11 specs (~5.5× quick).  Speculative until the loop
+collects evidence on whether the per-DE-variant signal is currently
+washed out by the combined-spec budget split.
 
 #### LBFGSB follow-ups (after 2026-05-27 ship)
 

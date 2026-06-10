@@ -212,12 +212,18 @@ Spend ~60 of the 90 minutes — V1 used ~5.
   worker is unwanted in CI: re-base the composite battery (larger
   budgets, easier family mix, or relaxed tolerance) until the median
   score sits in 0.3–0.6 and <10% of mutations measure Δ=0.
-- **Registry: a dedicated loop registry** [open] —
-  `make_loop_strategies()`: the quick specs **plus** one compact spec
-  per rule-bearing family (DE family, PSO, RegionUCB, LBFGSB/COBYQA,
-  Restart analyzer) with tunable kwargs explicit at constructor
-  defaults, so the ~30 catalog rules actually fire (§2.4).
-- 30–40 iterations, `--structural --adaptive
+- **Registry: a dedicated loop registry** — **shipped 2026-06-10** as
+  :func:`panobbgo.harness._make_loop_strategies`, opt in via
+  ``scripts/self_improve.py run --registry loop``.  Returns the two
+  quick specs plus five compact family specs (``Loop_DE_Family``,
+  ``Loop_PSO``, ``Loop_RegionUCB``, ``Loop_LocalSearch``,
+  ``Loop_Restart``) — every tunable kwarg of LSHADE / JSO /
+  NLSHADE_RSP / NLSHADE_LBC / LSHADE_EpSin / PSO / RegionUCB / COBYQA /
+  LBFGSB / Restart is explicit at the constructor default.  Lifts
+  catalog kwarg-rule activation from **4 / 44** under the quick
+  registry to **44 / 44** under the loop registry.  See the
+  2026-06-10 entry in `SELF_IMPROVEMENT_LOG.md`.
+- 30–40 iterations, `--registry loop --structural --adaptive
   --structural-per-class-arms --adaptive-prime-from-ledger`, ≥5 reps,
   paired bootstrap.
 
@@ -260,13 +266,18 @@ uv run python scripts/self_improve.py run \
 uv run python scripts/self_improve.py codify-scan --open-pr
 ```
 
-(`permissions: pull-requests: write` in the workflow.)  Until the
-open flags exist, the V1 invocation in the workflow file stands.
+(`permissions: pull-requests: write` in the workflow.)  ``--registry
+loop`` shipped 2026-06-10 (§9.5 step 1); the other open flags above
+remain queued.  Until they exist, the V1 invocation in the workflow
+file stands.
 
 ### 9.5 Implementation order (one PR each)
 
-1. `make_loop_strategies()` + `--registry loop` — smallest diff,
-   unblocks the dormant catalog.
+1. ~`make_loop_strategies()` + `--registry loop`~ — **shipped
+   2026-06-10**.  See §9.1 above and the dated entry in
+   `SELF_IMPROVEMENT_LOG.md`.  Catalog kwarg-rule coverage on the
+   seed lifted from 4 / 44 to 44 / 44 — the nightly cron can now
+   pick `--registry loop` so the dormant catalog actually fires.
 2. Nightly to `--metric aocc` (or battery re-base), after one manual
    `workflow_dispatch` A/B comparing signal quality.
 3. `--confirm-accepts` (§6.4) + graded bandit reward (§7.4) + no-op

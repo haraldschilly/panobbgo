@@ -2510,6 +2510,24 @@ class LoopConfig:
     #: Use ``"aocc"`` when the loop should optimise for the MA-BBOB
     #: anytime competition rather than panobbgo's internal score.
     metric: str = "composite"
+    #: Named seed-strategy registry.
+    #:
+    #: ``"default"`` (historical) selects the strategy battery from the
+    #: harness mode — quick / standard / full mapping to the matching
+    #: :func:`_make_*_strategies` factory in :mod:`panobbgo.harness`.
+    #:
+    #: ``"loop"`` selects :func:`~panobbgo.harness._make_loop_strategies`
+    #: regardless of :attr:`mode`.  The loop registry ships the quick
+    #: specs plus one compact spec per rule-bearing family (DE / PSO /
+    #: RegionUCB / LBFGSB+COBYQA / Restart analyzer) with every tunable
+    #: kwarg explicit at the constructor default, so the ~30 mutation
+    #: rules in :func:`default_catalog` actually fire on the seed instead
+    #: of staying dormant.  See §9.1 of
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md`` (V2 plan).
+    #:
+    #: Ignored on the AOCC metric path — the IOH battery has its own
+    #: registry (:func:`panobbgo.harness_ioh.make_ioh_strategies`).
+    registry: str = "default"
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -2518,6 +2536,8 @@ class LoopConfig:
             raise ValueError(f"Unknown mode {self.mode!r}")
         if self.metric not in {"composite", "aocc"}:
             raise ValueError(f"metric must be 'composite' or 'aocc', got {self.metric!r}")
+        if self.registry not in {"default", "loop"}:
+            raise ValueError(f"registry must be 'default' or 'loop', got {self.registry!r}")
         if self.guard_interval < 0:
             raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
         if self.guard_eps_ladder < 0:
@@ -3475,7 +3495,11 @@ class SelfImprover:
 
             strats = make_ioh_strategies()
         else:
-            cfg = HarnessConfig(mode=self.config.mode, strategies=self.config.strategy_names)
+            cfg = HarnessConfig(
+                mode=self.config.mode,
+                strategies=self.config.strategy_names,
+                registry=self.config.registry,
+            )
             strats = self._harness_factory(cfg).get_strategies()
         if self.config.strategy_names:
             wanted = set(self.config.strategy_names)

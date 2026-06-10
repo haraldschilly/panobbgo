@@ -154,6 +154,20 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument(
+        "--registry",
+        choices=["default", "loop"],
+        default="default",
+        help=(
+            "Named strategy registry. 'default' (historical) selects the "
+            "quick/standard/full battery from --mode; 'loop' selects the "
+            "catalog-exercising loop registry (the quick specs plus one "
+            "compact spec per rule-bearing family — DE / PSO / RegionUCB "
+            "/ LBFGSB+COBYQA / Restart) so the dormant catalog mutation "
+            "rules actually fire on the seed specs. See §9.1 of "
+            "planning/SELF_IMPROVEMENT_LOOP.md (V2 plan)."
+        ),
+    )
+    run_p.add_argument(
         "--base-seed",
         dest="base_seed",
         type=int,
@@ -550,6 +564,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             holdout_eps_overfit=args.holdout_eps_overfit,
             paired=args.paired,
             metric=args.metric,
+            registry=args.registry,
             inactivity_relax_after=args.inactivity_relax_after,
             inactivity_relax_factor=args.inactivity_relax_factor,
             inactivity_min_eps_accept=args.inactivity_min_eps_accept,

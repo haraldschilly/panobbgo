@@ -569,6 +569,67 @@ The MVP driver is shipped as :mod:`panobbgo.self_improve` plus the
    # Pretty-print a previous ledger (counts accepts, guards, rollbacks)
    uv run python scripts/self_improve.py summary
 
+   # Use the loop-tuned seed registry (V2 §9.1) so the dormant catalog
+   # mutation rules actually fire on the rule-bearing DE / PSO /
+   # RegionUCB / LBFGSB+COBYQA / Restart families.  Lifts catalog
+   # kwarg-rule coverage from 4 / 44 (quick seed) to 44 / 44 — see the
+   # "Loop registry" section below.
+   uv run python scripts/self_improve.py run --iterations 30 \
+       --registry loop --adaptive --structural
+
+Loop registry (V2 §9.1)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The default ``quick`` registry — :func:`panobbgo.harness._make_quick_strategies`
+— ships two compact specs (``RoundRobin_Random`` and
+``Rewarding_Diverse``) that explicitly set only ``Sobol`` / ``Nearby`` /
+``Sensitivity`` kwargs.  Mutation rules in
+:func:`panobbgo.self_improve.default_catalog` are gated by the
+"param already in kwargs" predicate
+(:func:`panobbgo.self_improve._find_targets`), so every L-SHADE /
+jSO / NL-SHADE-RSP / NL-SHADE-LBC / LSHADE-EpSin / PSO / RegionUCB /
+COBYQA / LBFGSB / Restart rule sits dormant against this seed —
+four rules fire out of 44 (~9 % catalog reach).
+
+:func:`panobbgo.harness._make_loop_strategies` exists to exercise the
+dormant catalog.  It returns the two quick specs **plus** five
+compact family specs, every tuneable kwarg explicit at the
+constructor default so every catalog rule on the matching class is
+immediately applicable:
+
+* ``Loop_DE_Family`` — one Rewarding strategy carrying all five DE
+  variants (L-SHADE, jSO, NL-SHADE-RSP, NL-SHADE-LBC, LSHADE-EpSin)
+  at ``NP_init = 15``.  Activates every numeric and categorical
+  rule across the DE family (~20 rules), including the L-SHADE
+  ``F_schedule`` and ``archive_factor`` categorical toggles, the
+  jSO ``p_best_max`` regime arm, the NL-SHADE-RSP ``k_rank``
+  regime arm, and every NL-SHADE-LBC schedule kwarg.
+* ``Loop_PSO`` — LatinHypercube + PSO + NelderMead.  PSO ships
+  ``NP=15 / w=0.7298 / w_end=0.4 / stagnation_threshold=10 /
+  topology="gbest"`` so every PSO rule fires — including the
+  four-way ``topology`` categorical and the stochastic-K
+  ``stagnation_threshold`` rule shipped 2026-06-05.
+* ``Loop_RegionUCB`` — the diverse heuristic mix plus a
+  ``RegionUCB`` arm with ``ucb_c / gauss_fraction / gauss_scale``
+  explicit (the three 2026-06-08 rules).
+* ``Loop_LocalSearch`` — LatinHypercube + COBYQA + LBFGSB +
+  NelderMead.  Activates the COBYQA trust-region rules and the
+  ``LBFGSB.max_starts`` rule shipped 2026-06-06.
+* ``Loop_Restart`` — a CMA-ES strategy with the :class:`Restart`
+  analyzer at explicit ``patience / restart_strategy /
+  max_restarts``.  Activates all three :class:`Restart` rules
+  including the ``restart_strategy`` categorical arm shipped
+  2026-06-07.
+
+Opt in with ``--registry loop`` on
+``scripts/self_improve.py run`` or
+:attr:`panobbgo.self_improve.LoopConfig.registry` ``= "loop"``.  The
+registry is independent of ``--mode`` — quick / standard / full
+budgets are honoured but the seed specs are the same.  Default
+``registry="default"`` preserves the historical mode-based
+selection byte-for-byte, so existing CLI invocations are
+byte-identical.
+
 Anti-cherry-pick guard (§6.3)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

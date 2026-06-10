@@ -531,6 +531,230 @@ def _make_full_strategies() -> List[StrategySpec]:
     return base + [thompson, bayes_enhanced, cmaes_gp, bipop_cmaes]
 
 
+def _make_loop_strategies() -> List[StrategySpec]:
+    """Dedicated registry for the self-improvement loop.
+
+    Returns the two ``quick`` specs (``RoundRobin_Random`` and
+    ``Rewarding_Diverse``) plus one *compact* spec per rule-bearing
+    catalog family — Differential Evolution, Particle Swarm, RegionUCB,
+    LBFGSB / COBYQA local optimizers, and the :class:`Restart` analyzer.
+    Each new spec ships every tunable kwarg of its targeted classes
+    explicitly at the constructor default so the :mod:`panobbgo.self_improve`
+    catalog rules immediately apply (see the ``_find_targets`` "param
+    already in kwargs" predicate — kwargs left at the constructor default
+    are filtered out and the rule stays dormant).
+
+    Motivation: §9.1 of ``planning/SELF_IMPROVEMENT_LOOP.md`` (V2 plan).
+    The nightly loop runs in ``quick`` mode whose default registry covers
+    only ``Sobol`` / ``Nearby`` / ``Sensitivity`` — three of the ~15
+    classes the catalog has rules for.  Every ``LSHADE`` / ``JSO`` /
+    ``NLSHADE_RSP`` / ``NLSHADE_LBC`` / ``LSHADE_EpSin`` / ``PSO`` /
+    ``RegionUCB`` / ``COBYQA`` / ``LBFGSB`` / ``Restart`` rule shipped
+    since mid-May 2026 sat dormant because the seed specs never set
+    those kwargs explicitly.  This factory exists to exercise the
+    dormant catalog (§2.4 "catalog ≫ registry mismatch" in the loop
+    diagnosis) without touching the existing ``quick`` / ``standard`` /
+    ``full`` registries.
+
+    The new specs use compact populations (``NP_init = 15`` for
+    population-based DE variants, ``NP = 15`` for PSO) so a single
+    strategy with multiple heuristics still fits the ``quick`` 75-eval
+    budget.  All values land inside the matching catalog rule's
+    ``bounds`` so a mutation can move in either direction.
+
+    Opt in via ``scripts/self_improve.py run --registry loop`` or by
+    passing ``seed_strategies=_make_loop_strategies()`` directly to
+    :class:`~panobbgo.self_improve.SelfImprover`.  The default
+    self-improvement CLI invocations are byte-identical because
+    ``--registry`` defaults to the historical mode-based selection.
+    """
+    from panobbgo.strategies import StrategyRewarding
+    from panobbgo.heuristics import (
+        Random,
+        Nearby,
+        NelderMead,
+        Center,
+        LatinHypercube,
+        Sobol,
+        CMAES,
+        PSO,
+        RegionUCB,
+        LBFGSB,
+        COBYQA,
+    )
+    from panobbgo.heuristics.lshade import LSHADE
+    from panobbgo.heuristics.jso import JSO
+    from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+    from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+    from panobbgo.heuristics.lshade_ep_sin import LSHADE_EpSin
+    from panobbgo.analyzers import Sensitivity, Restart
+
+    quick = _make_quick_strategies()
+
+    # DE family: all five literature-best adaptive Differential Evolution
+    # variants share a single Rewarding strategy.  The strategy-level
+    # bandit allocates budget across them at runtime; the explicit kwargs
+    # are tuned to the canonical literature defaults *and* sized down to
+    # ``NP_init = 15`` so even at the quick-mode 75-eval budget every
+    # heuristic can complete at least one full generation.  Every value
+    # sits inside the matching catalog rule's bounds (``NP_init`` ∈
+    # ``[10, 60]`` etc.) so the bandit can mutate in either direction.
+    #
+    # Per-heuristic kwarg coverage:
+    # * ``LSHADE``     — NP_init / H / p_best / p_best_end / archive_factor /
+    #                    F_schedule (six rules including two categorical)
+    # * ``JSO``        — NP_init / p_best_max / H (three rules + the
+    #                    `p_best_max` categorical regime arm)
+    # * ``NLSHADE_RSP``— NP_init / k_rank / H / adaptive_archive (four
+    #                    rules + the `k_rank` categorical regime arm)
+    # * ``NLSHADE_LBC``— NP_init / p_F_init / p_F_final / p_CR_init /
+    #                    p_CR_final / m_lbc (six rules)
+    # * ``LSHADE_EpSin``— NP_init / mu_freq_init (two rules)
+    #
+    # ``p_best_end`` for LSHADE is set to half ``p_best`` (the jSO
+    # iLSHADE-style schedule); ``F_schedule = True`` opts the heuristic
+    # into the Brest et al. 2017 three-phase asymmetric F-cap.
+    loop_de = StrategySpec(
+        name="Loop_DE_Family",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (Random, {}),
+            (
+                LSHADE,
+                {
+                    "NP_init": 15,
+                    "H": 6,
+                    "p_best": 0.11,
+                    "p_best_end": 0.055,
+                    "archive_factor": 1.0,
+                    "F_schedule": True,
+                },
+            ),
+            (JSO, {"NP_init": 15, "H": 5, "p_best_max": 0.25}),
+            (
+                NLSHADE_RSP,
+                {"NP_init": 15, "H": 5, "k_rank": 3.0, "adaptive_archive": True},
+            ),
+            (
+                NLSHADE_LBC,
+                {
+                    "NP_init": 15,
+                    "H": 5,
+                    "p_F_init": 3.5,
+                    "p_F_final": 1.5,
+                    "p_CR_init": 1.0,
+                    "p_CR_final": 1.5,
+                    "m_lbc": 1.5,
+                },
+            ),
+            (LSHADE_EpSin, {"NP_init": 15, "mu_freq_init": 0.5}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+
+    # PSO family: a single Rewarding spec with PSO at every tunable kwarg
+    # explicit.  Covers PSO.NP / w / w_end / stagnation_threshold /
+    # topology (five rules including the four-way topology categorical).
+    # ``topology = "gbest"`` is the Kennedy-Eberhart 1995 default; the
+    # categorical mutation rule can flip it to ``lbest`` / ``vonneumann``
+    # / ``random``.  ``w_end = 0.4`` enables the Shi-Eberhart 1998 linear
+    # inertia schedule (``w`` decays from ``0.7298`` to ``0.4`` over the
+    # budget).  ``stagnation_threshold = 10`` opts in to the Clerc 2007 /
+    # SPSO 2011 stochastic-K rebuild for the ``random`` topology — inert
+    # on the seed ``gbest`` setting but pre-staged so the bandit can flip
+    # both knobs simultaneously without re-adding the heuristic.
+    loop_pso = StrategySpec(
+        name="Loop_PSO",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (
+                PSO,
+                {
+                    "NP": 15,
+                    "w": 0.7298,
+                    "w_end": 0.4,
+                    "stagnation_threshold": 10,
+                    "topology": "gbest",
+                },
+            ),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+
+    # RegionUCB: the three leaf-bandit dials shipped 2026-06-08 (ucb_c /
+    # gauss_fraction / gauss_scale) all live on the same heuristic class.
+    # Matches the seeded ``Rewarding_RegionUCB`` spec in standard mode
+    # (the same explicit kwargs) so the catalog mutations stay applicable.
+    loop_region_ucb = StrategySpec(
+        name="Loop_RegionUCB",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (Sobol, {"n": 16, "scramble": False}),
+            (Random, {}),
+            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (Center, {}),
+            (NelderMead, {}),
+            (RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 25})],
+    )
+
+    # Local-search pair: COBYQA (derivative-free trust region) and
+    # LBFGSB (gradient-based quasi-Newton).  Both ship the kwargs the
+    # catalog mutates explicitly.  COBYQA: initial_tr_radius /
+    # final_tr_radius / scale (three rules including the binary
+    # categorical).  LBFGSB: max_starts (the only LBFGSB rule today).
+    # The strategy also keeps a LatinHypercube seeder and NelderMead so
+    # the local optimizers always have a starting point to refine and a
+    # cheap simplex fallback when the trust-region / quasi-Newton arms
+    # exhaust their budget.
+    loop_local = StrategySpec(
+        name="Loop_LocalSearch",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (
+                COBYQA,
+                {"initial_tr_radius": 0.1, "final_tr_radius": 1e-6, "scale": True},
+            ),
+            (LBFGSB, {"max_starts": 5}),
+            (NelderMead, {}),
+        ],
+        analyzers=[(Sensitivity, {"update_interval": 20})],
+    )
+
+    # Restart analyzer: every kwarg the catalog tunes lives on the
+    # :class:`Restart` analyzer — patience / max_restarts /
+    # restart_strategy (three rules including the categorical regime
+    # arm).  The heuristic mix is the lightweight "diverse" stack
+    # (Random / Nearby / NelderMead) so the analyzer's stagnation /
+    # restart cycle is the dominant signal.  Pairs naturally with CMAES
+    # whose own ``sigma0`` kwarg is exposed by an existing catalog rule.
+    loop_restart = StrategySpec(
+        name="Loop_Restart",
+        strategy_class=StrategyRewarding,
+        heuristics=[
+            (LatinHypercube, {"div": 4}),
+            (CMAES, {"sigma0": 0.3}),
+            (Random, {}),
+            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (NelderMead, {}),
+        ],
+        analyzers=[
+            (
+                Restart,
+                {"patience": 20, "restart_strategy": "random", "max_restarts": 5},
+            ),
+            (Sensitivity, {"update_interval": 20}),
+        ],
+    )
+
+    return quick + [loop_de, loop_pso, loop_region_ucb, loop_local, loop_restart]
+
+
 # ---------------------------------------------------------------------------
 # Simple DeJong sphere proxy (avoids importing a missing class by name)
 # ---------------------------------------------------------------------------
@@ -607,6 +831,15 @@ class HarnessConfig:
             :attr:`strategies` (the name filter) and :attr:`include_baselines`
             still apply, but no fallback to the built-in mode strategies
             happens.
+        registry: Named strategy-registry override.  ``"default"`` (the
+            historical behaviour) selects ``quick`` / ``standard`` /
+            ``full`` strategies based on :attr:`mode`.  ``"loop"`` selects
+            the catalog-exercising :func:`_make_loop_strategies` registry
+            regardless of :attr:`mode` — used by the self-improvement loop
+            so the rule-bearing DE / PSO / RegionUCB / LBFGSB / COBYQA /
+            Restart catalog entries actually fire on the seed specs.  See
+            §9.1 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Ignored when
+            :attr:`strategies_override` is set.
     """
 
     mode: str = "quick"
@@ -633,6 +866,11 @@ class HarnessConfig:
     #: monkey-patching the built-in factories.  ``None`` keeps the legacy
     #: behaviour (factories select based on ``mode``).
     strategies_override: Optional[List[StrategySpec]] = None
+    #: Named strategy-registry override; ``"default"`` (historical) maps
+    #: ``mode`` to ``quick`` / ``standard`` / ``full`` factories;
+    #: ``"loop"`` selects :func:`_make_loop_strategies` regardless of
+    #: ``mode``.  Ignored when :attr:`strategies_override` is set.
+    registry: str = "default"
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -1763,7 +2001,13 @@ class BenchmarkHarness:
         """
         if self.config.strategies_override is not None:
             specs = list(self.config.strategies_override)
-        else:
+        elif self.config.registry == "loop":
+            # The catalog-exercising loop registry (§9.1 of
+            # ``planning/SELF_IMPROVEMENT_LOOP.md``).  Independent of
+            # :attr:`mode` so the same seed specs measure under quick /
+            # standard / full budgets.
+            specs = _make_loop_strategies()
+        elif self.config.registry == "default":
             mode = self.config.mode
             if mode == "quick":
                 specs = _make_quick_strategies()
@@ -1773,6 +2017,8 @@ class BenchmarkHarness:
                 specs = _make_full_strategies()
             else:
                 raise ValueError(f"Unknown mode {mode!r}.")
+        else:
+            raise ValueError(f"Unknown registry {self.config.registry!r}; expected 'default' or 'loop'.")
 
         if self.config.include_baselines:
             from panobbgo.harness_baselines import make_baseline_strategies

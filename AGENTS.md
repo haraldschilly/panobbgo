@@ -432,12 +432,41 @@ The harness is the measurement substrate for an autonomous
     preserves the static-between-restarts behaviour shipped
     2026-05-29.  Pairs naturally with the structural-catalog
     ``random`` PSO entry.
+*   Dedicated **loop seed registry** — **shipped 2026-06-10**, see
+    :func:`panobbgo.harness._make_loop_strategies` plus the
+    matching `LoopConfig.registry` field and `--registry
+    {default,loop}` CLI flag.  Returns the two quick specs plus
+    five compact family specs (`Loop_DE_Family` / `Loop_PSO` /
+    `Loop_RegionUCB` / `Loop_LocalSearch` / `Loop_Restart`) with
+    every tunable kwarg of the rule-bearing classes (LSHADE / JSO /
+    NLSHADE_RSP / NLSHADE_LBC / LSHADE_EpSin / PSO / RegionUCB /
+    COBYQA / LBFGSB / Restart) explicit at the constructor default
+    so the catalog rules — which are gated on `param in kwargs` by
+    `_find_targets` — actually fire on the seed instead of staying
+    dormant.  Lifts catalog kwarg-rule activation from **4 / 44**
+    (quick seed) to **44 / 44** (loop seed).  Closes §9.5 step 1 of
+    the V2 plan and the §2.4 "catalog ≫ registry mismatch"
+    diagnosis.  Independent of `--mode` (quick / standard / full
+    budgets are honoured but the seed specs are the same).  Default
+    `registry="default"` preserves the historical mode-based
+    selection byte-for-byte.
 
 Run the loop:
 
 ```bash
 # 5 quick iterations
 uv run python scripts/self_improve.py run --iterations 5
+
+# Catalog-exercising loop registry — shipped 2026-06-10, opt in via
+# --registry loop.  Ships the two quick specs plus five compact family
+# specs (Loop_DE_Family / Loop_PSO / Loop_RegionUCB / Loop_LocalSearch
+# / Loop_Restart) with every tunable kwarg of LSHADE / JSO / NLSHADE_RSP
+# / NLSHADE_LBC / LSHADE_EpSin / PSO / RegionUCB / COBYQA / LBFGSB /
+# Restart explicit at the constructor default.  Lifts catalog
+# kwarg-rule activation from 4 / 44 (quick seed) to 44 / 44 (loop seed),
+# closing the §2.4 "catalog ≫ registry mismatch" gap.
+uv run python scripts/self_improve.py run --iterations 30 \
+    --registry loop --adaptive --structural
 
 # Long run with the anti-cherry-pick guard every 10 iterations
 uv run python scripts/self_improve.py run --iterations 100 \

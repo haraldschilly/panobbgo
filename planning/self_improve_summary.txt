@@ -1,12 +1,14 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    80  (decided=80, skipped=0)
-Accepts:       2  (2.5% of decided)
-Guards:        16  (rollbacks=15, total pops=2)
-Hold-outs:     4  (overfit=0)
-Best Δ seen:   +0.0667
+Iterations:    100  (decided=100, skipped=0)
+Accepts:       4  (4.0% of decided)
+Guards:        20  (rollbacks=17, total pops=4)
+Hold-outs:     5  (overfit=0)
+Best Δ seen:   +0.0678
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
   iter=17  Δ=+0.0461  Rewarding_Diverse/Restart.: None -> None
+  iter=8  Δ=+0.0317  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
+  iter=16  Δ=+0.0678  Rewarding_Diverse/Nearby.radius: 0.12310483516930887 -> 0.13525714217808682
 Guard rollbacks:
   iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
@@ -23,10 +25,13 @@ Guard rollbacks:
   iter=9  pops=0  score=0.0322 vs stored 0.0722; new top iter=-1
   iter=14  pops=0  score=0.0289 vs stored 0.0722; new top iter=-1
   iter=19  pops=1  score=0.0111 vs stored 0.1000; new top iter=-1
+  iter=4  pops=0  score=0.0339 vs stored 0.0694; new top iter=-1
+  iter=19  pops=2  score=0.0178 vs stored 0.0706; new top iter=-1
 Hold-out validation:
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=+0.0000  overfit=0/4  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=20  n_records=4
+  OK  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=+0.0000  overfit=0/5  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=25  n_records=5

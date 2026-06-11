@@ -115,7 +115,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -604,21 +604,36 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # is the one a reviewer cares about — a positive aggregate hides
         # a single bad seed.  Match the planning doc's `min` reduction.
         worst = min(holdout_records, key=lambda r: r.drift)
+        # Vacuous hold-outs (ladder kept only the seed entry — no
+        # accepted mutations) historically rendered as ``OK
+        # drift=+0.0000`` even though no generalisation signal exists.
+        # V2 §6.4 / §12.4 of `planning/SELF_IMPROVEMENT_LOOP.md` demands
+        # they surface as VACUOUS instead; use
+        # :meth:`LoopHoldoutRecord.effective_status` so legacy ledger
+        # records (no explicit status field) still classify correctly.
+        n_vacuous = sum(1 for r in holdout_records if r.effective_status() == "vacuous")
+        all_vacuous = n_vacuous == len(holdout_records)
         if len(holdout_records) == 1:
             ho = holdout_records[0]
-            verdict = "OVERFIT" if ho.overfit else "OK"
+            verdict = ho.effective_status().upper()
             print(
                 f"[self_improve] hold-out: {verdict}  drift={ho.drift:+.4f}  "
                 f"holdout_gap={ho.holdout_delta:+.4f}  training_gap={ho.training_delta:+.4f}  "
                 f"(base_seed={ho.holdout_base_seed}, n={ho.holdout_iterations})"
             )
         else:
-            verdict = "OVERFIT" if any_overfit else "OK"
+            if all_vacuous:
+                verdict = "VACUOUS"
+            elif any_overfit:
+                verdict = "OVERFIT"
+            else:
+                verdict = "OK"
             seeds = ",".join(str(r.holdout_base_seed) for r in holdout_records)
             n_overfit = sum(1 for r in holdout_records if r.overfit)
             print(
                 f"[self_improve] hold-out aggregate: {verdict}  worst_drift={worst.drift:+.4f}  "
-                f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.holdout_base_seed}  "
+                f"overfit={n_overfit}/{len(holdout_records)}  vacuous={n_vacuous}/{len(holdout_records)}  "
+                f"worst_seed={worst.holdout_base_seed}  "
                 f"(seeds=[{seeds}], n={worst.holdout_iterations})"
             )
 
@@ -635,12 +650,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
             confidence=float(args.holdout_ci_confidence),
             seed=int(args.stat_seed),
         )
-        ci_verdict = "OVERFIT_CI" if agg.statistically_overfit else "OK_CI"
+        # Match the single-record verdict semantics: when every
+        # contributing record was vacuous the CI carries no signal and
+        # must not be reported as ``OK_CI`` — V2 §6.4 / §12.4.
+        if agg.all_vacuous:
+            ci_verdict = "VACUOUS_CI"
+        elif agg.statistically_overfit:
+            ci_verdict = "OVERFIT_CI"
+        else:
+            ci_verdict = "OK_CI"
         print(
             f"[self_improve] hold-out drift CI: {ci_verdict}  "
             f"mean={agg.mean_drift:+.4f}  "
             f"CI{int(agg.confidence * 100)}%=[{agg.ci_low:+.4f}, {agg.ci_high:+.4f}]  "
-            f"n_samples={agg.n_samples}  n_records={agg.n_records}"
+            f"n_samples={agg.n_samples}  n_records={agg.n_records}  "
+            f"vacuous={agg.vacuous_count}/{agg.n_records}"
         )
         if any_overfit and args.fail_on_overfit:
             return 3
@@ -679,6 +703,22 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     best_delta = max((r.get("delta", 0.0) for r in decided), default=0.0)
     rolled_back = [r for r in guard_records if r.get("rolled_back")]
     overfits = [r for r in holdout_records if r.get("overfit")]
+    # Vacuous hold-outs (V2 §6.4 / §12.4): records whose ladder kept
+    # only the seed entry — historically reported as ``OK drift=+0.0000``
+    # because no mutation was accepted to validate.  Compute the count
+    # from the legacy-aware predicate ``top_iteration < 0 and
+    # ladder_size <= 1`` so summaries of pre-2026-06-11 ledgers
+    # (no ``status`` field) classify correctly too.
+    vacuous_holdouts = [
+        r
+        for r in holdout_records
+        if r.get("status") == "vacuous"
+        or (
+            r.get("status") in (None, "ok")
+            and int(r.get("top_iteration", -1)) < 0
+            and int(r.get("ladder_size", 0)) <= 1
+        )
+    ]
 
     print(f"Ledger:        {path}")
     print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)}, no-op={len(no_op)})")
@@ -687,7 +727,7 @@ def _cmd_summary(args: argparse.Namespace) -> int:
         total_pops = sum(int(r.get("pops", 0)) for r in guard_records)
         print(f"Guards:        {len(guard_records)}  (rollbacks={len(rolled_back)}, total pops={total_pops})")
     if holdout_records:
-        print(f"Hold-outs:     {len(holdout_records)}  (overfit={len(overfits)})")
+        print(f"Hold-outs:     {len(holdout_records)}  (overfit={len(overfits)}, vacuous={len(vacuous_holdouts)})")
     if decided:
         print(f"Best Δ seen:   {best_delta:+.4f}")
 
@@ -717,8 +757,20 @@ def _cmd_summary(args: argparse.Namespace) -> int:
         # drift so the summary surfaces the failure mode a single-seed
         # check would have missed.
         print("Hold-out validation:")
+
+        def _legacy_aware_status(rec: Dict[str, Any]) -> str:
+            """Pre-2026-06-11 records have no ``status`` field — derive it."""
+            explicit = rec.get("status")
+            if explicit in ("ok", "overfit", "vacuous"):
+                return explicit
+            if int(rec.get("top_iteration", -1)) < 0 and int(rec.get("ladder_size", 0)) <= 1:
+                return "vacuous"
+            if rec.get("overfit"):
+                return "overfit"
+            return "ok"
+
         for r in holdout_records:
-            verdict = "OVERFIT" if r.get("overfit") else "OK"
+            verdict = _legacy_aware_status(r).upper()
             print(
                 f"  {verdict}  drift={r.get('drift'):+.4f}  "
                 f"holdout_gap={r.get('holdout_delta'):+.4f} "
@@ -727,12 +779,21 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"(base_seed={r.get('holdout_base_seed')}, n={r.get('holdout_iterations')})"
             )
         if len(holdout_records) > 1:
+            n_vacuous = sum(1 for r in holdout_records if _legacy_aware_status(r) == "vacuous")
+            all_vacuous = n_vacuous == len(holdout_records)
             worst = min(holdout_records, key=lambda r: float(r.get("drift", 0.0)))
             n_overfit = sum(1 for r in holdout_records if r.get("overfit"))
-            agg = "OVERFIT" if n_overfit else "OK"
+            if all_vacuous:
+                agg = "VACUOUS"
+            elif n_overfit:
+                agg = "OVERFIT"
+            else:
+                agg = "OK"
             print(
                 f"  --> aggregate: {agg}  worst_drift={float(worst.get('drift', 0.0)):+.4f}  "
-                f"overfit={n_overfit}/{len(holdout_records)}  worst_seed={worst.get('holdout_base_seed')}"
+                f"overfit={n_overfit}/{len(holdout_records)}  "
+                f"vacuous={n_vacuous}/{len(holdout_records)}  "
+                f"worst_seed={worst.get('holdout_base_seed')}"
             )
         # Bootstrap-CI aggregation across all hold-out records.  Rebuilds
         # :class:`LoopHoldoutRecord` instances from the JSONL payload so
@@ -764,15 +825,29 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 reasons=list(r.get("reasons", [])),
                 seed_iteration_scores=[float(x) for x in r.get("seed_iteration_scores", [])],
                 top_iteration_scores=[float(x) for x in r.get("top_iteration_scores", [])],
+                # Preserve the explicit status when the ledger carries
+                # one (post-2026-06-11 records); legacy records default
+                # to ``"ok"`` and downstream code falls back to
+                # :meth:`effective_status` for vacuous detection.
+                status=str(r.get("status", "ok")),
             )
             for r in holdout_records
         ]
         agg = aggregate_holdout_drift(rebuilt)
-        ci_verdict = "OVERFIT_CI" if agg.statistically_overfit else "OK_CI"
+        # Match _cmd_run: surface VACUOUS_CI when every contributing
+        # record was vacuous so the summary cannot mistake "no signal"
+        # for "no drift" — V2 §6.4 / §12.4.
+        if agg.all_vacuous:
+            ci_verdict = "VACUOUS_CI"
+        elif agg.statistically_overfit:
+            ci_verdict = "OVERFIT_CI"
+        else:
+            ci_verdict = "OK_CI"
         print(
             f"  --> drift CI: {ci_verdict}  mean={agg.mean_drift:+.4f}  "
             f"CI{int(agg.confidence * 100)}%=[{agg.ci_low:+.4f}, {agg.ci_high:+.4f}]  "
-            f"n_samples={agg.n_samples}  n_records={agg.n_records}"
+            f"n_samples={agg.n_samples}  n_records={agg.n_records}  "
+            f"vacuous={agg.vacuous_count}/{agg.n_records}"
         )
     return 0
 

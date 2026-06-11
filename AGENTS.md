@@ -355,7 +355,19 @@ The harness is the measurement substrate for an autonomous
     sibling of `--fail-on-overfit` that pairs with the
     `statistical_accept` rule already in `panobbgo.harness`.  See
     `doc/source/guide_benchmarking.rst` "Bootstrap CI on the
-    aggregated drift".
+    aggregated drift".  Vacuous-status telemetry (**shipped
+    2026-06-11** — V2 §6.4 / §12.4) adds an explicit
+    `LoopHoldoutRecord.status` field with values
+    `"ok"` / `"overfit"` / `"vacuous"`, so a hold-out that ran
+    against an empty ladder (no accepted mutations to validate)
+    no longer mis-reports as `OK drift=+0.0000`.  The aggregator
+    filters vacuous records out of the bootstrap (so a single
+    negative-drift seed cannot be masked by a vacuous companion),
+    `HoldoutDriftAggregate` exposes `vacuous_count` /
+    `all_vacuous`, and both `run` and `summary` CLI commands
+    surface `VACUOUS` / `VACUOUS_CI` verdicts.  Legacy ledger
+    lines (no `status` field on disk) classify correctly via
+    :meth:`LoopHoldoutRecord.effective_status`.
 *   Categorical mutation rule — **shipped**, see
     `panobbgo.self_improve.MutationRule` with
     `kind="categorical_choice"`.  Picks uniformly from a discrete

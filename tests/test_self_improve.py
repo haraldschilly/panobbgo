@@ -3534,12 +3534,17 @@ class TestSelfImproverHoldout:
         _, _, holdout_records = si.run_full()
         assert holdout_records == []
 
-    def test_seed_only_ladder_records_zero_drift(self, tmp_path):
-        """When no mutation is accepted, holdout_delta == 0 by construction.
+    def test_seed_only_ladder_records_vacuous(self, tmp_path):
+        """When no mutation is accepted, the hold-out is VACUOUS, not OK.
 
         With ``score_fn`` constant the iteration produces zero delta and
-        the rule is rejected.  The ladder still has only the seed —
-        hold-out reports it as a no-op (drift 0) and overfit=False.
+        the rule is rejected.  The ladder still has only the seed — the
+        hold-out must surface ``status="vacuous"`` (V2 §6.4 / §12.4 of
+        ``planning/SELF_IMPROVEMENT_LOOP.md``) so downstream consumers
+        cannot mistake an empty ladder for a "loop generalised cleanly"
+        verdict.  ``overfit=False`` is preserved because vacuous is not
+        overfit; the field stays a boolean for the existing
+        ``--fail-on-overfit`` gate.
         """
         cfg = LoopConfig(
             iterations=1,
@@ -3565,7 +3570,9 @@ class TestSelfImproverHoldout:
         assert rec.training_delta == pytest.approx(0.0)
         assert rec.drift == pytest.approx(0.0)
         assert rec.overfit is False
-        assert any("only the seed entry" in r for r in rec.reasons)
+        assert rec.status == "vacuous"
+        assert rec.effective_status() == "vacuous"
+        assert any("VACUOUS" in r for r in rec.reasons)
 
     def test_uses_holdout_base_seed_for_measurement(self, tmp_path):
         """Hold-out calls must use ``holdout_base_seed``, not the training seed.
@@ -3769,6 +3776,138 @@ class TestLoopHoldoutRecord:
         parsed = json.loads(s)
         assert parsed["record_type"] == "holdout"
         assert parsed["holdout_base_seed"] == 99
+
+    def test_status_default_is_ok(self):
+        """V2 §6.4: ``status`` defaults to ``"ok"`` for backwards compat.
+
+        Legacy ledger lines (written before the field shipped) load
+        with this default; the implicit-status path runs through
+        :meth:`effective_status` to recover ``"vacuous"`` / ``"overfit"``
+        from the structural fields.
+        """
+        rec = LoopHoldoutRecord(
+            timestamp="t",
+            duration_seconds=0.0,
+            holdout_base_seed=99,
+            holdout_iterations=1,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.0,
+            top_holdout_score=0.0,
+            seed_training_score=0.0,
+            top_training_score=0.0,
+            holdout_delta=0.0,
+            training_delta=0.0,
+            drift=0.0,
+            overfit=False,
+            eps_overfit=0.05,
+            top_iteration=4,
+            ladder_size=3,
+        )
+        assert rec.status == "ok"
+        assert rec.effective_status() == "ok"
+        # The dict round-trip must carry the new field.
+        assert rec.to_dict()["status"] == "ok"
+
+    def test_status_validation_rejects_unknown(self):
+        """Typos in downstream callers must fail loudly, not silently."""
+        with pytest.raises(ValueError, match="status"):
+            LoopHoldoutRecord(
+                timestamp="t",
+                duration_seconds=0.0,
+                holdout_base_seed=99,
+                holdout_iterations=1,
+                holdout_iteration_offset=0,
+                seed_holdout_score=0.0,
+                top_holdout_score=0.0,
+                seed_training_score=0.0,
+                top_training_score=0.0,
+                holdout_delta=0.0,
+                training_delta=0.0,
+                drift=0.0,
+                overfit=False,
+                eps_overfit=0.05,
+                top_iteration=-1,
+                ladder_size=1,
+                status="bogus",
+            )
+
+    def test_supported_statuses_constant(self):
+        """The wire constant lists exactly the three implemented verdicts."""
+        assert LoopHoldoutRecord.SUPPORTED_STATUSES == ("ok", "overfit", "vacuous")
+
+    def test_effective_status_legacy_vacuous_inference(self):
+        """Legacy records (no ``status``) with ``ladder_size=1`` are vacuous."""
+        rec = LoopHoldoutRecord(
+            timestamp="t",
+            duration_seconds=0.0,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.0,
+            top_holdout_score=0.0,
+            seed_training_score=0.0,
+            top_training_score=0.0,
+            holdout_delta=0.0,
+            training_delta=0.0,
+            drift=0.0,
+            overfit=False,
+            eps_overfit=0.05,
+            top_iteration=-1,
+            ladder_size=1,
+            # status omitted — defaults to "ok" as a legacy record would
+        )
+        assert rec.status == "ok"
+        assert rec.effective_status() == "vacuous"
+
+    def test_effective_status_legacy_overfit_inference(self):
+        """Legacy records (no ``status``) with ``overfit=True`` map to overfit."""
+        rec = LoopHoldoutRecord(
+            timestamp="t",
+            duration_seconds=0.0,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.0,
+            top_holdout_score=0.0,
+            seed_training_score=0.0,
+            top_training_score=0.0,
+            holdout_delta=0.0,
+            training_delta=0.0,
+            drift=-0.3,
+            overfit=True,
+            eps_overfit=0.05,
+            top_iteration=4,
+            ladder_size=3,
+        )
+        assert rec.status == "ok"  # default — no explicit field
+        assert rec.effective_status() == "overfit"
+
+    def test_vacuous_status_round_trips_through_to_dict(self):
+        """``status="vacuous"`` survives the JSON ledger contract."""
+        rec = LoopHoldoutRecord(
+            timestamp="t",
+            duration_seconds=0.0,
+            holdout_base_seed=99,
+            holdout_iterations=3,
+            holdout_iteration_offset=0,
+            seed_holdout_score=0.0,
+            top_holdout_score=0.0,
+            seed_training_score=0.0,
+            top_training_score=0.0,
+            holdout_delta=0.0,
+            training_delta=0.0,
+            drift=0.0,
+            overfit=False,
+            eps_overfit=0.05,
+            top_iteration=-1,
+            ladder_size=1,
+            status="vacuous",
+        )
+        d = rec.to_dict()
+        assert d["status"] == "vacuous"
+        # Round-trip through JSON encoding to lock the wire contract.
+        parsed = json.loads(json.dumps(d))
+        assert parsed["status"] == "vacuous"
 
 
 # ===========================================================================
@@ -4099,12 +4238,18 @@ def _make_holdout_record(
     top_iter_scores: Optional[List[float]] = None,
     training_delta: float = 0.0,
     eps_overfit: float = 0.05,
+    status: str = "ok",
+    top_iteration: int = 4,
+    ladder_size: int = 3,
 ) -> LoopHoldoutRecord:
     """Build a :class:`LoopHoldoutRecord` for the aggregation tests.
 
     Defaults to a zero-drift, non-overfit record; pass per-iter score
     lists to exercise the high-resolution bootstrap path, omit them to
-    exercise the legacy one-sample-per-record fallback.
+    exercise the legacy one-sample-per-record fallback.  Pass
+    ``status="vacuous"`` together with ``ladder_size=1`` /
+    ``top_iteration=-1`` to exercise the V2 §6.4 / §12.4 vacuous
+    filtering path through :func:`aggregate_holdout_drift`.
     """
     s_iter = list(seed_iter_scores) if seed_iter_scores is not None else []
     t_iter = list(top_iter_scores) if top_iter_scores is not None else []
@@ -4125,13 +4270,14 @@ def _make_holdout_record(
         drift=float(drift),
         overfit=bool(overfit),
         eps_overfit=float(eps_overfit),
-        top_iteration=4,
-        ladder_size=3,
+        top_iteration=int(top_iteration),
+        ladder_size=int(ladder_size),
         base_seed=42,
         mode="quick",
         reasons=[],
         seed_iteration_scores=s_iter,
         top_iteration_scores=t_iter,
+        status=status,
     )
 
 
@@ -4347,6 +4493,141 @@ class TestAggregateHoldoutDrift:
         agg = aggregate_holdout_drift([rec])
         # Only 3 paired samples should reach the bootstrap.
         assert agg.n_samples == 3
+
+    def test_vacuous_record_excluded_from_bootstrap(self):
+        """V2 §6.4 / §12.4 — vacuous records contribute nothing to the CI.
+
+        A vacuous record has ``drift=0.0`` by construction (the "top"
+        of the ladder *is* the seed).  Pooling it into the bootstrap
+        would pull the CI toward zero and mask a single negative-drift
+        seed, so the aggregator must filter it out — and surface the
+        count via :attr:`HoldoutDriftAggregate.vacuous_count` so the
+        operator can see why the sample count is small.
+        """
+        informative = _make_holdout_record(
+            seed=99,
+            seed_iter_scores=[0.5] * 4,
+            top_iter_scores=[0.3] * 4,  # gap -0.2 each iter
+            training_delta=0.0,  # drift = -0.2 per iter
+            drift=-0.2,
+            status="ok",
+        )
+        vacuous = _make_holdout_record(
+            seed=101,
+            seed_iter_scores=[0.4, 0.4, 0.4],
+            top_iter_scores=[0.4, 0.4, 0.4],
+            training_delta=0.0,
+            drift=0.0,
+            status="vacuous",
+            top_iteration=-1,
+            ladder_size=1,
+        )
+        agg = aggregate_holdout_drift([informative, vacuous])
+        # Only the informative record's 4 iters reach the bootstrap.
+        assert agg.n_samples == 4
+        assert agg.n_records == 2
+        assert agg.vacuous_count == 1
+        assert agg.all_vacuous is False
+        # Mean drift reflects only the informative record (CI not pulled
+        # toward zero by the vacuous record's drift=0).
+        assert agg.mean_drift == pytest.approx(-0.2)
+
+    def test_all_vacuous_returns_degenerate_aggregate(self):
+        """Every record vacuous → ``all_vacuous=True``, no signal.
+
+        Mirrors the empty-input case but records the vacuous count and
+        the originating seed so a summary can show the operator why
+        nothing was measured.  Critically, ``statistically_overfit`` is
+        False — the aggregate must never claim drift on no data.
+        """
+        v1 = _make_holdout_record(
+            seed=11,
+            status="vacuous",
+            top_iteration=-1,
+            ladder_size=1,
+        )
+        v2 = _make_holdout_record(
+            seed=22,
+            status="vacuous",
+            top_iteration=-1,
+            ladder_size=1,
+        )
+        agg = aggregate_holdout_drift([v1, v2])
+        # The degenerate path must still produce a real
+        # :class:`HoldoutDriftAggregate` (and not, e.g., ``None``) so
+        # downstream consumers can dispatch on ``all_vacuous`` and
+        # ``vacuous_count`` without conditional ``isinstance`` guards.
+        assert isinstance(agg, HoldoutDriftAggregate)
+        assert agg.all_vacuous is True
+        assert agg.vacuous_count == 2
+        assert agg.n_records == 2
+        assert agg.n_samples == 0
+        assert agg.mean_drift == 0.0
+        assert agg.ci_low == 0.0
+        assert agg.ci_high == 0.0
+        assert agg.any_overfit is False
+        assert agg.statistically_overfit is False
+        # ``worst_seed`` defaults to the first record's seed so the
+        # operator can locate the run in the ledger.
+        assert agg.worst_seed == 11
+
+    def test_legacy_vacuous_record_classified_by_structure(self):
+        """V2 §6.4 / §12.4 — legacy records (no ``status``) classify too.
+
+        Records written before the ``status`` field shipped default to
+        ``status="ok"`` on dataclass construction.  The aggregator must
+        still recognise them as vacuous when their structural shape
+        matches: ``top_iteration < 0`` and ``ladder_size <= 1``.  This
+        guards against pre-2026-06-11 ledgers silently slipping vacuous
+        records back into the bootstrap.
+        """
+        legacy_vacuous = _make_holdout_record(
+            seed=99,
+            status="ok",  # explicit "ok" (legacy default)
+            top_iteration=-1,
+            ladder_size=1,
+            drift=0.0,
+        )
+        agg = aggregate_holdout_drift([legacy_vacuous])
+        assert agg.all_vacuous is True
+        assert agg.vacuous_count == 1
+        # The legacy record's effective status is vacuous even with the
+        # explicit "ok" field, confirming the structural fallback fires.
+        assert legacy_vacuous.effective_status() == "vacuous"
+
+    def test_statistically_overfit_not_masked_by_vacuous_record(self):
+        """Regression guard: a negative-drift seed must not be averaged
+        out by a vacuous companion.
+
+        Mixing one strongly overfit record with one vacuous record was
+        the previous failure mode: pooling six samples (4 negative +
+        a vacuous 0) softened the CI; filtering vacuous keeps the CI
+        on the informative samples only.
+        """
+        overfit = _make_holdout_record(
+            seed=1,
+            seed_iter_scores=[0.5] * 6,
+            top_iter_scores=[0.3] * 6,  # gap -0.2 each iter
+            training_delta=0.3,  # drift = -0.5 per iter
+            drift=-0.5,
+            overfit=True,
+            eps_overfit=0.05,
+            status="overfit",
+        )
+        vacuous = _make_holdout_record(
+            seed=2,
+            status="vacuous",
+            top_iteration=-1,
+            ladder_size=1,
+            drift=0.0,
+        )
+        agg = aggregate_holdout_drift([overfit, vacuous])
+        # Only the overfit record's 6 samples drive the CI.
+        assert agg.n_samples == 6
+        assert agg.vacuous_count == 1
+        assert agg.any_overfit is True
+        assert agg.statistically_overfit is True
+        assert agg.mean_drift == pytest.approx(-0.5)
 
     def test_to_dict_round_trip(self):
         """JSON-friendly serialisation for ledger / dashboard consumers."""

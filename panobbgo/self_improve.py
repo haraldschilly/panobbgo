@@ -162,7 +162,7 @@ import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -3022,7 +3022,28 @@ class LoopHoldoutRecord:
         record_type: Always ``"holdout"``; lets ledger consumers
             distinguish hold-out records from iteration and guard
             records.
+        status: One of ``"ok"`` (the drift stayed within
+            ``eps_overfit`` — improvement appears to generalise),
+            ``"overfit"`` (drift below ``-eps_overfit`` — the ladder
+            appears to have overfit the training base_seed family) or
+            ``"vacuous"`` (the ladder had only the seed entry, so no
+            accepted mutations existed to validate — ``holdout_delta``,
+            ``training_delta`` and ``drift`` are all ``0.0`` by
+            construction and the record carries **no** generalisation
+            signal).  Introduced 2026-06-11 per
+            `planning/SELF_IMPROVEMENT_LOOP.md` §6.4 / §12.4 so vacuous
+            records are no longer reported as ``OK drift=+0.0000`` —
+            see the dated entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+            Legacy records (written before this field existed) carry
+            ``status="ok"`` by the dataclass default; downstream
+            consumers that need the legacy-aware verdict should use
+            :meth:`effective_status` instead.
     """
+
+    #: Set of permissible :attr:`status` values.  Constructor validates
+    #: against this set so a typo in a downstream caller fails loudly
+    #: rather than silently producing an unrecognised verdict.
+    SUPPORTED_STATUSES: ClassVar[Tuple[str, ...]] = ("ok", "overfit", "vacuous")
 
     timestamp: str
     duration_seconds: float
@@ -3046,6 +3067,40 @@ class LoopHoldoutRecord:
     seed_iteration_scores: List[float] = field(default_factory=list)
     top_iteration_scores: List[float] = field(default_factory=list)
     record_type: str = "holdout"
+    status: str = "ok"
+
+    def __post_init__(self) -> None:
+        if self.status not in self.SUPPORTED_STATUSES:
+            raise ValueError(f"status must be one of {self.SUPPORTED_STATUSES}, got {self.status!r}")
+
+    def effective_status(self) -> str:
+        """Status with legacy fallback for records written before §12.4.
+
+        Records written before the :attr:`status` field shipped
+        (2026-06-11) all carry the dataclass default ``"ok"``, even when
+        they were vacuous (empty ladder) or overfit.  This helper
+        derives the right verdict from the other fields when the
+        explicit status is ``"ok"`` but the structural conditions for
+        a non-``"ok"`` verdict are present:
+
+        * ``ladder_size <= 1`` and ``top_iteration == -1`` → ``"vacuous"``
+          (the loop ran but never accepted a mutation, so the hold-out
+          measured the seed against itself).
+        * ``overfit=True`` → ``"overfit"`` (mirrors the boolean flag,
+          which legacy records always have correctly).
+        * otherwise ``"ok"``.
+
+        New records carry an explicit non-``"ok"`` status so this helper
+        is a no-op on them — kept for ledger-replay paths that read
+        old JSONL lines.
+        """
+        if self.status != "ok":
+            return self.status
+        if self.ladder_size <= 1 and self.top_iteration < 0:
+            return "vacuous"
+        if self.overfit:
+            return "overfit"
+        return "ok"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -3071,6 +3126,7 @@ class LoopHoldoutRecord:
             "reasons": list(self.reasons),
             "seed_iteration_scores": [float(x) for x in self.seed_iteration_scores],
             "top_iteration_scores": [float(x) for x in self.top_iteration_scores],
+            "status": str(self.status),
         }
 
 
@@ -3122,6 +3178,17 @@ class HoldoutDriftAggregate:
             verdict than per-record ``any_overfit``; tripping this means
             the bootstrap CI rules out drift better than ``-eps_overfit``
             at the configured confidence level.
+        vacuous_count: Number of input records whose effective status
+            is ``"vacuous"`` (empty-ladder hold-outs).  These are
+            *excluded* from the bootstrap and the worst-drift reduction
+            because their drift is ``0.0`` by construction and would
+            otherwise pull the CI toward zero and mask a single
+            negative-drift seed.  ``vacuous_count == n_records`` means
+            no informative records exist; the aggregate is degenerate.
+        all_vacuous: ``True`` iff every input record was vacuous (so
+            the bootstrap had nothing to sample).  Callers should treat
+            this the same way they treat empty input: ``mean_drift``
+            and CI are both ``0.0`` but carry no signal.
     """
 
     mean_drift: float
@@ -3136,6 +3203,8 @@ class HoldoutDriftAggregate:
     confidence: float
     eps_overfit: float
     statistically_overfit: bool
+    vacuous_count: int = 0
+    all_vacuous: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -3151,6 +3220,8 @@ class HoldoutDriftAggregate:
             "confidence": float(self.confidence),
             "eps_overfit": float(self.eps_overfit),
             "statistically_overfit": bool(self.statistically_overfit),
+            "vacuous_count": int(self.vacuous_count),
+            "all_vacuous": bool(self.all_vacuous),
         }
 
 
@@ -3218,13 +3289,48 @@ def aggregate_holdout_drift(
             confidence=float(confidence),
             eps_overfit=float(eps_overfit if eps_overfit is not None else 0.0),
             statistically_overfit=False,
+            vacuous_count=0,
+            all_vacuous=False,
+        )
+
+    # Vacuous records (empty-ladder hold-outs) contribute ``drift = 0.0``
+    # by construction — pooling them would pull the CI toward zero and
+    # mask a single negative-drift seed.  Filter them out of the
+    # bootstrap and the worst-drift reduction but keep the count for the
+    # caller so the aggregate stays auditable.  See V2 §6.4 / §12.4 of
+    # `planning/SELF_IMPROVEMENT_LOOP.md`.
+    vacuous_count = sum(1 for r in records if r.effective_status() == "vacuous")
+    informative = [r for r in records if r.effective_status() != "vacuous"]
+    all_vacuous = vacuous_count == len(records)
+    eps = float(eps_overfit) if eps_overfit is not None else float(records[0].eps_overfit)
+
+    if not informative:
+        # Every record was vacuous — degenerate aggregate with no signal,
+        # mirroring the empty-input case but recording the vacuous count
+        # so the operator can see the loop ran without accepting any
+        # mutation.
+        return HoldoutDriftAggregate(
+            mean_drift=0.0,
+            ci_low=0.0,
+            ci_high=0.0,
+            worst_drift=0.0,
+            worst_seed=int(records[0].holdout_base_seed),
+            any_overfit=False,
+            overfit_count=0,
+            n_samples=0,
+            n_records=len(records),
+            confidence=float(confidence),
+            eps_overfit=eps,
+            statistically_overfit=False,
+            vacuous_count=vacuous_count,
+            all_vacuous=True,
         )
 
     # Pool per-iteration drifts.  When a record carries paired iter
     # scores we use them (the "high-resolution" contribution); otherwise
     # fall back to the cached point drift (legacy record).
     samples: List[float] = []
-    for rec in records:
+    for rec in informative:
         n_pair = min(len(rec.seed_iteration_scores), len(rec.top_iteration_scores))
         if n_pair > 0:
             seed_arr = np.asarray(rec.seed_iteration_scores[:n_pair], dtype=np.float64)
@@ -3254,10 +3360,9 @@ def aggregate_holdout_drift(
         ci_low = mean_drift
         ci_high = mean_drift
 
-    worst_rec = min(records, key=lambda r: float(r.drift))
-    any_overfit = any(bool(r.overfit) for r in records)
-    overfit_count = sum(1 for r in records if bool(r.overfit))
-    eps = float(eps_overfit) if eps_overfit is not None else float(records[0].eps_overfit)
+    worst_rec = min(informative, key=lambda r: float(r.drift))
+    any_overfit = any(bool(r.overfit) for r in informative)
+    overfit_count = sum(1 for r in informative if bool(r.overfit))
     # "Statistically significant overfit": the *upper* end of the CI
     # is still below the negative tolerance — i.e. even the optimistic
     # bootstrap resample says we drifted worse than -eps_overfit.  The
@@ -3279,6 +3384,8 @@ def aggregate_holdout_drift(
         confidence=float(confidence),
         eps_overfit=eps,
         statistically_overfit=statistically_overfit,
+        vacuous_count=vacuous_count,
+        all_vacuous=all_vacuous,
     )
 
 
@@ -3922,13 +4029,30 @@ class SelfImprover:
         holdout_delta = top_holdout - seed_holdout
         training_delta = top_training - seed_training
         drift = holdout_delta - training_delta
-        overfit = drift < -float(self.config.holdout_eps_overfit)
+        # ``seed_only`` records are vacuous by construction: ``holdout_delta``,
+        # ``training_delta`` and ``drift`` are forced to ``0.0`` because the
+        # "top" we are validating *is* the seed.  Reporting ``overfit=False``
+        # alongside ``drift=+0.0000`` historically masqueraded as an
+        # honest "OK" verdict in the loop output even though no
+        # generalisation signal exists — see V2 §6.4 / §12.4 of
+        # `planning/SELF_IMPROVEMENT_LOOP.md`.  Setting
+        # ``status="vacuous"`` here keeps ``overfit=False`` (vacuous is
+        # not overfit) while letting downstream consumers (printer,
+        # aggregator, summary) distinguish "ladder produced no
+        # mutations to validate" from "ladder generalised cleanly".
+        overfit = (not seed_only) and drift < -float(self.config.holdout_eps_overfit)
+        if seed_only:
+            status = "vacuous"
+        elif overfit:
+            status = "overfit"
+        else:
+            status = "ok"
 
         reasons: List[str] = []
         if seed_only:
             reasons.append(
                 "ladder has only the seed entry — no accepted mutations to validate; "
-                "hold-out scores recorded for reference but drift is 0 by construction"
+                "hold-out is VACUOUS: scores recorded for reference but drift is 0 by construction"
             )
         elif overfit:
             reasons.append(
@@ -3971,11 +4095,16 @@ class SelfImprover:
             # means or re-derive a CI on the pooled drift sample.
             seed_iteration_scores=list(seed_scores),
             top_iteration_scores=list(top_scores),
+            status=status,
         )
 
     @staticmethod
     def _print_holdout(rec: "LoopHoldoutRecord") -> None:
-        verdict = "OVERFIT" if rec.overfit else "OK"
+        # Use ``effective_status`` so legacy ledger lines (no status
+        # field, all defaulted to ``"ok"``) still surface the vacuous
+        # verdict — V2 §6.4 / §12.4 of
+        # `planning/SELF_IMPROVEMENT_LOOP.md`.
+        verdict = rec.effective_status().upper()
         print(
             f"[hold-out] {verdict}  drift={rec.drift:+.4f}  "
             f"holdout_gap={rec.holdout_delta:+.4f}  training_gap={rec.training_delta:+.4f}  "

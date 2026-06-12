@@ -750,6 +750,57 @@ can grep the ledger for any record whose
 ``effective_eps_accept`` is below ``eps_accept`` and audit those
 accepts separately.
 
+No-op detection (§12.4)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The V2 diagnosis in :doc:`SELF_IMPROVEMENT_LOOP <../../planning/SELF_IMPROVEMENT_LOOP>`
+identified "34% of mutations measure Δ = exactly 0.0000" as the
+dominant V1 failure mode — proposals targeting kwargs whose effect is
+invisible at the quick-mode budget produce baseline and candidate
+measurements whose per-pair scores are *bit-identical*.  Those
+iterations carry zero information about whether the mutation rule
+helps or hurts: pulling the bandit arm on them mis-trains the Beta
+posterior toward "this rule keeps rejecting" even though the rule's
+value is undetermined.
+
+Two coordinated guards close the loop:
+
+* :class:`~panobbgo.self_improve.LoopIterationRecord` carries a
+  ``no_op: bool`` field (default ``False``).  After both
+  measurements the loop checks whether the per-(problem, dim,
+  strategy) ``score`` maps from ``baseline_result`` and
+  ``candidate_result`` are equal across every key
+  (:func:`panobbgo.self_improve._is_no_op`).  When they are, the
+  record sets ``no_op=True``, ``reason_skipped="no_op"`` and
+  ``accepted=False`` regardless of the bootstrap verdict on the
+  (vacuously zero) delta.
+* :meth:`~panobbgo.self_improve.AdaptiveMutationSampler.discard_outcome`
+  clears the sampler's pending ``last_rule_key`` *without*
+  incrementing the arm's ``n_attempts`` — the same end-state as
+  :meth:`record_outcome` but with no posterior side-effect.  The
+  driver loop calls this instead of :meth:`record_outcome` on no-op
+  iterations.  :meth:`prime_from_ledger` skips records whose
+  ``no_op`` field is ``True``, so resuming from a ledger preserves
+  the same gating contract.
+
+The summary view (``scripts/self_improve.py summary``) surfaces a
+separate ``no-op=N`` bucket and computes the accept rate against the
+**informative** denominator (decided − no-op).  An operator reading
+the §12.3 daily routine can now distinguish "the bandit is starved
+because most proposed rules are dormant on the seed registry" from
+"the bandit is starved because every legitimate proposal got
+rejected".  The first calls for a registry change (e.g.
+``--registry loop`` — see the *Loop registry* subsection above); the
+second calls for a metric change (V2 §9.5 step 2,
+``--metric aocc``).
+
+Legacy ledgers (pre 2026-06-12) carry no ``no_op`` key on disk; the
+JSONL load path returns ``None`` / ``False`` for missing keys so
+prior records classify as informative — matching the historical
+semantics exactly.  The :class:`LoopIterationRecord` dataclass
+default of ``False`` preserves the same contract for direct
+construction.
+
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

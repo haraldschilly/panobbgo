@@ -1436,6 +1436,43 @@ training gap by more than
 :class:`~panobbgo.self_improve.LoopHoldoutRecord` is flagged
 ``overfit=True``.
 
+**Three-way verdict** (shipped 2026-06-11 — V2 §6.4 / §12.4).  Every
+:class:`~panobbgo.self_improve.LoopHoldoutRecord` carries an explicit
+``status`` field with the three permissible values:
+
+* ``"ok"`` — the drift stayed within
+  :attr:`~panobbgo.self_improve.LoopConfig.holdout_eps_overfit`; the
+  accepted mutations appear to generalise to the independent
+  ``base_seed`` family.
+* ``"overfit"`` — drift below ``-eps_overfit``; the ladder appears to
+  have overfit the *training* ``base_seed`` family and the
+  ``--fail-on-overfit`` CLI gate exits with code ``3``.
+* ``"vacuous"`` — the ladder kept only the seed entry (no accepted
+  mutations to validate), so ``holdout_delta``, ``training_delta``
+  and ``drift`` are all ``0.0`` by construction and the record
+  carries **no** generalisation signal.  Distinct from ``"ok"``: a
+  vacuous record cannot honestly claim that "the improvement
+  generalised" because there was no improvement to validate in the
+  first place.  Previously this case printed as ``OK drift=+0.0000``
+  and silently passed through the aggregator's bootstrap, biasing
+  the CI toward zero.
+
+The :func:`~panobbgo.self_improve.aggregate_holdout_drift` function
+filters vacuous records out of the bootstrap so a single
+negative-drift seed cannot be masked by a vacuous companion;
+:attr:`~panobbgo.self_improve.HoldoutDriftAggregate.vacuous_count`
+and :attr:`~panobbgo.self_improve.HoldoutDriftAggregate.all_vacuous`
+surface the count so a reviewer can see *why* the sample size is
+small.  Both ``scripts/self_improve.py run`` and
+``scripts/self_improve.py summary`` print ``VACUOUS`` (per-record)
+and ``VACUOUS_CI`` (aggregate) verdicts when the underlying records
+carry no informative content.  Legacy ledger lines (no ``status``
+field on disk, pre-2026-06-11) classify correctly via
+:meth:`~panobbgo.self_improve.LoopHoldoutRecord.effective_status`,
+which derives the right verdict from the other fields
+(``ladder_size <= 1 and top_iteration < 0`` → ``"vacuous"``,
+``overfit=True`` → ``"overfit"``, otherwise ``"ok"``).
+
 Algorithm:
 
 1. After all loop iterations have completed (and the guard has done

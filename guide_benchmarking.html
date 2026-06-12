@@ -1616,6 +1616,42 @@ training gap by more than
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">holdout_eps_overfit</span></code>, the
 <code class="xref py py-class docutils literal notranslate"><span class="pre">LoopHoldoutRecord</span></code> is flagged
 <code class="docutils literal notranslate"><span class="pre">overfit=True</span></code>.</p>
+<p><strong>Three-way verdict</strong> (shipped 2026-06-11 — V2 §6.4 / §12.4).  Every
+<code class="xref py py-class docutils literal notranslate"><span class="pre">LoopHoldoutRecord</span></code> carries an explicit
+<code class="docutils literal notranslate"><span class="pre">status</span></code> field with the three permissible values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;</span></code> — the drift stayed within
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">holdout_eps_overfit</span></code>; the
+accepted mutations appear to generalise to the independent
+<code class="docutils literal notranslate"><span class="pre">base_seed</span></code> family.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;overfit&quot;</span></code> — drift below <code class="docutils literal notranslate"><span class="pre">-eps_overfit</span></code>; the ladder appears to
+have overfit the <em>training</em> <code class="docutils literal notranslate"><span class="pre">base_seed</span></code> family and the
+<code class="docutils literal notranslate"><span class="pre">--fail-on-overfit</span></code> CLI gate exits with code <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;vacuous&quot;</span></code> — the ladder kept only the seed entry (no accepted
+mutations to validate), so <code class="docutils literal notranslate"><span class="pre">holdout_delta</span></code>, <code class="docutils literal notranslate"><span class="pre">training_delta</span></code>
+and <code class="docutils literal notranslate"><span class="pre">drift</span></code> are all <code class="docutils literal notranslate"><span class="pre">0.0</span></code> by construction and the record
+carries <strong>no</strong> generalisation signal.  Distinct from <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;</span></code>: a
+vacuous record cannot honestly claim that “the improvement
+generalised” because there was no improvement to validate in the
+first place.  Previously this case printed as <code class="docutils literal notranslate"><span class="pre">OK</span> <span class="pre">drift=+0.0000</span></code>
+and silently passed through the aggregator’s bootstrap, biasing
+the CI toward zero.</p></li>
+</ul>
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">aggregate_holdout_drift()</span></code> function
+filters vacuous records out of the bootstrap so a single
+negative-drift seed cannot be masked by a vacuous companion;
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">vacuous_count</span></code>
+and <code class="xref py py-attr docutils literal notranslate"><span class="pre">all_vacuous</span></code>
+surface the count so a reviewer can see <em>why</em> the sample size is
+small.  Both <code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">run</span></code> and
+<code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">summary</span></code> print <code class="docutils literal notranslate"><span class="pre">VACUOUS</span></code> (per-record)
+and <code class="docutils literal notranslate"><span class="pre">VACUOUS_CI</span></code> (aggregate) verdicts when the underlying records
+carry no informative content.  Legacy ledger lines (no <code class="docutils literal notranslate"><span class="pre">status</span></code>
+field on disk, pre-2026-06-11) classify correctly via
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">effective_status()</span></code>,
+which derives the right verdict from the other fields
+(<code class="docutils literal notranslate"><span class="pre">ladder_size</span> <span class="pre">&lt;=</span> <span class="pre">1</span> <span class="pre">and</span> <span class="pre">top_iteration</span> <span class="pre">&lt;</span> <span class="pre">0</span></code> → <code class="docutils literal notranslate"><span class="pre">&quot;vacuous&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">overfit=True</span></code> → <code class="docutils literal notranslate"><span class="pre">&quot;overfit&quot;</span></code>, otherwise <code class="docutils literal notranslate"><span class="pre">&quot;ok&quot;</span></code>).</p>
 <p>Algorithm:</p>
 <ol class="arabic simple">
 <li><p>After all loop iterations have completed (and the guard has done

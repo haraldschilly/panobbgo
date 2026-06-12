@@ -1102,6 +1102,23 @@ class AdaptiveMutationSampler:
             stats.n_accepts += 1
         self._last_rule_key = None
 
+    def discard_outcome(self) -> None:
+        """Forget the most recent proposal *without* updating the bandit.
+
+        Used by the loop driver when an iteration carries zero
+        information about whether the rule helps or hurts — most
+        importantly on §12.4 no-op iterations where the candidate's
+        per-pair scores were bit-identical to baseline.  Pulling the
+        arm on a no-op would mis-train the Beta posterior toward the
+        symmetric ``Beta(1, 1) → Beta(1, 2)`` direction even though the
+        rule's value is undetermined.
+
+        Equivalent to clearing :attr:`last_rule_key` so the next
+        iteration's :meth:`record_outcome` call is a no-op.  Safe to
+        call when no proposal is pending.
+        """
+        self._last_rule_key = None
+
     def prime_from_ledger(self, ledger_path: str) -> int:
         """Seed the bandit's history from a prior JSONL ledger.
 
@@ -1119,6 +1136,16 @@ class AdaptiveMutationSampler:
                 continue
             proposal = rec.get("proposal")
             if proposal is None:
+                continue
+            # §12.4 no-op iterations carry zero information about whether
+            # the rule helps or hurts (per-pair scores were bit-identical
+            # to baseline at measure time).  Replaying them as
+            # ``n_attempts += 1`` would mis-train the posterior the same
+            # way :meth:`record_outcome` is bypassed during the live
+            # run.  Legacy records (pre-2026-06-12) carry no ``no_op``
+            # key and default to ``False`` here — preserving the
+            # historical priming semantics exactly.
+            if rec.get("no_op"):
                 continue
             key = _proposal_rule_key(
                 proposal.get("class_name", ""),
@@ -2215,6 +2242,48 @@ def apply_mutation(
     return out
 
 
+def _is_no_op(baseline_result: HarnessResult, candidate_result: HarnessResult) -> bool:
+    """Return True iff the candidate's per-pair scores are bit-identical to baseline.
+
+    §12.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``: an iteration that
+    measured exact equality on every ``(problem, strategy)`` pair carries
+    zero information about whether the mutation rule helps or hurts —
+    pulling the bandit arm on the outcome would mis-train the posterior.
+    The §2.1 V2 diagnosis ("34% of mutations measure Δ = exactly
+    0.0000") makes this the dominant failure mode of the V1 loop:
+    proposals targeting kwargs whose effect is invisible at the
+    quick-mode budget produce a zero delta that the bandit currently
+    counts as a real rejection.
+
+    Bit-identical here means ``a == b`` in IEEE 754 — composite_score is
+    a mean of solve-fractions so two runs that share their deterministic
+    seed stream produce truly equal floats (no rounding hazard).  We
+    compare per-pair scores rather than the composite to detect the
+    case where the composite happens to round to the same value despite
+    a real per-pair difference; that's a separate (and rare) coincidence
+    that should still count as a real bandit pull.
+
+    Pair identity is keyed on ``(problem_name, problem_dim,
+    strategy_name)`` — the harness ships the same set of pairs in both
+    measurements when invoked back-to-back with the same spec list, so
+    the maps are guaranteed equal-keyed in the live loop path.  When
+    keys mismatch (e.g. a structural proposal renamed a strategy), we
+    conservatively return ``False`` — the iteration carries real
+    information about whether the rename helps.
+    """
+    before = {
+        (psr.problem_name, psr.problem_dim, psr.strategy_name): float(psr.score)
+        for psr in baseline_result.problem_strategy_results
+    }
+    after = {
+        (psr.problem_name, psr.problem_dim, psr.strategy_name): float(psr.score)
+        for psr in candidate_result.problem_strategy_results
+    }
+    if not before or before.keys() != after.keys():
+        return False
+    return all(before[k] == after[k] for k in before)
+
+
 def _resolve_heuristic_class(proposal: MutationProposal, spec: StrategySpec) -> type:
     """Recover the actual class object for an ``add_heuristic`` proposal.
 
@@ -2730,6 +2799,16 @@ class LoopIterationRecord:
     #: :attr:`effective_eps_accept`).  ``0`` on the very first iteration
     #: of a run.  ``None`` on legacy records.
     iters_since_accept: Optional[int] = None
+    #: True iff this iteration's per-(problem, strategy) candidate scores
+    #: were bit-identical to baseline — the proposal touched a kwarg that
+    #: produced no measurable behavioural difference at the current
+    #: budget.  Recorded so the bandit does not pull an arm on a
+    #: zero-information event and the summary can distinguish these from
+    #: genuine rejections.  ``False`` on legacy records and on records
+    #: written before the 2026-06-12 ship; the §12.4 telemetry rule from
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md`` defines the post-measure
+    #: detection.
+    no_op: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -2753,6 +2832,7 @@ class LoopIterationRecord:
             "reason_skipped": self.reason_skipped,
             "effective_eps_accept": self.effective_eps_accept,
             "iters_since_accept": self.iters_since_accept,
+            "no_op": self.no_op,
         }
         return d
 
@@ -3369,6 +3449,15 @@ class SelfImprover:
             baseline_result = self._measure(current, iteration, "baseline", verbose)
             candidate_result = self._measure(candidate, iteration, "candidate", verbose)
 
+            # §12.4 no-op detection: if the candidate's per-(problem,
+            # strategy) scores are bit-identical to baseline the proposal
+            # produced zero measurable difference at this budget — pulling
+            # the bandit arm on the outcome would mis-train it because the
+            # iteration carries no information about whether the rule
+            # helps or hurts.  Skip the bandit pull and tag the record so
+            # the summary view and codify-scan can filter these out.
+            no_op = _is_no_op(baseline_result, candidate_result)
+
             decision = statistical_accept(
                 baseline_result,
                 candidate_result,
@@ -3380,12 +3469,16 @@ class SelfImprover:
                 paired=self.config.paired,
             )
 
+            reasons = list(decision.reasons)
+            if no_op:
+                reasons.append("no-op: per-pair scores bit-identical to baseline")
+
             rec = LoopIterationRecord(
                 iteration=iteration,
                 timestamp=datetime.now(tz=timezone.utc).isoformat(),
                 duration_seconds=time.time() - start,
                 proposal=proposal.to_dict(),
-                accepted=bool(decision.accept),
+                accepted=bool(decision.accept) and not no_op,
                 baseline_score=float(baseline_result.composite_score),
                 candidate_score=float(candidate_result.composite_score),
                 delta=float(decision.delta),
@@ -3397,12 +3490,14 @@ class SelfImprover:
                     if decision.worst_pair is not None
                     else None
                 ),
-                reasons=list(decision.reasons),
+                reasons=reasons,
                 base_seed=self.config.base_seed,
                 randomize_iteration=iteration,
                 mode=self.config.mode,
+                reason_skipped="no_op" if no_op else None,
                 effective_eps_accept=eps_for_iter,
                 iters_since_accept=streak_for_iter,
+                no_op=no_op,
             )
             records.append(rec)
             ledger.write(rec)
@@ -3419,10 +3514,17 @@ class SelfImprover:
             # Update the adaptive bandit *before* swapping the ladder so
             # the rule key recorded by `_sample_proposal` still matches
             # this iteration's outcome.  Uniform-sampler runs do nothing.
+            # No-op iterations carry zero information about the rule's
+            # value, so we deliberately do not pull the arm — the
+            # sampler's :attr:`last_rule_key` is cleared without an
+            # update so the next iteration starts from a clean slate.
             if self.sampler is not None:
-                self.sampler.record_outcome(bool(decision.accept))
+                if no_op:
+                    self.sampler.discard_outcome()
+                else:
+                    self.sampler.record_outcome(bool(decision.accept))
 
-            if decision.accept:
+            if rec.accepted:
                 current = candidate
                 ladder.append(
                     LadderEntry(
@@ -3438,6 +3540,11 @@ class SelfImprover:
                 # rule that produced this accept.
                 iters_since_accept = 0
             else:
+                # No-op iterations still count toward the inactivity
+                # streak: from the relax rule's perspective they are
+                # observationally a non-accept, and the streak exists to
+                # break out of long droughts regardless of why each
+                # iteration failed to accept.
                 iters_since_accept += 1
 
             # Anti-cherry-pick guard (§6.3 of the plan).  Run after the

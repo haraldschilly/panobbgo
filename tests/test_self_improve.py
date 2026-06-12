@@ -1616,9 +1616,15 @@ class TestSelfImproverAdaptive:
     def test_adaptive_sampler_records_rejects(self, tmp_path):
         """Reject paths must increment n_attempts but not n_accepts."""
 
-        # Constant score — no improvement so iteration rejects.
+        # Baseline 0.5, candidate 0.4 on each iteration — the candidate
+        # legitimately regresses so the iteration rejects without
+        # tripping the §12.4 no-op detector (bit-identical pair scores).
+        counter = {"n": 0}
+
         def score_fn(config: HarnessConfig) -> float:
-            return 0.5
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.5 if n % 2 == 0 else 0.4
 
         cfg = LoopConfig(
             iterations=2,
@@ -4808,3 +4814,316 @@ class TestInactivityRelaxIntegration:
         d = rec.to_dict()
         assert d["effective_eps_accept"] is None
         assert d["iters_since_accept"] is None
+
+
+# ===========================================================================
+# §12.4 No-op detection
+# ===========================================================================
+
+
+class TestNoOpDetection:
+    """§12.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+    An iteration whose candidate per-pair scores are bit-identical to
+    baseline carries zero information about whether the proposal helps or
+    hurts: the bandit must not be pulled on it.  These tests exercise the
+    detection (post-measure equality), the ledger telemetry (``no_op``
+    field + ``reason_skipped="no_op"``), and the bandit gating (no
+    ``record_outcome`` on no-op iterations, no replay in
+    :meth:`AdaptiveMutationSampler.prime_from_ledger`).
+    """
+
+    def _radius_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicA",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+            ]
+        )
+
+    def test_default_no_op_field_is_false(self):
+        # Direct construction without the new kwarg must default to
+        # False so legacy ledger lines (pre 2026-06-12) classify
+        # correctly without a one-time migration.
+        rec = LoopIterationRecord(
+            iteration=0,
+            timestamp="2026-01-01T00:00:00+00:00",
+            duration_seconds=0.0,
+            proposal=None,
+            accepted=False,
+            baseline_score=0.0,
+            candidate_score=0.0,
+            delta=0.0,
+            ci_low=0.0,
+            ci_high=0.0,
+            worst_pair_regression=0.0,
+            worst_pair=None,
+        )
+        assert rec.no_op is False
+        assert rec.to_dict()["no_op"] is False
+
+    def test_identical_pair_scores_flag_no_op(self, tmp_path):
+        # Constant score 0.5 on every call → baseline and candidate
+        # measurements produce bit-identical per-pair scores → no-op.
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert len(records) == 1
+        assert records[0].no_op is True
+        assert records[0].accepted is False
+        assert records[0].reason_skipped == "no_op"
+        # The decision's bootstrap CI is still reported (the field
+        # carries genuine information that the loop *measured* zero
+        # delta), but the human-readable reason list includes the
+        # no-op marker for an auditor scanning the ledger.
+        assert any("no-op" in r for r in records[0].reasons)
+
+    def test_distinct_pair_scores_are_not_no_op(self, tmp_path):
+        # Baseline 0.5, candidate 0.4 — legitimate non-no-op reject.
+        # The candidate is strictly worse so the iteration rejects
+        # without tripping the bit-identical detector.
+        counter = {"n": 0}
+
+        def score_fn(config: HarnessConfig) -> float:
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.5 if n % 2 == 0 else 0.4
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert len(records) == 1
+        assert records[0].no_op is False
+        assert records[0].accepted is False
+        assert records[0].reason_skipped is None
+
+    def test_no_op_iteration_does_not_pull_bandit(self, tmp_path):
+        # Two iterations on a constant-score harness → both are no-op
+        # → bandit's n_attempts stays at zero.  Compare against
+        # test_adaptive_sampler_records_rejects (immediately above
+        # this class in source order), which exercises the legitimate
+        # reject path (n_attempts==2 after two real rejects).
+        cfg = LoopConfig(
+            iterations=2,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert len(records) == 2
+        assert all(r.no_op for r in records)
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        # No arm registered any attempt because every iteration was a
+        # no-op — the §12.4 telemetry rule is the headline guarantee.
+        assert all(s.n_attempts == 0 for s in snap)
+        assert all(s.n_accepts == 0 for s in snap)
+
+    def test_no_op_iteration_increments_streak(self, tmp_path):
+        # No-op iterations are observationally non-accepts: they must
+        # count toward the inactivity streak so the relax rule can
+        # break out of a long dormant-rule drought.
+        cfg = LoopConfig(
+            iterations=3,
+            n_boot=50,
+            eps_accept=0.010,
+            inactivity_relax_after=10,  # high enough not to fire in 3 iters
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert len(records) == 3
+        assert all(r.no_op for r in records)
+        assert [r.iters_since_accept for r in records] == [0, 1, 2]
+
+    def test_prime_from_ledger_skips_no_op_records(self, tmp_path):
+        # Write a small ledger by hand: one legitimate accept and one
+        # no-op.  prime_from_ledger must register the accept but skip
+        # the no-op entirely — mis-priming the bandit on a zero-info
+        # event would mis-train the posterior toward Beta(1, 2) even
+        # though the rule's value is undetermined.
+        ledger_path = tmp_path / "ledger.jsonl"
+        accept_rec = {
+            "record_type": "iteration",
+            "iteration": 0,
+            "accepted": True,
+            "no_op": False,
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        no_op_rec = {
+            "record_type": "iteration",
+            "iteration": 1,
+            "accepted": False,
+            "no_op": True,
+            "reason_skipped": "no_op",
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        with ledger_path.open("w") as f:
+            f.write(json.dumps(accept_rec) + "\n")
+            f.write(json.dumps(no_op_rec) + "\n")
+
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        consumed = sampler.prime_from_ledger(str(ledger_path))
+        # Only the accept was consumed — the no-op was skipped.
+        assert consumed == 1
+        snap = sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+    def test_prime_from_ledger_legacy_record_replays(self, tmp_path):
+        # Pre-2026-06-12 ledger lines have no ``no_op`` key.  Loader
+        # default is False → they replay as ordinary attempts.  This
+        # is the backwards-compat contract: archived ledgers stay
+        # equivalent under the new priming semantics.
+        ledger_path = tmp_path / "ledger.jsonl"
+        legacy_rec = {
+            "record_type": "iteration",
+            "iteration": 0,
+            "accepted": False,
+            # no ``no_op`` key on disk — that's the legacy shape.
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        with ledger_path.open("w") as f:
+            f.write(json.dumps(legacy_rec) + "\n")
+
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        consumed = sampler.prime_from_ledger(str(ledger_path))
+        assert consumed == 1
+        snap = sampler.stats_snapshot()
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 0
+
+    def test_discard_outcome_clears_pending_arm(self):
+        # discard_outcome must clear last_rule_key so the next
+        # record_outcome is a no-op — same contract as the
+        # post-pull cleanup.  Independent of the loop driver.
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        # Seed an internal pending key without going through sample()
+        # (which would require a full spec list); the public surface
+        # is what matters.
+        sampler._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        sampler.discard_outcome()
+        assert sampler.last_rule_key is None
+        # Subsequent record_outcome is now a no-op — no posterior
+        # update, no error.
+        sampler.record_outcome(True)
+        snap = sampler.stats_snapshot()
+        assert snap == []
+
+    def test_no_op_round_trips_through_ledger(self, tmp_path):
+        # End-to-end: write one no-op iteration, reload the ledger,
+        # confirm the field survived (with the right value) and that
+        # the CLI summary parsing path sees it.
+        ledger_path = tmp_path / "ledger.jsonl"
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(ledger_path),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        si.run()
+        loaded = load_ledger(str(ledger_path))
+        iter_recs = [r for r in loaded if r.get("record_type") == "iteration"]
+        assert len(iter_recs) == 1
+        assert iter_recs[0]["no_op"] is True
+        assert iter_recs[0]["reason_skipped"] == "no_op"
+        assert iter_recs[0]["accepted"] is False
+
+    def test_cli_summary_surfaces_no_op_count(self, tmp_path, capsys):
+        # End-to-end smoke check: feed the CLI summary path a mixed
+        # ledger (one no-op, one legitimate reject) and confirm the
+        # output line reports both buckets correctly.  Catches the
+        # accept-rate-denominator bug the §12.4 ship guards against:
+        # the rate must exclude no-op iterations.
+        import sys
+
+        ledger_path = tmp_path / "ledger.jsonl"
+        no_op_rec = {
+            "record_type": "iteration",
+            "iteration": 0,
+            "accepted": False,
+            "no_op": True,
+            "reason_skipped": "no_op",
+            "delta": 0.0,
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        reject_rec = {
+            "record_type": "iteration",
+            "iteration": 1,
+            "accepted": False,
+            "no_op": False,
+            "delta": -0.10,
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        with ledger_path.open("w") as f:
+            f.write(json.dumps(no_op_rec) + "\n")
+            f.write(json.dumps(reject_rec) + "\n")
+
+        sys.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+
+            ns = type("NS", (), {"ledger": str(ledger_path)})()
+            rc = cli._cmd_summary(ns)
+        finally:
+            sys.path = [p for p in sys.path if not p.endswith("/scripts")]
+
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Iteration breakdown surfaces the no-op count distinct from
+        # the skip count.
+        assert "no-op=1" in out
+        # Accept rate is computed over the informative bucket
+        # (decided minus no-op) — here that's exactly 1 record (the
+        # legitimate reject), so the rate is 0/1 = 0.0%.
+        assert "informative" in out

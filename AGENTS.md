@@ -450,6 +450,25 @@ The harness is the measurement substrate for an autonomous
     budgets are honoured but the seed specs are the same).  Default
     `registry="default"` preserves the historical mode-based
     selection byte-for-byte.
+*   **No-op detection (§12.4)** — **shipped 2026-06-12**, see
+    `panobbgo.self_improve.LoopIterationRecord.no_op`, the
+    `AdaptiveMutationSampler.discard_outcome` helper, and the
+    `_is_no_op` predicate.  Iterations whose per-(problem, strategy)
+    candidate scores are bit-identical to baseline carry zero
+    information about whether the proposed mutation rule helps or
+    hurts; the loop now sets `no_op=True` /
+    `reason_skipped="no_op"` and bypasses the bandit pull instead of
+    mis-training the Beta posterior on a zero-information event.
+    `prime_from_ledger` skips no-op records on resume.  The
+    `scripts/self_improve.py summary` view surfaces a separate
+    `no-op=N` bucket and computes the accept rate against the
+    *informative* denominator (decided − no-op).  Directly addresses
+    the §2.1 "34% of mutations measure Δ = exactly 0.0000"
+    diagnosis: those iterations no longer mis-train the posterior,
+    and an operator can distinguish "bandit starved on dormant
+    rules" from "every legitimate proposal got rejected".
+    Backwards-compatible field default (`no_op=False` on legacy
+    records).
 
 Run the loop:
 

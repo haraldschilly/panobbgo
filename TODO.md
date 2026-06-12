@@ -2,6 +2,63 @@
 
 ## Recent Improvements (continued)
 
+### No-op detection on bandit-pull and ledger telemetry (V2 §12.4) — 2026-06-12
+- [x] **`LoopIterationRecord.no_op` field** (`panobbgo/self_improve.py`):
+      new boolean field (default `False`), serialised via
+      `to_dict`.  Set to `True` when the candidate's per-(problem,
+      strategy) scores are bit-identical to baseline — the
+      `_is_no_op` helper compares the `problem_strategy_results.score`
+      maps directly.  Iterations flagged as no-op also record
+      `reason_skipped="no_op"`, `accepted=False`, and an extra
+      "no-op" marker in the reasons list.
+- [x] **`AdaptiveMutationSampler.discard_outcome`** — new helper
+      that clears `last_rule_key` without incrementing
+      `n_attempts`.  The driver loop calls this instead of
+      `record_outcome` on no-op iterations so the bandit's
+      Beta posterior is not pulled on a zero-information event.
+- [x] **`prime_from_ledger` skips no-op records** — records
+      flagged with `no_op=True` are excluded from priming, with
+      legacy records (no `no_op` key on disk) continuing to
+      replay byte-identically as before.
+- [x] **CLI summary surfaces `no-op=N` bucket** —
+      `scripts/self_improve.py run` end-of-run line and the
+      `summary` subcommand's `Iterations:` header both report a
+      separate no-op count; the accept rate denominator switches
+      to **informative** (decided − no-op) so dormant rules
+      cannot artificially deflate it.
+- [x] **§2.1 diagnosis closure** — the V1 "34% of mutations
+      measure Δ = exactly 0.0000" pattern no longer mis-trains
+      the bandit posterior; an operator reading the §12.3 daily
+      routine can now distinguish "bandit starved on dormant
+      rules" from "every legitimate proposal got rejected".
+- [x] **Tests** — 10 new tests in
+      `tests/test_self_improve.py::TestNoOpDetection`:
+      - `test_default_no_op_field_is_false`
+      - `test_identical_pair_scores_flag_no_op`
+      - `test_distinct_pair_scores_are_not_no_op`
+      - `test_no_op_iteration_does_not_pull_bandit`
+      - `test_no_op_iteration_increments_streak`
+      - `test_prime_from_ledger_skips_no_op_records`
+      - `test_prime_from_ledger_legacy_record_replays`
+      - `test_discard_outcome_clears_pending_arm`
+      - `test_no_op_round_trips_through_ledger`
+      - `test_cli_summary_surfaces_no_op_count`
+      Plus the existing
+      `TestSelfImproverAdaptive::test_adaptive_sampler_records_rejects`
+      fixture updated to use distinct baseline/candidate scores
+      (it previously relied on the now-detected-as-no-op
+      constant-score path).  All 1450 tests pass.
+- [x] **Docs**: `planning/SELF_IMPROVEMENT_LOOP.md` §2.1
+      annotated, §9.5 step 3 marks the no-op sub-task shipped,
+      §12.4 first bullet promoted from open → shipped;
+      `planning/SELF_IMPROVEMENT_LOG.md` dated entry + new
+      "Next iteration ideas" entry seeded for the *pre-measure
+      no-op short-circuit* compute-saving follow-up;
+      `doc/source/guide.rst` quick-nav entry;
+      `doc/source/guide_benchmarking.rst` new "No-op detection
+      (§12.4)" subsection; `AGENTS.md` self-improvement loop
+      bullet.
+
 ### Categorical `JSO.p_best_max` rule (literature regimes) — 2026-06-09
 - [x] **New `categorical_choice` `MutationRule` entry on
       `default_catalog`** (`panobbgo/self_improve.py`):

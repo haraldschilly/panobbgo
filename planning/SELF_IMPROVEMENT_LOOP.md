@@ -46,7 +46,12 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    ships.
 2. **Accept → rollback churn.**  15/16 guard checks rolled the ladder
    back; all hold-out records ran on an empty ladder (`top_iter=-1`,
-   vacuous `drift=0.0000` reported as OK).
+   vacuous `drift=0.0000` reported as OK).  *Honesty bug fixed
+   2026-06-11 (§6.4 / §12.4): vacuous hold-outs now surface as
+   ``status="vacuous"`` / ``VACUOUS`` in the CLI and are excluded from
+   the drift bootstrap.  The underlying empty-ladder problem is still
+   open and depends on §6.4 (same-night confirmation gate) plus §9.5
+   step 2 (metric resolution) to land.*
 3. **Nothing persists between nights.**  The ladder is in-memory; the
    only durable channel is manual codification (used once:
    `Sobol.scramble=False`, 2026-05-31 — which *worked*).
@@ -151,8 +156,16 @@ the guard then rolled back ~all of them (§2.2).  V2 inverts this:
 - Promote iff the pooled paired CI (screen + confirm) stays > 0.
 - Failed confirmations are recorded (`record_type="confirm_reject"`)
   and count as bandit reward 0.
-- Hold-out records on an empty ladder must report `status="vacuous"`,
-  never `OK drift=0.0`.
+- ~Hold-out records on an empty ladder must report `status="vacuous"`,
+  never `OK drift=0.0`.~ — **shipped 2026-06-11**.
+  :class:`panobbgo.self_improve.LoopHoldoutRecord` gains a ``status``
+  field ``("ok" | "overfit" | "vacuous")`` and
+  :func:`aggregate_holdout_drift` filters vacuous records out of the
+  bootstrap so the CI is no longer pulled toward zero by the empty
+  ladder.  CLI prints surface ``VACUOUS`` / ``VACUOUS_CI`` instead of
+  ``OK`` / ``OK_CI``.  Legacy ledger lines (no ``status`` field)
+  classify correctly via :meth:`LoopHoldoutRecord.effective_status`.
+  See the dated entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 ## 7. Change catalog
 
@@ -316,7 +329,10 @@ file stands.
    night's seed measurement; zero guard rollbacks of *confirmed*
    accepts.
 4. **Honesty**: zero vacuous hold-outs reported as OK; every codify PR
-   body carries reproducible evidence.
+   body carries reproducible evidence.  *Vacuous-hold-out telemetry
+   shipped 2026-06-11 — the "reported as OK" half of this criterion is
+   structurally closed; what remains is operator vigilance that the
+   evidence in codify PRs continues to be reproducible.*
 
 If criterion 2 is still 0 after 30 nights, the kwarg-mutation space
 around the current seeds is exhausted at this budget — switch to
@@ -378,11 +394,19 @@ the run; durable improvement happens only through codification.
   resume.  Directly addresses §2.1 ("34% of mutations measure Δ =
   exactly 0.0000") — those iterations no longer mis-train the
   posterior.  See the §13 entry.
-- **Vacuous hold-outs** (`top_iter == -1`) report `status="vacuous"`
-  and are excluded from drift aggregation.
+- ~**Vacuous hold-outs** (`top_iter == -1`) report `status="vacuous"`
+  and are excluded from drift aggregation.~ — **shipped 2026-06-11**
+  on :class:`panobbgo.self_improve.LoopHoldoutRecord` (new ``status``
+  field, ``effective_status`` helper for legacy records) and
+  :func:`aggregate_holdout_drift` (``vacuous_count`` / ``all_vacuous``
+  reductions; vacuous records filtered out of the bootstrap so the CI
+  is no longer biased toward zero by empty ladders).  CLI prints
+  surface ``VACUOUS`` / ``VACUOUS_CI`` in both ``run`` and ``summary``
+  modes.  See the dated entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 - **Summary trend block**: per-night seed score (both metrics),
   accept / confirm / no-op rates, top-10 and bottom-5 bandit
   posteriors.  This — not raw JSONL — is what the daily routine reads.
+  *Open.*
 
 ## 13. Iteration log
 

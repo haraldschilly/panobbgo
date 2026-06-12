@@ -194,6 +194,162 @@ Conventions:
   - ``AGENTS.md``: self-improvement loop subsection references
     the new field and the CLI ``no-op=N`` bucket.
 
+### 2026-06-11 — Vacuous hold-out status (V2 §6.4 / §12.4)
+
+* **What** — Three coordinated additions:
+
+  * `panobbgo/self_improve.py`: :class:`LoopHoldoutRecord` gains a
+    ``status: str`` field with the three permissible values
+    ``("ok", "overfit", "vacuous")`` plus the matching
+    :attr:`SUPPORTED_STATUSES` class constant and a constructor-time
+    validator that raises ``ValueError`` on typos.  The new
+    :meth:`effective_status` helper derives the right verdict from the
+    other fields when an explicit status is missing — covers legacy
+    ledger lines (no ``status``) by reading ``ladder_size <= 1 and
+    top_iteration < 0`` → ``"vacuous"``, ``overfit=True`` →
+    ``"overfit"``, otherwise ``"ok"``.  :meth:`to_dict` emits the
+    field so the JSONL ledger carries it on every new record.
+  * `panobbgo/self_improve.py`: :meth:`SelfImprover._run_holdout`
+    branches on the ``seed_only`` predicate (ladder kept only the
+    seed entry — no accepted mutations to validate) and sets
+    ``status="vacuous"`` rather than mis-reporting the empty-ladder
+    case as ``OK drift=+0.0000``.  ``overfit=False`` remains
+    bit-identical (vacuous is not overfit), so the existing
+    ``--fail-on-overfit`` gate keeps its semantics.
+    :meth:`_print_holdout` switches to ``rec.effective_status().upper()``
+    so legacy records *and* new records both surface the right
+    verdict in the CLI.
+  * `panobbgo/self_improve.py`: :func:`aggregate_holdout_drift`
+    filters vacuous records out of the bootstrap and the worst-drift
+    reduction.  The aggregate gains ``vacuous_count`` and
+    ``all_vacuous`` fields so callers can render a faithful summary
+    without rerunning the per-record predicate.  The all-vacuous case
+    short-circuits to a degenerate aggregate (mirrors the empty-input
+    case but records the originating seed and count) with
+    ``statistically_overfit=False`` — the aggregate must never claim
+    drift on no data.  A regression test asserts that mixing one
+    strongly-overfit record with one vacuous record does not soften
+    the CI: filtering preserves the negative-drift seed's signal.
+  * `scripts/self_improve.py`: ``_cmd_run`` and ``_cmd_summary``
+    surface ``VACUOUS`` (per-record) and ``VACUOUS_CI`` (CI
+    aggregate) instead of ``OK`` / ``OK_CI`` when the underlying
+    records have no informative content.  Both paths use the same
+    legacy-aware predicate so summaries of pre-2026-06-11 ledgers
+    (no ``status`` field on disk) classify correctly without a
+    one-time migration.  The ``Hold-outs:`` headline gains a
+    ``vacuous=N`` count alongside ``overfit=N``.
+
+* **Why** — Closes §6.4 / §12.4 of `planning/SELF_IMPROVEMENT_LOOP.md`
+  and addresses §2.2 ("all hold-out records ran on an empty ladder,
+  vacuous `drift=0.0000` reported as OK") directly.  The previous
+  behaviour was actively misleading: an 80-iteration nightly run that
+  never accepted a mutation produced a hold-out aggregate that printed
+  ``OK drift=+0.0000`` — indistinguishable from a perfectly-generalising
+  loop.  Operators reviewing
+  ``planning/self_improve_summary.txt`` had no way to see that the
+  loop was *vacuous* (no accepted mutations) versus *durable* (every
+  accept generalised cleanly).  The ``status`` field collapses that
+  ambiguity: ``"vacuous"`` is now a distinct, ledger-persisted
+  verdict that bandit-priming code, the codify-scan stage, and the
+  summary view can all branch on without re-deriving the predicate.
+
+  The aggregator filter is the second half of the honesty contract:
+  pooling six samples (4 informative + 2 vacuous at drift=0) into the
+  bootstrap pulled the CI mean toward zero and could mask a single
+  negative-drift seed.  Vacuous records contribute literally no
+  information about generalisation; excluding them from the bootstrap
+  preserves the per-iteration paired drift signal on whatever
+  informative records the night actually produced.  The
+  ``test_statistically_overfit_not_masked_by_vacuous_record``
+  regression test exercises exactly the failure mode the filter
+  prevents.
+
+* **Impact** — Telemetry-only change with no behavioural effect on
+  the loop's accept / reject decisions or on any heuristic / strategy
+  / analyzer.  ``LoopHoldoutRecord.overfit`` is bit-identical for
+  every input the previous code accepted — vacuous records still
+  carry ``overfit=False`` and so do not trigger ``--fail-on-overfit``
+  / ``--fail-on-overfit-ci``.  The bootstrap-CI numbers shift only
+  for ledgers containing vacuous records: the previous behaviour
+  pooled the zero-drift samples and softened the CI; the new
+  behaviour filters them and the CI tightens on whatever informative
+  records remain.  *Evidence form (per AGENTS.md "Agent-driven
+  improve X PRs"): telemetry-only addition; backwards-compatible
+  field default (``status="ok"``) plus a legacy-aware fallback
+  (``effective_status``) so pre-ship ledgers classify without a
+  migration; the empty-ledger smoke test demonstrates the
+  end-to-end CLI verdict flip from ``OK`` to ``VACUOUS_CI`` on a
+  legacy record.*
+
+* **Backwards compatibility** — strictly safe.  Every existing
+  :class:`LoopHoldoutRecord` constructor call that omits ``status``
+  carries the dataclass default ``"ok"``; the JSON wire format gains
+  one field without breaking any consumer that uses ``.get("status",
+  ...)`` or ignores unknown keys.  Pre-ship ledger lines (no
+  ``status``) load into the new dataclass via the default and the
+  :meth:`effective_status` helper covers vacuous / overfit
+  inference for downstream consumers that care (the summary CLI uses
+  this path).  The new
+  :class:`HoldoutDriftAggregate` fields ``vacuous_count`` /
+  ``all_vacuous`` default to ``0`` / ``False``, so any caller that
+  pre-dates the ship and constructs the aggregate directly keeps
+  working.  Existing ledger files stay valid; the bandit picks up no
+  new arms because this is purely a hold-out telemetry change.
+
+* **Tests** — 7 new tests across
+  ``tests/test_self_improve.py`` plus one existing test renamed and
+  strengthened:
+
+  * Renamed ``test_seed_only_ladder_records_zero_drift`` →
+    ``test_seed_only_ladder_records_vacuous`` and bumped the asserts
+    to require ``status="vacuous"`` / ``effective_status()==
+    "vacuous"`` / the ``VACUOUS`` reason marker.  The old assertions
+    on ``drift==0.0`` / ``overfit is False`` continue to hold so the
+    rename is a *strict tightening*.
+  * ``TestLoopHoldoutRecord`` (+5 new tests, total 7):
+    ``test_status_default_is_ok``,
+    ``test_status_validation_rejects_unknown``,
+    ``test_supported_statuses_constant``,
+    ``test_effective_status_legacy_vacuous_inference``,
+    ``test_effective_status_legacy_overfit_inference``,
+    ``test_vacuous_status_round_trips_through_to_dict``.
+  * ``TestAggregateHoldoutDrift`` (+4 new tests, total 17):
+    ``test_vacuous_record_excluded_from_bootstrap`` —
+    ``vacuous_count`` reflects the filter, mean drift unchanged by
+    the omitted record;
+    ``test_all_vacuous_returns_degenerate_aggregate`` — every record
+    vacuous → ``all_vacuous=True``, ``statistically_overfit=False``,
+    ``n_samples=0``, ``worst_seed`` from the first record;
+    ``test_legacy_vacuous_record_classified_by_structure`` — legacy
+    records (no ``status``) with ``ladder_size=1`` /
+    ``top_iteration=-1`` classify via :meth:`effective_status` so
+    pre-ship ledgers stay correct;
+    ``test_statistically_overfit_not_masked_by_vacuous_record`` —
+    regression guard that mixing one strongly-overfit record with
+    one vacuous record does not soften the CI.
+
+  All 254 :mod:`panobbgo.self_improve` tests, 1450 total project
+  tests, ruff format / check, and pyright continue to pass.  An
+  end-to-end smoke check exercises ``_cmd_summary`` on a fabricated
+  legacy ledger line (no ``status`` field, ``top_iteration=-1``,
+  ``ladder_size=1``) and verifies the CLI emits ``VACUOUS`` +
+  ``VACUOUS_CI`` + ``vacuous=1/1``.
+
+* **Documentation updated**
+  - `planning/SELF_IMPROVEMENT_LOOP.md`: §2.2 diagnosis annotated
+    with the 2026-06-11 honesty-bug fix; §6.4 closing bullet
+    promoted from *open* to *shipped* with a pointer to this entry;
+    §11 success criterion 4 annotated with the structural close;
+    §12.4 vacuous bullet promoted from *open* to *shipped*.
+  - `planning/SELF_IMPROVEMENT_LOG.md`: this entry.
+  - `doc/source/guide.rst`: quick-nav entry mentions the vacuous
+    hold-out telemetry shift.
+  - `doc/source/guide_benchmarking.rst`: hold-out section gains a
+    ``VACUOUS`` verdict callout alongside ``OK`` / ``OVERFIT``.
+  - `AGENTS.md`: self-improvement loop subsection references the
+    new ``status`` field and the
+    ``VACUOUS`` / ``VACUOUS_CI`` CLI verdicts.
+
 ### 2026-06-10 — Loop registry exercises the dormant catalog (V2 §9.5 step 1)
 
 * **What** — Three coordinated additions:

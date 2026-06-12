@@ -577,9 +577,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     n_accepts = sum(1 for r in records if r.accepted)
     n_skips = sum(1 for r in records if r.proposal is None)
+    # §12.4 no-op detection (post-measure): proposals whose candidate
+    # per-pair scores were bit-identical to baseline carry zero
+    # information and are not pulled on the bandit.  Surface the count
+    # so an operator can see at a glance whether the loop is starving
+    # itself on dormant rules.
+    n_no_op = sum(1 for r in records if r.no_op)
     n_total = len(records)
     print()
-    print(f"[self_improve] completed: {n_total} iter, {n_accepts} accept, {n_skips} skip, ledger={cfg.ledger_path}")
+    print(
+        f"[self_improve] completed: {n_total} iter, {n_accepts} accept, "
+        f"{n_skips} skip, {n_no_op} no-op, ledger={cfg.ledger_path}"
+    )
     if improver.sampler is not None:
         snap = improver.sampler.stats_snapshot()
         if snap:
@@ -660,14 +669,20 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     accepted = [r for r in iter_records if r.get("accepted")]
     skipped = [r for r in iter_records if r.get("proposal") is None]
     decided = [r for r in iter_records if r.get("proposal") is not None]
-    accept_rate = (len(accepted) / len(decided)) if decided else 0.0
+    # §12.4 no-op telemetry: proposals whose candidate per-pair scores
+    # were bit-identical to baseline carry zero information and are
+    # excluded from the accept rate denominator.  Legacy records (pre
+    # 2026-06-12) have no ``no_op`` key and default to False here.
+    no_op = [r for r in decided if r.get("no_op")]
+    informative = [r for r in decided if not r.get("no_op")]
+    accept_rate = (len(accepted) / len(informative)) if informative else 0.0
     best_delta = max((r.get("delta", 0.0) for r in decided), default=0.0)
     rolled_back = [r for r in guard_records if r.get("rolled_back")]
     overfits = [r for r in holdout_records if r.get("overfit")]
 
     print(f"Ledger:        {path}")
-    print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)})")
-    print(f"Accepts:       {len(accepted)}  ({accept_rate:.1%} of decided)")
+    print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)}, no-op={len(no_op)})")
+    print(f"Accepts:       {len(accepted)}  ({accept_rate:.1%} of informative)")
     if guard_records:
         total_pops = sum(int(r.get("pops", 0)) for r in guard_records)
         print(f"Guards:        {len(guard_records)}  (rollbacks={len(rolled_back)}, total pops={total_pops})")

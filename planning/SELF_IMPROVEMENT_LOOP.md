@@ -38,7 +38,12 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
 1. **No metric resolution where the loop operates.**  Median
    `baseline_score` ≈ 0.03 on the randomized quick battery; **34% of
    mutations measure Δ = exactly 0.0000** (zero information).  Accepts
-   are upward noise spikes (winner's curse).
+   are upward noise spikes (winner's curse).  *2026-06-12 update:* the
+   §12.4 no-op detection now flags those zero-information iterations
+   and excludes them from bandit pulls so the posterior is no longer
+   mis-trained on them — but the underlying metric resolution problem
+   stands until the §9.5 step 2 (`--metric aocc` or battery re-base)
+   ships.
 2. **Accept → rollback churn.**  15/16 guard checks rolled the ladder
    back; all hold-out records ran on an empty ladder (`top_iter=-1`,
    vacuous `drift=0.0000` reported as OK).
@@ -280,8 +285,9 @@ file stands.
    pick `--registry loop` so the dormant catalog actually fires.
 2. Nightly to `--metric aocc` (or battery re-base), after one manual
    `workflow_dispatch` A/B comparing signal quality.
-3. `--confirm-accepts` (§6.4) + graded bandit reward (§7.4) + no-op
-   detection (§12.4).
+3. `--confirm-accepts` (§6.4) + graded bandit reward (§7.4) + ~no-op
+   detection (§12.4)~ — **no-op detection shipped 2026-06-12**; see
+   the §13 entry.  The remaining two halves of step 3 are still open.
 4. `codify-scan --open-pr` + `--prime-include-archives` +
    vacuous-holdout fix + summary trend block.
 5. Flip the workflow to §9.4; enforce the catalog freeze (§7.3).
@@ -359,11 +365,19 @@ the run; durable improvement happens only through codification.
 5. **Respect the catalog freeze (§7.3)** — prefer merging and
    measurement work over new arms.
 
-### 12.4 Telemetry rules (V2 — open)
+### 12.4 Telemetry rules
 
-- **No-op detection**: an iteration whose per-pair results are
-  bit-identical to baseline records `reason_skipped="no_op"` and does
-  not count as a bandit pull.
+- **No-op detection** — **shipped 2026-06-12**.  Every
+  :class:`LoopIterationRecord` carries a ``no_op: bool`` field;
+  iterations whose per-(problem, strategy) candidate scores are
+  bit-identical to baseline set ``no_op=True``,
+  ``reason_skipped="no_op"``, and ``accepted=False``.  The bandit's
+  ``record_outcome`` is *not* called on these iterations (the new
+  :meth:`AdaptiveMutationSampler.discard_outcome` clears the pending
+  arm without an update), and ``prime_from_ledger`` skips them on
+  resume.  Directly addresses §2.1 ("34% of mutations measure Δ =
+  exactly 0.0000") — those iterations no longer mis-train the
+  posterior.  See the §13 entry.
 - **Vacuous hold-outs** (`top_iter == -1`) report `status="vacuous"`
   and are excluded from drift aggregation.
 - **Summary trend block**: per-night seed score (both metrics),

@@ -17,6 +17,183 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-12 — No-op detection on bandit-pull and ledger telemetry (V2 §12.4)
+
+* **What** — Three coordinated additions in
+  :mod:`panobbgo.self_improve`:
+
+  * :class:`LoopIterationRecord` gains a ``no_op: bool = False``
+    field and serialises it via :meth:`to_dict`.  Iterations whose
+    per-(problem, strategy) candidate scores are bit-identical to
+    baseline (a freshly extracted :func:`_is_no_op` helper compares
+    the ``problem_strategy_results.score`` maps directly) record
+    ``no_op=True`` and ``reason_skipped="no_op"`` and set
+    ``accepted=False`` regardless of the statistical-accept verdict
+    on the (vacuously zero) delta.  The CI / Δ / worst-pair fields
+    are still populated from the bootstrap so an auditor can verify
+    the equality after the fact.
+  * :class:`AdaptiveMutationSampler` gains a
+    :meth:`discard_outcome` method that clears
+    :attr:`last_rule_key` without updating the posterior — the same
+    end-state as :meth:`record_outcome` but with no
+    ``n_attempts += 1`` side-effect.  :meth:`prime_from_ledger`
+    skips records carrying ``no_op=True`` (legacy ledgers without
+    the field default to ``False`` and continue to replay
+    byte-identically to the prior semantics).  The driver loop
+    calls :meth:`discard_outcome` instead of :meth:`record_outcome`
+    on no-op iterations so the bandit's posterior is not pulled on
+    a zero-information event.
+  * ``scripts/self_improve.py``: the ``run`` end-of-loop summary
+    line and the ``summary`` subcommand's ``Iterations:`` header
+    surface a separate ``no-op=N`` bucket; the accept rate is now
+    computed over the *informative* denominator (decided − no-op)
+    so dormant rules cannot artificially deflate it.
+
+* **Why** — closes the *No-op detection* half of §12.4 in
+  ``planning/SELF_IMPROVEMENT_LOOP.md`` (the *Vacuous hold-outs*
+  half shipped in parallel as PR #251).  The §2.1 V2 diagnosis
+  identified "34% of mutations measure Δ = exactly 0.0000" as the
+  dominant V1 failure mode: those iterations carry zero information
+  about whether the proposed mutation rule helps or hurts, yet V1
+  treated each as a fresh ``n_attempts += 1`` Bernoulli pull on the
+  bandit arm.  Two compounding effects:
+
+  * **Bandit posterior mis-trained**: a rule with 4/4 reject-but-
+    no-op iterations gets a ``Beta(1, 5)`` posterior even though no
+    iteration carried evidence the rule is bad.  Over a night of
+    20–40 iterations this systematically biases the Thompson
+    sampler toward whichever arms happen to *not* be dormant on the
+    current seed registry, defeating §10's "learn which rules win"
+    purpose.
+  * **Accept rate denominator inflated**: the summary view's
+    `accepts / decided` ratio treats no-op records as legitimate
+    rejects, so an operator reading the §12.3 daily routine sees an
+    artificially low accept rate that conflates dormant rules with
+    a productive bandit.
+
+  The shipped fix decouples both: the bandit only pulls on
+  iterations carrying real information, and the summary
+  distinguishes dormant rules from genuine rejections.  Pairs
+  naturally with PR #251 (vacuous hold-out status): both are §12.4
+  *honesty* fixes that converted a silently-wrong telemetry signal
+  into an explicit ledger field a downstream consumer can branch on.
+
+* **Bit-identical comparison rationale** — the per-pair
+  ``score`` is the mean of solve-fractions across reps; under the
+  paired-randomized harness, identical specs draw identical instance
+  seeds and produce truly equal floats (IEEE 754 equality).  We
+  compare per-pair scores rather than the single composite because
+  a composite equality is far weaker (two different per-pair
+  distributions can average to the same scalar by coincidence) and
+  would over-report no-ops.  When the proposal renames a strategy
+  or rearranges the pair keyset, ``_is_no_op`` conservatively
+  returns ``False`` — the iteration carries real information about
+  whether the structural change helps.
+
+* **Impact** — direct effect on §2.1.  Measured against the
+  fake-harness test (``test_no_op_iteration_does_not_pull_bandit``):
+  two iterations of a constant-score harness — the canonical V1
+  "Δ=0" pattern — now produce two no-op records with the bandit's
+  ``n_attempts`` at zero.  In nightly cron terms, this means the
+  ~34% of mutations that V1 mis-trained on now contribute no
+  posterior update at all; the Thompson sampler can identify
+  informative arms from the remaining ~66% without the no-op noise
+  floor dragging accept-rate posteriors toward zero.  Pure
+  telemetry-/gating-only addition: no change to the composite
+  baseline, no change to the statistical-accept rule, no change to
+  the guard or hold-out semantics.  *Evidence form (per AGENTS.md
+  "Agent-driven improve X PRs"): backwards-compatible field default
+  (``no_op=False`` on legacy records) so existing ledgers parse and
+  replay identically; the new gating is exercised by 10 tests in
+  ``tests/test_self_improve.py::TestNoOpDetection`` plus all 1450
+  existing tests pass unchanged after the single
+  ``test_adaptive_sampler_records_rejects`` fixture update (which
+  previously relied on the now-detected-as-no-op constant-score
+  path; updated to use distinct baseline/candidate scores for a
+  legitimate-reject scenario).*
+
+* **Backwards compatibility** — strictly safe.  The ``no_op``
+  field defaults to ``False`` so:
+
+  * Direct dataclass construction without the new kwarg behaves
+    bit-for-bit as before.
+  * JSONL records written before this ship (no ``no_op`` key on
+    disk) load with ``r.get("no_op")`` returning ``None`` /
+    ``False`` and are classified as "informative" in the summary —
+    matching the historical semantics exactly.
+  * :meth:`prime_from_ledger` skips records with
+    ``no_op=True`` but processes legacy records (no ``no_op`` key)
+    identically to before.
+  * The new :meth:`discard_outcome` is purely additive — existing
+    callers of :meth:`record_outcome` keep their behaviour.
+
+  The single fixture update
+  (``TestSelfImproverAdaptive::test_adaptive_sampler_records_rejects``)
+  is a strict improvement: the test previously asserted a
+  constant-score iteration counts as a bandit pull, which is
+  exactly the behaviour §12.4 says should *not* hold.  Switched to
+  a distinct-baseline/candidate score pattern that exercises the
+  intended reject path (n_attempts==2 after two legitimate rejects).
+
+* **Tests** — 10 new tests in
+  ``tests/test_self_improve.py::TestNoOpDetection``:
+
+  * ``test_default_no_op_field_is_false`` — direct construction
+    without the new kwarg defaults to ``False``; ``to_dict``
+    persists the field.
+  * ``test_identical_pair_scores_flag_no_op`` — end-to-end loop:
+    constant-score harness → ``no_op=True``, ``accepted=False``,
+    ``reason_skipped="no_op"``, and the reasons list includes the
+    "no-op" marker for ledger auditors.
+  * ``test_distinct_pair_scores_are_not_no_op`` — legitimate
+    reject (candidate strictly worse) is not flagged as no-op so
+    the bandit still learns from real signal.
+  * ``test_no_op_iteration_does_not_pull_bandit`` — the headline
+    contract: ``n_attempts == 0`` after two no-op iterations,
+    paired against
+    ``test_adaptive_sampler_records_rejects``'s ``n_attempts == 2``
+    on the legitimate-reject path.
+  * ``test_no_op_iteration_increments_streak`` — inactivity
+    streak still advances on no-op iterations so the
+    ``inactivity_relax_after`` rule can still break out of a
+    long dormant-rule drought.
+  * ``test_prime_from_ledger_skips_no_op_records`` — replay path
+    matches the live-run gating; consumed count is correctly the
+    informative-record count.
+  * ``test_prime_from_ledger_legacy_record_replays`` — backwards
+    compatibility: pre-ship ledgers without the ``no_op`` key
+    continue to prime byte-identically.
+  * ``test_discard_outcome_clears_pending_arm`` —
+    :meth:`AdaptiveMutationSampler.discard_outcome` clears
+    ``last_rule_key`` so the next ``record_outcome`` is a no-op.
+  * ``test_no_op_round_trips_through_ledger`` — JSONL round-trip
+    preserves the field.
+  * ``test_cli_summary_surfaces_no_op_count`` — end-to-end CLI
+    smoke check on a fabricated mixed ledger (one no-op, one
+    legitimate reject) confirms the new ``no-op=N`` bucket and
+    the "informative" denominator label appear in the summary
+    output.
+
+  All 244 prior :mod:`panobbgo.self_improve` tests continue to
+  pass (with the one fixture update described above); the full
+  test suite passes 1450 / 1450.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §2.1 annotated with the
+    2026-06-12 update; §9.5 step 3 marks the no-op-detection
+    sub-task as shipped; §12.4 first bullet promoted from open →
+    shipped with a §13 pointer.
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; a new
+    "Next iteration ideas" entry seeded for the *pre-measure
+    no-op short-circuit* compute-saving follow-up.
+  - ``doc/source/guide.rst``: quick-nav entry mentions the §12.4
+    no-op detection ship.
+  - ``doc/source/guide_benchmarking.rst``: self-improvement
+    section documents the new ``no_op`` field and the
+    ``discard_outcome`` gating.
+  - ``AGENTS.md``: self-improvement loop subsection references
+    the new field and the CLI ``no-op=N`` bucket.
+
 ### 2026-06-10 — Loop registry exercises the dormant catalog (V2 §9.5 step 1)
 
 * **What** — Three coordinated additions:
@@ -3568,6 +3745,46 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### Pre-measure no-op short-circuit (after 2026-06-12 ship)
+
+The 2026-06-12 ship detects no-op iterations *post-measure* by
+comparing per-pair scores — correct but wasteful: both the baseline
+and candidate measurements still run.  A natural cheap-compute
+follow-up is to detect the most common no-op shape *pre-measure* by
+comparing the candidate spec list to the current one immediately
+after :func:`apply_mutation`: if the two are structurally equivalent
+(same heuristics in the same order, same kwargs dict per slot, same
+analyzers, same strategy class) the iteration is a guaranteed no-op
+and can short-circuit before either measurement is run — saving the
+candidate measurement entirely.  Two design notes:
+
+* **Where the savings actually live.**  The dominant V1 no-op
+  source identified in §2.1 is *dormant-rule* mutations: a
+  proposal flips a kwarg that the spec doesn't actually use at the
+  current budget (the kwarg is set on a heuristic the strategy
+  rarely picks, or `update_interval` exceeds the budget so the
+  analyzer never fires).  Those produce identical *per-pair*
+  scores but the spec is *not* structurally identical — the kwarg
+  did change.  Pre-measure short-circuit would catch a smaller
+  subset (proposals where the new value equals the old, which is
+  rare given the catalog filters those at the bandit level via
+  ``categorical_choice``'s current-value exclusion and the
+  ``float_uniform`` minimum-step guard).  The post-measure detector
+  is what catches the dominant case.
+* **What the short-circuit buys.**  Compute-saving on the
+  pathological case where ``apply_mutation`` produces a
+  byte-identical spec list — currently rare but cheap to detect.
+  Also saves baseline-measurement compute when paired with a
+  *baseline cache* (re-use the just-computed baseline from the
+  previous iteration when the previous iteration's accepted ladder
+  top is the same as this iteration's pre-mutation spec list, which
+  is the common case under reject-heavy regimes) — a separate
+  follow-up that builds on top.
+
+Speculative until ledger evidence shows compute is the binding
+constraint (today §2.5 reports 94% idle, so this is correctness-
+neutral, not currency).
 
 #### Flip the nightly cron to `--registry loop` (after 2026-06-10 ship)
 

@@ -134,16 +134,15 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
 <li><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation">Inactivity-guarded eps_accept relaxation</a></li>
 <li><a class="reference internal" href="#no-op-detection-12-4">No-op detection (&#167;12.4)</a></li>
-<li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
+<li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a><ul>
+<li><a class="reference internal" href="#graded-reward-shaping-7-4">Graded reward shaping (&#167;7.4)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
 <li><a class="reference internal" href="#per-class-structural-bandit-arms">Per-class structural bandit arms</a></li>
 <li><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms">Hierarchical bandit over per-class structural arms</a></li>
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
-<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
-<li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
-<li><a class="reference internal" href="#bootstrap-ci-on-the-aggregated-drift">Bootstrap CI on the aggregated drift</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
@@ -1064,6 +1063,65 @@ have worked so far.</p>
 </span><span data-line="6"><span class="c1"># Greedier prior for shorter exploratory loops</span>
 </span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
 </span><span data-line="8"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prior-alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--adaptive-prior-beta<span class="w"> </span><span class="m">0</span>.5
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># §7.4 graded reward shaping — turns every informative iteration</span>
+</span><span data-line="11"><span class="c1"># into evidence on the chosen arm so small-positive arms are</span>
+</span><span data-line="12"><span class="c1"># identifiable at 20-40 per-night iteration counts.</span>
+</span><span data-line="13">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="14"><span class="w">    </span>--adaptive<span class="w"> </span>--bandit-reward<span class="w"> </span>graded
+</span></pre></div>
+</div>
+<section id="graded-reward-shaping-7-4">
+<h4>Graded reward shaping (§7.4)<a class="headerlink" href="#graded-reward-shaping-7-4" title="Link to this heading">¶</a></h4>
+<p>The default <code class="docutils literal notranslate"><span class="pre">LoopConfig.bandit_reward_shaping</span> <span class="pre">=</span> <span class="pre">&quot;binary&quot;</span></code> updates
+the Beta posterior with <code class="docutils literal notranslate"><span class="pre">+1</span></code> per accept / <code class="docutils literal notranslate"><span class="pre">+0</span></code> per reject — the
+behaviour shipped 2026-05-01.  At the loop’s ~2.5% per-night accept
+rate (§2.6 of the V2 diagnosis) this leaves most arms close to the
+prior, so the bandit “knows almost nothing” after a night.</p>
+<p>Setting <code class="docutils literal notranslate"><span class="pre">bandit_reward_shaping</span> <span class="pre">=</span> <span class="pre">&quot;graded&quot;</span></code> (CLI
+<code class="docutils literal notranslate"><span class="pre">--bandit-reward</span> <span class="pre">graded</span></code>) substitutes a continuous reward in
+<code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> derived from the bootstrap CI and point delta:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">accepted</span></code> → <code class="docutils literal notranslate"><span class="pre">0.5</span> <span class="pre">+</span> <span class="pre">clip(ci_low</span> <span class="pre">/</span> <span class="pre">(4·eps_accept),</span> <span class="pre">0,</span> <span class="pre">0.5)</span></code> —
+barely-confirmed accepts contribute <code class="docutils literal notranslate"><span class="pre">~0.5</span></code>, clearly-winning
+accepts up to <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
+<li><p>rejected → <code class="docutils literal notranslate"><span class="pre">clip(0.5</span> <span class="pre">+</span> <span class="pre">Δ</span> <span class="pre">/</span> <span class="pre">(4·eps_accept),</span> <span class="pre">0,</span> <span class="pre">0.5)</span></code> — a positive
+but sub-eps delta (“honest near miss”) contributes <code class="docutils literal notranslate"><span class="pre">~0.5</span></code>, a
+delta at zero contributes exactly <code class="docutils literal notranslate"><span class="pre">0.5</span></code>, a clearly-harmful delta
+floors at <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+<li><p>no-op / skip → no posterior update (gated by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">discard_outcome()</span></code>
+upstream, see the §12.4 no-op detection subsection above).</p></li>
+</ul>
+<p>The per-rule
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MutationRuleStats</span></code> gains a
+<code class="docutils literal notranslate"><span class="pre">reward_sum</span></code> field accumulating the graded values; the Thompson
+sampler swaps it in for <code class="docutils literal notranslate"><span class="pre">n_accepts</span></code> in the Beta posterior.  The
+binary path is preserved byte-for-byte: <code class="docutils literal notranslate"><span class="pre">record_outcome(accepted)</span></code>
+with no explicit <code class="docutils literal notranslate"><span class="pre">reward</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">1.0</span> <span class="pre">if</span> <span class="pre">accepted</span> <span class="pre">else</span> <span class="pre">0.0</span></code>
+so <code class="docutils literal notranslate"><span class="pre">reward_sum</span></code> tracks <code class="docutils literal notranslate"><span class="pre">n_accepts</span></code> exactly and the posterior is
+identical to the pre-2026-06-13 shape.</p>
+<p>Each <code class="xref py py-class docutils literal notranslate"><span class="pre">LoopIterationRecord</span></code> gains an
+optional <code class="docutils literal notranslate"><span class="pre">bandit_reward</span></code> field carrying the actual reward the
+bandit consumed — <code class="docutils literal notranslate"><span class="pre">None</span></code> on skip / no-op iterations and on every
+binary-mode iteration, the graded float on graded-mode iterations.
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">prime_from_ledger()</span></code>
+reads the field on resume so a graded run can recover its full
+<code class="docutils literal notranslate"><span class="pre">reward_sum</span></code> state across the persistence boundary.  Legacy
+ledgers (no <code class="docutils literal notranslate"><span class="pre">bandit_reward</span></code> key) fall back to the binary reward,
+so resuming from a pre-2026-06-13 ledger is byte-identical to the
+old behaviour.</p>
+<p>The summary metric <code class="docutils literal notranslate"><span class="pre">stats.mean_reward</span> <span class="pre">=</span> <span class="pre">reward_sum</span> <span class="pre">/</span> <span class="pre">n_attempts</span></code>
+distinguishes arms that produce small-positive deltas (<code class="docutils literal notranslate"><span class="pre">mean_reward</span>
+<span class="pre">≈</span> <span class="pre">0.5</span></code> even at <code class="docutils literal notranslate"><span class="pre">accept_rate</span> <span class="pre">=</span> <span class="pre">0</span></code>) from arms that produce harmful
+deltas (<code class="docutils literal notranslate"><span class="pre">mean_reward</span> <span class="pre">≈</span> <span class="pre">0</span></code>).  Inspect it alongside <code class="docutils literal notranslate"><span class="pre">accept_rate</span></code>
+when auditing the bandit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">for</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">improver</span><span class="o">.</span><span class="n">sampler</span><span class="o">.</span><span class="n">stats_snapshot</span><span class="p">():</span>
+</span><span data-line="2">    <span class="nb">print</span><span class="p">(</span>
+</span><span data-line="3">        <span class="n">stats</span><span class="o">.</span><span class="n">rule_key</span><span class="p">,</span>
+</span><span data-line="4">        <span class="sa">f</span><span class="s2">&quot;accept_rate=</span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">accept_rate</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span data-line="5">        <span class="sa">f</span><span class="s2">&quot;mean_reward=</span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">mean_reward</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span data-line="6">    <span class="p">)</span>
 </span></pre></div>
 </div>
 <p>Programmatic use:</p>
@@ -1088,6 +1146,7 @@ have worked so far.</p>
 </div>
 <p>The sampler is <strong>off by default</strong> (<code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span> <span class="pre">=</span> <span class="pre">False</span></code>) for
 backward compatibility.</p>
+</section>
 </section>
 <section id="strategy-portfolio-composition-7-2">
 <h3><a class="toc-backref" href="#id28" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
@@ -1717,8 +1776,6 @@ catches drift between iterations within the training base_seed
 family; the hold-out runs once at the end and catches overfit to the
 training base_seed family itself.  Together they cover the two main
 overfitting modes the loop can suffer from.</p>
-<section id="multi-seed-hold-out">
-<h4>Multi-seed hold-out<a class="headerlink" href="#multi-seed-hold-out" title="Link to this heading">¶</a></h4>
 <p>The single-base-seed hold-out described above reduces the entire
 generalisation question to one independent draw.  When a ladder
 overfits in a subtle way — for example, the accepted mutation
@@ -1777,9 +1834,6 @@ same stream).</p></li>
 </span><span data-line="14">          <span class="sa">f</span><span class="s2">&quot; (worst drift=</span><span class="si">{</span><span class="n">worst_drift</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
-</section>
-<section id="bootstrap-ci-on-the-aggregated-drift">
-<h4>Bootstrap CI on the aggregated drift<a class="headerlink" href="#bootstrap-ci-on-the-aggregated-drift" title="Link to this heading">¶</a></h4>
 <p>The multi-seed worst-case reduction is <em>conservative</em> — one bad
 seed flags the entire ladder — but it gives no sense of whether
 <code class="docutils literal notranslate"><span class="pre">-0.0074</span></code> is the typical drift, the lucky tail of a larger drift,
@@ -1844,7 +1898,6 @@ per-iteration fields existed) contribute one sample each from their
 cached <code class="docutils literal notranslate"><span class="pre">drift</span></code> value.  Mixed inputs work transparently — the
 helper uses high-resolution per-iteration samples when present and
 falls back to per-record point drifts otherwise.</p>
-</section>
 </section>
 </section>
 <section id="extending-the-harness">

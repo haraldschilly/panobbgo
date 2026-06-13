@@ -5408,3 +5408,494 @@ class TestNoOpDetection:
         # (decided minus no-op) — here that's exactly 1 record (the
         # legitimate reject), so the rate is 0/1 = 0.0%.
         assert "informative" in out
+
+
+# ===========================================================================
+# §7.4 Graded bandit reward shaping
+# ===========================================================================
+
+
+class TestGradedBanditReward:
+    """§7.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+    Replaces the binary accept-reward (``+1`` per accept, ``0`` per
+    reject) with a graded reward in ``[0, 1]`` derived from the
+    bootstrap CI / point delta — so a barely-confirmed accept and a
+    clearly-winning accept become distinguishable, and an honest near-
+    miss reject (``Δ ≈ 0``) is no longer indistinguishable from a
+    clearly-harmful reject (``Δ ≪ 0``).
+    """
+
+    def _radius_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicA",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+            ]
+        )
+
+    # ---- _compute_graded_reward formula ----
+
+    def test_compute_graded_reward_accept_at_zero_ci_low(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # ``ci_low = 0`` is the lower bound of the accept regime: just
+        # barely confirmed → reward sits at the 0.5 floor.
+        r = _compute_graded_reward(accepted=True, delta=0.005, ci_low=0.0, eps_accept=0.005)
+        assert r == pytest.approx(0.5)
+
+    def test_compute_graded_reward_accept_at_full_ci_low(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # ``ci_low = eps_scale = 4·eps_accept`` saturates the bonus →
+        # reward maxes out at 1.0.
+        r = _compute_graded_reward(accepted=True, delta=0.05, ci_low=0.020, eps_accept=0.005)
+        assert r == pytest.approx(1.0)
+
+    def test_compute_graded_reward_accept_half_ci_low(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # ``ci_low = 0.5·eps_scale = 2·eps_accept`` ⇒ bonus = 0.5 ⇒
+        # reward = 1.0 (saturated).  Use a lower ci_low for the
+        # half-bonus midpoint.
+        r_half = _compute_graded_reward(accepted=True, delta=0.02, ci_low=0.005, eps_accept=0.005)
+        # ci_low / eps_scale = 0.005 / 0.020 = 0.25 ⇒ reward = 0.75.
+        assert r_half == pytest.approx(0.75)
+
+    def test_compute_graded_reward_reject_at_zero_delta(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # Δ = 0 (CI bracketed zero, didn't reach eps) → reward sits at
+        # the 0.5 ceiling of the reject regime: the proposal carried no
+        # negative signal.
+        r = _compute_graded_reward(accepted=False, delta=0.0, ci_low=-0.005, eps_accept=0.005)
+        assert r == pytest.approx(0.5)
+
+    def test_compute_graded_reward_reject_at_full_negative_delta(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # Δ = -eps_scale = -4·eps_accept saturates the penalty →
+        # reward floors at 0.0 (clearly harmful proposal).
+        r = _compute_graded_reward(accepted=False, delta=-0.020, ci_low=-0.030, eps_accept=0.005)
+        assert r == pytest.approx(0.0)
+
+    def test_compute_graded_reward_reject_at_positive_delta(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # Honest near miss: Δ > 0 but CI didn't clear, reward saturates
+        # at 0.5 (top of reject regime).  This is the §7.4 invariant —
+        # a "real signal, wrong sign / too small" reject lands above a
+        # clearly-harmful one and matches a delta-zero reject.
+        r = _compute_graded_reward(accepted=False, delta=0.010, ci_low=-0.001, eps_accept=0.005)
+        assert r == pytest.approx(0.5)
+
+    def test_compute_graded_reward_handles_zero_eps_accept(self):
+        from panobbgo.self_improve import _compute_graded_reward
+
+        # ``eps_accept = 0`` would divide by zero naively; the helper
+        # collapses to a tiny floor so the clamps still pin the output
+        # and no NaN/Inf escapes into the posterior.
+        r_accept = _compute_graded_reward(accepted=True, delta=0.1, ci_low=0.1, eps_accept=0.0)
+        assert r_accept == pytest.approx(1.0)
+        r_reject = _compute_graded_reward(accepted=False, delta=-0.1, ci_low=-0.1, eps_accept=0.0)
+        assert r_reject == pytest.approx(0.0)
+
+    # ---- MutationRuleStats reward_sum back-compat ----
+
+    def test_stats_default_reward_sum_zero(self):
+        s = MutationRuleStats(rule_key=("A", "b", "kind"))
+        assert s.reward_sum == 0.0
+        assert s.mean_reward == 0.0
+        # Empty arm: accept_rate semantics unchanged.
+        assert s.accept_rate == 0.0
+
+    def test_stats_post_init_mirrors_n_accepts(self):
+        # Direct construction with the binary semantic (n_accepts > 0
+        # but reward_sum = 0): __post_init__ mirrors n_accepts into
+        # reward_sum so the Thompson posterior is byte-identical to the
+        # pre-graded (Beta(α₀ + n_accepts, …)) parameterisation.
+        s = MutationRuleStats(rule_key=("A", "b", "kind"), n_attempts=4, n_accepts=3)
+        assert s.reward_sum == 3.0
+        # mean_reward equals accept_rate on the binary path.
+        assert s.mean_reward == pytest.approx(0.75)
+        assert s.accept_rate == pytest.approx(0.75)
+
+    def test_stats_explicit_reward_sum_preserved(self):
+        # Graded direct construction: reward_sum != 0 stays as-is even
+        # when n_accepts > 0.  This is the case the post_init guard
+        # exists to *not* clobber.
+        s = MutationRuleStats(
+            rule_key=("A", "b", "kind"),
+            n_attempts=4,
+            n_accepts=2,
+            reward_sum=1.5,
+        )
+        assert s.reward_sum == 1.5
+        assert s.mean_reward == pytest.approx(1.5 / 4.0)
+        assert s.accept_rate == pytest.approx(0.5)
+
+    def test_stats_to_dict_includes_reward_fields(self):
+        s = MutationRuleStats(
+            rule_key=("Foo", "bar", "log_uniform_perturb"),
+            n_attempts=10,
+            n_accepts=3,
+            reward_sum=4.25,
+        )
+        d = s.to_dict()
+        assert d["reward_sum"] == 4.25
+        assert d["mean_reward"] == pytest.approx(0.425)
+        # Binary fields stay unchanged so legacy summary parsers work.
+        assert d["n_accepts"] == 3
+        assert d["accept_rate"] == pytest.approx(0.3)
+
+    # ---- record_outcome graded path ----
+
+    def test_record_outcome_binary_default_matches_history(self):
+        # The historical call shape (no ``reward`` kwarg) must update
+        # the stats in the exact same way the pre-graded sampler did:
+        # ``reward_sum`` tracks ``n_accepts`` cleanly so the Beta
+        # posterior matches.
+        samp = AdaptiveMutationSampler(self._radius_catalog())
+        samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        samp.record_outcome(True)
+        samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        samp.record_outcome(False)
+        samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        samp.record_outcome(True)
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 3
+        assert snap[0].n_accepts == 2
+        # Binary path: reward_sum = n_accepts.
+        assert snap[0].reward_sum == 2.0
+        assert snap[0].mean_reward == pytest.approx(2.0 / 3.0)
+
+    def test_record_outcome_graded_accumulates(self):
+        samp = AdaptiveMutationSampler(self._radius_catalog())
+        # Three graded rewards: accept@0.75, reject@0.3, accept@0.55.
+        for reward, accepted in [(0.75, True), (0.30, False), (0.55, True)]:
+            samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+            samp.record_outcome(accepted, reward=reward)
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 3
+        assert snap[0].n_accepts == 2  # binary side still tracks accepts
+        assert snap[0].reward_sum == pytest.approx(0.75 + 0.30 + 0.55)
+        assert snap[0].mean_reward == pytest.approx((0.75 + 0.30 + 0.55) / 3.0)
+
+    def test_record_outcome_graded_clamps_out_of_range(self):
+        # Defensive clamping: rewards outside [0, 1] are pinned to the
+        # nearest valid boundary so a numeric escape never corrupts the
+        # posterior.  The driver only ever passes in-range values but
+        # third-party callers and future graded variants might not.
+        samp = AdaptiveMutationSampler(self._radius_catalog())
+        samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        samp.record_outcome(True, reward=1.5)
+        samp._last_rule_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        samp.record_outcome(False, reward=-0.5)
+        snap = samp.stats_snapshot()
+        # 1.5 → clipped to 1.0; -0.5 → clipped to 0.0.
+        assert snap[0].reward_sum == pytest.approx(1.0)
+
+    # ---- Thompson uses reward_sum ----
+
+    def test_thompson_uses_reward_sum_not_n_accepts(self):
+        # Two arms, identical n_accepts but different reward_sum:
+        # the higher-reward arm should be picked far more often.
+        # This is the §7.4 headline guarantee — graded reward turns
+        # close-to-prior arms into distinguishable ones.
+        cat = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicA",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="_DummyHeuristicB",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.005, 0.5),
+                ),
+            ]
+        )
+        samp = AdaptiveMutationSampler(cat)
+        # Both arms: 20 attempts, 0 binary accepts.  Arm A: 20 graded
+        # rewards of 0.9 (mean reward = 0.9, like Beta(19, 3)); Arm B:
+        # 20 graded rewards of 0.05 (mean reward = 0.05, like
+        # Beta(2, 20)).  Under Thompson the higher-reward arm should
+        # dominate.
+        a_key = ("_DummyHeuristicA", "radius", "log_uniform_perturb")
+        b_key = ("_DummyHeuristicB", "radius", "log_uniform_perturb")
+        samp._stats[a_key] = MutationRuleStats(
+            rule_key=a_key,
+            n_attempts=20,
+            n_accepts=0,
+            reward_sum=18.0,  # mean reward 0.9
+        )
+        samp._stats[b_key] = MutationRuleStats(
+            rule_key=b_key,
+            n_attempts=20,
+            n_accepts=0,
+            reward_sum=1.0,  # mean reward 0.05
+        )
+        rng = np.random.default_rng(42)
+        a_picks = 0
+        n_samples = 200
+        for _ in range(n_samples):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_DummyHeuristicA":
+                a_picks += 1
+            samp._last_rule_key = None  # reset so we don't pollute stats
+        rate = a_picks / n_samples
+        # Posteriors: Beta(1 + 18, 1 + 2) ≈ Beta(19, 3) vs
+        # Beta(1 + 1, 1 + 19) ≈ Beta(2, 20).  A should dominate.
+        assert rate > 0.85, f"high-reward arm should win, got {rate:.3f}"
+
+    # ---- prime_from_ledger graded path ----
+
+    def test_prime_from_ledger_uses_bandit_reward(self, tmp_path):
+        # Graded ledger record: bandit_reward = 0.85 (an accept worth
+        # 85% of full reward).  prime_from_ledger must accumulate 0.85
+        # into reward_sum, not 1.0.
+        ledger_path = tmp_path / "ledger.jsonl"
+        graded_accept = {
+            "record_type": "iteration",
+            "iteration": 0,
+            "accepted": True,
+            "no_op": False,
+            "bandit_reward": 0.85,
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        graded_reject = {
+            "record_type": "iteration",
+            "iteration": 1,
+            "accepted": False,
+            "no_op": False,
+            "bandit_reward": 0.35,
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        with ledger_path.open("w") as f:
+            f.write(json.dumps(graded_accept) + "\n")
+            f.write(json.dumps(graded_reject) + "\n")
+
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        consumed = sampler.prime_from_ledger(str(ledger_path))
+        assert consumed == 2
+        snap = sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 1
+        # 0.85 + 0.35 — the graded rewards, *not* 1.0 + 0.0 (which
+        # the binary-fallback path would have produced).
+        assert snap[0].reward_sum == pytest.approx(1.20)
+
+    def test_prime_from_ledger_legacy_record_falls_back_to_binary(self, tmp_path):
+        # Legacy ledger record (no ``bandit_reward`` field): prime
+        # falls back to the binary reward 1.0 per accept / 0.0 per
+        # reject.  This is the back-compat contract that pre-2026-06-13
+        # ledgers replay byte-identically.
+        ledger_path = tmp_path / "ledger.jsonl"
+        legacy_accept = {
+            "record_type": "iteration",
+            "iteration": 0,
+            "accepted": True,
+            "no_op": False,
+            # no ``bandit_reward`` key — that's the legacy shape.
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+        }
+        with ledger_path.open("w") as f:
+            f.write(json.dumps(legacy_accept) + "\n")
+
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        consumed = sampler.prime_from_ledger(str(ledger_path))
+        assert consumed == 1
+        snap = sampler.stats_snapshot()
+        # Legacy path: reward_sum = n_accepts.
+        assert snap[0].n_accepts == 1
+        assert snap[0].reward_sum == pytest.approx(1.0)
+
+    # ---- LoopConfig + LoopIterationRecord plumbing ----
+
+    def test_loop_config_validates_bandit_reward_shaping(self):
+        with pytest.raises(ValueError, match="bandit_reward_shaping"):
+            LoopConfig(bandit_reward_shaping="bogus")
+        # Both valid choices construct cleanly.
+        LoopConfig(bandit_reward_shaping="binary")
+        LoopConfig(bandit_reward_shaping="graded")
+
+    def test_loop_config_default_is_binary(self):
+        # Default must be the historical behaviour so existing CLI
+        # invocations / programmatic callers are byte-identical.
+        cfg = LoopConfig()
+        assert cfg.bandit_reward_shaping == "binary"
+
+    def test_iteration_record_bandit_reward_defaults_none(self):
+        rec = LoopIterationRecord(
+            iteration=0,
+            timestamp="2026-01-01T00:00:00+00:00",
+            duration_seconds=0.0,
+            proposal=None,
+            accepted=False,
+            baseline_score=0.0,
+            candidate_score=0.0,
+            delta=0.0,
+            ci_low=0.0,
+            ci_high=0.0,
+            worst_pair_regression=0.0,
+            worst_pair=None,
+        )
+        assert rec.bandit_reward is None
+        assert rec.to_dict()["bandit_reward"] is None
+
+    # ---- End-to-end driver behaviour ----
+
+    def test_binary_mode_record_has_no_bandit_reward(self, tmp_path):
+        # Default (binary) mode: the driver leaves bandit_reward = None
+        # on every iteration so the ledger stays byte-identical to the
+        # pre-graded shape.
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            bandit_reward_shaping="binary",
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        # Score 0.5 baseline, 0.4 candidate → reject, non-no-op.
+        counter = {"n": 0}
+
+        def score_fn(c):
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.5 if n % 2 == 0 else 0.4
+
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert records[0].bandit_reward is None
+
+    def test_graded_mode_record_persists_reward(self, tmp_path):
+        # Graded mode: the driver computes the reward and persists it
+        # on the record (and pulls the bandit's arm with the same
+        # value).  Here a non-no-op reject with Δ = -0.1 (strongly
+        # negative) should produce a reward at the lower bound (0).
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            eps_accept=0.005,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            bandit_reward_shaping="graded",
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        counter = {"n": 0}
+
+        def score_fn(c):
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.5 if n % 2 == 0 else 0.4
+
+        si._harness_factory = _make_factory(score_fn)
+        records = si.run()
+        assert len(records) == 1
+        rec = records[0]
+        # Reject with strongly negative delta → reward floor at 0.0.
+        assert rec.accepted is False
+        assert rec.bandit_reward is not None
+        # eps_scale = 4·0.005 = 0.020; delta ≈ -0.1 ⇒ value ≈ 0.5 - 5 < 0
+        # → clamped to 0.0.
+        assert rec.bandit_reward == pytest.approx(0.0)
+        # The sampler's stats carry the same value.
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        # The arm was pulled (n_attempts=1) with a graded reward of 0.0.
+        pulled = [s for s in snap if s.n_attempts > 0]
+        assert len(pulled) == 1
+        assert pulled[0].reward_sum == pytest.approx(0.0)
+        assert pulled[0].n_accepts == 0
+
+    def test_graded_mode_no_op_leaves_bandit_reward_none(self, tmp_path):
+        # No-op iterations bypass the bandit entirely — the reward
+        # field stays None even in graded mode so the ledger can
+        # distinguish "the iteration was informative but the reward
+        # was 0" from "the iteration carried no information".
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            bandit_reward_shaping="graded",
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.5)
+        records = si.run()
+        assert records[0].no_op is True
+        assert records[0].bandit_reward is None
+
+    def test_graded_mode_ledger_round_trip(self, tmp_path):
+        # Round-trip: a graded-mode run writes bandit_reward to the
+        # ledger, and prime_from_ledger picks it up on resume so the
+        # reward_sum is preserved exactly across the persistence
+        # boundary.  Headline contract for the §7.4 ship.
+        ledger_path = tmp_path / "ledger.jsonl"
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=50,
+            eps_accept=0.005,
+            ledger_path=str(ledger_path),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            bandit_reward_shaping="graded",
+        )
+        si = SelfImprover(cfg, catalog=self._radius_catalog(), seed_strategies=_make_specs())
+        counter = {"n": 0}
+
+        def score_fn(c):
+            n = counter["n"]
+            counter["n"] += 1
+            return 0.5 if n % 2 == 0 else 0.4
+
+        si._harness_factory = _make_factory(score_fn)
+        si.run()
+        loaded = load_ledger(str(ledger_path))
+        iter_recs = [r for r in loaded if r.get("record_type") == "iteration"]
+        assert len(iter_recs) == 1
+        on_disk_reward = iter_recs[0]["bandit_reward"]
+        assert on_disk_reward == pytest.approx(0.0)
+        # Now prime a fresh sampler from the persisted ledger and
+        # confirm the reward_sum matches what the live driver pulled.
+        sampler = AdaptiveMutationSampler(self._radius_catalog())
+        sampler.prime_from_ledger(str(ledger_path))
+        snap = sampler.stats_snapshot()
+        primed = [s for s in snap if s.n_attempts > 0]
+        assert len(primed) == 1
+        assert primed[0].reward_sum == pytest.approx(0.0)
+        assert primed[0].n_attempts == 1

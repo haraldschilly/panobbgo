@@ -852,6 +852,71 @@ CLI:
    uv run python scripts/self_improve.py run --iterations 20 \
        --adaptive --adaptive-prior-alpha 0.5 --adaptive-prior-beta 0.5
 
+   # §7.4 graded reward shaping — turns every informative iteration
+   # into evidence on the chosen arm so small-positive arms are
+   # identifiable at 20-40 per-night iteration counts.
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --adaptive --bandit-reward graded
+
+Graded reward shaping (§7.4)
+""""""""""""""""""""""""""""
+
+The default ``LoopConfig.bandit_reward_shaping = "binary"`` updates
+the Beta posterior with ``+1`` per accept / ``+0`` per reject — the
+behaviour shipped 2026-05-01.  At the loop's ~2.5% per-night accept
+rate (§2.6 of the V2 diagnosis) this leaves most arms close to the
+prior, so the bandit "knows almost nothing" after a night.
+
+Setting ``bandit_reward_shaping = "graded"`` (CLI
+``--bandit-reward graded``) substitutes a continuous reward in
+``[0, 1]`` derived from the bootstrap CI and point delta:
+
+* ``accepted`` → ``0.5 + clip(ci_low / (4·eps_accept), 0, 0.5)`` —
+  barely-confirmed accepts contribute ``~0.5``, clearly-winning
+  accepts up to ``1.0``.
+* rejected → ``clip(0.5 + Δ / (4·eps_accept), 0, 0.5)`` — a positive
+  but sub-eps delta ("honest near miss") contributes ``~0.5``, a
+  delta at zero contributes exactly ``0.5``, a clearly-harmful delta
+  floors at ``0``.
+* no-op / skip → no posterior update (gated by
+  :meth:`~panobbgo.self_improve.AdaptiveMutationSampler.discard_outcome`
+  upstream, see the §12.4 no-op detection subsection above).
+
+The per-rule
+:class:`~panobbgo.self_improve.MutationRuleStats` gains a
+``reward_sum`` field accumulating the graded values; the Thompson
+sampler swaps it in for ``n_accepts`` in the Beta posterior.  The
+binary path is preserved byte-for-byte: ``record_outcome(accepted)``
+with no explicit ``reward`` defaults to ``1.0 if accepted else 0.0``
+so ``reward_sum`` tracks ``n_accepts`` exactly and the posterior is
+identical to the pre-2026-06-13 shape.
+
+Each :class:`~panobbgo.self_improve.LoopIterationRecord` gains an
+optional ``bandit_reward`` field carrying the actual reward the
+bandit consumed — ``None`` on skip / no-op iterations and on every
+binary-mode iteration, the graded float on graded-mode iterations.
+:meth:`~panobbgo.self_improve.AdaptiveMutationSampler.prime_from_ledger`
+reads the field on resume so a graded run can recover its full
+``reward_sum`` state across the persistence boundary.  Legacy
+ledgers (no ``bandit_reward`` key) fall back to the binary reward,
+so resuming from a pre-2026-06-13 ledger is byte-identical to the
+old behaviour.
+
+The summary metric ``stats.mean_reward = reward_sum / n_attempts``
+distinguishes arms that produce small-positive deltas (``mean_reward
+≈ 0.5`` even at ``accept_rate = 0``) from arms that produce harmful
+deltas (``mean_reward ≈ 0``).  Inspect it alongside ``accept_rate``
+when auditing the bandit:
+
+.. code-block:: python
+
+   for stats in improver.sampler.stats_snapshot():
+       print(
+           stats.rule_key,
+           f"accept_rate={stats.accept_rate:.2f}",
+           f"mean_reward={stats.mean_reward:.2f}",
+       )
+
 Programmatic use:
 
 .. code-block:: python

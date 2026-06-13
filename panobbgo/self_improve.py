@@ -759,11 +759,38 @@ class MutationRuleStats:
             picked a rule with this key *and* the iteration produced a
             decision (accept or reject).  Skip records do not count.
         n_accepts: Number of those attempts that the loop accepted.
+        reward_sum: Sum of per-iteration bandit rewards in ``[0, 1]``.
+            Under the historical binary-reward path (:meth:`record_outcome`
+            called without an explicit ``reward``) the reward is
+            ``1.0`` per accept / ``0.0`` per reject, so ``reward_sum`` is
+            byte-identical to :attr:`n_accepts` and the Thompson
+            posterior is unchanged.  Under the graded-reward path
+            (``LoopConfig.bandit_reward_shaping = "graded"`` — §7.4 of
+            ``planning/SELF_IMPROVEMENT_LOOP.md``) each iteration
+            contributes a continuous reward derived from the bootstrap
+            CI / point delta, so a barely-confirmed accept and a
+            clearly-winning accept can be distinguished.  The Thompson
+            posterior consumes ``reward_sum`` directly — see
+            :meth:`AdaptiveMutationSampler.sample`.
     """
 
     rule_key: RuleKey
     n_attempts: int = 0
     n_accepts: int = 0
+    reward_sum: float = 0.0
+
+    def __post_init__(self) -> None:
+        # Backwards compat for direct construction (tests, hand-built
+        # priming fixtures, and pre-2026-06-13 callers that only knew
+        # about the binary ``n_accepts`` counter): when ``reward_sum``
+        # is its default and ``n_accepts`` is non-zero, mirror
+        # ``n_accepts`` into ``reward_sum`` so the Thompson posterior is
+        # byte-identical to the historical Beta(α₀ + n_accepts, …)
+        # parameterisation.  Graded-reward callers always populate
+        # ``reward_sum`` via :meth:`record_outcome` so this branch only
+        # fires on the binary path.
+        if self.reward_sum == 0.0 and self.n_accepts > 0:
+            self.reward_sum = float(self.n_accepts)
 
     @property
     def accept_rate(self) -> float:
@@ -771,6 +798,23 @@ class MutationRuleStats:
         if self.n_attempts == 0:
             return 0.0
         return self.n_accepts / self.n_attempts
+
+    @property
+    def mean_reward(self) -> float:
+        """Mean bandit reward across attempts (graded scale), or 0.0 with no attempts.
+
+        Under the binary-reward path this equals :attr:`accept_rate`
+        (every accept contributes ``1.0``, every reject ``0.0``).  Under
+        the graded-reward path of §7.4 this carries strictly more signal
+        than :attr:`accept_rate`: an arm with many barely-rejected
+        proposals (Δ ≈ 0) ends up at ``mean_reward ≈ 0.5`` even when
+        ``accept_rate == 0``, distinguishing it from an arm that
+        consistently produces clearly-harmful proposals
+        (``mean_reward ≈ 0``).
+        """
+        if self.n_attempts == 0:
+            return 0.0
+        return float(self.reward_sum) / float(self.n_attempts)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -780,6 +824,8 @@ class MutationRuleStats:
             "n_attempts": int(self.n_attempts),
             "n_accepts": int(self.n_accepts),
             "accept_rate": float(self.accept_rate),
+            "reward_sum": float(self.reward_sum),
+            "mean_reward": float(self.mean_reward),
         }
 
 
@@ -1013,35 +1059,41 @@ class AdaptiveMutationSampler:
         # ``per_class_structural`` and a positive borrow coefficient
         # opt-in to the hierarchy.
         borrow_enabled = self.per_class_structural and self.structural_borrow_alpha > 0
-        op_aggregate: Dict[str, Tuple[int, int]] = {}
+        op_aggregate: Dict[str, Tuple[float, int]] = {}
         if borrow_enabled:
             for k, stats in self._stats.items():
                 if k[2] != "structural" or k[0] == "*":
                     continue
                 op_name = k[1]
-                a, n = op_aggregate.get(op_name, (0, 0))
-                op_aggregate[op_name] = (a + stats.n_accepts, n + stats.n_attempts)
+                r, n_a = op_aggregate.get(op_name, (0.0, 0))
+                op_aggregate[op_name] = (r + float(stats.reward_sum), n_a + stats.n_attempts)
 
-        # Thompson: one Beta draw per arm, pick the arg-max.
+        # Thompson: one Beta draw per arm, pick the arg-max.  The Beta
+        # parameters use ``reward_sum`` (graded-reward path) rather than
+        # ``n_accepts`` (binary path), but the historical binary callers
+        # set ``reward_sum == n_accepts`` so behaviour is byte-identical
+        # whenever :meth:`record_outcome` is called without an explicit
+        # ``reward``.  See the ``MutationRuleStats.reward_sum`` docstring.
         n = len(arms)
         sampled = np.empty(n, dtype=np.float64)
         alpha_eff_arr = np.empty(n, dtype=np.float64)
         beta_eff_arr = np.empty(n, dtype=np.float64)
         for i, (rule, key, _) in enumerate(arms):
             stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
-            alpha = self.prior_alpha + stats.n_accepts
-            beta_param = self.prior_beta + (stats.n_attempts - stats.n_accepts)
+            reward_sum = float(stats.reward_sum)
+            alpha = self.prior_alpha + reward_sum
+            beta_param = self.prior_beta + (stats.n_attempts - reward_sum)
             if borrow_enabled and isinstance(rule, StructuralMutationRule):
-                op_accepts, op_attempts = op_aggregate.get(rule.op, (0, 0))
+                op_reward, op_attempts = op_aggregate.get(rule.op, (0.0, 0))
                 # Exclude this arm's own contribution so the borrow is
                 # over *other* classes' evidence — the leaf posterior is
-                # ``Beta(α₀ + n_class + κ·n_other_class_accepts, ...)``.
+                # ``Beta(α₀ + r_class + κ·r_other_class, ...)``.
                 # Otherwise an arm with lots of evidence would borrow from
                 # itself and the hierarchy would collapse to a κ-amplified
                 # version of the same per-class posterior.
-                other_accepts = op_accepts - stats.n_accepts
-                other_failures = (op_attempts - stats.n_attempts) - other_accepts
-                alpha += self.structural_borrow_alpha * other_accepts
+                other_reward = op_reward - reward_sum
+                other_failures = (op_attempts - stats.n_attempts) - other_reward
+                alpha += self.structural_borrow_alpha * other_reward
                 beta_param += self.structural_borrow_alpha * other_failures
             alpha_eff_arr[i] = alpha
             beta_eff_arr[i] = beta_param
@@ -1083,13 +1135,34 @@ class AdaptiveMutationSampler:
             rationale=rationale,
         )
 
-    def record_outcome(self, accepted: bool) -> None:
+    def record_outcome(self, accepted: bool, reward: Optional[float] = None) -> None:
         """Update the bandit with the most recent iteration's verdict.
 
         No-op when :attr:`last_rule_key` is ``None`` — i.e. when the
         previous iteration was a skip or :meth:`sample` was never called
         — so the driver can call this unconditionally on every
         iteration.
+
+        Args:
+            accepted: Whether the loop accepted this iteration.  Updates
+                the binary :attr:`MutationRuleStats.n_accepts` counter
+                unchanged from historical semantics so :attr:`accept_rate`
+                still reports the fraction of accepted proposals (used by
+                the summary view and the §12.3 daily routine).
+            reward: Graded reward in ``[0, 1]`` accumulated into
+                :attr:`MutationRuleStats.reward_sum`.  ``None`` (default)
+                falls back to the binary reward ``1.0 if accepted else
+                0.0`` — under this default, ``reward_sum`` tracks
+                ``n_accepts`` exactly and the Thompson posterior is
+                byte-identical to the historical behaviour.  Explicit
+                values implement the §7.4 graded-reward shaping
+                (``LoopConfig.bandit_reward_shaping = "graded"``): a
+                barely-confirmed accept contributes ``~0.5``, a
+                clearly-winning accept contributes ``1.0``; an honest
+                reject with a positive but sub-eps delta contributes
+                ``~0.5`` (still informative), a clearly-harmful reject
+                contributes ``~0``.  Values are clamped to ``[0, 1]`` so
+                a numeric over/underflow never corrupts the posterior.
         """
         if self._last_rule_key is None:
             return
@@ -1097,9 +1170,23 @@ class AdaptiveMutationSampler:
             self._last_rule_key,
             MutationRuleStats(rule_key=self._last_rule_key),
         )
+        if reward is None:
+            graded = 1.0 if accepted else 0.0
+        else:
+            # Clamp defensively — the Beta posterior is undefined for
+            # negative reward_sum, and rewards > 1 would silently let an
+            # arm dominate by accumulating more than ``n_attempts`` worth
+            # of α per pull.  The driver only ever passes values in
+            # [0, 1] (§7.4 formula); this clamp is a safety net.
+            graded = float(reward)
+            if graded < 0.0:
+                graded = 0.0
+            elif graded > 1.0:
+                graded = 1.0
         stats.n_attempts += 1
         if accepted:
             stats.n_accepts += 1
+        stats.reward_sum += graded
         self._last_rule_key = None
 
     def discard_outcome(self) -> None:
@@ -1126,6 +1213,15 @@ class AdaptiveMutationSampler:
         contributes ``n_attempts += 1`` and, if accepted, also ``n_accepts
         += 1``.  Skip records and guard records are ignored.  Returns the
         number of records consumed.
+
+        Graded-reward records carry an explicit ``bandit_reward`` field
+        (added 2026-06-13 with the §7.4 graded reward shipping) and the
+        replay accumulates that value into
+        :attr:`MutationRuleStats.reward_sum`.  Legacy records (no
+        ``bandit_reward`` key) fall back to the binary reward
+        ``1.0 if accepted else 0.0`` — the same value the historical
+        binary path produced, so ledgers from before the graded ship
+        replay byte-identically.
 
         Useful for resuming a long unattended loop run without losing
         the meta-knowledge of which mutation rules tend to succeed.
@@ -1154,9 +1250,20 @@ class AdaptiveMutationSampler:
                 per_class_structural=self.per_class_structural,
             )
             stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
+            accepted = bool(rec.get("accepted"))
             stats.n_attempts += 1
-            if rec.get("accepted"):
+            if accepted:
                 stats.n_accepts += 1
+            reward = rec.get("bandit_reward")
+            if reward is None:
+                graded = 1.0 if accepted else 0.0
+            else:
+                graded = float(reward)
+                if graded < 0.0:
+                    graded = 0.0
+                elif graded > 1.0:
+                    graded = 1.0
+            stats.reward_sum += graded
             consumed += 1
         return consumed
 
@@ -2284,6 +2391,53 @@ def _is_no_op(baseline_result: HarnessResult, candidate_result: HarnessResult) -
     return all(before[k] == after[k] for k in before)
 
 
+def _compute_graded_reward(
+    *,
+    accepted: bool,
+    delta: float,
+    ci_low: float,
+    eps_accept: float,
+) -> float:
+    """Return the graded bandit reward in ``[0, 1]`` per §7.4.
+
+    Implements the formula spelt out in §7.4 of
+    ``planning/SELF_IMPROVEMENT_LOOP.md``:
+
+    * ``accepted`` → ``0.5 + clip(ci_low / eps_scale, 0, 0.5)``
+      — barely confirmed accepts contribute ``~0.5``; clearly winning
+      accepts (lower CI bound well above zero) contribute up to ``1.0``.
+    * rejected → ``clip(0.5 + delta / eps_scale, 0, 0.5)`` — a positive
+      sub-eps delta contributes ``~0.5`` ("honest near miss"), a delta
+      at zero contributes ``0.5``, a clearly harmful delta contributes
+      down to ``0``.
+
+    where ``eps_scale = 4 · eps_accept`` (planning doc default).  The
+    function never returns negative or >1 values — the clamps in the
+    formula and a defensive sanitiser on ``eps_accept`` (any
+    non-positive ``eps_accept`` collapses to ``1e-12`` so the divide is
+    finite and the clamps still pin the output).
+
+    Designed for the *informative* iteration path only: no-op iterations
+    and skips are gated upstream by
+    :meth:`AdaptiveMutationSampler.discard_outcome`, so this helper
+    does not branch on those cases.
+    """
+    eps_scale = 4.0 * max(float(eps_accept), 1e-12)
+    if accepted:
+        bonus = float(ci_low) / eps_scale
+        if bonus < 0.0:
+            bonus = 0.0
+        elif bonus > 0.5:
+            bonus = 0.5
+        return 0.5 + bonus
+    value = 0.5 + float(delta) / eps_scale
+    if value < 0.0:
+        return 0.0
+    if value > 0.5:
+        return 0.5
+    return value
+
+
 def _resolve_heuristic_class(proposal: MutationProposal, spec: StrategySpec) -> type:
     """Recover the actual class object for an ``add_heuristic`` proposal.
 
@@ -2597,6 +2751,40 @@ class LoopConfig:
     #: Ignored on the AOCC metric path — the IOH battery has its own
     #: registry (:func:`panobbgo.harness_ioh.make_ioh_strategies`).
     registry: str = "default"
+    #: Bandit reward shaping policy.
+    #:
+    #: ``"binary"`` (default) — the bandit's Beta posterior updates with
+    #: ``+1`` on accept and ``+0`` on reject (the historical behaviour).
+    #: At realistic per-night iteration counts (20-40), this delivers a
+    #: ~2.5% base accept rate so most arms accumulate no positive
+    #: evidence and the posterior stays close to the prior — the §2.6
+    #: V2 diagnosis identified this as the "bandit starved" failure
+    #: mode.  Preserved as the default so existing CLI invocations are
+    #: byte-identical.
+    #:
+    #: ``"graded"`` — implements §7.4 of
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md``.  Each iteration's reward
+    #: is a continuous function of the bootstrap CI and point delta:
+    #:
+    #: * ``no-op`` → no posterior update (already gated by
+    #:   :meth:`AdaptiveMutationSampler.discard_outcome` since
+    #:   2026-06-12).
+    #: * accepted → ``0.5 + clip(ci_low / (4·eps_accept), 0, 0.5)`` —
+    #:   between ``0.5`` (barely confirmed) and ``1.0`` (clearly
+    #:   winning).
+    #: * rejected → ``clip(0.5 + Δ / (4·eps_accept), 0, 0.5)`` —
+    #:   between ``0`` (clearly harmful) and ``0.5`` (a positive but
+    #:   sub-eps delta, "honest near miss").
+    #:
+    #: This converts every iteration into informative evidence on the
+    #: chosen arm, so arms that consistently produce small-positive
+    #: deltas become distinguishable from arms that produce harmful
+    #: deltas — a property the binary path cannot achieve at realistic
+    #: per-night iteration counts.
+    #:
+    #: Only takes effect when :attr:`adaptive_sampling` is also
+    #: ``True``; the uniform-sampler path does not pull arms.
+    bandit_reward_shaping: str = "binary"
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -2607,6 +2795,8 @@ class LoopConfig:
             raise ValueError(f"metric must be 'composite' or 'aocc', got {self.metric!r}")
         if self.registry not in {"default", "loop"}:
             raise ValueError(f"registry must be 'default' or 'loop', got {self.registry!r}")
+        if self.bandit_reward_shaping not in {"binary", "graded"}:
+            raise ValueError(f"bandit_reward_shaping must be 'binary' or 'graded', got {self.bandit_reward_shaping!r}")
         if self.guard_interval < 0:
             raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
         if self.guard_eps_ladder < 0:
@@ -2809,6 +2999,18 @@ class LoopIterationRecord:
     #: ``planning/SELF_IMPROVEMENT_LOOP.md`` defines the post-measure
     #: detection.
     no_op: bool = False
+    #: Graded bandit reward in ``[0, 1]`` accumulated into the adaptive
+    #: sampler's :attr:`MutationRuleStats.reward_sum` for this
+    #: iteration.  ``None`` on (a) skip / no-op iterations where the
+    #: bandit is not pulled, (b) iterations from runs using the legacy
+    #: binary-reward path (``LoopConfig.bandit_reward_shaping =
+    #: "binary"`` — the default), and (c) legacy ledger records written
+    #: before the 2026-06-13 §7.4 ship.  When non-``None`` carries the
+    #: actual reward the bandit received so
+    #: :meth:`AdaptiveMutationSampler.prime_from_ledger` can replay the
+    #: graded posterior bit-exactly.  See §7.4 of
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md`` for the formula.
+    bandit_reward: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -2833,6 +3035,7 @@ class LoopIterationRecord:
             "effective_eps_accept": self.effective_eps_accept,
             "iters_since_accept": self.iters_since_accept,
             "no_op": self.no_op,
+            "bandit_reward": self.bandit_reward,
         }
         return d
 
@@ -3580,12 +3783,28 @@ class SelfImprover:
             if no_op:
                 reasons.append("no-op: per-pair scores bit-identical to baseline")
 
+            accepted_flag = bool(decision.accept) and not no_op
+            # Compute the graded bandit reward up front when the loop is
+            # configured for §7.4 reward shaping so the persisted record
+            # carries the exact value the bandit consumed.  Skip /
+            # no-op iterations leave ``bandit_reward = None`` because the
+            # bandit's posterior is not pulled on them (the upstream
+            # ``discard_outcome`` path).
+            bandit_reward: Optional[float] = None
+            if not no_op and self.config.bandit_reward_shaping == "graded":
+                bandit_reward = _compute_graded_reward(
+                    accepted=accepted_flag,
+                    delta=float(decision.delta),
+                    ci_low=float(decision.ci_low),
+                    eps_accept=eps_for_iter,
+                )
+
             rec = LoopIterationRecord(
                 iteration=iteration,
                 timestamp=datetime.now(tz=timezone.utc).isoformat(),
                 duration_seconds=time.time() - start,
                 proposal=proposal.to_dict(),
-                accepted=bool(decision.accept) and not no_op,
+                accepted=accepted_flag,
                 baseline_score=float(baseline_result.composite_score),
                 candidate_score=float(candidate_result.composite_score),
                 delta=float(decision.delta),
@@ -3605,6 +3824,7 @@ class SelfImprover:
                 effective_eps_accept=eps_for_iter,
                 iters_since_accept=streak_for_iter,
                 no_op=no_op,
+                bandit_reward=bandit_reward,
             )
             records.append(rec)
             ledger.write(rec)
@@ -3629,7 +3849,7 @@ class SelfImprover:
                 if no_op:
                     self.sampler.discard_outcome()
                 else:
-                    self.sampler.record_outcome(bool(decision.accept))
+                    self.sampler.record_outcome(accepted_flag, reward=bandit_reward)
 
             if rec.accepted:
                 current = candidate

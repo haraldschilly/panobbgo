@@ -195,15 +195,25 @@ Rationale: §2.1/§2.4 — adding arms the loop cannot measure is motion,
 not progress.  Weekly agent priority order: (a) merge/close open
 codify PRs, (b) metric & registry work (§9), (c) only then new rules.
 
-### 7.4 Bandit reward shaping (V2 — open)
+### 7.4 Bandit reward shaping (V2 — shipped 2026-06-13)
 
 Replace binary accept-reward with a graded reward in [0, 1]:
-`0` for no-ops and confirm-rejects; `0.5 + clip(ci_low/eps_scale)` for
-confirmed accepts; `clip(0.5 + Δ/eps_scale, 0, 0.5)` for honest
-rejections (real signal, wrong sign / too small), `eps_scale ≈
-4·eps_accept`.  Beta arms update as `alpha += r, beta += 1−r`.  Arms
-that consistently produce small-positive deltas become distinguishable
-from harmful arms at realistic per-night iteration counts.
+`0` for no-ops (gated by :meth:`AdaptiveMutationSampler.discard_outcome`
+since 2026-06-12); `0.5 + clip(ci_low/eps_scale, 0, 0.5)` for
+accepts; `clip(0.5 + Δ/eps_scale, 0, 0.5)` for honest
+rejections (real signal, wrong sign / too small), `eps_scale =
+4·eps_accept`.  Beta arms update as `alpha += r, beta += 1−r` — the
+:class:`MutationRuleStats` ``reward_sum`` field accumulates the graded
+reward and :meth:`AdaptiveMutationSampler.sample` swaps it in for
+``n_accepts`` in the Beta posterior, so an arm that consistently
+produces small-positive deltas (``r ≈ 0.5``) becomes distinguishable
+from an arm that produces clearly-harmful deltas (``r ≈ 0``).  Opt in
+via ``LoopConfig.bandit_reward_shaping = "graded"`` /
+``--bandit-reward graded`` (CLI default ``binary`` preserved so
+existing invocations are byte-identical).  When V2 §6.4 ships, the
+confirm-reject branch will route through the same code path — same
+shape, just an extra terminal state.  See the 2026-06-13 entry in
+`SELF_IMPROVEMENT_LOG.md`.
 
 ## 8. Safety rails
 
@@ -298,9 +308,11 @@ file stands.
    pick `--registry loop` so the dormant catalog actually fires.
 2. Nightly to `--metric aocc` (or battery re-base), after one manual
    `workflow_dispatch` A/B comparing signal quality.
-3. `--confirm-accepts` (§6.4) + graded bandit reward (§7.4) + ~no-op
-   detection (§12.4)~ — **no-op detection shipped 2026-06-12**; see
-   the §13 entry.  The remaining two halves of step 3 are still open.
+3. `--confirm-accepts` (§6.4) + ~graded bandit reward (§7.4)~ + ~no-op
+   detection (§12.4)~ — **no-op detection shipped 2026-06-12**;
+   **graded bandit reward shipped 2026-06-13**; see the dated entries
+   in `SELF_IMPROVEMENT_LOG.md`.  Only ``--confirm-accepts`` (§6.4) is
+   still open in this step.
 4. `codify-scan --open-pr` + `--prime-include-archives` +
    vacuous-holdout fix + summary trend block.
 5. Flip the workflow to §9.4; enforce the catalog freeze (§7.3).

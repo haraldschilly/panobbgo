@@ -17,6 +17,175 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-13 — Graded bandit reward shaping (V2 §7.4)
+
+* **What** — Five coordinated additions in
+  :mod:`panobbgo.self_improve` plus a CLI flag and a
+  :class:`LoopConfig` knob:
+
+  * :class:`MutationRuleStats` gains a ``reward_sum: float = 0.0``
+    field plus a ``mean_reward`` property.  A new ``__post_init__``
+    mirrors ``n_accepts`` into ``reward_sum`` when the latter is its
+    default and the former is non-zero — preserving back-compat for
+    direct construction in tests / hand-built priming fixtures and
+    making the Thompson posterior byte-identical to the historical
+    ``Beta(α₀ + n_accepts, …)`` parameterisation on the binary path.
+  * :meth:`AdaptiveMutationSampler.record_outcome` grows an optional
+    ``reward`` parameter clamped to ``[0, 1]``.  When omitted (the
+    historical call shape) the reward defaults to ``1.0 if accepted
+    else 0.0`` so ``reward_sum`` matches ``n_accepts`` exactly.  When
+    provided, ``reward_sum`` accumulates the graded value.
+    :meth:`AdaptiveMutationSampler.sample` swaps ``reward_sum`` in for
+    ``n_accepts`` in the Beta posterior calculation (and the
+    ``structural_borrow_alpha`` aggregate), so the posterior shape is
+    unchanged on the binary path but distinguishes barely-confirmed
+    accepts from clearly-winning ones — and barely-rejected proposals
+    from clearly-harmful ones — on the graded path.
+  * A new helper :func:`_compute_graded_reward` implements the §7.4
+    formula spelt out in the planning doc:
+
+    * ``accepted`` → ``0.5 + clip(ci_low / (4·eps_accept), 0, 0.5)``
+      — barely-confirmed accepts (``ci_low ≈ 0``) score ``~0.5``,
+      clearly-winning accepts (``ci_low ≥ 4·eps_accept``) saturate at
+      ``1.0``.
+    * rejected → ``clip(0.5 + Δ / (4·eps_accept), 0, 0.5)`` — a
+      positive but sub-eps Δ ("honest near miss") scores ``~0.5``,
+      a Δ at zero scores exactly ``0.5``, a clearly-harmful Δ floors
+      at ``0``.
+
+    Defensive: any non-positive ``eps_accept`` collapses to ``1e-12``
+    so the divide is finite and the clamps still pin the output.
+  * :class:`LoopIterationRecord` gains a ``bandit_reward: Optional[float]
+    = None`` field serialised via :meth:`to_dict`.  Persists the
+    graded value the bandit actually consumed on graded-mode runs;
+    ``None`` on skip / no-op iterations and on every iteration of
+    binary-mode runs so the ledger can distinguish "the iteration was
+    informative but the reward was 0" from "no bandit pull happened".
+  * :meth:`AdaptiveMutationSampler.prime_from_ledger` reads the
+    ``bandit_reward`` field when present and accumulates the value
+    into ``reward_sum``.  Legacy records (no ``bandit_reward`` key)
+    fall back to the binary reward ``1.0 if accepted else 0.0`` so
+    pre-2026-06-13 ledgers replay byte-identically.
+  * :class:`LoopConfig` grows ``bandit_reward_shaping: str =
+    "binary"`` (validated to ``{"binary", "graded"}``).  The driver
+    in :meth:`SelfImprover._run_loop` calls
+    :func:`_compute_graded_reward` and passes the result to
+    :meth:`record_outcome` whenever the field is ``"graded"`` and the
+    iteration is informative (not skip, not no-op).
+  * ``scripts/self_improve.py`` gains a ``--bandit-reward
+    {binary,graded}`` flag (default ``binary``).
+
+* **Why** — closes §7.4 of
+  ``planning/SELF_IMPROVEMENT_LOOP.md`` and the second open half of
+  the V2 §9.5 step 3.  The §2.6 V2 diagnosis identified "Bandit
+  starved: binary accept reward at ~2.5% base rate" as a binding
+  constraint on per-night posterior productivity: at 20-40 iterations
+  with a sub-3% accept rate, almost no arm accumulates positive
+  evidence so the Thompson posterior stays close to the symmetric
+  ``Beta(1, 1)`` prior on every arm.  Graded shaping converts every
+  *informative* iteration — accept *or* reject — into evidence on the
+  chosen arm:
+
+  * a barely-rejected proposal (``Δ ≈ 0``) carries ``r ≈ 0.5``: real
+    signal that the rule is not harmful;
+  * a clearly-harmful reject (``Δ ≈ -4·eps_accept``) carries ``r ≈ 0``:
+    real signal that the rule *is* harmful;
+  * a barely-confirmed accept carries ``r ≈ 0.5``;
+  * a clearly-winning accept carries ``r ≈ 1.0``.
+
+  At a ~30% mean reward (typical for the "honest near miss" regime),
+  the Beta posterior moves ``+0.5 / iter`` instead of ``+0 / iter`` on
+  the chosen arm, so a 20-iteration night now extracts ~10 units of
+  evidence vs ~0 on the binary path.  Arms that consistently produce
+  small-positive deltas become distinguishable from harmful arms at
+  realistic per-night iteration counts — the §7.4 headline
+  guarantee.
+
+  Pairs naturally with the no-op detection shipped 2026-06-12: that
+  ship gated zero-information iterations *out* of the posterior;
+  this ship gates real-but-sub-eps information *into* the posterior.
+  Together they turn the bandit's reward signal from a sparse 0/1 of
+  ~2.5% / ~95% / ~2.5% (accept / reject / no-op buckets) into a dense
+  graded ``[0, 1]`` signal on the ~65% of iterations that carry real
+  information.
+
+* **Backwards compat** — exhaustive.  The default
+  ``bandit_reward_shaping = "binary"`` keeps every existing call
+  byte-identical: ``record_outcome(accepted)`` with no explicit
+  ``reward`` defaults to ``1.0 if accepted else 0.0``, ``reward_sum``
+  mirrors ``n_accepts`` (both fresh runs via the driver and direct
+  construction via ``MutationRuleStats(...)`` thanks to the
+  ``__post_init__`` guard), the Beta posterior consumes ``reward_sum``
+  but with the same value, the ledger's ``bandit_reward`` field stays
+  ``None`` and the binary-mode round-trip is bit-exact.  Existing 264
+  tests pass unchanged; the new ``TestGradedBanditReward`` class adds
+  24 tests covering the formula, the stats plumbing, the sampler
+  plumbing, the ledger round-trip, and the driver end-to-end on both
+  modes.
+
+* **Impact** — direct effect on §2.6 ("Bandit starved") and the V2
+  §11 success criterion 2 ("≥ 3 codify PRs opened, ≥ 2 merged" over
+  30 nights).  At the loop's current binary-reward base rate (~2.5%),
+  a typical mutation rule's posterior is indistinguishable from the
+  prior after 20-40 attempts; graded reward shifts the posterior by
+  ``r ≈ 0.5`` per "honest near miss" iteration, so the bandit can
+  identify productive arms from the ~65% of iterations that carry
+  real signal (the §12.4 no-op bucket strips out the rest).  The
+  pairing also closes one of the two open halves of V2 §9.5 step 3 —
+  only ``--confirm-accepts`` (§6.4) remains before the nightly
+  workflow can flip to §9.4 wholesale.
+
+* **Test plan** — :class:`TestGradedBanditReward` (added as a single
+  test class for cohesion) covers seven dimensions:
+
+  * **Formula correctness** — accept at zero, half, and full
+    ``ci_low``; reject at zero, positive, and full-negative ``Δ``;
+    defensive zero-``eps_accept`` handling.
+  * **Stats back-compat** — direct construction with ``n_accepts > 0``
+    auto-fills ``reward_sum``; explicit ``reward_sum`` is preserved;
+    ``mean_reward`` matches ``accept_rate`` on the binary path.
+  * **record_outcome** — binary default matches history; graded
+    accumulation; out-of-range clamping.
+  * **Thompson sampler** — two arms with identical ``n_accepts`` but
+    different ``reward_sum`` (0.9 vs 0.05 mean reward) — the higher-
+    reward arm wins ``> 85%`` of 200 samples.  Headline guarantee
+    that graded reward turns close-to-prior arms into distinguishable
+    ones.
+  * **prime_from_ledger** — graded records propagate
+    ``bandit_reward`` into ``reward_sum``; legacy records fall back
+    to binary.
+  * **LoopConfig / LoopIterationRecord plumbing** — validation,
+    defaults, dataclass field.
+  * **End-to-end driver** — binary mode leaves ``bandit_reward =
+    None``; graded mode persists it and pulls the bandit with the
+    same value; no-op iterations stay ``None`` in both modes; full
+    write-then-prime round-trip preserves ``reward_sum`` exactly.
+
+  All 24 new tests pass under ``uv run pytest
+  tests/test_self_improve.py``; the full 288-test self-improve suite
+  is green.
+
+* **PR** — see this PR.  Pairs naturally with the open
+  ``--confirm-accepts`` work (V2 §6.4 / §9.5 step 3): once the
+  confirmation gate ships, confirm-reject iterations will land on the
+  ``reward = 0`` terminal state spelt out in §7.4 — same code path,
+  one extra branch.
+
+* **Follow-ups** — speculative, none gated on this ship:
+
+  * Once a few hundred graded-mode ledger entries have accumulated,
+    audit whether arms with high ``mean_reward`` but low
+    ``accept_rate`` (the "honest near miss" pattern) graduate to real
+    accepts on longer / standard-mode runs.  Evidence for that would
+    motivate increasing the relative weight of the reject-regime in
+    the formula (currently capped at ``0.5``).
+  * The ``eps_scale = 4·eps_accept`` is the planning doc default; a
+    follow-up could expose it as a tunable so the bandit can probe
+    its own reward shape.  Speculative — the literature on graded
+    bandit rewards (Vermorel & Mohri 2005) is thin and the default
+    feels reasonable for the ``[0.005, 0.05]`` ``eps_accept`` band the
+    loop operates in.
+
 ### 2026-06-12 — No-op detection on bandit-pull and ledger telemetry (V2 §12.4)
 
 * **What** — Three coordinated additions in

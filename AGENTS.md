@@ -313,7 +313,20 @@ The harness is the measurement substrate for an autonomous
     Random`` loses — opt in with
     `LoopConfig.structural_per_class_arms` or the
     `--structural-per-class-arms` CLI flag (only effective with
-    `--adaptive`).
+    `--adaptive`).  Graded reward shaping (**shipped 2026-06-13**, §7.4)
+    replaces the binary +1/+0 accept/reject signal with a continuous
+    reward in `[0, 1]` derived from the bootstrap CI / point delta:
+    `0.5 + clip(ci_low/(4·eps_accept), 0, 0.5)` on accept,
+    `clip(0.5 + delta/(4·eps_accept), 0, 0.5)` on reject.  The new
+    `MutationRuleStats.reward_sum` field accumulates the graded value
+    and the Thompson posterior swaps it in for `n_accepts`, so an
+    "honest near miss" reject (Δ ≈ 0) carries `r ≈ 0.5` of evidence
+    instead of zero.  Opt in via `LoopConfig.bandit_reward_shaping =
+    "graded"` or the `--bandit-reward graded` CLI flag.  Each
+    `LoopIterationRecord` persists the graded reward in
+    `bandit_reward` so `prime_from_ledger` recovers the full
+    `reward_sum` state on resume; legacy ledgers (no `bandit_reward`
+    key) fall back to the binary semantic byte-identically.
 *   Strategy portfolio composition (§7.2) — **shipped**, see
     `panobbgo.self_improve.StructuralMutationRule` and the
     `default_structural_catalog()` factory.  Four ops join the mutation

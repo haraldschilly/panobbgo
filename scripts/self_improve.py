@@ -314,6 +314,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(structural_per_class_arms=False)
     run_p.add_argument(
+        "--bandit-reward",
+        dest="bandit_reward_shaping",
+        choices=["binary", "graded"],
+        default="binary",
+        help=(
+            "Bandit reward shaping policy.  'binary' (default) — accept "
+            "contributes +1, reject contributes 0 to the Beta posterior "
+            "(the historical behaviour).  'graded' — implements §7.4 of "
+            "planning/SELF_IMPROVEMENT_LOOP.md: accept contributes "
+            "0.5 + clip(ci_low/(4·eps_accept), 0, 0.5) (between 0.5 and 1), "
+            "reject contributes clip(0.5 + delta/(4·eps_accept), 0, 0.5) "
+            "(between 0 and 0.5).  Converts every informative iteration "
+            "into evidence on the chosen arm, distinguishing 'honest near "
+            "miss' rejections from clearly-harmful rejections so "
+            "small-positive arms become identifiable at realistic "
+            "per-night iteration counts.  Only takes effect with --adaptive."
+        ),
+    )
+    run_p.add_argument(
         "--structural-borrow-alpha",
         dest="structural_borrow_alpha",
         type=float,
@@ -568,6 +587,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             inactivity_relax_after=args.inactivity_relax_after,
             inactivity_relax_factor=args.inactivity_relax_factor,
             inactivity_min_eps_accept=args.inactivity_min_eps_accept,
+            bandit_reward_shaping=args.bandit_reward_shaping,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

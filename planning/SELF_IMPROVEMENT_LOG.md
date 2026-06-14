@@ -425,6 +425,239 @@ Conventions:
     most recent K nights when the ledger spans many months.  Local
     to the summary subparser; speculative until the ledger has
     accumulated enough nights to make scroll-fatigue real.
+### 2026-06-14 — Same-night confirmation gate (V2 §6.4)
+
+* **What** — Six coordinated additions in
+  :mod:`panobbgo.self_improve` plus the matching CLI flags and an
+  expansion of the ``run`` / ``summary`` views:
+
+  * :class:`LoopConfig` gains two fields — ``confirm_accepts: bool =
+    False`` (opt-in) and ``confirm_iteration_offset: int = 500_000``
+    (planning-doc default, sitting between the regular iteration
+    stream ``0..N`` and the guard's ``1_000_000`` so the three streams
+    never collide at realistic iteration counts).  The new validator
+    rejects ``confirm_iteration_offset <= 0`` and rejects collision
+    with ``guard_iteration_offset`` *when ``confirm_accepts`` is True*
+    (the dead-code path leaves legacy configs valid).
+  * A new helper :func:`_pool_harness_results` concatenates
+    per-(problem, strategy) runs across two or more
+    :class:`HarnessResult` instances, recomputes per-pair metrics via
+    the existing
+    :meth:`~panobbgo.harness.ProblemStrategyResult.compute_metrics`,
+    and produces a pooled :class:`HarnessResult` whose composite
+    score is the mean of the pooled per-pair scores — interchangeable
+    with a fresh live harness measurement everywhere the loop already
+    consumes one.  The single-input case is the identity (no
+    recomputation hazard).
+  * A new :class:`LoopConfirmRecord` dataclass carries the screen +
+    confirm scores, the pooled CI metadata, the fresh
+    ``randomize_iteration``, and the optional hold-out base_seed
+    leg.  ``record_type="confirm_reject"`` distinguishes it from
+    iteration / guard / hold-out records on the JSONL wire.
+    Successful confirmations leave the iteration record carrying
+    ``accepted=True`` / ``confirmed=True`` and need no companion
+    record; failed confirmations additionally append this record so
+    the failure is auditable.
+  * :class:`LoopIterationRecord` gains a ``confirmed: Optional[bool]
+    = None`` field, serialised via :meth:`to_dict`.  ``None`` on
+    skip / no-op iterations, on iterations from runs with
+    ``confirm_accepts=False`` (the default), and on legacy ledger
+    records written before this ship.  ``True`` on promotion, ``False``
+    when the gate overturned a screening accept.  Lets codify-scan
+    distinguish "confirmed accept" (durable signal) from "screening
+    accept overturned by the gate" (noise spike) without re-deriving
+    the verdict from per-record fields.
+  * :meth:`SelfImprover._run_internal` grows a confirmation step:
+    after a screening accept (``decision.accept and not no_op``), when
+    ``self.config.confirm_accepts`` is True, the new helper
+    :meth:`_run_confirmation` re-measures baseline + candidate on
+    ``iteration + confirm_iteration_offset``, optionally re-measures
+    on the *first* configured hold-out base_seed at the same fresh
+    iteration_id, pools all measurements via
+    :func:`_pool_harness_results`, and re-runs
+    :func:`~panobbgo.harness.statistical_accept` on the pooled
+    sample.  Promotion happens only when the pooled bootstrap CI
+    still clears the same gate (``Δ > eps_accept``, ``ci_low > 0``,
+    no catastrophic per-pair regression).  The screening reasons are
+    appended with either a "confirmed" or "confirm_reject" marker so
+    a JSONL reader sees the gate's decision in the iteration record's
+    reasons list.
+  * The bandit reward path consumes the *post-confirmation* pooled
+    decision: when the gate overturns a screening accept, the graded
+    reward formula sees the pooled ``Δ`` / ``ci_low`` rather than the
+    screening ones.  An arm that consistently produces noise-spike
+    accepts now collects the reject-regime reward
+    (``clip(0.5 + pooled_Δ/(4·eps), 0, 0.5)`` — between ``0`` and
+    ``0.5``) rather than the full-accept reward
+    (``0.5 + clip(ci_low/(4·eps), 0, 0.5)`` — between ``0.5`` and
+    ``1.0``) it would have collected from the screening alone.  The
+    binary path collapses to the same shape — confirm-reject ⇒
+    ``accepted_flag = False`` ⇒ reward ``0``.
+  * ``scripts/self_improve.py`` gains ``--confirm-accepts`` and
+    ``--confirm-iteration-offset`` flags.  The ``run`` end-of-loop
+    summary line and the ``summary`` subcommand surface a separate
+    ``Confirm-rej:`` bucket with the % of screening accepts overturned,
+    plus a per-record list of overturned screening accepts with
+    ``screen_Δ`` / ``confirm_Δ`` / ``pooled_Δ`` / pooled CI so the
+    operator can see at a glance whether the gate is catching noise
+    spikes (``screen_Δ ≫ confirm_Δ``) or systematic regressions
+    (``screen_Δ ≈ confirm_Δ`` but ``ci_low ≤ 0``).
+
+* **Why** — closes §6.4 of ``planning/SELF_IMPROVEMENT_LOOP.md`` and
+  the last open half of the V2 §9.5 step 3.  §2.2 of the V2 diagnosis
+  identified "Accept → rollback churn (15/16 guard checks rolled the
+  ladder back)" as the dominant V1 failure mode: with a ~2.5%
+  screening accept rate against the randomized battery, the accepts
+  that *did* land were almost always upward-noise spikes — a single
+  instance batch where the new kwarg happened to draw a favourable
+  combination of perturbations.  The guard subsequently re-measured
+  the ladder top on a fresh batch and rolled it back.  Net effect:
+  the ladder churned indefinitely; codify-scan saw no durable signal;
+  the planning doc's success criterion 3 ("zero guard rollbacks of
+  *confirmed* accepts") was structurally unreachable because no
+  confirmation step existed.
+
+  The shipped gate inverts this: promotion requires confirmation
+  *before* the accept is recorded.  A screening noise spike now sees
+  an independent re-measurement on the same night; the pooled CI
+  brings the per-instance variance into the gate's decision; the
+  arm-level bandit reward reflects the post-confirmation truth.
+  Three downstream effects:
+
+  * **Ladder durability** — only confirmed accepts land on the
+    ladder, so the guard's job collapses from "roll back ~all
+    accepts" to "catch the rare case where a confirmed accept drifts
+    on the *next* night's fresh seed".  A guard rollback of a
+    *confirmed* accept is the anomaly worth surfacing (§6.3 V2
+    note), not routine cleanup.
+  * **Bandit signal** — graded mode (shipped 2026-06-13) now sees
+    the pooled delta on overturned accepts, so an arm that produces
+    consistent noise-spike accepts no longer collects the
+    full-accept reward.  The Thompson posterior on such an arm
+    decays toward the reject regime over a handful of confirmations,
+    where binary-mode V1 would have inflated it permanently.
+  * **Codify-scan signal** — the cross-night codify-scan (§9.3,
+    still open) will read ``confirmed`` directly to filter out the
+    noise-spike accepts that V1 would have piped into the codify
+    PRs.  Closes the durability prerequisite of success criterion 3.
+
+* **Backwards compat** — exhaustive.  The default
+  ``confirm_accepts = False`` keeps the V1 promote-on-screening
+  behaviour byte-identical: ``confirmed`` defaults to ``None`` on the
+  iteration record, no :class:`LoopConfirmRecord` is ever written, no
+  fresh-iteration measurement runs, and the bandit reward path
+  consumes the same screening decision it always did.  Legacy ledger
+  lines (no ``confirmed`` key) parse via the dataclass default and
+  the new gating is exercised by 25 tests in
+  ``tests/test_self_improve.py::TestConfirmationGate*`` /
+  ``TestPoolHarnessResults`` / ``TestLoopConfigConfirmAccepts`` /
+  ``TestLoopConfirmRecord`` /
+  ``TestLoopIterationRecordConfirmedField``.  All 288 prior
+  :mod:`panobbgo.self_improve` tests pass unchanged.
+
+* **Impact** — direct effect on §2.2 ("Accept → rollback churn") and
+  the V2 §11 success criterion 3 ("Durability: merged codify changes
+  re-confirmed by the next night's seed measurement; zero guard
+  rollbacks of *confirmed* accepts").  At the loop's current
+  ~2.5% binary-mode screening accept rate, every accept is now a
+  pooled-CI accept rather than a single-batch noise spike — the
+  rollback rate should drop substantially over the first week the
+  workflow runs with ``--confirm-accepts``.  Pairs naturally with
+  the graded bandit reward (2026-06-13): the gate provides the
+  honest signal, the graded reward consumes it.  Closes the last
+  blocker for the §9.5 step 5 nightly workflow flip — the only
+  remaining open V2 items are the §9.3 ``codify-scan --open-pr``
+  stage, the ``--prime-include-archives`` flag, and the §12.4
+  summary trend block.
+
+* **Test plan** — :class:`TestConfirmationGateEndToEnd` (8 tests)
+  covers the seven dimensions called out in §6.4:
+
+  * **Off by default** — confirm_accepts=False produces no confirm
+    record and ``confirmed=None`` on the iteration record (V1
+    byte-identical promote-on-screening path).
+  * **Confirmation passes** — both screening and confirmation see a
+    clearly-winning delta → ``confirmed=True``, ``accepted=True``,
+    no confirm_reject record.
+  * **Confirmation fails** — screening sees a strong win,
+    confirmation sees a strong loss → pooled CI no longer clears →
+    ``confirmed=False``, ``accepted=False``, confirm_reject record
+    appended with screen + confirm scores.
+  * **Screening reject** — gate does not run (the gate only gates
+    promotions), so ``confirmed=None`` and the harness saw only the
+    two screening measurements.
+  * **No-op screening** — gate does not run (no-op iterations are
+    filtered upstream), preserving the §12.4 semantics.
+  * **Fresh iteration_id** — screening sees
+    ``randomize_iteration=0`` while confirmation sees
+    ``500_000``; validates the fresh-seed isolation.
+  * **Bandit reward post-confirmation** — confirm-reject grants
+    reject-regime graded reward (``0 ≤ r ≤ 0.5``); the screening
+    full-accept reward (``0.5 ≤ r ≤ 1.0``) is *not* what the bandit
+    saw.
+  * **Pooled decision uses pooled sample** — the confirm record
+    carries the pooled CI and references the fresh iteration_id.
+
+  Plus 4 tests in :class:`TestPoolHarnessResults` covering the
+  pooling helper (identity / empty / concat / disjoint-pairs),
+  4 tests in :class:`TestLoopConfigConfirmAccepts` covering the new
+  validators (defaults / positive offset / guard collision /
+  collision allowed when disabled), 4 tests in
+  :class:`TestLoopConfirmRecord` covering the new dataclass
+  (record_type / serialisation / optional hold-out fields /
+  worst_pair=None), 3 tests in
+  :class:`TestLoopIterationRecordConfirmedField` covering the
+  ``confirmed`` field round-trip, and 1 test in
+  :class:`TestConfirmationGateLedgerReplay` covering the JSONL
+  round-trip of :class:`LoopConfirmRecord`.
+
+  All 25 new tests pass under ``uv run pytest
+  tests/test_self_improve.py``; the full 313-test self-improve suite
+  is green; ``uv run ruff check`` and ``uv run pyright`` are clean on
+  ``panobbgo/self_improve.py`` and ``scripts/self_improve.py``.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §2.2 annotated with the
+    2026-06-14 structural fix; §6.3 V2 note updated to note the
+    confirm gate is now in place; §6.4 bullets promoted from
+    *open* to *shipped* with pointers to this entry; §9.5 step 3
+    sub-task ``--confirm-accepts`` marked shipped.
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; a "Next
+    iteration ideas" entry seeded for flipping the nightly cron to
+    ``--confirm-accepts`` (V2 §9.5 step 5 — the only remaining
+    open item in step 3 was this ship's ``--confirm-accepts``).
+  - ``doc/source/guide.rst``: quick-nav entry mentions the §6.4
+    confirmation gate ship.
+  - ``doc/source/guide_benchmarking.rst``: self-improvement loop
+    section gains a "Same-night confirmation gate" subsection
+    documenting ``LoopConfig.confirm_accepts`` / ``--confirm-accepts``
+    and the :class:`LoopConfirmRecord` wire format.
+  - ``AGENTS.md``: self-improvement loop subsection references
+    the new ``confirm_accepts`` flag, the ``confirmed`` field, and
+    the ``LoopConfirmRecord`` wire type.
+
+* **Follow-ups** — speculative, none gated on this ship:
+
+  * Once a few nights of ``--confirm-accepts`` ledger evidence
+    accumulates, audit the confirm-reject rate.  A persistently
+    high rate (> 50% of screening accepts overturned) would suggest
+    the screening ``eps_accept`` is too loose; a persistently low
+    rate (< 5%) would suggest the gate is paying its compute cost
+    for no measurable benefit.  Threshold-tune from data.
+  * Walk *every* configured hold-out base_seed in the confirmation
+    step, not just the first.  The current ship caps the per-
+    iteration confirmation cost at ``≤ 3×`` screening so the
+    compute trade-off is bounded; multi-seed confirmation would
+    cap at ``≤ (2 + N_holdout)×`` and give the gate stronger
+    cross-family power.  Speculative until ledger evidence shows
+    single-seed confirmation misses real overfits.
+  * Independent confirmation under the AOCC metric path.  The
+    shipped implementation gates the hold-out leg on
+    ``metric == "composite"`` because the AOCC path does not use
+    the same hold-out machinery; a future ship could plumb the
+    same fresh-iteration confirmation through
+    :meth:`SelfImprover._measure_aocc` and add an AOCC-aware
+    hold-out helper.
 
 ### 2026-06-13 — Graded bandit reward shaping (V2 §7.4)
 
@@ -4570,6 +4803,35 @@ operator's attention stays on actionable evidence.  Sketch:
 
 Lower priority than ``--open-pr`` but a natural quality-of-life
 improvement once the scanner accumulates regular nightly use.
+#### Flip the nightly cron to `--confirm-accepts` (after 2026-06-14 ship)
+
+The same-night confirmation gate shipped 2026-06-14 as
+:attr:`LoopConfig.confirm_accepts` / ``--confirm-accepts``.  Until the
+nightly workflow file passes the flag to ``scripts/self_improve.py
+run`` the cron still operates in V1 promote-on-screening mode and the
+§2.2 "Accept → rollback churn" symptom persists in the live loop.  The
+trade-off is compute: with ``--registry loop`` (≈7 specs) and
+``--confirm-accepts``, each iteration burns 2× the screening cost
+(plus 1× per hold-out leg) so the per-night iteration budget drops
+roughly 2-3×.  At quick-mode budgets — where the V1 §2.5 diagnosis
+reports 94% idle compute — this is comfortably within the 90-min cap.
+The workflow file edit is:
+
+* Pass ``--confirm-accepts`` to ``scripts/self_improve.py run``.
+* Halve the iteration count (e.g., ``--iterations 35`` → ``--iterations
+  18``) so the per-night wall-clock stays under the cap.
+* Add one ledger archive marker (rotate the current ledger into
+  ``planning/done/`` so the bandit's prior beliefs don't silently mix
+  the V1 promote-on-screening regime with the V2 confirmed regime —
+  the §12.1 archive rotation pattern).
+* Pair with a manual ``workflow_dispatch`` A/B comparing confirm-
+  reject rates across one or two nights so the symptom drop is
+  *measured* before flipping the cron permanently.
+
+Speculative on the iteration-count halving: if the confirm-reject rate
+turns out to be low (< 10% of screening accepts overturned), the
+per-night cost saving from halving never materialises and the budget
+can stay at the V1 count.  Audit after the first measurement night.
 
 #### Pre-measure no-op short-circuit (after 2026-06-12 ship)
 

@@ -1,14 +1,15 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    180  (decided=180, skipped=0, no-op=10)
-Accepts:       4  (2.4% of informative)
-Guards:        36  (rollbacks=33, total pops=4)
-Hold-outs:     9  (overfit=0, vacuous=9)
+Iterations:    200  (decided=200, skipped=0, no-op=13)
+Accepts:       5  (2.7% of informative)
+Guards:        40  (rollbacks=34, total pops=5)
+Hold-outs:     10  (overfit=0, vacuous=10)
 Best Δ seen:   +0.0678
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
   iter=17  Δ=+0.0461  Rewarding_Diverse/Restart.: None -> None
   iter=8  Δ=+0.0317  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
   iter=16  Δ=+0.0678  Rewarding_Diverse/Nearby.radius: 0.12310483516930887 -> 0.13525714217808682
+  iter=3  Δ=+0.0333  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.13468064722991419
 Guard rollbacks:
   iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
@@ -43,6 +44,7 @@ Guard rollbacks:
   iter=9  pops=0  score=0.0256 vs stored 0.0717; new top iter=-1
   iter=14  pops=0  score=0.0067 vs stored 0.0717; new top iter=-1
   iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
+  iter=19  pops=1  score=0.0111 vs stored 0.0511; new top iter=-1
 Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -53,5 +55,6 @@ Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: VACUOUS  worst_drift=+0.0000  overfit=0/9  vacuous=9/9  worst_seed=7
-  --> drift CI: VACUOUS_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=0  n_records=9  vacuous=9/9
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: VACUOUS  worst_drift=+0.0000  overfit=0/10  vacuous=10/10  worst_seed=7
+  --> drift CI: VACUOUS_CI  mean=+0.0000  CI95%=[+0.0000, +0.0000]  n_samples=0  n_records=10  vacuous=10/10

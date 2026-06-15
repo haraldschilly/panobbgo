@@ -425,6 +425,243 @@ Conventions:
     most recent K nights when the ledger spans many months.  Local
     to the summary subparser; speculative until the ledger has
     accumulated enough nights to make scroll-fatigue real.
+### 2026-06-15 — Archive-aware bandit priming (V2 §2.6 / §9.5 step 4)
+
+* **What** — Four coordinated additions in
+  :mod:`panobbgo.self_improve` plus a CLI flag pair and a
+  :class:`LoopConfig` knob:
+
+  * :meth:`AdaptiveMutationSampler._consume_record` — a freshly
+    extracted private helper that applies one ledger record to the
+    bandit's posterior (``n_attempts += 1`` and
+    ``reward_sum += r`` on iteration records with a non-null
+    proposal; filters out ``record_type != "iteration"`` records,
+    null-proposal skips, and ``no_op=True`` records identically to
+    the previous in-place body of :meth:`prime_from_ledger`).
+    Returns ``True`` if the record contributed an update.  Shared
+    by :meth:`prime_from_ledger` and the new
+    :meth:`prime_from_archives` so the priming semantics are
+    byte-identical regardless of which file the record came from.
+  * :meth:`AdaptiveMutationSampler.prime_from_archives` — new
+    public method that scans a directory for files matching the
+    rotation glob ``self_improve_ledger_*.jsonl`` and replays each
+    in chronological (lexicographic) order via
+    :meth:`_consume_record`.  Returns the total number of records
+    consumed across all archives.  Defensive: a non-existent
+    directory, an empty directory, a directory containing only
+    non-matching files, or a path that points to a regular file
+    instead of a directory each return ``0`` and leave the
+    posterior untouched (same shape as
+    :meth:`prime_from_ledger`'s "missing ledger ⇒ 0" contract).
+  * :class:`LoopConfig` gains two opt-in fields:
+    ``adaptive_prime_include_archives: bool = False`` and
+    ``adaptive_prime_archive_dir: Optional[str] = None``.  When the
+    first is ``True`` (and :attr:`adaptive_prime_from_ledger` is
+    also ``True``, the existing gate), the SelfImprover's
+    constructor calls :meth:`prime_from_archives` on the configured
+    directory immediately before :meth:`prime_from_ledger` on the
+    live ledger.  The directory defaults to
+    ``<dirname(ledger_path)>/done`` — matching the rotation
+    convention documented in §12.1 — so the flag is one-flag-only
+    for the standard layout.  An explicit override is available for
+    setups that keep archives outside the ledger's parent.
+  * ``scripts/self_improve.py``: ``--prime-include-archives``
+    (boolean) plus ``--prime-archive-dir`` (string override).  The
+    one-flag invocation is the recommended path; the override
+    exists for the rare case where archives are co-located with
+    something else.
+
+* **Why** — closes the *second half* of the §2.6 V2 diagnosis
+  ("Bandit starved: ... priming reads only the current ledger —
+  archives in ``planning/done/`` are invisible") and the
+  ``--prime-include-archives`` sub-item of V2 §9.5 step 4 in
+  ``planning/SELF_IMPROVEMENT_LOOP.md``.  The first half of §2.6
+  was addressed 2026-06-13 by the graded reward shipping (`§7.4`),
+  which converts every informative iteration into ``r ∈ [0, 1]``
+  evidence so a single night can lift the posterior meaningfully
+  even at the ~2.5% accept rate.  This ship closes the second
+  half: the nightly ledger is rotated to ``planning/done/`` after
+  every ~2000 records (§12.1), so a long-running unattended cron
+  with archive-priming disabled effectively *forgets* every
+  pre-rotation observation.  Concretely, the loop has had one
+  archive on disk
+  (``planning/done/self_improve_ledger_2026-05-31.jsonl``) since
+  2026-06-09 that the bandit could not see; every subsequent
+  ``--adaptive-prime-from-ledger`` invocation primed from the
+  shorter post-rotation ledger and threw the older evidence away.
+  With this flag enabled in the nightly workflow, the bandit
+  posterior compounds across rotation boundaries — the
+  prerequisite for the V2 §11 success criterion 2 ("≥ 3 codify PRs
+  opened, ≥ 2 merged") at the realistic 20-40-iterations-per-night
+  pace, since rotation will happen long before 3 codify PRs are
+  shipped.
+
+* **Why a separate method instead of folding archive scanning into
+  ``prime_from_ledger``** — three reasons.  (1) The existing
+  ``prime_from_ledger(path: str)`` API is a one-file contract used
+  by tests / direct callers / the ``--adaptive-prime-from-ledger``
+  flag; adding a side-effect (silently scanning a sibling
+  directory) would surprise existing call sites.  (2) The archive
+  scan needs its own opt-in (a fresh-night cron should *not*
+  start importing yesterday's posterior the first time someone
+  runs it manually).  (3) Tests for archive replay are cleaner
+  when the file path of the live ledger and the directory of
+  archives are passed separately, mirroring how the production
+  call site composes them.  The two methods share
+  :meth:`_consume_record` so the per-record semantics — graded
+  reward, no-op skip, guard / skip filter — cannot drift between
+  paths.
+
+* **File discovery contract** — the scan uses
+  :func:`pathlib.Path.glob` with the pattern
+  ``self_improve_ledger_*.jsonl``.  This matches the rotation
+  convention shipped 2026-06-09 (the rotated archive is named
+  ``self_improve_ledger_YYYY-MM-DD.jsonl``).  Files that do not
+  match the glob — ``planning/done/self_improve_summary_*.txt``,
+  the existing ``planning/done/LOGGING_IMPROVEMENT_PLAN.md`` — are
+  silently skipped, so the directory can host other artifacts
+  without confusing the scan.  Lexicographic sort on the glob
+  yields chronological order because the convention uses
+  zero-padded ISO dates (``2026-05-31`` sorts before
+  ``2026-06-01``).  Order does not affect the *value* of the
+  posterior (the per-arm reward sums commute) but matters for the
+  bandit-rule-key resolution: if the structural per-class flag
+  changes between rotations, the rule key changes too — the
+  oldest-first replay means the modern flag's view of the past is
+  the one that survives.
+
+* **Backwards compatibility** — strictly safe.  Three layers of
+  defaults keep existing call sites byte-identical:
+
+  * ``adaptive_prime_include_archives`` defaults to ``False``, so
+    every existing CLI invocation, every direct
+    :class:`LoopConfig` construction, and every direct
+    :meth:`prime_from_ledger` call behave identically to the
+    pre-ship code.
+  * The :meth:`prime_from_ledger` body is now a one-line wrapper
+    over :meth:`_consume_record`, but the per-record processing —
+    rule-key derivation, no-op skip, graded-reward extraction,
+    legacy-binary fallback — is the same code paths as before,
+    just lifted into a shared helper.  Round-trip tests on a
+    fixed ledger reproduce the old ``(n_attempts, n_accepts,
+    reward_sum)`` triple exactly.
+  * The new method does nothing when the configured directory
+    is missing, empty, or contains no matching files — so the
+    flag is safe to enable on first-night runs (no archive yet)
+    and on developer machines (no rotation has fired).
+
+* **Tests** — 14 new tests across two new test classes plus the
+  existing ``TestSelfImproverAdaptive`` extension:
+
+  * :class:`TestPrimeFromArchives` (10 tests):
+
+    * ``test_missing_directory_is_no_op`` — a non-existent path
+      returns 0; posterior untouched.
+    * ``test_empty_directory_is_no_op`` — directory exists but
+      contains no matching files.
+    * ``test_directory_with_non_matching_files_is_no_op`` —
+      sibling artifacts (``summary.txt``,
+      ``other_ledger.jsonl``) are skipped.
+    * ``test_single_archive_replayed`` — one archive with one
+      accept + one reject contributes ``(2, 1)``.
+    * ``test_multiple_archives_replayed_in_chronological_order``
+      — two archives sum to ``(5, 3)`` with chronological
+      filename ordering.
+    * ``test_archives_filter_no_op_records`` — ``no_op: True``
+      records in an archive are skipped, matching the live
+      ledger semantics shipped 2026-06-12.
+    * ``test_archives_filter_guard_and_skip_records`` —
+      ``record_type="guard"`` and null-proposal records are
+      ignored.
+    * ``test_archives_propagate_graded_bandit_reward`` — a
+      ``bandit_reward: 0.75`` record in an archive lifts
+      ``reward_sum`` by exactly 0.75 (matching
+      :meth:`prime_from_ledger` graded-path semantics shipped
+      2026-06-13).
+    * ``test_archives_combined_with_live_ledger`` —
+      :meth:`prime_from_archives` followed by
+      :meth:`prime_from_ledger` accumulates correctly into a
+      single posterior.
+    * ``test_archive_path_is_a_file_returns_zero`` — path-is-a-
+      file fallback returns 0 instead of erroring.
+
+  * :class:`TestSelfImproverAdaptive` (4 new tests):
+
+    * ``test_adaptive_prime_include_archives_default_dir`` —
+      end-to-end through the SelfImprover constructor: live +
+      archive contributions accumulate.
+    * ``test_adaptive_prime_include_archives_explicit_dir`` —
+      ``adaptive_prime_archive_dir`` override is respected.
+    * ``test_adaptive_prime_include_archives_off_by_default`` —
+      flag default ``False`` ignores archives even when
+      present in the default location.
+    * ``test_adaptive_prime_include_archives_requires_prime_from_ledger``
+      — flag is inert without ``adaptive_prime_from_ledger=True``
+      (matches the existing gate on
+      :attr:`SelfImprover.sampler`).
+
+  All 302 self-improvement tests pass; ruff format / check and
+  pyright continue to be green.  An end-to-end CLI smoke test
+  exercises ``scripts/self_improve.py run --iterations 0
+  --adaptive --adaptive-prime-from-ledger --prime-include-archives``
+  on a fabricated archive containing one graded-accept and one
+  graded-reject and confirms the printed bandit stats reflect both
+  records.
+
+* **Impact** — direct effect on the V2 §11 success criterion 2
+  ("≥ 3 codify PRs opened, ≥ 2 merged" over the first 30 nights).
+  At the current 20-iter-per-night quick-mode budget, ~2000 records
+  ≈ 100 nights, so without archive priming the bandit posterior is
+  bounded above by ~100 nights' worth of evidence and any older
+  observations are lost.  With archive priming on, the bandit's
+  effective experience window grows linearly with retained
+  archives — exactly what §11 criterion 2 needs to identify the
+  small subset of mutation rules with persistent directional
+  signal across many nights.  Pairs naturally with the upcoming
+  ``codify-scan --open-pr`` / ``--prime-include-archives``
+  combined ship (V2 §9.5 step 4): codify-scan already scans
+  ``planning/done/`` for cross-night evidence (per §9.3 / §12.3
+  daily routine); now the *bandit* — the upstream proposal source
+  — does too, so the loop's proposal and selection paths share the
+  same long-memory view of the catalog.
+
+* **Follow-ups** — speculative, none gated on this ship:
+
+  * Once the nightly workflow flips to ``--prime-include-archives``
+    (V2 §9.5 step 5), expose ``adaptive_prime_archive_dir`` as a
+    workflow input so the manual ``workflow_dispatch`` path can
+    target a specific archive subset for A/B comparison ("did
+    the new graded reward shape help the bandit learn from
+    archives faster than the binary path?").
+  * A summary trend block (§12.4 third bullet) that surfaces the
+    contribution of archive replay separately from the live
+    ledger — ``archive_n_attempts: N`` / ``live_n_attempts: N``
+    on each rule line — would let an operator see at a glance
+    whether the bandit's posterior is *current* or
+    *archive-dominated*.  Speculative — the per-arm
+    :attr:`MutationRuleStats` does not currently carry source
+    metadata; adding a ``(archive, live)`` split would be a
+    forward-compatible field addition.
+  * The current per-arm key derivation in
+    :meth:`_consume_record` uses ``self.per_class_structural`` —
+    the *current* run's setting.  If a future ship adds a
+    third rule-key shape, the archive-replay path must continue
+    to handle pre-ship records gracefully.  The
+    ``test_archives_filter_no_op_records`` test demonstrates the
+    pattern: legacy records (no ``no_op`` key) classify as
+    ``False`` via ``.get("no_op")``, preserving the historical
+    semantics.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §2.6 annotated with the
+    2026-06-15 update; §9.5 step 4 marks the
+    ``--prime-include-archives`` sub-item as shipped.
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry.
+  - ``doc/source/guide_benchmarking.rst``: self-improvement
+    section gains a "Crossing nightly boundaries" subsection
+    documenting the new flag pair.
+  - ``AGENTS.md``: self-improvement loop subsection references
+    the new flag.
 ### 2026-06-14 — Same-night confirmation gate (V2 §6.4)
 
 * **What** — Six coordinated additions in

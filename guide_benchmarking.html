@@ -134,6 +134,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#anti-cherry-pick-guard-6-3">Anti-cherry-pick guard (&#167;6.3)</a></li>
 <li><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation">Inactivity-guarded eps_accept relaxation</a></li>
 <li><a class="reference internal" href="#no-op-detection-12-4">No-op detection (&#167;12.4)</a></li>
+<li><a class="reference internal" href="#summary-trend-block-12-4">Summary trend block (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a><ul>
 <li><a class="reference internal" href="#graded-reward-shaping-7-4">Graded reward shaping (&#167;7.4)</a></li>
 </ul>
@@ -234,22 +235,23 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id24">Anti-cherry-pick guard (§6.3)</a></p></li>
 <li><p><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation" id="id25">Inactivity-guarded eps_accept relaxation</a></p></li>
 <li><p><a class="reference internal" href="#no-op-detection-12-4" id="id26">No-op detection (§12.4)</a></p></li>
-<li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id27">Adaptive mutation sampler (§10)</a></p></li>
-<li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id28">Strategy portfolio composition (§7.2)</a></p></li>
-<li><p><a class="reference internal" href="#per-class-structural-bandit-arms" id="id29">Per-class structural bandit arms</a></p></li>
-<li><p><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms" id="id30">Hierarchical bandit over per-class structural arms</a></p></li>
-<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id31">Categorical mutation rule</a></p></li>
-<li><p><a class="reference internal" href="#hold-out-validation-set" id="id32">Hold-out validation set</a></p></li>
+<li><p><a class="reference internal" href="#summary-trend-block-12-4" id="id27">Summary trend block (§12.4)</a></p></li>
+<li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id28">Adaptive mutation sampler (§10)</a></p></li>
+<li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id29">Strategy portfolio composition (§7.2)</a></p></li>
+<li><p><a class="reference internal" href="#per-class-structural-bandit-arms" id="id30">Per-class structural bandit arms</a></p></li>
+<li><p><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms" id="id31">Hierarchical bandit over per-class structural arms</a></p></li>
+<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id32">Categorical mutation rule</a></p></li>
+<li><p><a class="reference internal" href="#hold-out-validation-set" id="id33">Hold-out validation set</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id33">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id34">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id34">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id35">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id36">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id35">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id36">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id37">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id37">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id38">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -799,15 +801,22 @@ repository.</p>
 </span><span data-line="6"><span class="w">    </span>--iterations<span class="w"> </span><span class="m">100</span><span class="w"> </span>--guard-interval<span class="w"> </span><span class="m">10</span><span class="w"> </span>--guard-eps-ladder<span class="w"> </span><span class="m">0</span>.02
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># Pretty-print a previous ledger (counts accepts, guards, rollbacks)</span>
-</span><span data-line="9">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>summary
-</span><span data-line="10">
-</span><span data-line="11"><span class="c1"># Use the loop-tuned seed registry (V2 §9.1) so the dormant catalog</span>
-</span><span data-line="12"><span class="c1"># mutation rules actually fire on the rule-bearing DE / PSO /</span>
-</span><span data-line="13"><span class="c1"># RegionUCB / LBFGSB+COBYQA / Restart families.  Lifts catalog</span>
-</span><span data-line="14"><span class="c1"># kwarg-rule coverage from 4 / 44 (quick seed) to 44 / 44 — see the</span>
-</span><span data-line="15"><span class="c1"># &quot;Loop registry&quot; section below.</span>
-</span><span data-line="16">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="se">\</span>
-</span><span data-line="17"><span class="w">    </span>--registry<span class="w"> </span>loop<span class="w"> </span>--adaptive<span class="w"> </span>--structural
+</span><span data-line="9"><span class="c1"># — also surfaces the V2 §12.4 trend block (one row per loop run),</span>
+</span><span data-line="10"><span class="c1"># the top-N / bottom-N bandit posteriors, and the inactivity</span>
+</span><span data-line="11"><span class="c1"># telemetry; see the &quot;Summary trend block&quot; subsection below.</span>
+</span><span data-line="12">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>summary
+</span><span data-line="13"><span class="c1"># Show the top 20 / bottom 10 mutation-rule posteriors (default 10/5)</span>
+</span><span data-line="14"><span class="c1"># and require at least 5 informative attempts per rule (default 3):</span>
+</span><span data-line="15">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>summary<span class="w"> </span><span class="se">\</span>
+</span><span data-line="16"><span class="w">    </span>--top-n<span class="w"> </span><span class="m">20</span><span class="w"> </span>--bottom-n<span class="w"> </span><span class="m">10</span><span class="w"> </span>--min-attempts<span class="w"> </span><span class="m">5</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="c1"># Use the loop-tuned seed registry (V2 §9.1) so the dormant catalog</span>
+</span><span data-line="19"><span class="c1"># mutation rules actually fire on the rule-bearing DE / PSO /</span>
+</span><span data-line="20"><span class="c1"># RegionUCB / LBFGSB+COBYQA / Restart families.  Lifts catalog</span>
+</span><span data-line="21"><span class="c1"># kwarg-rule coverage from 4 / 44 (quick seed) to 44 / 44 — see the</span>
+</span><span data-line="22"><span class="c1"># &quot;Loop registry&quot; section below.</span>
+</span><span data-line="23">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="24"><span class="w">    </span>--registry<span class="w"> </span>loop<span class="w"> </span>--adaptive<span class="w"> </span>--structural
 </span></pre></div>
 </div>
 <section id="loop-registry-v2-9-1">
@@ -1020,8 +1029,66 @@ semantics exactly.  The <code class="xref py py-class docutils literal notransla
 default of <code class="docutils literal notranslate"><span class="pre">False</span></code> preserves the same contract for direct
 construction.</p>
 </section>
+<section id="summary-trend-block-12-4">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Summary trend block (§12.4)</a><a class="headerlink" href="#summary-trend-block-12-4" title="Link to this heading">¶</a></h3>
+<p>The §12.3 daily routine reads <code class="docutils literal notranslate"><span class="pre">planning/self_improve_summary.txt</span></code>
+“at-a-glance” to answer three questions: <em>is the loop accepting
+anything tonight?  Which mutation arms are paying off?  Is the
+inactivity-relax knob doing anything?</em>  The pre-2026-06-16 summary
+view was an ever-growing wall of per-record lines (200 iterations × N
+nights × M hold-out records) that surfaced the totals but never the
+per-night dispersion or the bandit’s posterior state.</p>
+<p><code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">summary</span></code> now renders three additive
+sub-blocks <strong>after</strong> the existing per-record sections so the legacy
+output is preserved byte-for-byte while the trend signal is one
+screen of text:</p>
+<ol class="arabic simple">
+<li><p><strong>Trend block</strong> — one row per loop run (oldest first) with
+columns: <code class="docutils literal notranslate"><span class="pre">date</span></code>, <code class="docutils literal notranslate"><span class="pre">seed</span></code>, <code class="docutils literal notranslate"><span class="pre">mode</span></code>, <code class="docutils literal notranslate"><span class="pre">iters</span></code>, <code class="docutils literal notranslate"><span class="pre">dec</span></code> (decided
+= non-skip), <code class="docutils literal notranslate"><span class="pre">acc</span></code>, <code class="docutils literal notranslate"><span class="pre">nop</span></code> (no-op count), <code class="docutils literal notranslate"><span class="pre">best_Δ</span></code>,
+<code class="docutils literal notranslate"><span class="pre">seed_score</span></code> (<code class="docutils literal notranslate"><span class="pre">baseline_score</span></code> of the first record of the
+run, sourced from a real measurement so the column tracks per-night
+signal rather than a recomputed average).  Runs are detected by
+<code class="docutils literal notranslate"><span class="pre">iteration</span> <span class="pre">&lt;=</span> <span class="pre">prev_iteration</span></code> boundaries
+(<code class="xref py py-func docutils literal notranslate"><span class="pre">_group_runs()</span></code>) — the natural inverse of the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">SelfImprover.run()</span></code> writer which restarts the counter at
+<code class="docutils literal notranslate"><span class="pre">0</span></code> on every invocation.</p></li>
+<li><p><strong>Bandit posteriors</strong> — top-N / bottom-N mutation-rule posteriors
+ranked by graded <code class="docutils literal notranslate"><span class="pre">mean_reward</span></code> descending (tie-break by
+<code class="docutils literal notranslate"><span class="pre">n_attempts</span></code> so dense evidence beats sparse evidence at the same
+mean).  The replay
+(<code class="docutils literal notranslate"><span class="pre">_replay_bandit_posteriors</span></code>) runs through the same
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve._proposal_rule_key()</span></code> collapse used by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">AdaptiveMutationSampler.prime_from_ledger()</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">per_class_structural=False</span></code>), so the summary view matches what
+a freshly-primed nightly bandit would carry into the next run.
+On graded-reward ledgers the ranking carries the full §7.4 signal
+(barely-confirmed accepts at <code class="docutils literal notranslate"><span class="pre">~0.5</span></code>, honest near-miss rejects
+at <code class="docutils literal notranslate"><span class="pre">~0.5</span></code>, clearly-harmful rejects at <code class="docutils literal notranslate"><span class="pre">~0</span></code>); on legacy
+binary-reward ledgers <code class="docutils literal notranslate"><span class="pre">mean_reward</span></code> collapses to
+<code class="docutils literal notranslate"><span class="pre">accept_rate</span></code> so pre-2026-06-13 evidence is rendered without
+distortion.  Configurable via <code class="docutils literal notranslate"><span class="pre">--top-n</span></code> (default <code class="docutils literal notranslate"><span class="pre">10</span></code>),
+<code class="docutils literal notranslate"><span class="pre">--bottom-n</span></code> (default <code class="docutils literal notranslate"><span class="pre">5</span></code>), and <code class="docutils literal notranslate"><span class="pre">--min-attempts</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">3</span></code> — filters out one-shot rules so the leaderboard reflects
+actual evidence).</p></li>
+<li><p><strong>Inactivity</strong> — the inferred <code class="docutils literal notranslate"><span class="pre">eps_accept</span></code> base (the maximum
+observed <code class="docutils literal notranslate"><span class="pre">effective_eps_accept</span></code>, since relaxation only
+<em>decreases</em> the threshold and is re-tightened back to the base on
+every accept), the longest accept drought (max
+<code class="docutils literal notranslate"><span class="pre">iters_since_accept</span></code>), the relaxed-accept count
+(<code class="docutils literal notranslate"><span class="pre">effective_eps_accept</span> <span class="pre">&lt;</span> <span class="pre">eps_base</span></code>), and the mean decay factor
+at the moment of accept.  Silently no-ops on legacy ledgers
+(pre-2026-05-30) whose iteration records carry neither field.</p></li>
+</ol>
+<p>All three blocks silently no-op on empty input; the bandit block
+prints a friendly note (“no rules with &gt;= N informative attempts”)
+rather than an empty table when the <code class="docutils literal notranslate"><span class="pre">--min-attempts</span></code> filter rules
+every rule out.  See the 2026-06-16 entry in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the rationale and the test
+plan.</p>
+</section>
 <section id="adaptive-mutation-sampler-10">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
 <p>By default the loop draws mutation rules uniformly at random from the
 applicable ones in <code class="xref py py-func docutils literal notranslate"><span class="pre">default_catalog()</span></code>.  In
 practice some rules (e.g. <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code>, <code class="docutils literal notranslate"><span class="pre">CMAES.sigma0</span></code>) tend to
@@ -1149,7 +1216,7 @@ backward compatibility.</p>
 </section>
 </section>
 <section id="strategy-portfolio-composition-7-2">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
 <p>The default catalog only retunes hyperparameters of heuristics that
 already exist in each strategy.  The structural catalog — opt in via
 <code class="docutils literal notranslate"><span class="pre">--structural</span></code> on <code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">run</span></code> or by passing
@@ -1266,7 +1333,7 @@ structural catalog has the same uniform-mix behaviour as on the
 kwarg catalog.</p>
 </section>
 <section id="per-class-structural-bandit-arms">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">Per-class structural bandit arms</a><a class="headerlink" href="#per-class-structural-bandit-arms" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Per-class structural bandit arms</a><a class="headerlink" href="#per-class-structural-bandit-arms" title="Link to this heading">¶</a></h3>
 <p>Once a structural catalog has accumulated evidence, the coarse
 one-arm-per-op layout becomes the limiting factor: the bandit cannot
 distinguish <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Sobol</span></code> (which may be a consistent winner) from
@@ -1311,7 +1378,7 @@ that toggles <code class="docutils literal notranslate"><span class="pre">adapti
 <code class="docutils literal notranslate"><span class="pre">structural_per_class_arms</span></code> safe.</p>
 </section>
 <section id="hierarchical-bandit-over-per-class-structural-arms">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Hierarchical bandit over per-class structural arms</a><a class="headerlink" href="#hierarchical-bandit-over-per-class-structural-arms" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Hierarchical bandit over per-class structural arms</a><a class="headerlink" href="#hierarchical-bandit-over-per-class-structural-arms" title="Link to this heading">¶</a></h3>
 <p>The per-class arms above pay for sharper signal with sparser data: a
 candidate pool of <code class="docutils literal notranslate"><span class="pre">N</span></code> classes divides the bandit’s structural
 evidence by roughly <code class="docutils literal notranslate"><span class="pre">N</span></code>, so a fresh class starts with the symmetric
@@ -1416,7 +1483,7 @@ grouped by an “op”, so there is no aggregate to borrow from).</p></li>
 invocations and existing ledgers stay byte-identical.</p>
 </section>
 <section id="categorical-mutation-rule">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
 <p>The three original mutation kinds — <code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>,
 <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>, <code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> — all sample from a continuous
 numeric space.  Some of the most impactful design choices in
@@ -1655,7 +1722,7 @@ values in <code class="docutils literal notranslate"><span class="pre">old_value
 bandit arm losslessly.</p>
 </section>
 <section id="hold-out-validation-set">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
 <p>The anti-cherry-pick guard catches drift inside the <em>training</em>
 <code class="docutils literal notranslate"><span class="pre">base_seed</span></code> family — it varies only <code class="docutils literal notranslate"><span class="pre">randomize_iteration</span></code> and keeps
 the <code class="docutils literal notranslate"><span class="pre">HarnessConfig.seed</span></code> constant.  A mutation that overfits to
@@ -1901,9 +1968,9 @@ falls back to per-record point drifts otherwise.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id33" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id34" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id34" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -1913,7 +1980,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id35" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -1923,7 +1990,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id36" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -1932,7 +1999,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id37" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id38" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

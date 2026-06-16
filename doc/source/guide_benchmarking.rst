@@ -567,7 +567,14 @@ The MVP driver is shipped as :mod:`panobbgo.self_improve` plus the
        --iterations 100 --guard-interval 10 --guard-eps-ladder 0.02
 
    # Pretty-print a previous ledger (counts accepts, guards, rollbacks)
+   # — also surfaces the V2 §12.4 trend block (one row per loop run),
+   # the top-N / bottom-N bandit posteriors, and the inactivity
+   # telemetry; see the "Summary trend block" subsection below.
    uv run python scripts/self_improve.py summary
+   # Show the top 20 / bottom 10 mutation-rule posteriors (default 10/5)
+   # and require at least 5 informative attempts per rule (default 3):
+   uv run python scripts/self_improve.py summary \
+       --top-n 20 --bottom-n 10 --min-attempts 5
 
    # Use the loop-tuned seed registry (V2 §9.1) so the dormant catalog
    # mutation rules actually fire on the rule-bearing DE / PSO /
@@ -800,6 +807,66 @@ prior records classify as informative — matching the historical
 semantics exactly.  The :class:`LoopIterationRecord` dataclass
 default of ``False`` preserves the same contract for direct
 construction.
+
+Summary trend block (§12.4)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The §12.3 daily routine reads ``planning/self_improve_summary.txt``
+"at-a-glance" to answer three questions: *is the loop accepting
+anything tonight?  Which mutation arms are paying off?  Is the
+inactivity-relax knob doing anything?*  The pre-2026-06-16 summary
+view was an ever-growing wall of per-record lines (200 iterations × N
+nights × M hold-out records) that surfaced the totals but never the
+per-night dispersion or the bandit's posterior state.
+
+``scripts/self_improve.py summary`` now renders three additive
+sub-blocks **after** the existing per-record sections so the legacy
+output is preserved byte-for-byte while the trend signal is one
+screen of text:
+
+1. **Trend block** — one row per loop run (oldest first) with
+   columns: ``date``, ``seed``, ``mode``, ``iters``, ``dec`` (decided
+   = non-skip), ``acc``, ``nop`` (no-op count), ``best_Δ``,
+   ``seed_score`` (``baseline_score`` of the first record of the
+   run, sourced from a real measurement so the column tracks per-night
+   signal rather than a recomputed average).  Runs are detected by
+   ``iteration <= prev_iteration`` boundaries
+   (:func:`_group_runs`) — the natural inverse of the
+   :meth:`SelfImprover.run` writer which restarts the counter at
+   ``0`` on every invocation.
+2. **Bandit posteriors** — top-N / bottom-N mutation-rule posteriors
+   ranked by graded ``mean_reward`` descending (tie-break by
+   ``n_attempts`` so dense evidence beats sparse evidence at the same
+   mean).  The replay
+   (``_replay_bandit_posteriors``) runs through the same
+   :func:`panobbgo.self_improve._proposal_rule_key` collapse used by
+   :meth:`AdaptiveMutationSampler.prime_from_ledger` (default
+   ``per_class_structural=False``), so the summary view matches what
+   a freshly-primed nightly bandit would carry into the next run.
+   On graded-reward ledgers the ranking carries the full §7.4 signal
+   (barely-confirmed accepts at ``~0.5``, honest near-miss rejects
+   at ``~0.5``, clearly-harmful rejects at ``~0``); on legacy
+   binary-reward ledgers ``mean_reward`` collapses to
+   ``accept_rate`` so pre-2026-06-13 evidence is rendered without
+   distortion.  Configurable via ``--top-n`` (default ``10``),
+   ``--bottom-n`` (default ``5``), and ``--min-attempts`` (default
+   ``3`` — filters out one-shot rules so the leaderboard reflects
+   actual evidence).
+3. **Inactivity** — the inferred ``eps_accept`` base (the maximum
+   observed ``effective_eps_accept``, since relaxation only
+   *decreases* the threshold and is re-tightened back to the base on
+   every accept), the longest accept drought (max
+   ``iters_since_accept``), the relaxed-accept count
+   (``effective_eps_accept < eps_base``), and the mean decay factor
+   at the moment of accept.  Silently no-ops on legacy ledgers
+   (pre-2026-05-30) whose iteration records carry neither field.
+
+All three blocks silently no-op on empty input; the bandit block
+prints a friendly note ("no rules with >= N informative attempts")
+rather than an empty table when the ``--min-attempts`` filter rules
+every rule out.  See the 2026-06-16 entry in
+``planning/SELF_IMPROVEMENT_LOG.md`` for the rationale and the test
+plan.
 
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

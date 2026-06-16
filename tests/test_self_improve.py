@@ -5899,3 +5899,473 @@ class TestGradedBanditReward:
         assert len(primed) == 1
         assert primed[0].reward_sum == pytest.approx(0.0)
         assert primed[0].n_attempts == 1
+
+
+# ===========================================================================
+# §12.4 Summary trend block
+# ===========================================================================
+
+
+class TestSummaryTrendBlock:
+    """V2 §12.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+    The ``scripts/self_improve.py summary`` CLI was an ever-growing wall
+    of per-record lines.  The §12.4 trend block — one row per nightly
+    run, plus top-N / bottom-N bandit posteriors and inactivity
+    telemetry — converts the wall into the at-a-glance signal the §12.3
+    daily routine reads.
+    """
+
+    @staticmethod
+    def _import_cli():
+        # Import the CLI module the same way TestNoOpDetection does so
+        # the path manipulation stays isolated to this test.
+        sys_module = __import__("sys")
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    @staticmethod
+    def _iter_rec(
+        iteration: int,
+        *,
+        accepted: bool = False,
+        delta: float = 0.0,
+        baseline_score: float = 0.05,
+        no_op: bool = False,
+        proposal: Optional[Dict[str, Any]] = None,
+        timestamp: str = "2026-06-15T00:00:00+00:00",
+        base_seed: int = 42,
+        mode: str = "quick",
+        effective_eps_accept: Optional[float] = None,
+        iters_since_accept: Optional[int] = None,
+        bandit_reward: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        if proposal is None:
+            proposal = {
+                "class_name": "Nearby",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            }
+        return {
+            "record_type": "iteration",
+            "iteration": iteration,
+            "timestamp": timestamp,
+            "accepted": accepted,
+            "delta": delta,
+            "baseline_score": baseline_score,
+            "proposal": proposal,
+            "no_op": no_op,
+            "base_seed": base_seed,
+            "mode": mode,
+            "effective_eps_accept": effective_eps_accept,
+            "iters_since_accept": iters_since_accept,
+            "bandit_reward": bandit_reward,
+        }
+
+    # -----------------------------------------------------------------
+    # _group_runs
+    # -----------------------------------------------------------------
+
+    def test_group_runs_empty_input_returns_empty_list(self):
+        cli = self._import_cli()
+        assert cli._group_runs([]) == []
+
+    def test_group_runs_single_run_one_bucket(self):
+        cli = self._import_cli()
+        recs = [self._iter_rec(i) for i in range(5)]
+        runs = cli._group_runs(recs)
+        assert len(runs) == 1
+        assert len(runs[0]) == 5
+
+    def test_group_runs_splits_on_iteration_reset(self):
+        cli = self._import_cli()
+        # Two consecutive runs of 3 + 4 iterations; second restarts at 0.
+        recs = [self._iter_rec(i) for i in range(3)] + [
+            self._iter_rec(i, timestamp="2026-06-16T00:00:00+00:00") for i in range(4)
+        ]
+        runs = cli._group_runs(recs)
+        assert len(runs) == 2
+        assert [len(r) for r in runs] == [3, 4]
+        # The second run's first record carries the later timestamp.
+        assert runs[1][0]["timestamp"] == "2026-06-16T00:00:00+00:00"
+
+    def test_group_runs_repeated_iteration_zero_starts_new_run(self):
+        cli = self._import_cli()
+        # Pathological: two runs that each contain exactly one record at
+        # iteration=0.  Should produce two separate buckets, not one with
+        # two records.
+        recs = [
+            self._iter_rec(0, timestamp="2026-06-15T00:00:00+00:00"),
+            self._iter_rec(0, timestamp="2026-06-16T00:00:00+00:00"),
+        ]
+        runs = cli._group_runs(recs)
+        assert len(runs) == 2
+
+    # -----------------------------------------------------------------
+    # _print_trend_block
+    # -----------------------------------------------------------------
+
+    def test_trend_block_renders_per_run_row(self, capsys):
+        cli = self._import_cli()
+        recs = [
+            self._iter_rec(0, baseline_score=0.10, accepted=True, delta=0.05),
+            self._iter_rec(1, accepted=False, delta=-0.02),
+            self._iter_rec(2, accepted=False, delta=0.0, no_op=True),
+        ]
+        cli._print_trend_block(recs)
+        out = capsys.readouterr().out
+        assert "Trend" in out
+        # One data row beyond the header.
+        rows = [line for line in out.splitlines() if "2026-06-15" in line]
+        assert len(rows) == 1
+        # Column values: 3 iters, 3 decided, 1 accept, 1 no-op, +0.0500 best.
+        row = rows[0]
+        assert "    3" in row  # iters
+        assert "+0.0500" in row  # best Δ
+        assert "0.1000" in row  # seed score (baseline_score of first record)
+
+    def test_trend_block_groups_runs_in_chronological_order(self, capsys):
+        cli = self._import_cli()
+        recs = [
+            self._iter_rec(0, timestamp="2026-06-14T00:00:00+00:00", accepted=True, delta=0.01),
+            self._iter_rec(1, timestamp="2026-06-14T00:01:00+00:00"),
+            self._iter_rec(0, timestamp="2026-06-15T00:00:00+00:00", accepted=False, delta=-0.03),
+            self._iter_rec(1, timestamp="2026-06-15T00:01:00+00:00"),
+        ]
+        cli._print_trend_block(recs)
+        out = capsys.readouterr().out
+        # The order must be oldest-first so an operator scans top-to-bottom.
+        i14 = out.find("2026-06-14")
+        i15 = out.find("2026-06-15")
+        assert 0 <= i14 < i15
+
+    def test_trend_block_silent_on_empty_input(self, capsys):
+        cli = self._import_cli()
+        cli._print_trend_block([])
+        # No output — the block silently no-ops so the existing summary
+        # contract on empty ledgers is preserved.
+        assert capsys.readouterr().out == ""
+
+    # -----------------------------------------------------------------
+    # _replay_bandit_posteriors / _print_bandit_block
+    # -----------------------------------------------------------------
+
+    def test_replay_bandit_skips_no_op_and_skip_records(self):
+        cli = self._import_cli()
+        recs = [
+            self._iter_rec(0, accepted=True, delta=0.05),
+            self._iter_rec(1, accepted=False, no_op=True),
+            # Skip record carries no proposal.
+            {
+                "record_type": "iteration",
+                "iteration": 2,
+                "accepted": False,
+                "proposal": None,
+                "no_op": False,
+            },
+            # Guard / hold-out records must be filtered out.
+            {"record_type": "guard", "iteration": 2},
+            {"record_type": "holdout"},
+        ]
+        stats = cli._replay_bandit_posteriors(recs)
+        # Only the one informative accept was consumed.
+        assert len(stats) == 1
+        bucket = next(iter(stats.values()))
+        assert bucket["n_attempts"] == 1
+        assert bucket["n_accepts"] == 1
+        assert bucket["mean_reward"] == pytest.approx(1.0)
+
+    def test_replay_bandit_graded_reward_propagates(self):
+        cli = self._import_cli()
+        recs = [
+            self._iter_rec(0, accepted=False, delta=0.0, bandit_reward=0.5),
+            self._iter_rec(1, accepted=True, delta=0.05, bandit_reward=0.8),
+        ]
+        stats = cli._replay_bandit_posteriors(recs)
+        bucket = next(iter(stats.values()))
+        assert bucket["n_attempts"] == 2
+        assert bucket["n_accepts"] == 1
+        assert bucket["reward_sum"] == pytest.approx(1.3)
+        assert bucket["mean_reward"] == pytest.approx(0.65)
+        # Accept rate is the binary-path view; mean_reward carries the
+        # graded signal — they must not collapse onto each other.
+        assert bucket["accept_rate"] == pytest.approx(0.5)
+
+    def test_replay_bandit_legacy_record_uses_binary_fallback(self):
+        cli = self._import_cli()
+        # No ``bandit_reward`` field — must fall back to 1.0 per accept,
+        # 0.0 per reject, matching :meth:`prime_from_ledger`.
+        recs = [
+            self._iter_rec(0, accepted=True, delta=0.05),
+            self._iter_rec(1, accepted=False, delta=-0.05),
+        ]
+        for r in recs:
+            r.pop("bandit_reward", None)
+        stats = cli._replay_bandit_posteriors(recs)
+        bucket = next(iter(stats.values()))
+        assert bucket["reward_sum"] == pytest.approx(1.0)
+        assert bucket["mean_reward"] == pytest.approx(0.5)
+        assert bucket["accept_rate"] == pytest.approx(0.5)
+
+    def test_replay_bandit_structural_op_collapses_to_one_arm(self):
+        cli = self._import_cli()
+        # Two ``add_heuristic`` proposals targeting different classes must
+        # collapse onto the single ``("*", "add_heuristic", "structural")``
+        # arm by default — matching the default
+        # :func:`_proposal_rule_key` semantics.
+        recs = [
+            self._iter_rec(
+                0,
+                proposal={
+                    "class_name": "Sobol",
+                    "param_name": "add_heuristic",
+                    "rule_kind": "add_heuristic",
+                },
+            ),
+            self._iter_rec(
+                1,
+                proposal={
+                    "class_name": "Random",
+                    "param_name": "add_heuristic",
+                    "rule_kind": "add_heuristic",
+                },
+            ),
+        ]
+        stats = cli._replay_bandit_posteriors(recs)
+        # One collapsed structural arm.
+        assert len(stats) == 1
+        key = next(iter(stats.keys()))
+        assert key == ("*", "add_heuristic", "structural")
+
+    def test_bandit_block_orders_by_mean_reward_desc(self, capsys):
+        cli = self._import_cli()
+        # Two rules: one with reward sum 5/5 (mean 1.0), one with 1/5
+        # (mean 0.2).  Top must show the high-reward rule first.
+        good = [
+            self._iter_rec(
+                i,
+                accepted=True,
+                delta=0.05,
+                bandit_reward=1.0,
+                proposal={
+                    "class_name": "Good",
+                    "param_name": "x",
+                    "rule_kind": "log_uniform_perturb",
+                },
+            )
+            for i in range(5)
+        ]
+        bad = [
+            self._iter_rec(
+                i,
+                accepted=False,
+                delta=-0.05,
+                bandit_reward=0.0,
+                proposal={
+                    "class_name": "Bad",
+                    "param_name": "y",
+                    "rule_kind": "log_uniform_perturb",
+                },
+            )
+            for i in range(5)
+        ]
+        # Plus a single 0.2-mean rule to widen the band.
+        mid = [
+            self._iter_rec(
+                i,
+                accepted=False,
+                delta=0.0,
+                bandit_reward=0.2,
+                proposal={
+                    "class_name": "Mid",
+                    "param_name": "z",
+                    "rule_kind": "log_uniform_perturb",
+                },
+            )
+            for i in range(5)
+        ]
+        cli._print_bandit_block(good + bad + mid, top_n=2, bottom_n=1, min_attempts=3)
+        out = capsys.readouterr().out
+        assert "Bandit posteriors" in out
+        # Good must appear before Bad in the top block.
+        i_good = out.find("Good")
+        i_bad = out.find("Bad")
+        assert i_good >= 0 and i_bad >= 0 and i_good < i_bad
+        # The header counts eligible rules — all three pass the
+        # min_attempts=3 filter.
+        assert "3 eligible rules" in out
+
+    def test_bandit_block_filters_by_min_attempts(self, capsys):
+        cli = self._import_cli()
+        # One rule with 2 attempts (below the threshold), one with 5.
+        sparse = [
+            self._iter_rec(
+                i,
+                accepted=False,
+                delta=-0.01,
+                bandit_reward=0.0,
+                proposal={
+                    "class_name": "Sparse",
+                    "param_name": "p",
+                    "rule_kind": "log_uniform_perturb",
+                },
+            )
+            for i in range(2)
+        ]
+        dense = [
+            self._iter_rec(
+                i,
+                accepted=True,
+                delta=0.05,
+                bandit_reward=1.0,
+                proposal={
+                    "class_name": "Dense",
+                    "param_name": "q",
+                    "rule_kind": "log_uniform_perturb",
+                },
+            )
+            for i in range(5)
+        ]
+        cli._print_bandit_block(sparse + dense, top_n=10, bottom_n=5, min_attempts=3)
+        out = capsys.readouterr().out
+        assert "Dense" in out
+        assert "Sparse" not in out
+        assert "1 eligible rules" in out
+
+    def test_bandit_block_no_eligible_rules_prints_friendly_note(self, capsys):
+        cli = self._import_cli()
+        # All rules below the threshold.
+        recs = [
+            self._iter_rec(
+                0,
+                accepted=True,
+                delta=0.05,
+                bandit_reward=1.0,
+            )
+        ]
+        cli._print_bandit_block(recs, top_n=10, bottom_n=5, min_attempts=3)
+        out = capsys.readouterr().out
+        assert "no rules with >= 3 informative attempts" in out
+
+    def test_bandit_block_silent_on_empty_input(self, capsys):
+        cli = self._import_cli()
+        cli._print_bandit_block([], top_n=10, bottom_n=5, min_attempts=3)
+        assert capsys.readouterr().out == ""
+
+    # -----------------------------------------------------------------
+    # _print_inactivity_block
+    # -----------------------------------------------------------------
+
+    def test_inactivity_block_renders_drought_and_relax(self, capsys):
+        cli = self._import_cli()
+        # 4 records: three rejects with growing drought, then a relaxed
+        # accept.  Base eps_accept = 0.005 (max observed).
+        recs = [
+            self._iter_rec(0, accepted=False, effective_eps_accept=0.005, iters_since_accept=0),
+            self._iter_rec(1, accepted=False, effective_eps_accept=0.005, iters_since_accept=1),
+            self._iter_rec(2, accepted=False, effective_eps_accept=0.005, iters_since_accept=2),
+            # Relaxed accept — effective threshold below base.
+            self._iter_rec(
+                3,
+                accepted=True,
+                delta=0.003,
+                effective_eps_accept=0.0025,
+                iters_since_accept=3,
+            ),
+        ]
+        cli._print_inactivity_block(recs)
+        out = capsys.readouterr().out
+        assert "Inactivity:" in out
+        assert "eps_accept_base=0.0050" in out
+        assert "longest_drought=3" in out
+        # One accept, one relaxed.
+        assert "relaxed_accepts=1/1" in out
+        # Decay factor = 0.0025 / 0.005 = 0.500.
+        assert "mean_decay_at_accept=0.500" in out
+
+    def test_inactivity_block_silent_on_legacy_records(self, capsys):
+        cli = self._import_cli()
+        # Pre-2026-05-30 records carry neither field; the block must
+        # stay silent (no inactivity stats to surface).
+        recs = [self._iter_rec(0, accepted=True, delta=0.05)]
+        for r in recs:
+            r.pop("effective_eps_accept", None)
+            r.pop("iters_since_accept", None)
+        cli._print_inactivity_block(recs)
+        assert capsys.readouterr().out == ""
+
+    def test_inactivity_block_silent_on_empty_input(self, capsys):
+        cli = self._import_cli()
+        cli._print_inactivity_block([])
+        assert capsys.readouterr().out == ""
+
+    def test_inactivity_block_no_relaxed_accepts_hides_decay(self, capsys):
+        cli = self._import_cli()
+        # An accept that fired at the base eps — relaxed_accepts must be
+        # 0/1 and the mean_decay clause must NOT appear (no relaxed
+        # accepts to average).
+        recs = [
+            self._iter_rec(
+                0,
+                accepted=True,
+                delta=0.10,
+                effective_eps_accept=0.005,
+                iters_since_accept=0,
+            ),
+        ]
+        cli._print_inactivity_block(recs)
+        out = capsys.readouterr().out
+        assert "relaxed_accepts=0/1" in out
+        assert "mean_decay_at_accept" not in out
+
+    # -----------------------------------------------------------------
+    # End-to-end CLI smoke test
+    # -----------------------------------------------------------------
+
+    def test_cli_summary_emits_trend_and_bandit_and_inactivity_blocks(self, tmp_path, capsys):
+        cli = self._import_cli()
+        ledger_path = tmp_path / "ledger.jsonl"
+        # Build a synthetic two-run ledger: each run has 4 records.
+        records = []
+        for run_idx, ts_date in enumerate(("2026-06-14", "2026-06-15")):
+            for i in range(4):
+                records.append(
+                    self._iter_rec(
+                        i,
+                        accepted=(i == 0),
+                        delta=(0.05 if i == 0 else -0.01),
+                        bandit_reward=(1.0 if i == 0 else 0.0),
+                        baseline_score=0.10,
+                        timestamp=f"{ts_date}T0{i}:00:00+00:00",
+                        effective_eps_accept=0.005,
+                        iters_since_accept=(0 if i == 0 else i),
+                    )
+                )
+        with ledger_path.open("w") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(ledger_path),
+                "top_n": 10,
+                "bottom_n": 5,
+                "min_attempts": 3,
+            },
+        )()
+        rc = cli._cmd_summary(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # All three new sub-blocks present.
+        assert "Trend" in out
+        assert "Bandit posteriors" in out
+        assert "Inactivity" in out
+        # Two run rows in the trend block — the grouping correctly split.
+        rows = [line for line in out.splitlines() if "2026-06-14 " in line or "2026-06-15 " in line]
+        assert len(rows) >= 2

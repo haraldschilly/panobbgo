@@ -494,6 +494,28 @@ The harness is the measurement substrate for an autonomous
     rules" from "every legitimate proposal got rejected".
     Backwards-compatible field default (`no_op=False` on legacy
     records).
+*   **Summary trend block (§12.4)** — **shipped 2026-06-16**,
+    `scripts/self_improve.py summary` renders three additive sub-blocks
+    after the existing per-record sections: (1) **Trend** table —
+    one row per loop run (oldest first) with date / base_seed / mode
+    / iters / decided / accepts / no-op / best Δ / seed score columns;
+    (2) **Bandit posteriors** ranked by graded `mean_reward`
+    descending, configurable via `--top-n` (default 10) / `--bottom-n`
+    (default 5) / `--min-attempts` (default 3), replays through the
+    same `_proposal_rule_key` collapse used by
+    `AdaptiveMutationSampler.prime_from_ledger` so the view matches
+    what a freshly-primed nightly bandit would carry; (3)
+    **Inactivity** telemetry — inferred `eps_accept` base, longest
+    accept drought, relaxed-accept count, mean decay factor at the
+    moment of accept.  Directly addresses the §12.3 daily-routine
+    contract: an operator can now answer "is the loop accepting
+    tonight?", "which arms pay off?" and "is the inactivity-relax
+    knob doing anything?" in one screen of text instead of grepping
+    the raw JSONL ledger.  All three blocks silently no-op on empty
+    input; the Inactivity block additionally no-ops on legacy
+    ledgers (pre-2026-05-30) that carry neither
+    `effective_eps_accept` nor `iters_since_accept`.  See the
+    2026-06-16 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 
@@ -579,8 +601,16 @@ uv run python scripts/self_improve.py run --iterations 100 \
     --inactivity-relax-factor 0.5 \
     --inactivity-min-eps-accept 0.001
 
-# Inspect the ledger
+# Inspect the ledger — also surfaces the §12.4 trend / bandit posteriors
+# / inactivity-relax sub-blocks (shipped 2026-06-16) that the §12.3
+# daily routine reads at a glance.
 uv run python scripts/self_improve.py summary
+
+# Wider bandit-posterior leaderboard with stricter min-attempts filter,
+# useful when the ledger has accumulated dozens of rules with sparse
+# evidence each:
+uv run python scripts/self_improve.py summary \
+    --top-n 20 --bottom-n 10 --min-attempts 5
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

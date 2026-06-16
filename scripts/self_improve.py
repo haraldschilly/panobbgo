@@ -115,7 +115,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -512,6 +512,37 @@ def _build_parser() -> argparse.ArgumentParser:
         default="planning/self_improve_ledger.jsonl",
         help="Path to the ledger (default: planning/self_improve_ledger.jsonl)",
     )
+    sum_p.add_argument(
+        "--top-n",
+        type=int,
+        default=10,
+        help=(
+            "Number of top-ranked mutation-rule posteriors to surface in "
+            "the bandit trend block (default: 10).  Ranking is by mean "
+            "graded reward (binary path: == accept rate); ties broken by "
+            "n_attempts."
+        ),
+    )
+    sum_p.add_argument(
+        "--bottom-n",
+        type=int,
+        default=5,
+        help=(
+            "Number of bottom-ranked mutation-rule posteriors to surface "
+            "alongside the top-N (default: 5).  Use 0 to hide the bottom "
+            "list entirely."
+        ),
+    )
+    sum_p.add_argument(
+        "--min-attempts",
+        type=int,
+        default=3,
+        help=(
+            "Hide rules with fewer than N informative attempts (no-op "
+            "iterations excluded) from the top / bottom lists (default: "
+            "3).  Prevents one-shot rules from dominating the leaderboard."
+        ),
+    )
     sum_p.set_defaults(func=_cmd_summary)
 
     return parser
@@ -693,6 +724,246 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _group_runs(iter_records: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+    """Partition iteration records into per-run buckets.
+
+    The ledger is append-only and concatenates the iteration records of
+    every nightly run end-to-end.  Each call to
+    :meth:`panobbgo.self_improve.SelfImprover.run` restarts the iteration
+    counter at ``0``, so a new run begins wherever the current record's
+    ``iteration`` is **less than or equal to** the previous one's (the
+    common case is ``0`` after the previous run finished at ``N-1``;
+    pathological ``--start-iteration`` overrides still trigger correctly).
+    The very first record starts the first run.
+
+    Returns a list of runs in ledger order; each run is a list of
+    iteration records in the order they appeared.  Empty input → empty
+    list.  Records without an ``iteration`` field default to ``0`` so a
+    legacy / partial record never silently joins an unrelated run.
+    """
+    runs: List[List[Dict[str, Any]]] = []
+    prev_iter = None
+    for rec in iter_records:
+        cur = int(rec.get("iteration", 0))
+        if prev_iter is None or cur <= prev_iter:
+            runs.append([])
+        runs[-1].append(rec)
+        prev_iter = cur
+    return runs
+
+
+def _print_trend_block(iter_records: List[Dict[str, Any]]) -> None:
+    """Per-run trend table — V2 §12.4 "Summary trend block".
+
+    One row per nightly run with: date, base_seed, mode, iter count,
+    decided (non-skip) count, accepts, no-op count, best Δ seen.  This is
+    the at-a-glance signal the §12.3 daily routine reads: "did last night
+    accept anything? was the no-op rate sane? is the per-night seed
+    score holding?".
+    """
+    runs = _group_runs(iter_records)
+    if not runs:
+        return
+    print()
+    print("Trend (one row per loop run, oldest first):")
+    print(
+        f"  {'date':<19}  {'seed':>5}  {'mode':<8}  {'iters':>5}  "
+        f"{'dec':>4}  {'acc':>4}  {'nop':>4}  {'best_Δ':>8}  {'seed_score':>10}"
+    )
+    for run in runs:
+        first = run[0]
+        ts = str(first.get("timestamp", ""))[:19].replace("T", " ")
+        base_seed = first.get("base_seed", "?")
+        mode = str(first.get("mode", "?"))[:8]
+        n_iters = len(run)
+        decided = [r for r in run if r.get("proposal") is not None]
+        n_decided = len(decided)
+        n_accepts = sum(1 for r in run if r.get("accepted"))
+        n_no_op = sum(1 for r in decided if r.get("no_op"))
+        best = max((float(r.get("delta", 0.0)) for r in decided), default=0.0)
+        # Seed score for this run = baseline_score on the first decided
+        # iteration (the seed-spec measurement, before any accept can have
+        # taken effect).  Skip records carry the same baseline; the
+        # critical thing is to source it from a real measurement so the
+        # column tracks per-night signal, not a recomputed average.
+        seed_score = float(first.get("baseline_score", 0.0))
+        print(
+            f"  {ts:<19}  {base_seed!s:>5}  {mode:<8}  {n_iters:>5}  "
+            f"{n_decided:>4}  {n_accepts:>4}  {n_no_op:>4}  {best:>+8.4f}  {seed_score:>10.4f}"
+        )
+
+
+def _replay_bandit_posteriors(
+    iter_records: List[Dict[str, Any]],
+) -> Dict[Tuple[str, str, str], Dict[str, Any]]:
+    """Reconstruct per-rule bandit stats by replaying iteration records.
+
+    Mirrors :meth:`panobbgo.self_improve.AdaptiveMutationSampler.prime_from_ledger`
+    on the default key layout (``per_class_structural=False``) so the
+    summary's posterior view matches what a freshly-primed nightly bandit
+    would carry into the next run.  No-op iterations and skip / guard /
+    hold-out records are excluded — exactly the same filter applied to
+    live bandit pulls per V2 §12.4.
+
+    Returns a dict keyed on the rule's ``(class_name, param_name,
+    rule_kind)`` tuple — or the structural collapse ``("*", op,
+    "structural")`` for ``add_/drop_`` ops — with the cumulative
+    ``n_attempts``, ``n_accepts``, ``reward_sum`` and the resulting
+    ``mean_reward`` / ``accept_rate``.  Legacy records (no
+    ``bandit_reward``) fall back to the binary ``1.0`` per accept /
+    ``0.0`` per reject, matching :meth:`prime_from_ledger`.
+    """
+    from panobbgo.self_improve import _proposal_rule_key
+
+    stats: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    for rec in iter_records:
+        if rec.get("record_type", "iteration") != "iteration":
+            continue
+        proposal = rec.get("proposal")
+        if proposal is None:
+            continue
+        if rec.get("no_op"):
+            continue
+        key = _proposal_rule_key(
+            str(proposal.get("class_name", "")),
+            str(proposal.get("param_name", "")),
+            str(proposal.get("rule_kind", "")),
+            per_class_structural=False,
+        )
+        bucket = stats.setdefault(
+            key,
+            {"n_attempts": 0, "n_accepts": 0, "reward_sum": 0.0},
+        )
+        accepted = bool(rec.get("accepted"))
+        bucket["n_attempts"] += 1
+        if accepted:
+            bucket["n_accepts"] += 1
+        reward = rec.get("bandit_reward")
+        if reward is None:
+            graded = 1.0 if accepted else 0.0
+        else:
+            graded = float(reward)
+            if graded < 0.0:
+                graded = 0.0
+            elif graded > 1.0:
+                graded = 1.0
+        bucket["reward_sum"] += graded
+    # Derive convenience fields for sorting / rendering.
+    for bucket in stats.values():
+        attempts = bucket["n_attempts"]
+        bucket["mean_reward"] = (bucket["reward_sum"] / attempts) if attempts else 0.0
+        bucket["accept_rate"] = (bucket["n_accepts"] / attempts) if attempts else 0.0
+    return stats
+
+
+def _print_bandit_block(
+    iter_records: List[Dict[str, Any]],
+    top_n: int,
+    bottom_n: int,
+    min_attempts: int,
+) -> None:
+    """Top-N / bottom-N mutation-rule posteriors — V2 §12.4 trend block.
+
+    Rank rules by graded ``mean_reward`` so the §7.4 reward shaping
+    (barely-confirmed accepts at ``~0.5``, honest near-miss rejects at
+    ``~0.5``, clearly-harmful rejects at ``~0``) shows through.  On
+    legacy binary-reward ledgers the rank collapses to ``accept_rate``
+    so pre-2026-06-13 evidence is rendered without distortion.
+
+    Filters by ``min_attempts`` so one-shot rules cannot dominate the
+    leaderboard; ties are broken by ``n_attempts`` so a high-mean rule
+    with sparse data does not edge out a slightly-lower-mean rule with
+    much more evidence.
+    """
+    stats = _replay_bandit_posteriors(iter_records)
+    if not stats:
+        return
+    eligible = [(k, v) for k, v in stats.items() if v["n_attempts"] >= min_attempts]
+    if not eligible:
+        print()
+        print(f"Bandit posteriors: (no rules with >= {min_attempts} informative attempts)")
+        return
+    # Sort by mean reward descending (tie-break by n_attempts so denser
+    # evidence beats sparse evidence at the same mean).
+    eligible.sort(key=lambda kv: (kv[1]["mean_reward"], kv[1]["n_attempts"]), reverse=True)
+
+    def _render(label: str, items: List[Tuple[Tuple[str, str, str], Dict[str, Any]]]) -> None:
+        if not items:
+            return
+        print(f"{label}:")
+        print(f"  {'class':<22}  {'param':<22}  {'kind':<18}  {'att':>4}  {'acc':>4}  {'mean_r':>7}  {'acc_rate':>8}")
+        for key, bucket in items:
+            cls, param, kind = key
+            print(
+                f"  {cls[:22]:<22}  {param[:22]:<22}  {kind[:18]:<18}  "
+                f"{bucket['n_attempts']:>4}  {bucket['n_accepts']:>4}  "
+                f"{bucket['mean_reward']:>7.3f}  {bucket['accept_rate']:>8.1%}"
+            )
+
+    top_count = max(0, top_n)
+    bottom_count = max(0, bottom_n)
+    print()
+    print(f"Bandit posteriors (n_attempts >= {min_attempts}, {len(eligible)} eligible rules):")
+    if top_count:
+        _render(f"  Top {min(top_count, len(eligible))} (highest mean reward)", eligible[:top_count])
+    if bottom_count and len(eligible) > top_count:
+        # Reverse the bottom slice so the worst rule prints last — easier
+        # for an operator to scan the "should I deprioritize this rule?"
+        # block from top to bottom.
+        worst = sorted(eligible[-bottom_count:], key=lambda kv: kv[1]["mean_reward"])
+        _render(f"  Bottom {len(worst)} (lowest mean reward)", worst)
+
+
+def _print_inactivity_block(iter_records: List[Dict[str, Any]]) -> None:
+    """Inactivity-relax telemetry — backlog "Inactivity-relax telemetry".
+
+    Surfaces the longest accept drought, the count of accepts that fired
+    on a *relaxed* threshold (``effective_eps_accept < eps_accept_base``),
+    and the mean decay factor at those accepts.  The base
+    ``eps_accept`` is inferred from the maximum observed
+    ``effective_eps_accept`` across the ledger — relaxation only
+    *decreases* the threshold (it is re-tightened back to the base on
+    every accept), so the maximum is the configured base.
+
+    Silently no-ops on ledgers whose iteration records carry no
+    ``effective_eps_accept`` / ``iters_since_accept`` fields (pre
+    2026-05-30 ledgers).  Operators reading the §12.3 daily routine see
+    nothing — preserving the existing summary semantics — until at
+    least one record exposes the relax telemetry.
+    """
+    relax_records = [
+        r for r in iter_records if r.get("effective_eps_accept") is not None or r.get("iters_since_accept") is not None
+    ]
+    if not relax_records:
+        return
+    effective_values = [
+        float(r["effective_eps_accept"]) for r in relax_records if r.get("effective_eps_accept") is not None
+    ]
+    if not effective_values:
+        return
+    eps_base = max(effective_values)
+    streaks = [int(r["iters_since_accept"]) for r in relax_records if r.get("iters_since_accept") is not None]
+    longest_drought = max(streaks) if streaks else 0
+    accepts = [r for r in relax_records if r.get("accepted")]
+    relaxed_accepts = [
+        r
+        for r in accepts
+        if r.get("effective_eps_accept") is not None and float(r["effective_eps_accept"]) + 1e-12 < eps_base
+    ]
+    if accepts:
+        decays = [float(r["effective_eps_accept"]) / eps_base for r in relaxed_accepts]
+        mean_decay = (sum(decays) / len(decays)) if decays else 1.0
+    else:
+        mean_decay = 1.0
+    print()
+    print("Inactivity:")
+    print(f"  eps_accept_base={eps_base:.4f}  longest_drought={longest_drought} iters")
+    print(
+        f"  relaxed_accepts={len(relaxed_accepts)}/{len(accepts)}"
+        + (f"  mean_decay_at_accept={mean_decay:.3f}" if relaxed_accepts else "")
+    )
+
+
 def _cmd_summary(args: argparse.Namespace) -> int:
     from panobbgo.self_improve import load_ledger
 
@@ -869,6 +1140,19 @@ def _cmd_summary(args: argparse.Namespace) -> int:
             f"n_samples={agg.n_samples}  n_records={agg.n_records}  "
             f"vacuous={agg.vacuous_count}/{agg.n_records}"
         )
+
+    # V2 §12.4 trend block + backlog "Inactivity-relax telemetry in the
+    # summary view".  Three additive sub-blocks rendered after the
+    # existing per-record sections so the at-a-glance daily-routine
+    # signal is visible without scrolling past the legacy detail.
+    _print_trend_block(iter_records)
+    _print_bandit_block(
+        iter_records,
+        top_n=int(getattr(args, "top_n", 10)),
+        bottom_n=int(getattr(args, "bottom_n", 5)),
+        min_attempts=int(getattr(args, "min_attempts", 3)),
+    )
+    _print_inactivity_block(iter_records)
     return 0
 
 

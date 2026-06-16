@@ -415,10 +415,24 @@ the run; durable improvement happens only through codification.
   is no longer biased toward zero by empty ladders).  CLI prints
   surface ``VACUOUS`` / ``VACUOUS_CI`` in both ``run`` and ``summary``
   modes.  See the dated entry in `planning/SELF_IMPROVEMENT_LOG.md`.
-- **Summary trend block**: per-night seed score (both metrics),
+- ~**Summary trend block**: per-night seed score (both metrics),
   accept / confirm / no-op rates, top-10 and bottom-5 bandit
-  posteriors.  This — not raw JSONL — is what the daily routine reads.
-  *Open.*
+  posteriors.~ — **shipped 2026-06-16**.  ``scripts/self_improve.py
+  summary`` now renders three additive sub-blocks after the existing
+  per-record sections: (1) a **Trend** table with one row per loop run
+  (oldest first) carrying date / base_seed / mode / iters / decided /
+  accepts / no-op / best Δ / seed score; (2) **Bandit posteriors**
+  ranked by graded ``mean_reward`` with configurable ``--top-n``
+  (default 10) / ``--bottom-n`` (default 5) / ``--min-attempts``
+  (default 3); (3) **Inactivity** telemetry surfacing the longest
+  accept drought, the relaxed-accept count, and the mean decay factor
+  at the moment of accept.  The trend block is what the §12.3 daily
+  routine reads — not raw JSONL.  Implementation: three new helpers
+  in ``scripts/self_improve.py`` (``_group_runs``, ``_print_trend_block``,
+  ``_replay_bandit_posteriors`` / ``_print_bandit_block``,
+  ``_print_inactivity_block``) plus three CLI flags on the ``summary``
+  subcommand.  20 new tests in ``TestSummaryTrendBlock``.  See the
+  2026-06-16 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 ## 13. Iteration log
 

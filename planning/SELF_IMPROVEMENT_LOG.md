@@ -17,6 +17,212 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-16 — Summary trend block + bandit posteriors + inactivity telemetry (V2 §12.4)
+
+* **What** — Three additive sub-blocks rendered by the
+  ``scripts/self_improve.py summary`` CLI after the existing
+  per-record sections, plus three new CLI flags on the ``summary``
+  subparser, plus four new helpers in ``scripts/self_improve.py``:
+
+  * ``_group_runs(iter_records)`` — partitions iteration records into
+    per-run buckets by detecting ``iteration <= prev_iteration``
+    boundaries.  The append-only nightly ledger concatenates the
+    iteration records of every nightly run end-to-end, and each
+    :meth:`SelfImprover.run` restarts the counter at ``0`` — so the
+    boundary detector is the natural inverse of the writer.
+  * ``_print_trend_block(iter_records)`` — renders one row per loop
+    run with date / base_seed / mode / iters / decided / accepts /
+    no-op / best Δ / seed score columns, oldest first.  The seed
+    score is sourced from ``baseline_score`` of the first record of
+    each run so it tracks a real per-night signal, not a recomputed
+    average over the run's mixed baselines.
+  * ``_replay_bandit_posteriors(iter_records)`` — reconstructs per-rule
+    bandit stats by replaying iteration records through the same
+    :func:`panobbgo.self_improve._proposal_rule_key` collapse used by
+    :meth:`AdaptiveMutationSampler.prime_from_ledger` (default
+    ``per_class_structural=False``), so the summary's posterior view
+    matches what a freshly-primed nightly bandit would carry into the
+    next run.  No-op iterations and skip / guard / hold-out records
+    are filtered out exactly as the live bandit filters them per
+    §12.4.  Returns a dict keyed on ``(class_name, param_name,
+    rule_kind)`` (or the structural collapse ``("*", op,
+    "structural")``) with cumulative ``n_attempts`` / ``n_accepts`` /
+    ``reward_sum`` and derived ``mean_reward`` / ``accept_rate``.
+    Legacy records (no ``bandit_reward``) fall back to the binary
+    ``1.0`` per accept / ``0.0`` per reject — matching
+    :meth:`prime_from_ledger` byte-for-byte.
+  * ``_print_bandit_block(iter_records, top_n, bottom_n, min_attempts)``
+    — ranks rules by graded ``mean_reward`` descending (tie-break by
+    ``n_attempts`` so dense evidence beats sparse evidence at the same
+    mean), filters out rules below the ``min_attempts`` threshold so
+    one-shot rules cannot dominate the leaderboard, and renders a
+    top-N / bottom-N table.  The bottom slice is reversed so the worst
+    rule prints last — easier for an operator to scan the "should I
+    deprioritize this?" block from top to bottom.  When no rules clear
+    the threshold the block prints a single explanatory line instead
+    of an empty table.  On graded-reward ledgers the ranking carries
+    the full §7.4 signal (barely-confirmed accepts at ``~0.5``, honest
+    near-miss rejects at ``~0.5``, clearly-harmful rejects at ``~0``);
+    on legacy binary-reward ledgers ``mean_reward`` collapses to
+    ``accept_rate`` so pre-2026-06-13 evidence is rendered without
+    distortion.
+  * ``_print_inactivity_block(iter_records)`` — infers the configured
+    ``eps_accept`` base from the maximum observed
+    ``effective_eps_accept`` (relaxation only *decreases* the
+    threshold — it is re-tightened back to the base on every accept),
+    then surfaces the longest accept drought (max
+    ``iters_since_accept``), the relaxed-accept count
+    (``effective_eps_accept < eps_base``), and the mean decay factor
+    at the moment of accept.  Silently no-ops on legacy ledgers
+    (pre-2026-05-30) whose iteration records carry neither field, so
+    the existing summary contract on those ledgers is preserved.
+  * ``--top-n`` (default ``10``) / ``--bottom-n`` (default ``5``) /
+    ``--min-attempts`` (default ``3``) flags on the ``summary``
+    subparser so an operator can tune the bandit-posterior view
+    without code changes.  The defaults match the §12.4 spec.
+
+* **Why** — Closes the third open bullet of
+  ``planning/SELF_IMPROVEMENT_LOOP.md`` §12.4 (the "Summary trend
+  block") and the *Inactivity-relax telemetry in the summary view*
+  backlog idea in one ship.  The §12.3 daily routine explicitly reads
+  ``planning/self_improve_summary.txt`` "at-a-glance" — but the
+  pre-ship summary was an ever-growing wall of per-record lines
+  (200 iterations × 10 nights × N hold-out records).  An operator
+  reviewing the file had no way to answer the questions the routine
+  exists to surface:
+
+  1. **Is the loop accepting anything tonight?**  The aggregate
+     accept rate over all 10 nights masks per-night dispersion — one
+     productive night next to nine vacuous ones reports the same
+     ``2.7%`` as a steady drip of one accept per night.  The Trend
+     block surfaces per-night accept counts so an operator can see at
+     a glance whether the loop is producing reproducible signal or
+     getting lucky on a single night.
+  2. **Which arms are paying off?**  Pre-ship there was no way to
+     ask "what is the bandit's posterior on each rule" without
+     parsing the 200-record ledger by hand.  The Bandit-posteriors
+     block runs the same replay
+     :meth:`AdaptiveMutationSampler.prime_from_ledger` runs, then
+     ranks by graded ``mean_reward`` so the operator can codify
+     winners (per §12.3 step 2) and deprioritize losers without
+     reaching for an editor.
+  3. **Is the inactivity relax knob doing anything?**  The 2026-05-30
+     ship persisted ``effective_eps_accept`` / ``iters_since_accept``
+     on every record but the summary never surfaced them — the
+     knob's effect was opaque without grepping the ledger.  The
+     Inactivity block now answers "how long was the longest drought"
+     and "did any accept fire on a relaxed threshold" in two lines.
+
+  Pairs naturally with the two open PRs (#255 ``--confirm-accepts``
+  for V2 §6.4, #256 ``--prime-include-archives`` for V2 §9.5 step 4):
+  both add new fields and record types the trend / posterior blocks
+  will surface for free once merged.  In particular, the
+  Bandit-posteriors block will pick up confirmed-accept records as
+  graded ``r ≥ 0.5`` evidence and the trend block will pick up the
+  ``LoopConfirmRecord`` count (a follow-up after #255 merges adds a
+  ``confirm`` column).
+
+* **Backwards compatibility** — strictly safe.  Three additive
+  sub-blocks rendered *after* the existing per-record sections so the
+  existing summary contract is preserved byte-for-byte on the
+  pre-trend lines.  All three blocks silently no-op on empty input;
+  the Inactivity block additionally no-ops on legacy ledgers
+  (pre-2026-05-30) that carry neither ``effective_eps_accept`` nor
+  ``iters_since_accept``.  The Bandit-posteriors block prints a
+  friendly note ("no rules with >= N informative attempts") rather
+  than an empty table when the threshold filters out every rule.
+  The three new CLI flags carry default values matching the §12.4
+  spec so existing invocations (``uv run python
+  scripts/self_improve.py summary``) produce a strict superset of the
+  pre-ship output without any flag changes.
+
+* **Tests** — 20 new tests in
+  ``tests/test_self_improve.py::TestSummaryTrendBlock``:
+
+  * **Run grouping** (4 tests): empty input → empty list; single run
+    in one bucket; iteration-reset boundary splits runs; two
+    consecutive ``iteration=0`` records correctly split into two
+    buckets.
+  * **Trend block** (3 tests): per-run row renders correct counts
+    (iters / decided / accepts / no-op / best Δ / seed score); runs
+    are rendered oldest-first so the operator scans top-to-bottom;
+    silent on empty input.
+  * **Bandit replay** (4 tests): no-op / skip / guard / hold-out
+    records are filtered out; graded ``bandit_reward`` propagates
+    correctly into ``mean_reward`` (and stays distinct from
+    ``accept_rate``); legacy records (no ``bandit_reward``) fall
+    back to the binary path matching
+    :meth:`prime_from_ledger`; structural ops (``add_heuristic`` for
+    different classes) collapse onto the single
+    ``("*", "add_heuristic", "structural")`` arm by default.
+  * **Bandit block rendering** (4 tests): orders by ``mean_reward``
+    descending so a high-reward rule appears above a low-reward one;
+    filters by ``min_attempts`` so sparse rules don't enter the
+    leaderboard; prints a friendly note when no rules clear the
+    threshold; silent on empty input.
+  * **Inactivity block** (4 tests): renders ``eps_accept_base`` /
+    ``longest_drought`` / ``relaxed_accepts`` / ``mean_decay_at_accept``
+    correctly; silent on legacy records (no relax fields); silent on
+    empty input; hides the ``mean_decay_at_accept`` clause when no
+    accept was relaxed.
+  * **End-to-end CLI smoke test** (1 test): two-run synthetic ledger
+    exercises ``_cmd_summary`` end-to-end and confirms all three new
+    sub-blocks appear and the per-run grouping is correct.
+
+  All 1504 prior project tests continue to pass (308 self-improve
+  tests, 1504 total); ruff format / check / pyright / 96 sphinx
+  doctests / flake8 E9/F63/F7/F82 all clean.
+
+* **Impact** — direct effect on §12.3 ("Daily routine") and the V2
+  §11 success criterion 4 ("Honesty: …every codify PR body carries
+  reproducible evidence").  An operator reading
+  ``planning/self_improve_summary.txt`` (the daily routine's primary
+  artifact) can now answer the three §12.3 questions ("is the loop
+  accepting?", "which arms pay off?", "is relax doing anything?") in
+  one screen of text — vs. a ledger-grep before the ship.  The
+  Bandit-posteriors block is the structural ingredient the *codify
+  PR* workflow (V2 §9.3) needs to identify candidate rules without
+  re-deriving the bandit state by hand each night.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §12.4 third bullet
+    ("Summary trend block") promoted from *Open* → *shipped* with a
+    pointer to this entry.
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    *Inactivity-relax telemetry in the summary view* backlog idea
+    collapsed to a one-paragraph shipped pointer.
+  - ``doc/source/guide.rst``: quick-nav entry mentions the §12.4
+    summary trend block + bandit posteriors + inactivity telemetry
+    ship.
+  - ``doc/source/guide_benchmarking.rst``: new "Summary trend block
+    (§12.4)" subsection in the self-improvement loop section.
+  - ``AGENTS.md``: self-improvement loop subsection references the
+    three new sub-blocks and the three new CLI flags.
+
+* **PR** — see this PR.  Pairs naturally with the still-open
+  ``--confirm-accepts`` (PR #255, V2 §6.4) and
+  ``--prime-include-archives`` (PR #256, V2 §9.5 step 4) work: the
+  trend / posterior blocks rendered here will pick up the new record
+  types and fields for free once those merge.  A follow-up ticket
+  ("Confirm column in the trend block") seeds the natural integration.
+
+* **Follow-ups** — speculative, none gated on this ship:
+
+  * Once PR #255 (``--confirm-accepts``) merges, extend the trend
+    block with a per-run ``confirmed`` count so the operator can see
+    the §6.4 confirmation gate's verdict at a glance.  Same shape:
+    one column, one ``sum(1 for r in run if r.get("confirmed"))``.
+  * Once PR #256 (``--prime-include-archives``) merges, extend
+    ``_replay_bandit_posteriors`` to walk archives in
+    ``planning/done/`` so the Bandit-posteriors block reflects the
+    same evidence the live bandit accumulates — currently it only
+    sees the live ledger.
+  * A ``--since`` / ``--last-n-runs`` filter on the summary CLI
+    would let an operator narrow the trend / posterior blocks to the
+    most recent K nights when the ledger spans many months.  Local
+    to the summary subparser; speculative until the ledger has
+    accumulated enough nights to make scroll-fatigue real.
+
 ### 2026-06-13 — Graded bandit reward shaping (V2 §7.4)
 
 * **What** — Five coordinated additions in
@@ -4778,29 +4984,16 @@ follow-ups:
   current uniform-over-four catalog and let the bandit's per-arm
   reward signal identify the winner online.
 
-#### Inactivity-relax telemetry in the summary view
+#### Inactivity-relax telemetry in the summary view — shipped 2026-06-16
 
-The 2026-05-30 ship persists ``effective_eps_accept`` and
-``iters_since_accept`` on every iteration record but the
-``scripts/self_improve.py summary`` view does not yet surface them.
-A small follow-up is to extend the summary to report:
-
-* The longest drought (max ``iters_since_accept`` across all records)
-  so an operator can see at a glance whether the loop is starving
-  the bandit.
-* How many accepts were *relaxed* — those whose
-  ``effective_eps_accept < eps_accept`` — and the average decay
-  factor at the moment of accept.  Tells the operator whether the
-  knob is fixing the productivity bottleneck the §13 entry
-  identified, or whether the relaxation is doing nothing because the
-  threshold was never reached.
-
-Implementation is local to ``_cmd_summary``: walk the iteration
-records once, accumulate the streak / relax statistics, render a new
-``Inactivity:`` block alongside the existing ``Accepts``, ``Guards``,
-``Hold-outs`` lines.  Safe under back-compat because the fields
-default to ``None`` on legacy records — the new block is suppressed
-when ``effective_eps_accept`` is ``None`` on all records.
+Shipped 2026-06-16 alongside the §12.4 *Summary trend block* (see the
+dated entry above).  ``scripts/self_improve.py summary`` now renders an
+``Inactivity:`` block surfacing the inferred ``eps_accept`` base (the
+maximum observed ``effective_eps_accept`` — relaxation only decreases
+the threshold), the longest drought (max ``iters_since_accept`` across
+all records), the relaxed-accept count, and the mean decay factor at
+the moment of accept.  Suppressed automatically on legacy ledgers
+whose iteration records carry neither field (pre-2026-05-30).
 
 #### Per-iteration re-sampled random PSO topology (stochastic-K) — shipped 2026-06-05
 

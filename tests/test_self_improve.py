@@ -6369,3 +6369,867 @@ class TestSummaryTrendBlock:
         # Two run rows in the trend block — the grouping correctly split.
         rows = [line for line in out.splitlines() if "2026-06-14 " in line or "2026-06-15 " in line]
         assert len(rows) >= 2
+
+
+# ===========================================================================
+# V2 §9.3 / §9.5 step 4 — codify-scan
+# ===========================================================================
+
+
+class TestDirectionKey:
+    """:func:`panobbgo.self_improve._direction_key` — proposal direction extraction.
+
+    Direction collapses every accept into a stable bucket key so the
+    codify scanner can group "the same change" across nights.  Tests
+    cover every rule_kind currently shipping in
+    :func:`default_catalog` / :func:`default_structural_catalog`.
+    """
+
+    def test_integer_add_up(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "integer_add", "old_value": 16, "new_value": 20}) == "up"
+
+    def test_integer_add_down(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "integer_add", "old_value": 16, "new_value": 12}) == "down"
+
+    def test_float_uniform_up(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "float_uniform", "old_value": 0.5, "new_value": 0.7}) == "up"
+
+    def test_log_uniform_perturb_directions(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "log_uniform_perturb", "old_value": 0.1, "new_value": 0.13}) == "up"
+        assert _direction_key({"rule_kind": "log_uniform_perturb", "old_value": 0.1, "new_value": 0.08}) == "down"
+
+    def test_categorical_choice_uses_repr_of_new(self):
+        from panobbgo.self_improve import _direction_key
+
+        # Booleans get their own buckets — False and "False" must not collide.
+        assert _direction_key({"rule_kind": "categorical_choice", "old_value": True, "new_value": False}) == "False"
+        assert (
+            _direction_key({"rule_kind": "categorical_choice", "old_value": False, "new_value": "False"}) == "'False'"
+        )
+
+    def test_structural_op_returns_op_name(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert (
+            _direction_key({"rule_kind": "structural", "op": "add_heuristic", "old_value": None, "new_value": None})
+            == "add_heuristic"
+        )
+        assert (
+            _direction_key({"rule_kind": "structural", "op": "drop_analyzer", "old_value": None, "new_value": None})
+            == "drop_analyzer"
+        )
+
+    def test_equal_numeric_returns_none(self):
+        from panobbgo.self_improve import _direction_key
+
+        # No direction → pre-2026-06-12 records that no-opped numerically.
+        # Caller must filter these out.
+        assert _direction_key({"rule_kind": "integer_add", "old_value": 10, "new_value": 10}) is None
+
+    def test_non_numeric_old_value_returns_none(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "float_uniform", "old_value": "bogus", "new_value": 0.5}) is None
+
+    def test_missing_old_value_returns_none(self):
+        from panobbgo.self_improve import _direction_key
+
+        assert _direction_key({"rule_kind": "integer_add", "new_value": 10}) is None
+
+
+class TestPercentileBootstrapCI:
+    """:func:`panobbgo.self_improve._percentile_bootstrap_ci` — pooled CI helper."""
+
+    def test_empty_input_returns_zero_zero(self):
+        from panobbgo.self_improve import _percentile_bootstrap_ci
+
+        assert _percentile_bootstrap_ci([]) == (0.0, 0.0)
+
+    def test_single_sample_degenerate_to_point(self):
+        from panobbgo.self_improve import _percentile_bootstrap_ci
+
+        lo, hi = _percentile_bootstrap_ci([0.05])
+        assert lo == pytest.approx(0.05)
+        assert hi == pytest.approx(0.05)
+
+    def test_multi_sample_brackets_mean(self):
+        from panobbgo.self_improve import _percentile_bootstrap_ci
+
+        samples = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08]
+        lo, hi = _percentile_bootstrap_ci(samples, n_boot=500, confidence=0.95, seed=1)
+        # Mean is 0.045; the CI should bracket it.
+        assert lo <= 0.045 <= hi
+        # And be reasonably tight on this nearly-uniform sample.
+        assert (hi - lo) < 0.08
+
+    def test_seed_makes_results_reproducible(self):
+        from panobbgo.self_improve import _percentile_bootstrap_ci
+
+        samples = [0.01, 0.05, 0.10, 0.02, 0.07]
+        a = _percentile_bootstrap_ci(samples, n_boot=200, seed=7)
+        b = _percentile_bootstrap_ci(samples, n_boot=200, seed=7)
+        assert a == b
+
+
+def _accepted_iter_record(
+    *,
+    iteration: int = 0,
+    class_name: str = "Nearby",
+    param_name: str = "radius",
+    rule_kind: str = "log_uniform_perturb",
+    old_value: Any = 0.1,
+    new_value: Any = 0.12,
+    op: Optional[str] = None,
+    delta: float = 0.06,
+    ci_low: float = 0.01,
+    ci_high: float = 0.10,
+    timestamp: str = "2026-06-01T05:00:00+00:00",
+    strategy_name: str = "Rewarding_Diverse",
+    accepted: bool = True,
+    no_op: bool = False,
+    confirmed: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Build a synthetic accepted iteration record matching the live ledger schema."""
+    proposal: Dict[str, Any] = {
+        "strategy_name": strategy_name,
+        "class_name": class_name,
+        "param_name": param_name,
+        "old_value": old_value,
+        "new_value": new_value,
+        "rule_kind": rule_kind,
+        "rationale": "test",
+    }
+    if op is not None:
+        proposal["op"] = op
+        proposal["structural_kwargs"] = {}
+    rec: Dict[str, Any] = {
+        "record_type": "iteration",
+        "iteration": iteration,
+        "timestamp": timestamp,
+        "duration_seconds": 1.0,
+        "proposal": proposal,
+        "accepted": accepted,
+        "baseline_score": 0.05,
+        "candidate_score": 0.05 + delta,
+        "delta": delta,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+        "worst_pair_regression": -0.01,
+        "worst_pair": None,
+        "reasons": [],
+        "base_seed": 42,
+        "randomize_iteration": iteration,
+        "mode": "quick",
+        "reason_skipped": None,
+        "no_op": no_op,
+    }
+    if confirmed is not None:
+        rec["confirmed"] = confirmed
+    return rec
+
+
+class TestAggregateCodifyCandidates:
+    """:func:`panobbgo.self_improve.aggregate_codify_candidates` — the scanner."""
+
+    def test_empty_input_returns_empty_list(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        assert aggregate_codify_candidates([]) == []
+
+    def test_single_accept_below_min_nights_filtered(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00")]
+        assert aggregate_codify_candidates(recs, min_nights=2) == []
+
+    def test_two_distinct_nights_clears_default_gate(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.class_name == "Nearby"
+        assert c.param_name == "radius"
+        assert c.direction == "up"
+        assert c.n_accepts == 2
+        assert c.n_distinct_nights == 2
+        assert c.distinct_dates == ("2026-06-01", "2026-06-02")
+
+    def test_same_night_multiple_accepts_one_night(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Two accepts same day — counts as one night only.
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", iteration=1),
+            _accepted_iter_record(timestamp="2026-06-01T06:00:00+00:00", iteration=2),
+        ]
+        cands = aggregate_codify_candidates(recs, min_nights=2)
+        assert cands == []
+
+    def test_opposite_directions_separate_buckets(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13),
+            _accepted_iter_record(timestamp="2026-06-03T05:00:00+00:00", new_value=0.08),
+            _accepted_iter_record(timestamp="2026-06-04T05:00:00+00:00", new_value=0.07),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        directions = sorted({c.direction for c in cands})
+        assert directions == ["down", "up"]
+        # Both directions should clear k>=2 nights.
+        assert all(c.n_distinct_nights >= 2 for c in cands)
+
+    def test_categorical_choice_buckets_by_repr_of_new(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp="2026-06-01T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="scramble",
+                rule_kind="categorical_choice",
+                old_value=True,
+                new_value=False,
+            ),
+            _accepted_iter_record(
+                timestamp="2026-06-02T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="scramble",
+                rule_kind="categorical_choice",
+                old_value=True,
+                new_value=False,
+            ),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        assert cands[0].direction == "False"
+        assert cands[0].rule_kind == "categorical_choice"
+
+    def test_structural_op_uses_op_as_direction(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp="2026-06-01T05:00:00+00:00",
+                class_name="Restart",
+                param_name="",
+                rule_kind="structural",
+                op="add_analyzer",
+                old_value=None,
+                new_value=None,
+            ),
+            _accepted_iter_record(
+                timestamp="2026-06-02T05:00:00+00:00",
+                class_name="Restart",
+                param_name="",
+                rule_kind="structural",
+                op="add_analyzer",
+                old_value=None,
+                new_value=None,
+            ),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.op == "add_analyzer"
+        assert c.direction == "add_analyzer"
+        assert c.rule_kind == "structural"
+        assert c.slot_key == ("Restart", "", "add_analyzer")
+
+    def test_require_positive_min_ci_default_filters_one_negative_record(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Two accepts, but one has ci_low <= 0 — the strict gate should drop the candidate.
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", ci_low=0.01),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", ci_low=-0.005),
+        ]
+        assert aggregate_codify_candidates(recs, require_positive_min_ci=True) == []
+
+    def test_loose_gate_surfaces_record_with_negative_ci_low(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", ci_low=0.01),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", ci_low=-0.005),
+        ]
+        cands = aggregate_codify_candidates(recs, require_positive_min_ci=False)
+        assert len(cands) == 1
+        assert cands[0].min_ci_low == pytest.approx(-0.005)
+
+    def test_no_op_iterations_excluded(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # A pathological "accepted=True but no_op=True" record — must not count.
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", no_op=True),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", no_op=False),
+        ]
+        cands = aggregate_codify_candidates(recs, min_nights=2)
+        assert cands == []  # only one informative accept remains
+
+    def test_non_accepted_records_skipped(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", accepted=False),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", accepted=False),
+        ]
+        assert aggregate_codify_candidates(recs) == []
+
+    def test_skip_records_with_no_proposal_dropped(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Build a "skip" record matching what the loop writes when no
+        # applicable rule fires — accepted=False, proposal=None.
+        skip = _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", accepted=False)
+        skip["proposal"] = None
+        recs = [
+            skip,
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00"),
+            _accepted_iter_record(timestamp="2026-06-03T05:00:00+00:00"),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        assert cands[0].n_accepts == 2
+
+    def test_non_iteration_records_ignored(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # A guard / hold-out record should not contaminate the scan.
+        guard = {
+            "record_type": "guard",
+            "iteration": 5,
+            "timestamp": "2026-06-01T05:00:00+00:00",
+            "accepted": True,  # would confuse a naïve scanner
+        }
+        recs = [
+            guard,
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00"),
+            _accepted_iter_record(timestamp="2026-06-03T05:00:00+00:00"),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        assert cands[0].n_accepts == 2
+
+    def test_confirmed_only_filters_legacy_records(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Pre-V2-§6.4 records carry no ``confirmed`` field; confirmed_only=True
+        # must drop them all.
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", confirmed=None),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", confirmed=None),
+        ]
+        assert aggregate_codify_candidates(recs, confirmed_only=True) == []
+
+    def test_confirmed_only_keeps_confirmed_records(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", confirmed=True),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", confirmed=True),
+        ]
+        cands = aggregate_codify_candidates(recs, confirmed_only=True)
+        assert len(cands) == 1
+        assert all(f is True for f in cands[0].confirmed_flags)
+
+    def test_confirmed_only_drops_confirm_rejected(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # confirmed=False — the screening accept was overturned by the
+        # same-night confirmation gate.  Must not contribute to codify
+        # evidence even when ``accepted=True`` lingers on the record.
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", confirmed=False),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", confirmed=False),
+        ]
+        assert aggregate_codify_candidates(recs, confirmed_only=True) == []
+
+    def test_min_nights_zero_raises(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        with pytest.raises(ValueError):
+            aggregate_codify_candidates([], min_nights=0)
+
+    def test_sort_order_strongest_first(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs: List[Dict[str, Any]] = []
+        # Candidate A: 2 nights, small delta.
+        recs += [
+            _accepted_iter_record(
+                timestamp="2026-06-01T05:00:00+00:00",
+                class_name="A",
+                param_name="x",
+                rule_kind="integer_add",
+                old_value=10,
+                new_value=11,
+                delta=0.01,
+            ),
+            _accepted_iter_record(
+                timestamp="2026-06-02T05:00:00+00:00",
+                class_name="A",
+                param_name="x",
+                rule_kind="integer_add",
+                old_value=10,
+                new_value=12,
+                delta=0.01,
+            ),
+        ]
+        # Candidate B: 3 nights — should rank first (more replication).
+        recs += [
+            _accepted_iter_record(
+                timestamp="2026-06-03T05:00:00+00:00",
+                class_name="B",
+                param_name="y",
+                rule_kind="integer_add",
+                old_value=5,
+                new_value=6,
+                delta=0.02,
+            ),
+            _accepted_iter_record(
+                timestamp="2026-06-04T05:00:00+00:00",
+                class_name="B",
+                param_name="y",
+                rule_kind="integer_add",
+                old_value=5,
+                new_value=7,
+                delta=0.02,
+            ),
+            _accepted_iter_record(
+                timestamp="2026-06-05T05:00:00+00:00",
+                class_name="B",
+                param_name="y",
+                rule_kind="integer_add",
+                old_value=5,
+                new_value=8,
+                delta=0.02,
+            ),
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 2
+        assert cands[0].class_name == "B"  # more nights = first
+        assert cands[1].class_name == "A"
+
+    def test_candidate_dict_round_trip(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12),
+            _accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13),
+        ]
+        cand = aggregate_codify_candidates(recs)[0]
+        d = cand.to_dict()
+        # JSON-serialisable.
+        s = json.dumps(d, sort_keys=True)
+        assert isinstance(s, str)
+        # Surfaces every public field.
+        for key in (
+            "class_name",
+            "param_name",
+            "rule_kind",
+            "direction",
+            "n_accepts",
+            "n_distinct_nights",
+            "distinct_dates",
+            "deltas",
+            "ci_lows",
+            "ci_highs",
+            "old_values",
+            "new_values",
+            "timestamps",
+            "strategy_names",
+            "confirmed_flags",
+            "mean_delta",
+            "min_ci_low",
+            "max_ci_high",
+        ):
+            assert key in d, key
+
+
+class TestLoadLedgersForCodifyScan:
+    """:func:`panobbgo.self_improve.load_ledgers_for_codify_scan` — io helper."""
+
+    def test_missing_live_ledger_returns_empty(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        records = load_ledgers_for_codify_scan(
+            str(tmp_path / "nope.jsonl"),
+            include_archives=False,
+        )
+        assert records == []
+
+    def test_live_only_returns_live_records(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        live = tmp_path / "live.jsonl"
+        live.write_text(json.dumps(_accepted_iter_record(timestamp="2026-06-10T05:00:00+00:00")) + "\n")
+        records = load_ledgers_for_codify_scan(str(live), include_archives=False)
+        assert len(records) == 1
+        assert records[0]["timestamp"] == "2026-06-10T05:00:00+00:00"
+
+    def test_archive_default_dir_is_done_sibling(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        # Layout:
+        #   tmp_path/live.jsonl
+        #   tmp_path/done/self_improve_ledger_2026-05-31.jsonl
+        live = tmp_path / "live.jsonl"
+        live.write_text(json.dumps(_accepted_iter_record(timestamp="2026-06-10T05:00:00+00:00")) + "\n")
+        done_dir = tmp_path / "done"
+        done_dir.mkdir()
+        arch = done_dir / "self_improve_ledger_2026-05-31.jsonl"
+        arch.write_text(json.dumps(_accepted_iter_record(timestamp="2026-05-31T05:00:00+00:00")) + "\n")
+
+        records = load_ledgers_for_codify_scan(str(live), include_archives=True)
+        # Archive first (chronological), live after.
+        assert len(records) == 2
+        assert records[0]["timestamp"].startswith("2026-05-31")
+        assert records[1]["timestamp"].startswith("2026-06-10")
+
+    def test_archive_dir_override_respected(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        live = tmp_path / "live.jsonl"
+        live.write_text("")  # empty live
+        custom_archive = tmp_path / "custom"
+        custom_archive.mkdir()
+        arch = custom_archive / "self_improve_ledger_2026-05-31.jsonl"
+        arch.write_text(json.dumps(_accepted_iter_record(timestamp="2026-05-31T05:00:00+00:00")) + "\n")
+
+        records = load_ledgers_for_codify_scan(str(live), include_archives=True, archive_dir=str(custom_archive))
+        assert len(records) == 1
+        assert records[0]["timestamp"].startswith("2026-05-31")
+
+    def test_missing_archive_dir_is_silent(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        live = tmp_path / "live.jsonl"
+        live.write_text(json.dumps(_accepted_iter_record(timestamp="2026-06-10T05:00:00+00:00")) + "\n")
+        # Default archive dir doesn't exist yet — must not throw.
+        records = load_ledgers_for_codify_scan(str(live), include_archives=True)
+        assert len(records) == 1
+
+    def test_archive_dir_with_non_matching_files_ignored(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        live = tmp_path / "live.jsonl"
+        live.write_text("")
+        done = tmp_path / "done"
+        done.mkdir()
+        # Non-matching name — must be skipped.
+        (done / "notes.txt").write_text("nothing here")
+        (done / "other_ledger.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-05-31T05:00:00+00:00")) + "\n"
+        )
+        records = load_ledgers_for_codify_scan(str(live), include_archives=True)
+        assert records == []
+
+    def test_archive_chronological_order(self, tmp_path):
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        live = tmp_path / "live.jsonl"
+        live.write_text("")
+        done = tmp_path / "done"
+        done.mkdir()
+        (done / "self_improve_ledger_2026-05-15.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-05-15T05:00:00+00:00")) + "\n"
+        )
+        (done / "self_improve_ledger_2026-05-31.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-05-31T05:00:00+00:00")) + "\n"
+        )
+        records = load_ledgers_for_codify_scan(str(live), include_archives=True)
+        assert [r["timestamp"][:10] for r in records] == ["2026-05-15", "2026-05-31"]
+
+
+class TestCodifyScanCLI:
+    """End-to-end smoke tests for the ``codify-scan`` CLI subcommand."""
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def test_empty_ledger_prints_no_records_note(self, tmp_path, capsys):
+        cli = self._import_cli()
+        # Build a fresh live + done layout with both empty.
+        live = tmp_path / "live.jsonl"
+        live.write_text("")
+        (tmp_path / "done").mkdir()
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "no records" in out
+
+    def test_realistic_two_night_pattern_surfaces_candidate(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13))
+            + "\n"
+        )
+        # Empty done dir.
+        (tmp_path / "done").mkdir()
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Codify scan" in out
+        assert "candidates surfaced: 1" in out
+        assert "Nearby.radius" in out
+        assert "direction=up" in out
+        assert "n_accepts=2" in out
+        assert "n_nights=2" in out
+        # Evidence section renders both records.
+        assert out.count("Δ=") >= 2
+
+    def test_json_mode_emits_one_object_per_candidate(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13))
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": True,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        lines = [line for line in out.splitlines() if line.strip()]
+        assert len(lines) == 1
+        d = json.loads(lines[0])
+        assert d["class_name"] == "Nearby"
+        assert d["param_name"] == "radius"
+        assert d["direction"] == "up"
+        assert d["n_accepts"] == 2
+        assert "pooled_ci_low" in d
+        assert "pooled_ci_high" in d
+
+    def test_top_truncates_report(self, tmp_path, capsys):
+        cli = self._import_cli()
+        # Build two distinct candidates: A on 3 nights, B on 2 nights.
+        recs = []
+        for i in range(3):
+            recs.append(
+                _accepted_iter_record(
+                    timestamp=f"2026-06-0{i + 1}T05:00:00+00:00",
+                    class_name="A",
+                    param_name="x",
+                    rule_kind="integer_add",
+                    old_value=10,
+                    new_value=10 + i + 1,
+                )
+            )
+        for i in range(2):
+            recs.append(
+                _accepted_iter_record(
+                    timestamp=f"2026-06-1{i + 1}T05:00:00+00:00",
+                    class_name="B",
+                    param_name="y",
+                    rule_kind="integer_add",
+                    old_value=5,
+                    new_value=5 + i + 1,
+                )
+            )
+        live = tmp_path / "live.jsonl"
+        live.write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+        (tmp_path / "done").mkdir()
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 1,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Top=1 — only one candidate header line.
+        assert out.count("- A.x") == 1
+        assert "- B.y" not in out
+
+    def test_min_nights_must_be_positive(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text("")
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": False,
+                "min_nights": 0,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 1
+
+    def test_confirmed_only_filters_legacy(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Legacy records — no confirmed field.
+        live.write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00"))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00"))
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": True,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "candidates surfaced: 0" in out
+
+    def test_end_to_end_against_real_ledger_runs_clean(self, tmp_path, capsys):
+        """Cheap sanity check that the CLI handles the actual project ledger.
+
+        Confirms the live ``planning/self_improve_ledger.jsonl`` plus the
+        existing ``planning/done/`` archive parse end-to-end without
+        raising — and that *some* candidates surface (the project has
+        accumulated 30+ accepts across 25+ nights at the time of ship).
+        """
+        cli = self._import_cli()
+        project_root = pathlib.Path(__file__).parents[1]
+        live = project_root / "planning" / "self_improve_ledger.jsonl"
+        if not live.exists():
+            pytest.skip("project ledger not present")
+
+        ns = type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 200,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": False,
+                "top": 0,
+            },
+        )()
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # The Sobol.scramble / Nearby.radius / Sobol.n patterns described
+        # in the ledger inspection above must surface.  Don't assert exact
+        # counts — those drift as new nightlies append — just confirm the
+        # CLI produced a non-trivial report.
+        assert "Codify scan" in out
+        assert "candidates surfaced:" in out

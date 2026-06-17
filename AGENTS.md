@@ -516,6 +516,28 @@ The harness is the measurement substrate for an autonomous
     ledgers (pre-2026-05-30) that carry neither
     `effective_eps_accept` nor `iters_since_accept`.  See the
     2026-06-16 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **Cross-night codify-scan (§9.3 / §9.5 step 4)** —
+    **shipped 2026-06-17**.  The §11 V2 success criteria are gated on
+    *codify PRs* (criterion 2: ≥3 opened, ≥2 merged) — durable
+    improvement happens only through codification (§12.2).  The new
+    `scripts/self_improve.py codify-scan` subcommand reads
+    `planning/self_improve_ledger.jsonl` plus every
+    `planning/done/self_improve_ledger_*.jsonl` archive and groups
+    every accepted iteration by `(class_name, param_name, direction)` —
+    where `direction` is `"up"` / `"down"` for numeric rules,
+    `repr(new_value)` for `categorical_choice`, and the op name for
+    structural ops.  Groups with at least `--min-nights` (default `2`)
+    distinct accept dates and every contributing record's `ci_low > 0`
+    are surfaced as `panobbgo.self_improve.CodifyCandidate` objects
+    sorted by `(n_distinct_nights, mean_delta, n_accepts)`.  The
+    report carries pooled point-delta CI (percentile bootstrap), the
+    per-record evidence with `Δ` / `CI` / `old -> new`, and the
+    `slot_key` tuple a future `--open-pr` driver will dedup against
+    `gh pr list --state open`.  `--confirmed-only` restricts to
+    post-V2-§6.4 records; `--json` emits one
+    `CodifyCandidate.to_dict()` JSON per line; `--top N` truncates
+    the report.  Closes the detection half of V2 §9.5 step 4.  See
+    the 2026-06-17 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 
@@ -611,6 +633,21 @@ uv run python scripts/self_improve.py summary
 # evidence each:
 uv run python scripts/self_improve.py summary \
     --top-n 20 --bottom-n 10 --min-attempts 5
+
+# Scan ledger + archives for cross-night codify candidates (V2 §9.3 /
+# §9.5 step 4 — shipped 2026-06-17).  Groups every accepted iteration
+# by (class, param, direction) and surfaces those that fire on at least
+# --min-nights distinct accept dates with every contributing record's
+# CI lower bound > 0.  These are the suggestions the §12.3 daily
+# routine should consider codifying into seed defaults via a PR.
+uv run python scripts/self_improve.py codify-scan
+
+# JSON output for an external dashboard / scripted PR generation:
+uv run python scripts/self_improve.py codify-scan --json --top 5
+
+# Strict mode (once V2 §6.4 confirmation gate ships): require the
+# `confirmed=True` field on every contributing record.
+uv run python scripts/self_improve.py codify-scan --confirmed-only
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

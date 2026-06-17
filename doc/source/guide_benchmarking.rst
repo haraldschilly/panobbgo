@@ -868,6 +868,78 @@ every rule out.  See the 2026-06-16 entry in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the rationale and the test
 plan.
 
+Cross-night codify-scan (§9.3 / §9.5 step 4)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The §11 V2 success criteria are gated on **codify PRs** — the
+persistence mechanism by which short-lived in-memory ladder accepts
+translate into durable changes to ``panobbgo/`` defaults that survive
+into the next night's seed measurement (§12.2: "the cron never commits
+changes under ``panobbgo/``; durable improvement happens only through
+codification").  The §9.3 stage of the V2 pipeline turns the live
+ledger plus the rotated archives in ``planning/done/`` into a
+candidate set of "tune this default" suggestions the operator (or a
+future ``--open-pr`` driver) can act on.
+
+``scripts/self_improve.py codify-scan`` ships the detection side of
+that stage::
+
+    uv run python scripts/self_improve.py codify-scan
+
+The scanner groups every accepted iteration record by ``(class_name,
+param_name, direction)`` — where ``direction`` is ``"up"`` / ``"down"``
+for numeric rules, ``repr(new_value)`` for ``categorical_choice`` rules
+(so ``Sobol.scramble=False`` is a separate candidate from
+``Sobol.scramble=True``), and the op name for structural ops
+(``add_heuristic`` / ``drop_heuristic`` / ``add_analyzer`` /
+``drop_analyzer``).  Groups are surfaced when:
+
+* They have at least ``--min-nights`` (default ``2``) distinct accept
+  dates (``YYYY-MM-DD`` truncated from the iteration timestamp), and
+* By default, every contributing record's per-record ``ci_low`` is
+  strictly positive — every accept cleared its own screening
+  statistical-accept gate, so the pooled signal cannot be a single
+  lucky-CI spike.  Disable with ``--no-require-positive-min-ci`` to
+  surface weakly-suggestive evidence too.
+
+Each candidate's report carries the pooled point-delta CI (percentile
+bootstrap on the per-record deltas), the strongest evidence first
+(``(n_distinct_nights desc, mean_delta desc, n_accepts desc)``)::
+
+    - Nearby.radius [log_uniform_perturb] direction=up
+        n_accepts=7  n_nights=6  mean_Δ=+0.0566  pooled_CI95%=[+0.0424,+0.0721] …
+        nights: 2026-05-26, 2026-05-28, 2026-05-31, 2026-06-04, 2026-06-10, 2026-06-15
+        strategies: Rewarding_Diverse
+        evidence:
+          2026-05-26 06:43:37  Δ=+0.0561  CI=[+0.0039,+0.1233]  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.100885
+          …
+
+Pass ``--confirmed-only`` to restrict the input to records carrying
+``confirmed=True`` (the V2 §6.4 same-night confirmation gate's ledger
+field).  On pre-§6.4 ledgers (the current archive) every record is
+treated as legacy evidence; once the confirmation gate ships and the
+field is populated, ``--confirmed-only`` will become the recommended
+default for an operator opening a codify PR.
+
+``--json`` emits one ``CodifyCandidate.to_dict()`` JSON object per
+line for external dashboards or scripted PR generation; ``--top N``
+limits the report to the strongest N candidates so a daily routine
+can spotlight the highest-conviction codifications.
+
+The scanner's library functions
+(:class:`panobbgo.self_improve.CodifyCandidate`,
+:func:`panobbgo.self_improve.aggregate_codify_candidates`,
+:func:`panobbgo.self_improve.load_ledgers_for_codify_scan`) are
+public so a follow-up ``--open-pr`` driver can reuse the same
+detection — the slot identifier
+:attr:`CodifyCandidate.slot_key` is the ``(class, param, op)`` tuple
+the §12.3 deduplication rule should consult against
+``gh pr list --state open``.
+
+See the 2026-06-17 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
+the design rationale and the dated entry's "Follow-up ideas" section
+for the queued ``--open-pr`` work.
+
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

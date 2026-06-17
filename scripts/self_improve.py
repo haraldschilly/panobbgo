@@ -37,6 +37,19 @@ Two subcommands:
 
         uv run python scripts/self_improve.py summary
 
+``codify-scan``
+    Scan the live ledger + ``planning/done/`` archives for accepted
+    mutations that fire directionally on at least ``--min-nights``
+    distinct dates (default ``2``).  Surfaces the candidate set the
+    daily routine should consider codifying into seed defaults
+    (V2 §9.3 / §9.5 step 4 of the plan)::
+
+        uv run python scripts/self_improve.py codify-scan
+        # JSON output for an external tool / dashboard:
+        uv run python scripts/self_improve.py codify-scan --json
+        # Strict mode: only ``confirmed=True`` records (post V2 §6.4 ship):
+        uv run python scripts/self_improve.py codify-scan --confirmed-only
+
 ``--adaptive``
     Enable Thompson-sampling adaptive mutation sampler (§10 of the
     plan).  The loop maintains a Beta posterior per rule and biases
@@ -544,6 +557,100 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     sum_p.set_defaults(func=_cmd_summary)
+
+    scan_p = sub.add_parser(
+        "codify-scan",
+        help="Scan ledger + archives for cross-night codify candidates",
+    )
+    scan_p.add_argument(
+        "--ledger",
+        default="planning/self_improve_ledger.jsonl",
+        help="Path to the live ledger (default: planning/self_improve_ledger.jsonl)",
+    )
+    scan_p.add_argument(
+        "--archive-dir",
+        default=None,
+        help=("Directory of rotated ledger archives (default: <ledger parent>/done — typically planning/done/)"),
+    )
+    scan_p.add_argument(
+        "--no-include-archives",
+        dest="include_archives",
+        action="store_false",
+        help=(
+            "Skip the archive directory entirely (live ledger only).  By "
+            "default the scan pools archive evidence in chronological order "
+            "before the live ledger so cross-night signal accumulates "
+            "across nightly rotations."
+        ),
+    )
+    scan_p.set_defaults(include_archives=True)
+    scan_p.add_argument(
+        "--min-nights",
+        type=int,
+        default=2,
+        help=(
+            "Minimum number of distinct accept dates a candidate must "
+            "carry to be surfaced (default: 2, matching §9.3 'k>=2 "
+            "confirmed accepts on distinct nights')."
+        ),
+    )
+    scan_p.add_argument(
+        "--no-require-positive-min-ci",
+        dest="require_positive_min_ci",
+        action="store_false",
+        help=(
+            "Surface candidates even when at least one contributing "
+            "record's ci_low fell <= 0.  Default behaviour requires every "
+            "contributing accept to have cleared its own per-record "
+            "statistical-accept gate (the screening bootstrap CI > 0)."
+        ),
+    )
+    scan_p.set_defaults(require_positive_min_ci=True)
+    scan_p.add_argument(
+        "--confirmed-only",
+        action="store_true",
+        help=(
+            "Restrict the input to iteration records carrying "
+            "confirmed=True (V2 §6.4 confirmation gate, PR #255).  "
+            "Default off so scans against pre-§6.4 ledgers still "
+            "produce evidence."
+        ),
+    )
+    scan_p.add_argument(
+        "--pooled-ci-n-boot",
+        type=int,
+        default=2000,
+        help="Bootstrap resamples for the pooled per-record delta CI (default: 2000).",
+    )
+    scan_p.add_argument(
+        "--pooled-ci-confidence",
+        type=float,
+        default=0.95,
+        help="Two-sided confidence level for the pooled CI (default: 0.95).",
+    )
+    scan_p.add_argument(
+        "--pooled-ci-seed",
+        type=int,
+        default=42,
+        help="RNG seed for the pooled bootstrap CI (default: 42).",
+    )
+    scan_p.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="Emit one JSON object per candidate instead of the text report.",
+    )
+    scan_p.add_argument(
+        "--top",
+        type=int,
+        default=0,
+        help=(
+            "Limit the report to the top N candidates by "
+            "(n_distinct_nights, mean_delta, n_accepts).  0 (default) "
+            "prints every candidate that clears the gates."
+        ),
+    )
+    scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
 
@@ -1153,6 +1260,177 @@ def _cmd_summary(args: argparse.Namespace) -> int:
         min_attempts=int(getattr(args, "min_attempts", 3)),
     )
     _print_inactivity_block(iter_records)
+    return 0
+
+
+def _format_old_new(old: Any, new: Any) -> str:
+    """Compact ``old -> new`` representation for the codify-scan report.
+
+    Floats round to 6 significant digits so ``log_uniform_perturb``
+    micro-perturbations (e.g. ``0.10088523662787297``) don't dominate
+    the line.  Booleans / strings round-trip via ``repr`` so the report
+    reads ``True -> False`` rather than ``True -> False``.
+    """
+
+    def _fmt(v: Any) -> str:
+        if isinstance(v, bool):
+            return repr(v)
+        if isinstance(v, float):
+            return f"{v:.6g}"
+        return repr(v)
+
+    return f"{_fmt(old)} -> {_fmt(new)}"
+
+
+def _print_codify_candidate(
+    cand: Any,
+    *,
+    pooled_ci_n_boot: int,
+    pooled_ci_confidence: float,
+    pooled_ci_seed: int,
+) -> None:
+    """Render one :class:`CodifyCandidate` as a human-readable block.
+
+    Format chosen so an operator reading
+    ``planning/self_improve_summary.txt`` after a nightly run can
+    triage candidates without reaching for the ledger: lead with the
+    slot identifier, pooled stats next, then a compact evidence list.
+    """
+    op_label = f" op={cand.op}" if cand.op else ""
+    slot = f"{cand.class_name}.{cand.param_name}" if cand.param_name else cand.class_name
+    print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}")
+    ci_low, ci_high = cand.pooled_bootstrap_ci(
+        n_boot=pooled_ci_n_boot,
+        confidence=pooled_ci_confidence,
+        seed=pooled_ci_seed,
+    )
+    n_confirmed = sum(1 for f in cand.confirmed_flags if f is True)
+    n_unconfirmed = sum(1 for f in cand.confirmed_flags if f is None)
+    conf_note = ""
+    if n_confirmed:
+        conf_note = f"  confirmed={n_confirmed}/{cand.n_accepts}"
+    elif n_unconfirmed == cand.n_accepts:
+        conf_note = "  (legacy: no confirmation gate)"
+    print(
+        f"    n_accepts={cand.n_accepts}  n_nights={cand.n_distinct_nights}  "
+        f"mean_Δ={cand.mean_delta:+.4f}  pooled_CI{int(pooled_ci_confidence * 100)}%="
+        f"[{ci_low:+.4f},{ci_high:+.4f}]  min_record_ci_low={cand.min_ci_low:+.4f}" + conf_note
+    )
+    dates_str = ", ".join(cand.distinct_dates)
+    print(f"    nights: {dates_str}")
+    strategies = sorted(set(cand.strategy_names))
+    if strategies:
+        print(f"    strategies: {', '.join(strategies)}")
+    print("    evidence:")
+    for i in range(cand.n_accepts):
+        ts = cand.timestamps[i][:19].replace("T", " ")
+        old_new = _format_old_new(cand.old_values[i], cand.new_values[i])
+        confirmed_marker = ""
+        if cand.confirmed_flags[i] is True:
+            confirmed_marker = "  [confirmed]"
+        elif cand.confirmed_flags[i] is False:
+            confirmed_marker = "  [confirm-rejected]"
+        print(
+            f"      {ts}  Δ={cand.deltas[i]:+.4f}  CI=[{cand.ci_lows[i]:+.4f},"
+            f"{cand.ci_highs[i]:+.4f}]  {cand.strategy_names[i]}/"
+            f"{cand.class_name}.{cand.param_name}: {old_new}{confirmed_marker}"
+        )
+
+
+def _cmd_codify_scan(args: argparse.Namespace) -> int:
+    """V2 §9.3 / §9.5 step 4 — scan ledger + archives for codify candidates.
+
+    Reads ``--ledger`` plus (by default) every archive under
+    ``--archive-dir``, groups accepted iteration records by
+    ``(class, param, direction)`` (or ``(op, class)`` for structural
+    ops), and surfaces every group with at least ``--min-nights``
+    distinct accept dates.  Each candidate is a *suggestion* — the
+    operator (or a future ``--open-pr`` follow-up) translates "the
+    bandit raised ``Nearby.radius`` on N distinct nights" into a
+    concrete source edit.
+    """
+    import json as _json
+
+    from panobbgo.self_improve import (
+        aggregate_codify_candidates,
+        load_ledgers_for_codify_scan,
+    )
+
+    if args.min_nights < 1:
+        print(f"Error: --min-nights must be >= 1, got {args.min_nights}", file=sys.stderr)
+        return 1
+
+    ledger_path = pathlib.Path(args.ledger)
+    if not ledger_path.exists():
+        # Match _cmd_summary's behaviour: missing live ledger is an
+        # error, but the scanner can still draw on archives — surface
+        # both signals so the operator can correct the path.
+        print(f"Note: live ledger not found: {ledger_path}", file=sys.stderr)
+
+    records = load_ledgers_for_codify_scan(
+        str(ledger_path),
+        include_archives=args.include_archives,
+        archive_dir=args.archive_dir,
+    )
+    if not records:
+        print(
+            f"(no records found — checked ledger={ledger_path}"
+            + (f", archive_dir={args.archive_dir or 'default'}" if args.include_archives else "")
+            + ")"
+        )
+        return 0
+
+    candidates = aggregate_codify_candidates(
+        records,
+        min_nights=args.min_nights,
+        require_positive_min_ci=args.require_positive_min_ci,
+        confirmed_only=args.confirmed_only,
+    )
+
+    if args.top > 0:
+        candidates = candidates[: args.top]
+
+    if args.as_json:
+        for cand in candidates:
+            d = cand.to_dict()
+            ci_low, ci_high = cand.pooled_bootstrap_ci(
+                n_boot=args.pooled_ci_n_boot,
+                confidence=args.pooled_ci_confidence,
+                seed=args.pooled_ci_seed,
+            )
+            d["pooled_ci_low"] = ci_low
+            d["pooled_ci_high"] = ci_high
+            d["pooled_ci_confidence"] = args.pooled_ci_confidence
+            print(_json.dumps(d, sort_keys=True))
+        return 0
+
+    # Human-readable report.
+    src_note = f"live={ledger_path}"
+    if args.include_archives:
+        src_note += f"  archives={args.archive_dir or '<ledger parent>/done'}"
+    gates: List[str] = [f"min_nights>={args.min_nights}"]
+    if args.require_positive_min_ci:
+        gates.append("all_record_ci_low>0")
+    else:
+        gates.append("any_record_ci_low")
+    if args.confirmed_only:
+        gates.append("confirmed_only")
+    print(f"Codify scan ({src_note})")
+    print(f"  gates: {', '.join(gates)}")
+    print(f"  records scanned: {len(records)}")
+    print(f"  candidates surfaced: {len(candidates)}")
+    if not candidates:
+        print("  (no group cleared the gates)")
+        return 0
+    print()
+    for cand in candidates:
+        _print_codify_candidate(
+            cand,
+            pooled_ci_n_boot=args.pooled_ci_n_boot,
+            pooled_ci_confidence=args.pooled_ci_confidence,
+            pooled_ci_seed=args.pooled_ci_seed,
+        )
+        print()
     return 0
 
 

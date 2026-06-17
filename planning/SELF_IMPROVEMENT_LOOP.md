@@ -261,20 +261,39 @@ Spend ~60 of the 90 minutes — V1 used ~5.
 before recording.  Guard keeps running as a backstop
 (`--guard-interval 10`).
 
-### 9.3 Stage 3 — Cross-night codification [open]
+### 9.3 Stage 3 — Cross-night codification [detection shipped 2026-06-17, --open-pr still open]
 
-`scripts/self_improve.py codify-scan --open-pr`:
+`scripts/self_improve.py codify-scan` (detection): **shipped
+2026-06-17** — the scanner reads the live ledger plus every archive
+under `planning/done/`, groups every accepted iteration by
+`(class_name, param_name, direction)` (numeric: `"up"` / `"down"`;
+categorical: `repr(new_value)`; structural: the op name), and
+surfaces every group with at least `--min-nights` (default `2`)
+distinct accept dates **and** every contributing record's `ci_low > 0`
+(toggle with `--no-require-positive-min-ci`).  Each candidate carries
+a pooled point-delta CI (percentile bootstrap on the per-record
+deltas), the per-record evidence, and the
+:attr:`panobbgo.self_improve.CodifyCandidate.slot_key` tuple a
+follow-up `--open-pr` driver will dedup against `gh pr list --state
+open`.  Public library API:
+:class:`panobbgo.self_improve.CodifyCandidate`,
+:func:`panobbgo.self_improve.aggregate_codify_candidates`,
+:func:`panobbgo.self_improve.load_ledgers_for_codify_scan`.
+`--confirmed-only` restricts to post-V2-§6.4 records; `--json`
+emits one `to_dict()` JSON per line; `--top N` truncates.  See the
+2026-06-17 entry in `SELF_IMPROVEMENT_LOG.md`.
 
-- Scan the live ledger **plus archives in `planning/done/`** for
-  directionally consistent confirmed accepts: same
-  `(class, param, direction)` or structural arm, `k ≥ 2` confirmed
-  accepts on distinct nights, pooled CI > 0.
+`scripts/self_improve.py codify-scan --open-pr` (still open) is the
+follow-up that translates each surfaced candidate into a concrete
+source edit + PR:
+
 - For each hit, open **one** codify PR editing the seed spec /
   constructor default, with the ledger evidence
   (`base_seed`, `randomize_iteration`, iterations, deltas, CIs) in the
   PR body.  Dedup first: `gh pr list --state open` — skip if a codify
   PR for the same `(class, param)` exists (§12.3 step 0 lesson,
-  enforced in code).
+  enforced in code via the
+  :attr:`CodifyCandidate.slot_key` tuple).
 - **Merged codify PRs are the persistence mechanism**: the next night
   reads the improved defaults from source.  No in-memory ladder
   serialization needed.
@@ -314,7 +333,11 @@ file stands.
    in `SELF_IMPROVEMENT_LOG.md`.  Only ``--confirm-accepts`` (§6.4) is
    still open in this step.
 4. `codify-scan --open-pr` + `--prime-include-archives` +
-   vacuous-holdout fix + summary trend block.
+   vacuous-holdout fix + summary trend block.  *Detection half of
+   `codify-scan` shipped 2026-06-17 (no `--open-pr` yet — that's the
+   queued follow-up); vacuous-holdout fix shipped 2026-06-11; summary
+   trend block shipped 2026-06-16; `--prime-include-archives` open
+   in PR #256.*
 5. Flip the workflow to §9.4; enforce the catalog freeze (§7.3).
 
 ## 10. Open questions / known constraints

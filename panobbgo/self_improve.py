@@ -4396,6 +4396,436 @@ def load_ledger(path: str) -> List[Dict[str, Any]]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
+# ---------------------------------------------------------------------------
+# Codify-scan (§9.3 / §9.5 step 4)
+# ---------------------------------------------------------------------------
+
+
+def _direction_key(proposal: Dict[str, Any]) -> Optional[str]:
+    """Compute the *direction* of an accepted mutation proposal.
+
+    The direction collapses every accepted iteration record into a stable
+    bucket identifier so the scanner can group "the same change" across
+    nights.  For numeric kwarg rules this is just the sign of
+    ``(new - old)`` — ``"up"`` if the bandit raised the value,
+    ``"down"`` if it lowered it.  For categorical rules each *chosen
+    value* gets its own bucket (so ``Sobol.scramble=False`` is a distinct
+    candidate from ``Sobol.scramble=True``).  For structural ops the
+    operation itself is the direction (``"add_heuristic"`` /
+    ``"drop_heuristic"`` / ``"add_analyzer"`` / ``"drop_analyzer"``).
+
+    Returns ``None`` when the proposal carries no informative direction
+    (delta exactly zero on a numeric rule — rare with current catalogs
+    but possible on pathological no-op proposals; the post-2026-06-12
+    no-op detector filters these out earlier anyway).
+    """
+    op = proposal.get("op")
+    if op:
+        return str(op)
+    rule_kind = str(proposal.get("rule_kind", ""))
+    new_value = proposal.get("new_value")
+    if rule_kind == "categorical_choice":
+        # ``repr`` so booleans and strings each get their own bucket and
+        # ``True`` / ``False`` cannot collide with ``"True"`` / ``"False"``.
+        return repr(new_value)
+    old_value = proposal.get("old_value")
+    try:
+        old_f = float(old_value) if old_value is not None else None
+        new_f = float(new_value) if new_value is not None else None
+    except (TypeError, ValueError):
+        return None
+    if old_f is None or new_f is None:
+        return None
+    if new_f > old_f:
+        return "up"
+    if new_f < old_f:
+        return "down"
+    return None
+
+
+def _date_from_timestamp(ts: Any) -> str:
+    """Extract the ``YYYY-MM-DD`` date prefix from an ISO 8601 timestamp.
+
+    The ledger writes ISO 8601 timestamps with a UTC offset
+    (``"2026-06-06T06:26:46.485238+00:00"``); the first 10 characters
+    are the date.  Missing / malformed timestamps collapse to the empty
+    string so the caller can treat them as "unknown date".
+    """
+    s = str(ts) if ts is not None else ""
+    return s[:10] if len(s) >= 10 else ""
+
+
+def _percentile_bootstrap_ci(
+    samples: Sequence[float],
+    *,
+    n_boot: int = 2000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> Tuple[float, float]:
+    """Two-sided percentile bootstrap CI on the mean.
+
+    Returns ``(ci_low, ci_high)``.  With fewer than two samples the CI
+    collapses to ``(mean, mean)`` — the bootstrap has nothing to draw
+    over and the caller should treat the result as a degenerate point
+    estimate.  Matches the simple non-paired bootstrap used elsewhere
+    in the module for parity (see :func:`aggregate_holdout_drift`).
+    """
+    arr = np.asarray(list(samples), dtype=float)
+    if arr.size == 0:
+        return (0.0, 0.0)
+    if arr.size == 1:
+        return (float(arr[0]), float(arr[0]))
+    rng = np.random.default_rng(seed)
+    means = np.empty(n_boot, dtype=float)
+    n = arr.size
+    for i in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        means[i] = float(arr[idx].mean())
+    half = (1.0 - confidence) / 2.0
+    lo = float(np.quantile(means, half))
+    hi = float(np.quantile(means, 1.0 - half))
+    return (lo, hi)
+
+
+@dataclass
+class CodifyCandidate:
+    """One directionally-consistent group of accepted mutations.
+
+    Produced by :func:`aggregate_codify_candidates`.  Carries the raw
+    per-record evidence (deltas, CIs, timestamps, old / new values) plus
+    a small set of pooled statistics so the CLI report and any future
+    ``--open-pr`` workflow can show "why" without re-aggregating the
+    ledger.
+
+    A "candidate" is a *suggestion* — the operator (or a future codify
+    PR routine) still has to translate "rule X has fired up in direction
+    Y on N distinct nights" into a concrete source edit.  For numeric
+    rules the natural translation is the median of :attr:`new_values`
+    (the new default to ship); for categorical rules the translation is
+    the unique chosen value; for structural ops it is "add this class
+    to the seed pool" or "drop this class".
+
+    Attributes:
+        class_name: Heuristic / analyzer class the proposals target
+            (``"Sobol"``, ``"Restart"`` …).
+        param_name: Kwarg slot the proposals perturbed.  Empty string
+            for structural ops.
+        rule_kind: ``"integer_add"`` / ``"float_uniform"`` /
+            ``"log_uniform_perturb"`` / ``"categorical_choice"`` /
+            ``"structural"`` (for ``add_/drop_`` ops).
+        op: ``None`` for kwarg rules; one of ``add_heuristic`` /
+            ``drop_heuristic`` / ``add_analyzer`` / ``drop_analyzer``
+            for structural ops.  Used by :attr:`slot_key` so dedup
+            against open PRs distinguishes structural changes from
+            kwarg tunes on the same class.
+        direction: Stable bucket identifier — ``"up"`` / ``"down"`` for
+            numeric rules; ``repr(value)`` for categorical; the op name
+            for structural.  See :func:`_direction_key`.
+        n_accepts: Number of accepted iteration records contributing.
+        distinct_dates: Sorted tuple of distinct ``YYYY-MM-DD`` dates
+            on which an accept fired.  ``len(distinct_dates)`` is the
+            k≥2 threshold the §9.3 spec gates on.
+        deltas: Per-record composite deltas (the same ``delta`` field
+            the iteration record carries).
+        ci_lows: Per-record paired-bootstrap CI lower bounds.
+        ci_highs: Per-record paired-bootstrap CI upper bounds.
+        old_values: Per-record ``proposal.old_value`` (raw, JSON-typed).
+        new_values: Per-record ``proposal.new_value`` (raw, JSON-typed).
+        timestamps: Per-record ISO 8601 timestamps in ledger order.
+        strategy_names: Per-record ``proposal.strategy_name``.  A
+            candidate that fires across multiple seed strategies
+            (e.g. both ``Rewarding_Diverse`` and ``Loop_Sobol``) is
+            stronger evidence than one that fires on a single strategy.
+        confirmed_flags: Per-record value of the
+            :attr:`LoopIterationRecord.confirmed` field — ``True`` /
+            ``False`` for records written after V2 §6.4 ships,
+            ``None`` for legacy records.  Surfaced verbatim so the CLI
+            report can flag candidates with no confirmation gate
+            coverage as soft evidence.
+    """
+
+    class_name: str
+    param_name: str
+    rule_kind: str
+    op: Optional[str]
+    direction: str
+    n_accepts: int
+    distinct_dates: Tuple[str, ...]
+    deltas: Tuple[float, ...]
+    ci_lows: Tuple[float, ...]
+    ci_highs: Tuple[float, ...]
+    old_values: Tuple[Any, ...]
+    new_values: Tuple[Any, ...]
+    timestamps: Tuple[str, ...]
+    strategy_names: Tuple[str, ...]
+    confirmed_flags: Tuple[Optional[bool], ...]
+
+    @property
+    def n_distinct_nights(self) -> int:
+        return len(self.distinct_dates)
+
+    @property
+    def mean_delta(self) -> float:
+        if not self.deltas:
+            return 0.0
+        return float(np.mean(self.deltas))
+
+    @property
+    def min_ci_low(self) -> float:
+        if not self.ci_lows:
+            return 0.0
+        return float(min(self.ci_lows))
+
+    @property
+    def max_ci_high(self) -> float:
+        if not self.ci_highs:
+            return 0.0
+        return float(max(self.ci_highs))
+
+    @property
+    def slot_key(self) -> Tuple[str, str, Optional[str]]:
+        """Identifier for dedup against open PRs — ``(class, param, op)``.
+
+        Used by the CLI's ``--open-pr`` follow-up (queued under V2 §9.5
+        step 4) to skip slots where a codify PR already exists.  The
+        direction is intentionally *not* part of the key: a single open
+        PR per slot is enough (a same-slot opposite-direction signal
+        would supersede the open PR, not duplicate it).
+        """
+        return (self.class_name, self.param_name, self.op)
+
+    def pooled_bootstrap_ci(
+        self,
+        *,
+        n_boot: int = 2000,
+        confidence: float = 0.95,
+        seed: int = 42,
+    ) -> Tuple[float, float]:
+        """Percentile bootstrap CI on the pooled per-record deltas.
+
+        Each accept contributes one sample (its post-paired-bootstrap
+        point delta).  This is *coarser* than re-pooling the underlying
+        per-(problem, strategy) bootstrap samples — those would need
+        the original :class:`HarnessResult` objects, which are not in
+        the ledger — but it captures the cross-night dispersion the
+        §9.3 "pooled CI > 0" rule actually wants to test.  Two or
+        fewer accepts produce a degenerate point CI; the caller should
+        treat the result as suggestive only.
+        """
+        return _percentile_bootstrap_ci(self.deltas, n_boot=n_boot, confidence=confidence, seed=seed)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "class_name": self.class_name,
+            "param_name": self.param_name,
+            "rule_kind": self.rule_kind,
+            "op": self.op,
+            "direction": self.direction,
+            "n_accepts": int(self.n_accepts),
+            "n_distinct_nights": int(self.n_distinct_nights),
+            "distinct_dates": list(self.distinct_dates),
+            "deltas": [float(d) for d in self.deltas],
+            "ci_lows": [float(c) for c in self.ci_lows],
+            "ci_highs": [float(c) for c in self.ci_highs],
+            "old_values": [_to_plain(v) for v in self.old_values],
+            "new_values": [_to_plain(v) for v in self.new_values],
+            "timestamps": list(self.timestamps),
+            "strategy_names": list(self.strategy_names),
+            "confirmed_flags": list(self.confirmed_flags),
+            "mean_delta": float(self.mean_delta),
+            "min_ci_low": float(self.min_ci_low),
+            "max_ci_high": float(self.max_ci_high),
+        }
+
+
+def aggregate_codify_candidates(
+    records: Sequence[Dict[str, Any]],
+    *,
+    min_nights: int = 2,
+    require_positive_min_ci: bool = True,
+    confirmed_only: bool = False,
+) -> List[CodifyCandidate]:
+    """Scan ledger records for directionally-consistent accepted patterns.
+
+    The cross-night codification stage of V2 §9.3 / §9.5 step 4: pool
+    every accepted mutation iteration across the live ledger and the
+    archives, group by ``(class, param, direction)`` (or ``(op, class)``
+    for structural ops), and surface every group with at least
+    ``min_nights`` distinct accept dates.  These are the candidates a
+    daily routine (or a future ``--open-pr`` driver) can codify into
+    constructor defaults.
+
+    Args:
+        records: Concatenation of every JSONL record relevant for
+            scanning — typically ``load_ledger(live)`` plus
+            ``load_ledger(each archive)``.  Non-iteration records and
+            non-accepted iterations are silently dropped.  Records
+            without a proposal (skip rows) are skipped.  No-op
+            iterations (``no_op == True``) are skipped — by
+            construction they contributed zero behavioural information
+            even though they may be flagged as accepted in pathological
+            ledgers.
+        min_nights: Minimum number of distinct accept dates a candidate
+            must have to be surfaced.  Default ``2`` matches the §9.3
+            "``k ≥ 2`` confirmed accepts on distinct nights" rule.
+        require_positive_min_ci: When ``True`` (default) only emit
+            candidates whose *least confident* contributing record's
+            ``ci_low`` is still strictly positive — every accept in
+            the group cleared its own per-record statistical-accept
+            gate, so the pooled signal cannot be a single lucky-CI
+            spike.  Setting ``False`` keeps the rule's coverage
+            broader (useful for an exploratory operator who wants to
+            see weakly-suggestive evidence too).
+        confirmed_only: When ``True``, restricts the input to records
+            with ``confirmed == True`` — the post-V2-§6.4 ledger
+            field that records whether the screening accept survived
+            the same-night confirmation gate.  Default ``False`` so
+            scans against pre-§6.4 ledgers (the current state of the
+            archive) still produce evidence.
+
+    Returns:
+        Sorted list of :class:`CodifyCandidate` instances, ordered by
+        ``(n_distinct_nights desc, mean_delta desc)`` so the strongest
+        and most-replicated evidence is surfaced first.  Empty list
+        when no group clears the gates.
+    """
+    if min_nights < 1:
+        raise ValueError(f"min_nights must be >= 1, got {min_nights}")
+
+    buckets: Dict[Tuple[str, str, str, Optional[str], str], Dict[str, Any]] = {}
+
+    for rec in records:
+        if rec.get("record_type", "iteration") != "iteration":
+            continue
+        if not rec.get("accepted"):
+            continue
+        if rec.get("no_op"):
+            continue
+        proposal = rec.get("proposal")
+        if proposal is None:
+            continue
+        if confirmed_only and not rec.get("confirmed"):
+            continue
+
+        direction = _direction_key(proposal)
+        if direction is None:
+            continue
+
+        class_name = str(proposal.get("class_name", ""))
+        param_name = str(proposal.get("param_name", ""))
+        rule_kind = str(proposal.get("rule_kind", ""))
+        op = proposal.get("op")
+        op_key: Optional[str] = str(op) if op else None
+        # Structural ops collapse onto ``rule_kind == "structural"`` so
+        # the bucket key stays uniform.  The op survives via ``op_key``.
+        if op_key is not None:
+            rule_kind = "structural"
+
+        bucket_key = (class_name, param_name, rule_kind, op_key, direction)
+        bucket = buckets.setdefault(
+            bucket_key,
+            {
+                "deltas": [],
+                "ci_lows": [],
+                "ci_highs": [],
+                "old_values": [],
+                "new_values": [],
+                "timestamps": [],
+                "strategy_names": [],
+                "confirmed_flags": [],
+                "dates": set(),
+            },
+        )
+        bucket["deltas"].append(float(rec.get("delta", 0.0)))
+        bucket["ci_lows"].append(float(rec.get("ci_low", 0.0)))
+        bucket["ci_highs"].append(float(rec.get("ci_high", 0.0)))
+        bucket["old_values"].append(proposal.get("old_value"))
+        bucket["new_values"].append(proposal.get("new_value"))
+        bucket["timestamps"].append(str(rec.get("timestamp", "")))
+        bucket["strategy_names"].append(str(proposal.get("strategy_name", "")))
+        confirmed = rec.get("confirmed")
+        bucket["confirmed_flags"].append(None if confirmed is None else bool(confirmed))
+        date_str = _date_from_timestamp(rec.get("timestamp"))
+        if date_str:
+            bucket["dates"].add(date_str)
+
+    candidates: List[CodifyCandidate] = []
+    for (class_name, param_name, rule_kind, op_key, direction), data in buckets.items():
+        distinct_dates: Tuple[str, ...] = tuple(sorted(data["dates"]))
+        if len(distinct_dates) < min_nights:
+            continue
+        ci_lows = tuple(data["ci_lows"])
+        if require_positive_min_ci and ci_lows and min(ci_lows) <= 0.0:
+            continue
+        cand = CodifyCandidate(
+            class_name=class_name,
+            param_name=param_name,
+            rule_kind=rule_kind,
+            op=op_key,
+            direction=direction,
+            n_accepts=len(data["deltas"]),
+            distinct_dates=distinct_dates,
+            deltas=tuple(data["deltas"]),
+            ci_lows=ci_lows,
+            ci_highs=tuple(data["ci_highs"]),
+            old_values=tuple(data["old_values"]),
+            new_values=tuple(data["new_values"]),
+            timestamps=tuple(data["timestamps"]),
+            strategy_names=tuple(data["strategy_names"]),
+            confirmed_flags=tuple(data["confirmed_flags"]),
+        )
+        candidates.append(cand)
+
+    candidates.sort(
+        key=lambda c: (c.n_distinct_nights, c.mean_delta, c.n_accepts),
+        reverse=True,
+    )
+    return candidates
+
+
+def load_ledgers_for_codify_scan(
+    ledger_path: str,
+    *,
+    include_archives: bool = True,
+    archive_dir: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Read the live ledger + (optionally) every rotated archive.
+
+    Convenience wrapper around :func:`load_ledger` that mirrors the
+    :meth:`AdaptiveMutationSampler.prime_from_archives` semantics:
+    archives in ``planning/done/`` are scanned in chronological
+    (lexicographic) order and prepended *before* the live ledger so the
+    aggregator sees evidence in time order.  Missing files / missing
+    archive directories are silently no-ops so the helper is safe to
+    call on a fresh checkout.
+
+    Args:
+        ledger_path: Path to the live ledger (typically
+            ``planning/self_improve_ledger.jsonl``).
+        include_archives: When ``True`` (default), also scan the
+            archive directory.  Set to ``False`` for a live-only scan.
+        archive_dir: Path to the archive directory.  When ``None`` the
+            default is ``<ledger parent>/done`` to match the rotated
+            archive convention from §12.1 (live ledger lives in
+            ``planning/``, archives in ``planning/done/``).
+
+    Returns:
+        Concatenation of archive records (chronological by archive
+        filename) followed by the live ledger records, in the order
+        :func:`aggregate_codify_candidates` should consume them.
+    """
+    records: List[Dict[str, Any]] = []
+    if include_archives:
+        if archive_dir is None:
+            archive_dir = str(pathlib.Path(ledger_path).parent / "done")
+        ad = pathlib.Path(archive_dir)
+        if ad.exists() and ad.is_dir():
+            for archive_file in sorted(ad.glob("self_improve_ledger_*.jsonl")):
+                records.extend(load_ledger(str(archive_file)))
+    records.extend(load_ledger(ledger_path))
+    return records
+
+
 __all__ = [
     "MutationRule",
     "StructuralMutationRule",
@@ -4416,4 +4846,7 @@ __all__ = [
     "LadderEntry",
     "SelfImprover",
     "load_ledger",
+    "CodifyCandidate",
+    "aggregate_codify_candidates",
+    "load_ledgers_for_codify_scan",
 ]

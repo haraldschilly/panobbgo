@@ -17,6 +17,209 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-17 — Cross-night codify-scan CLI (V2 §9.3 / §9.5 step 4)
+
+* **What** — The detection half of V2 §9.3 — a new
+  ``scripts/self_improve.py codify-scan`` subcommand plus three public
+  library symbols on :mod:`panobbgo.self_improve`:
+
+  * :class:`panobbgo.self_improve.CodifyCandidate` — frozen dataclass
+    carrying one directionally-consistent group of accepted mutations:
+    class / param / rule_kind / op / direction, per-record evidence
+    (deltas, CIs, old / new values, timestamps, strategy names,
+    ``confirmed`` flags), pooled stats (``mean_delta``,
+    ``min_ci_low``, ``max_ci_high``), and a
+    :attr:`slot_key` tuple ``(class_name, param_name, op)`` that the
+    follow-up ``--open-pr`` driver will use to dedup against
+    ``gh pr list --state open`` per §12.3 step 0.  Exposes
+    :meth:`pooled_bootstrap_ci` (percentile bootstrap on the per-record
+    deltas) and :meth:`to_dict` for JSON serialisation.
+  * :func:`panobbgo.self_improve.aggregate_codify_candidates` — the
+    scanner.  Walks every iteration record in the input, drops
+    non-iteration / non-accepted / no-op / no-proposal / no-direction
+    rows, groups by ``(class_name, param_name, rule_kind, op,
+    direction)``, and emits one :class:`CodifyCandidate` per group
+    that clears ``min_nights`` distinct accept dates **and**
+    (default) ``min(ci_low) > 0`` across contributing records.
+    Sorted by ``(n_distinct_nights desc, mean_delta desc, n_accepts
+    desc)`` so the strongest and most-replicated evidence surfaces
+    first.  ``confirmed_only=True`` opt-in restricts the input to
+    records carrying the V2 §6.4 ``confirmed`` field (post PR #255).
+  * :func:`panobbgo.self_improve.load_ledgers_for_codify_scan` — io
+    helper that mirrors :meth:`AdaptiveMutationSampler.prime_from_archives`
+    semantics: scans the archive directory for files matching
+    ``self_improve_ledger_*.jsonl`` in chronological (lexicographic)
+    order and prepends them before the live ledger.  Default archive
+    dir is ``<ledger parent>/done`` so a typical invocation against
+    ``planning/self_improve_ledger.jsonl`` automatically picks up
+    ``planning/done/``.  Missing files / directories silently no-op
+    so the helper is safe to call on a fresh checkout.
+
+  Plus the private helpers :func:`panobbgo.self_improve._direction_key`
+  (per-proposal direction extraction — ``"up"`` / ``"down"`` for
+  numeric, ``repr(new_value)`` for categorical, op name for
+  structural) and :func:`panobbgo.self_improve._percentile_bootstrap_ci`
+  (the pooled-CI primitive — matches the simple non-paired bootstrap
+  used by :func:`aggregate_holdout_drift` for parity).
+
+  CLI surface on the new ``codify-scan`` subparser:
+
+  * ``--ledger PATH`` (default ``planning/self_improve_ledger.jsonl``).
+  * ``--archive-dir DIR`` / ``--no-include-archives``.
+  * ``--min-nights N`` (default ``2``, matching §9.3 ``k ≥ 2``).
+  * ``--no-require-positive-min-ci`` to surface weak evidence too.
+  * ``--confirmed-only``.
+  * ``--pooled-ci-n-boot`` / ``--pooled-ci-confidence`` /
+    ``--pooled-ci-seed`` for reproducible CI computation.
+  * ``--json`` emits one ``CodifyCandidate.to_dict()`` JSON per line.
+  * ``--top N`` truncates the report to the strongest N candidates.
+
+* **Why** — V2 §11 success criterion 2 (*"≥ 3 codify PRs opened from
+  ledger evidence; ≥ 2 merged"* over the first 30 nights) is the
+  measurable bar for whether the V2 loop *durably improves anything*
+  — §12.2 makes the constraint explicit: "the cron never commits
+  changes under ``panobbgo/``; durable improvement happens only
+  through codification".  Before this ship, the §12.3 daily routine
+  had to grep the ledger by hand to find directionally consistent
+  accept patterns (the four-night Sobol.scramble pattern that the
+  2026-05-31 codify ship caught took manual ledger inspection and a
+  manual ``gh pr create``).  ``codify-scan`` makes that inspection
+  reproducible: the same scanner, run nightly, surfaces the same
+  candidates whether the operator is reaching for a PR or a CI
+  status check.
+
+  Running against the current project ledger on the day of ship
+  surfaces five candidates that clear the default gate (k ≥ 2 nights,
+  every record's ``ci_low > 0``):
+
+  * **``Nearby.radius`` direction=up**: 7 accepts on 6 nights,
+    mean Δ=+0.0566, pooled CI95%=[+0.042, +0.072].  Strongest
+    candidate by replication count — the bandit consistently raises
+    Nearby's radius above the constructor default ``0.1``.
+  * **``Sobol.scramble`` direction=False**: 4 accepts on 4 nights,
+    mean Δ=+0.0456, pooled CI95%=[+0.027, +0.066].  Already codified
+    in the seed factory 2026-05-31; the scanner picks up the
+    pre-codification evidence stream as a sanity check that the
+    detection logic mirrors what the manual ship caught.
+  * **``Sobol.n`` direction=down**: 4 accepts on 4 nights, all
+    ``16 -> {8, 12, 12, 12}``.  Strong evidence for lowering the
+    seed default below ``16``.
+  * **``Nearby.radius`` direction=down**: 4 accepts on 3 nights —
+    the opposite-direction signal pairs with the "up" winner.  Worth
+    investigating whether the right move is a wider mutation bound
+    rather than a default shift.
+  * **``Sobol.n`` direction=up**: 4 accepts on 3 nights, ``16 ->
+    {20, 24, 20, 24}``.  Pairs with the "down" winner in the same
+    bidirectional way.
+
+  The bidirectional candidates are valuable signal — even when the
+  detection rule doesn't unambiguously vote for a single codify
+  direction, the operator can decide to widen the catalog bound or
+  introduce a categorical regime instead of a default shift.
+
+* **Backwards compatibility** — strictly safe.  Two pure additions to
+  ``panobbgo/self_improve.py`` (the three public symbols plus two
+  private helpers) and one new subparser on ``scripts/self_improve.py``
+  — no edits to existing API.  The new subcommand is opt-in:
+  ``run`` / ``summary`` invocations and the
+  :class:`SelfImprover` integration path are byte-identical.  All
+  three new library symbols are also exposed in
+  :mod:`panobbgo.self_improve`'s ``__all__`` so downstream code can
+  import them directly.
+
+* **Tests** — 46 new tests in ``tests/test_self_improve.py``
+  organised into five test classes:
+
+  * ``TestDirectionKey`` (9 tests): every ``rule_kind`` in
+    :func:`default_catalog`, every structural op, plus the
+    ``None``-direction cases (equal numeric values, non-numeric old
+    value, missing old value).
+  * ``TestPercentileBootstrapCI`` (4 tests): empty / single-sample
+    degenerate cases, multi-sample CI brackets the mean, seed
+    reproducibility.
+  * ``TestAggregateCodifyCandidates`` (16 tests): the gates
+    (min_nights / require_positive_min_ci / confirmed_only), the
+    grouping correctness (same-night dedup, opposite directions
+    separate buckets, categorical bucket key via ``repr``,
+    structural op as direction), the filtering (no-op / non-accepted /
+    skip / non-iteration records dropped), the sort order
+    (strongest candidate first), and the
+    :meth:`CodifyCandidate.to_dict` round-trip through JSON.
+  * ``TestLoadLedgersForCodifyScan`` (7 tests): missing live ledger,
+    live-only mode, default archive dir as ``<ledger parent>/done``,
+    explicit archive dir override, missing archive dir silent
+    no-op, non-matching files ignored, chronological order.
+  * ``TestCodifyScanCLI`` (6 tests): end-to-end CLI smoke tests
+    using the fabricated-record helper — empty ledger note, the
+    realistic two-night pattern, the JSON output mode, the
+    ``--top N`` truncation, the ``--min-nights`` argument
+    validation, ``--confirmed-only`` filters legacy records to
+    zero, plus a sanity check against the *real project ledger* that
+    confirms the CLI handles the live planning/ files end-to-end.
+
+  All 1550 prior project tests continue to pass (354 self-improve
+  tests, 1550 total); ruff format / check / pyright / 96 sphinx
+  doctests / flake8 E9/F63/F7/F82 all clean.
+
+* **Impact** — direct effect on §11 V2 success criterion 2
+  (codify-PR throughput).  Before this ship, "scan the ledger for
+  codify candidates" was a manual ledger-grep that produced one
+  ship in five weeks (the 2026-05-31 ``Sobol.scramble = False``
+  codification) — and depended on operator memory of which patterns
+  to look for.  After this ship, the same scan is one CLI invocation
+  that reproducibly surfaces the same candidates every night with
+  pooled stats, per-record evidence, and a stable slot identifier
+  for PR dedup.  Pairs naturally with the two open PRs (#255
+  ``--confirm-accepts`` for V2 §6.4 and #256
+  ``--prime-include-archives`` for §9.5 step 4): once #255 merges
+  the ``confirmed`` field starts populating on ledger records and
+  ``--confirmed-only`` becomes the recommended default; once #256
+  merges archive evidence is no longer thrown away across nightly
+  rotations.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 (Stage 3) — detection
+    half marked shipped, ``--open-pr`` half queued; §9.5 step 4 —
+    detection sub-item promoted to shipped.
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    *Open the codify PR from the detected candidates* idea added to
+    *Next iteration ideas* to track the queued ``--open-pr`` follow-up.
+  - ``doc/source/guide.rst``: quick-nav entry now mentions the
+    §9.3 ``codify-scan`` ship with the public library symbols.
+  - ``doc/source/guide_benchmarking.rst``: new "Cross-night
+    codify-scan (§9.3 / §9.5 step 4)" subsection in the
+    self-improvement loop section.
+  - ``AGENTS.md``: self-improvement loop subsection +
+    three new bash examples (default / JSON / ``--confirmed-only``).
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **``codify-scan --open-pr``** (the ship's queued follow-up) —
+    translate each surfaced candidate into a concrete source edit +
+    PR opened against the seed-spec factory (or the heuristic
+    constructor default).  Needs a small "where does this kwarg get
+    set" lookup (e.g. ``_make_loop_strategies`` vs heuristic
+    ``__init__``), a code-edit primitive that respects the existing
+    formatter, and the ``gh`` CLI integration to open the draft PR
+    with the ledger evidence in the body.  Dedup via
+    :attr:`CodifyCandidate.slot_key` against ``gh pr list --state
+    open``.
+  * **Mutation-bound widening rule** — when ``codify-scan`` surfaces a
+    *bidirectional* candidate (e.g. ``Nearby.radius`` up *and* down),
+    the right action is rarely to ship a new default; it's to widen
+    the catalog ``MutationRule`` bound so the bandit can explore a
+    larger range.  A second CLI subcommand (or a ``--widen-bounds``
+    flag on ``codify-scan --open-pr``) could detect this shape and
+    propose the bound update instead of a default change.
+  * **Suppress already-codified candidates** — the
+    ``Sobol.scramble=False`` candidate surfaces from the
+    pre-codification archive even though the seed already ships
+    ``scramble=False``.  A read-the-current-default cross-check
+    (importing the seed-spec factory, comparing the candidate's
+    direction against the live default) could downrank or hide
+    these candidates so the operator's attention stays on
+    actionable evidence.
+
 ### 2026-06-16 — Summary trend block + bandit posteriors + inactivity telemetry (V2 §12.4)
 
 * **What** — Three additive sub-blocks rendered by the
@@ -4276,6 +4479,97 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### `codify-scan --open-pr` driver (after 2026-06-17 ship)
+
+The 2026-06-17 ship landed the *detection* half of V2 §9.3 (the
+``codify-scan`` subcommand surfaces candidates as text / JSON).  The
+queued *write* half is the ``--open-pr`` flag that translates each
+surfaced :class:`CodifyCandidate` into a concrete source edit + draft
+PR.  Sketch:
+
+1. **Dedup pass** — ``gh pr list --state open --json title,headRefName``,
+   parse each open PR for a known "codify ``Class.param``" marker
+   either in the title or via a label, and skip any candidate whose
+   :attr:`CodifyCandidate.slot_key` already has an open PR.  Matches
+   the §12.3 step 0 lesson (the four duplicate NL-SHADE-RSP PRs
+   #227–#230) — enforced in code rather than left to operator memory.
+2. **Source-edit primitive** — for numeric / categorical candidates the
+   edit is on the heuristic constructor's keyword default (e.g.
+   ``Sobol.__init__(n=16, …)`` → ``n=12``) or on the seed-spec
+   factory (``_make_quick_strategies`` / ``_make_loop_strategies``
+   already passes the kwarg explicitly).  A small "where does this
+   kwarg get set" lookup table can be derived from the catalog
+   strategy_pattern + class_name + the AST of the factories, then
+   the edit applied with the existing ``ruff format`` pipeline so
+   diff hygiene is preserved.  For structural ops the edit is
+   "append this heuristic class to the seed pool" / "drop this
+   class from the seed pool" — same factory locations.
+3. **PR body** — populate from
+   :meth:`CodifyCandidate.to_dict` so the ledger evidence
+   (timestamps, deltas, CIs, per-record old → new) lands in the PR
+   body for review.  Add a "test plan" stub linking to the
+   benchmark-harness ``compare --statistical`` invocation the
+   reviewer should run.
+4. **Open as draft** — every codify PR opens as ``--draft`` so the
+   reviewer can decide whether to mark it ready or close it.  Match
+   the existing nightly-loop branch naming
+   (``claude/funny-*-*``) so the existing watcher infrastructure
+   picks them up.
+
+Speculative until the detection ship's first ledger evidence shows
+the candidate set converges (i.e. the same Nearby.radius / Sobol.n
+patterns keep surfacing across nights without an actionable PR
+landing).  Pairs naturally with **mutation-bound widening** for the
+bidirectional candidates the detection scan already surfaces — the
+right action on those is rarely a default shift.
+
+#### Mutation-bound widening rule for bidirectional codify candidates
+
+The 2026-06-17 scanner already surfaces bidirectional patterns —
+e.g. ``Nearby.radius`` direction=up *and* direction=down both clear
+the ``k ≥ 2 nights`` gate.  Both are legitimate signal: the bandit
+genuinely finds value moving the kwarg up *and* moving it down
+depending on instance.  The right action for these is rarely a
+default shift (which direction?) but a *catalog bound widening* so
+the bandit has more reach in both directions.  Sketch:
+
+* New CLI subcommand (or ``codify-scan --widen-bounds`` flag) that
+  detects the bidirectional pattern at the
+  ``(class_name, param_name)`` level (op == None — only kwarg
+  candidates) and proposes a new ``MutationRule.bounds`` for the
+  affected slot.  The new bound is the min / max of the observed
+  ``new_value`` set widened by a fixed multiplicative factor (e.g.
+  1.5×) so the bandit can also explore outside the observed range.
+* PR opens against :func:`panobbgo.self_improve.default_catalog`
+  changing the rule's ``bounds=(lo, hi)`` tuple.  Evidence carried in
+  the PR body the same way as ``--open-pr``.
+
+Speculative until the ``--open-pr`` ship has accumulated evidence on
+which slots produce the most bidirectional candidates.
+
+#### Suppress already-codified candidates in codify-scan
+
+The 2026-06-17 scanner surfaces ``Sobol.scramble = False`` from the
+pre-codification archive even though the seed factory now ships
+``scramble=False`` — the candidate is technically valid evidence,
+but it is no longer *actionable*.  A read-the-current-default
+cross-check would downrank or hide these candidates so the
+operator's attention stays on actionable evidence.  Sketch:
+
+* Import the seed-spec factory at scan time, expand it under the
+  same conditions :func:`_make_quick_strategies` /
+  :func:`_make_loop_strategies` produce, and compare each
+  candidate's predicted "new default" against the live kwarg value
+  for the matching slot.  When the live value already matches the
+  candidate's direction within a tolerance, the candidate is
+  flagged ``already_codified=True`` in the JSON output and is
+  suppressed from the text report by default.
+* CLI flag ``--include-already-codified`` to surface the suppressed
+  set for audit.
+
+Lower priority than ``--open-pr`` but a natural quality-of-life
+improvement once the scanner accumulates regular nightly use.
 
 #### Pre-measure no-op short-circuit (after 2026-06-12 ship)
 

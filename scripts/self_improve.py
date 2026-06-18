@@ -315,6 +315,32 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(adaptive_prime_from_ledger=False)
     run_p.add_argument(
+        "--prime-include-archives",
+        dest="adaptive_prime_include_archives",
+        action="store_true",
+        help=(
+            "Also seed the adaptive sampler from archived ledgers in "
+            "<dirname(ledger_path)>/done/ matching self_improve_ledger_*.jsonl "
+            "before the live ledger.  Closes the V2 §2.6 'archives in "
+            "planning/done/ are invisible' diagnosis so the bandit posterior "
+            "accumulates evidence across every retained nightly run.  Only "
+            "effective with --adaptive --adaptive-prime-from-ledger.  Silent "
+            "no-op when the archive directory is missing or empty."
+        ),
+    )
+    run_p.set_defaults(adaptive_prime_include_archives=False)
+    run_p.add_argument(
+        "--prime-archive-dir",
+        dest="adaptive_prime_archive_dir",
+        type=str,
+        default=None,
+        help=(
+            "Override the archive directory scanned when "
+            "--prime-include-archives is set (default: "
+            "<dirname(ledger_path)>/done)."
+        ),
+    )
+    run_p.add_argument(
         "--structural-per-class-arms",
         dest="structural_per_class_arms",
         action="store_true",
@@ -744,6 +770,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             adaptive_prior_alpha=args.adaptive_prior_alpha,
             adaptive_prior_beta=args.adaptive_prior_beta,
             adaptive_prime_from_ledger=args.adaptive_prime_from_ledger,
+            adaptive_prime_include_archives=args.adaptive_prime_include_archives,
+            adaptive_prime_archive_dir=args.adaptive_prime_archive_dir,
             structural_per_class_arms=args.structural_per_class_arms,
             structural_borrow_alpha=args.structural_borrow_alpha,
             holdout_base_seed=args.holdout_base_seed,

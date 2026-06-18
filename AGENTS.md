@@ -327,6 +327,26 @@ The harness is the measurement substrate for an autonomous
     `bandit_reward` so `prime_from_ledger` recovers the full
     `reward_sum` state on resume; legacy ledgers (no `bandit_reward`
     key) fall back to the binary semantic byte-identically.
+    Archive-aware priming (**shipped 2026-06-15**, V2 §2.6 / §9.5
+    step 4) adds
+    :meth:`~panobbgo.self_improve.AdaptiveMutationSampler.prime_from_archives`
+    plus the matching `LoopConfig.adaptive_prime_include_archives`
+    field and `--prime-include-archives` CLI flag: when paired with
+    `--adaptive --adaptive-prime-from-ledger`, the bandit
+    additionally replays every archived ledger under
+    `<dirname(ledger_path)>/done/` matching
+    `self_improve_ledger_*.jsonl` (chronological by filename) before
+    the live ledger.  Per-record semantics are byte-identical to the
+    live ledger path (no-op skip, graded reward, guard / skip
+    filter — all share the same `_consume_record` helper).  An
+    explicit override is available via the
+    `adaptive_prime_archive_dir` field / `--prime-archive-dir` CLI
+    flag.  Closes the §2.6 V2 "archives in `planning/done/` are
+    invisible" diagnosis: the bandit posterior now accumulates
+    evidence across every retained nightly run rather than
+    forgetting every pre-rotation observation.  Missing or empty
+    archive directories are silent no-ops so the flag is safe to
+    enable on first-night runs.
 *   Same-night confirmation gate (§6.4) — **shipped 2026-06-14**, see
     `panobbgo.self_improve.LoopConfirmRecord`,
     `LoopConfig.confirm_accepts` / `confirm_iteration_offset`, and the
@@ -592,6 +612,16 @@ uv run python scripts/self_improve.py run --iterations 100 \
 # Adaptive (Thompson-sampling) mutation sampler primed from a prior ledger
 uv run python scripts/self_improve.py run --iterations 100 \
     --adaptive --adaptive-prime-from-ledger
+
+# Same, but also prime from archived ledgers under planning/done/
+# (rotation glob ``self_improve_ledger_*.jsonl``).  Closes the
+# V2 §2.6 "archives in planning/done/ are invisible" diagnosis —
+# the bandit posterior compounds across nightly rotation boundaries
+# rather than forgetting every pre-rotation observation.  Shipped
+# 2026-06-15.  Per-record semantics (no-op skip, graded reward) are
+# byte-identical to the live ledger path.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --adaptive --adaptive-prime-from-ledger --prime-include-archives
 
 # Structural catalog: kwarg perturbations + four structural ops
 # (add_heuristic / drop_heuristic / add_analyzer / drop_analyzer).

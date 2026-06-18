@@ -72,7 +72,14 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    budget) while statistical power is the binding constraint.
 6. **Bandit starved**: binary accept reward at ~2.5% base rate, and
    priming reads only the current ledger — archives in `planning/done/`
-   are invisible.
+   are invisible.  *2026-06-15 update:* graded reward shaping
+   (§7.4, shipped 2026-06-13) addresses the first half; the
+   `--prime-include-archives` flag and matching
+   `LoopConfig.adaptive_prime_include_archives` /
+   `adaptive_prime_archive_dir` fields shipped 2026-06-15 (this entry)
+   address the second half — the bandit now accumulates evidence
+   across every retained nightly run rather than just the current one.
+   See §9.5 step 4 and the dated entry in `SELF_IMPROVEMENT_LOG.md`.
 
 Every symptom is downstream of (1).  Hence the V2 priorities in §9:
 **fix the metric, exercise the catalog, confirm before accept, persist
@@ -367,12 +374,13 @@ file stands.
    **graded bandit reward shipped 2026-06-13**; **same-night
    confirmation gate shipped 2026-06-14**.  All three V2 sub-tasks
    closed; see the dated entries in `SELF_IMPROVEMENT_LOG.md`.
-4. `codify-scan --open-pr` + `--prime-include-archives` +
-   vacuous-holdout fix + summary trend block.  *Detection half of
+4. `codify-scan --open-pr` + ~`--prime-include-archives`~
+   (**shipped 2026-06-15**) + ~vacuous-holdout fix~
+   (**shipped 2026-06-11**) + summary trend block.  *Detection half of
    `codify-scan` shipped 2026-06-17 (no `--open-pr` yet — that's the
-   queued follow-up); vacuous-holdout fix shipped 2026-06-11; summary
-   trend block shipped 2026-06-16; `--prime-include-archives` open
-   in PR #256.*
+   queued follow-up); `--prime-include-archives` shipped 2026-06-15
+   (closes the §2.6 second half); summary trend block shipped
+   2026-06-16.*
 5. Flip the workflow to §9.4; enforce the catalog freeze (§7.3).
 
 ## 10. Open questions / known constraints

@@ -1497,6 +1497,193 @@ class TestAdaptiveMutationSampler:
 
 
 # ===========================================================================
+# Archive priming (V2 §2.6 / §9.5 step 4)
+# ===========================================================================
+
+
+class TestPrimeFromArchives:
+    """Tests for :meth:`AdaptiveMutationSampler.prime_from_archives`.
+
+    Addresses the §2.6 V2 diagnosis "priming reads only the current
+    ledger — archives in ``planning/done/`` are invisible".  The
+    bandit posterior should now accumulate evidence across every
+    retained nightly run.
+    """
+
+    @staticmethod
+    def _accept_record(class_name: str = "_DummyHeuristicA") -> Dict[str, Any]:
+        return {
+            "record_type": "iteration",
+            "iteration": 0,
+            "proposal": {
+                "class_name": class_name,
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+            "accepted": True,
+        }
+
+    @staticmethod
+    def _reject_record(class_name: str = "_DummyHeuristicA") -> Dict[str, Any]:
+        return {
+            "record_type": "iteration",
+            "iteration": 1,
+            "proposal": {
+                "class_name": class_name,
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+            "accepted": False,
+        }
+
+    @staticmethod
+    def _write_archive(path, records):
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    def test_missing_directory_is_no_op(self, tmp_path):
+        """A non-existent archive dir returns 0 and leaves the posterior untouched."""
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(tmp_path / "no-such-dir"))
+        assert consumed == 0
+        assert samp.stats_snapshot() == []
+
+    def test_empty_directory_is_no_op(self, tmp_path):
+        """An empty directory (no matching files) returns 0."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 0
+
+    def test_directory_with_non_matching_files_is_no_op(self, tmp_path):
+        """Files that don't match the rotation glob are ignored."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        # Wrong prefix / extension — must be skipped.
+        self._write_archive(archives / "summary.txt", [self._accept_record()])
+        self._write_archive(archives / "other_ledger.jsonl", [self._accept_record()])
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 0
+        assert samp.stats_snapshot() == []
+
+    def test_single_archive_replayed(self, tmp_path):
+        """One archived ledger contributes one accept to the posterior."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        self._write_archive(
+            archives / "self_improve_ledger_2026-05-31.jsonl",
+            [self._accept_record(), self._reject_record()],
+        )
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 2
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 1
+
+    def test_multiple_archives_replayed_in_chronological_order(self, tmp_path):
+        """Several archives sum across all of them, chronological by filename."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        self._write_archive(
+            archives / "self_improve_ledger_2026-05-31.jsonl",
+            [self._accept_record(), self._accept_record(), self._reject_record()],
+        )
+        self._write_archive(
+            archives / "self_improve_ledger_2026-06-01.jsonl",
+            [self._accept_record(), self._reject_record()],
+        )
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 5
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 5
+        assert snap[0].n_accepts == 3
+
+    def test_archives_filter_no_op_records(self, tmp_path):
+        """No-op records in archives are skipped (matches live ledger semantics)."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        noop = self._accept_record()
+        noop["no_op"] = True
+        self._write_archive(
+            archives / "self_improve_ledger_2026-05-31.jsonl",
+            [self._accept_record(), noop, self._reject_record()],
+        )
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        # No-op record contributes nothing; accept + reject = 2.
+        assert consumed == 2
+        snap = samp.stats_snapshot()
+        assert snap[0].n_attempts == 2
+        assert snap[0].n_accepts == 1
+
+    def test_archives_filter_guard_and_skip_records(self, tmp_path):
+        """Guard and skip (null proposal) records in archives are ignored."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        records = [
+            self._accept_record(),
+            {"record_type": "guard", "iteration": 0, "rolled_back": False},
+            {"record_type": "iteration", "iteration": 1, "proposal": None, "accepted": False},
+        ]
+        self._write_archive(archives / "self_improve_ledger_2026-05-31.jsonl", records)
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 1
+        snap = samp.stats_snapshot()
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+    def test_archives_propagate_graded_bandit_reward(self, tmp_path):
+        """Archived graded rewards accumulate into reward_sum, matching prime_from_ledger."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        rec = self._accept_record()
+        rec["bandit_reward"] = 0.75
+        self._write_archive(archives / "self_improve_ledger_2026-05-31.jsonl", [rec])
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(archives))
+        assert consumed == 1
+        snap = samp.stats_snapshot()
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+        assert snap[0].reward_sum == pytest.approx(0.75)
+
+    def test_archives_combined_with_live_ledger(self, tmp_path):
+        """Live ledger prime + archives prime accumulate together."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        self._write_archive(
+            archives / "self_improve_ledger_2026-05-31.jsonl",
+            [self._accept_record(), self._reject_record()],
+        )
+        live = tmp_path / "ledger.jsonl"
+        self._write_archive(live, [self._accept_record(), self._reject_record()])
+
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        n_archive = samp.prime_from_archives(str(archives))
+        n_live = samp.prime_from_ledger(str(live))
+        assert n_archive == 2
+        assert n_live == 2
+        snap = samp.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 4
+        assert snap[0].n_accepts == 2
+
+    def test_archive_path_is_a_file_returns_zero(self, tmp_path):
+        """When the archive path points to a regular file rather than a directory."""
+        f = tmp_path / "not-a-dir"
+        f.write_text("garbage")
+        samp = AdaptiveMutationSampler(_two_rule_catalog())
+        consumed = samp.prime_from_archives(str(f))
+        assert consumed == 0
+
+
+# ===========================================================================
 # SelfImprover wired with the adaptive sampler
 # ===========================================================================
 
@@ -1584,6 +1771,158 @@ class TestSelfImproverAdaptive:
         assert len(snap) == 1
         assert snap[0].n_attempts == 1
         assert snap[0].n_accepts == 1
+
+    def test_adaptive_prime_include_archives_default_dir(self, tmp_path):
+        """When ``adaptive_prime_include_archives=True`` and no explicit
+        ``adaptive_prime_archive_dir``, the SelfImprover derives the
+        directory as ``<dirname(ledger_path)>/done`` and adds the
+        archive contributions to the live ledger contributions."""
+        ledger = tmp_path / "ledger.jsonl"
+        archives = tmp_path / "done"
+        archives.mkdir()
+        # Live ledger: one accept on the catalog rule.
+        ledger.write_text(
+            json.dumps(
+                {
+                    "record_type": "iteration",
+                    "proposal": {
+                        "class_name": "_DummyHeuristicA",
+                        "param_name": "radius",
+                        "rule_kind": "log_uniform_perturb",
+                    },
+                    "accepted": True,
+                }
+            )
+            + "\n"
+        )
+        # Archive: two accepts + one reject on the same catalog rule.
+        archive_records = [
+            {
+                "record_type": "iteration",
+                "proposal": {
+                    "class_name": "_DummyHeuristicA",
+                    "param_name": "radius",
+                    "rule_kind": "log_uniform_perturb",
+                },
+                "accepted": acc,
+            }
+            for acc in (True, True, False)
+        ]
+        (archives / "self_improve_ledger_2026-05-31.jsonl").write_text(
+            "\n".join(json.dumps(r) for r in archive_records) + "\n"
+        )
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(ledger),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prime_from_ledger=True,
+            adaptive_prime_include_archives=True,
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        assert len(snap) == 1
+        # 1 from live + 3 from the archive
+        assert snap[0].n_attempts == 4
+        # 1 accept live + 2 accepts archive
+        assert snap[0].n_accepts == 3
+
+    def test_adaptive_prime_include_archives_explicit_dir(self, tmp_path):
+        """Explicit ``adaptive_prime_archive_dir`` overrides the default
+        ``<parent>/done`` derivation — useful when archives sit
+        outside the ledger's parent directory."""
+        ledger = tmp_path / "ledger.jsonl"
+        ledger.write_text("")  # empty live ledger
+        # Archives at a non-default location.
+        custom = tmp_path / "alt-archives"
+        custom.mkdir()
+        rec = {
+            "record_type": "iteration",
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+            "accepted": True,
+        }
+        (custom / "self_improve_ledger_2026-06-01.jsonl").write_text(json.dumps(rec) + "\n")
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(ledger),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prime_from_ledger=True,
+            adaptive_prime_include_archives=True,
+            adaptive_prime_archive_dir=str(custom),
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        assert si.sampler is not None
+        snap = si.sampler.stats_snapshot()
+        assert len(snap) == 1
+        assert snap[0].n_attempts == 1
+        assert snap[0].n_accepts == 1
+
+    def test_adaptive_prime_include_archives_off_by_default(self, tmp_path):
+        """Without ``adaptive_prime_include_archives``, archives are ignored
+        even when present in the default location."""
+        ledger = tmp_path / "ledger.jsonl"
+        ledger.write_text("")  # empty live ledger
+        archives = tmp_path / "done"
+        archives.mkdir()
+        rec = {
+            "record_type": "iteration",
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+            "accepted": True,
+        }
+        (archives / "self_improve_ledger_2026-05-31.jsonl").write_text(json.dumps(rec) + "\n")
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(ledger),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prime_from_ledger=True,
+            # adaptive_prime_include_archives left at default (False)
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        assert si.sampler is not None
+        # Empty live ledger + ignored archive => no stats.
+        assert si.sampler.stats_snapshot() == []
+
+    def test_adaptive_prime_include_archives_requires_prime_from_ledger(self, tmp_path):
+        """The archive flag only takes effect when ``adaptive_prime_from_ledger``
+        is also ``True`` — when priming is off, archives are silently ignored."""
+        archives = tmp_path / "done"
+        archives.mkdir()
+        rec = {
+            "record_type": "iteration",
+            "proposal": {
+                "class_name": "_DummyHeuristicA",
+                "param_name": "radius",
+                "rule_kind": "log_uniform_perturb",
+            },
+            "accepted": True,
+        }
+        (archives / "self_improve_ledger_2026-05-31.jsonl").write_text(json.dumps(rec) + "\n")
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            adaptive_sampling=True,
+            adaptive_prime_from_ledger=False,
+            adaptive_prime_include_archives=True,  # ignored without prime_from_ledger
+        )
+        si = SelfImprover(cfg, catalog=self._accept_catalog(), seed_strategies=_make_specs())
+        assert si.sampler is not None
+        assert si.sampler.stats_snapshot() == []
 
     def test_adaptive_sampler_records_outcomes(self, tmp_path):
         """One iteration with adaptive sampling must update the sampler stats."""

@@ -1207,6 +1207,54 @@ class AdaptiveMutationSampler:
         """
         self._last_rule_key = None
 
+    def _consume_record(self, rec: Dict[str, Any]) -> bool:
+        """Apply one ledger record to the bandit posterior.
+
+        Returns ``True`` if the record contributed an ``n_attempts += 1``
+        / ``reward_sum += r`` update, ``False`` if it was filtered out
+        (non-iteration record, skip, no-op, or null proposal).  Used by
+        both :meth:`prime_from_ledger` and :meth:`prime_from_archives`
+        so the priming semantics are byte-identical regardless of which
+        file the record originated from.
+        """
+        if rec.get("record_type", "iteration") != "iteration":
+            return False
+        proposal = rec.get("proposal")
+        if proposal is None:
+            return False
+        # §12.4 no-op iterations carry zero information about whether
+        # the rule helps or hurts (per-pair scores were bit-identical
+        # to baseline at measure time).  Replaying them as
+        # ``n_attempts += 1`` would mis-train the posterior the same
+        # way :meth:`record_outcome` is bypassed during the live
+        # run.  Legacy records (pre-2026-06-12) carry no ``no_op``
+        # key and default to ``False`` here — preserving the
+        # historical priming semantics exactly.
+        if rec.get("no_op"):
+            return False
+        key = _proposal_rule_key(
+            proposal.get("class_name", ""),
+            proposal.get("param_name", ""),
+            proposal.get("rule_kind", ""),
+            per_class_structural=self.per_class_structural,
+        )
+        stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
+        accepted = bool(rec.get("accepted"))
+        stats.n_attempts += 1
+        if accepted:
+            stats.n_accepts += 1
+        reward = rec.get("bandit_reward")
+        if reward is None:
+            graded = 1.0 if accepted else 0.0
+        else:
+            graded = float(reward)
+            if graded < 0.0:
+                graded = 0.0
+            elif graded > 1.0:
+                graded = 1.0
+        stats.reward_sum += graded
+        return True
+
     def prime_from_ledger(self, ledger_path: str) -> int:
         """Seed the bandit's history from a prior JSONL ledger.
 
@@ -1229,43 +1277,41 @@ class AdaptiveMutationSampler:
         """
         consumed = 0
         for rec in load_ledger(ledger_path):
-            if rec.get("record_type", "iteration") != "iteration":
-                continue
-            proposal = rec.get("proposal")
-            if proposal is None:
-                continue
-            # §12.4 no-op iterations carry zero information about whether
-            # the rule helps or hurts (per-pair scores were bit-identical
-            # to baseline at measure time).  Replaying them as
-            # ``n_attempts += 1`` would mis-train the posterior the same
-            # way :meth:`record_outcome` is bypassed during the live
-            # run.  Legacy records (pre-2026-06-12) carry no ``no_op``
-            # key and default to ``False`` here — preserving the
-            # historical priming semantics exactly.
-            if rec.get("no_op"):
-                continue
-            key = _proposal_rule_key(
-                proposal.get("class_name", ""),
-                proposal.get("param_name", ""),
-                proposal.get("rule_kind", ""),
-                per_class_structural=self.per_class_structural,
-            )
-            stats = self._stats.setdefault(key, MutationRuleStats(rule_key=key))
-            accepted = bool(rec.get("accepted"))
-            stats.n_attempts += 1
-            if accepted:
-                stats.n_accepts += 1
-            reward = rec.get("bandit_reward")
-            if reward is None:
-                graded = 1.0 if accepted else 0.0
-            else:
-                graded = float(reward)
-                if graded < 0.0:
-                    graded = 0.0
-                elif graded > 1.0:
-                    graded = 1.0
-            stats.reward_sum += graded
-            consumed += 1
+            if self._consume_record(rec):
+                consumed += 1
+        return consumed
+
+    def prime_from_archives(self, archive_dir: str) -> int:
+        """Seed the bandit's history from archived JSONL ledgers.
+
+        Discovers files matching the rotation glob
+        ``self_improve_ledger_*.jsonl`` under ``archive_dir`` and replays
+        every iteration record across them, oldest first by filename
+        (the nightly rotation pattern is
+        ``self_improve_ledger_YYYY-MM-DD.jsonl`` so a plain
+        :py:func:`sorted` is chronological).  Returns the total number
+        of records consumed across all archives — a missing directory,
+        an empty directory, or a directory with no matching files all
+        return ``0`` and leave the posterior untouched.
+
+        Per-record semantics are byte-identical to
+        :meth:`prime_from_ledger` (same :meth:`_consume_record` helper).
+        Combined with :meth:`prime_from_ledger` on the live ledger, this
+        closes the §2.6 "archives in ``planning/done/`` are invisible"
+        diagnosis: the bandit posterior now accumulates evidence across
+        every retained nightly run rather than just the current one.
+        """
+        consumed = 0
+        archive_path = pathlib.Path(archive_dir)
+        if not archive_path.is_dir():
+            return 0
+        # Sort by filename for deterministic, chronological replay.  The
+        # rotation convention ``self_improve_ledger_YYYY-MM-DD.jsonl``
+        # makes lexicographic order equal to chronological order.
+        for ledger_file in sorted(archive_path.glob("self_improve_ledger_*.jsonl")):
+            for rec in load_ledger(str(ledger_file)):
+                if self._consume_record(rec):
+                    consumed += 1
         return consumed
 
 
@@ -2662,6 +2708,27 @@ class LoopConfig:
             seeds its bandit history from any existing
             :attr:`ledger_path` before the first iteration.  Useful when
             resuming a long unattended run.
+        adaptive_prime_include_archives: When ``True`` *and*
+            :attr:`adaptive_prime_from_ledger` is also ``True``, the
+            sampler additionally primes from archived ledgers in
+            :attr:`adaptive_prime_archive_dir` (default
+            ``<dirname(ledger_path)>/done``) before the live ledger.
+            Closes the §2.6 "archives in ``planning/done/`` are
+            invisible" diagnosis: the bandit posterior accumulates
+            evidence across every retained nightly run rather than
+            only the current one.  Default ``False`` keeps existing
+            CLI invocations byte-identical.  Only takes effect when
+            :attr:`adaptive_sampling` and
+            :attr:`adaptive_prime_from_ledger` are both ``True``.
+        adaptive_prime_archive_dir: Directory to scan for archived
+            JSONL ledgers when
+            :attr:`adaptive_prime_include_archives` is ``True``.
+            Files matching ``self_improve_ledger_*.jsonl`` are
+            consumed in chronological (lexicographic) order.  ``None``
+            (default) derives the directory from
+            :attr:`ledger_path` as ``<parent>/done``.  A missing
+            directory is a silent no-op so the flag is safe to enable
+            on first-night runs.
         structural_per_class_arms: When ``True``, structural ops in the
             adaptive sampler are split into per-target-class bandit
             arms (e.g. adding ``Sobol`` lives on
@@ -2792,6 +2859,8 @@ class LoopConfig:
     adaptive_prior_alpha: float = 1.0
     adaptive_prior_beta: float = 1.0
     adaptive_prime_from_ledger: bool = False
+    adaptive_prime_include_archives: bool = False
+    adaptive_prime_archive_dir: Optional[str] = None
     structural_per_class_arms: bool = False
     structural_borrow_alpha: float = 0.0
     holdout_base_seed: int = 0
@@ -3972,6 +4041,11 @@ class SelfImprover:
                 structural_borrow_alpha=self.config.structural_borrow_alpha,
             )
             if self.config.adaptive_prime_from_ledger:
+                if self.config.adaptive_prime_include_archives:
+                    archive_dir = self.config.adaptive_prime_archive_dir
+                    if archive_dir is None:
+                        archive_dir = str(pathlib.Path(self.config.ledger_path).parent / "done")
+                    self.sampler.prime_from_archives(archive_dir)
                 self.sampler.prime_from_ledger(self.config.ledger_path)
         else:
             self.sampler = None

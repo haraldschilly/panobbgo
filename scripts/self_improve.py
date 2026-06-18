@@ -346,6 +346,38 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument(
+        "--confirm-accepts",
+        dest="confirm_accepts",
+        action="store_true",
+        help=(
+            "Enable the §6.4 same-night confirmation gate.  Every "
+            "screening-accepted candidate is re-measured on a fresh "
+            "randomize_iteration (and, when --holdout-base-seed / "
+            "--holdout-base-seeds is set, on the *first* hold-out "
+            "base_seed too); promotion happens only when the pooled "
+            "(screen + confirm) bootstrap CI still clears eps_accept.  "
+            "Failed confirmations are recorded as LoopConfirmRecord "
+            "(record_type='confirm_reject') in the ledger and count as "
+            "bandit reward 0 (binary mode) or graded-rejection reward "
+            "from the pooled delta (graded mode).  Off by default to "
+            "keep existing CLI invocations byte-identical."
+        ),
+    )
+    run_p.set_defaults(confirm_accepts=False)
+    run_p.add_argument(
+        "--confirm-iteration-offset",
+        dest="confirm_iteration_offset",
+        type=int,
+        default=500_000,
+        help=(
+            "randomize_iteration offset used by the §6.4 confirmation "
+            "gate (default: 500_000).  Sits between the regular "
+            "iteration stream (0..N) and the guard's offset (1_000_000) "
+            "so the three streams never collide at realistic iteration "
+            "counts.  Inert when --confirm-accepts is not set."
+        ),
+    )
+    run_p.add_argument(
         "--structural-borrow-alpha",
         dest="structural_borrow_alpha",
         type=float,
@@ -726,6 +758,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             inactivity_relax_factor=args.inactivity_relax_factor,
             inactivity_min_eps_accept=args.inactivity_min_eps_accept,
             bandit_reward_shaping=args.bandit_reward_shaping,
+            confirm_accepts=args.confirm_accepts,
+            confirm_iteration_offset=args.confirm_iteration_offset,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -741,11 +775,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # so an operator can see at a glance whether the loop is starving
     # itself on dormant rules.
     n_no_op = sum(1 for r in records if r.no_op)
+    # §6.4 same-night confirmation gate: when --confirm-accepts is on,
+    # a screening accept may be overturned at the post-confirmation
+    # gate.  Surface the count of these "confirm rejects" alongside
+    # accepts / no-ops so an operator can see at a glance how often
+    # the gate is catching screening noise spikes.
+    n_confirm_reject = sum(1 for r in records if r.confirmed is False)
     n_total = len(records)
     print()
+    confirm_blurb = f", {n_confirm_reject} confirm-reject" if cfg.confirm_accepts else ""
     print(
         f"[self_improve] completed: {n_total} iter, {n_accepts} accept, "
-        f"{n_skips} skip, {n_no_op} no-op, ledger={cfg.ledger_path}"
+        f"{n_skips} skip, {n_no_op} no-op{confirm_blurb}, ledger={cfg.ledger_path}"
     )
     if improver.sampler is not None:
         snap = improver.sampler.stats_snapshot()
@@ -1087,6 +1128,11 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     iter_records = [r for r in records if r.get("record_type", "iteration") == "iteration"]
     guard_records = [r for r in records if r.get("record_type") == "guard"]
     holdout_records = [r for r in records if r.get("record_type") == "holdout"]
+    # §6.4 same-night confirmation gate: failed confirmations land as
+    # ``record_type="confirm_reject"`` next to the iteration record
+    # they refer to.  Surface their count so summary readers can see
+    # how often the gate fires.
+    confirm_reject_records = [r for r in records if r.get("record_type") == "confirm_reject"]
     n = len(iter_records)
     accepted = [r for r in iter_records if r.get("accepted")]
     skipped = [r for r in iter_records if r.get("proposal") is None]
@@ -1121,6 +1167,15 @@ def _cmd_summary(args: argparse.Namespace) -> int:
     print(f"Ledger:        {path}")
     print(f"Iterations:    {n}  (decided={len(decided)}, skipped={len(skipped)}, no-op={len(no_op)})")
     print(f"Accepts:       {len(accepted)}  ({accept_rate:.1%} of informative)")
+    if confirm_reject_records:
+        # §6.4: every confirm_reject record corresponds to a screening
+        # accept the gate overturned; the screening_accepts denominator
+        # is the gate's "attempts" count (final accepts + confirm
+        # rejects).  Surface both so the operator can see the gate's
+        # rejection rate at a glance.
+        n_screen_attempts = len(accepted) + len(confirm_reject_records)
+        gate_rate = (len(confirm_reject_records) / n_screen_attempts) if n_screen_attempts else 0.0
+        print(f"Confirm-rej:   {len(confirm_reject_records)}  ({gate_rate:.1%} of screening accepts overturned)")
     if guard_records:
         total_pops = sum(int(r.get("pops", 0)) for r in guard_records)
         print(f"Guards:        {len(guard_records)}  (rollbacks={len(rolled_back)}, total pops={total_pops})")
@@ -1148,6 +1203,22 @@ def _cmd_summary(args: argparse.Namespace) -> int:
                 f"score={r.get('guard_score'):.4f} vs stored "
                 f"{r.get('pre_guard_top_score'):.4f}; "
                 f"new top iter={r.get('rolled_back_to_iteration')}"
+            )
+    if confirm_reject_records:
+        # §6.4 confirmation gate: surface the screen/confirm/pooled
+        # deltas for each overturned screening accept so an operator
+        # can see whether the gate is catching noise spikes (screen Δ
+        # ≫ confirm Δ) or systematic regressions (screen Δ ≈ confirm
+        # Δ but ci_low ≤ 0).
+        print("Confirm rejects (§6.4 same-night gate):")
+        for r in confirm_reject_records:
+            print(
+                f"  iter={r.get('iteration')}  "
+                f"screen_Δ={r.get('screen_delta', 0.0):+.4f}  "
+                f"confirm_Δ={r.get('confirm_delta', 0.0):+.4f}  "
+                f"pooled_Δ={r.get('pooled_delta', 0.0):+.4f}  "
+                f"CI=[{r.get('pooled_ci_low', 0.0):+.4f},"
+                f"{r.get('pooled_ci_high', 0.0):+.4f}]"
             )
     if holdout_records:
         # Multi-seed hold-out lands as multiple records back-to-back per

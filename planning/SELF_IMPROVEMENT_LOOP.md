@@ -49,9 +49,19 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    vacuous `drift=0.0000` reported as OK).  *Honesty bug fixed
    2026-06-11 (§6.4 / §12.4): vacuous hold-outs now surface as
    ``status="vacuous"`` / ``VACUOUS`` in the CLI and are excluded from
-   the drift bootstrap.  The underlying empty-ladder problem is still
-   open and depends on §6.4 (same-night confirmation gate) plus §9.5
-   step 2 (metric resolution) to land.*
+   the drift bootstrap.*  *Structural fix shipped 2026-06-14 (§6.4):
+   the same-night confirmation gate (``LoopConfig.confirm_accepts`` /
+   ``--confirm-accepts``) re-measures every screening-accepted
+   candidate on a fresh ``randomize_iteration`` (plus the first
+   hold-out base_seed when configured) and re-runs
+   ``statistical_accept`` on the pooled sample — a screening noise
+   spike can no longer drive a promotion because the confirmation
+   batch is independent and the pooled CI rules it out.  Failed
+   confirmations land as ``LoopConfirmRecord`` (``record_type=
+   "confirm_reject"``) and the bandit consumes the post-confirmation
+   reward.  Pending: flip the nightly workflow to ``--confirm-accepts``
+   (the queued §9.5 step 5) before this symptom is fully closed in
+   the live loop.*
 3. **Nothing persists between nights.**  The ladder is in-memory; the
    only durable channel is manual codification (used once:
    `Sobol.scramble=False`, 2026-05-31 — which *worked*).
@@ -142,20 +152,45 @@ seed (`iteration + guard_iteration_offset`); pop entries whose score
 drifts more than `guard_eps_ladder` below their stored
 `last_validated_score`, down to the never-popped seed.  CLI
 `--guard-interval`, `--guard-eps-ladder`.  V2 note: with the §6.4
-confirm gate in place, a guard rollback of a *confirmed* accept is an
-anomaly worth surfacing, not routine cleanup.
+confirm gate now in place (shipped 2026-06-14), a guard rollback of a
+*confirmed* accept is an anomaly worth surfacing, not routine cleanup.
 
-### 6.4 Same-night confirmation gate (V2 — open)
+### 6.4 Same-night confirmation gate (V2 — shipped 2026-06-14)
 
 The V1 flow recorded accepts straight from the screening measurement;
 the guard then rolled back ~all of them (§2.2).  V2 inverts this:
 **promotion requires confirmation before the accept is recorded.**
 
-- Re-measure every screening-accepted candidate on a fresh
-  `randomize_iteration` *and* on the hold-out base_seed, same night.
-- Promote iff the pooled paired CI (screen + confirm) stays > 0.
-- Failed confirmations are recorded (`record_type="confirm_reject"`)
-  and count as bandit reward 0.
+- ~Re-measure every screening-accepted candidate on a fresh
+  `randomize_iteration` *and* on the hold-out base_seed, same night.~
+  — **shipped 2026-06-14** as :attr:`LoopConfig.confirm_accepts` +
+  ``--confirm-accepts``.  Every screening-accepted candidate is
+  re-measured on ``iteration + LoopConfig.confirm_iteration_offset``
+  (default ``500_000``, distinct from the guard's ``1_000_000`` so the
+  two fresh-seed streams never collide), and the
+  :func:`~panobbgo.harness.statistical_accept` rule is re-run on the
+  *pooled* (screen + confirm) sample.  When at least one hold-out
+  base_seed is configured the confirmation step additionally
+  re-measures on the *first* hold-out seed and pools that too — per-
+  iteration cost bounded at ``≤ 3×`` screening regardless of how many
+  hold-out seeds the end-of-loop drift check walks.
+- ~Promote iff the pooled paired CI (screen + confirm) stays > 0.~ —
+  **shipped 2026-06-14**.  Same gate logic as the screening step
+  (Δ > eps_accept, ci_low > 0, no catastrophic per-pair regression);
+  see the dated entry in `SELF_IMPROVEMENT_LOG.md`.
+- ~Failed confirmations are recorded (`record_type="confirm_reject"`)
+  and count as bandit reward 0.~ — **shipped 2026-06-14** as
+  :class:`LoopConfirmRecord`.  The bandit reward path consumes the
+  *post-confirmation* pooled decision, so a screening noise-spike that
+  the gate overturned collects the reject-regime reward
+  (binary: ``0``; graded: ``clip(0.5 + pooled_Δ/(4·eps), 0, 0.5)``)
+  rather than the accept reward the screening would have produced.
+  The companion :class:`LoopIterationRecord` carries the new
+  ``confirmed: Optional[bool]`` field — ``None`` when no confirmation
+  ran, ``True`` on promotion, ``False`` on confirm-reject — so codify-
+  scan can distinguish "confirmed accept" (durable signal) from
+  "screening accept overturned by the gate" (noise spike) without
+  re-deriving the verdict from per-record fields.
 - ~Hold-out records on an empty ladder must report `status="vacuous"`,
   never `OK drift=0.0`.~ — **shipped 2026-06-11**.
   :class:`panobbgo.self_improve.LoopHoldoutRecord` gains a ``status``
@@ -327,11 +362,11 @@ file stands.
    pick `--registry loop` so the dormant catalog actually fires.
 2. Nightly to `--metric aocc` (or battery re-base), after one manual
    `workflow_dispatch` A/B comparing signal quality.
-3. `--confirm-accepts` (§6.4) + ~graded bandit reward (§7.4)~ + ~no-op
+3. ~`--confirm-accepts` (§6.4)~ + ~graded bandit reward (§7.4)~ + ~no-op
    detection (§12.4)~ — **no-op detection shipped 2026-06-12**;
-   **graded bandit reward shipped 2026-06-13**; see the dated entries
-   in `SELF_IMPROVEMENT_LOG.md`.  Only ``--confirm-accepts`` (§6.4) is
-   still open in this step.
+   **graded bandit reward shipped 2026-06-13**; **same-night
+   confirmation gate shipped 2026-06-14**.  All three V2 sub-tasks
+   closed; see the dated entries in `SELF_IMPROVEMENT_LOG.md`.
 4. `codify-scan --open-pr` + `--prime-include-archives` +
    vacuous-holdout fix + summary trend block.  *Detection half of
    `codify-scan` shipped 2026-06-17 (no `--open-pr` yet — that's the

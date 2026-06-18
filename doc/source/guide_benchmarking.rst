@@ -687,6 +687,111 @@ Programmatic use:
    )
    iter_records, guard_records = SelfImprover(cfg).run_with_guard_records()
 
+Same-night confirmation gate (§6.4)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The anti-cherry-pick guard catches drift *after* a screening accept
+has already landed on the ladder.  Under the V2 §2.2 diagnosis ("15/16
+guard checks rolled the ladder back; all hold-out records ran on an
+empty ladder") this is too late: the ladder churns indefinitely
+because most screening accepts are upward-noise spikes the guard
+subsequently revokes, codify-scan never sees a durable signal, and
+the planning doc's success criterion 3 ("zero guard rollbacks of
+*confirmed* accepts") is structurally unreachable when no confirmation
+step exists.
+
+The **same-night confirmation gate** inverts this — promotion requires
+confirmation *before* the accept is recorded.  Setting
+:attr:`~panobbgo.self_improve.LoopConfig.confirm_accepts` ``= True``
+(CLI ``--confirm-accepts``) makes the loop:
+
+1. Re-measure every screening-accepted candidate on a fresh
+   ``randomize_iteration`` (``iteration +
+   :attr:`~panobbgo.self_improve.LoopConfig.confirm_iteration_offset```,
+   default ``500_000``).  Sits between the regular iteration stream
+   (``0..N``) and the guard's offset (``1_000_000``) so the three
+   fresh-seed streams never collide at realistic iteration counts.
+2. When at least one hold-out base_seed is configured (via
+   :attr:`~panobbgo.self_improve.LoopConfig.holdout_base_seed` or
+   :attr:`~panobbgo.self_improve.LoopConfig.holdout_base_seeds`),
+   additionally re-measure on the *first* hold-out seed at the same
+   fresh iteration_id.  Only the first seed is used per iteration to
+   cap per-iteration cost at ``≤ 3×`` screening regardless of how
+   many hold-out seeds the end-of-loop drift check walks.
+3. Pool the screen + confirm (+ optional hold-out) measurements via
+   :func:`~panobbgo.self_improve._pool_harness_results` and re-run
+   :func:`~panobbgo.harness.statistical_accept` on the pooled sample.
+4. Promote only when the pooled bootstrap CI still clears the same
+   gate (``Δ > eps_accept``, ``ci_low > 0``, no catastrophic per-pair
+   regression).  A screening noise spike can no longer drive a
+   promotion because the confirmation batch is independent and the
+   pooled CI rules it out.
+5. When the gate overturns a screening accept, append a
+   :class:`~panobbgo.self_improve.LoopConfirmRecord` (``record_type =
+   "confirm_reject"``) to the ledger carrying screen / confirm /
+   pooled scores and CI; the accompanying
+   :class:`~panobbgo.self_improve.LoopIterationRecord` carries
+   ``accepted = False`` and ``confirmed = False`` so codify-scan can
+   distinguish noise-spike accepts from durable ones without
+   re-deriving the verdict.
+
+The ``LoopIterationRecord.confirmed`` field is a three-valued summary
+of the gate's verdict:
+
+* ``None`` — no confirmation step ran (the V1 path:
+  ``confirm_accepts = False``, or the iteration was a skip / no-op,
+  or screening already rejected — the gate only runs after a
+  screening accept).
+* ``True`` — confirmation step ran and the pooled CI cleared the gate;
+  the candidate was promoted.
+* ``False`` — confirmation step ran and the pooled CI did not clear
+  the gate; the candidate was *not* promoted and a companion
+  ``confirm_reject`` record describes the overturned screening
+  accept.
+
+Critically, the bandit reward path consumes the *post-confirmation*
+pooled decision, so an arm that consistently produces screening
+noise-spike accepts collects the reject-regime reward (binary:
+``0``; graded: ``clip(0.5 + pooled_Δ/(4·eps), 0, 0.5)``) rather
+than the full-accept reward the screening alone would have produced.
+The Thompson posterior on such an arm decays toward the reject
+regime over a handful of confirmations, where binary-mode V1
+would have inflated it permanently.
+
+The gate is **disabled by default** (``confirm_accepts = False``) to
+keep existing CLI invocations byte-identical.  Recommended
+unattended cron preset (enables the gate; uses the planning-doc
+default offset; pairs with a guard at the longer 10-iteration
+cadence so the gate handles screen-time noise and the guard handles
+the rare cross-night drift on confirmed accepts):
+
+.. code-block:: bash
+
+   uv run python scripts/self_improve.py run --iterations 35 \
+       --adaptive --bandit-reward graded --registry loop \
+       --confirm-accepts \
+       --guard-interval 10 \
+       --holdout-base-seeds 1234,5678
+
+Programmatic use:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover
+
+   cfg = LoopConfig(
+       iterations=50,
+       mode="standard",
+       confirm_accepts=True,
+       holdout_base_seeds=(1234, 5678),
+       guard_interval=10,
+       adaptive_sampling=True,
+       bandit_reward_shaping="graded",
+   )
+   iter_records, guard_records, holdout_records = SelfImprover(cfg).run_full()
+   confirmed = [r for r in iter_records if r.confirmed is True]
+   overturned = [r for r in iter_records if r.confirmed is False]
+
 Inactivity-guarded eps_accept relaxation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

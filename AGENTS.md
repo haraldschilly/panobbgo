@@ -327,6 +327,35 @@ The harness is the measurement substrate for an autonomous
     `bandit_reward` so `prime_from_ledger` recovers the full
     `reward_sum` state on resume; legacy ledgers (no `bandit_reward`
     key) fall back to the binary semantic byte-identically.
+*   Same-night confirmation gate (§6.4) — **shipped 2026-06-14**, see
+    `panobbgo.self_improve.LoopConfirmRecord`,
+    `LoopConfig.confirm_accepts` / `confirm_iteration_offset`, and the
+    `--confirm-accepts` CLI flag.  Every screening-accepted candidate
+    is re-measured on a fresh `randomize_iteration` (default offset
+    `500_000`, distinct from the guard's `1_000_000`) — and, when at
+    least one hold-out base_seed is configured, additionally on the
+    *first* hold-out seed — then `statistical_accept` is re-run on the
+    *pooled* (screen + confirm) sample.  Promotion happens only when
+    the pooled bootstrap CI still clears `eps_accept`; a screening
+    noise spike can no longer drive a promotion because the
+    confirmation batch is independent and the pooled CI rules it out.
+    Failed confirmations land as `record_type="confirm_reject"` records
+    carrying screen + confirm + pooled scores so an auditor can trace
+    whether the gate caught a noise spike (`screen_Δ ≫ confirm_Δ`) or
+    a systematic regression (`screen_Δ ≈ confirm_Δ` but `ci_low ≤ 0`);
+    the accompanying `LoopIterationRecord` carries a new
+    `confirmed: Optional[bool]` field (`None` / `True` / `False`) so
+    codify-scan distinguishes confirmed accepts from overturned
+    screening accepts without re-deriving the verdict.  The bandit
+    reward path consumes the *post-confirmation* pooled decision, so
+    an arm that consistently produces screening noise-spike accepts
+    collects the reject-regime reward (binary: `0`; graded:
+    `clip(0.5 + pooled_Δ/(4·eps), 0, 0.5)`) rather than the full-
+    accept reward the screening alone would have produced.  Off by
+    default to keep existing CLI invocations byte-identical; recommended
+    on for unattended cron runs since the gate directly addresses the
+    V2 §2.2 "Accept → rollback churn" diagnosis (15/16 V1 accepts
+    rolled back by the guard).
 *   Strategy portfolio composition (§7.2) — **shipped**, see
     `panobbgo.self_improve.StructuralMutationRule` and the
     `default_structural_catalog()` factory.  Four ops join the mutation

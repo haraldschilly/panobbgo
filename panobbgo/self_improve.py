@@ -171,6 +171,7 @@ from panobbgo.harness import (
     BenchmarkHarness,
     HarnessConfig,
     HarnessResult,
+    ProblemStrategyResult,
     statistical_accept,
 )
 
@@ -2391,6 +2392,94 @@ def _is_no_op(baseline_result: HarnessResult, candidate_result: HarnessResult) -
     return all(before[k] == after[k] for k in before)
 
 
+def _pool_harness_results(*results: HarnessResult) -> HarnessResult:
+    """Concatenate per-(problem, strategy) runs across two or more results.
+
+    The §6.4 same-night confirmation gate re-measures a screening-accepted
+    candidate on a fresh ``randomize_iteration`` (and, optionally, a
+    hold-out ``base_seed``) and then re-runs
+    :func:`~panobbgo.harness.statistical_accept` on the *pooled* sample.
+    Pooling at the run level is the natural shape for the paired bootstrap:
+    every concatenated rep is still an instance-aligned ``(problem,
+    strategy)`` measurement, so a paired sampler with shared resample
+    indices preserves the within-rep correlation it relies on for narrow
+    CIs.  We keep the metric recomputation centralised on
+    :meth:`~panobbgo.harness.ProblemStrategyResult.compute_metrics` so the
+    pooled ``score`` / ``success_rate`` / ``ert`` are derived from the
+    concatenated runs by the same formula the live harness uses.
+
+    The composite ``composite_score`` is recomputed as the mean of the
+    pooled per-pair ``score`` values — same definition the harness uses
+    for the live result, so the pooled result is interchangeable with a
+    fresh :class:`HarnessResult` everywhere the loop already consumes
+    one (statistical_accept, _is_no_op, the ledger writer).
+
+    Pairs are matched by ``(problem_name, problem_dim, strategy_name)``.
+    Pairs present in only one input are kept with their original runs;
+    this is conservative and matches what the live harness would produce
+    if the missing side simply timed out on that pair.  An empty
+    ``results`` tuple raises ``ValueError`` because the consumer needs a
+    well-formed result back, not an opaque empty one.
+
+    Args:
+        *results: One or more :class:`HarnessResult` instances to pool.
+            The first result's ``config`` is reused for the pooled
+            result; ``total_runs`` / ``total_duration`` sum across inputs.
+
+    Returns:
+        A populated :class:`HarnessResult` whose per-pair runs are the
+        concatenation of the inputs' runs and whose composite score is
+        the mean of the recomputed per-pair scores.
+    """
+    if not results:
+        raise ValueError("_pool_harness_results requires at least one result")
+    if len(results) == 1:
+        # Identity case — preserves byte-identical behaviour when the
+        # confirmation step's caller passes a single result.
+        return results[0]
+    head = results[0]
+    pooled_runs: Dict[Tuple[str, int, str], Tuple[ProblemStrategyResult, list]] = {}
+    pair_order: List[Tuple[str, int, str]] = []
+    for res in results:
+        for psr in res.problem_strategy_results:
+            key = (psr.problem_name, psr.problem_dim, psr.strategy_name)
+            if key not in pooled_runs:
+                # Reuse the first-seen pair's metadata (f_opt, tolerance,
+                # budget) — these are properties of the (problem, strategy)
+                # pair, not of any individual measurement.
+                pooled_runs[key] = (psr, list(psr.runs))
+                pair_order.append(key)
+            else:
+                pooled_runs[key][1].extend(psr.runs)
+
+    pooled_psrs: List[ProblemStrategyResult] = []
+    for key in pair_order:
+        template, runs = pooled_runs[key]
+        pooled_psr = ProblemStrategyResult(
+            problem_name=template.problem_name,
+            problem_dim=template.problem_dim,
+            strategy_name=template.strategy_name,
+            f_opt=template.f_opt,
+            tolerance=template.tolerance,
+            budget=template.budget,
+            runs=runs,
+        )
+        pooled_psr.compute_metrics()
+        pooled_psrs.append(pooled_psr)
+
+    composite = float(np.mean([p.score for p in pooled_psrs])) if pooled_psrs else 0.0
+    total_runs = sum(int(r.total_runs) for r in results)
+    total_duration = float(sum(float(r.total_duration) for r in results))
+    return HarnessResult(
+        config=head.config,
+        timestamp=head.timestamp,
+        total_runs=total_runs,
+        total_duration=total_duration,
+        problem_strategy_results=pooled_psrs,
+        composite_score=composite,
+    )
+
+
 def _compute_graded_reward(
     *,
     accepted: bool,
@@ -2785,6 +2874,55 @@ class LoopConfig:
     #: Only takes effect when :attr:`adaptive_sampling` is also
     #: ``True``; the uniform-sampler path does not pull arms.
     bandit_reward_shaping: str = "binary"
+    #: Same-night confirmation gate (§6.4 of
+    #: ``planning/SELF_IMPROVEMENT_LOOP.md``).
+    #:
+    #: ``False`` (default) — the loop promotes a screening-accepted
+    #: candidate straight onto the ladder; the anti-cherry-pick guard is
+    #: the only downstream check.  This is the V1 behaviour and the
+    #: §2.2 V2 diagnosis identified it as the dominant accept-rollback
+    #: source: with a ~2.5% accept rate, 15/16 accepts roll back on the
+    #: next guard pass because the screening CI was driven by an
+    #: upward-noise spike on the one instance batch the iteration
+    #: happened to draw.
+    #:
+    #: ``True`` — every screening-accepted candidate is re-measured on
+    #: a fresh ``randomize_iteration`` (``iteration +
+    #: :attr:`confirm_iteration_offset```) and the
+    #: :func:`~panobbgo.harness.statistical_accept` rule is re-run on
+    #: the *pooled* (screen + confirm) sample.  Promotion happens only
+    #: when the pooled paired CI stays above ``eps_accept`` — a noise
+    #: spike on the screening batch can no longer drive an accept
+    #: because the confirmation batch is independent.  When the pooled
+    #: CI fails the gate the iteration is recorded with ``confirmed =
+    #: False`` and an extra ``LoopConfirmRecord`` (``record_type =
+    #: "confirm_reject"``) carries the screen + confirm scores so an
+    #: auditor can trace why the promotion was held back.  The bandit's
+    #: reward path uses the *post-confirmation* delta / CI so an
+    #: arm that consistently produces noise-spike accepts gets the
+    #: weak-signal reward it actually deserves rather than the
+    #: full-accept reward the screening would have given it.
+    #:
+    #: When :attr:`holdout_base_seed` / :attr:`holdout_base_seeds` are
+    #: also configured, the confirmation step additionally re-measures
+    #: on the *first* hold-out base_seed at ``randomize_iteration =
+    #: iteration + :attr:`confirm_iteration_offset``` and pools that
+    #: too — the planning doc's "fresh ``randomize_iteration`` *and*
+    #: hold-out base_seed" prescription.  Only the first seed is used
+    #: per iteration to keep the per-iteration compute cost bounded at
+    #: ``≤ 3×`` the screening cost regardless of how many hold-out
+    #: seeds are configured; the end-of-loop hold-out continues to
+    #: walk every configured seed.
+    confirm_accepts: bool = False
+    #: ``randomize_iteration`` offset used by the §6.4 confirmation
+    #: gate.  The confirmation batch sees instances drawn from
+    #: ``iteration + confirm_iteration_offset`` so the screening and
+    #: confirmation batches are independent SHA-256 streams.  Default
+    #: ``500_000`` sits between the regular iteration stream (``0..N``)
+    #: and the guard's offset (``1_000_000``) so the three streams
+    #: never collide at realistic iteration counts.  Inert when
+    #: :attr:`confirm_accepts` is ``False``.
+    confirm_iteration_offset: int = 500_000
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -2797,6 +2935,22 @@ class LoopConfig:
             raise ValueError(f"registry must be 'default' or 'loop', got {self.registry!r}")
         if self.bandit_reward_shaping not in {"binary", "graded"}:
             raise ValueError(f"bandit_reward_shaping must be 'binary' or 'graded', got {self.bandit_reward_shaping!r}")
+        if self.confirm_iteration_offset <= 0:
+            raise ValueError(f"confirm_iteration_offset must be > 0, got {self.confirm_iteration_offset}")
+        # The confirmation gate (§6.4) and the anti-cherry-pick guard
+        # (§6.3) both derive a "fresh" ``randomize_iteration`` from the
+        # current iteration plus an offset.  If the two offsets collide
+        # (or land within a window the regular iteration stream walks
+        # through), the confirm batch and the guard batch would see
+        # bit-identical instances, defeating the point of the second
+        # check.  ``500_000`` and ``1_000_000`` are the planning-doc
+        # defaults; the validation enforces the offsets stay distinct.
+        if self.confirm_accepts and self.confirm_iteration_offset == self.guard_iteration_offset:
+            raise ValueError(
+                "confirm_iteration_offset must differ from guard_iteration_offset"
+                f" (both={self.confirm_iteration_offset});"
+                " the confirmation and guard fresh seeds are meant to draw from independent streams"
+            )
         if self.guard_interval < 0:
             raise ValueError(f"guard_interval must be >= 0, got {self.guard_interval}")
         if self.guard_eps_ladder < 0:
@@ -3011,6 +3165,26 @@ class LoopIterationRecord:
     #: graded posterior bit-exactly.  See §7.4 of
     #: ``planning/SELF_IMPROVEMENT_LOOP.md`` for the formula.
     bandit_reward: Optional[float] = None
+    #: §6.4 same-night confirmation outcome.
+    #:
+    #: * ``None`` — no confirmation step was run for this iteration:
+    #:   either ``LoopConfig.confirm_accepts`` was ``False`` (the
+    #:   default, historical behaviour), or the iteration was a skip /
+    #:   no-op, or the screening decision was already a reject (the
+    #:   gate only runs after a screening-accept).  Legacy ledger
+    #:   records written before the 2026-06-14 ship default to ``None``
+    #:   so they replay byte-identically.
+    #: * ``True`` — the confirmation step ran and the pooled (screen +
+    #:   confirm) bootstrap CI cleared the accept gate; the candidate
+    #:   was promoted to the ladder.  :attr:`accepted` is ``True`` in
+    #:   this case.
+    #: * ``False`` — the confirmation step ran and the pooled CI failed
+    #:   the gate; the candidate was *not* promoted.  :attr:`accepted`
+    #:   is ``False`` and the same-night ledger carries a companion
+    #:   :class:`LoopConfirmRecord` (``record_type="confirm_reject"``)
+    #:   that records the screen + confirm scores so the failure is
+    #:   auditable.
+    confirmed: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -3036,6 +3210,7 @@ class LoopIterationRecord:
             "iters_since_accept": self.iters_since_accept,
             "no_op": self.no_op,
             "bandit_reward": self.bandit_reward,
+            "confirmed": self.confirmed,
         }
         return d
 
@@ -3142,6 +3317,140 @@ class LoopGuardRecord:
             "guard_iteration_id": self.guard_iteration_id,
             "reasons": list(self.reasons),
             "base_seed": self.base_seed,
+            "mode": self.mode,
+        }
+
+
+@dataclass
+class LoopConfirmRecord:
+    """One ledger line — outcome of a §6.4 confirmation gate rejection.
+
+    Only written when :attr:`LoopConfig.confirm_accepts` is ``True`` *and*
+    the same-night confirmation step rejected a screening-accepted
+    candidate.  Successful confirmations leave the surrounding
+    :class:`LoopIterationRecord` carrying ``accepted=True`` /
+    ``confirmed=True`` and need no companion record; failed confirmations
+    additionally append this record so the screen + confirm scores and
+    the pooled CI are auditable from the ledger alone.
+
+    Attributes:
+        iteration: Iteration index whose screening accept the gate
+            overturned.
+        timestamp: ISO-8601 UTC timestamp recorded when the confirmation
+            decision landed.
+        duration_seconds: Wall-clock cost of the confirmation
+            measurements (baseline + candidate, summed across the
+            randomize-iteration and any hold-out re-measurement).
+        proposal: Serialised :class:`MutationProposal` that the gate
+            rejected, identical to the surrounding iteration record's
+            ``proposal`` field so a JSONL consumer can match the two on
+            ``(iteration, proposal["rule_key"])``.
+        screen_baseline_score: ``HarnessResult.composite_score`` of the
+            *baseline* (pre-mutation) measurement on the screening
+            randomize_iteration.
+        screen_candidate_score: ``HarnessResult.composite_score`` of the
+            *candidate* (post-mutation) measurement on the screening
+            randomize_iteration — same value as
+            :attr:`LoopIterationRecord.candidate_score`.
+        screen_delta: ``screen_candidate_score − screen_baseline_score``,
+            cached for ledger consumers.
+        confirm_baseline_score: ``HarnessResult.composite_score`` of the
+            *baseline* measurement on the confirmation
+            randomize_iteration (``iteration +
+            LoopConfig.confirm_iteration_offset``).
+        confirm_candidate_score: ``HarnessResult.composite_score`` of the
+            *candidate* measurement on the confirmation iteration.
+        confirm_delta: ``confirm_candidate_score −
+            confirm_baseline_score``.
+        pooled_delta: Composite delta of
+            :func:`~panobbgo.harness.statistical_accept` run on the
+            *pooled* (screen + confirm) sample.  This is the value the
+            gate evaluated against ``eps_accept`` to decide promotion.
+        pooled_ci_low: Lower bound of the pooled bootstrap CI; the gate
+            requires ``pooled_ci_low > 0`` to promote.
+        pooled_ci_high: Upper bound of the pooled bootstrap CI.
+        pooled_worst_pair_regression: Most-negative per-pair delta on
+            the pooled sample.  When this dips below
+            ``-LoopConfig.eps_regress`` the gate rejects even if the
+            mean CI clears.
+        pooled_worst_pair: ``(problem, strategy)`` pair carrying
+            :attr:`pooled_worst_pair_regression`, or ``None`` when no
+            pair regressed.
+        confirm_iteration_id: ``randomize_iteration`` used for the
+            confirmation re-measurement (i.e., ``iteration +
+            LoopConfig.confirm_iteration_offset``).
+        confirm_holdout_seed: ``base_seed`` of the optional hold-out
+            confirmation re-measurement, or ``None`` when no hold-out
+            seed was configured / used.
+        confirm_holdout_baseline_score: Mean composite of the *baseline*
+            measurement on the hold-out base_seed, or ``None`` when no
+            hold-out confirmation ran.
+        confirm_holdout_candidate_score: Mean composite of the
+            *candidate* measurement on the hold-out base_seed, or
+            ``None`` when no hold-out confirmation ran.
+        reasons: Human-readable bullet points (mirrors the
+            :class:`~panobbgo.harness.StatisticalDecision` reasons list).
+        base_seed: Loop's training base_seed (for ledger search).
+        mode: Harness mode used for the confirmation measurements.
+        record_type: Always ``"confirm_reject"``; lets ledger consumers
+            distinguish confirmation rejections from iteration / guard /
+            hold-out records.
+    """
+
+    iteration: int
+    timestamp: str
+    duration_seconds: float
+    proposal: Optional[Dict[str, Any]]
+    screen_baseline_score: float
+    screen_candidate_score: float
+    screen_delta: float
+    confirm_baseline_score: float
+    confirm_candidate_score: float
+    confirm_delta: float
+    pooled_delta: float
+    pooled_ci_low: float
+    pooled_ci_high: float
+    pooled_worst_pair_regression: float
+    pooled_worst_pair: Optional[Tuple[str, str]]
+    confirm_iteration_id: int
+    confirm_holdout_seed: Optional[int] = None
+    confirm_holdout_baseline_score: Optional[float] = None
+    confirm_holdout_candidate_score: Optional[float] = None
+    reasons: List[str] = field(default_factory=list)
+    base_seed: int = 42
+    mode: str = "quick"
+    record_type: str = "confirm_reject"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "record_type": self.record_type,
+            "iteration": self.iteration,
+            "timestamp": self.timestamp,
+            "duration_seconds": self.duration_seconds,
+            "proposal": self.proposal,
+            "screen_baseline_score": float(self.screen_baseline_score),
+            "screen_candidate_score": float(self.screen_candidate_score),
+            "screen_delta": float(self.screen_delta),
+            "confirm_baseline_score": float(self.confirm_baseline_score),
+            "confirm_candidate_score": float(self.confirm_candidate_score),
+            "confirm_delta": float(self.confirm_delta),
+            "pooled_delta": float(self.pooled_delta),
+            "pooled_ci_low": float(self.pooled_ci_low),
+            "pooled_ci_high": float(self.pooled_ci_high),
+            "pooled_worst_pair_regression": float(self.pooled_worst_pair_regression),
+            "pooled_worst_pair": (list(self.pooled_worst_pair) if self.pooled_worst_pair is not None else None),
+            "confirm_iteration_id": int(self.confirm_iteration_id),
+            "confirm_holdout_seed": (int(self.confirm_holdout_seed) if self.confirm_holdout_seed is not None else None),
+            "confirm_holdout_baseline_score": (
+                float(self.confirm_holdout_baseline_score) if self.confirm_holdout_baseline_score is not None else None
+            ),
+            "confirm_holdout_candidate_score": (
+                float(self.confirm_holdout_candidate_score)
+                if self.confirm_holdout_candidate_score is not None
+                else None
+            ),
+            "reasons": list(self.reasons),
+            "base_seed": int(self.base_seed),
             "mode": self.mode,
         }
 
@@ -3597,6 +3906,27 @@ def aggregate_holdout_drift(
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class _ConfirmationOutcome:
+    """Internal return type of :meth:`SelfImprover._run_confirmation`.
+
+    Bundles the pooled
+    :class:`~panobbgo.harness.StatisticalDecision`, the verdict, the
+    fresh-iteration / hold-out-seed identifiers used by the
+    confirmation step, and (when the gate rejected) the
+    :class:`LoopConfirmRecord` to write to the ledger.  Keeping the
+    return shape in a dataclass instead of a tuple keeps the caller in
+    :meth:`SelfImprover._run_loop` readable and lets the test suite
+    introspect the confirmation step directly.
+    """
+
+    confirmed: bool
+    pooled_decision: Any  # StatisticalDecision; Any avoids a forward-ref cycle.
+    confirm_iteration_id: int
+    confirm_holdout_seed: Optional[int]
+    record: Optional[LoopConfirmRecord]
+
+
 class SelfImprover:
     """The loop driver.
 
@@ -3783,19 +4113,65 @@ class SelfImprover:
             if no_op:
                 reasons.append("no-op: per-pair scores bit-identical to baseline")
 
-            accepted_flag = bool(decision.accept) and not no_op
+            screen_accept = bool(decision.accept) and not no_op
+
+            # §6.4 same-night confirmation gate.  Runs only after a
+            # screening accept (the gate cannot promote what screening
+            # already rejected) and only when the loop is configured for
+            # it — otherwise the V1 promote-on-screening behaviour is
+            # preserved byte-for-byte.
+            confirmed_flag: Optional[bool] = None
+            confirm_record: Optional[LoopConfirmRecord] = None
+            final_decision = decision
+            if screen_accept and self.config.confirm_accepts:
+                confirmation = self._run_confirmation(
+                    iteration=iteration,
+                    current=current,
+                    candidate=candidate,
+                    proposal=proposal,
+                    screen_baseline=baseline_result,
+                    screen_candidate=candidate_result,
+                    eps_for_iter=eps_for_iter,
+                    streak_for_iter=streak_for_iter,
+                    verbose=verbose,
+                )
+                final_decision = confirmation.pooled_decision
+                if confirmation.confirmed:
+                    confirmed_flag = True
+                    reasons.append(
+                        f"confirmed: pooled CI cleared eps_accept on fresh"
+                        f" randomize_iteration={confirmation.confirm_iteration_id}"
+                        + (
+                            f" + holdout_base_seed={confirmation.confirm_holdout_seed}"
+                            if confirmation.confirm_holdout_seed is not None
+                            else ""
+                        )
+                    )
+                else:
+                    confirmed_flag = False
+                    reasons.append(
+                        "confirm_reject: pooled CI did not clear eps_accept on"
+                        " same-night re-measurement; screening was a noise spike"
+                    )
+                    confirm_record = confirmation.record
+
+            accepted_flag = screen_accept and (confirmed_flag is not False)
             # Compute the graded bandit reward up front when the loop is
             # configured for §7.4 reward shaping so the persisted record
             # carries the exact value the bandit consumed.  Skip /
             # no-op iterations leave ``bandit_reward = None`` because the
             # bandit's posterior is not pulled on them (the upstream
-            # ``discard_outcome`` path).
+            # ``discard_outcome`` path).  When the confirmation gate ran,
+            # the reward is computed from the *post-confirmation* pooled
+            # decision so an arm that produced a screening noise-spike no
+            # longer collects a full-accept reward for what the gate
+            # subsequently demoted to a reject.
             bandit_reward: Optional[float] = None
             if not no_op and self.config.bandit_reward_shaping == "graded":
                 bandit_reward = _compute_graded_reward(
                     accepted=accepted_flag,
-                    delta=float(decision.delta),
-                    ci_low=float(decision.ci_low),
+                    delta=float(final_decision.delta),
+                    ci_low=float(final_decision.ci_low),
                     eps_accept=eps_for_iter,
                 )
 
@@ -3825,11 +4201,14 @@ class SelfImprover:
                 iters_since_accept=streak_for_iter,
                 no_op=no_op,
                 bandit_reward=bandit_reward,
+                confirmed=confirmed_flag,
             )
             records.append(rec)
             ledger.write(rec)
             if verbose:
                 self._print_iteration(rec)
+            if confirm_record is not None:
+                ledger.write(confirm_record)
 
             # Refresh the seed entry's validated score the first time we
             # measure with it so the guard has a baseline to compare
@@ -4318,6 +4697,161 @@ class SelfImprover:
             status=status,
         )
 
+    def _confirm_iteration_id(self, iteration: int) -> int:
+        """Translate a regular iteration index into the confirmation seed.
+
+        §6.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``: the same-night
+        confirmation gate re-measures a screening-accepted candidate on
+        a fresh ``randomize_iteration`` to break the noise-spike
+        correlation that V1 promote-on-screening was vulnerable to.
+        The offset is large and distinct from the guard's offset so the
+        three iteration streams (regular / confirm / guard) never
+        collide at realistic iteration counts.
+        """
+        return int(iteration) + int(self.config.confirm_iteration_offset)
+
+    def _run_confirmation(
+        self,
+        *,
+        iteration: int,
+        current: List[StrategySpec],
+        candidate: List[StrategySpec],
+        proposal: MutationProposal,
+        screen_baseline: HarnessResult,
+        screen_candidate: HarnessResult,
+        eps_for_iter: float,
+        streak_for_iter: int,
+        verbose: bool,
+    ) -> "_ConfirmationOutcome":
+        """Re-measure a screening accept on independent instances; gate promotion.
+
+        Implements §6.4 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  The
+        screening measurement (``screen_baseline``, ``screen_candidate``)
+        is paired with one — or two, when a hold-out seed is configured
+        — additional measurements drawn from independent SHA-256
+        streams, then :func:`~panobbgo.harness.statistical_accept` is
+        re-run on the pooled sample.  Promotion happens only when the
+        pooled CI still clears ``eps_accept``.
+
+        The hold-out re-measurement uses the *first* configured
+        hold-out base_seed to keep per-iteration compute bounded at
+        ``≤ 3×`` the screening cost regardless of how many hold-out
+        seeds are configured for the end-of-loop drift check.  The
+        end-of-loop hold-out continues to walk every configured seed.
+
+        Args:
+            iteration: Regular iteration index — used to derive the
+                fresh ``randomize_iteration`` for the confirmation step.
+            current: Pre-mutation spec list (paired baseline measurement).
+            candidate: Post-mutation spec list (paired candidate
+                measurement).
+            proposal: The :class:`MutationProposal` whose screening
+                accept the gate is about to confirm or reject.
+            screen_baseline: Screening baseline measurement (re-used
+                without re-measuring).
+            screen_candidate: Screening candidate measurement (re-used
+                without re-measuring).
+            eps_for_iter: Effective ``eps_accept`` for the iteration —
+                consults the inactivity-relax rule so a relaxed
+                screening threshold gets a relaxed confirmation
+                threshold too.
+            streak_for_iter: Inactivity streak snapshot (forwarded into
+                the confirm record so an auditor can replay the relax
+                rule that produced the screening accept).
+            verbose: If ``True``, print one ``[self_improve]`` line per
+                confirmation measurement.
+
+        Returns:
+            A populated :class:`_ConfirmationOutcome` carrying the
+            pooled :class:`~panobbgo.harness.StatisticalDecision`, the
+            verdict, the fresh-iteration id, and (when ``confirmed`` is
+            ``False``) the :class:`LoopConfirmRecord` to append to the
+            ledger.
+        """
+        start = time.time()
+        confirm_iter_id = self._confirm_iteration_id(iteration)
+        confirm_baseline = self._measure(current, confirm_iter_id, "confirm-baseline", verbose)
+        confirm_candidate = self._measure(candidate, confirm_iter_id, "confirm-candidate", verbose)
+
+        pooled_baseline = _pool_harness_results(screen_baseline, confirm_baseline)
+        pooled_candidate = _pool_harness_results(screen_candidate, confirm_candidate)
+
+        # Optional hold-out leg: when the loop is also configured with
+        # a hold-out base_seed (single- or multi-seed), confirm on the
+        # *first* hold-out seed too.  The planning doc's "fresh
+        # randomize_iteration *and* hold-out base_seed" wording.  Only
+        # the first seed is used so the per-iteration confirmation cost
+        # stays bounded regardless of how many hold-out seeds the
+        # end-of-loop drift check walks.
+        ho_seed: Optional[int] = None
+        ho_baseline_score: Optional[float] = None
+        ho_candidate_score: Optional[float] = None
+        resolved_holdout_seeds = self.config.resolved_holdout_seeds()
+        if resolved_holdout_seeds and bool(self.config.randomize) and self.config.metric != "aocc":
+            ho_seed = int(resolved_holdout_seeds[0])
+            ho_baseline = self._measure_holdout(current, confirm_iter_id, ho_seed, "confirm-ho-baseline", verbose)
+            ho_candidate = self._measure_holdout(candidate, confirm_iter_id, ho_seed, "confirm-ho-candidate", verbose)
+            pooled_baseline = _pool_harness_results(pooled_baseline, ho_baseline)
+            pooled_candidate = _pool_harness_results(pooled_candidate, ho_candidate)
+            ho_baseline_score = float(ho_baseline.composite_score)
+            ho_candidate_score = float(ho_candidate.composite_score)
+
+        pooled_decision = statistical_accept(
+            pooled_baseline,
+            pooled_candidate,
+            eps_accept=eps_for_iter,
+            eps_regress=self.config.eps_regress,
+            n_boot=self.config.n_boot,
+            confidence=self.config.confidence,
+            # Distinct seed offset so the pooled bootstrap draws are not
+            # bit-identical to the screening bootstrap (paranoia — the
+            # rep arrays are larger so the resample index space is
+            # different anyway, but we want the two CIs to be
+            # statistically independent at every layer).
+            seed=self.config.stat_seed + iteration + int(self.config.confirm_iteration_offset),
+            paired=self.config.paired,
+        )
+        confirmed = bool(pooled_decision.accept)
+
+        confirm_record: Optional[LoopConfirmRecord] = None
+        if not confirmed:
+            confirm_record = LoopConfirmRecord(
+                iteration=iteration,
+                timestamp=datetime.now(tz=timezone.utc).isoformat(),
+                duration_seconds=time.time() - start,
+                proposal=proposal.to_dict(),
+                screen_baseline_score=float(screen_baseline.composite_score),
+                screen_candidate_score=float(screen_candidate.composite_score),
+                screen_delta=float(screen_candidate.composite_score - screen_baseline.composite_score),
+                confirm_baseline_score=float(confirm_baseline.composite_score),
+                confirm_candidate_score=float(confirm_candidate.composite_score),
+                confirm_delta=float(confirm_candidate.composite_score - confirm_baseline.composite_score),
+                pooled_delta=float(pooled_decision.delta),
+                pooled_ci_low=float(pooled_decision.ci_low),
+                pooled_ci_high=float(pooled_decision.ci_high),
+                pooled_worst_pair_regression=float(pooled_decision.worst_pair_regression),
+                pooled_worst_pair=(
+                    (str(pooled_decision.worst_pair[0]), str(pooled_decision.worst_pair[1]))
+                    if pooled_decision.worst_pair is not None
+                    else None
+                ),
+                confirm_iteration_id=confirm_iter_id,
+                confirm_holdout_seed=ho_seed,
+                confirm_holdout_baseline_score=ho_baseline_score,
+                confirm_holdout_candidate_score=ho_candidate_score,
+                reasons=list(pooled_decision.reasons),
+                base_seed=int(self.config.base_seed),
+                mode=self.config.mode,
+            )
+
+        return _ConfirmationOutcome(
+            confirmed=confirmed,
+            pooled_decision=pooled_decision,
+            confirm_iteration_id=confirm_iter_id,
+            confirm_holdout_seed=ho_seed,
+            record=confirm_record,
+        )
+
     @staticmethod
     def _print_holdout(rec: "LoopHoldoutRecord") -> None:
         # Use ``effective_status`` so legacy ledger lines (no status
@@ -4354,9 +4888,9 @@ class SelfImprover:
 class _LedgerWriter:
     """Append-only JSONL ledger.  Creates parent directories on demand.
 
-    Writes :class:`LoopIterationRecord`, :class:`LoopGuardRecord`, and
-    :class:`LoopHoldoutRecord` instances; the ``record_type`` field
-    distinguishes them on read.
+    Writes :class:`LoopIterationRecord`, :class:`LoopGuardRecord`,
+    :class:`LoopConfirmRecord`, and :class:`LoopHoldoutRecord`
+    instances; the ``record_type`` field distinguishes them on read.
     """
 
     def __init__(self, path: str) -> None:

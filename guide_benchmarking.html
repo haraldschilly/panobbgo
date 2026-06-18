@@ -1244,18 +1244,50 @@ default for an operator opening a codify PR.</p>
 line for external dashboards or scripted PR generation; <code class="docutils literal notranslate"><span class="pre">--top</span> <span class="pre">N</span></code>
 limits the report to the strongest N candidates so a daily routine
 can spotlight the highest-conviction codifications.</p>
+<p>Already-codified candidates are <em>suppressed by default</em> (shipped
+2026-06-18).  The scanner runs
+<code class="xref py py-func docutils literal notranslate"><span class="pre">annotate_codified_status()</span></code> after
+aggregation: it imports the seed-spec factories that the nightly
+cron exercises (<code class="docutils literal notranslate"><span class="pre">_make_quick_strategies</span></code> + <code class="docutils literal notranslate"><span class="pre">_make_loop_strategies</span></code>
+— see <code class="xref py py-func docutils literal notranslate"><span class="pre">default_codify_registries()</span></code>),
+walks every spec’s <code class="docutils literal notranslate"><span class="pre">(heuristic_cls,</span> <span class="pre">kwargs)</span></code> / <code class="docutils literal notranslate"><span class="pre">(analyzer_cls,</span>
+<span class="pre">kwargs)</span></code> entries, and cross-checks each candidate’s predicted edit
+against the live kwarg values.  Categorical candidates compare
+<code class="docutils literal notranslate"><span class="pre">repr(new_value)</span> <span class="pre">==</span> <span class="pre">repr(live)</span></code>; numeric candidates are flagged
+when the live value already meets or exceeds the median of
+<code class="docutils literal notranslate"><span class="pre">new_values</span></code> in the candidate’s direction (<code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> →
+<code class="docutils literal notranslate"><span class="pre">max(live)</span> <span class="pre">&gt;=</span> <span class="pre">median(new_values)</span></code>; <code class="docutils literal notranslate"><span class="pre">&quot;down&quot;</span></code> →
+<code class="docutils literal notranslate"><span class="pre">min(live)</span> <span class="pre">&lt;=</span> <span class="pre">median(new_values)</span></code>).  Structural ops are not
+suppressed.  Pass <code class="docutils literal notranslate"><span class="pre">--include-already-codified</span></code> to audit the
+suppressed set — every already-codified candidate is tagged
+<code class="docutils literal notranslate"><span class="pre">[already</span> <span class="pre">codified]</span></code> in the report and the
+<code class="docutils literal notranslate"><span class="pre">live</span> <span class="pre">seed</span> <span class="pre">value(s)</span></code> line surfaces the matching seed kwarg values
+so the operator can confirm the verdict.</p>
+<p>JSON mode (<code class="docutils literal notranslate"><span class="pre">--json</span></code>) always emits every candidate so the consumer
+can filter on the new
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">already_codified</span></code> and
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">live_codified_values</span></code>
+fields itself.  The motivating example was
+<code class="docutils literal notranslate"><span class="pre">Sobol.scramble</span> <span class="pre">=</span> <span class="pre">False</span></code>, codified in
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_make_quick_strategies()</span></code> on 2026-05-31 but
+continuing to surface from the pre-codification archive on every
+subsequent <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> invocation; the suppression layer
+collapses the report to the actionable set.</p>
 <p>The scanner’s library functions
 (<code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.CodifyCandidate</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.aggregate_codify_candidates()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.annotate_codified_status()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.default_codify_registries()</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.load_ledgers_for_codify_scan()</span></code>) are
 public so a follow-up <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver can reuse the same
 detection — the slot identifier
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">CodifyCandidate.slot_key</span></code> is the <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span> <span class="pre">op)</span></code> tuple
 the §12.3 deduplication rule should consult against
 <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">list</span> <span class="pre">--state</span> <span class="pre">open</span></code>.</p>
-<p>See the 2026-06-17 entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
-the design rationale and the dated entry’s “Follow-up ideas” section
-for the queued <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>
+<p>See the 2026-06-17 / 2026-06-18 entries in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the design rationale and
+the dated entry’s “Follow-up ideas” section for the queued
+<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>
 </section>
 <section id="adaptive-mutation-sampler-10">
 <h3><a class="toc-backref" href="#id30" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>

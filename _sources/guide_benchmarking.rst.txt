@@ -1031,9 +1031,42 @@ line for external dashboards or scripted PR generation; ``--top N``
 limits the report to the strongest N candidates so a daily routine
 can spotlight the highest-conviction codifications.
 
+Already-codified candidates are *suppressed by default* (shipped
+2026-06-18).  The scanner runs
+:func:`~panobbgo.self_improve.annotate_codified_status` after
+aggregation: it imports the seed-spec factories that the nightly
+cron exercises (``_make_quick_strategies`` + ``_make_loop_strategies``
+— see :func:`~panobbgo.self_improve.default_codify_registries`),
+walks every spec's ``(heuristic_cls, kwargs)`` / ``(analyzer_cls,
+kwargs)`` entries, and cross-checks each candidate's predicted edit
+against the live kwarg values.  Categorical candidates compare
+``repr(new_value) == repr(live)``; numeric candidates are flagged
+when the live value already meets or exceeds the median of
+``new_values`` in the candidate's direction (``"up"`` →
+``max(live) >= median(new_values)``; ``"down"`` →
+``min(live) <= median(new_values)``).  Structural ops are not
+suppressed.  Pass ``--include-already-codified`` to audit the
+suppressed set — every already-codified candidate is tagged
+``[already codified]`` in the report and the
+``live seed value(s)`` line surfaces the matching seed kwarg values
+so the operator can confirm the verdict.
+
+JSON mode (``--json``) always emits every candidate so the consumer
+can filter on the new
+:attr:`~panobbgo.self_improve.CodifyCandidate.already_codified` and
+:attr:`~panobbgo.self_improve.CodifyCandidate.live_codified_values`
+fields itself.  The motivating example was
+``Sobol.scramble = False``, codified in
+:func:`~panobbgo.harness._make_quick_strategies` on 2026-05-31 but
+continuing to surface from the pre-codification archive on every
+subsequent ``codify-scan`` invocation; the suppression layer
+collapses the report to the actionable set.
+
 The scanner's library functions
 (:class:`panobbgo.self_improve.CodifyCandidate`,
 :func:`panobbgo.self_improve.aggregate_codify_candidates`,
+:func:`panobbgo.self_improve.annotate_codified_status`,
+:func:`panobbgo.self_improve.default_codify_registries`,
 :func:`panobbgo.self_improve.load_ledgers_for_codify_scan`) are
 public so a follow-up ``--open-pr`` driver can reuse the same
 detection — the slot identifier
@@ -1041,9 +1074,10 @@ detection — the slot identifier
 the §12.3 deduplication rule should consult against
 ``gh pr list --state open``.
 
-See the 2026-06-17 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
-the design rationale and the dated entry's "Follow-up ideas" section
-for the queued ``--open-pr`` work.
+See the 2026-06-17 / 2026-06-18 entries in
+``planning/SELF_IMPROVEMENT_LOG.md`` for the design rationale and
+the dated entry's "Follow-up ideas" section for the queued
+``--open-pr`` work.
 
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

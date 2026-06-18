@@ -1083,6 +1083,20 @@ Useful when restarting a multi-hour loop after a crash or a manual
 stop — the bandit resumes with all the meta-knowledge of which rules
 have worked so far.
 
+Crossing nightly boundaries.  By default, priming only sees the
+*live* ledger (``planning/self_improve_ledger.jsonl``).  Setting
+``LoopConfig.adaptive_prime_include_archives = True`` (CLI
+``--prime-include-archives``) additionally replays every archived
+ledger under ``planning/done/`` matching the rotation glob
+``self_improve_ledger_*.jsonl``.  Files are consumed in chronological
+(lexicographic-on-filename) order before the live ledger.  A custom
+directory can be passed via
+``LoopConfig.adaptive_prime_archive_dir`` (CLI
+``--prime-archive-dir``); a missing directory is a silent no-op.
+Closes the §2.6 "archives in ``planning/done/`` are invisible"
+diagnosis — the bandit posterior now accumulates evidence across
+every retained nightly run rather than only the current one.
+
 CLI:
 
 .. code-block:: bash
@@ -1091,6 +1105,13 @@ CLI:
    # ledger sitting at the default path
    uv run python scripts/self_improve.py run --iterations 50 \
        --adaptive --adaptive-prime-from-ledger
+
+   # Same, but also prime from archived ledgers (rotation glob
+   # ``self_improve_ledger_*.jsonl``) sitting under ``planning/done/``.
+   # Per-record semantics are identical to the live ledger — the bandit
+   # posterior accumulates evidence across every retained nightly run.
+   uv run python scripts/self_improve.py run --iterations 50 \
+       --adaptive --adaptive-prime-from-ledger --prime-include-archives
 
    # Greedier prior for shorter exploratory loops
    uv run python scripts/self_improve.py run --iterations 20 \

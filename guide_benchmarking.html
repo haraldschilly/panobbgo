@@ -1291,21 +1291,41 @@ history from any existing JSONL ledger before the first iteration.
 Useful when restarting a multi-hour loop after a crash or a manual
 stop — the bandit resumes with all the meta-knowledge of which rules
 have worked so far.</p>
+<p>Crossing nightly boundaries.  By default, priming only sees the
+<em>live</em> ledger (<code class="docutils literal notranslate"><span class="pre">planning/self_improve_ledger.jsonl</span></code>).  Setting
+<code class="docutils literal notranslate"><span class="pre">LoopConfig.adaptive_prime_include_archives</span> <span class="pre">=</span> <span class="pre">True</span></code> (CLI
+<code class="docutils literal notranslate"><span class="pre">--prime-include-archives</span></code>) additionally replays every archived
+ledger under <code class="docutils literal notranslate"><span class="pre">planning/done/</span></code> matching the rotation glob
+<code class="docutils literal notranslate"><span class="pre">self_improve_ledger_*.jsonl</span></code>.  Files are consumed in chronological
+(lexicographic-on-filename) order before the live ledger.  A custom
+directory can be passed via
+<code class="docutils literal notranslate"><span class="pre">LoopConfig.adaptive_prime_archive_dir</span></code> (CLI
+<code class="docutils literal notranslate"><span class="pre">--prime-archive-dir</span></code>); a missing directory is a silent no-op.
+Closes the §2.6 “archives in <code class="docutils literal notranslate"><span class="pre">planning/done/</span></code> are invisible”
+diagnosis — the bandit posterior now accumulates evidence across
+every retained nightly run rather than only the current one.</p>
 <p>CLI:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Adaptive sampler with the default symmetric prior, primed from any</span>
 </span><span data-line="2"><span class="c1"># ledger sitting at the default path</span>
 </span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
 </span><span data-line="4"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prime-from-ledger
 </span><span data-line="5">
-</span><span data-line="6"><span class="c1"># Greedier prior for shorter exploratory loops</span>
-</span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
-</span><span data-line="8"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prior-alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--adaptive-prior-beta<span class="w"> </span><span class="m">0</span>.5
-</span><span data-line="9">
-</span><span data-line="10"><span class="c1"># §7.4 graded reward shaping — turns every informative iteration</span>
-</span><span data-line="11"><span class="c1"># into evidence on the chosen arm so small-positive arms are</span>
-</span><span data-line="12"><span class="c1"># identifiable at 20-40 per-night iteration counts.</span>
-</span><span data-line="13">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
-</span><span data-line="14"><span class="w">    </span>--adaptive<span class="w"> </span>--bandit-reward<span class="w"> </span>graded
+</span><span data-line="6"><span class="c1"># Same, but also prime from archived ledgers (rotation glob</span>
+</span><span data-line="7"><span class="c1"># ``self_improve_ledger_*.jsonl``) sitting under ``planning/done/``.</span>
+</span><span data-line="8"><span class="c1"># Per-record semantics are identical to the live ledger — the bandit</span>
+</span><span data-line="9"><span class="c1"># posterior accumulates evidence across every retained nightly run.</span>
+</span><span data-line="10">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="11"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prime-from-ledger<span class="w"> </span>--prime-include-archives
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># Greedier prior for shorter exploratory loops</span>
+</span><span data-line="14">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="15"><span class="w">    </span>--adaptive<span class="w"> </span>--adaptive-prior-alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--adaptive-prior-beta<span class="w"> </span><span class="m">0</span>.5
+</span><span data-line="16">
+</span><span data-line="17"><span class="c1"># §7.4 graded reward shaping — turns every informative iteration</span>
+</span><span data-line="18"><span class="c1"># into evidence on the chosen arm so small-positive arms are</span>
+</span><span data-line="19"><span class="c1"># identifiable at 20-40 per-night iteration counts.</span>
+</span><span data-line="20">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="21"><span class="w">    </span>--adaptive<span class="w"> </span>--bandit-reward<span class="w"> </span>graded
 </span></pre></div>
 </div>
 <section id="graded-reward-shaping-7-4">

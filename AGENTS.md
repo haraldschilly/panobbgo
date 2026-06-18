@@ -587,6 +587,32 @@ The harness is the measurement substrate for an autonomous
     `CodifyCandidate.to_dict()` JSON per line; `--top N` truncates
     the report.  Closes the detection half of V2 §9.5 step 4.  See
     the 2026-06-17 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **Already-codified suppression on codify-scan** —
+    **shipped 2026-06-18**.  The scanner runs
+    `panobbgo.self_improve.annotate_codified_status` after the
+    aggregation pass: it imports the seed-spec factories the nightly
+    cron exercises (`_make_quick_strategies` +
+    `_make_loop_strategies` — see
+    `panobbgo.self_improve.default_codify_registries`), walks every
+    spec's `(class, kwargs)` entries, and cross-checks each
+    `CodifyCandidate` against the live values.  Categorical
+    candidates compare `repr(new_value) == repr(live)`; numeric
+    candidates compare the median of `new_values` against the live
+    value in the candidate's direction (`"up"` →
+    `max(live) >= median(new_values)`; `"down"` →
+    `min(live) <= median(new_values)`).  Structural ops are not
+    suppressed.  Already-codified candidates are hidden by default
+    so the daily routine's report stays on actionable evidence;
+    pass `--include-already-codified` to surface the suppressed
+    set tagged `[already codified]` with the matching seed kwarg
+    values printed under a `live seed value(s):` line.  JSON mode
+    (`--json`) always emits every candidate with the new
+    `already_codified` / `live_codified_values` fields so the
+    consumer can filter itself.  On the live project ledger the
+    report shrinks from 5 candidates to 4 (the
+    `Sobol.scramble = False` candidate that surfaces from the
+    pre-codification archive is now suppressed).  See the
+    2026-06-18 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 
@@ -707,6 +733,15 @@ uv run python scripts/self_improve.py codify-scan --json --top 5
 # Strict mode (once V2 §6.4 confirmation gate ships): require the
 # `confirmed=True` field on every contributing record.
 uv run python scripts/self_improve.py codify-scan --confirmed-only
+
+# Audit the suppressed set (shipped 2026-06-18): include candidates
+# whose implied source edit is already live in the seed-spec factories
+# (quick + loop registries).  Default behaviour hides these candidates
+# so the daily routine sees only actionable evidence; pass this flag
+# to inspect the suppressed slots — each one is tagged
+# ``[already codified]`` in the report and the matching seed kwarg
+# values are printed under a ``live seed value(s):`` line.
+uv run python scripts/self_improve.py codify-scan --include-already-codified
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

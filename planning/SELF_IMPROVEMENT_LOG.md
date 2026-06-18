@@ -17,6 +17,209 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-18 — Suppress already-codified candidates in codify-scan (V2 §9.3 follow-up)
+
+* **What** — Closes the *Suppress already-codified candidates* idea
+  seeded under *Next iteration ideas* on 2026-06-17.  Two pure
+  additions to :mod:`panobbgo.self_improve` plus one CLI flag pair on
+  ``scripts/self_improve.py codify-scan`` that cross-check every
+  surfaced :class:`CodifyCandidate` against the live seed-spec
+  factories and hide candidates whose implied source edit is a no-op:
+
+  * :func:`panobbgo.self_improve.default_codify_registries` —
+    returns ``[_make_quick_strategies, _make_loop_strategies]``, the
+    two factories the nightly cron exercises.  Standard / full
+    registries are intentionally excluded: their seed specs target
+    the manual benchmark battery (200 / 500 evals), not the cron,
+    and surfacing "already codified" candidates whose codification
+    only lives in those registries would mis-direct the operator.
+  * :func:`panobbgo.self_improve.annotate_codified_status` — walks a
+    sequence of :class:`CodifyCandidate` instances and mutates each
+    one in place to set :attr:`CodifyCandidate.already_codified`
+    (``bool``) and :attr:`CodifyCandidate.live_codified_values`
+    (tuple of the live kwarg values for the slot).  The predicate
+    rules per ``rule_kind``:
+
+    - ``categorical_choice``: codified iff any live value's
+      ``repr`` equals :attr:`CodifyCandidate.direction` exactly
+      (so ``False`` and ``"False"`` do not collide).
+    - ``integer_add`` / ``float_uniform`` /
+      ``log_uniform_perturb``: codified iff the live value already
+      meets the median of :attr:`new_values` in the candidate's
+      direction (``"up"`` → ``max(live) >= median(new_values)``;
+      ``"down"`` → ``min(live) <= median(new_values)``).  Median
+      rather than mean so a single outlier accept doesn't drag the
+      threshold; ``max`` / ``min`` over live values because *any*
+      seed spec already at the proposed level means the codify edit
+      is a no-op on that spec.
+    - Structural ops (``op is not None``): not handled.  The
+      placeholder helper :func:`_structural_already_codified`
+      conservatively returns ``False`` so ``add_/drop_`` candidates
+      continue to surface — a follow-up could compare ``add_X``
+      against the heuristic-pool membership of the seed factories,
+      but the kwarg case is the dominant cause of duplicate
+      candidates (it's literally the
+      ``Sobol.scramble=False`` shape the §13 2026-06-17 entry's
+      "Follow-up ideas" called out).
+
+    A factory that throws is silently skipped — the helper is a
+    best-effort scan and a downstream caller shipping a misbehaving
+    factory should not break the whole codify-scan run.
+
+  Both new symbols are exposed in
+  :mod:`panobbgo.self_improve`'s ``__all__``.
+  :class:`CodifyCandidate` gains the two new fields
+  (``already_codified: bool = False`` /
+  ``live_codified_values: Tuple[Any, ...] = ()``) at the end of the
+  dataclass field list so existing constructor invocations are
+  byte-identical; :meth:`CodifyCandidate.to_dict` carries both
+  fields through to the ``--json`` output.
+
+  CLI surface on ``scripts/self_improve.py codify-scan``:
+
+  * ``--include-already-codified`` — show the suppressed set inline,
+    tagged ``[already codified]`` in the slot header and with the
+    matching seed kwarg values surfaced under a new
+    ``live seed value(s):`` line so the operator can confirm the
+    verdict.  Default off so the daily routine sees only actionable
+    evidence.
+  * ``--no-suppress-codified`` — alias that reads more naturally
+    when paired with ``--json`` (which always emits every candidate
+    regardless — the consumer filters on the new ``already_codified``
+    JSON field itself).
+  * Status line gains a ``(of N; M already codified, hidden)``
+    suffix when suppression fires, so the operator can see at a
+    glance whether the report shrank.
+
+* **Why** — The 2026-06-17 ``codify-scan`` ship surfaces five
+  candidates on the live project ledger today; one of them
+  (``Sobol.scramble = False``) was codified in
+  :func:`~panobbgo.harness._make_quick_strategies` on 2026-05-31 from
+  the same evidence stream this scanner now reads.  Continuing to
+  surface a candidate that is already shipped is not a bug in the
+  scanner — the evidence really is in the archive — but it is a
+  signal-to-noise tax on the daily routine: the operator has to
+  remember which slots have already been codified to triage the
+  scanner's output, and §12.3 step 0's "deduplicate before picking a
+  task" lesson (the four duplicate NL-SHADE-RSP PRs #227–#230) makes
+  the cost concrete.  The suppression layer turns that operator-side
+  memory burden into a structural cross-check: the scanner imports
+  the same factories the cron runs and asks "is the change you're
+  proposing already live?" before showing the candidate.
+
+  Running against the live project ledger after this ship:
+
+  * 5 candidates clear the default gate (same as before).
+  * 1 is flagged ``already_codified`` (``Sobol.scramble = False``).
+  * 4 are surfaced — ``Nearby.radius`` direction=up/down (the
+    bidirectional pattern the *mutation-bound widening* idea
+    addresses), ``Sobol.n`` direction=up/down (same shape) —
+    actually-actionable.
+  * The status line now reads ``candidates surfaced: 4 (of 5;
+    1 already codified, hidden)``.
+
+  Direct effect on §11 V2 success criterion 2 (codify-PR
+  throughput): the operator's attention stays on the four actionable
+  candidates instead of having to mentally filter the already-shipped
+  one.  Pairs naturally with the queued ``--open-pr`` follow-up — the
+  same predicate the suppression layer applies here is what
+  ``--open-pr`` will use to decide whether to actually open the PR.
+
+* **Backwards compatibility** — strictly safe.  The new fields on
+  :class:`CodifyCandidate` carry default values so every existing
+  constructor invocation continues to type-check (verified against
+  the existing 30+ tests in ``TestAggregateCodifyCandidates`` —
+  they construct candidates without the new fields and still pass).
+  ``aggregate_codify_candidates`` is unchanged; the suppression
+  layer lives in
+  :func:`annotate_codified_status` which the CLI calls *after*
+  aggregation.  A caller that only uses the library
+  (``aggregate_codify_candidates`` directly) sees byte-identical
+  output unless it opts in to the annotation pass.
+
+  The two new CLI flags default off (or to the suppress-by-default
+  behaviour, depending on which alias the operator prefers); the
+  existing test in
+  ``TestCodifyScanCLI.test_realistic_two_night_pattern_surfaces_candidate``
+  exercises ``Nearby.radius direction=up`` whose candidate's median
+  proposal (``0.125``) is above the live value (``0.1``), so it is
+  *not* codified and the test continues to expect ``candidates
+  surfaced: 1``.  Verified — the test passes unchanged.
+
+* **Tests** — 18 new tests across two test classes in
+  ``tests/test_self_improve.py``:
+
+  * ``TestAnnotateCodifiedStatus`` (14 tests) — every rule kind
+    (categorical match / mismatch, numeric up codified / not,
+    numeric down codified / not, analyzer-bucket kwarg, multiple
+    live values, structural placeholder), the empty-live-values
+    edge case, the round-trip through :meth:`to_dict`, the default
+    constructor field values, the factory-that-throws
+    silent-skip behaviour, and a sanity check that
+    :func:`default_codify_registries` returns the expected two
+    factories.
+  * ``TestCodifyScanCLISuppression`` (4 tests) — end-to-end CLI
+    smoke tests against the suppression behaviour: the canonical
+    ``Sobol.scramble=False`` candidate is suppressed by default;
+    ``--include-already-codified`` shows it inline with the
+    ``[already codified]`` tag and the ``live seed value(s):``
+    line; a non-codified ``Nearby.radius`` candidate still
+    surfaces (verifying the suppression check ran and the
+    candidate cleared it); ``--json`` mode always emits every
+    candidate with the new ``already_codified`` /
+    ``live_codified_values`` fields.
+
+  Test totals: 372 in ``tests/test_self_improve.py`` (354 before +
+  18 new); 1568 in ``tests/`` (11 skipped — unrelated IOH worker
+  setup).  ``uv run --extra dev ruff format --check .`` /
+  ``uv run --extra dev ruff check panobbgo/self_improve.py
+  scripts/self_improve.py tests/test_self_improve.py`` /
+  ``uv run pyright panobbgo`` / 96 sphinx doctests all clean.
+
+* **Impact** — direct effect on the §12.3 daily routine: the
+  scanner's report shrinks from 5 candidates to 4 actionable ones
+  on the live project ledger.  The signal-to-noise improvement
+  scales as more codify PRs land — each merged codify PR adds one
+  to the "already codified" set, and every subsequent scan
+  collapses that candidate's evidence into the suppressed bucket
+  instead of replaying it in the operator's report.  Over the V2
+  30-night window the cumulative effect is the difference between
+  the operator reading a growing list of stale candidates and a
+  steady list of actionable ones.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; "Suppress
+    already-codified candidates" idea promoted from *Next iteration
+    ideas* to shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: no direct edit (the
+    candidate-set hygiene work is downstream of §9.3, not on the
+    critical V2 path).
+  - ``doc/source/guide.rst``: quick-nav entry mentions the new
+    suppression layer and the ``--include-already-codified`` flag.
+  - ``doc/source/guide_benchmarking.rst``: new sub-paragraph in the
+    "Cross-night codify-scan (§9.3 / §9.5 step 4)" subsection
+    documenting the suppression rules and the JSON / human-readable
+    output behaviours.
+  - ``AGENTS.md``: self-improvement loop subsection + new bash
+    example.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Structural-op codified check** — extend
+    :func:`_structural_already_codified` to compare ``add_X`` /
+    ``drop_X`` candidates against the heuristic-pool membership of
+    the seed factories.  ``add_LBFGSB`` against a seed pool that
+    already contains :class:`LBFGSB` is the symmetric case.
+    Lower priority than the kwarg suppression because structural
+    candidates are rarer in the live ledger today.
+  * **Tolerance / hysteresis on the numeric predicate** — the
+    current ``max(live) >= median(new_values)`` rule is exact; a
+    small relative tolerance (e.g. 5%) would let the predicate
+    catch cases where the live default is *very close* to the
+    median proposal without being strictly above / below.
+    Speculative — the exact rule already catches the dominant
+    ``Sobol.scramble`` shape.
+
 ### 2026-06-17 — Cross-night codify-scan CLI (V2 §9.3 / §9.5 step 4)
 
 * **What** — The detection half of V2 §9.3 — a new
@@ -211,14 +414,13 @@ Conventions:
     larger range.  A second CLI subcommand (or a ``--widen-bounds``
     flag on ``codify-scan --open-pr``) could detect this shape and
     propose the bound update instead of a default change.
-  * **Suppress already-codified candidates** — the
-    ``Sobol.scramble=False`` candidate surfaces from the
-    pre-codification archive even though the seed already ships
-    ``scramble=False``.  A read-the-current-default cross-check
-    (importing the seed-spec factory, comparing the candidate's
-    direction against the live default) could downrank or hide
-    these candidates so the operator's attention stays on
-    actionable evidence.
+  * ~**Suppress already-codified candidates**~ — **shipped
+    2026-06-18** as
+    :func:`panobbgo.self_improve.annotate_codified_status` plus the
+    ``--include-already-codified`` CLI flag.  The motivating
+    ``Sobol.scramble=False`` example is now hidden by default; on
+    the live project ledger the report shrinks from 5 to 4
+    candidates.  See the dated entry above.
 
 ### 2026-06-16 — Summary trend block + bandit posteriors + inactivity telemetry (V2 §12.4)
 
@@ -5018,28 +5220,41 @@ the bandit has more reach in both directions.  Sketch:
 Speculative until the ``--open-pr`` ship has accumulated evidence on
 which slots produce the most bidirectional candidates.
 
-#### Suppress already-codified candidates in codify-scan
+#### Suppress already-codified candidates in codify-scan — shipped 2026-06-18
 
-The 2026-06-17 scanner surfaces ``Sobol.scramble = False`` from the
-pre-codification archive even though the seed factory now ships
-``scramble=False`` — the candidate is technically valid evidence,
-but it is no longer *actionable*.  A read-the-current-default
-cross-check would downrank or hide these candidates so the
-operator's attention stays on actionable evidence.  Sketch:
+Shipped 2026-06-18 as
+:func:`panobbgo.self_improve.annotate_codified_status` plus the
+:func:`~panobbgo.self_improve.default_codify_registries` helper, two
+new fields on :class:`~panobbgo.self_improve.CodifyCandidate`
+(``already_codified`` / ``live_codified_values``), and a
+``--include-already-codified`` (alias ``--no-suppress-codified``) CLI
+flag on ``scripts/self_improve.py codify-scan``.  The scanner
+imports the seed-spec factories the nightly cron exercises
+(``_make_quick_strategies`` + ``_make_loop_strategies``), walks every
+:class:`~panobbgo.benchmark.StrategySpec`'s ``(class, kwargs)``
+entries, and cross-checks each candidate's predicted edit against
+the live values.  Suppresses by default; the daily routine's report
+on the live project ledger shrinks from 5 to 4 candidates (the
+``Sobol.scramble = False`` example the entry was seeded for).  See
+the 2026-06-18 entry above for the full rationale and follow-ups.
 
-* Import the seed-spec factory at scan time, expand it under the
-  same conditions :func:`_make_quick_strategies` /
-  :func:`_make_loop_strategies` produce, and compare each
-  candidate's predicted "new default" against the live kwarg value
-  for the matching slot.  When the live value already matches the
-  candidate's direction within a tolerance, the candidate is
-  flagged ``already_codified=True`` in the JSON output and is
-  suppressed from the text report by default.
-* CLI flag ``--include-already-codified`` to surface the suppressed
-  set for audit.
+Follow-ups still queued:
 
-Lower priority than ``--open-pr`` but a natural quality-of-life
-improvement once the scanner accumulates regular nightly use.
+* **Structural-op codified check** — extend the placeholder
+  :func:`_structural_already_codified` to compare ``add_X`` /
+  ``drop_X`` candidates against the heuristic-pool membership of
+  the seed factories.  ``add_LBFGSB`` against a seed pool that
+  already contains :class:`LBFGSB` is the symmetric case.  Lower
+  priority because structural candidates are rarer in the live
+  ledger today.
+* **Tolerance / hysteresis on the numeric predicate** — the
+  current ``max(live) >= median(new_values)`` rule is exact; a
+  small relative tolerance (e.g. 5%) would let the predicate
+  catch cases where the live default is *very close* to the
+  median proposal without being strictly above / below.
+  Speculative — the exact rule already catches the dominant
+  ``Sobol.scramble`` shape.
+
 #### Flip the nightly cron to `--confirm-accepts` (after 2026-06-14 ship)
 
 The same-night confirmation gate shipped 2026-06-14 as

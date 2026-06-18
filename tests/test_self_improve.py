@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import pathlib
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pytest
@@ -8130,3 +8130,478 @@ class TestConfirmationGateLedgerReplay:
         assert on_disk["pooled_ci_low"] == pytest.approx(-0.003)
         assert on_disk["confirm_holdout_seed"] == 1234
         assert on_disk["pooled_worst_pair"] == ["Rastrigin_2D", "S1"]
+
+
+# ---------------------------------------------------------------------------
+# Already-codified suppression — :func:`annotate_codified_status` + CLI.
+# ---------------------------------------------------------------------------
+
+
+def _make_candidate(
+    *,
+    class_name: str = "Sobol",
+    param_name: str = "scramble",
+    rule_kind: str = "categorical_choice",
+    op: Optional[str] = None,
+    direction: str = "False",
+    new_values: Tuple[Any, ...] = (False, False),
+    old_values: Optional[Tuple[Any, ...]] = None,
+) -> Any:
+    """Build a synthetic :class:`CodifyCandidate` for the codified-status tests."""
+    from panobbgo.self_improve import CodifyCandidate
+
+    if old_values is None:
+        # Mirror the realistic case where the bandit walks toward a new value.
+        old_values = tuple(None for _ in new_values)
+    n = len(new_values)
+    return CodifyCandidate(
+        class_name=class_name,
+        param_name=param_name,
+        rule_kind=rule_kind,
+        op=op,
+        direction=direction,
+        n_accepts=n,
+        distinct_dates=tuple(f"2026-06-{i + 1:02d}" for i in range(n)),
+        deltas=tuple(0.05 for _ in range(n)),
+        ci_lows=tuple(0.01 for _ in range(n)),
+        ci_highs=tuple(0.10 for _ in range(n)),
+        old_values=old_values,
+        new_values=new_values,
+        timestamps=tuple(f"2026-06-{i + 1:02d}T05:00:00+00:00" for i in range(n)),
+        strategy_names=tuple("Rewarding_Diverse" for _ in range(n)),
+        confirmed_flags=tuple(None for _ in range(n)),
+    )
+
+
+class TestAnnotateCodifiedStatus:
+    """:func:`panobbgo.self_improve.annotate_codified_status` — suppress no-op edits.
+
+    Covers the rule-kind matrix (categorical, numeric up, numeric down,
+    structural) and the empty-registry / empty-live-values edge cases.
+    Uses a synthetic ``StrategySpec`` factory so the predicate logic is
+    tested in isolation from the live ``_make_quick_strategies`` /
+    ``_make_loop_strategies`` factories.
+    """
+
+    @staticmethod
+    def _fake_factory(heuristics=(), analyzers=()):
+        """Return a one-shot factory producing one StrategySpec with the given lists."""
+        from panobbgo.benchmark import StrategySpec
+
+        def _factory():
+            from panobbgo.strategies import StrategyRoundRobin
+
+            return [
+                StrategySpec(
+                    name="FakeSpec",
+                    strategy_class=StrategyRoundRobin,
+                    heuristics=list(heuristics),
+                    analyzers=list(analyzers),
+                )
+            ]
+
+        return _factory
+
+    class _FakeSobol:
+        pass
+
+    class _FakeNearby:
+        pass
+
+    class _FakeRestart:
+        pass
+
+    def test_empty_live_values_keeps_candidate_actionable(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            new_values=(0.12, 0.13),
+        )
+        annotate_codified_status([cand], registries=[self._fake_factory()])
+        assert cand.already_codified is False
+        assert cand.live_codified_values == ()
+
+    def test_categorical_codified_matches_repr(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(direction="False", new_values=(False, False))
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"scramble": False})])
+        # Rename FakeSobol so the factory's class __name__ matches the candidate's class_name="Sobol".
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == (False,)
+
+    def test_categorical_distinct_value_not_codified(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(direction="True", new_values=(True, True))
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"scramble": False})])
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is False
+        # Live value still recorded for the operator's audit trail.
+        assert cand.live_codified_values == (False,)
+
+    def test_numeric_up_codified_when_live_above_median(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        # Candidate proposes raising Nearby.radius up to median ~0.13.
+        # Live spec already ships 0.15 — the codify edit is a no-op.
+        cand = _make_candidate(
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            new_values=(0.12, 0.13, 0.14),
+        )
+        factory = self._fake_factory(heuristics=[(self._FakeNearby, {"radius": 0.15})])
+        self._FakeNearby.__name__ = "Nearby"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == (0.15,)
+
+    def test_numeric_up_not_codified_when_live_below_median(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            new_values=(0.12, 0.13, 0.14),
+        )
+        factory = self._fake_factory(heuristics=[(self._FakeNearby, {"radius": 0.1})])
+        self._FakeNearby.__name__ = "Nearby"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is False
+        assert cand.live_codified_values == (0.1,)
+
+    def test_numeric_down_codified_when_live_below_median(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        # Candidate proposes lowering Sobol.n to median 12.
+        # Live already ships 8 — the codify edit is a no-op.
+        cand = _make_candidate(
+            class_name="Sobol",
+            param_name="n",
+            rule_kind="integer_add",
+            direction="down",
+            new_values=(8, 12, 12),
+        )
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"n": 8})])
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == (8,)
+
+    def test_numeric_down_not_codified_when_live_above_median(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="Sobol",
+            param_name="n",
+            rule_kind="integer_add",
+            direction="down",
+            new_values=(8, 12, 12),
+        )
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"n": 16})])
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is False
+        assert cand.live_codified_values == (16,)
+
+    def test_structural_op_is_never_codified(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            direction="add_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        # Use an empty factory — _live_kwarg_values for ("LBFGSB", "")
+        # returns []; the structural placeholder returns False either way.
+        annotate_codified_status([cand], registries=[self._fake_factory()])
+        assert cand.already_codified is False
+
+    def test_analyzer_kwarg_codified_check(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="Restart",
+            param_name="restart_strategy",
+            rule_kind="categorical_choice",
+            direction="'sphere'",
+            new_values=("sphere", "sphere"),
+        )
+        factory = self._fake_factory(analyzers=[(self._FakeRestart, {"restart_strategy": "sphere"})])
+        self._FakeRestart.__name__ = "Restart"
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == ("sphere",)
+
+    def test_multiple_live_values_take_max_min(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        # Numeric up — live values [0.1, 0.2]; median target = 0.13;
+        # max(0.2) >= 0.13 → codified.
+        cand = _make_candidate(
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            new_values=(0.12, 0.13, 0.14),
+        )
+        factory_a = self._fake_factory(heuristics=[(self._FakeNearby, {"radius": 0.1})])
+        factory_b = self._fake_factory(heuristics=[(self._FakeNearby, {"radius": 0.2})])
+        self._FakeNearby.__name__ = "Nearby"
+        annotate_codified_status([cand], registries=[factory_a, factory_b])
+        assert cand.already_codified is True
+        assert set(cand.live_codified_values) == {0.1, 0.2}
+
+    def test_default_registries_returns_quick_plus_loop(self):
+        from panobbgo.self_improve import default_codify_registries
+        from panobbgo.harness import _make_loop_strategies, _make_quick_strategies
+
+        factories = default_codify_registries()
+        assert _make_quick_strategies in factories
+        assert _make_loop_strategies in factories
+
+    def test_factory_that_throws_is_silently_skipped(self):
+        from panobbgo.self_improve import annotate_codified_status
+
+        def _boom():
+            raise RuntimeError("factory blew up")
+
+        cand = _make_candidate(direction="False", new_values=(False, False))
+        # Sibling factory still applies the codified check.
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"scramble": False})])
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[_boom, factory])
+        assert cand.already_codified is True
+
+    def test_to_dict_round_trip_includes_new_fields(self):
+        import json as _json
+
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(direction="False", new_values=(False, False))
+        factory = self._fake_factory(heuristics=[(self._FakeSobol, {"scramble": False})])
+        self._FakeSobol.__name__ = "Sobol"
+        annotate_codified_status([cand], registries=[factory])
+        d = cand.to_dict()
+        assert d["already_codified"] is True
+        assert d["live_codified_values"] == [False]
+        # JSON round-trip preserves the fields.
+        d2 = _json.loads(_json.dumps(d))
+        assert d2["already_codified"] is True
+        assert d2["live_codified_values"] == [False]
+
+    def test_default_constructor_field_values(self):
+        """``CodifyCandidate`` from :func:`aggregate_codify_candidates` defaults."""
+        cand = _make_candidate(direction="False", new_values=(False, False))
+        # Without explicit annotation, the fields hold their dataclass defaults.
+        assert cand.already_codified is False
+        assert cand.live_codified_values == ()
+
+
+class TestCodifyScanCLISuppression:
+    """End-to-end CLI tests for the already-codified suppression logic."""
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _build_ns(self, live, *, include_already_codified=False, suppress_codified=True, as_json=False):
+        return type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": as_json,
+                "top": 0,
+                "include_already_codified": include_already_codified,
+                "suppress_codified": suppress_codified,
+            },
+        )()
+
+    def test_already_codified_candidate_suppressed_by_default(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Sobol.scramble=False — the canonical example of an already-codified
+        # candidate (the seed factory ships scramble=False since 2026-05-31).
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Body suppressed; status line reports the suppression count.
+        assert "1 already codified, hidden" in out
+        assert "Sobol.scramble" not in out
+        assert "every candidate is already codified" in out
+
+    def test_include_flag_surfaces_codified_candidate(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, include_already_codified=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Sobol.scramble" in out
+        assert "[already codified]" in out
+        assert "live seed value(s): False" in out
+
+    def test_non_codified_candidate_still_surfaces(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Nearby.radius — the seed factory ships 0.1; the codify candidate
+        # proposes raising it (median new_value > 0.1), so the candidate is
+        # *not* codified and must surface by default.
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.12,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.13,
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "candidates surfaced: 1" in out
+        assert "Nearby.radius" in out
+        # The "0 already codified, hidden" status line confirms the
+        # suppression check ran and the candidate cleared it.
+        assert "already codified, hidden" in out
+        # Non-codified candidates do NOT carry the [already codified] tag.
+        assert "[already codified]" not in out
+
+    def test_json_mode_always_includes_codified_flag(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Sobol",
+                    param_name="scramble",
+                    rule_kind="categorical_choice",
+                    old_value=True,
+                    new_value=False,
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        # JSON mode emits every candidate (the consumer filters).
+        rc = cli._cmd_codify_scan(self._build_ns(live, as_json=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        lines = [line for line in out.splitlines() if line.strip()]
+        assert len(lines) == 1
+        d = json.loads(lines[0])
+        assert d["already_codified"] is True
+        # The quick + loop registries both ship Sobol(scramble=False) so the
+        # live values list carries one entry per seed spec that sets the
+        # kwarg.  Just check the value matches; the count drifts with the
+        # registry factories.
+        assert d["live_codified_values"]
+        assert all(v is False for v in d["live_codified_values"])

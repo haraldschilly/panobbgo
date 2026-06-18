@@ -162,7 +162,7 @@ import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -5150,6 +5150,18 @@ class CodifyCandidate:
             ``None`` for legacy records.  Surfaced verbatim so the CLI
             report can flag candidates with no confirmation gate
             coverage as soft evidence.
+        already_codified: ``True`` when the candidate's direction is
+            already reflected in at least one seed-spec factory — i.e.
+            shipping the implied source edit would be a no-op.  Set by
+            :func:`annotate_codified_status` (default ``False`` so a
+            candidate produced by :func:`aggregate_codify_candidates`
+            without the annotation pass is treated as actionable).
+        live_codified_values: Tuple of values the
+            ``(class_name, param_name)`` slot currently carries in the
+            scanned seed-spec factories.  Empty when no factory sets
+            the kwarg explicitly (the constructor default applies).
+            Populated by :func:`annotate_codified_status` alongside
+            :attr:`already_codified`.
     """
 
     class_name: str
@@ -5167,6 +5179,8 @@ class CodifyCandidate:
     timestamps: Tuple[str, ...]
     strategy_names: Tuple[str, ...]
     confirmed_flags: Tuple[Optional[bool], ...]
+    already_codified: bool = False
+    live_codified_values: Tuple[Any, ...] = ()
 
     @property
     def n_distinct_nights(self) -> int:
@@ -5243,6 +5257,8 @@ class CodifyCandidate:
             "mean_delta": float(self.mean_delta),
             "min_ci_low": float(self.min_ci_low),
             "max_ci_high": float(self.max_ci_high),
+            "already_codified": bool(self.already_codified),
+            "live_codified_values": [_to_plain(v) for v in self.live_codified_values],
         }
 
 
@@ -5434,6 +5450,196 @@ def load_ledgers_for_codify_scan(
     return records
 
 
+def _live_kwarg_values(
+    class_name: str,
+    param_name: str,
+    factories: Sequence[Callable[[], Sequence[StrategySpec]]],
+) -> List[Any]:
+    """Collect every value the ``(class_name, param_name)`` slot is explicitly set to.
+
+    Walks every :class:`~panobbgo.benchmark.StrategySpec` returned by each
+    factory and inspects both ``heuristics`` and ``analyzers`` entries.
+    A match requires the entry's class ``__name__`` to equal
+    ``class_name`` *and* the entry's kwargs dict to contain
+    ``param_name`` — kwargs left at the constructor default are
+    intentionally ignored, mirroring :func:`_find_targets`'s
+    "param already in kwargs" predicate the catalog uses.
+
+    Factories that raise are silently skipped — the helper is a
+    best-effort scan, and a caller-supplied factory that throws should
+    not break the whole codify-scan run.  Order in the returned list
+    matches factory order followed by spec order; duplicates are
+    intentionally preserved so the caller can count multi-spec
+    coverage if needed.
+    """
+    values: List[Any] = []
+    for factory in factories:
+        try:
+            specs = factory()
+        except Exception:
+            continue
+        for spec in specs:
+            for entry in getattr(spec, "heuristics", None) or []:
+                try:
+                    cls, kwargs = entry
+                except (TypeError, ValueError):
+                    continue
+                if getattr(cls, "__name__", "") == class_name and param_name in kwargs:
+                    values.append(kwargs[param_name])
+            for entry in getattr(spec, "analyzers", None) or []:
+                try:
+                    cls, kwargs = entry
+                except (TypeError, ValueError):
+                    continue
+                if getattr(cls, "__name__", "") == class_name and param_name in kwargs:
+                    values.append(kwargs[param_name])
+    return values
+
+
+def _candidate_already_codified(
+    candidate: CodifyCandidate,
+    live_values: Sequence[Any],
+) -> bool:
+    """Decide whether the candidate's implied source edit is a no-op.
+
+    The rule depends on the rule kind:
+
+    * ``categorical_choice``: the candidate's direction is
+      ``repr(new_value)``; the cross-check is exact ``repr`` equality
+      against any live value (so ``False`` and ``"False"`` do not
+      collide).
+    * Numeric (``integer_add`` / ``float_uniform`` /
+      ``log_uniform_perturb``): the direction is ``"up"`` or
+      ``"down"`` and the candidate proposes shifting the default in
+      that direction.  We compare the median of
+      :attr:`candidate.new_values` against the live values: if any
+      live value already meets or exceeds the proposal in the
+      candidate's direction, the codify edit would not move the
+      default further.  Specifically:
+
+      - ``"up"`` is codified iff ``max(live) >= median(new_values)``
+      - ``"down"`` is codified iff ``min(live) <= median(new_values)``
+
+    * Structural ops (``op is not None``): not handled — the function
+      conservatively returns ``False`` so the operator keeps seeing
+      structural candidates.  ``add_/drop_`` ops need a different
+      lookup (membership in the heuristics / analyzers tuple), which
+      lives in :func:`_structural_already_codified` below.
+
+    When ``live_values`` is empty the candidate is *not* codified —
+    the seed factory does not set the kwarg explicitly, so any codify
+    PR would still be actionable (it would change the constructor
+    default rather than a factory override).
+    """
+    if not live_values:
+        return False
+    if candidate.op is not None:
+        return _structural_already_codified(candidate, live_values)
+    if candidate.rule_kind == "categorical_choice":
+        return any(repr(v) == candidate.direction for v in live_values)
+    if candidate.direction not in ("up", "down"):
+        return False
+    try:
+        new_floats = [float(v) for v in candidate.new_values]
+    except (TypeError, ValueError):
+        return False
+    if not new_floats:
+        return False
+    try:
+        live_floats = [float(v) for v in live_values]
+    except (TypeError, ValueError):
+        return False
+    if not live_floats:
+        return False
+    target = float(np.median(new_floats))
+    if candidate.direction == "up":
+        return max(live_floats) >= target
+    return min(live_floats) <= target
+
+
+def _structural_already_codified(
+    candidate: CodifyCandidate,
+    live_values: Sequence[Any],
+) -> bool:
+    """Placeholder for structural-op codified status.
+
+    Structural ops (``add_/drop_heuristic`` / ``add_/drop_analyzer``)
+    do not target a kwarg; their "live value" semantics differ from
+    numeric / categorical rules and would need a separate
+    membership-in-pool check (e.g. for ``add_heuristic`` of class
+    ``LBFGSB``, the codified state is "``LBFGSB`` is in the seed
+    pool's heuristics list").  Left unimplemented for now — the
+    function returns ``False`` so structural candidates continue to
+    surface in the report.  See the *Next iteration ideas* entry in
+    :doc:`/planning/SELF_IMPROVEMENT_LOG.md` for the follow-up shape.
+    """
+    return False
+
+
+def default_codify_registries() -> List[Callable[[], List[StrategySpec]]]:
+    """Default seed-spec factories the codify-scan suppression check uses.
+
+    Returns the two factories the V2 nightly cron exercises — the
+    ``quick`` registry (the default mode) and the ``loop`` registry
+    (the catalog-exercising registry shipped 2026-06-10).  The
+    ``loop`` registry already includes the ``quick`` specs, but
+    listing both makes the predicate behaviour the same whether the
+    nightly is currently configured to ``--registry quick`` or
+    ``--registry loop``.
+
+    Standard / full registries are intentionally excluded: their seed
+    specs target the manual benchmark battery (200 / 500 evals), not
+    the cron, and surfacing "already codified" candidates whose
+    codification only lives in those registries would mis-direct the
+    operator away from actionable evidence on the cron's regime.
+    """
+    from panobbgo.harness import _make_loop_strategies, _make_quick_strategies
+
+    return [_make_quick_strategies, _make_loop_strategies]
+
+
+def annotate_codified_status(
+    candidates: Sequence[CodifyCandidate],
+    *,
+    registries: Optional[Sequence[Callable[[], Sequence[StrategySpec]]]] = None,
+) -> None:
+    """Mark each candidate's ``already_codified`` flag in-place.
+
+    Walks every seed-spec factory in ``registries`` (default:
+    :func:`default_codify_registries`), collects the live kwarg
+    values for each candidate's ``(class_name, param_name)`` slot via
+    :func:`_live_kwarg_values`, and sets both
+    :attr:`CodifyCandidate.already_codified` and
+    :attr:`CodifyCandidate.live_codified_values` accordingly.
+
+    The result lets the CLI report suppress candidates whose implied
+    source edit would be a no-op — the
+    ``Sobol.scramble=False`` candidate that surfaces from the
+    pre-codification archive even though
+    :func:`panobbgo.harness._make_quick_strategies` already ships
+    ``scramble=False`` is the motivating example.  See V2 §9.3 / the
+    *Next iteration ideas* "Suppress already-codified candidates"
+    entry in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`.
+
+    The annotation pass is intentionally *separate* from
+    :func:`aggregate_codify_candidates` so unit tests can verify the
+    raw scanner output without importing the factories and so the
+    library is robust to a caller that ships a non-standard
+    registry.
+
+    Mutates ``candidates`` in place; returns ``None``.
+    """
+    factories: Sequence[Callable[[], Sequence[StrategySpec]]]
+    if registries is None:
+        factories = default_codify_registries()
+    else:
+        factories = registries
+    for cand in candidates:
+        live_values = _live_kwarg_values(cand.class_name, cand.param_name, factories)
+        cand.live_codified_values = tuple(live_values)
+        cand.already_codified = _candidate_already_codified(cand, live_values)
+
+
 __all__ = [
     "MutationRule",
     "StructuralMutationRule",
@@ -5456,5 +5662,7 @@ __all__ = [
     "load_ledger",
     "CodifyCandidate",
     "aggregate_codify_candidates",
+    "annotate_codified_status",
+    "default_codify_registries",
     "load_ledgers_for_codify_scan",
 ]

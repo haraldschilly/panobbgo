@@ -49,6 +49,9 @@ Two subcommands:
         uv run python scripts/self_improve.py codify-scan --json
         # Strict mode: only ``confirmed=True`` records (post V2 §6.4 ship):
         uv run python scripts/self_improve.py codify-scan --confirmed-only
+        # Audit mode: include candidates whose implied edit is already
+        # live in the seed-spec factories (default suppresses them):
+        uv run python scripts/self_improve.py codify-scan --include-already-codified
 
 ``--adaptive``
     Enable Thompson-sampling adaptive mutation sampler (§10 of the
@@ -708,6 +711,29 @@ def _build_parser() -> argparse.ArgumentParser:
             "prints every candidate that clears the gates."
         ),
     )
+    scan_p.add_argument(
+        "--include-already-codified",
+        action="store_true",
+        help=(
+            "Include candidates whose implied source edit is already "
+            "live in the seed-spec factories (quick + loop registries).  "
+            "Off by default so the operator's attention stays on "
+            "actionable evidence; an already-codified candidate is "
+            "tagged ``[already codified]`` in the report when this flag "
+            "is set and ``already_codified=true`` in the JSON output."
+        ),
+    )
+    scan_p.add_argument(
+        "--no-suppress-codified",
+        dest="suppress_codified",
+        action="store_false",
+        help=(
+            "Alias for --include-already-codified that reads more "
+            "naturally when paired with --json (the JSON consumer can "
+            "filter on the already_codified field itself)."
+        ),
+    )
+    scan_p.set_defaults(suppress_codified=True)
     scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
@@ -1397,7 +1423,8 @@ def _print_codify_candidate(
     """
     op_label = f" op={cand.op}" if cand.op else ""
     slot = f"{cand.class_name}.{cand.param_name}" if cand.param_name else cand.class_name
-    print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}")
+    codified_tag = " [already codified]" if cand.already_codified else ""
+    print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}{codified_tag}")
     ci_low, ci_high = cand.pooled_bootstrap_ci(
         n_boot=pooled_ci_n_boot,
         confidence=pooled_ci_confidence,
@@ -1417,6 +1444,11 @@ def _print_codify_candidate(
     )
     dates_str = ", ".join(cand.distinct_dates)
     print(f"    nights: {dates_str}")
+    if cand.live_codified_values:
+        # Surface the live values driving the already-codified verdict
+        # so the operator can confirm the suppression rule's reasoning.
+        live_repr = ", ".join(repr(v) for v in cand.live_codified_values)
+        print(f"    live seed value(s): {live_repr}")
     strategies = sorted(set(cand.strategy_names))
     if strategies:
         print(f"    strategies: {', '.join(strategies)}")
@@ -1452,6 +1484,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
 
     from panobbgo.self_improve import (
         aggregate_codify_candidates,
+        annotate_codified_status,
         load_ledgers_for_codify_scan,
     )
 
@@ -1486,11 +1519,34 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         confirmed_only=args.confirmed_only,
     )
 
+    # Annotate already-codified status against the live seed-spec
+    # factories (quick + loop registries) so the report can suppress
+    # candidates whose implied source edit would be a no-op.
+    annotate_codified_status(candidates)
+
+    n_total_candidates = len(candidates)
+    suppress_codified = getattr(args, "suppress_codified", True)
+    include_already_codified = getattr(args, "include_already_codified", False)
+    suppress = suppress_codified and not include_already_codified
+    if suppress:
+        visible_candidates = [c for c in candidates if not c.already_codified]
+    else:
+        visible_candidates = list(candidates)
+    n_suppressed = n_total_candidates - len(visible_candidates)
+
     if args.top > 0:
-        candidates = candidates[: args.top]
+        visible_candidates = visible_candidates[: args.top]
 
     if args.as_json:
-        for cand in candidates:
+        # JSON output always emits every candidate (including
+        # already-codified) — the consumer can filter on the new
+        # ``already_codified`` field itself.  The ``--top`` truncation
+        # still applies for parity with the human-readable mode.
+        if args.top > 0:
+            json_candidates = candidates[: args.top]
+        else:
+            json_candidates = candidates
+        for cand in json_candidates:
             d = cand.to_dict()
             ci_low, ci_high = cand.pooled_bootstrap_ci(
                 n_boot=args.pooled_ci_n_boot,
@@ -1514,15 +1570,29 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         gates.append("any_record_ci_low")
     if args.confirmed_only:
         gates.append("confirmed_only")
+    if suppress:
+        gates.append("hide_already_codified")
     print(f"Codify scan ({src_note})")
     print(f"  gates: {', '.join(gates)}")
     print(f"  records scanned: {len(records)}")
-    print(f"  candidates surfaced: {len(candidates)}")
-    if not candidates:
-        print("  (no group cleared the gates)")
+    if suppress:
+        print(
+            f"  candidates surfaced: {len(visible_candidates)} "
+            f"(of {n_total_candidates}; {n_suppressed} already codified, hidden)"
+        )
+    else:
+        print(f"  candidates surfaced: {len(visible_candidates)}")
+    if not visible_candidates:
+        if suppress and n_suppressed:
+            print(
+                "  (every candidate is already codified in the seed factories — "
+                "pass --include-already-codified to audit them)"
+            )
+        else:
+            print("  (no group cleared the gates)")
         return 0
     print()
-    for cand in candidates:
+    for cand in visible_candidates:
         _print_codify_candidate(
             cand,
             pooled_ci_n_boot=args.pooled_ci_n_boot,

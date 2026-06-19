@@ -203,6 +203,59 @@
       *Bidirectional-bound widening (--widen-bounds)*
       sub-subsection in the *Cross-night codify-scan* section),
       `AGENTS.md` (self-improvement loop bullet + bash examples).
+### Structural-op already-codified check (V2 §9.3 follow-up) — 2026-06-19
+- [x] **`_live_class_membership` helper** (`panobbgo/self_improve.py`):
+      new private helper that walks the seed-spec factories and
+      records, for the candidate's class, which spec names already
+      list it under `heuristics` / `analyzers`.  Mirrors the
+      resilience of `_live_kwarg_values` — factories that raise
+      are silently skipped so a misbehaving caller-supplied
+      factory cannot break the codify-scan run.
+- [x] **`_structural_already_codified` real implementation** —
+      replaces the placeholder that always returned `False` with
+      the symmetric class-membership predicate:
+      `add_heuristic` / `add_analyzer` codify iff at least one
+      seed spec already lists the class in the matching bucket;
+      `drop_heuristic` / `drop_analyzer` codify iff no spec
+      lists it.  Unknown / future op names fall back to "not
+      codified" so the candidate continues to surface.
+- [x] **`annotate_codified_status` branches by candidate shape** —
+      structural candidates route through the new membership
+      path; kwarg candidates take the existing
+      `_live_kwarg_values` / `_candidate_already_codified` path
+      unchanged.  The structural `live_codified_values` field
+      now surfaces the *spec names* carrying the class so the
+      `--include-already-codified` audit trail still tells the
+      operator where the membership lives.
+- [x] **Dead-code cleanup in `_candidate_already_codified`** —
+      removed the unreachable structural branch that called the
+      placeholder (live_values was always empty for structural
+      candidates so the earlier `not live_values` guard already
+      fired); replaced with a defensive `return False` so a
+      mis-routed structural call cannot silently mis-classify.
+- [x] **Tests** — 8 net new tests in
+      `tests/test_self_improve.py::TestAnnotateCodifiedStatus`
+      covering every structural op (`add_heuristic`,
+      `drop_heuristic`, `add_analyzer`, `drop_analyzer`) in
+      both directions, the heuristic-vs-analyzer bucket distinction,
+      the multi-spec membership recording, and the defensive
+      unknown-op fallback.  Plus 2 new end-to-end CLI smoke tests
+      in `TestCodifyScanCLISuppression`
+      (`test_structural_add_heuristic_suppressed_when_already_in_pool`,
+      `test_structural_drop_heuristic_surfaces_when_class_in_pool`)
+      exercising the suppression behaviour against synthetic
+      ledger records.  All 421 self-improve tests pass; the
+      live ledger's surfaced-candidate count is byte-identical
+      (4 of 5, with the same `Sobol.scramble` candidate hidden).
+- [x] **Docs**: `planning/SELF_IMPROVEMENT_LOG.md` dated entry +
+      promoted *Structural-op codified check* follow-up from
+      queued to shipped; new *Membership-vs-coverage rule for
+      structural ops* idea seeded under "Next iteration ideas";
+      `doc/source/guide.rst` quick-nav entry extended;
+      `doc/source/guide_benchmarking.rst` codify-scan subsection
+      describes the structural predicate alongside the kwarg
+      rule; `AGENTS.md` self-improvement loop bullet annotated;
+      `TODO.md` this entry.
 
 ### No-op detection on bandit-pull and ledger telemetry (V2 §12.4) — 2026-06-12
 - [x] **`LoopIterationRecord.no_op` field** (`panobbgo/self_improve.py`):

@@ -600,19 +600,28 @@ The harness is the measurement substrate for an autonomous
     candidates compare the median of `new_values` against the live
     value in the candidate's direction (`"up"` →
     `max(live) >= median(new_values)`; `"down"` →
-    `min(live) <= median(new_values)`).  Structural ops are not
-    suppressed.  Already-codified candidates are hidden by default
-    so the daily routine's report stays on actionable evidence;
-    pass `--include-already-codified` to surface the suppressed
-    set tagged `[already codified]` with the matching seed kwarg
-    values printed under a `live seed value(s):` line.  JSON mode
-    (`--json`) always emits every candidate with the new
-    `already_codified` / `live_codified_values` fields so the
-    consumer can filter itself.  On the live project ledger the
-    report shrinks from 5 candidates to 4 (the
+    `min(live) <= median(new_values)`).  **Structural ops** —
+    extended **2026-06-19** with the symmetric class-membership
+    predicate (helper `_live_class_membership`):
+    `add_heuristic`/`add_analyzer` codify iff *at least one* seed
+    spec already lists the class in the matching bucket;
+    `drop_heuristic`/`drop_analyzer` codify iff *no* seed spec lists
+    it.  `live_codified_values` for a structural candidate surfaces
+    the *spec names* carrying the class so the
+    `--include-already-codified` audit trail still tells the
+    operator where the membership lives.  Already-codified
+    candidates are hidden by default so the daily routine's report
+    stays on actionable evidence; pass `--include-already-codified`
+    to surface the suppressed set tagged `[already codified]` with
+    the matching seed kwarg values printed under a `live seed
+    value(s):` line.  JSON mode (`--json`) always emits every
+    candidate with the `already_codified` / `live_codified_values`
+    fields so the consumer can filter itself.  On the live project
+    ledger the report shrinks from 5 candidates to 4 (the
     `Sobol.scramble = False` candidate that surfaces from the
-    pre-codification archive is now suppressed).  See the
-    2026-06-18 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+    pre-codification archive is suppressed).  See the
+    2026-06-18 / 2026-06-19 entries in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 
 *   **Bidirectional-bound widening detection on codify-scan** —
     **shipped 2026-06-19**.  The codify scanner detects each

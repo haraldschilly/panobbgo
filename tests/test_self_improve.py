@@ -8315,7 +8315,8 @@ class TestAnnotateCodifiedStatus:
         assert cand.already_codified is False
         assert cand.live_codified_values == (16,)
 
-    def test_structural_op_is_never_codified(self):
+    def test_structural_add_heuristic_not_codified_when_class_absent(self):
+        """``add_heuristic`` for a class no spec ships ⇒ actionable."""
         from panobbgo.self_improve import annotate_codified_status
 
         cand = _make_candidate(
@@ -8327,10 +8328,191 @@ class TestAnnotateCodifiedStatus:
             new_values=(None, None),
             old_values=(None, None),
         )
-        # Use an empty factory — _live_kwarg_values for ("LBFGSB", "")
-        # returns []; the structural placeholder returns False either way.
+        # Empty factory — LBFGSB is not in any spec's heuristics list.
         annotate_codified_status([cand], registries=[self._fake_factory()])
         assert cand.already_codified is False
+        assert cand.live_codified_values == ()
+
+    def test_structural_add_heuristic_codified_when_class_present(self):
+        """``add_heuristic`` for a class some spec already ships ⇒ no-op."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        # Fresh class object so we can rename __name__ without colliding.
+        class _FakeLBFGSB:
+            pass
+
+        _FakeLBFGSB.__name__ = "LBFGSB"
+        cand = _make_candidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            direction="add_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        factory = self._fake_factory(heuristics=[(_FakeLBFGSB, {})])
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        # The spec name carrying the membership is surfaced for the audit trail.
+        assert cand.live_codified_values == ("FakeSpec",)
+
+    def test_structural_drop_heuristic_codified_when_class_absent(self):
+        """``drop_heuristic`` for a class no spec ships ⇒ already removed."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            direction="drop_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        annotate_codified_status([cand], registries=[self._fake_factory()])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == ()
+
+    def test_structural_drop_heuristic_not_codified_when_class_present(self):
+        """``drop_heuristic`` for a class some spec ships ⇒ actionable."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        class _FakeLBFGSB:
+            pass
+
+        _FakeLBFGSB.__name__ = "LBFGSB"
+        cand = _make_candidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            direction="drop_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        factory = self._fake_factory(heuristics=[(_FakeLBFGSB, {})])
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is False
+        assert cand.live_codified_values == ("FakeSpec",)
+
+    def test_structural_add_analyzer_codified_when_class_present(self):
+        """``add_analyzer`` for an analyzer some spec already carries ⇒ no-op."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        class _FakeSensitivity:
+            pass
+
+        _FakeSensitivity.__name__ = "Sensitivity"
+        cand = _make_candidate(
+            class_name="Sensitivity",
+            param_name="",
+            rule_kind="structural",
+            op="add_analyzer",
+            direction="add_analyzer",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        factory = self._fake_factory(analyzers=[(_FakeSensitivity, {})])
+        annotate_codified_status([cand], registries=[factory])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == ("FakeSpec",)
+
+    def test_structural_drop_analyzer_codified_when_class_absent(self):
+        """``drop_analyzer`` for an analyzer no spec carries ⇒ already removed."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="Sensitivity",
+            param_name="",
+            rule_kind="structural",
+            op="drop_analyzer",
+            direction="drop_analyzer",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        annotate_codified_status([cand], registries=[self._fake_factory()])
+        assert cand.already_codified is True
+        assert cand.live_codified_values == ()
+
+    def test_structural_heuristic_and_analyzer_buckets_distinct(self):
+        """A class in ``heuristics`` does not codify ``add_analyzer`` (and vice versa)."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        class _FakeRestart:
+            pass
+
+        _FakeRestart.__name__ = "Restart"
+        # Spec ships Restart as an *analyzer* — ``add_analyzer`` should
+        # be codified, but ``add_heuristic`` for the same class is *not*
+        # (no spec lists Restart under heuristics).
+        factory = self._fake_factory(analyzers=[(_FakeRestart, {})])
+        cand_h = _make_candidate(
+            class_name="Restart",
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            direction="add_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        cand_a = _make_candidate(
+            class_name="Restart",
+            param_name="",
+            rule_kind="structural",
+            op="add_analyzer",
+            direction="add_analyzer",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        annotate_codified_status([cand_h, cand_a], registries=[factory])
+        assert cand_h.already_codified is False
+        assert cand_a.already_codified is True
+        assert cand_h.live_codified_values == ()
+        assert cand_a.live_codified_values == ("FakeSpec",)
+
+    def test_structural_unknown_op_falls_back_to_not_codified(self):
+        """Defensive — a future op name not in the four-op set keeps surfacing."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        cand = _make_candidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="rotate_heuristic",  # hypothetical future op the catalog has not shipped
+            direction="rotate_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        annotate_codified_status([cand], registries=[self._fake_factory()])
+        assert cand.already_codified is False
+
+    def test_structural_multiple_specs_record_each_match(self):
+        """Membership records every spec that carries the class."""
+        from panobbgo.self_improve import annotate_codified_status
+
+        class _FakeNelderMead:
+            pass
+
+        _FakeNelderMead.__name__ = "NelderMead"
+        # Two separate factories both ship NelderMead under heuristics —
+        # the candidate is codified and both spec names surface.
+        factory_a = self._fake_factory(heuristics=[(_FakeNelderMead, {})])
+        factory_b = self._fake_factory(heuristics=[(_FakeNelderMead, {})])
+        cand = _make_candidate(
+            class_name="NelderMead",
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            direction="add_heuristic",
+            new_values=(None, None),
+            old_values=(None, None),
+        )
+        annotate_codified_status([cand], registries=[factory_a, factory_b])
+        assert cand.already_codified is True
+        # Both factories used the same _fake_factory helper which names
+        # the spec ``FakeSpec``, so we see the same name twice.
+        assert cand.live_codified_values == ("FakeSpec", "FakeSpec")
 
     def test_analyzer_kwarg_codified_check(self):
         from panobbgo.self_improve import annotate_codified_status
@@ -8605,6 +8787,92 @@ class TestCodifyScanCLISuppression:
         # registry factories.
         assert d["live_codified_values"]
         assert all(v is False for v in d["live_codified_values"])
+
+    def test_structural_add_heuristic_suppressed_when_already_in_pool(self, tmp_path, capsys):
+        """Structural ``add_heuristic`` for an already-shipped class ⇒ suppressed.
+
+        ``Nearby`` ships in both the quick and loop registries' heuristics
+        lists, so a synthetic ``add_heuristic Nearby`` candidate must be
+        flagged ``already_codified`` and hidden from the default report.
+        """
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="",
+                    rule_kind="add_heuristic",
+                    old_value=None,
+                    new_value=None,
+                    op="add_heuristic",
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="",
+                    rule_kind="add_heuristic",
+                    old_value=None,
+                    new_value=None,
+                    op="add_heuristic",
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Suppression fired (status line) and the candidate body is hidden.
+        assert "1 already codified, hidden" in out
+        assert "add_heuristic Nearby" not in out
+
+    def test_structural_drop_heuristic_surfaces_when_class_in_pool(self, tmp_path, capsys):
+        """Structural ``drop_heuristic`` for a shipped class ⇒ actionable.
+
+        ``Nearby`` is in the seed pool, so a ``drop_heuristic Nearby``
+        candidate would actually remove a heuristic from the seed spec and
+        is NOT codified — it must surface by default.
+        """
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="",
+                    rule_kind="drop_heuristic",
+                    old_value=None,
+                    new_value=None,
+                    op="drop_heuristic",
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="",
+                    rule_kind="drop_heuristic",
+                    old_value=None,
+                    new_value=None,
+                    op="drop_heuristic",
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "candidates surfaced: 1" in out
+        assert "Nearby" in out
+        assert "[already codified]" not in out
 
 
 # ===========================================================================

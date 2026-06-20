@@ -5640,6 +5640,370 @@ def annotate_codified_status(
         cand.already_codified = _candidate_already_codified(cand, live_values)
 
 
+# Numeric mutation kinds the widening detector reasons about.  Categorical
+# rules and structural ops have no meaningful "wider bound" — they live on
+# discrete choice sets or op names.
+_NUMERIC_RULE_KINDS: Tuple[str, ...] = (
+    "log_uniform_perturb",
+    "integer_add",
+    "float_uniform",
+)
+
+
+@dataclass
+class WideningCandidate:
+    """A pair of bidirectional codify candidates proposing a wider catalog bound.
+
+    The 2026-06-17 :func:`aggregate_codify_candidates` scanner surfaces
+    bidirectional patterns — same ``(class_name, param_name)`` slot
+    accumulating accepts in both ``direction="up"`` and
+    ``direction="down"`` across multiple nights.  Both directions are
+    legitimate signal: the bandit genuinely finds value moving the kwarg
+    up *and* moving it down, depending on the instance.  The right
+    action for these is rarely a default shift (which direction?) but a
+    *catalog bound update* so the bandit's exploration focuses where the
+    observed accepts live and gets some headroom outside that range.
+    See the *Mutation-bound widening rule* idea under
+    :doc:`/planning/SELF_IMPROVEMENT_LOG.md` "Next iteration ideas".
+
+    The proposed bound is the observed range
+    (``min`` / ``max`` of every accepted ``new_value`` across both
+    directions) widened by :attr:`widen_factor`.  For
+    ``log_uniform_perturb`` and ``float_uniform`` the widening is
+    multiplicative; ``integer_add`` uses the same rule but rounds the
+    proposed bounds outward to integers so the catalog's ``bounds`` tuple
+    stays integer-typed.  A proposed bound that's *tighter* than the
+    current one is also a useful signal — it focuses bandit draws on
+    where the evidence supports them — so callers should treat
+    "wider vs tighter" as informational, not an accept gate.
+
+    Attributes:
+        class_name: Heuristic / analyzer class targeted by both
+            directions.
+        param_name: Kwarg slot.
+        rule_kind: One of the entries of :data:`_NUMERIC_RULE_KINDS`.
+            Categorical / structural candidates never make it into
+            widening — the detector skips them.
+        current_bounds: Bounds the catalog rule currently advertises for
+            this slot (``rule.bounds``).  ``None`` when no catalog rule
+            targets the slot (the operator can still act on the proposed
+            bound by adding a new rule).
+        observed_lo: Minimum ``new_value`` across both directions.
+        observed_hi: Maximum ``new_value`` across both directions.
+        proposed_lo: Observed minimum widened in the safe direction
+            (downward for log / float kinds; rounded toward zero for
+            integers).  See :func:`_widen_numeric_bounds` for the rule.
+        proposed_hi: Observed maximum widened upward (multiplicative for
+            log / float; rounded outward for integers).
+        widen_factor: The multiplicative widening factor used.
+        up_candidate: The :class:`CodifyCandidate` carrying the
+            ``direction="up"`` evidence.
+        down_candidate: The :class:`CodifyCandidate` carrying the
+            ``direction="down"`` evidence.
+        n_accepts: Combined accepts across both directions.
+        distinct_dates: Sorted union of the contributing dates.
+    """
+
+    class_name: str
+    param_name: str
+    rule_kind: str
+    current_bounds: Optional[Tuple[float, float]]
+    observed_lo: float
+    observed_hi: float
+    proposed_lo: float
+    proposed_hi: float
+    widen_factor: float
+    up_candidate: "CodifyCandidate"
+    down_candidate: "CodifyCandidate"
+
+    @property
+    def n_accepts(self) -> int:
+        return self.up_candidate.n_accepts + self.down_candidate.n_accepts
+
+    @property
+    def distinct_dates(self) -> Tuple[str, ...]:
+        return tuple(sorted(set(self.up_candidate.distinct_dates) | set(self.down_candidate.distinct_dates)))
+
+    @property
+    def n_distinct_nights(self) -> int:
+        return len(self.distinct_dates)
+
+    @property
+    def slot_key(self) -> Tuple[str, str, Optional[str]]:
+        """Slot identifier mirroring :attr:`CodifyCandidate.slot_key`.
+
+        Widening candidates always target a kwarg rule (``op is None``)
+        so a future ``--open-pr`` driver can dedup against open codify
+        PRs using the same key shape both candidate types produce.
+        """
+        return (self.class_name, self.param_name, None)
+
+    @property
+    def proposal_is_wider(self) -> bool:
+        """``True`` when the proposed bound exceeds the current one in either direction."""
+        if self.current_bounds is None:
+            return True
+        cur_lo, cur_hi = self.current_bounds
+        return self.proposed_lo < cur_lo or self.proposed_hi > cur_hi
+
+    @property
+    def proposal_is_tighter(self) -> bool:
+        """``True`` when the proposed bound is strictly inside the current one in both directions.
+
+        A tighter proposal is still actionable evidence — it concentrates
+        bandit draws on the observed range so dormant edges of the
+        catalog stop wasting effort.  The CLI surfaces both flags so the
+        operator can prioritise.
+        """
+        if self.current_bounds is None:
+            return False
+        cur_lo, cur_hi = self.current_bounds
+        return self.proposed_lo > cur_lo and self.proposed_hi < cur_hi
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "class_name": self.class_name,
+            "param_name": self.param_name,
+            "rule_kind": self.rule_kind,
+            "current_bounds": (
+                None
+                if self.current_bounds is None
+                else [_to_plain(self.current_bounds[0]), _to_plain(self.current_bounds[1])]
+            ),
+            "observed_lo": _to_plain(self.observed_lo),
+            "observed_hi": _to_plain(self.observed_hi),
+            "proposed_lo": _to_plain(self.proposed_lo),
+            "proposed_hi": _to_plain(self.proposed_hi),
+            "widen_factor": float(self.widen_factor),
+            "proposal_is_wider": bool(self.proposal_is_wider),
+            "proposal_is_tighter": bool(self.proposal_is_tighter),
+            "n_accepts": int(self.n_accepts),
+            "n_distinct_nights": int(self.n_distinct_nights),
+            "distinct_dates": list(self.distinct_dates),
+            "up_candidate": self.up_candidate.to_dict(),
+            "down_candidate": self.down_candidate.to_dict(),
+        }
+
+
+def _widen_numeric_bounds(
+    observed_lo: float,
+    observed_hi: float,
+    rule_kind: str,
+    *,
+    widen_factor: float,
+) -> Tuple[float, float]:
+    """Compute the widened ``(lo, hi)`` for a numeric rule kind.
+
+    Rule per ``rule_kind``:
+
+    * ``log_uniform_perturb`` — multiplicative on both sides: the
+      observed range is a log-scale window, so dividing the lower end
+      by ``widen_factor`` and multiplying the upper end is the symmetric
+      operation in log space.  Lower bound is floored at a tiny positive
+      value (``1e-12``) because :class:`MutationRule` rejects
+      non-positive ``log_uniform_perturb`` values.
+    * ``integer_add`` — same multiplicative rule but rounded *outward*
+      (lower bound via :func:`math.floor`, upper via
+      :func:`math.ceil`) so the proposed window is at least as wide as
+      the multiplicative one.  Lower bound is clipped to ``1`` when the
+      observed minimum is positive — most integer-typed catalog kwargs
+      are pool sizes / iteration counts where zero would be a degenerate
+      configuration.  When the observed minimum is itself ``<= 0`` we
+      leave the sign untouched so a future negative-int kwarg would
+      survive widening.
+    * ``float_uniform`` — multiplicative on the absolute values; we keep
+      the sign of the bound (so a negative-valued knob widens away from
+      zero on both sides).  When ``observed_lo`` is exactly zero we
+      leave it at zero (the operator likely wants the bound to start at
+      zero).
+
+    The widen factor is intentionally fixed by the caller — different
+    rule kinds want different defaults (log rules want a larger factor
+    because the observed range is itself logarithmic) but enforcing the
+    caller's choice keeps the function unsurprising.
+    """
+    import math as _math
+
+    if widen_factor <= 1.0:
+        raise ValueError(f"widen_factor must be > 1.0, got {widen_factor}")
+    if rule_kind == "log_uniform_perturb":
+        # Both ends are positive (rule construction enforces).  Divide
+        # the floor, multiply the ceiling — symmetric in log space.
+        new_lo = max(1e-12, observed_lo / widen_factor)
+        new_hi = observed_hi * widen_factor
+        return (float(new_lo), float(new_hi))
+    if rule_kind == "integer_add":
+        if observed_lo > 0:
+            new_lo_f = max(1.0, observed_lo / widen_factor)
+        elif observed_lo == 0:
+            new_lo_f = 0.0
+        else:
+            new_lo_f = observed_lo * widen_factor
+        new_hi_f = observed_hi * widen_factor if observed_hi >= 0 else observed_hi / widen_factor
+        return (float(_math.floor(new_lo_f)), float(_math.ceil(new_hi_f)))
+    if rule_kind == "float_uniform":
+        if observed_lo > 0:
+            new_lo = observed_lo / widen_factor
+        elif observed_lo == 0:
+            new_lo = 0.0
+        else:
+            new_lo = observed_lo * widen_factor
+        if observed_hi >= 0:
+            new_hi = observed_hi * widen_factor
+        else:
+            new_hi = observed_hi / widen_factor
+        return (float(new_lo), float(new_hi))
+    raise ValueError(f"Unsupported rule_kind for widening: {rule_kind!r}")
+
+
+def _catalog_numeric_bounds(
+    catalog: "MutationCatalog",
+    class_name: str,
+    param_name: str,
+    rule_kind: str,
+) -> Optional[Tuple[float, float]]:
+    """Look up the bounds of the matching numeric rule in ``catalog``.
+
+    Returns ``None`` when no rule targets the
+    ``(class_name, param_name, rule_kind)`` slot.  Multiple rules on the
+    same slot (e.g. the ``NLSHADE_RSP.k_rank`` ``float_uniform`` plus
+    ``categorical_choice`` pair shipped 2026-06-04) survive as separate
+    bandit arms — the widening detector matches the *numeric* rule for
+    the bidirectional pattern.  Structural rules are ignored here; only
+    :class:`MutationRule` instances carry numeric bounds.
+    """
+    if rule_kind not in _NUMERIC_RULE_KINDS:
+        return None
+    for rule in catalog.rules:
+        if not isinstance(rule, MutationRule):
+            continue
+        if rule.kind != rule_kind:
+            continue
+        if rule.class_name != class_name:
+            continue
+        if rule.param_name != param_name:
+            continue
+        return (float(rule.bounds[0]), float(rule.bounds[1]))
+    return None
+
+
+def detect_widening_candidates(
+    candidates: Sequence["CodifyCandidate"],
+    *,
+    catalog: Optional["MutationCatalog"] = None,
+    widen_factor: float = 1.5,
+) -> List[WideningCandidate]:
+    """Pair bidirectional codify candidates into bound-widening proposals.
+
+    Walks ``candidates`` and pairs each ``(class_name, param_name,
+    rule_kind)`` slot whose direction set contains both ``"up"`` and
+    ``"down"``.  Each pair becomes one :class:`WideningCandidate`
+    carrying:
+
+    * the observed ``new_value`` range (min across the down accepts to
+      max across the up accepts),
+    * the catalog rule's current bounds (looked up by class / param /
+      rule_kind via :func:`_catalog_numeric_bounds`),
+    * the proposed bounds (observed range widened by ``widen_factor``
+      via :func:`_widen_numeric_bounds`).
+
+    Only numeric rule kinds (``log_uniform_perturb`` / ``integer_add`` /
+    ``float_uniform``) are considered — categorical and structural
+    candidates don't carry a meaningful "wider bound".  Candidates with
+    ``op is not None`` (structural) are skipped, matching the planning
+    doc's "op == None — only kwarg candidates" precondition.
+
+    Args:
+        candidates: Output of :func:`aggregate_codify_candidates`.
+            Typically the scanner's `min_nights >= 2` filtering is
+            already applied; the widening detector applies no further
+            gates beyond the bidirectional requirement.
+        catalog: Catalog to consult for the current bounds.  Defaults to
+            :func:`default_catalog`.  Pass an explicit catalog when the
+            loop runs against a non-default rule set.
+        widen_factor: Multiplicative widening factor applied to the
+            observed range.  Default ``1.5`` matches the *Mutation-bound
+            widening* idea sketch in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`.
+
+    Returns:
+        Sorted list of :class:`WideningCandidate` instances, ordered by
+        ``(n_distinct_nights desc, n_accepts desc, class_name asc)`` so
+        the strongest bidirectional evidence surfaces first.  Empty list
+        when no slot carries both directions.
+    """
+    if catalog is None:
+        catalog = default_catalog()
+    by_slot: Dict[Tuple[str, str, str], Dict[str, "CodifyCandidate"]] = {}
+    for cand in candidates:
+        if cand.op is not None:
+            continue
+        if cand.rule_kind not in _NUMERIC_RULE_KINDS:
+            continue
+        if cand.direction not in ("up", "down"):
+            continue
+        slot = (cand.class_name, cand.param_name, cand.rule_kind)
+        bucket = by_slot.setdefault(slot, {})
+        # A second candidate on the same (slot, direction) shouldn't happen
+        # in well-formed scanner output (aggregate_codify_candidates groups
+        # by direction first), but if it does, keep the stronger one.
+        prev = bucket.get(cand.direction)
+        if prev is None or cand.n_distinct_nights > prev.n_distinct_nights:
+            bucket[cand.direction] = cand
+
+    out: List[WideningCandidate] = []
+    for (class_name, param_name, rule_kind), bucket in by_slot.items():
+        if "up" not in bucket or "down" not in bucket:
+            continue
+        up_cand = bucket["up"]
+        down_cand = bucket["down"]
+        # Pool every observed new_value from both directions; coerce
+        # gracefully — non-numeric entries shouldn't appear in numeric
+        # rule kinds, but be defensive about ledger drift.
+        observed: List[float] = []
+        for v in up_cand.new_values:
+            try:
+                observed.append(float(v))
+            except (TypeError, ValueError):
+                pass
+        for v in down_cand.new_values:
+            try:
+                observed.append(float(v))
+            except (TypeError, ValueError):
+                pass
+        if not observed:
+            continue
+        observed_lo = min(observed)
+        observed_hi = max(observed)
+        proposed_lo, proposed_hi = _widen_numeric_bounds(
+            observed_lo,
+            observed_hi,
+            rule_kind,
+            widen_factor=widen_factor,
+        )
+        current = _catalog_numeric_bounds(catalog, class_name, param_name, rule_kind)
+        out.append(
+            WideningCandidate(
+                class_name=class_name,
+                param_name=param_name,
+                rule_kind=rule_kind,
+                current_bounds=current,
+                observed_lo=float(observed_lo),
+                observed_hi=float(observed_hi),
+                proposed_lo=float(proposed_lo),
+                proposed_hi=float(proposed_hi),
+                widen_factor=float(widen_factor),
+                up_candidate=up_cand,
+                down_candidate=down_cand,
+            )
+        )
+
+    # Sort by strongest evidence first: most distinct nights desc, then
+    # combined accept count desc, then class_name asc (deterministic
+    # tie-break so the report order is stable across runs).
+    out.sort(key=lambda w: (-w.n_distinct_nights, -w.n_accepts, w.class_name, w.param_name))
+    return out
+
+
 __all__ = [
     "MutationRule",
     "StructuralMutationRule",
@@ -5665,4 +6029,6 @@ __all__ = [
     "annotate_codified_status",
     "default_codify_registries",
     "load_ledgers_for_codify_scan",
+    "WideningCandidate",
+    "detect_widening_candidates",
 ]

@@ -17,6 +17,259 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-19 — Mutation-bound widening detection for bidirectional codify candidates (V2 §9.3 follow-up)
+
+* **What** — Closes the *Mutation-bound widening rule for
+  bidirectional codify candidates* idea seeded under *Next iteration
+  ideas* on 2026-06-17.  Three pure additions to
+  :mod:`panobbgo.self_improve` plus a flag pair on the
+  ``scripts/self_improve.py codify-scan`` subcommand that pair every
+  bidirectional ``(class_name, param_name)`` slot — same slot with
+  accepts in *both* ``"up"`` and ``"down"`` directions across multiple
+  nights — into a proposed ``MutationRule.bounds`` update:
+
+  * :class:`panobbgo.self_improve.WideningCandidate` — frozen
+    dataclass carrying one bidirectional pair: ``class_name`` /
+    ``param_name`` / ``rule_kind``, the catalog's current bounds (or
+    ``None`` when no rule targets the slot), the observed range
+    pooled across both directions, the proposed widened range, the
+    widen factor used, the two contributing
+    :class:`CodifyCandidate` instances (the ``up`` and ``down``
+    flavors), and aggregate ``n_accepts`` / ``distinct_dates`` /
+    ``slot_key`` (mirrors :attr:`CodifyCandidate.slot_key` so the
+    follow-up ``--open-pr`` driver can dedup uniformly across both
+    candidate kinds).  Carries the convenience
+    :attr:`proposal_is_wider` / :attr:`proposal_is_tighter` flags
+    so the CLI report can label the proposal direction at a glance.
+  * :func:`panobbgo.self_improve.detect_widening_candidates` — the
+    pairing primitive.  Walks a sequence of
+    :class:`CodifyCandidate` instances, drops candidates that aren't
+    kwarg-numeric (``op is not None`` or ``rule_kind not in
+    {log_uniform_perturb, integer_add, float_uniform}``), groups by
+    ``(class_name, param_name, rule_kind)``, and emits one
+    :class:`WideningCandidate` per group that carries both
+    directions.  Sorted by ``(n_distinct_nights desc, n_accepts
+    desc, class_name asc)`` so the strongest bidirectional evidence
+    surfaces first.  Looks up the current bound via
+    :func:`_catalog_numeric_bounds` against the supplied catalog
+    (default :func:`default_catalog`); callers using a non-default
+    catalog can pass it explicitly.
+  * :func:`panobbgo.self_improve._widen_numeric_bounds` — the bound
+    arithmetic, factored out so the rule maths is unit-testable
+    independently of the pairing logic.  Per-kind semantics:
+
+    - ``log_uniform_perturb`` — multiplicative on both ends
+      (``observed_lo / widen_factor``, ``observed_hi *
+      widen_factor``).  Lower bound is floored at ``1e-12`` because
+      :class:`MutationRule` rejects non-positive
+      ``log_uniform_perturb`` values.  Symmetric in log space.
+    - ``integer_add`` — same multiplicative rule, then rounded
+      *outward* (:func:`math.floor` on the lower bound,
+      :func:`math.ceil` on the upper).  Lower bound is clipped to
+      ``1`` when ``observed_lo`` is positive — most integer-typed
+      catalog kwargs are pool sizes / iteration counts where zero
+      would be degenerate.  Sign-preserving for negative observed
+      values (defensive against future negative-int kwargs).
+    - ``float_uniform`` — multiplicative on absolute values;
+      preserves the sign so a negative-valued knob widens away from
+      zero on both sides.  ``observed_lo == 0`` is preserved at
+      zero (the operator likely wants the bound to start there).
+
+  Both new public symbols are exposed in
+  :mod:`panobbgo.self_improve`'s ``__all__``.
+
+  CLI surface on ``scripts/self_improve.py codify-scan``:
+
+  * ``--widen-bounds`` — appends a *Bound-widening candidates*
+    section after the existing codify-candidate report.  Off by
+    default so existing invocations are byte-identical.  Each
+    surfaced pair carries a one-token tag — ``[widens current]`` /
+    ``[tightens current — focuses bandit on observed range]`` /
+    ``[partial overlap]`` / ``(no rule)`` (when no numeric rule
+    targets the slot) — so the operator can prioritise at a glance.
+    JSON mode (``--json``) emits each widening candidate on its own
+    line tagged ``"_type": "widening_candidate"``; codify
+    candidates carry the symmetric ``"_type": "codify_candidate"``
+    tag (additive on the existing schema, byte-safe to ignore for
+    consumers that don't filter on it).
+  * ``--widen-factor FLOAT`` — multiplicative widening factor
+    applied to the observed range, default ``1.5`` (matches the
+    idea sketch in the *Mutation-bound widening rule* entry under
+    *Next iteration ideas*).  Validated by
+    :func:`_widen_numeric_bounds` (``> 1.0`` required) so an
+    operator passing a degenerate factor gets a clear error
+    instead of a silent no-op.
+
+* **Why** — The 2026-06-17 ``codify-scan`` ship surfaces 5
+  candidates on the live project ledger today; *4 of the 5* are
+  bidirectional pairs (``Nearby.radius`` up and down, ``Sobol.n`` up
+  and down — the fifth is the already-codified ``Sobol.scramble =
+  False`` that the 2026-06-18 suppression layer hides).  The codify
+  scanner reports each direction as a separate candidate the
+  operator could ship as a default shift — but the two directions on
+  the *same slot* are contradictory: shipping
+  ``Nearby.radius=0.135`` (the up median) would invalidate the
+  ``Nearby.radius=0.073`` evidence and vice versa.  Before this ship
+  the §12.3 daily routine had no in-tool way to distinguish
+  "bidirectional pattern — operator should consider a bound update"
+  from "directionally consistent pattern — operator should ship a
+  default shift", and the planning doc's *Mutation-bound widening
+  rule* idea was the only place that documented the correct action.
+
+  The detector closes that gap: the bidirectional pattern becomes a
+  first-class report section with a proposed bound and a tag that
+  reads naturally for the operator triaging the daily summary.
+  Direct effect on §11 V2 success criterion 2 (codify-PR
+  throughput): a bidirectional codify-scan candidate that the
+  operator would previously discard as ambiguous now has a concrete
+  action attached.
+
+  Running against the live project ledger after this ship surfaces
+  two widening candidates (``--widen-bounds --widen-factor 1.5``):
+
+  * **``Nearby.radius``** — observed ``[0.073, 0.135]``, current
+    ``[0.005, 0.5]``, proposed ``[0.049, 0.203]`` — *tightens
+    current*.  The bandit consistently picks values in a window
+    5-10× narrower than the catalog admits; concentrating draws
+    there frees compute the catalog currently spends in the (0.005,
+    0.049) and (0.203, 0.5) dead bands.
+  * **``Sobol.n``** — observed ``[8, 24]``, current ``[4, 64]``,
+    proposed ``[5, 36]`` — *tightens current*, same shape.  The
+    bandit explores half the catalog's integer range; the proposed
+    bound is still wider than the observed (5 < 8 and 36 > 24, the
+    1.5× headroom in both directions) so the bandit can still
+    explore outside the observed range when a future night's
+    instance prefers it.
+
+* **Backwards compatibility** — strictly safe.  Pure additions to
+  ``panobbgo/self_improve.py`` (one dataclass + one public function
+  + two private helpers) and two new CLI flags on the existing
+  ``codify-scan`` subcommand.  Existing invocations (without
+  ``--widen-bounds``) produce byte-identical output; the JSON-mode
+  schema gains a new ``"_type"`` field on every emitted record but
+  the field is additive — consumers that don't filter on it see the
+  same record bodies as before.  The ``MutationRule``,
+  ``MutationCatalog``, ``CodifyCandidate``,
+  ``aggregate_codify_candidates``, and
+  ``annotate_codified_status`` library APIs are unchanged.
+
+* **Tests** — 38 new tests across three test classes in
+  ``tests/test_self_improve.py``:
+
+  * ``TestWidenNumericBounds`` (10 tests): per-rule-kind bound
+    arithmetic — log_uniform_perturb multiplicative widening, tiny
+    positive floor, integer_add outward rounding, lower-bound
+    clipping at one, observed-zero preserved, float_uniform
+    symmetric widening, observed-zero preserved, and the
+    ``widen_factor > 1.0`` validation (zero / one / negative
+    rejected, unsupported rule_kind rejected).
+  * ``TestCatalogNumericBounds`` (4 tests): the catalog lookup —
+    finds existing rules (``Nearby.radius``, ``Sobol.n``), returns
+    None for unknown slots, distinguishes dual-rule slots
+    (``NLSHADE_RSP.k_rank``'s ``float_uniform`` and
+    ``categorical_choice`` rules), and integer rule bounds return
+    as floats so callers can do uniform arithmetic.
+  * ``TestDetectWideningCandidates`` (17 tests): pairing semantics
+    — empty input, single direction doesn't pair, opposite
+    directions on the same slot pair, different slots don't pair,
+    different rule kinds don't pair (separate bandit arms),
+    structural and categorical candidates are skipped, proposed
+    bounds use the configured ``widen_factor``, catalog lookup
+    populates ``current_bounds``, unknown slot yields ``None``
+    current bounds (treated as wider), ``proposal_is_wider`` and
+    ``proposal_is_tighter`` flags set correctly,
+    sort order is by strongest evidence, ``n_accepts`` and
+    ``distinct_dates`` aggregate across directions
+    (date-deduping when both directions share a night),
+    ``slot_key`` matches :attr:`CodifyCandidate.slot_key`,
+    JSON round-trip through :meth:`to_dict`, and an explicit
+    catalog overrides the default.
+  * ``TestCodifyScanCLIWidening`` (5 tests): end-to-end CLI smoke
+    tests against ``_cmd_codify_scan`` — the flag is off by
+    default, ``--widen-bounds`` surfaces the new section,
+    no-bidirectional-pattern prints "0 surfaced", JSON mode emits
+    typed records (``codify_candidate`` + ``widening_candidate``),
+    and ``--widen-factor 3.0`` propagates into the proposed bounds.
+
+  Plus the ``_codify_candidate`` helper factored out at module
+  level so the new tests don't have to rebuild JSONL records for
+  unit-level pairing tests.
+
+  Test totals: 449 in ``tests/test_self_improve.py`` (411 before +
+  38 new); 1645 in ``tests/`` (11 skipped — unrelated IOH worker
+  setup).  ``uv run --extra dev ruff format --check .`` /
+  ``uv run --extra dev ruff check panobbgo/self_improve.py
+  scripts/self_improve.py tests/test_self_improve.py`` /
+  ``uv run pyright panobbgo/self_improve.py`` all clean.
+
+* **Impact** — direct effect on the §12.3 daily routine and §11
+  V2 success criterion 2.  Before this ship, the four bidirectional
+  candidates on the live ledger (``Nearby.radius`` up/down,
+  ``Sobol.n`` up/down) accounted for 100% of the actionable
+  codify-scan output (the fifth surfacing candidate is the
+  already-codified ``Sobol.scramble = False``, hidden by the
+  suppression layer).  The operator had to manually recognise the
+  bidirectional pattern, look up the current catalog bound, and
+  compute the proposed bound by hand — adding cognitive cost that
+  the planning doc's "Next iteration ideas" entry already flagged.
+  After this ship, the same triage is one ``--widen-bounds`` flag
+  away from a concrete bound-update proposal with the per-direction
+  evidence pre-pooled and the tag (``[tightens current]`` /
+  ``[widens current]`` / ``(no rule)``) describing the proposal
+  shape.
+
+  Cumulative effect over the V2 30-night window: every bidirectional
+  pattern the loop discovers becomes a candidate codify PR (against
+  ``default_catalog``) instead of being silently discarded as
+  ambiguous evidence.  Pairs naturally with the queued
+  ``--open-pr`` follow-up: the same
+  :attr:`WideningCandidate.slot_key` tuple
+  ``(class_name, param_name, None)`` the codify-candidate path uses
+  is reused here so a future ``--open-pr`` driver can dedup
+  uniformly across both candidate kinds.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    *Mutation-bound widening rule for bidirectional codify
+    candidates* idea promoted from *Next iteration ideas* to
+    shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 mentions the
+    widening detector as the bidirectional-pattern handler
+    alongside ``codify-scan``'s default-shift handler.
+  - ``doc/source/guide.rst``: quick-nav entry adds a mention of
+    the new ``WideningCandidate`` / ``detect_widening_candidates``
+    pair and the ``--widen-bounds`` / ``--widen-factor`` CLI flags.
+  - ``doc/source/guide_benchmarking.rst``: new "Bidirectional-bound
+    widening (``--widen-bounds``)" sub-subsection in the
+    "Cross-night codify-scan" subsection documenting the rule
+    semantics and the live-ledger evidence.
+  - ``AGENTS.md``: self-improvement loop bullet + new bash example.
+  - ``TODO.md``: new "Recent Improvements" entry.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **``codify-scan --widen-bounds --open-pr``** — extend the queued
+    ``--open-pr`` driver to translate each surfaced
+    :class:`WideningCandidate` into a concrete edit on
+    :func:`~panobbgo.self_improve.default_catalog` (updating the
+    rule's ``bounds=(lo, hi)`` tuple) and open a draft codify PR
+    against ``panobbgo/self_improve.py``.  The slot identifier
+    :attr:`WideningCandidate.slot_key` is the same tuple shape the
+    codify-candidate path uses so the dedup pass is uniform across
+    both candidate kinds.  Speculative until the basic
+    ``--open-pr`` driver lands.
+  * **Per-kind widen factor** — log-scale knobs naturally tolerate
+    a larger widen factor than linear ones; a categorical
+    ``--widen-factor-log`` / ``--widen-factor-linear`` flag pair
+    would let the operator tune the rule per kind.  Speculative —
+    the current ``1.5`` default is a reasonable compromise.
+  * **Auto-tune widen factor from observed spread** — when the
+    observed range is narrow (high agreement across nights), a
+    larger widen factor lets the bandit explore outside the
+    observed window; when the range is wide (high variance), a
+    smaller factor focuses on the consensus.  Speculative — the
+    fixed factor is a starting point.
+
 ### 2026-06-18 — Suppress already-codified candidates in codify-scan (V2 §9.3 follow-up)
 
 * **What** — Closes the *Suppress already-codified candidates* idea
@@ -5196,29 +5449,40 @@ landing).  Pairs naturally with **mutation-bound widening** for the
 bidirectional candidates the detection scan already surfaces — the
 right action on those is rarely a default shift.
 
-#### Mutation-bound widening rule for bidirectional codify candidates
+#### Mutation-bound widening rule for bidirectional codify candidates — shipped 2026-06-19
 
-The 2026-06-17 scanner already surfaces bidirectional patterns —
-e.g. ``Nearby.radius`` direction=up *and* direction=down both clear
-the ``k ≥ 2 nights`` gate.  Both are legitimate signal: the bandit
-genuinely finds value moving the kwarg up *and* moving it down
-depending on instance.  The right action for these is rarely a
-default shift (which direction?) but a *catalog bound widening* so
-the bandit has more reach in both directions.  Sketch:
+Shipped 2026-06-19 as :class:`panobbgo.self_improve.WideningCandidate`
+plus :func:`panobbgo.self_improve.detect_widening_candidates` and the
+``codify-scan --widen-bounds`` / ``--widen-factor`` CLI flag pair.
+The detector pairs every bidirectional ``(class_name, param_name)``
+slot — same slot with accepts in *both* ``"up"`` and ``"down"``
+directions — into a proposed ``MutationRule.bounds`` update.  On the
+live project ledger today, this surfaces two actionable patterns:
+``Nearby.radius`` ([0.073, 0.135] observed, proposed [0.049, 0.203]
+— tightens current [0.005, 0.5]) and ``Sobol.n`` ([8, 24] observed,
+proposed [5, 36] — tightens current [4, 64]).  See the 2026-06-19
+dated entry above for the full rationale, the per-rule-kind bound
+arithmetic (multiplicative for log / float; outward-rounded for
+integer with a lower-bound clip at 1 for positive values), and the
+backwards-compat / test coverage.
 
-* New CLI subcommand (or ``codify-scan --widen-bounds`` flag) that
-  detects the bidirectional pattern at the
-  ``(class_name, param_name)`` level (op == None — only kwarg
-  candidates) and proposes a new ``MutationRule.bounds`` for the
-  affected slot.  The new bound is the min / max of the observed
-  ``new_value`` set widened by a fixed multiplicative factor (e.g.
-  1.5×) so the bandit can also explore outside the observed range.
-* PR opens against :func:`panobbgo.self_improve.default_catalog`
-  changing the rule's ``bounds=(lo, hi)`` tuple.  Evidence carried in
-  the PR body the same way as ``--open-pr``.
+Follow-ups still queued:
 
-Speculative until the ``--open-pr`` ship has accumulated evidence on
-which slots produce the most bidirectional candidates.
+* **``codify-scan --widen-bounds --open-pr``** — extend the queued
+  ``--open-pr`` driver to translate each surfaced
+  :class:`WideningCandidate` into a concrete edit on
+  :func:`~panobbgo.self_improve.default_catalog` and open a draft
+  codify PR.  Speculative until the basic ``--open-pr`` driver
+  lands.
+* **Per-kind widen factor** — log-scale knobs tolerate a larger
+  widen factor than linear ones; a
+  ``--widen-factor-log`` / ``--widen-factor-linear`` flag pair would
+  let the operator tune per kind.  Speculative.
+* **Auto-tune widen factor from observed spread** — when the
+  observed range is narrow, a larger factor lets the bandit
+  explore outside the observed window; when wide, a smaller factor
+  focuses on the consensus.  Speculative — the fixed factor is a
+  starting point.
 
 #### Suppress already-codified candidates in codify-scan — shipped 2026-06-18
 

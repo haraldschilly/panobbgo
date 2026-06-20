@@ -8605,3 +8605,733 @@ class TestCodifyScanCLISuppression:
         # registry factories.
         assert d["live_codified_values"]
         assert all(v is False for v in d["live_codified_values"])
+
+
+# ===========================================================================
+# Mutation-bound widening detection (V2 §9.3 follow-up)
+# ===========================================================================
+
+
+class TestWidenNumericBounds:
+    """:func:`panobbgo.self_improve._widen_numeric_bounds` — the bound maths."""
+
+    def _widen(self, *args, **kwargs):
+        from panobbgo.self_improve import _widen_numeric_bounds
+
+        return _widen_numeric_bounds(*args, **kwargs)
+
+    def test_log_uniform_perturb_widens_multiplicatively(self):
+        lo, hi = self._widen(0.1, 0.2, "log_uniform_perturb", widen_factor=1.5)
+        assert lo == pytest.approx(0.1 / 1.5)
+        assert hi == pytest.approx(0.2 * 1.5)
+
+    def test_log_uniform_perturb_floor_clamps_to_tiny_positive(self):
+        # Even when the observed lower end is already tiny, we never
+        # return zero / negative (MutationRule rejects those).
+        lo, hi = self._widen(1e-10, 1e-9, "log_uniform_perturb", widen_factor=1.5)
+        assert lo > 0
+        assert hi > lo
+
+    def test_integer_add_rounds_outward(self):
+        # observed [8, 24], widen 1.5 → raw [5.33, 36], rounded outward → [5, 36]
+        lo, hi = self._widen(8, 24, "integer_add", widen_factor=1.5)
+        assert lo == 5
+        assert hi == 36
+
+    def test_integer_add_lower_bound_clipped_to_one(self):
+        # observed [1, 5] would give raw lo = 0.67 which floors to 0.
+        # The lower bound is clipped to 1 because most integer kwargs
+        # would be degenerate at zero.
+        lo, hi = self._widen(1, 5, "integer_add", widen_factor=1.5)
+        assert lo == 1
+
+    def test_integer_add_observed_zero_preserved(self):
+        # When observed_lo is exactly zero, leave it at zero (kwarg
+        # bound naturally starts there).
+        lo, hi = self._widen(0, 5, "integer_add", widen_factor=2.0)
+        assert lo == 0
+        assert hi >= 5
+
+    def test_float_uniform_widens_symmetrically(self):
+        lo, hi = self._widen(0.2, 0.8, "float_uniform", widen_factor=2.0)
+        assert lo == pytest.approx(0.1)
+        assert hi == pytest.approx(1.6)
+
+    def test_float_uniform_observed_zero_preserved(self):
+        lo, hi = self._widen(0.0, 1.0, "float_uniform", widen_factor=2.0)
+        assert lo == 0.0
+        assert hi == pytest.approx(2.0)
+
+    def test_widen_factor_must_be_above_one(self):
+        with pytest.raises(ValueError, match="widen_factor"):
+            self._widen(0.1, 0.2, "log_uniform_perturb", widen_factor=1.0)
+
+    def test_widen_factor_must_be_positive(self):
+        with pytest.raises(ValueError, match="widen_factor"):
+            self._widen(0.1, 0.2, "log_uniform_perturb", widen_factor=0.5)
+
+    def test_unsupported_rule_kind_raises(self):
+        with pytest.raises(ValueError, match="Unsupported rule_kind"):
+            self._widen(0.1, 0.2, "categorical_choice", widen_factor=1.5)
+
+
+class TestCatalogNumericBounds:
+    """:func:`panobbgo.self_improve._catalog_numeric_bounds` — catalog lookup."""
+
+    def test_finds_existing_rule(self):
+        from panobbgo.self_improve import _catalog_numeric_bounds
+
+        bounds = _catalog_numeric_bounds(default_catalog(), "Nearby", "radius", "log_uniform_perturb")
+        assert bounds is not None
+        assert bounds == pytest.approx((0.005, 0.5))
+
+    def test_returns_none_for_unknown_slot(self):
+        from panobbgo.self_improve import _catalog_numeric_bounds
+
+        bounds = _catalog_numeric_bounds(default_catalog(), "NotAClass", "param", "float_uniform")
+        assert bounds is None
+
+    def test_rule_kind_distinguishes_dual_rules_on_same_slot(self):
+        # NLSHADE_RSP.k_rank ships both float_uniform and categorical_choice;
+        # the float_uniform rule has bounds the categorical doesn't carry.
+        from panobbgo.self_improve import _catalog_numeric_bounds
+
+        bounds = _catalog_numeric_bounds(default_catalog(), "NLSHADE_RSP", "k_rank", "float_uniform")
+        assert bounds is not None
+        # Categorical rule has no meaningful numeric bounds.
+        cat = _catalog_numeric_bounds(default_catalog(), "NLSHADE_RSP", "k_rank", "categorical_choice")
+        assert cat is None
+
+    def test_integer_rule_returns_floats(self):
+        # Integer-typed bounds are returned as floats so the caller can
+        # do uniform arithmetic.  The MutationRule stores them as ints.
+        from panobbgo.self_improve import _catalog_numeric_bounds
+
+        bounds = _catalog_numeric_bounds(default_catalog(), "Sobol", "n", "integer_add")
+        assert bounds is not None
+        assert bounds[0] == pytest.approx(4.0)
+        assert bounds[1] == pytest.approx(64.0)
+
+
+def _codify_candidate(
+    *,
+    class_name: str = "Nearby",
+    param_name: str = "radius",
+    rule_kind: str = "log_uniform_perturb",
+    direction: str = "up",
+    new_values: Sequence[Any] = (0.12, 0.13),
+    distinct_dates: Sequence[str] = ("2026-06-01", "2026-06-02"),
+    op: Optional[str] = None,
+):
+    """Build a synthetic CodifyCandidate for the widening tests."""
+    from panobbgo.self_improve import CodifyCandidate
+
+    n = len(new_values)
+    return CodifyCandidate(
+        class_name=class_name,
+        param_name=param_name,
+        rule_kind=rule_kind,
+        op=op,
+        direction=direction,
+        n_accepts=n,
+        distinct_dates=tuple(distinct_dates),
+        deltas=tuple([0.05] * n),
+        ci_lows=tuple([0.01] * n),
+        ci_highs=tuple([0.10] * n),
+        old_values=tuple([0.1] * n),
+        new_values=tuple(new_values),
+        timestamps=tuple([f"{d}T05:00:00+00:00" for d in distinct_dates[:n]]) if distinct_dates else (),
+        strategy_names=tuple(["Rewarding_Diverse"] * n),
+        confirmed_flags=tuple([None] * n),
+    )
+
+
+class TestDetectWideningCandidates:
+    """:func:`panobbgo.self_improve.detect_widening_candidates` — bidirectional pairing."""
+
+    def test_no_candidates_returns_empty(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        assert detect_widening_candidates([]) == []
+
+    def test_single_direction_does_not_pair(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13))
+        assert detect_widening_candidates([up]) == []
+
+    def test_pairs_up_and_down_on_same_slot(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13))
+        down = _codify_candidate(direction="down", new_values=(0.08, 0.07))
+        out = detect_widening_candidates([up, down])
+        assert len(out) == 1
+        w = out[0]
+        assert w.class_name == "Nearby"
+        assert w.param_name == "radius"
+        assert w.rule_kind == "log_uniform_perturb"
+        assert w.observed_lo == pytest.approx(0.07)
+        assert w.observed_hi == pytest.approx(0.13)
+
+    def test_different_slots_do_not_pair(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up_a = _codify_candidate(class_name="A", direction="up", new_values=(0.12,))
+        down_b = _codify_candidate(class_name="B", direction="down", new_values=(0.08,))
+        assert detect_widening_candidates([up_a, down_b]) == []
+
+    def test_different_rule_kinds_do_not_pair(self):
+        # The log_uniform_perturb rule and integer_add rule on the same
+        # slot are separate bandit arms; the widening detector treats
+        # them as separate bound slots.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(
+            class_name="Sobol", param_name="n", rule_kind="integer_add", direction="up", new_values=(20,)
+        )
+        down = _codify_candidate(
+            class_name="Sobol",
+            param_name="n",
+            rule_kind="log_uniform_perturb",
+            direction="down",
+            new_values=(8,),
+        )
+        assert detect_widening_candidates([up, down]) == []
+
+    def test_structural_candidates_are_skipped(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="add_heuristic", op="add_heuristic", new_values=(None,))
+        down = _codify_candidate(direction="drop_heuristic", op="drop_heuristic", new_values=(None,))
+        assert detect_widening_candidates([up, down]) == []
+
+    def test_categorical_candidates_are_skipped(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        # categorical_choice candidates don't carry "up"/"down" directions
+        # anyway, but be defensive: if a categorical candidate somehow
+        # claims direction="up", the detector skips it on rule_kind.
+        up = _codify_candidate(
+            class_name="Sobol",
+            param_name="scramble",
+            rule_kind="categorical_choice",
+            direction="up",
+            new_values=(False,),
+        )
+        down = _codify_candidate(
+            class_name="Sobol",
+            param_name="scramble",
+            rule_kind="categorical_choice",
+            direction="down",
+            new_values=(True,),
+        )
+        assert detect_widening_candidates([up, down]) == []
+
+    def test_proposes_widened_bounds_log_kind(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13))
+        down = _codify_candidate(direction="down", new_values=(0.08, 0.07))
+        [w] = detect_widening_candidates([up, down], widen_factor=2.0)
+        assert w.observed_lo == pytest.approx(0.07)
+        assert w.observed_hi == pytest.approx(0.13)
+        assert w.proposed_lo == pytest.approx(0.07 / 2.0)
+        assert w.proposed_hi == pytest.approx(0.13 * 2.0)
+
+    def test_looks_up_current_bounds_from_default_catalog(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12,))
+        down = _codify_candidate(direction="down", new_values=(0.08,))
+        [w] = detect_widening_candidates([up, down])
+        assert w.current_bounds == pytest.approx((0.005, 0.5))
+
+    def test_unknown_slot_yields_none_current_bounds(self):
+        # A slot the default catalog doesn't ship a rule for still
+        # surfaces — the operator may want to add a fresh rule.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(class_name="Unknown", param_name="x", direction="up", new_values=(0.5,))
+        down = _codify_candidate(class_name="Unknown", param_name="x", direction="down", new_values=(0.3,))
+        [w] = detect_widening_candidates([up, down])
+        assert w.current_bounds is None
+        # An unknown slot is treated as "wider" — there is no current
+        # bound to compare against.
+        assert w.proposal_is_wider is True
+        assert w.proposal_is_tighter is False
+
+    def test_proposal_is_wider_flag_set_correctly(self):
+        # Observed range that exceeds current bounds → wider.
+        from panobbgo.self_improve import (
+            MutationCatalog,
+            MutationRule,
+            detect_widening_candidates,
+        )
+
+        narrow_catalog = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="Nearby",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.1, 0.11),
+                )
+            ]
+        )
+        up = _codify_candidate(direction="up", new_values=(0.15, 0.2))
+        down = _codify_candidate(direction="down", new_values=(0.08, 0.07))
+        [w] = detect_widening_candidates([up, down], catalog=narrow_catalog, widen_factor=1.5)
+        assert w.proposal_is_wider is True
+        assert w.proposal_is_tighter is False
+
+    def test_proposal_is_tighter_when_observed_inside_current(self):
+        # When current bounds are very wide but observed range is small,
+        # the proposed bound is *tighter* — concentrates exploration.
+        from panobbgo.self_improve import (
+            MutationCatalog,
+            MutationRule,
+            detect_widening_candidates,
+        )
+
+        wide_catalog = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="Nearby",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.001, 10.0),
+                )
+            ]
+        )
+        up = _codify_candidate(direction="up", new_values=(0.12,))
+        down = _codify_candidate(direction="down", new_values=(0.08,))
+        [w] = detect_widening_candidates([up, down], catalog=wide_catalog, widen_factor=1.5)
+        assert w.proposal_is_tighter is True
+        assert w.proposal_is_wider is False
+
+    def test_sorted_by_strongest_evidence(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        # Slot A: 2 distinct nights × 2 directions = 4 accepts, 2 nights
+        a_up = _codify_candidate(
+            class_name="A", param_name="x", direction="up", new_values=(1.0,), distinct_dates=("2026-06-01",)
+        )
+        a_down = _codify_candidate(
+            class_name="A", param_name="x", direction="down", new_values=(0.5,), distinct_dates=("2026-06-02",)
+        )
+        # Slot B: 6 distinct nights, more accepts → should sort first.
+        b_up = _codify_candidate(
+            class_name="B",
+            param_name="y",
+            direction="up",
+            new_values=(1.0, 1.1, 1.2),
+            distinct_dates=("2026-06-01", "2026-06-02", "2026-06-03"),
+        )
+        b_down = _codify_candidate(
+            class_name="B",
+            param_name="y",
+            direction="down",
+            new_values=(0.5, 0.4, 0.3),
+            distinct_dates=("2026-06-04", "2026-06-05", "2026-06-06"),
+        )
+        out = detect_widening_candidates([a_up, a_down, b_up, b_down])
+        assert len(out) == 2
+        assert out[0].class_name == "B"  # more nights / accepts
+        assert out[1].class_name == "A"
+
+    def test_n_accepts_aggregates_both_directions(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13, 0.14))
+        down = _codify_candidate(direction="down", new_values=(0.08, 0.07))
+        [w] = detect_widening_candidates([up, down])
+        assert w.n_accepts == 5
+
+    def test_distinct_dates_aggregates_both_directions(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12,), distinct_dates=("2026-06-01",))
+        down = _codify_candidate(direction="down", new_values=(0.08,), distinct_dates=("2026-06-02",))
+        [w] = detect_widening_candidates([up, down])
+        assert w.distinct_dates == ("2026-06-01", "2026-06-02")
+        assert w.n_distinct_nights == 2
+
+    def test_distinct_dates_dedups_overlap(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        # Same date contributes to both directions — should appear once.
+        up = _codify_candidate(direction="up", new_values=(0.12,), distinct_dates=("2026-06-01",))
+        down = _codify_candidate(direction="down", new_values=(0.08,), distinct_dates=("2026-06-01",))
+        [w] = detect_widening_candidates([up, down])
+        assert w.distinct_dates == ("2026-06-01",)
+        assert w.n_distinct_nights == 1
+
+    def test_slot_key_matches_codify_candidate_shape(self):
+        # The slot_key mirrors :attr:`CodifyCandidate.slot_key` so the
+        # follow-up ``--open-pr`` driver can dedup uniformly.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12,))
+        down = _codify_candidate(direction="down", new_values=(0.08,))
+        [w] = detect_widening_candidates([up, down])
+        assert w.slot_key == ("Nearby", "radius", None)
+
+    def test_to_dict_round_trips_through_json(self):
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13))
+        down = _codify_candidate(direction="down", new_values=(0.08,))
+        [w] = detect_widening_candidates([up, down])
+        s = json.dumps(w.to_dict())
+        d = json.loads(s)
+        assert d["class_name"] == "Nearby"
+        assert d["param_name"] == "radius"
+        assert d["rule_kind"] == "log_uniform_perturb"
+        assert d["n_accepts"] == 3
+        assert d["proposed_lo"] < d["observed_lo"]
+        assert d["proposed_hi"] > d["observed_hi"]
+        assert "up_candidate" in d and "down_candidate" in d
+        # The nested codify candidates round-trip too.
+        assert d["up_candidate"]["direction"] == "up"
+        assert d["down_candidate"]["direction"] == "down"
+
+    def test_explicit_catalog_overrides_default(self):
+        # Caller-supplied catalog wins over default_catalog().
+        from panobbgo.self_improve import (
+            MutationCatalog,
+            MutationRule,
+            detect_widening_candidates,
+        )
+
+        custom = MutationCatalog(
+            [
+                MutationRule(
+                    strategy_pattern="",
+                    class_name="Nearby",
+                    param_name="radius",
+                    kind="log_uniform_perturb",
+                    bounds=(0.99, 9.99),  # Distinguishable from default's (0.005, 0.5).
+                )
+            ]
+        )
+        up = _codify_candidate(direction="up", new_values=(0.12,))
+        down = _codify_candidate(direction="down", new_values=(0.08,))
+        [w] = detect_widening_candidates([up, down], catalog=custom)
+        assert w.current_bounds == pytest.approx((0.99, 9.99))
+
+
+class TestCodifyScanCLIWidening:
+    """End-to-end CLI tests for the ``--widen-bounds`` flag."""
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _build_ns(
+        self,
+        live,
+        *,
+        widen_bounds=False,
+        widen_factor=1.5,
+        as_json=False,
+        include_already_codified=False,
+    ):
+        return type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": as_json,
+                "top": 0,
+                "include_already_codified": include_already_codified,
+                "suppress_codified": True,
+                "widen_bounds": widen_bounds,
+                "widen_factor": widen_factor,
+            },
+        )()
+
+    def test_widen_bounds_flag_off_by_default(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Two bidirectional candidates on Nearby.radius.
+        live.write_text(
+            json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-01T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.12,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-02T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.13,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-03T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.08,
+                )
+            )
+            + "\n"
+            + json.dumps(
+                _accepted_iter_record(
+                    timestamp="2026-06-04T05:00:00+00:00",
+                    class_name="Nearby",
+                    param_name="radius",
+                    rule_kind="log_uniform_perturb",
+                    old_value=0.1,
+                    new_value=0.07,
+                )
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # No widening section without the flag.
+        assert "Bound-widening candidates" not in out
+
+    def test_widen_bounds_flag_surfaces_widening_section(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(rec)
+                for rec in [
+                    _accepted_iter_record(
+                        timestamp="2026-06-01T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-02T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.13,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-03T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.08,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-04T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.07,
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Bound-widening candidates" in out
+        assert "bidirectional pairs surfaced: 1" in out
+        # The surfaced pair must mention the class / param and bounds.
+        assert "Nearby.radius" in out
+        assert "observed=" in out
+        assert "current=" in out
+        assert "proposed=" in out
+
+    def test_widen_bounds_no_bidirectional_pattern_prints_empty(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Single direction — no bidirectional pair.
+        live.write_text(
+            "\n".join(
+                json.dumps(rec)
+                for rec in [
+                    _accepted_iter_record(
+                        timestamp="2026-06-01T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-02T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.13,
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Bound-widening candidates" in out
+        assert "bidirectional pairs surfaced: 0" in out
+        assert "no bidirectional pattern surfaced" in out
+
+    def test_widen_bounds_json_mode_emits_typed_records(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(rec)
+                for rec in [
+                    _accepted_iter_record(
+                        timestamp="2026-06-01T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-02T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.13,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-03T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.08,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-04T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.07,
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True, as_json=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        lines = [json.loads(line) for line in out.splitlines() if line.strip()]
+        # Should emit codify-candidate lines + widening-candidate lines.
+        types = [d.get("_type") for d in lines]
+        assert "codify_candidate" in types
+        assert "widening_candidate" in types
+        # The widening candidate carries the expected shape.
+        widening = [d for d in lines if d.get("_type") == "widening_candidate"]
+        assert len(widening) == 1
+        w = widening[0]
+        assert w["class_name"] == "Nearby"
+        assert w["param_name"] == "radius"
+        assert w["rule_kind"] == "log_uniform_perturb"
+        assert "current_bounds" in w
+        assert "proposed_lo" in w and "proposed_hi" in w
+        assert w["widen_factor"] == 1.5
+
+    def test_widen_factor_argument_propagates(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(rec)
+                for rec in [
+                    _accepted_iter_record(
+                        timestamp="2026-06-01T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-02T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.13,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-03T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.08,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-04T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.07,
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True, widen_factor=3.0, as_json=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        widening = [
+            json.loads(line) for line in out.splitlines() if line.strip() and '"_type":' in line and "widening" in line
+        ]
+        assert len(widening) == 1
+        w = widening[0]
+        assert w["widen_factor"] == 3.0
+        # widen_factor=3 → proposed_hi = max_observed × 3 = 0.13 × 3 = 0.39
+        assert w["proposed_hi"] == pytest.approx(0.13 * 3.0)
+        assert w["proposed_lo"] == pytest.approx(0.07 / 3.0)

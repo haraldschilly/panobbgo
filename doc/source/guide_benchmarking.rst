@@ -1079,6 +1079,65 @@ See the 2026-06-17 / 2026-06-18 entries in
 the dated entry's "Follow-up ideas" section for the queued
 ``--open-pr`` work.
 
+Bidirectional-bound widening (``--widen-bounds``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Shipped 2026-06-19.  The codify scanner detects each ``(class, param,
+direction)`` group independently, so a slot whose bandit finds value
+moving the kwarg *up* on some nights and *down* on other nights
+surfaces as two separate candidates — competing default-shift
+proposals the operator cannot reconcile with a single PR.  The right
+action on a bidirectional pattern is rarely a default shift but a
+``MutationRule.bounds`` update that focuses the bandit's exploration
+on the observed range.
+
+Pass ``--widen-bounds`` to append a *Bound-widening candidates*
+section to the report::
+
+    uv run python scripts/self_improve.py codify-scan --widen-bounds
+
+The widening detector pairs every ``(class_name, param_name)`` slot
+whose direction set contains both ``"up"`` *and* ``"down"``, pools
+every observed ``new_value`` across the two directions, and proposes
+a new ``MutationRule.bounds`` tuple computed as:
+
+* ``log_uniform_perturb`` — multiplicative on both ends: the lower
+  end divides by ``--widen-factor`` (default ``1.5``), the upper end
+  multiplies.  Symmetric in log space.
+* ``integer_add`` — same rule, then rounded *outward*
+  (:func:`math.floor` on the lower bound, :func:`math.ceil` on the
+  upper).  Lower bound is clipped to ``1`` when observed values are
+  positive — most integer-typed catalog kwargs are pool sizes /
+  iteration counts where zero would be degenerate.
+* ``float_uniform`` — multiplicative on the absolute values; sign
+  preserved so a negative-valued knob widens away from zero on both
+  sides.
+
+Categorical and structural candidates have no meaningful "wider
+bound" and are skipped silently.
+
+For each surfaced pair the report carries the observed range, the
+catalog's current bounds (or ``(no rule)`` when no numeric rule
+targets the slot), the proposed bounds, and a one-token tag — one
+of ``[widens current]`` / ``[tightens current — focuses bandit on
+observed range]`` / ``[partial overlap]`` — so the operator can
+prioritise.  On the live project ledger today (2026-06-19) the
+detector surfaces two bidirectional patterns:
+
+* ``Nearby.radius`` — observed ``[0.073, 0.135]``, current ``[0.005,
+  0.5]``, proposed ``[0.049, 0.203]`` — **tightens current**: the
+  bandit consistently picks values in a window 5-10× narrower than
+  the catalog admits, so concentrating draws there frees compute.
+* ``Sobol.n`` — observed ``[8, 24]``, current ``[4, 64]``, proposed
+  ``[5, 36]`` — **tightens current** for the same reason.
+
+In ``--json`` mode every widening candidate rides the same
+line-delimited stream tagged ``"_type": "widening_candidate"`` while
+codify candidates carry ``"_type": "codify_candidate"`` so a
+downstream consumer can filter by type.  Library API:
+:class:`panobbgo.self_improve.WideningCandidate` and
+:func:`panobbgo.self_improve.detect_widening_candidates`.
+
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

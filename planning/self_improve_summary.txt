@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    280  (decided=280, skipped=0, no-op=29)
-Accepts:       7  (2.8% of informative)
-Guards:        56  (rollbacks=39, total pops=6)
-Hold-outs:     14  (overfit=0, vacuous=13)
+Iterations:    300  (decided=300, skipped=0, no-op=32)
+Accepts:       7  (2.6% of informative)
+Guards:        60  (rollbacks=43, total pops=6)
+Hold-outs:     15  (overfit=0, vacuous=14)
 Best Δ seen:   +0.0678
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -52,6 +52,10 @@ Guard rollbacks:
   iter=19  pops=0  score=0.0111 vs stored 0.0589; new top iter=-1
   iter=4  pops=0  score=0.0089 vs stored 0.0717; new top iter=-1
   iter=14  pops=1  score=0.0317 vs stored 0.0550; new top iter=-1
+  iter=4  pops=0  score=0.0322 vs stored 0.0717; new top iter=-1
+  iter=9  pops=0  score=0.0244 vs stored 0.0717; new top iter=-1
+  iter=14  pops=0  score=0.0089 vs stored 0.0717; new top iter=-1
+  iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
 Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -67,8 +71,9 @@ Hold-out validation:
   OK  drift=+0.0616  holdout_gap=+0.0010 training_gap=-0.0606  top_iter=8  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  --> aggregate: OK  worst_drift=+0.0000  overfit=0/14  vacuous=13/14  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0616  CI95%=[+0.0426, +0.0809]  n_samples=5  n_records=14  vacuous=13/14
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=+0.0000  overfit=0/15  vacuous=14/15  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0616  CI95%=[+0.0426, +0.0809]  n_samples=5  n_records=15  vacuous=14/15
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -86,18 +91,19 @@ Trend (one row per loop run, oldest first):
   2026-06-17 08:26:02     42  quick        20    20     1     3   +0.0250      0.0717
   2026-06-18 08:05:01     42  quick        20    20     1     2   +0.0294      0.0417
   2026-06-19 08:29:04     42  quick        20    20     0     7   +0.0194      0.0428
+  2026-06-20 06:58:56     42  quick        20    20     0     3   +0.0289      0.0717
 
 Bandit posteriors (n_attempts >= 3, 8 eligible rules):
   Top 8 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  Nearby                  radius                  log_uniform_pertur    73     6    0.082      8.2%
-  *                       add_analyzer            structural            33     1    0.030      3.0%
-  *                       drop_analyzer           structural            28     0    0.000      0.0%
-  *                       drop_heuristic          structural            25     0    0.000      0.0%
-  *                       add_heuristic           structural            25     0    0.000      0.0%
-  Sobol                   n                       integer_add           23     0    0.000      0.0%
-  Sobol                   scramble                categorical_choice    23     0    0.000      0.0%
-  Sensitivity             update_interval         integer_add           19     0    0.000      0.0%
+  Nearby                  radius                  log_uniform_pertur    79     6    0.076      7.6%
+  *                       add_analyzer            structural            35     1    0.029      2.9%
+  *                       drop_analyzer           structural            29     0    0.000      0.0%
+  *                       add_heuristic           structural            28     0    0.000      0.0%
+  *                       drop_heuristic          structural            26     0    0.000      0.0%
+  Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
+  Sobol                   n                       integer_add           24     0    0.000      0.0%
+  Sensitivity             update_interval         integer_add           20     0    0.000      0.0%
 
 Inactivity:
   eps_accept_base=0.0050  longest_drought=19 iters

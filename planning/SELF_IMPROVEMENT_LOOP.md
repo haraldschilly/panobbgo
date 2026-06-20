@@ -340,6 +340,28 @@ source edit + PR:
   reads the improved defaults from source.  No in-memory ladder
   serialization needed.
 
+`scripts/self_improve.py codify-scan --widen-bounds` (**shipped
+2026-06-19**) is the sibling detection mode for *bidirectional*
+patterns — slots whose codify-scan surfaces both `"up"` and `"down"`
+direction candidates on the same `(class_name, param_name)`.  These
+two are contradictory under the default-shift interpretation (which
+direction wins?) but become a clean *catalog bound update* under the
+right interpretation: focus the bandit's exploration on the observed
+range, with a fixed multiplicative widen factor (default `1.5`) for
+headroom outside the observed window.  See
+:class:`panobbgo.self_improve.WideningCandidate`,
+:func:`panobbgo.self_improve.detect_widening_candidates`, and the
+2026-06-19 entry in `SELF_IMPROVEMENT_LOG.md` for the per-rule-kind
+bound arithmetic (multiplicative for log_uniform_perturb /
+float_uniform; outward-rounded for integer_add).  On the live ledger
+today the detector surfaces `Nearby.radius` and `Sobol.n` — both
+*tightening* candidates because the bandit consistently picks values
+in a window 5-10× narrower than the catalog admits.  Pairs naturally
+with the queued `--open-pr` driver: the
+:attr:`WideningCandidate.slot_key` tuple matches
+:attr:`CodifyCandidate.slot_key` so a future driver dedups uniformly
+across both candidate kinds.
+
 ### 9.4 Target invocation
 
 ```yaml

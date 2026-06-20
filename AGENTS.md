@@ -614,6 +614,35 @@ The harness is the measurement substrate for an autonomous
     pre-codification archive is now suppressed).  See the
     2026-06-18 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Bidirectional-bound widening detection on codify-scan** —
+    **shipped 2026-06-19**.  The codify scanner detects each
+    `(class, param, direction)` group independently, so a slot whose
+    bandit finds value moving the kwarg *up* on some nights and
+    *down* on other nights surfaces as two competing default-shift
+    candidates.  The right action for these is rarely a default
+    shift but a *catalog bound update* that focuses the bandit's
+    exploration on the observed range with some headroom outside.
+    `panobbgo.self_improve.detect_widening_candidates` pairs every
+    bidirectional `(class_name, param_name)` slot — same slot with
+    accepts in *both* `"up"` and `"down"` directions across multiple
+    nights — into a proposed `MutationRule.bounds` update.  Pass
+    `--widen-bounds` to `scripts/self_improve.py codify-scan` to
+    append a *Bound-widening candidates* section; `--widen-factor`
+    (default `1.5`) controls the multiplicative widening applied to
+    the observed range.  Per-kind: `log_uniform_perturb` and
+    `float_uniform` use symmetric multiplicative widening;
+    `integer_add` uses the same rule rounded outward
+    (`floor` on the lower bound, `ceil` on the upper) with the
+    lower bound clipped to `1` when observed values are positive.
+    JSON mode emits widening candidates on the same line-delimited
+    stream tagged `"_type": "widening_candidate"` (codify candidates
+    carry the symmetric `"_type": "codify_candidate"` tag).  On the
+    live project ledger today, the detector surfaces two
+    bidirectional patterns — `Nearby.radius` and `Sobol.n` — both
+    *tightening* candidates because the bandit consistently picks
+    values in a window 5-10× narrower than the catalog admits.  See
+    the 2026-06-19 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 Run the loop:
 
 ```bash
@@ -742,6 +771,18 @@ uv run python scripts/self_improve.py codify-scan --confirmed-only
 # ``[already codified]`` in the report and the matching seed kwarg
 # values are printed under a ``live seed value(s):`` line.
 uv run python scripts/self_improve.py codify-scan --include-already-codified
+
+# Bidirectional-bound widening detection (shipped 2026-06-19): append a
+# *Bound-widening candidates* section that pairs every (class, param)
+# slot whose codify-scan reports both ``up`` and ``down`` directions
+# into a proposed ``MutationRule.bounds`` update.  Per-pair tag —
+# ``[widens current]`` / ``[tightens current — focuses bandit on
+# observed range]`` / ``[partial overlap]`` — describes the proposal
+# shape.  --widen-factor (default 1.5) controls the multiplicative
+# widening; JSON mode emits widening candidates on the same
+# line-delimited stream tagged ``"_type": "widening_candidate"``.
+uv run python scripts/self_improve.py codify-scan --widen-bounds
+uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-factor 2.0
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

@@ -2,6 +2,94 @@
 
 ## Recent Improvements (continued)
 
+### Mutation-bound widening detection for bidirectional codify candidates (V2 §9.3 follow-up) — 2026-06-19
+- [x] **New `panobbgo.self_improve.WideningCandidate` dataclass**
+      carrying one bidirectional pair: `class_name` / `param_name` /
+      `rule_kind`, the catalog's current `bounds` (or `None` when no
+      rule targets the slot), the observed range pooled across both
+      `"up"` and `"down"` directions, the proposed widened bounds, the
+      widen factor used, and the two contributing `CodifyCandidate`
+      instances (the up and down flavors).  `proposal_is_wider` /
+      `proposal_is_tighter` flags label the proposal direction;
+      `slot_key` mirrors :attr:`CodifyCandidate.slot_key` so the
+      queued `--open-pr` driver can dedup uniformly across both
+      candidate kinds.
+- [x] **New `detect_widening_candidates(candidates, *, catalog=None,
+      widen_factor=1.5)` function** in `panobbgo.self_improve`.  Walks
+      a sequence of :class:`CodifyCandidate` instances, drops
+      structural / categorical / single-direction entries, groups by
+      `(class_name, param_name, rule_kind)`, and emits one
+      :class:`WideningCandidate` per group with both directions
+      represented.  Sorted by strongest evidence first
+      (`n_distinct_nights desc, n_accepts desc, class_name asc`).
+- [x] **Per-rule-kind widening arithmetic** in
+      :func:`_widen_numeric_bounds` (private):
+      - `log_uniform_perturb` — multiplicative on both ends, floored
+        at `1e-12` (the rule rejects non-positive values).
+      - `integer_add` — multiplicative + outward rounding
+        (:func:`math.floor` on the lower bound, :func:`math.ceil`
+        on the upper).  Lower bound clipped to `1` when observed
+        values are positive (most integer-typed kwargs are pool sizes
+        / iteration counts).
+      - `float_uniform` — multiplicative on absolute values, sign
+        preserved.  `observed_lo == 0` is preserved at zero.
+- [x] **CLI flags on `scripts/self_improve.py codify-scan`**:
+      `--widen-bounds` (off by default; appends a *Bound-widening
+      candidates* section after the existing codify report) and
+      `--widen-factor FLOAT` (default `1.5`).  JSON mode emits each
+      widening candidate on its own line tagged
+      `"_type": "widening_candidate"`; codify candidates carry the
+      symmetric `"_type": "codify_candidate"` tag (additive on the
+      existing JSON schema).
+- [x] **Per-pair tag in the text report** — `[widens current]` /
+      `[tightens current — focuses bandit on observed range]` /
+      `[partial overlap]` / `(no rule)` (when no numeric rule targets
+      the slot) — so the operator can prioritise at a glance.
+- [x] **Live-ledger evidence on the day of ship** — the detector
+      surfaces two bidirectional patterns:
+      - `Nearby.radius`: observed `[0.073, 0.135]`, current
+        `[0.005, 0.5]`, proposed `[0.049, 0.203]` — *tightens
+        current*.  The bandit consistently picks values in a window
+        5-10× narrower than the catalog admits.
+      - `Sobol.n`: observed `[8, 24]`, current `[4, 64]`, proposed
+        `[5, 36]` — *tightens current*, same shape.
+- [x] **Tests** — 38 new tests across three test classes in
+      `tests/test_self_improve.py`:
+      - `TestWidenNumericBounds` (10): per-rule-kind bound
+        arithmetic, edge cases (tiny positive floor, integer lower
+        bound clipping, observed-zero preservation), `widen_factor`
+        validation, unsupported rule kind rejection.
+      - `TestCatalogNumericBounds` (4): catalog lookup correctness,
+        unknown slot returns None, dual-rule slots
+        (`NLSHADE_RSP.k_rank`'s `float_uniform` + `categorical_choice`),
+        integer rule returns float bounds.
+      - `TestDetectWideningCandidates` (17): pairing semantics,
+        same-slot vs different-slot grouping, structural / categorical
+        skipped, custom catalog override, sort order by evidence
+        strength, date deduping, slot_key shape, JSON round-trip.
+      - `TestCodifyScanCLIWidening` (5): end-to-end CLI smoke tests
+        for the new flags.
+      Test totals: 449 in `tests/test_self_improve.py` (411 before +
+      38 new); 1645 in `tests/` (11 skipped — unrelated IOH worker
+      setup).
+- [x] **Backwards compatibility** — strictly safe.  Pure additions
+      to `panobbgo/self_improve.py` (one dataclass + one public
+      function + two private helpers) and two new CLI flags on the
+      existing `codify-scan` subcommand.  Existing invocations
+      (without `--widen-bounds`) produce byte-identical output.  The
+      JSON-mode schema gains a new `"_type"` field on every emitted
+      record but the field is additive — consumers that don't filter
+      on it see the same record bodies as before.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-19 dated entry; *Mutation-bound widening rule* idea
+      promoted from "Next iteration ideas" to shipped),
+      `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3 widening-detector
+      sub-paragraph), `doc/source/guide.rst` (quick-nav entry),
+      `doc/source/guide_benchmarking.rst` (new
+      *Bidirectional-bound widening (--widen-bounds)*
+      sub-subsection in the *Cross-night codify-scan* section),
+      `AGENTS.md` (self-improvement loop bullet + bash examples).
+
 ### No-op detection on bandit-pull and ledger telemetry (V2 §12.4) — 2026-06-12
 - [x] **`LoopIterationRecord.no_op` field** (`panobbgo/self_improve.py`):
       new boolean field (default `False`), serialised via

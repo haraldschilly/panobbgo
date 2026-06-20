@@ -734,6 +734,33 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     scan_p.set_defaults(suppress_codified=True)
+    scan_p.add_argument(
+        "--widen-bounds",
+        action="store_true",
+        help=(
+            "Append a 'Bound-widening candidates' section that pairs "
+            "bidirectional codify candidates (same (class, param) slot "
+            "with accepts in both 'up' and 'down' directions) into "
+            "proposed catalog bound updates.  See the *Mutation-bound "
+            "widening rule* idea under planning/SELF_IMPROVEMENT_LOG.md. "
+            "In --json mode, every widening candidate is emitted on its "
+            'own line tagged with `"_type": "widening_candidate"` so '
+            "the JSON stream remains line-delimited and a consumer can "
+            "filter by type."
+        ),
+    )
+    scan_p.add_argument(
+        "--widen-factor",
+        type=float,
+        default=1.5,
+        help=(
+            "Multiplicative widening applied to the observed min/max of "
+            "every accepted new_value to produce the proposed bound "
+            "(default: 1.5).  Symmetric in log space for "
+            "log_uniform_perturb; rounded outward for integer_add; "
+            "linear-multiplicative for float_uniform.  Must be > 1.0."
+        ),
+    )
     scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
@@ -1468,6 +1495,62 @@ def _print_codify_candidate(
         )
 
 
+def _format_bound(value: Any, *, integer: bool) -> str:
+    """Compact representation of one widening-bound numeric value."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return repr(value)
+    if integer:
+        return str(int(round(f)))
+    if f == 0.0:
+        return "0"
+    return f"{f:.6g}"
+
+
+def _print_widening_candidate(cand: Any) -> None:
+    """Render one :class:`WideningCandidate` as a human-readable block.
+
+    The output keeps the codify-candidate visual style — slot header,
+    one stats line, observed / current / proposed bounds, then the
+    contributing per-direction evidence summaries — so an operator can
+    triage the widening section the same way they triage the codify
+    section above it.
+    """
+    integer = cand.rule_kind == "integer_add"
+    obs = f"[{_format_bound(cand.observed_lo, integer=integer)}, {_format_bound(cand.observed_hi, integer=integer)}]"
+    if cand.current_bounds is None:
+        cur = "(no rule)"
+    else:
+        cur_lo, cur_hi = cand.current_bounds
+        cur = f"[{_format_bound(cur_lo, integer=integer)}, {_format_bound(cur_hi, integer=integer)}]"
+    prop = f"[{_format_bound(cand.proposed_lo, integer=integer)}, {_format_bound(cand.proposed_hi, integer=integer)}]"
+    tag = ""
+    if cand.proposal_is_wider:
+        tag = " [widens current]"
+    elif cand.proposal_is_tighter:
+        tag = " [tightens current — focuses bandit on observed range]"
+    elif cand.current_bounds is not None:
+        tag = " [partial overlap]"
+    print(f"- {cand.class_name}.{cand.param_name} [{cand.rule_kind}] bidirectional{tag}")
+    print(
+        f"    n_accepts={cand.n_accepts}  n_nights={cand.n_distinct_nights}  "
+        f"observed={obs}  current={cur}  proposed={prop}  widen_factor={cand.widen_factor}"
+    )
+    nights = ", ".join(cand.distinct_dates)
+    print(f"    nights: {nights}")
+    print(
+        f"    up:   n_accepts={cand.up_candidate.n_accepts}  "
+        f"mean_Δ={cand.up_candidate.mean_delta:+.4f}  "
+        f"n_nights={cand.up_candidate.n_distinct_nights}"
+    )
+    print(
+        f"    down: n_accepts={cand.down_candidate.n_accepts}  "
+        f"mean_Δ={cand.down_candidate.mean_delta:+.4f}  "
+        f"n_nights={cand.down_candidate.n_distinct_nights}"
+    )
+
+
 def _cmd_codify_scan(args: argparse.Namespace) -> int:
     """V2 §9.3 / §9.5 step 4 — scan ledger + archives for codify candidates.
 
@@ -1479,12 +1562,20 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     operator (or a future ``--open-pr`` follow-up) translates "the
     bandit raised ``Nearby.radius`` on N distinct nights" into a
     concrete source edit.
+
+    When ``--widen-bounds`` is set, an extra *Bound-widening candidates*
+    section pairs every bidirectional ``(class_name, param_name)`` slot
+    (same slot with accepts in both ``"up"`` and ``"down"`` directions)
+    into a proposed catalog ``MutationRule.bounds`` update — see the
+    *Mutation-bound widening rule* idea under
+    ``planning/SELF_IMPROVEMENT_LOG.md``.
     """
     import json as _json
 
     from panobbgo.self_improve import (
         aggregate_codify_candidates,
         annotate_codified_status,
+        detect_widening_candidates,
         load_ledgers_for_codify_scan,
     )
 
@@ -1537,6 +1628,12 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     if args.top > 0:
         visible_candidates = visible_candidates[: args.top]
 
+    widen_bounds = bool(getattr(args, "widen_bounds", False))
+    widen_factor = float(getattr(args, "widen_factor", 1.5))
+    widening: List[Any] = []
+    if widen_bounds:
+        widening = detect_widening_candidates(candidates, widen_factor=widen_factor)
+
     if args.as_json:
         # JSON output always emits every candidate (including
         # already-codified) — the consumer can filter on the new
@@ -1556,7 +1653,15 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
             d["pooled_ci_low"] = ci_low
             d["pooled_ci_high"] = ci_high
             d["pooled_ci_confidence"] = args.pooled_ci_confidence
+            d["_type"] = "codify_candidate"
             print(_json.dumps(d, sort_keys=True))
+        # Widening candidates ride the same line-delimited JSON stream
+        # tagged with `_type` so a JSON consumer can filter by type and
+        # the existing codify-candidate JSON shape stays byte-identical.
+        for w in widening:
+            wd = w.to_dict()
+            wd["_type"] = "widening_candidate"
+            print(_json.dumps(wd, sort_keys=True))
         return 0
 
     # Human-readable report.
@@ -1600,6 +1705,16 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
             pooled_ci_seed=args.pooled_ci_seed,
         )
         print()
+    if widen_bounds:
+        print(f"Bound-widening candidates (widen_factor={widen_factor}):")
+        print(f"  bidirectional pairs surfaced: {len(widening)}")
+        if not widening:
+            print("  (no bidirectional pattern surfaced — every numeric candidate fired in only one direction)")
+        else:
+            print()
+            for w in widening:
+                _print_widening_candidate(w)
+                print()
     return 0
 
 

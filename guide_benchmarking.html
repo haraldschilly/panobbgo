@@ -136,16 +136,20 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation">Inactivity-guarded eps_accept relaxation</a></li>
 <li><a class="reference internal" href="#no-op-detection-12-4">No-op detection (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#summary-trend-block-12-4">Summary trend block (&#167;12.4)</a></li>
-<li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a></li>
-<li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a><ul>
-<li><a class="reference internal" href="#graded-reward-shaping-7-4">Graded reward shaping (&#167;7.4)</a></li>
+<li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a><ul>
+<li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
 <li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
 <li><a class="reference internal" href="#per-class-structural-bandit-arms">Per-class structural bandit arms</a></li>
 <li><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms">Hierarchical bandit over per-class structural arms</a></li>
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
-<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a></li>
+<li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
+<li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
+<li><a class="reference internal" href="#bootstrap-ci-on-the-aggregated-drift">Bootstrap CI on the aggregated drift</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
@@ -1288,6 +1292,62 @@ the §12.3 deduplication rule should consult against
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the design rationale and
 the dated entry’s “Follow-up ideas” section for the queued
 <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>
+<section id="bidirectional-bound-widening-widen-bounds">
+<h4>Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)<a class="headerlink" href="#bidirectional-bound-widening-widen-bounds" title="Link to this heading">¶</a></h4>
+<p>Shipped 2026-06-19.  The codify scanner detects each <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span>
+<span class="pre">direction)</span></code> group independently, so a slot whose bandit finds value
+moving the kwarg <em>up</em> on some nights and <em>down</em> on other nights
+surfaces as two separate candidates — competing default-shift
+proposals the operator cannot reconcile with a single PR.  The right
+action on a bidirectional pattern is rarely a default shift but a
+<code class="docutils literal notranslate"><span class="pre">MutationRule.bounds</span></code> update that focuses the bandit’s exploration
+on the observed range.</p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code> to append a <em>Bound-widening candidates</em>
+section to the report:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">self_improve</span><span class="o">.</span><span class="n">py</span> <span class="n">codify</span><span class="o">-</span><span class="n">scan</span> <span class="o">--</span><span class="n">widen</span><span class="o">-</span><span class="n">bounds</span>
+</span></pre></div>
+</div>
+<p>The widening detector pairs every <code class="docutils literal notranslate"><span class="pre">(class_name,</span> <span class="pre">param_name)</span></code> slot
+whose direction set contains both <code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> <em>and</em> <code class="docutils literal notranslate"><span class="pre">&quot;down&quot;</span></code>, pools
+every observed <code class="docutils literal notranslate"><span class="pre">new_value</span></code> across the two directions, and proposes
+a new <code class="docutils literal notranslate"><span class="pre">MutationRule.bounds</span></code> tuple computed as:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code> — multiplicative on both ends: the lower
+end divides by <code class="docutils literal notranslate"><span class="pre">--widen-factor</span></code> (default <code class="docutils literal notranslate"><span class="pre">1.5</span></code>), the upper end
+multiplies.  Symmetric in log space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">integer_add</span></code> — same rule, then rounded <em>outward</em>
+(<a class="reference external" href="https://docs.python.org/3/library/math.html#math.floor" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">math.floor()</span></code></a> on the lower bound, <a class="reference external" href="https://docs.python.org/3/library/math.html#math.ceil" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">math.ceil()</span></code></a> on the
+upper).  Lower bound is clipped to <code class="docutils literal notranslate"><span class="pre">1</span></code> when observed values are
+positive — most integer-typed catalog kwargs are pool sizes /
+iteration counts where zero would be degenerate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> — multiplicative on the absolute values; sign
+preserved so a negative-valued knob widens away from zero on both
+sides.</p></li>
+</ul>
+<p>Categorical and structural candidates have no meaningful “wider
+bound” and are skipped silently.</p>
+<p>For each surfaced pair the report carries the observed range, the
+catalog’s current bounds (or <code class="docutils literal notranslate"><span class="pre">(no</span> <span class="pre">rule)</span></code> when no numeric rule
+targets the slot), the proposed bounds, and a one-token tag — one
+of <code class="docutils literal notranslate"><span class="pre">[widens</span> <span class="pre">current]</span></code> / <code class="docutils literal notranslate"><span class="pre">[tightens</span> <span class="pre">current</span> <span class="pre">—</span> <span class="pre">focuses</span> <span class="pre">bandit</span> <span class="pre">on</span>
+<span class="pre">observed</span> <span class="pre">range]</span></code> / <code class="docutils literal notranslate"><span class="pre">[partial</span> <span class="pre">overlap]</span></code> — so the operator can
+prioritise.  On the live project ledger today (2026-06-19) the
+detector surfaces two bidirectional patterns:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> — observed <code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, current <code class="docutils literal notranslate"><span class="pre">[0.005,</span>
+<span class="pre">0.5]</span></code>, proposed <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> — <strong>tightens current</strong>: the
+bandit consistently picks values in a window 5-10× narrower than
+the catalog admits, so concentrating draws there frees compute.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Sobol.n</span></code> — observed <code class="docutils literal notranslate"><span class="pre">[8,</span> <span class="pre">24]</span></code>, current <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">64]</span></code>, proposed
+<code class="docutils literal notranslate"><span class="pre">[5,</span> <span class="pre">36]</span></code> — <strong>tightens current</strong> for the same reason.</p></li>
+</ul>
+<p>In <code class="docutils literal notranslate"><span class="pre">--json</span></code> mode every widening candidate rides the same
+line-delimited stream tagged <code class="docutils literal notranslate"><span class="pre">&quot;_type&quot;:</span> <span class="pre">&quot;widening_candidate&quot;</span></code> while
+codify candidates carry <code class="docutils literal notranslate"><span class="pre">&quot;_type&quot;:</span> <span class="pre">&quot;codify_candidate&quot;</span></code> so a
+downstream consumer can filter by type.  Library API:
+<code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.WideningCandidate</span></code> and
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.detect_widening_candidates()</span></code>.</p>
+</section>
 </section>
 <section id="adaptive-mutation-sampler-10">
 <h3><a class="toc-backref" href="#id30" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
@@ -1360,8 +1420,6 @@ every retained nightly run rather than only the current one.</p>
 </span><span data-line="21"><span class="w">    </span>--adaptive<span class="w"> </span>--bandit-reward<span class="w"> </span>graded
 </span></pre></div>
 </div>
-<section id="graded-reward-shaping-7-4">
-<h4>Graded reward shaping (§7.4)<a class="headerlink" href="#graded-reward-shaping-7-4" title="Link to this heading">¶</a></h4>
 <p>The default <code class="docutils literal notranslate"><span class="pre">LoopConfig.bandit_reward_shaping</span> <span class="pre">=</span> <span class="pre">&quot;binary&quot;</span></code> updates
 the Beta posterior with <code class="docutils literal notranslate"><span class="pre">+1</span></code> per accept / <code class="docutils literal notranslate"><span class="pre">+0</span></code> per reject — the
 behaviour shipped 2026-05-01.  At the loop’s ~2.5% per-night accept
@@ -1435,7 +1493,6 @@ when auditing the bandit:</p>
 </div>
 <p>The sampler is <strong>off by default</strong> (<code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span> <span class="pre">=</span> <span class="pre">False</span></code>) for
 backward compatibility.</p>
-</section>
 </section>
 <section id="strategy-portfolio-composition-7-2">
 <h3><a class="toc-backref" href="#id31" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
@@ -2065,6 +2122,8 @@ catches drift between iterations within the training base_seed
 family; the hold-out runs once at the end and catches overfit to the
 training base_seed family itself.  Together they cover the two main
 overfitting modes the loop can suffer from.</p>
+<section id="multi-seed-hold-out">
+<h4>Multi-seed hold-out<a class="headerlink" href="#multi-seed-hold-out" title="Link to this heading">¶</a></h4>
 <p>The single-base-seed hold-out described above reduces the entire
 generalisation question to one independent draw.  When a ladder
 overfits in a subtle way — for example, the accepted mutation
@@ -2123,6 +2182,9 @@ same stream).</p></li>
 </span><span data-line="14">          <span class="sa">f</span><span class="s2">&quot; (worst drift=</span><span class="si">{</span><span class="n">worst_drift</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
+</section>
+<section id="bootstrap-ci-on-the-aggregated-drift">
+<h4>Bootstrap CI on the aggregated drift<a class="headerlink" href="#bootstrap-ci-on-the-aggregated-drift" title="Link to this heading">¶</a></h4>
 <p>The multi-seed worst-case reduction is <em>conservative</em> — one bad
 seed flags the entire ladder — but it gives no sense of whether
 <code class="docutils literal notranslate"><span class="pre">-0.0074</span></code> is the typical drift, the lucky tail of a larger drift,
@@ -2187,6 +2249,7 @@ per-iteration fields existed) contribute one sample each from their
 cached <code class="docutils literal notranslate"><span class="pre">drift</span></code> value.  Mixed inputs work transparently — the
 helper uses high-resolution per-iteration samples when present and
 falls back to per-record point drifts otherwise.</p>
+</section>
 </section>
 </section>
 <section id="extending-the-harness">

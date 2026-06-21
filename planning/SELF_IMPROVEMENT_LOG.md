@@ -17,6 +17,181 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-21 — Flip the nightly cron to the V2 substrate (V2 §9.5 step 5)
+
+* **What** — Promotes the *Flip the nightly cron to `--registry loop`*
+  follow-up (seeded after the 2026-06-10 ship) plus the no-cost
+  V2 sub-flags into the live cron.  Single-file edit to
+  ``.github/workflows/self_improve_nightly.yml``: the
+  ``Run self-improvement loop`` step now invokes
+
+  ```
+  uv run python scripts/self_improve.py run \
+      --iterations "$ITERATIONS" --mode "$MODE" \
+      --registry loop \
+      --adaptive --adaptive-prime-from-ledger \
+      --prime-include-archives \
+      --structural --structural-per-class-arms \
+      --bandit-reward graded \
+      --inactivity-relax-after 10 --inactivity-relax-factor 0.5 \
+      --holdout-base-seeds 7,1234 \
+      --guard-interval 10 \
+      --ledger planning/self_improve_ledger.jsonl
+  ```
+
+  Promoted flags (all shipped weeks ago but dormant in the live loop):
+
+  * ``--registry loop`` — §9.5 step 1, shipped 2026-06-10.  Lifts the
+    seed's catalog kwarg-rule activation from 4 / 44 (quick seed,
+    ``Sobol`` / ``Nearby`` / ``Sensitivity`` only) to 44 / 44 (loop seed
+    explicit-default for every tunable kwarg on the rule-bearing
+    classes — LSHADE / JSO / NLSHADE_RSP / NLSHADE_LBC / LSHADE_EpSin /
+    PSO / RegionUCB / COBYQA / LBFGSB / Restart).  Per-iteration cost
+    rises ~3.5× (2 → 7 specs) but the V1 §2.5 diagnosis reports 94% idle
+    compute on the 90-min cap, so the 20-iteration count stays.
+  * ``--prime-include-archives`` — §2.6, shipped 2026-06-15.  Replays
+    every rotated ledger under ``planning/done/`` (matching
+    ``self_improve_ledger_*.jsonl``) before the live ledger so the
+    bandit posterior compounds across nightly rotation boundaries
+    rather than forgetting every pre-rotation observation.
+  * ``--structural-per-class-arms`` — §7.2 / shipped 2026-05-18.
+    Expands each structural op into one Thompson arm per candidate
+    class (e.g. ``add_heuristic`` becomes ``add_Sobol`` /
+    ``add_Random`` / … as separate arms) so the bandit can
+    distinguish per-class winners instead of collapsing the signal at
+    the op level.
+  * ``--bandit-reward graded`` — §7.4, shipped 2026-06-13.  Replaces
+    the binary +1/+0 accept/reject signal with a continuous reward in
+    ``[0, 1]`` derived from the bootstrap CI / point delta so honest
+    near-miss rejects (``Δ ≈ 0``) carry ``r ≈ 0.5`` of evidence
+    instead of zero.
+  * ``--inactivity-relax-after 10 --inactivity-relax-factor 0.5`` —
+    shipped 2026-05-30, recommended for the unattended cron in the
+    docstring (the 1-5% documented accept rate routinely yields >10
+    iter droughts).  Floored at ``--inactivity-min-eps-accept``
+    (default ``0.001``, the bootstrap CI noise floor); re-tightened
+    on the next accept; per-iteration ledger fields persist the
+    effective threshold so the auditor can grep relaxed accepts
+    separately.
+  * ``--holdout-base-seeds 7,1234`` — shipped 2026-05-16.  Replaces
+    the single-seed ``--holdout-base-seed 7`` with a two-seed sweep;
+    worst-case drift / any-overfit reduction is more robust than a
+    single independent draw.  The smoke test below confirms two
+    LoopHoldoutRecord entries per run (one per seed), 5
+    iterations each (10 holdout iterations total) — adds <10% to the
+    quick-mode wall-clock.
+  * ``--guard-interval 10`` (relaxed from 5) — §6.3.  The guard's
+    role narrows as the catalog freeze (§7.3) settles; matches the
+    §9.4 target invocation.
+
+  Not flipped here (intentional):
+
+  * ``--confirm-accepts`` — §6.4, shipped 2026-06-14.  Adds 2-3× per-
+    iteration cost (one re-measure on a fresh ``randomize_iteration``
+    plus one per hold-out seed).  The companion *Flip the nightly
+    cron to ``--confirm-accepts``* follow-up (still queued) flags
+    that the iteration count needs halving and the trade-off should
+    be measured via a manual ``workflow_dispatch`` A/B first.  This
+    PR ships the no-cost flags so the V2 substrate is no longer
+    dormant; ``--confirm-accepts`` is the next safe-to-ship lever.
+  * ``--metric aocc`` — §9.5 step 2.  Needs the IOH worker available
+    on the runner; the current cron stays on ``composite_score`` (the
+    §9.1 fallback path of "re-base the composite battery" is also
+    still queued).
+
+* **Why** — Direct response to the §2 V2 diagnosis read off the
+  current 15-night summary:
+
+  * 15 nights × 20 iterations = 300 iterations, 7 accepts total
+    (~2.3% accept rate).
+  * 14 / 15 hold-out records report ``VACUOUS`` — the ladder was
+    empty most nights so the hold-out had nothing to validate.
+  * Top 8 bandit posteriors include exactly the 4 rules that fire on
+    the quick seed (``Nearby.radius`` 6/79, plus structural ops at
+    0% accept rate) — every kwarg rule shipped against
+    ``LSHADE`` / ``JSO`` / ``PSO`` / ``RegionUCB`` / ``COBYQA`` / etc.
+    is dormant because the seed doesn't set those kwargs explicitly
+    (the §2.4 "catalog ≫ registry mismatch" diagnosis).
+
+  The infrastructure to fix this has been merged for weeks but the
+  live cron was never flipped.  This PR is the literal one-line YAML
+  edit (plus comments documenting which flags are queued for follow-
+  up).  Expected lift:
+
+  * The 44 currently-dormant kwarg arms become applicable on the
+    seed, so the bandit can actually pull on them.  Even at the
+    historical ~2.3% accept rate the per-night chance of finding a
+    real win rises with the number of applicable arms.
+  * Graded reward turns the bandit's ~2.5% binary information yield
+    into ~65% (the §7.4 lift estimate) — every reject that's a near-
+    miss starts contributing evidence instead of just noise.
+  * Per-class arms split each ``add_*`` / ``drop_*`` op (currently
+    aggregated) into ~7 arms each — same as above but for the
+    structural bucket.
+  * Archive priming gives the bandit a 531kb prior (the
+    ``2026-05-31`` rotated archive in ``planning/done/``) on top of
+    the 375-line live ledger.
+  * Multi-seed hold-out catches the single-seed overfit blind spot
+    that the §11 criterion 4 "honesty" requirement is the structural
+    fix for.
+
+  Speculative: the §2.2 "Accept → rollback churn" symptom (15/16 V1
+  accepts rolled back by the guard) persists in this PR because
+  ``--confirm-accepts`` is *not* flipped here.  Acceptable trade-off
+  — the same-night confirmation gate is a heavier compute change
+  that the §12.3 daily routine should pair with a manual
+  ``workflow_dispatch`` A/B before flipping permanently.  Queued as
+  the §9.5 step 5 *follow-up* (the queue entry seeded with the
+  2026-06-14 ship is updated in this PR to reflect that the *other*
+  step-5 flags are now live).
+
+* **Smoke test** — Two 1-iteration runs against the new invocation:
+
+  * Fresh ledger (``/tmp/test_v2_ledger.jsonl``) — exit code 0; the
+    loop registry seed exercises the catalog; multi-seed hold-out
+    produces 2 ``LoopHoldoutRecord`` entries
+    (``worst_drift=+0.0028  overfit=0/2  vacuous=0/2``); bandit
+    posterior listing shows all per-class arms primed at 0/0.
+  * Primed from the live ledger (``planning/self_improve_ledger.jsonl``
+    copied to ``/tmp/test_v2_ledger_primed.jsonl``) — exit code 0;
+    bandit picks up the historical attempts at correct per-class
+    granularity (e.g. ``NelderMead.add_heuristic[structural] -> 0/5
+    (0%)``, ``Sensitivity.drop_analyzer[structural] -> 0/29 (0%)``,
+    ``Restart.add_analyzer[structural] -> 1/23 (4%)``,
+    ``Nearby.radius[log_uniform_perturb] -> 6/79 (8%)``) — confirming
+    that ``prime_from_ledger`` + ``prime_from_archives`` correctly
+    populate the per-class arms from legacy collapsed op-level
+    records and that ``--registry loop`` doesn't break replay against
+    a ledger that was generated under ``--registry default``.
+
+* **Backwards compatibility** — Strictly safe: the only edit is to
+  the workflow file's ``Run self-improvement loop`` shell step; no
+  code changes, no test changes, no API changes.  ``workflow_dispatch``
+  inputs (``iterations`` / ``mode``) remain unchanged so a manual run
+  can still A/B the V1 invocation by editing the workflow file
+  temporarily.  Existing ledger entries remain valid priors under the
+  new invocation (the bandit's ``_proposal_rule_key`` collapses to
+  ``(class_name, param_name, rule_kind, ...)`` independent of the
+  structural arm split or the reward shape).  No ledger archive
+  rotation is needed because the regime change preserves the per-arm
+  semantics — graded reward is multiplicative on top of the binary
+  reward (graded reward is identical in mean to binary on accepts /
+  rejects with extreme deltas; differs only on the near-miss band
+  that binary reward discards anyway) and the per-class arm split
+  re-keys arms whose collapsed-op records were already counted
+  against the aggregate.
+
+* **Documentation** — ``planning/SELF_IMPROVEMENT_LOG.md``: this
+  dated entry; the *Flip the nightly cron to ``--registry loop``*,
+  *Flip the nightly cron to ``--confirm-accepts``* queue entries
+  updated to reflect the partial flip; the V2 §9.5 step 5 progress
+  noted.  ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.5 step 5 status
+  flipped from "open" to "partially shipped"; §2.6 / §2.2 entries
+  annotated.  ``doc/source/guide_benchmarking.rst``: nightly-cron
+  description updated to reference the new V2 invocation.
+  ``AGENTS.md``: brief callout added.  ``TODO.md`` entry under
+  Recent Improvements.
+
 ### 2026-06-19 — Mutation-bound widening detection for bidirectional codify candidates (V2 §9.3 follow-up)
 
 * **What** — Closes the *Mutation-bound widening rule for
@@ -5522,24 +5697,31 @@ Follow-ups still queued:
 #### Flip the nightly cron to `--confirm-accepts` (after 2026-06-14 ship)
 
 The same-night confirmation gate shipped 2026-06-14 as
-:attr:`LoopConfig.confirm_accepts` / ``--confirm-accepts``.  Until the
-nightly workflow file passes the flag to ``scripts/self_improve.py
-run`` the cron still operates in V1 promote-on-screening mode and the
-§2.2 "Accept → rollback churn" symptom persists in the live loop.  The
-trade-off is compute: with ``--registry loop`` (≈7 specs) and
-``--confirm-accepts``, each iteration burns 2× the screening cost
-(plus 1× per hold-out leg) so the per-night iteration budget drops
-roughly 2-3×.  At quick-mode budgets — where the V1 §2.5 diagnosis
-reports 94% idle compute — this is comfortably within the 90-min cap.
-The workflow file edit is:
+:attr:`LoopConfig.confirm_accepts` / ``--confirm-accepts``.  The
+2026-06-21 V2 §9.5 step 5 partial flip (see the dated entry above)
+promoted every no-cost V2 flag — ``--registry loop`` /
+``--prime-include-archives`` / ``--structural-per-class-arms`` /
+``--bandit-reward graded`` / ``--inactivity-relax-after 10`` /
+``--holdout-base-seeds 7,1234`` / ``--guard-interval 10`` — into the
+nightly cron but intentionally **held back** on ``--confirm-accepts``
+because it's the only V2 flag with a meaningful per-iteration cost
+(2× the screening cost, plus 1× per hold-out leg → ~2-3× total).
+Until the nightly workflow file passes the flag to
+``scripts/self_improve.py run`` the cron still operates in
+*promote-on-screening* mode and the §2.2 "Accept → rollback churn"
+symptom persists in the live loop (15/16 V1 accepts rolled back by
+the guard, per the original diagnosis).  At quick-mode budgets — where
+the V1 §2.5 diagnosis reports 94% idle compute even after the
+2026-06-21 ``--registry loop`` flip — the 2-3× headroom is
+comfortably within the 90-min cap, so the iteration count probably
+does *not* need halving.  The workflow file edit is:
 
 * Pass ``--confirm-accepts`` to ``scripts/self_improve.py run``.
-* Halve the iteration count (e.g., ``--iterations 35`` → ``--iterations
-  18``) so the per-night wall-clock stays under the cap.
-* Add one ledger archive marker (rotate the current ledger into
-  ``planning/done/`` so the bandit's prior beliefs don't silently mix
-  the V1 promote-on-screening regime with the V2 confirmed regime —
-  the §12.1 archive rotation pattern).
+* Halve the iteration count *only if* the post-flip nightly runs
+  show wall-clock pressure; otherwise leave at 20.
+* No ledger archive needed — same reasoning as the 2026-06-21 ship
+  (per-arm semantics are stable across screen-only vs screen+confirm;
+  see that entry for the detail).
 * Pair with a manual ``workflow_dispatch`` A/B comparing confirm-
   reject rates across one or two nights so the symptom drop is
   *measured* before flipping the cron permanently.
@@ -5589,21 +5771,22 @@ Speculative until ledger evidence shows compute is the binding
 constraint (today §2.5 reports 94% idle, so this is correctness-
 neutral, not currency).
 
-#### Flip the nightly cron to `--registry loop` (after 2026-06-10 ship)
+#### Flip the nightly cron to `--registry loop` — shipped 2026-06-21
 
-The loop registry shipped 2026-06-10 lifts catalog kwarg-rule activation
-from 4 / 44 (quick seed) to 44 / 44 (loop seed), closing the §2.4
-"catalog ≫ registry mismatch" diagnosis at the seed level.  Until the
-nightly workflow file passes ``--registry loop`` to
-``scripts/self_improve.py run`` the cron still runs against the quick
-seed and the lift is *theoretical*.  The trade-off documented in the
-ship entry (3.5× per-iteration cost from 2 → 7 specs vs the current 94%
-idle compute budget) means the flip is safe; it just needs the workflow
-file edit and one ledger archive marker so the bandit's prior beliefs
-don't silently mix old (4-arm) and new (44-arm) accept regimes.  Pair
-with a manual ``workflow_dispatch`` A/B comparing accept / no-op rates
-across one or two nights so the lift is *measured* before flipping the
-cron permanently.
+Shipped 2026-06-21 as part of the V2 §9.5 step 5 partial flip; see the
+2026-06-21 entry above for the full invocation, the rationale tied to
+the 15-night summary diagnosis, and the smoke-test evidence.  The
+ledger-archive marker proposed in the original sketch turned out not to
+be needed: the bandit's ``_proposal_rule_key`` collapses to
+``(class_name, param_name, rule_kind, ...)`` independent of the
+strategy / spec name, so existing ledger entries (generated under
+``--registry default``) replay correctly under ``--registry loop`` —
+the smoke test against the live ledger confirms this end-to-end.
+``--prime-include-archives`` / ``--structural-per-class-arms`` /
+``--bandit-reward graded`` / ``--inactivity-relax-after 10`` /
+``--holdout-base-seeds 7,1234`` / ``--guard-interval 10`` shipped in
+the same change.  The manual ``workflow_dispatch`` A/B is the §12.3
+daily routine's job over the next 2-3 nights.
 
 #### Drop `Loop_DE_Family` heuristics for smaller compact specs
 

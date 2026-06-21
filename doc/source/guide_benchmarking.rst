@@ -773,6 +773,18 @@ the rare cross-night drift on confirmed accepts):
        --guard-interval 10 \
        --holdout-base-seeds 1234,5678
 
+The **live nightly cron**
+(``.github/workflows/self_improve_nightly.yml``) ships every flag in
+the preset above *except* ``--confirm-accepts``, which carries
+~2-3× the per-iteration cost (one re-measurement on a fresh
+``randomize_iteration`` plus one per hold-out seed).  The §9.5
+step 5 of ``planning/SELF_IMPROVEMENT_LOOP.md`` schedules the
+``--confirm-accepts`` flip after a manual ``workflow_dispatch``
+A/B that measures the confirm-reject rate before flipping the cron
+permanently.  Until then the live cron operates in *promote-on-
+screening* mode and §2.2 "Accept → rollback churn" remains the
+visible symptom in the ledger.
+
 Programmatic use:
 
 .. code-block:: python

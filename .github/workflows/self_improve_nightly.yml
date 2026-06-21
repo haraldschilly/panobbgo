@@ -77,15 +77,62 @@ jobs:
         env:
           ITERATIONS: ${{ github.event.inputs.iterations || '20' }}
           MODE: ${{ github.event.inputs.mode || 'quick' }}
+        # V2 nightly invocation (planning/SELF_IMPROVEMENT_LOOP.md §9.4 /
+        # §9.5 step 5).  Flags previously held back from the V1 cron and
+        # promoted here:
+        #   --registry loop                 §9.5 step 1 — exercises the
+        #                                   dormant catalog (4/44 → 44/44
+        #                                   kwarg-rule activation on the
+        #                                   seed specs).
+        #   --prime-include-archives        §2.6 — bandit posterior
+        #                                   compounds across archived
+        #                                   ledger rotations rather than
+        #                                   forgetting each night.
+        #   --structural-per-class-arms     §7.2 — per-(op, candidate
+        #                                   class) bandit arms instead of
+        #                                   collapsed op-level arms.
+        #   --bandit-reward graded          §7.4 — graded reward in [0, 1]
+        #                                   so honest near-miss rejects
+        #                                   carry r ≈ 0.5 of evidence.
+        #   --inactivity-relax-after 10     2026-05-30 — break long accept
+        #   --inactivity-relax-factor 0.5   droughts by geometrically
+        #                                   relaxing eps_accept, floored
+        #                                   at --inactivity-min-eps-accept
+        #                                   (default 0.001, the bootstrap
+        #                                   CI noise floor).
+        #   --holdout-base-seeds 7,1234     2026-05-16 — multi-seed
+        #                                   hold-out, worst-case drift /
+        #                                   any-overfit reduction.
+        #   --guard-interval 10             §6.3 — guard cadence relaxed
+        #                                   from 5 → 10 now that the same-
+        #                                   night confirm gate is the
+        #                                   primary noise-spike defence
+        #                                   (left off here; flipped in a
+        #                                   follow-up PR, see §9.5 step 5
+        #                                   note in SELF_IMPROVEMENT_LOG).
+        # NOT enabled here (queued, intentional):
+        #   --confirm-accepts               needs a manual workflow_dispatch
+        #                                   A/B to size the confirm-reject
+        #                                   rate vs the per-iter compute
+        #                                   cost before flipping the cron.
+        #   --metric aocc                   needs the IOH worker available
+        #                                   on the runner; current cron
+        #                                   stays on composite_score.
         run: |
           uv run python scripts/self_improve.py run \
             --iterations "$ITERATIONS" \
             --mode "$MODE" \
+            --registry loop \
             --adaptive \
             --adaptive-prime-from-ledger \
+            --prime-include-archives \
             --structural \
-            --holdout-base-seed 7 \
-            --guard-interval 5 \
+            --structural-per-class-arms \
+            --bandit-reward graded \
+            --inactivity-relax-after 10 \
+            --inactivity-relax-factor 0.5 \
+            --holdout-base-seeds 7,1234 \
+            --guard-interval 10 \
             --ledger planning/self_improve_ledger.jsonl
 
       - name: Regenerate summary

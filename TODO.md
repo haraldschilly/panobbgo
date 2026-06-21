@@ -2,6 +2,67 @@
 
 ## Recent Improvements (continued)
 
+### Flip the nightly cron to the V2 substrate (V2 §9.5 step 5) — 2026-06-21
+- [x] **Workflow edit** (`.github/workflows/self_improve_nightly.yml`).
+      Single-file change to the `Run self-improvement loop` step that
+      promotes every zero-cost V2 flag from the planning doc's §9.4
+      target invocation into the live cron.  Flips:
+      - `--registry loop` (catalog kwarg-rule activation 4/44 → 44/44 on
+        the seed specs — closes V2 §2.4 "catalog ≫ registry mismatch").
+      - `--prime-include-archives` (bandit posterior compounds across
+        rotated ledger archives under `planning/done/` rather than
+        forgetting every pre-rotation observation — closes V2 §2.6
+        second half in the live cron).
+      - `--structural-per-class-arms` (one Thompson arm per (op,
+        candidate class), splitting `add_heuristic` into `add_Sobol`
+        / `add_Random` / … so the bandit can learn per-class winners).
+      - `--bandit-reward graded` (continuous `[0, 1]` reward derived
+        from the bootstrap CI / point delta — turns the ~2.5% binary
+        information yield into ~65% per the §7.4 lift estimate).
+      - `--inactivity-relax-after 10 --inactivity-relax-factor 0.5`
+        (geometric eps_accept relaxation per the docstring
+        recommendation for the unattended cron).
+      - `--holdout-base-seeds 7,1234` (multi-seed hold-out with
+        worst-case drift / any-overfit reduction, replacing the
+        single-seed `--holdout-base-seed 7`).
+      - `--guard-interval 10` (relaxed from 5; matches the §9.4
+        target invocation now that the same-night confirm gate is the
+        primary noise-spike defence in the V2 architecture even
+        though the gate itself is *not* flipped in this PR).
+- [x] **Intentional hold-back: `--confirm-accepts`** — the only V2
+      flag with a meaningful per-iteration cost (2-3× screening cost
+      plus 1× per hold-out seed).  Queued for a manual
+      `workflow_dispatch` A/B that measures the confirm-reject rate
+      before flipping the cron permanently.  Documented in
+      `planning/SELF_IMPROVEMENT_LOG.md` as the *Flip the nightly
+      cron to `--confirm-accepts`* follow-up.
+- [x] **Intentional hold-back: `--metric aocc`** — §9.5 step 2,
+      needs the IOH worker available on the GitHub-hosted runner.
+      The current cron stays on `composite_score`.
+- [x] **Smoke tests**: two 1-iteration runs against the new
+      invocation — fresh ledger (exit 0; 2 hold-out records;
+      `worst_drift=+0.0028 overfit=0/2 vacuous=0/2`) and primed from
+      the live ledger (exit 0; per-class arms correctly populated
+      from legacy collapsed op-level records:
+      `Nearby.radius[log_uniform_perturb] -> 6/79 (8%)`,
+      `Sensitivity.drop_analyzer[structural] -> 0/29 (0%)`,
+      `Restart.add_analyzer[structural] -> 1/23 (4%)`).
+- [x] **Backwards compatibility**: strictly safe.  Pure workflow
+      edit; no code changes, no test changes, no API changes.
+      Existing ledger entries remain valid priors under the new
+      invocation (the bandit's `_proposal_rule_key` collapses to
+      `(class_name, param_name, rule_kind, ...)` independent of the
+      strategy / spec name, structural arm split, or reward shape).
+      No ledger rotation needed.
+- [x] **Documentation**: dated entry in
+      `planning/SELF_IMPROVEMENT_LOG.md`; planning doc §9.5 step 5
+      flipped from "open" to "partially shipped"; §2.2 / §2.4 / §2.6
+      diagnoses annotated with the partial closure;
+      `doc/source/guide_benchmarking.rst` "Live nightly cron" callout
+      added under the same-night confirmation gate section;
+      `AGENTS.md` self-improvement loop bullet annotated; this TODO
+      entry.
+
 ### Mutation-bound widening detection for bidirectional codify candidates (V2 §9.3 follow-up) — 2026-06-19
 - [x] **New `panobbgo.self_improve.WideningCandidate` dataclass**
       carrying one bidirectional pair: `class_name` / `param_name` /

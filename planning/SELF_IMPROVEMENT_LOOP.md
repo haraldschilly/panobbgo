@@ -59,15 +59,26 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    batch is independent and the pooled CI rules it out.  Failed
    confirmations land as ``LoopConfirmRecord`` (``record_type=
    "confirm_reject"``) and the bandit consumes the post-confirmation
-   reward.  Pending: flip the nightly workflow to ``--confirm-accepts``
-   (the queued §9.5 step 5) before this symptom is fully closed in
-   the live loop.*
+   reward.  *2026-06-21 update: the §9.5 step 5 partial flip puts
+   every no-cost V2 flag in the live cron (``--registry loop`` /
+   ``--prime-include-archives`` / ``--structural-per-class-arms`` /
+   ``--bandit-reward graded`` / multi-seed hold-out / etc.) but the
+   ``--confirm-accepts`` lever stays off pending a manual
+   ``workflow_dispatch`` A/B because it's the only V2 flag with
+   meaningful per-iteration cost.  Symptom (1)-(5) of §2 should
+   measurably improve on the next 2-3 nights from the bandit
+   activations alone; symptom (2) "Accept → rollback churn" stays
+   open until the confirm-gate flip lands.*
 3. **Nothing persists between nights.**  The ladder is in-memory; the
    only durable channel is manual codification (used once:
    `Sobol.scramble=False`, 2026-05-31 — which *worked*).
 4. **Catalog ≫ registry mismatch.**  The nightly runs quick mode, whose
    registry is 2 simple strategies; most kwarg rules shipped since
    mid-May target heuristics that never appear in the nightly run.
+   *2026-06-21 update: closed.  The nightly cron now passes
+   ``--registry loop`` (loop registry shipped 2026-06-10), lifting
+   catalog kwarg-rule activation from 4 / 44 to 44 / 44.  See the
+   2026-06-21 entry in ``SELF_IMPROVEMENT_LOG.md``.*
 5. **Compute ~94% idle** (20 quick iterations ≈ 5 min of a 90-min
    budget) while statistical power is the binding constraint.
 6. **Bandit starved**: binary accept reward at ~2.5% base rate, and
@@ -80,6 +91,9 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    address the second half — the bandit now accumulates evidence
    across every retained nightly run rather than just the current one.
    See §9.5 step 4 and the dated entry in `SELF_IMPROVEMENT_LOG.md`.
+   *2026-06-21 update: both fixes are now active in the live cron
+   (the §9.5 step 5 partial flip wires ``--bandit-reward graded``
+   and ``--prime-include-archives`` into the nightly invocation).*
 
 Every symptom is downstream of (1).  Hence the V2 priorities in §9:
 **fix the metric, exercise the catalog, confirm before accept, persist
@@ -403,7 +417,17 @@ file stands.
    queued follow-up); `--prime-include-archives` shipped 2026-06-15
    (closes the §2.6 second half); summary trend block shipped
    2026-06-16.*
-5. Flip the workflow to §9.4; enforce the catalog freeze (§7.3).
+5. Flip the workflow to §9.4 — **partially shipped 2026-06-21**
+   (see ``SELF_IMPROVEMENT_LOG.md`` entry).  All zero-cost V2 flags are
+   now in the nightly cron: ``--registry loop``,
+   ``--prime-include-archives``, ``--structural-per-class-arms``,
+   ``--bandit-reward graded``, ``--inactivity-relax-after 10``,
+   ``--holdout-base-seeds 7,1234``, ``--guard-interval 10``.  The
+   remaining toggle is ``--confirm-accepts`` (held back pending a
+   manual ``workflow_dispatch`` A/B because it carries ~2-3× per-
+   iteration compute cost) and ``--metric aocc`` (queued at step 2,
+   needs the IOH worker on the runner).  Enforce the catalog freeze
+   (§7.3).
 
 ## 10. Open questions / known constraints
 

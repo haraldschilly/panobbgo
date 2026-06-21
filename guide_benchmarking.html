@@ -1005,6 +1005,17 @@ the rare cross-night drift on confirmed accepts):</p>
 </span><span data-line="5"><span class="w">    </span>--holdout-base-seeds<span class="w"> </span><span class="m">1234</span>,5678
 </span></pre></div>
 </div>
+<p>The <strong>live nightly cron</strong>
+(<code class="docutils literal notranslate"><span class="pre">.github/workflows/self_improve_nightly.yml</span></code>) ships every flag in
+the preset above <em>except</em> <code class="docutils literal notranslate"><span class="pre">--confirm-accepts</span></code>, which carries
+~2-3× the per-iteration cost (one re-measurement on a fresh
+<code class="docutils literal notranslate"><span class="pre">randomize_iteration</span></code> plus one per hold-out seed).  The §9.5
+step 5 of <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> schedules the
+<code class="docutils literal notranslate"><span class="pre">--confirm-accepts</span></code> flip after a manual <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>
+A/B that measures the confirm-reject rate before flipping the cron
+permanently.  Until then the live cron operates in <em>promote-on-
+screening</em> mode and §2.2 “Accept → rollback churn” remains the
+visible symptom in the ledger.</p>
 <p>Programmatic use:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoopConfig</span><span class="p">,</span> <span class="n">SelfImprover</span>
 </span><span data-line="2">

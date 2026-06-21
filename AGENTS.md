@@ -643,6 +643,26 @@ The harness is the measurement substrate for an autonomous
     values in a window 5-10× narrower than the catalog admits.  See
     the 2026-06-19 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Nightly cron flipped to V2 substrate** — **shipped 2026-06-21**.
+    The `self_improve_nightly.yml` workflow now invokes
+    `scripts/self_improve.py run` with every zero-cost V2 flag:
+    `--registry loop` (catalog kwarg-rule activation 4/44 → 44/44),
+    `--prime-include-archives` (bandit posterior compounds across
+    rotated ledgers under `planning/done/`), `--structural-per-class-arms`
+    (one Thompson arm per (op, candidate class)),
+    `--bandit-reward graded` (continuous `[0, 1]` reward derived from
+    the bootstrap CI / point delta), `--inactivity-relax-after 10
+    --inactivity-relax-factor 0.5` (drought-relaxation per the
+    docstring recommendation for unattended cron), `--holdout-base-seeds
+    7,1234` (multi-seed hold-out with worst-case / any-overfit
+    reduction), and `--guard-interval 10` (relaxed from 5).
+    `--confirm-accepts` is *not* flipped in this change because it
+    carries ~2-3× per-iteration cost; the follow-up notes flag a
+    manual `workflow_dispatch` A/B as the gating step.  Closes V2
+    §9.5 step 5 partially (one toggle remaining) and §2.4 "catalog
+    ≫ registry mismatch" fully.  See the 2026-06-21 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+
 Run the loop:
 
 ```bash

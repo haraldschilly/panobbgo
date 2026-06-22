@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    320  (decided=320, skipped=0, no-op=32)
-Accepts:       9  (3.1% of informative)
-Guards:        62  (rollbacks=43, total pops=6)
-Hold-outs:     17  (overfit=0, vacuous=14)
+Iterations:    340  (decided=340, skipped=0, no-op=32)
+Accepts:       10  (3.2% of informative)
+Guards:        64  (rollbacks=43, total pops=6)
+Hold-outs:     19  (overfit=0, vacuous=14)
 Best Δ seen:   +0.0678
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -14,6 +14,7 @@ Accepted changes:
   iter=8  Δ=+0.0294  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
   iter=5  Δ=+0.0281  Loop_LocalSearch/LBFGSB.max_starts: 5 -> 7
   iter=9  Δ=+0.0224  Loop_Restart/Restart.patience: 20 -> 30
+  iter=10  Δ=+0.0229  Loop_DE_Family/NLSHADE_LBC.p_F_final: 1.5 -> 1.8694623911942982
 Guard rollbacks:
   iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
@@ -76,8 +77,10 @@ Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   OK  drift=+0.0088  holdout_gap=+0.0109 training_gap=+0.0021  top_iter=9  (base_seed=7, n=5)
   OK  drift=+0.0006  holdout_gap=+0.0027 training_gap=+0.0021  top_iter=9  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=+0.0000  overfit=0/17  vacuous=14/17  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0237  CI95%=[+0.0091, +0.0399]  n_samples=15  n_records=17  vacuous=14/17
+  OK  drift=+0.0135  holdout_gap=+0.0161 training_gap=+0.0025  top_iter=10  (base_seed=7, n=5)
+  OK  drift=-0.0051  holdout_gap=-0.0025 training_gap=+0.0025  top_iter=10  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0051  overfit=0/19  vacuous=14/19  worst_seed=1234
+  --> drift CI: OK_CI  mean=+0.0159  CI95%=[+0.0060, +0.0272]  n_samples=25  n_records=19  vacuous=14/19
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -97,19 +100,21 @@ Trend (one row per loop run, oldest first):
   2026-06-19 08:29:04     42  quick        20    20     0     7   +0.0194      0.0428
   2026-06-20 06:58:56     42  quick        20    20     0     3   +0.0289      0.0717
   2026-06-21 07:57:39     42  quick        20    20     2     0   +0.0281      0.0260
+  2026-06-22 08:55:55     42  quick        20    20     1     0   +0.0325      0.0403
 
-Bandit posteriors (n_attempts >= 3, 8 eligible rules):
-  Top 8 (highest mean reward):
+Bandit posteriors (n_attempts >= 3, 9 eligible rules):
+  Top 9 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
+  NLSHADE_LBC             p_F_final               float_uniform          3     1    0.555     33.3%
   Nearby                  radius                  log_uniform_pertur    79     6    0.076      7.6%
-  *                       drop_heuristic          structural            30     0    0.050      0.0%
-  *                       add_heuristic           structural            31     0    0.032      0.0%
+  *                       drop_heuristic          structural            33     0    0.065      0.0%
+  *                       add_heuristic           structural            33     0    0.049      0.0%
   *                       add_analyzer            structural            35     1    0.029      2.9%
-  *                       drop_analyzer           structural            29     0    0.000      0.0%
+  *                       drop_analyzer           structural            30     0    0.005      0.0%
   Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
   Sobol                   n                       integer_add           24     0    0.000      0.0%
   Sensitivity             update_interval         integer_add           20     0    0.000      0.0%
 
 Inactivity:
   eps_accept_base=0.0050  longest_drought=19 iters
-  relaxed_accepts=0/9
+  relaxed_accepts=1/10  mean_decay_at_accept=0.500

@@ -1275,12 +1275,23 @@ against the live kwarg values.  Categorical candidates compare
 when the live value already meets or exceeds the median of
 <code class="docutils literal notranslate"><span class="pre">new_values</span></code> in the candidate’s direction (<code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> →
 <code class="docutils literal notranslate"><span class="pre">max(live)</span> <span class="pre">&gt;=</span> <span class="pre">median(new_values)</span></code>; <code class="docutils literal notranslate"><span class="pre">&quot;down&quot;</span></code> →
-<code class="docutils literal notranslate"><span class="pre">min(live)</span> <span class="pre">&lt;=</span> <span class="pre">median(new_values)</span></code>).  Structural ops are not
-suppressed.  Pass <code class="docutils literal notranslate"><span class="pre">--include-already-codified</span></code> to audit the
-suppressed set — every already-codified candidate is tagged
-<code class="docutils literal notranslate"><span class="pre">[already</span> <span class="pre">codified]</span></code> in the report and the
+<code class="docutils literal notranslate"><span class="pre">min(live)</span> <span class="pre">&lt;=</span> <span class="pre">median(new_values)</span></code>).  <strong>Structural ops</strong> —
+extended <em>2026-06-19</em> via the new helper
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_live_class_membership()</span></code> and the
+matching <code class="xref py py-func docutils literal notranslate"><span class="pre">_structural_already_codified()</span></code>
+predicate: <code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> / <code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code> candidates are
+flagged when <em>at least one</em> seed spec already lists the class in
+the matching bucket (the symmetric “partially redundant”
+semantic), and <code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> / <code class="docutils literal notranslate"><span class="pre">drop_analyzer</span></code> candidates
+are flagged when <em>no</em> seed spec lists it (already removed
+everywhere).  An unknown / future op name falls back to “not
+codified” so the candidate continues to surface — defensive against
+future catalog extensions.  Pass <code class="docutils literal notranslate"><span class="pre">--include-already-codified</span></code> to
+audit the suppressed set — every already-codified candidate is
+tagged <code class="docutils literal notranslate"><span class="pre">[already</span> <span class="pre">codified]</span></code> in the report and the
 <code class="docutils literal notranslate"><span class="pre">live</span> <span class="pre">seed</span> <span class="pre">value(s)</span></code> line surfaces the matching seed kwarg values
-so the operator can confirm the verdict.</p>
+(or, for structural candidates, the <em>spec names</em> carrying the
+class) so the operator can confirm the verdict.</p>
 <p>JSON mode (<code class="docutils literal notranslate"><span class="pre">--json</span></code>) always emits every candidate so the consumer
 can filter on the new
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">already_codified</span></code> and
@@ -1302,7 +1313,7 @@ detection — the slot identifier
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">CodifyCandidate.slot_key</span></code> is the <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span> <span class="pre">op)</span></code> tuple
 the §12.3 deduplication rule should consult against
 <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">list</span> <span class="pre">--state</span> <span class="pre">open</span></code>.</p>
-<p>See the 2026-06-17 / 2026-06-18 entries in
+<p>See the 2026-06-17 / 2026-06-18 / 2026-06-19 entries in
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the design rationale and
 the dated entry’s “Follow-up ideas” section for the queued
 <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>

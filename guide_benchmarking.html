@@ -137,7 +137,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#no-op-detection-12-4">No-op detection (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#summary-trend-block-12-4">Summary trend block (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a><ul>
-<li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a></li>
+<li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a><ul>
+<li><a class="reference internal" href="#auto-tuned-widen-factor-widen-auto-tune">Auto-tuned widen factor (<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code>)</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
@@ -1358,6 +1361,74 @@ codify candidates carry <code class="docutils literal notranslate"><span class="
 downstream consumer can filter by type.  Library API:
 <code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.WideningCandidate</span></code> and
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.detect_widening_candidates()</span></code>.</p>
+<section id="auto-tuned-widen-factor-widen-auto-tune">
+<h5>Auto-tuned widen factor (<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code>)<a class="headerlink" href="#auto-tuned-widen-factor-widen-auto-tune" title="Link to this heading">¶</a></h5>
+<p>Shipped 2026-06-22.  The fixed <code class="docutils literal notranslate"><span class="pre">--widen-factor</span></code> is one-size-fits-all
+across rules whose observed spreads differ by an order of magnitude.
+<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code> sizes the factor per-candidate from the ratio
+of observed spread to catalog-bound span:</p>
+<ul class="simple">
+<li><p><strong>Narrow observed spread</strong> (high agreement across nights, bandit
+converged) → larger factor — the proposed bound gets generous
+headroom outside the consensus window so the bandit has room to
+discover the next win.</p></li>
+<li><p><strong>Wide observed spread</strong> (low agreement, bandit still exploring) →
+smaller factor — the proposed bound focuses on the consensus
+rather than ballooning further.</p></li>
+</ul>
+<p>The spread is measured in the rule’s natural scale:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code> — log-space ratio
+<code class="docutils literal notranslate"><span class="pre">log(observed_hi</span> <span class="pre">/</span> <span class="pre">observed_lo)</span> <span class="pre">/</span> <span class="pre">log(current_hi</span> <span class="pre">/</span> <span class="pre">current_lo)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">integer_add</span></code> / <code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> — linear ratio
+<code class="docutils literal notranslate"><span class="pre">(observed_hi</span> <span class="pre">-</span> <span class="pre">observed_lo)</span> <span class="pre">/</span> <span class="pre">(current_hi</span> <span class="pre">-</span> <span class="pre">current_lo)</span></code>.</p></li>
+</ul>
+<p>Then linearly interpolated:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">factor = max_factor - (max_factor - min_factor) * ratio
+</span></pre></div>
+</div>
+<p>with the ratio clipped to <code class="docutils literal notranslate"><span class="pre">[0.0,</span> <span class="pre">1.0]</span></code>.  The default range is
+<code class="docutils literal notranslate"><span class="pre">[1.1,</span> <span class="pre">2.5]</span></code> (set via <code class="docutils literal notranslate"><span class="pre">--widen-factor-min</span></code> / <code class="docutils literal notranslate"><span class="pre">--widen-factor-max</span></code>).
+When no catalog rule targets the slot — the relative-spread signal is
+unavailable — the helper falls back to the supplied <code class="docutils literal notranslate"><span class="pre">--widen-factor</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">1.5</span></code>), so existing operators have a single-flag opt-in
+path.</p>
+<p>Live-ledger evidence on the day of ship:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> (<code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>) — observed
+<code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, catalog <code class="docutils literal notranslate"><span class="pre">[0.005,</span> <span class="pre">0.5]</span></code>, log-ratio <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">0.13</span></code> →
+auto-tuned factor <strong>≈ 2.31</strong> (vs the fixed <code class="docutils literal notranslate"><span class="pre">1.5</span></code>).  Proposed
+bound widens from <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> to <code class="docutils literal notranslate"><span class="pre">[0.032,</span> <span class="pre">0.313]</span></code> —
+meaningfully more headroom outside the consensus window the bandit
+has converged into.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Sobol.n</span></code> (<code class="docutils literal notranslate"><span class="pre">integer_add</span></code>) — observed <code class="docutils literal notranslate"><span class="pre">[8,</span> <span class="pre">24]</span></code>, catalog
+<code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">64]</span></code>, linear-ratio <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">0.27</span></code> → auto-tuned factor <strong>≈ 2.13</strong>
+(vs <code class="docutils literal notranslate"><span class="pre">1.5</span></code>).  Proposed bound flips from <em>tightening</em>
+(<code class="docutils literal notranslate"><span class="pre">[5,</span> <span class="pre">36]</span></code>) to <em>widening</em> (<code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">52]</span></code>) the catalog because the
+observed window covers enough of the catalog that a generous widen
+pushes the upper end past the catalog’s current 36.</p></li>
+</ul>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Auto-tuned factor per candidate, default range [1.1, 2.5]:</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--widen-bounds<span class="w"> </span>--widen-auto-tune
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Custom factor range — e.g. log-scale knobs tolerate larger</span>
+</span><span data-line="6"><span class="c1"># max_factor; the linear default is conservative:</span>
+</span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span><span class="se">\</span>
+</span><span data-line="8"><span class="w">    </span>--widen-bounds<span class="w"> </span>--widen-auto-tune<span class="w"> </span><span class="se">\</span>
+</span><span data-line="9"><span class="w">    </span>--widen-factor-min<span class="w"> </span><span class="m">1</span>.2<span class="w"> </span>--widen-factor-max<span class="w"> </span><span class="m">4</span>.0
+</span></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Bound-widening</span> <span class="pre">candidates</span></code> report header switches from
+<code class="docutils literal notranslate"><span class="pre">widen_factor=1.5</span></code> to <code class="docutils literal notranslate"><span class="pre">widen_factor=auto-tune</span> <span class="pre">[1.1,</span> <span class="pre">2.5]</span>
+<span class="pre">(fallback=1.5)</span></code> when auto-tune is on, so the operator can see at a
+glance which sizing rule produced each surfaced bound.  Library API:
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve._auto_tune_widen_factor()</span></code> (the helper) and
+the <code class="docutils literal notranslate"><span class="pre">auto_tune</span></code> / <code class="docutils literal notranslate"><span class="pre">auto_tune_min_factor</span></code> /
+<code class="docutils literal notranslate"><span class="pre">auto_tune_max_factor</span></code> keyword arguments on
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.detect_widening_candidates()</span></code>.</p>
+</section>
 </section>
 </section>
 <section id="adaptive-mutation-sampler-10">

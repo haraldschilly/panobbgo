@@ -619,6 +619,133 @@ Conventions:
     observed window; when the range is wide (high variance), a
     smaller factor focuses on the consensus.  Speculative — the
     fixed factor is a starting point.
+### 2026-06-19 — Structural-op already-codified check (V2 §9.3 follow-up)
+
+* **What** — Closes the *Structural-op codified check* idea seeded
+  under *Next iteration ideas* on 2026-06-18.  Replaces the
+  :func:`panobbgo.self_improve._structural_already_codified`
+  placeholder (which always returned ``False``) with a real
+  class-membership predicate, plus a new helper
+  :func:`panobbgo.self_improve._live_class_membership` that walks the
+  seed-spec factories to find which specs already carry the
+  candidate's class in their ``heuristics`` / ``analyzers`` bucket.
+  :func:`panobbgo.self_improve.annotate_codified_status` now branches
+  on the candidate shape: structural candidates take the membership
+  path; numeric / categorical kwarg candidates take the existing
+  :func:`_live_kwarg_values` / :func:`_candidate_already_codified`
+  path unchanged.
+
+  Predicate rules — symmetric to the kwarg case's
+  ``max(live) >= median(new_values)`` / ``min(live) <= median``
+  shape:
+
+  * ``add_heuristic`` of class ``X``: codified iff at least one seed
+    spec already lists ``X`` under ``heuristics``.  The codify edit
+    "append ``X`` to the seed pool" would be partially redundant —
+    at least one spec already carries the heuristic.  Matches the
+    existing kwarg rule: *suppress when the proposed change is
+    already partially live*.
+  * ``drop_heuristic`` of class ``X``: codified iff no seed spec
+    lists ``X``.  The codify edit "remove ``X``" cannot remove
+    anything that is not already there.
+  * ``add_analyzer`` / ``drop_analyzer``: same shape, against the
+    ``analyzers`` bucket.
+
+  The CLI surfaces ``live_codified_values`` for structural
+  candidates as the *spec names* that carry the class (instead of
+  the kwarg-value list for kwarg candidates) so the
+  ``--include-already-codified`` audit trail still tells the
+  operator where the membership lives.  An unknown op (defensive —
+  the catalog ships exactly the four ops above) classifies as
+  *not* codified so the candidate continues to surface.
+
+* **Why** — V2 §11 success criterion 2 ("≥ 3 codify PRs opened from
+  ledger evidence; ≥ 2 merged" over the first 30 nights) is gated on
+  the signal-to-noise of the daily codify-scan report.  The
+  2026-06-18 ship already suppresses already-codified *kwarg*
+  candidates; this ship closes the symmetric structural gap so the
+  scanner's "already codified" predicate behaves consistently across
+  rule kinds.  The live ledger doesn't yet carry structural codify
+  candidates that exercise the gap (the V1 catalog freeze in §7.3
+  means structural ops are rarely confirmed across multiple nights),
+  but the predicate is in place for when the V2 catalog flow
+  starts surfacing them — there's no signal-to-noise tax to wait
+  out before the next operator session benefits.
+
+* **Backwards compatibility** — strictly safe.  Pure additions to
+  :mod:`panobbgo.self_improve`: one new private helper
+  (:func:`_live_class_membership`), a real implementation for an
+  existing helper (:func:`_structural_already_codified`), and a
+  branch in :func:`annotate_codified_status` that routes structural
+  candidates to the new path.  The dead structural branch in
+  :func:`_candidate_already_codified` is replaced with a defensive
+  ``return False`` (the function is now only reached for kwarg
+  candidates; a mis-routed call would otherwise silently mis-classify).
+  Every existing public API call site is unchanged; the live ledger's
+  4-of-5 surfaced-candidate count is identical to before the ship.
+
+* **Tests** — 8 new tests + 1 renamed test in
+  ``tests/test_self_improve.py::TestAnnotateCodifiedStatus``
+  (``test_structural_op_is_never_codified`` →
+  ``test_structural_add_heuristic_not_codified_when_class_absent``)
+  cover every structural op in both codified / not-codified
+  directions, the heuristic-vs-analyzer bucket distinction (one
+  class registered under analyzers should NOT codify a structural
+  ``add_heuristic`` for the same class), the multi-spec membership
+  recording, and the defensive unknown-op fallback.  Plus 2 new
+  end-to-end CLI smoke tests in ``TestCodifyScanCLISuppression``
+  (``test_structural_add_heuristic_suppressed_when_already_in_pool``,
+  ``test_structural_drop_heuristic_surfaces_when_class_in_pool``)
+  exercising the suppression behaviour against synthetic ledger
+  records for ``Nearby`` (which the live quick + loop registries
+  already ship under heuristics).
+
+  Test totals: 421 in ``tests/test_self_improve.py`` (was 412 — 8
+  added + 1 renamed).  ``uv run --extra dev ruff format --check .``
+  / ``uv run --extra dev ruff check panobbgo/self_improve.py
+  tests/test_self_improve.py`` / ``uv run pyright panobbgo`` /
+  sphinx doctests all clean.
+
+* **Impact** — minor signal-to-noise improvement on the daily
+  routine.  Today's live ledger doesn't carry any structural
+  candidates that clear the codify-scan gate, so the four-of-five
+  surfaced-candidate count is byte-identical.  The win is forward-
+  looking: once the V2 flow (``--confirm-accepts`` + ``--registry
+  loop`` + ``--bandit-reward graded``) lands in the nightly workflow
+  and the bandit accumulates confirmed structural-op accepts across
+  multiple nights, this predicate will keep the operator's attention
+  on actionable structural evidence rather than re-surfacing
+  ``add_LBFGSB`` against a seed pool that already carries
+  ``LBFGSB``.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; "Structural-op
+    codified check" follow-up promoted from queued to shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: no direct edit (the
+    candidate-set hygiene work is downstream of §9.3, not on the
+    critical V2 path).
+  - ``doc/source/guide.rst``: quick-nav entry mentions the new
+    structural-op predicate alongside the 2026-06-18 kwarg
+    suppression entry.
+  - ``doc/source/guide_benchmarking.rst``: extended the existing
+    "Cross-night codify-scan" subsection's predicate description so
+    the structural rules are documented alongside the kwarg rules.
+  - ``AGENTS.md``: self-improvement loop bullet annotated with the
+    structural extension to the suppression predicate.
+  - ``TODO.md``: new dated entry under "Recent Improvements" for the
+    structural-op codified check.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Tolerance / hysteresis on the numeric predicate** —
+    still queued (from the 2026-06-18 ship).
+  * **Membership-vs-coverage rule** — the current rule suppresses
+    when *at least one* spec carries the class (the symmetric
+    "partially redundant" rule).  A *stricter* alternative would
+    suppress only when *every* spec carries the class — closer to
+    "the codify edit is a complete no-op everywhere".  Speculative
+    until the loop produces structural codify candidates that
+    differentiate the two rules.
 
 ### 2026-06-18 — Suppress already-codified candidates in codify-scan (V2 §9.3 follow-up)
 
@@ -5864,13 +5991,12 @@ the 2026-06-18 entry above for the full rationale and follow-ups.
 
 Follow-ups still queued:
 
-* **Structural-op codified check** — extend the placeholder
-  :func:`_structural_already_codified` to compare ``add_X`` /
-  ``drop_X`` candidates against the heuristic-pool membership of
-  the seed factories.  ``add_LBFGSB`` against a seed pool that
-  already contains :class:`LBFGSB` is the symmetric case.  Lower
-  priority because structural candidates are rarer in the live
-  ledger today.
+* ~**Structural-op codified check**~ — **shipped 2026-06-19**.
+  :func:`_structural_already_codified` now implements a real
+  class-membership predicate against the seed pool's
+  ``heuristics`` / ``analyzers`` buckets, symmetric to the kwarg
+  rule's "at least one spec already meets the proposal"
+  semantics.  See the 2026-06-19 entry above.
 * **Tolerance / hysteresis on the numeric predicate** — the
   current ``max(live) >= median(new_values)`` rule is exact; a
   small relative tolerance (e.g. 5%) would let the predicate
@@ -5878,6 +6004,14 @@ Follow-ups still queued:
   median proposal without being strictly above / below.
   Speculative — the exact rule already catches the dominant
   ``Sobol.scramble`` shape.
+* **Membership-vs-coverage rule for structural ops** — the
+  2026-06-19 ship suppresses when *at least one* spec carries the
+  class (the "partially redundant" semantic, symmetric to the
+  numeric ``max(live) >= median`` rule).  A *stricter* alternative
+  would suppress only when *every* spec carries the class — closer
+  to "the codify edit is a complete no-op everywhere".
+  Speculative until the loop produces structural codify candidates
+  that differentiate the two rules.
 
 #### Flip the nightly cron to `--confirm-accepts` (after 2026-06-14 ship)
 

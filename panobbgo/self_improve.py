@@ -162,7 +162,7 @@ import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -5520,11 +5520,14 @@ def _candidate_already_codified(
       - ``"up"`` is codified iff ``max(live) >= median(new_values)``
       - ``"down"`` is codified iff ``min(live) <= median(new_values)``
 
-    * Structural ops (``op is not None``): not handled — the function
-      conservatively returns ``False`` so the operator keeps seeing
-      structural candidates.  ``add_/drop_`` ops need a different
-      lookup (membership in the heuristics / analyzers tuple), which
-      lives in :func:`_structural_already_codified` below.
+    * Structural ops (``op is not None``): handled by
+      :func:`_structural_already_codified` against a class-membership
+      dict produced by :func:`_live_class_membership` — see
+      :func:`annotate_codified_status`, which branches on the candidate
+      shape and calls the appropriate helper directly.  This function
+      assumes the caller already filtered structural candidates out;
+      it conservatively returns ``False`` on them so a mis-routed call
+      cannot raise.
 
     When ``live_values`` is empty the candidate is *not* codified —
     the seed factory does not set the kwarg explicitly, so any codify
@@ -5534,7 +5537,7 @@ def _candidate_already_codified(
     if not live_values:
         return False
     if candidate.op is not None:
-        return _structural_already_codified(candidate, live_values)
+        return False
     if candidate.rule_kind == "categorical_choice":
         return any(repr(v) == candidate.direction for v in live_values)
     if candidate.direction not in ("up", "down"):
@@ -5557,22 +5560,100 @@ def _candidate_already_codified(
     return min(live_floats) <= target
 
 
+def _live_class_membership(
+    class_name: str,
+    factories: Sequence[Callable[[], Sequence[StrategySpec]]],
+) -> Dict[str, Tuple[str, ...]]:
+    """Find which seed specs already contain ``class_name`` as a heuristic / analyzer.
+
+    Returns ``{"heuristics": (spec_name, ...), "analyzers": (spec_name, ...)}``
+    listing every :class:`~panobbgo.benchmark.StrategySpec` whose
+    ``heuristics`` / ``analyzers`` tuple includes a class whose
+    ``__name__`` equals ``class_name``.  Spec names are recorded in
+    factory-then-spec order with each spec appearing at most once per
+    bucket; if the same spec ships the class in both buckets the spec
+    name appears under both keys.
+
+    Factories that raise are silently skipped — mirrors the resilience
+    of :func:`_live_kwarg_values` so a misbehaving caller-supplied
+    factory cannot break the whole codify-scan run.  Used by
+    :func:`_structural_already_codified` to decide whether
+    ``add_/drop_heuristic`` / ``add_/drop_analyzer`` candidates would
+    be no-op edits.
+    """
+    heuristic_specs: List[str] = []
+    analyzer_specs: List[str] = []
+    for factory in factories:
+        try:
+            specs = factory()
+        except Exception:
+            continue
+        for spec in specs:
+            in_heuristics = False
+            for entry in getattr(spec, "heuristics", None) or []:
+                try:
+                    cls, _ = entry
+                except (TypeError, ValueError):
+                    continue
+                if getattr(cls, "__name__", "") == class_name:
+                    in_heuristics = True
+                    break
+            if in_heuristics:
+                heuristic_specs.append(spec.name)
+            in_analyzers = False
+            for entry in getattr(spec, "analyzers", None) or []:
+                try:
+                    cls, _ = entry
+                except (TypeError, ValueError):
+                    continue
+                if getattr(cls, "__name__", "") == class_name:
+                    in_analyzers = True
+                    break
+            if in_analyzers:
+                analyzer_specs.append(spec.name)
+    return {
+        "heuristics": tuple(heuristic_specs),
+        "analyzers": tuple(analyzer_specs),
+    }
+
+
 def _structural_already_codified(
     candidate: CodifyCandidate,
-    live_values: Sequence[Any],
+    membership: Mapping[str, Sequence[str]],
 ) -> bool:
-    """Placeholder for structural-op codified status.
+    """Decide whether the structural candidate's implied source edit is a no-op.
 
-    Structural ops (``add_/drop_heuristic`` / ``add_/drop_analyzer``)
-    do not target a kwarg; their "live value" semantics differ from
-    numeric / categorical rules and would need a separate
-    membership-in-pool check (e.g. for ``add_heuristic`` of class
-    ``LBFGSB``, the codified state is "``LBFGSB`` is in the seed
-    pool's heuristics list").  Left unimplemented for now — the
-    function returns ``False`` so structural candidates continue to
-    surface in the report.  See the *Next iteration ideas* entry in
-    :doc:`/planning/SELF_IMPROVEMENT_LOG.md` for the follow-up shape.
+    Structural ops do not target a kwarg; their "live state" is membership
+    of the candidate's :attr:`~CodifyCandidate.class_name` in the seed
+    spec's ``heuristics`` / ``analyzers`` tuple.  Rules — symmetric to
+    :func:`_candidate_already_codified`'s ``max(live) >= median`` /
+    ``min(live) <= median`` shape:
+
+    * ``add_heuristic`` of class ``X``: codified iff at least one seed
+      spec already lists ``X`` under ``heuristics``.  The codify edit
+      "append ``X`` to the seed pool" would be partially redundant
+      because at least one spec already carries the heuristic.
+    * ``drop_heuristic`` of class ``X``: codified iff no seed spec
+      lists ``X``.  The codify edit "remove ``X`` from the seed pool"
+      cannot remove anything that is not already there.
+    * ``add_analyzer`` / ``drop_analyzer``: same shape, against the
+      ``analyzers`` bucket.
+
+    ``membership`` is the dict :func:`_live_class_membership` returns;
+    only the keys named in the candidate's op are consulted.  An
+    unknown op (defensive — the catalog ships exactly the four ops
+    above) classifies as not-codified so the candidate continues to
+    surface.
     """
+    op = candidate.direction
+    if op == "add_heuristic":
+        return len(membership.get("heuristics", ())) > 0
+    if op == "drop_heuristic":
+        return len(membership.get("heuristics", ())) == 0
+    if op == "add_analyzer":
+        return len(membership.get("analyzers", ())) > 0
+    if op == "drop_analyzer":
+        return len(membership.get("analyzers", ())) == 0
     return False
 
 
@@ -5635,9 +5716,24 @@ def annotate_codified_status(
     else:
         factories = registries
     for cand in candidates:
-        live_values = _live_kwarg_values(cand.class_name, cand.param_name, factories)
-        cand.live_codified_values = tuple(live_values)
-        cand.already_codified = _candidate_already_codified(cand, live_values)
+        if cand.op is not None:
+            # Structural candidate — class-membership check rather than
+            # kwarg-value comparison.  The relevant live data is the
+            # subset of spec names that already include the candidate's
+            # class in the matching bucket; surfaced in
+            # ``live_codified_values`` so the CLI can print the spec
+            # names alongside the ``[already codified]`` tag.
+            membership = _live_class_membership(cand.class_name, factories)
+            if "analyzer" in (cand.op or ""):
+                relevant = membership.get("analyzers", ())
+            else:
+                relevant = membership.get("heuristics", ())
+            cand.live_codified_values = tuple(relevant)
+            cand.already_codified = _structural_already_codified(cand, membership)
+        else:
+            live_values = _live_kwarg_values(cand.class_name, cand.param_name, factories)
+            cand.live_codified_values = tuple(live_values)
+            cand.already_codified = _candidate_already_codified(cand, live_values)
 
 
 # Numeric mutation kinds the widening detector reasons about.  Categorical

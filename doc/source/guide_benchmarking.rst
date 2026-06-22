@@ -1056,12 +1056,23 @@ against the live kwarg values.  Categorical candidates compare
 when the live value already meets or exceeds the median of
 ``new_values`` in the candidate's direction (``"up"`` →
 ``max(live) >= median(new_values)``; ``"down"`` →
-``min(live) <= median(new_values)``).  Structural ops are not
-suppressed.  Pass ``--include-already-codified`` to audit the
-suppressed set — every already-codified candidate is tagged
-``[already codified]`` in the report and the
+``min(live) <= median(new_values)``).  **Structural ops** —
+extended *2026-06-19* via the new helper
+:func:`~panobbgo.self_improve._live_class_membership` and the
+matching :func:`~panobbgo.self_improve._structural_already_codified`
+predicate: ``add_heuristic`` / ``add_analyzer`` candidates are
+flagged when *at least one* seed spec already lists the class in
+the matching bucket (the symmetric "partially redundant"
+semantic), and ``drop_heuristic`` / ``drop_analyzer`` candidates
+are flagged when *no* seed spec lists it (already removed
+everywhere).  An unknown / future op name falls back to "not
+codified" so the candidate continues to surface — defensive against
+future catalog extensions.  Pass ``--include-already-codified`` to
+audit the suppressed set — every already-codified candidate is
+tagged ``[already codified]`` in the report and the
 ``live seed value(s)`` line surfaces the matching seed kwarg values
-so the operator can confirm the verdict.
+(or, for structural candidates, the *spec names* carrying the
+class) so the operator can confirm the verdict.
 
 JSON mode (``--json``) always emits every candidate so the consumer
 can filter on the new
@@ -1086,7 +1097,7 @@ detection — the slot identifier
 the §12.3 deduplication rule should consult against
 ``gh pr list --state open``.
 
-See the 2026-06-17 / 2026-06-18 entries in
+See the 2026-06-17 / 2026-06-18 / 2026-06-19 entries in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the design rationale and
 the dated entry's "Follow-up ideas" section for the queued
 ``--open-pr`` work.

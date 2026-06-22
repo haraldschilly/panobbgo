@@ -374,7 +374,16 @@ in a window 5-10× narrower than the catalog admits.  Pairs naturally
 with the queued `--open-pr` driver: the
 :attr:`WideningCandidate.slot_key` tuple matches
 :attr:`CodifyCandidate.slot_key` so a future driver dedups uniformly
-across both candidate kinds.
+across both candidate kinds.  The 2026-06-22 *auto-tune widen factor*
+follow-up (CLI ``--widen-auto-tune`` plus ``--widen-factor-min`` /
+``--widen-factor-max``) sizes the widen factor per-candidate from the
+observed-spread / catalog-bound ratio in the rule's natural scale
+(log for ``log_uniform_perturb``, linear for ``integer_add`` /
+``float_uniform``).  Narrow observed spread (high agreement) →
+larger factor for exploration headroom; wide spread (low agreement)
+→ smaller factor focused on the consensus.  Lifts the live
+``Nearby.radius`` factor from a fixed 1.5 to ~2.31, opening the
+proposed bound to ``[0.032, 0.313]`` instead of ``[0.049, 0.203]``.
 
 ### 9.4 Target invocation
 

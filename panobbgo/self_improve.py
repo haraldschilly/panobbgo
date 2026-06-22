@@ -5856,6 +5856,107 @@ def _widen_numeric_bounds(
     raise ValueError(f"Unsupported rule_kind for widening: {rule_kind!r}")
 
 
+def _auto_tune_widen_factor(
+    observed_lo: float,
+    observed_hi: float,
+    current_bounds: Optional[Tuple[float, float]],
+    rule_kind: str,
+    *,
+    min_factor: float = 1.1,
+    max_factor: float = 2.5,
+    fallback: float = 1.5,
+) -> float:
+    """Size a widen factor from observed spread relative to the catalog bound.
+
+    Intuition (closes the *Auto-tune widen factor from observed spread*
+    follow-up seeded under the 2026-06-19 widening-detector ship): when
+    the bandit's accepts cluster in a narrow window inside a wide catalog
+    range, the observed range is high-agreement evidence — a *larger*
+    widen factor is appropriate because the bandit has already converged
+    and a small headroom would barely give it room to discover the next
+    win.  When accepts span most of the catalog range, agreement is low
+    — a *smaller* factor focuses on the consensus rather than ballooning
+    the bounds further.
+
+    Spread is measured in the rule's natural scale:
+
+    * ``log_uniform_perturb`` — log-space ratio
+      ``log(observed_hi / observed_lo) / log(current_hi / current_lo)``.
+      Log because the rule samples log-uniform; a linear ratio on a
+      log-distributed quantity would mis-rank pairs that span the same
+      number of decades.
+    * ``integer_add`` / ``float_uniform`` — linear ratio
+      ``(observed_hi - observed_lo) / (current_hi - current_lo)``.
+
+    ``ratio`` is clipped to ``[0.0, 1.0]`` and linearly interpolated:
+
+    .. math::
+
+       \\mathrm{factor} = \\mathrm{max\\_factor}
+         - (\\mathrm{max\\_factor} - \\mathrm{min\\_factor}) \\cdot
+           \\mathrm{ratio}
+
+    so ``ratio = 0`` (perfect agreement) returns ``max_factor`` and
+    ``ratio = 1`` (observed spans the catalog) returns ``min_factor``.
+
+    When ``current_bounds`` is ``None`` (no rule targets the slot) or
+    the catalog span is degenerate (``cur_hi <= cur_lo``), the relative-
+    spread signal is unavailable — return ``fallback``.  Callers can
+    pass the same fixed ``widen_factor`` they would have used pre-
+    auto-tune as ``fallback`` so the no-rule case stays compatible.
+
+    Args:
+        observed_lo: Minimum ``new_value`` across both directions.
+        observed_hi: Maximum ``new_value`` across both directions.
+        current_bounds: The catalog rule's bounds, or ``None``.
+        rule_kind: One of :data:`_NUMERIC_RULE_KINDS`.
+        min_factor: Returned at ratio = 1.  Must be ``> 1.0``.
+        max_factor: Returned at ratio = 0.  Must be ``>= min_factor``.
+        fallback: Returned when the spread signal is unavailable.
+
+    Returns:
+        A widen factor strictly ``> 1.0`` (validated against
+        ``min_factor`` and ``fallback`` constraints) that
+        :func:`_widen_numeric_bounds` accepts.
+    """
+    import math as _math
+
+    if min_factor <= 1.0:
+        raise ValueError(f"min_factor must be > 1.0, got {min_factor}")
+    if max_factor < min_factor:
+        raise ValueError(f"max_factor must be >= min_factor; got {max_factor} < {min_factor}")
+    if fallback <= 1.0:
+        raise ValueError(f"fallback must be > 1.0, got {fallback}")
+    if current_bounds is None:
+        return float(fallback)
+    cur_lo, cur_hi = current_bounds
+    if rule_kind == "log_uniform_perturb":
+        # Log-space ratio.  Defensive against non-positive bounds (the
+        # rule construction enforces positivity, but a ledger may carry
+        # values that don't match — fall back rather than NaN).
+        if observed_lo <= 0 or observed_hi <= 0 or cur_lo <= 0 or cur_hi <= 0:
+            return float(fallback)
+        catalog_span = _math.log(cur_hi / cur_lo)
+        if catalog_span <= 0:
+            return float(fallback)
+        observed_span = max(0.0, _math.log(observed_hi / observed_lo))
+        ratio = observed_span / catalog_span
+    elif rule_kind in ("integer_add", "float_uniform"):
+        catalog_span = cur_hi - cur_lo
+        if catalog_span <= 0:
+            return float(fallback)
+        observed_span = max(0.0, observed_hi - observed_lo)
+        ratio = observed_span / catalog_span
+    else:
+        return float(fallback)
+
+    ratio = max(0.0, min(1.0, ratio))
+    factor = max_factor - (max_factor - min_factor) * ratio
+    # Guard against floating-point drift just below min_factor.
+    factor = max(min_factor, factor)
+    return float(factor)
+
+
 def _catalog_numeric_bounds(
     catalog: "MutationCatalog",
     class_name: str,
@@ -5892,6 +5993,9 @@ def detect_widening_candidates(
     *,
     catalog: Optional["MutationCatalog"] = None,
     widen_factor: float = 1.5,
+    auto_tune: bool = False,
+    auto_tune_min_factor: float = 1.1,
+    auto_tune_max_factor: float = 2.5,
 ) -> List[WideningCandidate]:
     """Pair bidirectional codify candidates into bound-widening proposals.
 
@@ -5924,6 +6028,29 @@ def detect_widening_candidates(
         widen_factor: Multiplicative widening factor applied to the
             observed range.  Default ``1.5`` matches the *Mutation-bound
             widening* idea sketch in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`.
+            When ``auto_tune=True`` this value is the *fallback* the
+            detector uses for slots whose ``current_bounds`` are
+            ``None`` (no catalog rule targets the slot, so the relative-
+            spread signal is unavailable).
+        auto_tune: When ``True``, per-candidate widen factor is sized to
+            the observed spread relative to the catalog bound via
+            :func:`_auto_tune_widen_factor`.  Narrow observed spreads
+            (high agreement) produce larger factors so the proposed
+            bound has headroom; wide spreads (low agreement) produce
+            smaller factors so the proposed bound focuses on the
+            consensus.  When ``False`` (default), every candidate uses
+            the fixed ``widen_factor`` — byte-identical to the
+            pre-2026-06-22 behaviour.
+        auto_tune_min_factor: Returned at observed-spread / catalog-
+            span ratio = 1.  Must be ``> 1.0``.  Only consulted when
+            ``auto_tune=True``.  Default ``1.1`` keeps the proposed
+            bound strictly wider than the observed range while
+            preserving most of the consensus.
+        auto_tune_max_factor: Returned at observed-spread / catalog-
+            span ratio = 0.  Must be ``>= auto_tune_min_factor``.  Only
+            consulted when ``auto_tune=True``.  Default ``2.5`` gives a
+            tightly-clustered observed range generous headroom outside
+            the consensus window.
 
     Returns:
         Sorted list of :class:`WideningCandidate` instances, ordered by
@@ -5974,13 +6101,25 @@ def detect_widening_candidates(
             continue
         observed_lo = min(observed)
         observed_hi = max(observed)
+        current = _catalog_numeric_bounds(catalog, class_name, param_name, rule_kind)
+        if auto_tune:
+            effective_factor = _auto_tune_widen_factor(
+                observed_lo,
+                observed_hi,
+                current,
+                rule_kind,
+                min_factor=auto_tune_min_factor,
+                max_factor=auto_tune_max_factor,
+                fallback=widen_factor,
+            )
+        else:
+            effective_factor = widen_factor
         proposed_lo, proposed_hi = _widen_numeric_bounds(
             observed_lo,
             observed_hi,
             rule_kind,
-            widen_factor=widen_factor,
+            widen_factor=effective_factor,
         )
-        current = _catalog_numeric_bounds(catalog, class_name, param_name, rule_kind)
         out.append(
             WideningCandidate(
                 class_name=class_name,
@@ -5991,7 +6130,7 @@ def detect_widening_candidates(
                 observed_hi=float(observed_hi),
                 proposed_lo=float(proposed_lo),
                 proposed_hi=float(proposed_hi),
-                widen_factor=float(widen_factor),
+                widen_factor=float(effective_factor),
                 up_candidate=up_cand,
                 down_candidate=down_cand,
             )

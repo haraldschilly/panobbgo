@@ -2,6 +2,59 @@
 
 ## Recent Improvements (continued)
 
+### Auto-tune widen factor from observed spread (V2 §9.3 follow-up) — 2026-06-22
+- [x] **New helper `panobbgo.self_improve._auto_tune_widen_factor`**
+      sizes a widen factor from the ratio of observed spread to
+      catalog-bound span.  Narrow observed spread (high agreement
+      across nights) → larger factor for exploration headroom; wide
+      spread (low agreement) → smaller factor focused on the
+      consensus.  Spread is measured in the rule's natural scale:
+      log-space ratio for `log_uniform_perturb`, linear ratio for
+      `integer_add` / `float_uniform`.  Linear interpolation between
+      `max_factor` at ratio = 0 and `min_factor` at ratio = 1; falls
+      back to a caller-supplied `fallback` when no catalog rule
+      targets the slot (relative-spread signal unavailable).
+- [x] **`detect_widening_candidates` gains three keyword arguments**:
+      `auto_tune: bool = False`, `auto_tune_min_factor: float = 1.1`,
+      `auto_tune_max_factor: float = 2.5`.  When `auto_tune=True` the
+      per-candidate factor lands in `WideningCandidate.widen_factor`
+      so the report and JSON output show the actually-used factor.
+      Default `auto_tune=False` keeps every existing invocation
+      byte-identical.
+- [x] **CLI surface on `scripts/self_improve.py codify-scan`**:
+      `--widen-auto-tune` (off by default), `--widen-factor-min`
+      (default 1.1), `--widen-factor-max` (default 2.5).  The
+      pre-existing `--widen-factor` (default 1.5) is repurposed as
+      the fallback for slots with no catalog rule.  The
+      *Bound-widening candidates* report header switches from
+      `widen_factor=1.5` to `widen_factor=auto-tune [1.1, 2.5]
+      (fallback=1.5)` when auto-tune is on.
+- [x] **Tests** — 22 new tests across three new test classes
+      (`TestAutoTuneWidenFactor` + `TestDetectWideningCandidatesAutoTune`
+      + `TestCodifyScanCLIAutoTuneWidening`), all 38 prior widening
+      tests pass unchanged.  Full project test suite (1653 tests)
+      green; sphinx doctests / ruff / pyright clean.
+- [x] **Live-ledger effect** — on the current project ledger
+      (`planning/self_improve_ledger.jsonl`) the auto-tuned factor
+      lifts `Nearby.radius` from a fixed 1.5 to ~2.31 (proposed bound
+      widens from `[0.049, 0.203]` to `[0.032, 0.313]`) and
+      `Sobol.n` from 1.5 to ~2.13 (proposed bound flips from
+      tightening `[5, 36]` to widening `[3, 52]`).  Both proposals
+      use the same ledger evidence the operator was triaging before
+      this ship — auto-tune doesn't change the input, just the
+      bound-arithmetic.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-22 dated entry; *Auto-tune widen factor from observed
+      spread* idea promoted from "Next iteration ideas" to shipped),
+      `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3 widening-detector
+      sub-paragraph extended with the auto-tune lever),
+      `doc/source/guide.rst` (quick-nav entry),
+      `doc/source/guide_benchmarking.rst` (new
+      *Auto-tuned widen factor (--widen-auto-tune)*
+      sub-subsection in the *Bidirectional-bound widening*
+      subsection), `AGENTS.md` (self-improvement loop bullet +
+      new bash example).
+
 ### Flip the nightly cron to the V2 substrate (V2 §9.5 step 5) — 2026-06-21
 - [x] **Workflow edit** (`.github/workflows/self_improve_nightly.yml`).
       Single-file change to the `Run self-improvement loop` step that

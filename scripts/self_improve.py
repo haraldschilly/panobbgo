@@ -758,7 +758,46 @@ def _build_parser() -> argparse.ArgumentParser:
             "every accepted new_value to produce the proposed bound "
             "(default: 1.5).  Symmetric in log space for "
             "log_uniform_perturb; rounded outward for integer_add; "
-            "linear-multiplicative for float_uniform.  Must be > 1.0."
+            "linear-multiplicative for float_uniform.  Must be > 1.0.  "
+            "When --widen-auto-tune is set this value is used as the "
+            "fallback for slots whose current_bounds are None (no rule)."
+        ),
+    )
+    scan_p.add_argument(
+        "--widen-auto-tune",
+        action="store_true",
+        help=(
+            "Size the widen factor per-candidate from the observed "
+            "spread relative to the catalog bound.  Narrow observed "
+            "spread (high agreement) → larger factor for more "
+            "exploration headroom; wide spread (low agreement) → "
+            "smaller factor focused on the consensus.  See "
+            "panobbgo.self_improve._auto_tune_widen_factor for the "
+            "rule.  Falls back to --widen-factor when no catalog rule "
+            "targets the slot."
+        ),
+    )
+    scan_p.add_argument(
+        "--widen-factor-min",
+        type=float,
+        default=1.1,
+        dest="widen_factor_min",
+        help=(
+            "Auto-tuned widen factor at the wide-spread end (observed "
+            "range covers the whole catalog range).  Must be > 1.0.  "
+            "Only consulted when --widen-auto-tune is set.  Default: 1.1."
+        ),
+    )
+    scan_p.add_argument(
+        "--widen-factor-max",
+        type=float,
+        default=2.5,
+        dest="widen_factor_max",
+        help=(
+            "Auto-tuned widen factor at the narrow-spread end (observed "
+            "range is a tight band inside the catalog).  Must be >= "
+            "--widen-factor-min.  Only consulted when --widen-auto-tune "
+            "is set.  Default: 2.5."
         ),
     )
     scan_p.set_defaults(func=_cmd_codify_scan)
@@ -1630,9 +1669,18 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
 
     widen_bounds = bool(getattr(args, "widen_bounds", False))
     widen_factor = float(getattr(args, "widen_factor", 1.5))
+    widen_auto_tune = bool(getattr(args, "widen_auto_tune", False))
+    widen_factor_min = float(getattr(args, "widen_factor_min", 1.1))
+    widen_factor_max = float(getattr(args, "widen_factor_max", 2.5))
     widening: List[Any] = []
     if widen_bounds:
-        widening = detect_widening_candidates(candidates, widen_factor=widen_factor)
+        widening = detect_widening_candidates(
+            candidates,
+            widen_factor=widen_factor,
+            auto_tune=widen_auto_tune,
+            auto_tune_min_factor=widen_factor_min,
+            auto_tune_max_factor=widen_factor_max,
+        )
 
     if args.as_json:
         # JSON output always emits every candidate (including
@@ -1706,7 +1754,11 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         )
         print()
     if widen_bounds:
-        print(f"Bound-widening candidates (widen_factor={widen_factor}):")
+        if widen_auto_tune:
+            factor_label = f"widen_factor=auto-tune [{widen_factor_min}, {widen_factor_max}] (fallback={widen_factor})"
+        else:
+            factor_label = f"widen_factor={widen_factor}"
+        print(f"Bound-widening candidates ({factor_label}):")
         print(f"  bidirectional pairs surfaced: {len(widening)}")
         if not widening:
             print("  (no bidirectional pattern surfaced — every numeric candidate fired in only one direction)")

@@ -17,6 +17,181 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-22 — Auto-tune widen factor from observed spread (V2 §9.3 follow-up)
+
+* **What** — Closes the *Auto-tune widen factor from observed spread*
+  follow-up seeded under *Next iteration ideas* on 2026-06-19.  Pure
+  additions to :mod:`panobbgo.self_improve` plus three CLI flags on
+  ``scripts/self_improve.py codify-scan``:
+
+  * :func:`panobbgo.self_improve._auto_tune_widen_factor` — sizes a
+    widen factor from the ratio of observed-spread to catalog-bound
+    span.  Narrow observed spread (high agreement across nights) →
+    larger factor for exploration headroom; wide spread (low agreement)
+    → smaller factor focused on the consensus.  Spread is measured in
+    the rule's natural scale: log-space ratio for
+    ``log_uniform_perturb``, linear ratio for ``integer_add`` /
+    ``float_uniform``.  Linear interpolation between
+    ``auto_tune_max_factor`` (at ratio = 0) and
+    ``auto_tune_min_factor`` (at ratio = 1).  When no catalog rule
+    targets the slot — the relative-spread signal is unavailable — the
+    helper returns the caller-supplied ``fallback`` instead.
+  * :func:`detect_widening_candidates` gains three keyword arguments
+    — ``auto_tune: bool = False``, ``auto_tune_min_factor: float =
+    1.1``, ``auto_tune_max_factor: float = 2.5`` — that opt in to the
+    per-candidate sizing.  Default ``auto_tune=False`` keeps every
+    existing invocation byte-identical.  The auto-tuned factor lands
+    in :attr:`WideningCandidate.widen_factor` so the report and JSON
+    output show the actually-used factor, not a global default.
+  * CLI surface on ``scripts/self_improve.py codify-scan``:
+    ``--widen-auto-tune`` (off by default), ``--widen-factor-min``
+    (default ``1.1``), ``--widen-factor-max`` (default ``2.5``).  The
+    pre-existing ``--widen-factor`` (default ``1.5``) is repurposed
+    as the fallback for slots with no catalog rule.  The
+    *Bound-widening candidates* report header switches from
+    ``widen_factor=1.5`` to ``widen_factor=auto-tune [1.1, 2.5]
+    (fallback=1.5)`` when the flag is set, so the operator can see at
+    a glance which sizing rule produced each surfaced bound.
+
+* **Why** — The 2026-06-19 widening detector ships a single fixed
+  ``widen_factor`` (default ``1.5``) applied to every bidirectional
+  pair.  This is a sensible starting point but is one-size-fits-all
+  across rules whose observed-spread / catalog-span ratios differ by
+  an order of magnitude:
+
+  * **Live ledger today (15 confirmed nights):**
+    - ``Nearby.radius`` — observed ``[0.0733, 0.1353]``, catalog
+      ``[0.005, 0.5]``.  Log-space ratio
+      ``log(0.1353 / 0.0733) / log(0.5 / 0.005) ≈ 0.133`` — narrow
+      observed window inside a wide catalog.  Auto-tuned factor:
+      ``2.5 - 1.4 * 0.133 ≈ 2.31``, vs the previous fixed ``1.5``.
+      Proposed bound: ``[0.0317, 0.3130]`` (vs ``1.5 ×`` baseline's
+      ``[0.0489, 0.2030]``) — meaningfully more headroom outside the
+      consensus window where the bandit might find the next win.
+    - ``Sobol.n`` — observed ``[8, 24]``, catalog ``[4, 64]``.  Linear
+      ratio ``16/60 ≈ 0.267`` — narrowish but not as narrow as
+      Nearby.radius.  Auto-tuned factor: ``2.5 - 1.4 * 0.267 ≈ 2.13``,
+      vs ``1.5``.  Proposed bound: ``[3, 52]`` (vs ``[5, 36]``) —
+      widens the catalog rather than tightens it (the ``1.5 ×``
+      baseline was tightening), because the observed window is large
+      enough that a generous widen makes the proposed bound exceed the
+      catalog's current upper end.
+
+    Both proposals are still *measured against the same ledger
+    evidence* the operator was triaging before this ship — auto-tune
+    doesn't change the input, just the bound-arithmetic.  The
+    operator's actionable lever shifts from "the catalog admits 5-10×
+    more range than the bandit actually uses" (true with fixed 1.5)
+    to "the bandit has converged into a known window; widen the
+    catalog around it" (the auto-tune lens).  Direct effect on §11
+    V2 success criterion 2 (codify-PR throughput): the bound-update
+    proposal the operator codifies is now sized to the observed
+    evidence rather than a global heuristic, so a bandit-converged
+    slot doesn't get a too-tight bound that would force the bandit to
+    re-discover its own consensus.
+
+  * **Conceptual rationale** — the planning doc's "Auto-tune widen
+    factor from observed spread" entry under *Next iteration ideas*
+    (the 2026-06-19 follow-ups block) framed the trade-off
+    qualitatively: narrow → big factor (need headroom), wide → small
+    factor (focus on consensus).  This ship is the concrete
+    realisation, with the spread measured in the rule's natural scale
+    so log-uniform-perturb and linear rules size correctly.  Pairs
+    naturally with the queued ``--open-pr`` driver: the same
+    :attr:`WideningCandidate.slot_key` tuple the codify-candidate path
+    uses is reused here, so a future ``--open-pr`` driver will dedup
+    uniformly across both candidate kinds *and* the auto-tuned bound
+    will land in the PR body directly.
+
+* **Backwards compatibility** — strictly safe.  ``auto_tune=False`` is
+  the default on :func:`detect_widening_candidates`; ``--widen-auto-tune``
+  is off by default on the CLI.  Every existing invocation produces
+  byte-identical output.  Existing tests covering
+  :func:`_widen_numeric_bounds`,
+  :func:`detect_widening_candidates`, and the
+  ``--widen-bounds`` CLI continue to assert the fixed-1.5 factor and
+  the existing bound math — all 38 prior tests
+  (``TestWidenNumericBounds`` + ``TestCatalogNumericBounds`` +
+  ``TestDetectWideningCandidates`` + ``TestCodifyScanCLIWidening``)
+  pass unchanged.  The pre-existing ``--widen-factor`` flag still
+  controls the fixed-factor path; it doubles as the fallback for
+  ``--widen-auto-tune`` when no catalog rule targets the slot, so
+  existing operators have a clean opt-in path.
+
+* **Tests** — 22 new tests across three new test classes:
+
+  * ``TestAutoTuneWidenFactor`` (13 tests): the helper itself — narrow
+    spread returns close to max_factor, wide spread returns close to
+    min_factor, mid spread interpolates linearly, integer / float /
+    log_uniform_perturb rule kinds use the correct scale, None
+    current_bounds falls back to the supplied fallback, degenerate
+    catalog (``cur_lo == cur_hi``) falls back, unsupported rule_kind
+    (categorical / structural) falls back, log-kind with non-positive
+    bounds falls back, observed range exceeding catalog clips to
+    min_factor, ``min_factor <= 1.0`` / ``max_factor < min_factor`` /
+    ``fallback <= 1.0`` raise ``ValueError``, and a custom
+    ``[min_factor, max_factor]`` range propagates through.
+  * ``TestDetectWideningCandidatesAutoTune`` (5 tests): auto-tune off
+    by default produces byte-identical factor; auto-tune on sizes the
+    factor per-candidate; the no-rule fallback path returns
+    ``widen_factor``; ``WideningCandidate.widen_factor`` and
+    :meth:`to_dict` carry the auto-tuned factor; a custom
+    ``[auto_tune_min_factor, auto_tune_max_factor]`` range propagates
+    through.
+  * ``TestCodifyScanCLIAutoTuneWidening`` (4 tests): the
+    auto-tune-off-by-default behaviour, the header label flips to
+    ``widen_factor=auto-tune [min, max] (fallback=...)`` when the
+    flag is set, the JSON-mode output carries the per-candidate
+    factor, and a custom range via ``--widen-factor-min`` /
+    ``--widen-factor-max`` propagates.
+
+  Plus the existing ``TestCodifyScanCLIWidening._build_ns`` helper
+  extended with the three new attributes (``widen_auto_tune``,
+  ``widen_factor_min``, ``widen_factor_max``) so the existing CLI
+  tests continue to pass with the namespace shape the new code reads.
+
+  Test totals: 493 in ``tests/test_self_improve.py`` (471 before +
+  22 new); 1653 in ``tests/`` (1 skipped — unrelated COCO wrapper).
+  ``uv run --extra dev ruff format --check .`` /
+  ``uv run --extra dev ruff check panobbgo/self_improve.py
+  scripts/self_improve.py tests/test_self_improve.py`` /
+  ``uv run pyright panobbgo/self_improve.py`` / 96 sphinx doctests
+  all clean.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the *Auto-tune
+    widen factor from observed spread* follow-up promoted from
+    *Next iteration ideas* to shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 "Bidirectional-bound
+    widening" line annotated with the auto-tune lever.
+  - ``doc/source/guide.rst``: quick-nav entry extended to mention
+    ``--widen-auto-tune`` alongside the existing ``--widen-bounds`` /
+    ``--widen-factor`` flags.
+  - ``doc/source/guide_benchmarking.rst``: new
+    "Auto-tuned widen factor (``--widen-auto-tune``)" sub-paragraph in
+    the "Bidirectional-bound widening" subsection documenting the
+    spread → factor rule and the live-ledger evidence.
+  - ``AGENTS.md``: self-improvement loop bullet annotated.
+  - ``TODO.md``: new "Recent Improvements" entry.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Per-kind widen factor range** — log-scale knobs naturally
+    tolerate a larger max_factor than linear ones because log-space
+    spread is dimensionally different.  A categorical
+    ``--widen-factor-max-log`` / ``--widen-factor-max-linear`` pair
+    (or a single flag with rule-kind-specific defaults) would let
+    the operator tune per kind.  Speculative — the unified
+    ``[1.1, 2.5]`` range is a reasonable starting point.
+  * **Use the relative-spread signal in ``codify-scan --open-pr``** —
+    when the queued ``--open-pr`` driver lands, the auto-tuned
+    factor and the relative-spread ratio are both natural fields
+    to surface in the PR body so the reviewer can see at a glance
+    whether the proposal is widening (bandit hasn't explored the
+    space) or tightening (bandit has converged).  The
+    :class:`WideningCandidate` carries everything needed today;
+    the only missing piece is a formatter on the ``--open-pr`` side.
+
 ### 2026-06-21 — Flip the nightly cron to the V2 substrate (V2 §9.5 step 5)
 
 * **What** — Promotes the *Flip the nightly cron to `--registry loop`*
@@ -5653,11 +5828,21 @@ Follow-ups still queued:
   widen factor than linear ones; a
   ``--widen-factor-log`` / ``--widen-factor-linear`` flag pair would
   let the operator tune per kind.  Speculative.
-* **Auto-tune widen factor from observed spread** — when the
-  observed range is narrow, a larger factor lets the bandit
-  explore outside the observed window; when wide, a smaller factor
-  focuses on the consensus.  Speculative — the fixed factor is a
-  starting point.
+* ~**Auto-tune widen factor from observed spread**~ — **shipped
+  2026-06-22** as :func:`panobbgo.self_improve._auto_tune_widen_factor`
+  plus the ``auto_tune`` / ``auto_tune_min_factor`` /
+  ``auto_tune_max_factor`` keyword arguments on
+  :func:`detect_widening_candidates` and the ``--widen-auto-tune`` /
+  ``--widen-factor-min`` / ``--widen-factor-max`` CLI flags.  Narrow
+  observed spread → larger factor (default max ``2.5``); wide spread
+  → smaller factor (default min ``1.1``); linearly interpolated by
+  the relative-spread ratio measured in the rule's natural scale
+  (log for log_uniform_perturb, linear for integer_add / float_uniform).
+  Lifts the live ``Nearby.radius`` widen factor from a fixed 1.5 to
+  ~2.31 (proposed bound ``[0.0317, 0.3130]`` vs ``[0.0489, 0.2030]``)
+  — directly closes the *Auto-tune widen factor from observed
+  spread* idea seeded in the 2026-06-19 widening-detector ship.  See
+  the 2026-06-22 dated entry above.
 
 #### Suppress already-codified candidates in codify-scan — shipped 2026-06-18
 

@@ -9045,6 +9045,9 @@ class TestCodifyScanCLIWidening:
         widen_factor=1.5,
         as_json=False,
         include_already_codified=False,
+        widen_auto_tune=False,
+        widen_factor_min=1.1,
+        widen_factor_max=2.5,
     ):
         return type(
             "NS",
@@ -9065,6 +9068,9 @@ class TestCodifyScanCLIWidening:
                 "suppress_codified": True,
                 "widen_bounds": widen_bounds,
                 "widen_factor": widen_factor,
+                "widen_auto_tune": widen_auto_tune,
+                "widen_factor_min": widen_factor_min,
+                "widen_factor_max": widen_factor_max,
             },
         )()
 
@@ -9335,3 +9341,310 @@ class TestCodifyScanCLIWidening:
         # widen_factor=3 → proposed_hi = max_observed × 3 = 0.13 × 3 = 0.39
         assert w["proposed_hi"] == pytest.approx(0.13 * 3.0)
         assert w["proposed_lo"] == pytest.approx(0.07 / 3.0)
+
+
+# ===========================================================================
+# Auto-tuned widen factor from observed spread (V2 §9.3 follow-up, 2026-06-22)
+# ===========================================================================
+
+
+class TestAutoTuneWidenFactor:
+    """:func:`panobbgo.self_improve._auto_tune_widen_factor` — spread → factor rule."""
+
+    def _auto(self, *args, **kwargs):
+        from panobbgo.self_improve import _auto_tune_widen_factor
+
+        return _auto_tune_widen_factor(*args, **kwargs)
+
+    def test_narrow_spread_returns_close_to_max_factor(self):
+        # Observed range covers a tiny fraction of the catalog range
+        # (log-space) → ratio near 0 → factor near max_factor.
+        # Nearby.radius live evidence: observed [0.073, 0.135] in
+        # catalog [0.005, 0.5] — ratio ~0.13 → factor ~2.32 (out of
+        # [1.1, 2.5]).
+        factor = self._auto(0.073, 0.135, (0.005, 0.5), "log_uniform_perturb")
+        assert 2.2 < factor < 2.5
+
+    def test_wide_spread_returns_close_to_min_factor(self):
+        # Observed range spans the whole catalog → ratio = 1 → factor = min_factor.
+        factor = self._auto(0.005, 0.5, (0.005, 0.5), "log_uniform_perturb")
+        assert factor == pytest.approx(1.1)
+
+    def test_mid_spread_returns_intermediate_factor(self):
+        # Linear ratio in float_uniform.  observed half the catalog → factor 1.8.
+        factor = self._auto(0.0, 0.5, (0.0, 1.0), "float_uniform")
+        # ratio = 0.5 → factor = 2.5 - 1.4 * 0.5 = 1.8.
+        assert factor == pytest.approx(1.8)
+
+    def test_integer_add_linear_ratio(self):
+        # Sobol.n live evidence: observed [8, 24] in catalog [4, 64] →
+        # ratio (24-8)/(64-4) = 16/60 ≈ 0.267 → factor ≈ 2.5 - 1.4*0.267 ≈ 2.127.
+        factor = self._auto(8.0, 24.0, (4.0, 64.0), "integer_add")
+        assert factor == pytest.approx(2.5 - 1.4 * (16.0 / 60.0), rel=1e-6)
+
+    def test_none_current_bounds_returns_fallback(self):
+        # No catalog rule → no relative-spread signal → fallback.
+        factor = self._auto(0.07, 0.13, None, "log_uniform_perturb", fallback=1.7)
+        assert factor == pytest.approx(1.7)
+
+    def test_degenerate_catalog_returns_fallback(self):
+        # Lower == upper (degenerate rule) → fallback.
+        factor = self._auto(0.1, 0.1, (0.5, 0.5), "log_uniform_perturb", fallback=1.4)
+        assert factor == pytest.approx(1.4)
+
+    def test_unsupported_rule_kind_returns_fallback(self):
+        # categorical / structural → no spread sizing → fallback.
+        factor = self._auto(0.0, 1.0, (0.0, 1.0), "categorical_choice", fallback=1.3)
+        assert factor == pytest.approx(1.3)
+
+    def test_log_kind_clamps_non_positive_to_fallback(self):
+        # log_uniform_perturb's spread is defined in log space; a
+        # non-positive bound on either side would NaN → fallback.
+        factor = self._auto(0.0, 0.1, (0.001, 1.0), "log_uniform_perturb", fallback=1.5)
+        assert factor == pytest.approx(1.5)
+        factor2 = self._auto(0.01, 0.1, (-0.1, 1.0), "log_uniform_perturb", fallback=1.6)
+        assert factor2 == pytest.approx(1.6)
+
+    def test_observed_exceeds_catalog_clipped_to_min(self):
+        # Defensive: if the observed range somehow exceeds the catalog
+        # (e.g. integer_add walked outside the bounds), clip ratio to 1
+        # and return min_factor.
+        factor = self._auto(0.0, 2.0, (0.0, 1.0), "float_uniform")
+        assert factor == pytest.approx(1.1)
+
+    def test_min_factor_must_exceed_one(self):
+        from panobbgo.self_improve import _auto_tune_widen_factor
+
+        with pytest.raises(ValueError, match="min_factor"):
+            _auto_tune_widen_factor(0.1, 0.2, (0.05, 0.5), "log_uniform_perturb", min_factor=1.0, max_factor=2.0)
+
+    def test_max_factor_below_min_rejected(self):
+        from panobbgo.self_improve import _auto_tune_widen_factor
+
+        with pytest.raises(ValueError, match="max_factor"):
+            _auto_tune_widen_factor(0.1, 0.2, (0.05, 0.5), "log_uniform_perturb", min_factor=2.0, max_factor=1.5)
+
+    def test_fallback_must_exceed_one(self):
+        from panobbgo.self_improve import _auto_tune_widen_factor
+
+        with pytest.raises(ValueError, match="fallback"):
+            _auto_tune_widen_factor(0.1, 0.2, None, "log_uniform_perturb", fallback=1.0)
+
+    def test_custom_factor_range_propagates(self):
+        # Caller-supplied [min, max] range overrides the default [1.1, 2.5].
+        factor_narrow = self._auto(
+            0.073,
+            0.135,
+            (0.005, 0.5),
+            "log_uniform_perturb",
+            min_factor=1.2,
+            max_factor=4.0,
+        )
+        # Narrow spread (ratio ~0.13) → close to max_factor=4.0.
+        assert 3.5 < factor_narrow < 4.0
+        factor_wide = self._auto(
+            0.005,
+            0.5,
+            (0.005, 0.5),
+            "log_uniform_perturb",
+            min_factor=1.2,
+            max_factor=4.0,
+        )
+        # Wide spread (ratio = 1) → min_factor=1.2.
+        assert factor_wide == pytest.approx(1.2)
+
+
+class TestDetectWideningCandidatesAutoTune:
+    """:func:`detect_widening_candidates` with ``auto_tune=True``."""
+
+    def test_auto_tune_off_by_default_byte_identical(self):
+        # Default invocation (no auto_tune) must produce the same factor
+        # as the pre-2026-06-22 code path.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.13))
+        down = _codify_candidate(direction="down", new_values=(0.08, 0.07))
+        [w] = detect_widening_candidates([up, down], widen_factor=1.5)
+        assert w.widen_factor == pytest.approx(1.5)
+
+    def test_auto_tune_sizes_factor_per_candidate(self):
+        # Nearby.radius live shape — narrow observed spread inside a
+        # wide catalog (default rule [0.005, 0.5]).  Auto-tune should
+        # produce a factor > the default 1.5.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.135))
+        down = _codify_candidate(direction="down", new_values=(0.073, 0.08))
+        [w] = detect_widening_candidates([up, down], auto_tune=True)
+        # observed [0.073, 0.135] in catalog [0.005, 0.5] →
+        # log(1.85)/log(100) ≈ 0.133 → factor ≈ 2.31 (in [1.1, 2.5]).
+        assert 2.2 < w.widen_factor < 2.5
+        # Proposed bound is wider than the fixed-1.5 baseline would give.
+        assert w.proposed_hi > 0.135 * 1.5
+
+    def test_auto_tune_falls_back_to_widen_factor_when_no_rule(self):
+        # Slot the default catalog doesn't ship a rule for → no relative
+        # spread signal → falls back to the supplied widen_factor.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(class_name="Unknown", param_name="x", direction="up", new_values=(0.5,))
+        down = _codify_candidate(class_name="Unknown", param_name="x", direction="down", new_values=(0.3,))
+        [w] = detect_widening_candidates(
+            [up, down],
+            widen_factor=1.7,
+            auto_tune=True,
+        )
+        assert w.current_bounds is None
+        assert w.widen_factor == pytest.approx(1.7)
+
+    def test_auto_tune_factor_propagates_to_to_dict(self):
+        # The per-candidate factor must appear in to_dict so JSON
+        # consumers see the actually-used factor.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.135))
+        down = _codify_candidate(direction="down", new_values=(0.073, 0.08))
+        [w] = detect_widening_candidates([up, down], auto_tune=True)
+        d = w.to_dict()
+        assert d["widen_factor"] == pytest.approx(w.widen_factor)
+        # And the proposed bounds reflect the auto-tuned factor, not the default 1.5.
+        assert d["proposed_hi"] == pytest.approx(0.135 * w.widen_factor)
+
+    def test_auto_tune_with_custom_range(self):
+        # Caller-supplied min/max factors override the defaults.
+        from panobbgo.self_improve import detect_widening_candidates
+
+        up = _codify_candidate(direction="up", new_values=(0.12, 0.135))
+        down = _codify_candidate(direction="down", new_values=(0.073, 0.08))
+        [w] = detect_widening_candidates(
+            [up, down],
+            auto_tune=True,
+            auto_tune_min_factor=1.2,
+            auto_tune_max_factor=4.0,
+        )
+        # Narrow spread → close to max_factor=4.0.
+        assert w.widen_factor > 3.5
+
+
+class TestCodifyScanCLIAutoTuneWidening:
+    """End-to-end CLI smoke tests for ``--widen-auto-tune``."""
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _ledger_with_bidirectional_nearby(self, tmp_path) -> pathlib.Path:
+        # Live evidence shape: Nearby.radius bidirectional across 4 nights.
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(rec)
+                for rec in [
+                    _accepted_iter_record(
+                        timestamp="2026-06-01T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-02T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.135,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-03T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.073,
+                    ),
+                    _accepted_iter_record(
+                        timestamp="2026-06-04T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.08,
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        return live
+
+    def _build_ns(self, live, **kwargs):
+        # Re-use the existing namespace builder by importing the helper.
+        return TestCodifyScanCLIWidening()._build_ns(live, **kwargs)
+
+    def test_auto_tune_off_by_default_uses_fixed_factor(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = self._ledger_with_bidirectional_nearby(tmp_path)
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True, widen_factor=1.5))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Bound-widening candidates (widen_factor=1.5)" in out
+        # No auto-tune header noise.
+        assert "auto-tune" not in out
+
+    def test_auto_tune_flag_swaps_in_per_candidate_factor(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = self._ledger_with_bidirectional_nearby(tmp_path)
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True, widen_auto_tune=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Header announces auto-tune mode + the configured range.
+        assert "widen_factor=auto-tune" in out
+        assert "[1.1, 2.5]" in out
+        assert "fallback=1.5" in out
+
+    def test_auto_tune_json_mode_emits_per_candidate_factor(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = self._ledger_with_bidirectional_nearby(tmp_path)
+        rc = cli._cmd_codify_scan(self._build_ns(live, widen_bounds=True, widen_auto_tune=True, as_json=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        widening = [
+            json.loads(line) for line in out.splitlines() if line.strip() and '"_type": "widening_candidate"' in line
+        ]
+        assert len(widening) == 1
+        w = widening[0]
+        # The per-candidate factor for the Nearby.radius live shape sits
+        # near the max-factor end of the [1.1, 2.5] range — see
+        # TestDetectWideningCandidatesAutoTune.test_auto_tune_sizes_factor_per_candidate.
+        assert 2.2 < w["widen_factor"] < 2.5
+
+    def test_auto_tune_custom_range_propagates(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = self._ledger_with_bidirectional_nearby(tmp_path)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(
+                live,
+                widen_bounds=True,
+                widen_auto_tune=True,
+                widen_factor_min=1.2,
+                widen_factor_max=4.0,
+                as_json=True,
+            )
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        widening = [
+            json.loads(line) for line in out.splitlines() if line.strip() and '"_type": "widening_candidate"' in line
+        ]
+        assert len(widening) == 1
+        # Narrow spread + max_factor=4.0 → widen_factor near 4.0.
+        assert widening[0]["widen_factor"] > 3.5

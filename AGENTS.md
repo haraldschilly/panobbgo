@@ -643,6 +643,21 @@ The harness is the measurement substrate for an autonomous
     values in a window 5-10× narrower than the catalog admits.  See
     the 2026-06-19 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Auto-tuned widen factor** — **shipped 2026-06-22**.  The
+    fixed `--widen-factor` is one-size-fits-all across rules whose
+    observed-spread / catalog-bound ratios differ by an order of
+    magnitude.  `--widen-auto-tune` sizes the factor per candidate
+    from that ratio in the rule's natural scale (log for
+    `log_uniform_perturb`, linear for `integer_add` / `float_uniform`):
+    narrow observed spread (high agreement) → larger factor
+    (`--widen-factor-max`, default `2.5`) for exploration headroom;
+    wide spread → smaller factor (`--widen-factor-min`, default
+    `1.1`) focused on the consensus.  Falls back to `--widen-factor`
+    when no catalog rule targets the slot.  Lifts the live
+    `Nearby.radius` widen factor from a fixed 1.5 to ~2.31; proposed
+    bound widens from `[0.049, 0.203]` to `[0.032, 0.313]`.  See the
+    2026-06-22 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **Nightly cron flipped to V2 substrate** — **shipped 2026-06-21**.
     The `self_improve_nightly.yml` workflow now invokes
     `scripts/self_improve.py run` with every zero-cost V2 flag:
@@ -803,6 +818,16 @@ uv run python scripts/self_improve.py codify-scan --include-already-codified
 # line-delimited stream tagged ``"_type": "widening_candidate"``.
 uv run python scripts/self_improve.py codify-scan --widen-bounds
 uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-factor 2.0
+
+# Auto-tuned widen factor (shipped 2026-06-22) — sizes the factor per
+# candidate from observed-spread / catalog-bound ratio.  Narrow spread
+# (high agreement) → larger factor; wide spread → smaller.  Default
+# range [1.1, 2.5], override with --widen-factor-min / --widen-factor-max.
+# Falls back to --widen-factor (default 1.5) when no catalog rule
+# targets the slot.
+uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-auto-tune
+uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-auto-tune \
+    --widen-factor-min 1.2 --widen-factor-max 4.0
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

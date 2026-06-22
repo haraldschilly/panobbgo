@@ -1150,6 +1150,80 @@ downstream consumer can filter by type.  Library API:
 :class:`panobbgo.self_improve.WideningCandidate` and
 :func:`panobbgo.self_improve.detect_widening_candidates`.
 
+Auto-tuned widen factor (``--widen-auto-tune``)
+"""""""""""""""""""""""""""""""""""""""""""""""
+
+Shipped 2026-06-22.  The fixed ``--widen-factor`` is one-size-fits-all
+across rules whose observed spreads differ by an order of magnitude.
+``--widen-auto-tune`` sizes the factor per-candidate from the ratio
+of observed spread to catalog-bound span:
+
+* **Narrow observed spread** (high agreement across nights, bandit
+  converged) → larger factor — the proposed bound gets generous
+  headroom outside the consensus window so the bandit has room to
+  discover the next win.
+* **Wide observed spread** (low agreement, bandit still exploring) →
+  smaller factor — the proposed bound focuses on the consensus
+  rather than ballooning further.
+
+The spread is measured in the rule's natural scale:
+
+* ``log_uniform_perturb`` — log-space ratio
+  ``log(observed_hi / observed_lo) / log(current_hi / current_lo)``.
+* ``integer_add`` / ``float_uniform`` — linear ratio
+  ``(observed_hi - observed_lo) / (current_hi - current_lo)``.
+
+Then linearly interpolated:
+
+.. code-block:: text
+
+   factor = max_factor - (max_factor - min_factor) * ratio
+
+with the ratio clipped to ``[0.0, 1.0]``.  The default range is
+``[1.1, 2.5]`` (set via ``--widen-factor-min`` / ``--widen-factor-max``).
+When no catalog rule targets the slot — the relative-spread signal is
+unavailable — the helper falls back to the supplied ``--widen-factor``
+(default ``1.5``), so existing operators have a single-flag opt-in
+path.
+
+Live-ledger evidence on the day of ship:
+
+* ``Nearby.radius`` (``log_uniform_perturb``) — observed
+  ``[0.073, 0.135]``, catalog ``[0.005, 0.5]``, log-ratio ``≈ 0.13`` →
+  auto-tuned factor **≈ 2.31** (vs the fixed ``1.5``).  Proposed
+  bound widens from ``[0.049, 0.203]`` to ``[0.032, 0.313]`` —
+  meaningfully more headroom outside the consensus window the bandit
+  has converged into.
+* ``Sobol.n`` (``integer_add``) — observed ``[8, 24]``, catalog
+  ``[4, 64]``, linear-ratio ``≈ 0.27`` → auto-tuned factor **≈ 2.13**
+  (vs ``1.5``).  Proposed bound flips from *tightening*
+  (``[5, 36]``) to *widening* (``[3, 52]``) the catalog because the
+  observed window covers enough of the catalog that a generous widen
+  pushes the upper end past the catalog's current 36.
+
+CLI:
+
+.. code-block:: bash
+
+   # Auto-tuned factor per candidate, default range [1.1, 2.5]:
+   uv run python scripts/self_improve.py codify-scan \
+       --widen-bounds --widen-auto-tune
+
+   # Custom factor range — e.g. log-scale knobs tolerate larger
+   # max_factor; the linear default is conservative:
+   uv run python scripts/self_improve.py codify-scan \
+       --widen-bounds --widen-auto-tune \
+       --widen-factor-min 1.2 --widen-factor-max 4.0
+
+The ``Bound-widening candidates`` report header switches from
+``widen_factor=1.5`` to ``widen_factor=auto-tune [1.1, 2.5]
+(fallback=1.5)`` when auto-tune is on, so the operator can see at a
+glance which sizing rule produced each surfaced bound.  Library API:
+:func:`panobbgo.self_improve._auto_tune_widen_factor` (the helper) and
+the ``auto_tune`` / ``auto_tune_min_factor`` /
+``auto_tune_max_factor`` keyword arguments on
+:func:`panobbgo.self_improve.detect_widening_candidates`.
+
 Adaptive mutation sampler (§10)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

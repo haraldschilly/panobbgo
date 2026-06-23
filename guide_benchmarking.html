@@ -1621,10 +1621,17 @@ any spec that opts in.  L-SHADE (Tanabe-Fukunaga 2014) brings success-history
 adaptive Differential Evolution with linear population reduction
 and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
 2017) linearly-decreasing <code class="docutils literal notranslate"><span class="pre">p_best</span></code> schedule (set <code class="docutils literal notranslate"><span class="pre">p_best_end</span></code>
-on the spec to enable) and the jSO (Brest et al. 2017) three-phase
-asymmetric F-cap (set <code class="docutils literal notranslate"><span class="pre">F_schedule=True</span></code> to enable — clamps
+on the spec to enable) and the categorical asymmetric F-cap regime
+<code class="docutils literal notranslate"><span class="pre">F_schedule</span></code> whose named choices <code class="docutils literal notranslate"><span class="pre">&quot;jso&quot;</span></code> (Brest 2017 —
 <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.7</span></code> while <code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.6</span></code>, <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.8</span></code> while
-<code class="docutils literal notranslate"><span class="pre">0.6</span> <span class="pre">≤</span> <span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.9</span></code>, unclamped in the final 10%);
+<code class="docutils literal notranslate"><span class="pre">0.6</span> <span class="pre">≤</span> <span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.9</span></code>, unclamped in the final 10%), <code class="docutils literal notranslate"><span class="pre">&quot;early&quot;</span></code>
+(kicks in earlier and tighter — <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.6</span></code> while <code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.4</span></code>,
+<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.8</span></code> while <code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.7</span></code>, unclamped after that), and
+<code class="docutils literal notranslate"><span class="pre">&quot;strict&quot;</span></code> (most aggressive — <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.5</span></code> while <code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.5</span></code>,
+<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.7</span></code> while <code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">&lt;</span> <span class="pre">0.85</span></code>, unclamped in the final 15%)
+each pick a literature-grade three-phase asymmetric F-cap (the
+legacy <code class="docutils literal notranslate"><span class="pre">True</span></code> / <code class="docutils literal notranslate"><span class="pre">False</span></code> boolean inputs map onto <code class="docutils literal notranslate"><span class="pre">&quot;jso&quot;</span></code> /
+<code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code> for back-compat with the binary toggle shipped 2026-05-21);
 jSO (Brest, Maučec &amp; Bošković 2017 — CEC-2017 winner) refines L-SHADE
 with a weighted <code class="docutils literal notranslate"><span class="pre">current-to-pbest-w/1</span></code> mutation, a linear
 <code class="docutils literal notranslate"><span class="pre">p_best</span></code> schedule, the literature-faithful three-phase asymmetric
@@ -1874,14 +1881,25 @@ pseudo-random “freshness” against the classic Sobol’ grid.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LSHADE.archive_factor</span></code> — <code class="docutils literal notranslate"><span class="pre">0.0</span></code> (no archive, vanilla
 current-to-pbest/1) vs <code class="docutils literal notranslate"><span class="pre">1.0</span></code> (Tanabe-Fukunaga default) vs
 <code class="docutils literal notranslate"><span class="pre">2.6</span></code> (L-SHADE-RSP enlarged archive).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">LSHADE.F_schedule</span></code> — <code class="docutils literal notranslate"><span class="pre">True</span></code> (jSO three-phase asymmetric
-F-cap: <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.7</span></code> in [0, 0.6), <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.8</span></code> in [0.6, 0.9),
-unclamped in [0.9, 1.0]) vs <code class="docutils literal notranslate"><span class="pre">False</span></code> (vanilla Tanabe-Fukunaga
-L-SHADE, unclamped throughout).  The cap is the jSO refinement
-on top of L-SHADE’s success-history adaptation; flipping it lets
-the bandit move an existing <code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code> instance between the
-two literature regimes without dropping and re-adding the
-heuristic.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LSHADE.F_schedule</span></code> — four named regimes lift the original
+binary toggle into a categorical:
+<code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code> (vanilla Tanabe-Fukunaga L-SHADE, unclamped throughout),
+<code class="docutils literal notranslate"><span class="pre">&quot;jso&quot;</span></code> (Brest et al. 2017 three-phase asymmetric F-cap:
+<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.7</span></code> in [0, 0.6), <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.8</span></code> in [0.6, 0.9), unclamped in
+[0.9, 1.0]), <code class="docutils literal notranslate"><span class="pre">&quot;early&quot;</span></code> (earlier and tighter kick-in:
+<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.6</span></code> in [0, 0.4), <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.8</span></code> in [0.4, 0.7), unclamped
+after that — useful when small initial steps help converge
+faster), and <code class="docutils literal notranslate"><span class="pre">&quot;strict&quot;</span></code> (most aggressive: <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.5</span></code> in
+[0, 0.5), <code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">≤</span> <span class="pre">0.7</span></code> in [0.5, 0.85), unclamped in [0.85, 1.0] —
+useful when large F is harmful, e.g. ill-conditioned basins).
+Each regime is a literature-grade three-phase asymmetric cap;
+flipping between them lets the bandit move an existing
+<code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code> instance across qualitatively distinct cap
+geometries without dropping and re-adding the heuristic.  The
+legacy <code class="docutils literal notranslate"><span class="pre">True</span></code> / <code class="docutils literal notranslate"><span class="pre">False</span></code> boolean inputs still work as
+backwards-compatible synonyms for <code class="docutils literal notranslate"><span class="pre">&quot;jso&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;off&quot;</span></code>
+(preserving ledger replay against the binary toggle shipped
+2026-05-21).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_RSP.k_rank</span></code> — <code class="docutils literal notranslate"><span class="pre">0.0</span></code> (uniform <code class="docutils literal notranslate"><span class="pre">r1</span></code> selection,
 recovers jSO behaviour) vs <code class="docutils literal notranslate"><span class="pre">3.0</span></code> (Stanovov et al. 2018 / 2021
 RSP default) vs <code class="docutils literal notranslate"><span class="pre">5.0</span></code> (aggressive rank pressure).  Sits
@@ -1936,7 +1954,7 @@ flipping a discrete knob is worthwhile.</p>
 </span><span data-line="27">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;LSHADE&quot;</span><span class="p">,</span>
 </span><span data-line="28">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;F_schedule&quot;</span><span class="p">,</span>
 </span><span data-line="29">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
-</span><span data-line="30">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+</span><span data-line="30">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">,</span> <span class="s2">&quot;jso&quot;</span><span class="p">,</span> <span class="s2">&quot;early&quot;</span><span class="p">,</span> <span class="s2">&quot;strict&quot;</span><span class="p">),</span>
 </span><span data-line="31">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
 </span><span data-line="32"><span class="p">),</span>
 </span><span data-line="33"><span class="n">MutationRule</span><span class="p">(</span>

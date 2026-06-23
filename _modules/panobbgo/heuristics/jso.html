@@ -218,7 +218,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="84"><span class="sd">are :meth:`_generate_trial` (``F_w`` weighting + linear ``p_best``)</span>
 </span><span data-line="85"><span class="sd">and :meth:`_update_memory` (skip the anchor bin, advance pointer</span>
 </span><span data-line="86"><span class="sd">mod ``H − 1``).  The asymmetric F-cap is inherited from</span>
-</span><span data-line="87"><span class="sd">:meth:`LSHADE._apply_F_cap` via ``F_schedule=True``.</span>
+</span><span data-line="87"><span class="sd">:meth:`LSHADE._apply_F_cap` via ``F_schedule=&quot;jso&quot;``.</span>
 </span><span data-line="88">
 </span><span data-line="89"><span class="sd">Progress measurement uses ``len(strategy.results) / max_eval`` —</span>
 </span><span data-line="90"><span class="sd">the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and</span>
@@ -349,7 +349,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="213">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
 </span><span data-line="214">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>  <span class="c1"># parent stores fixed greediness; we override per-call</span>
 </span><span data-line="215">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
-</span><span data-line="216">            <span class="n">F_schedule</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># jSO opts into the asymmetric F-cap by construction</span>
+</span><span data-line="216">            <span class="n">F_schedule</span><span class="o">=</span><span class="s2">&quot;jso&quot;</span><span class="p">,</span>  <span class="c1"># jSO opts into the asymmetric F-cap by construction</span>
 </span><span data-line="217">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
 </span><span data-line="218">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;JSO&quot;</span><span class="p">,</span>
 </span><span data-line="219">        <span class="p">)</span>

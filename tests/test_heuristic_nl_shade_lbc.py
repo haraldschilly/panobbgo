@@ -82,8 +82,8 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h.p_CR_final == _DEFAULT_P_CR_FINAL == 1.5
         assert h.m_lbc == _DEFAULT_M_LBC == 1.5
         assert h.name == "NLSHADE_LBC"
-        # F-cap inherited from jSO via NL-SHADE-RSP.
-        assert h.F_schedule is True
+        # F-cap inherited from jSO via NL-SHADE-RSP (jSO regime).
+        assert h.F_schedule == "jso"
 
     def test_custom_construction(self):
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC

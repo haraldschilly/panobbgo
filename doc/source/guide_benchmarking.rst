@@ -1432,10 +1432,17 @@ space with two new ops that change the *shape* of a
   adaptive Differential Evolution with linear population reduction
   and two opt-in jSO refinements: the iLSHADE / jSO (Brest 2016 /
   2017) linearly-decreasing ``p_best`` schedule (set ``p_best_end``
-  on the spec to enable) and the jSO (Brest et al. 2017) three-phase
-  asymmetric F-cap (set ``F_schedule=True`` to enable — clamps
+  on the spec to enable) and the categorical asymmetric F-cap regime
+  ``F_schedule`` whose named choices ``"jso"`` (Brest 2017 —
   ``F ≤ 0.7`` while ``progress < 0.6``, ``F ≤ 0.8`` while
-  ``0.6 ≤ progress < 0.9``, unclamped in the final 10%);
+  ``0.6 ≤ progress < 0.9``, unclamped in the final 10%), ``"early"``
+  (kicks in earlier and tighter — ``F ≤ 0.6`` while ``progress < 0.4``,
+  ``F ≤ 0.8`` while ``progress < 0.7``, unclamped after that), and
+  ``"strict"`` (most aggressive — ``F ≤ 0.5`` while ``progress < 0.5``,
+  ``F ≤ 0.7`` while ``progress < 0.85``, unclamped in the final 15%)
+  each pick a literature-grade three-phase asymmetric F-cap (the
+  legacy ``True`` / ``False`` boolean inputs map onto ``"jso"`` /
+  ``"off"`` for back-compat with the binary toggle shipped 2026-05-21);
   jSO (Brest, Maučec & Bošković 2017 — CEC-2017 winner) refines L-SHADE
   with a weighted ``current-to-pbest-w/1`` mutation, a linear
   ``p_best`` schedule, the literature-faithful three-phase asymmetric
@@ -1705,14 +1712,25 @@ Panobbgo's heuristic portfolio are **discrete** instead:
 * ``LSHADE.archive_factor`` — ``0.0`` (no archive, vanilla
   current-to-pbest/1) vs ``1.0`` (Tanabe-Fukunaga default) vs
   ``2.6`` (L-SHADE-RSP enlarged archive).
-* ``LSHADE.F_schedule`` — ``True`` (jSO three-phase asymmetric
-  F-cap: ``F ≤ 0.7`` in [0, 0.6), ``F ≤ 0.8`` in [0.6, 0.9),
-  unclamped in [0.9, 1.0]) vs ``False`` (vanilla Tanabe-Fukunaga
-  L-SHADE, unclamped throughout).  The cap is the jSO refinement
-  on top of L-SHADE's success-history adaptation; flipping it lets
-  the bandit move an existing :class:`LSHADE` instance between the
-  two literature regimes without dropping and re-adding the
-  heuristic.
+* ``LSHADE.F_schedule`` — four named regimes lift the original
+  binary toggle into a categorical:
+  ``"off"`` (vanilla Tanabe-Fukunaga L-SHADE, unclamped throughout),
+  ``"jso"`` (Brest et al. 2017 three-phase asymmetric F-cap:
+  ``F ≤ 0.7`` in [0, 0.6), ``F ≤ 0.8`` in [0.6, 0.9), unclamped in
+  [0.9, 1.0]), ``"early"`` (earlier and tighter kick-in:
+  ``F ≤ 0.6`` in [0, 0.4), ``F ≤ 0.8`` in [0.4, 0.7), unclamped
+  after that — useful when small initial steps help converge
+  faster), and ``"strict"`` (most aggressive: ``F ≤ 0.5`` in
+  [0, 0.5), ``F ≤ 0.7`` in [0.5, 0.85), unclamped in [0.85, 1.0] —
+  useful when large F is harmful, e.g. ill-conditioned basins).
+  Each regime is a literature-grade three-phase asymmetric cap;
+  flipping between them lets the bandit move an existing
+  :class:`LSHADE` instance across qualitatively distinct cap
+  geometries without dropping and re-adding the heuristic.  The
+  legacy ``True`` / ``False`` boolean inputs still work as
+  backwards-compatible synonyms for ``"jso"`` / ``"off"``
+  (preserving ledger replay against the binary toggle shipped
+  2026-05-21).
 * ``NLSHADE_RSP.k_rank`` — ``0.0`` (uniform ``r1`` selection,
   recovers jSO behaviour) vs ``3.0`` (Stanovov et al. 2018 / 2021
   RSP default) vs ``5.0`` (aggressive rank pressure).  Sits
@@ -1771,7 +1789,7 @@ The default catalog ships nine categorical rules out-of-the-box:
        class_name="LSHADE",
        param_name="F_schedule",
        kind="categorical_choice",
-       choices=(True, False),
+       choices=("off", "jso", "early", "strict"),
        probability=0.3,
    ),
    MutationRule(

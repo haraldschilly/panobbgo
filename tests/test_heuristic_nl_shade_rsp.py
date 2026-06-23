@@ -73,7 +73,7 @@ class NLSHADERSPConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h.name == "NLSHADE_RSP"
         assert h._rsp_archive_cap is None
         # jSO opts into the asymmetric F-cap; NL-SHADE-RSP inherits it.
-        assert h.F_schedule is True
+        assert h.F_schedule == "jso"
 
     def test_custom_construction(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP

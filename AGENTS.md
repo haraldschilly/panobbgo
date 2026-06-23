@@ -438,7 +438,10 @@ The harness is the measurement substrate for an autonomous
     ships nine categorical rules out-of-the-box: `PSO.topology`
     (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"` ↔ `"random"`), `Sobol.scramble` (`True` ↔ `False`),
     `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`),
-    `LSHADE.F_schedule` (`True` ↔ `False`),
+    `LSHADE.F_schedule` (`"off"` / `"jso"` / `"early"` / `"strict"` —
+    four named asymmetric F-cap regimes, shipped 2026-06-23 broadening
+    the original `True` / `False` binary toggle; the bool inputs still
+    work as backwards-compatible synonyms for `"jso"` / `"off"`),
     `NLSHADE_RSP.adaptive_archive` (`True` ↔ `False`),
     `NLSHADE_RSP.k_rank` (`0.0` / `3.0` / `5.0` — RSP-off /
     Stanovov default / aggressive regimes, sitting alongside the
@@ -456,12 +459,18 @@ The harness is the measurement substrate for an autonomous
     when the target spec sets the kwarg *explicitly* — the
     "param already in kwargs" predicate keeps the rule out of specs
     that left the kwarg at the heuristic's constructor default.
-    `LSHADE.F_schedule=True` enables the jSO (Brest et al. 2017)
-    three-phase asymmetric F-cap on L-SHADE (`F ≤ 0.7` while
+    `LSHADE.F_schedule="jso"` (formerly `True`) enables the Brest et al.
+    2017 three-phase asymmetric F-cap on L-SHADE (`F ≤ 0.7` while
     `progress < 0.6`, `F ≤ 0.8` while `0.6 ≤ progress < 0.9`,
-    unclamped in the final 10%); jSO opts into the cap by
-    construction so `JSO` is always literature-faithful regardless of
-    the catalog rule's verdict on L-SHADE.
+    unclamped in the final 10%).  The 2026-06-23 broadening adds two
+    sibling regimes — `"early"` (kicks in earlier and tighter:
+    `F ≤ 0.6` while `progress < 0.4`, `F ≤ 0.8` while
+    `progress < 0.7`) and `"strict"` (most aggressive: `F ≤ 0.5`
+    while `progress < 0.5`, `F ≤ 0.7` while `progress < 0.85`) — so
+    the bandit can search the broader cap geometry on a single arm.
+    jSO opts into `"jso"` by construction so `JSO` is always
+    literature-faithful regardless of the catalog rule's verdict on
+    L-SHADE.
 *   Numeric `Restart.patience` rule (`integer_add`,
     `bounds=(3, 200)`) — **shipped 2026-06-06**, the more
     impactful of the two :class:`Restart` knobs (alongside

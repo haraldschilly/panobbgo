@@ -325,11 +325,11 @@ class JSOAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
     """
 
     def test_jso_opts_into_F_schedule_by_construction(self):
-        """jSO sets ``F_schedule=True`` on the L-SHADE base class."""
+        """jSO sets ``F_schedule="jso"`` on the L-SHADE base class."""
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy, seed=0)
-        assert h.F_schedule is True
+        assert h.F_schedule == "jso"
 
     def test_F_clamped_at_07_when_progress_below_60_percent(self):
         from panobbgo.heuristics.jso import JSO

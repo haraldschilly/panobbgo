@@ -63,14 +63,25 @@ under LPSR.  The canonical jSO setting is
 ``p_best = 0.25, p_best_end = 0.125``.  ``p_best_end=None`` (the
 default) preserves the constant-``p_best`` L-SHADE behaviour.
 
-Optionally pass ``F_schedule=True`` to enable the jSO asymmetric
-F-cap (Brest et al. 2017).  The cap is keyed on progress
-``e / E``: ``F ≤ 0.7`` while ``progress < 0.6``, ``F ≤ 0.8`` while
-``progress < 0.9``, and unclamped in the final 10%.  This prevents
-pathologically large jumps when the population is still big while
-preserving full-range mutation late in the search.  ``F_schedule=None``
-(default) keeps the unclamped Tanabe-Fukunaga behaviour.  jSO sets
-``F_schedule=True`` by construction.
+Optionally pass ``F_schedule`` to enable an asymmetric F-cap schedule.
+Three named regimes ship out-of-the-box:
+
+* ``"jso"`` (Brest et al. 2017) — ``F ≤ 0.7`` while ``progress < 0.6``,
+  ``F ≤ 0.8`` while ``progress < 0.9``, unclamped in the final 10%.
+* ``"early"`` — kicks in earlier with a tighter first cap: ``F ≤ 0.6``
+  while ``progress < 0.4``, ``F ≤ 0.8`` while ``progress < 0.7``,
+  unclamped after that.  Useful when the basin sits near the box centre
+  and small initial steps help converge faster.
+* ``"strict"`` — aggressive throughout: ``F ≤ 0.5`` while
+  ``progress < 0.5``, ``F ≤ 0.7`` while ``progress < 0.85``, unclamped
+  in the final 15%.  Useful when large F is harmful (ill-conditioned
+  basins, narrow valleys).
+
+``F_schedule="off"`` (explicit) and ``F_schedule=None`` (default) both
+keep the unclamped Tanabe-Fukunaga behaviour.  For backwards
+compatibility ``True`` is accepted as a synonym for ``"jso"`` and
+``False`` as a synonym for ``"off"``; jSO opts into ``"jso"`` by
+construction.
 
 Asynchronous execution
 ----------------------
@@ -134,7 +145,7 @@ References
 from __future__ import annotations
 
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -161,22 +172,58 @@ _F_MAX_REDRAWS: int = 100
 # (per Tanabe-Fukunaga §III-B).
 _CR_TERMINAL: float = -1.0
 
-# Asymmetric F-cap schedule (Brest et al. 2017, jSO).  Three phases keyed
-# on ``progress = len(results) / max_eval``:
+# Asymmetric F-cap schedule.  Each regime is a 4-tuple
+# ``(phase1_bound, phase2_bound, phase1_cap, phase2_cap)`` keyed on
+# ``progress = len(results) / max_eval``.  When ``F_schedule`` resolves
+# to a named regime, sampled ``F`` is clamped via::
 #
-#   progress ∈ [0, _F_SCHEDULE_PHASE1_BOUND)   → F clamped at _F_SCHEDULE_PHASE1_CAP
-#   progress ∈ [_F_SCHEDULE_PHASE1_BOUND,
-#               _F_SCHEDULE_PHASE2_BOUND)      → F clamped at _F_SCHEDULE_PHASE2_CAP
-#   progress ∈ [_F_SCHEDULE_PHASE2_BOUND, 1]   → F unclamped (just F ≤ 1)
+#   progress < phase1_bound                    → F ≤ phase1_cap
+#   phase1_bound ≤ progress < phase2_bound     → F ≤ phase2_cap
+#   progress ≥ phase2_bound                    → F unclamped (just F ≤ 1)
 #
-# The 60% / 90% breakpoints and 0.7 / 0.8 caps match the canonical jSO
-# spec (Brest, Maučec & Bošković 2017, §III-D).  When ``F_schedule`` is
-# off the cap is bypassed and the heuristic reproduces the byte-identical
-# L-SHADE behaviour shipped 2026-05-10.
-_F_SCHEDULE_PHASE1_BOUND: float = 0.6
-_F_SCHEDULE_PHASE2_BOUND: float = 0.9
-_F_SCHEDULE_PHASE1_CAP: float = 0.7
-_F_SCHEDULE_PHASE2_CAP: float = 0.8
+# The ``"jso"`` regime is the canonical Brest, Maučec & Bošković (2017,
+# §III-D) settings; ``"early"`` and ``"strict"`` extend the literature
+# regime with tighter or earlier-kicking caps so the bandit can search
+# the broader cap geometry without changing the heuristic at all.
+# ``"off"`` / ``None`` / ``False`` all bypass the cap entirely
+# (byte-identical Tanabe-Fukunaga behaviour shipped 2026-05-10).
+_F_SCHEDULE_REGIMES: Dict[str, Tuple[float, float, float, float]] = {
+    "jso": (0.6, 0.9, 0.7, 0.8),
+    "early": (0.4, 0.7, 0.6, 0.8),
+    "strict": (0.5, 0.85, 0.5, 0.7),
+}
+# Backwards-compatibility aliases for the original boolean toggle
+# (shipped 2026-05-21 as ``F_schedule: bool``).  The literature canonical
+# breakpoints / caps live on the ``"jso"`` regime above; these constants
+# stay so module-level introspection code (and existing tests pinning
+# the canonical Brest 2017 values) keeps working.
+_F_SCHEDULE_PHASE1_BOUND: float = _F_SCHEDULE_REGIMES["jso"][0]
+_F_SCHEDULE_PHASE2_BOUND: float = _F_SCHEDULE_REGIMES["jso"][1]
+_F_SCHEDULE_PHASE1_CAP: float = _F_SCHEDULE_REGIMES["jso"][2]
+_F_SCHEDULE_PHASE2_CAP: float = _F_SCHEDULE_REGIMES["jso"][3]
+
+
+def _normalize_F_schedule(value: Optional[Union[bool, str]]) -> Optional[str]:
+    """Map the constructor's ``F_schedule`` argument onto a regime name.
+
+    Returns ``None`` for the cap-disabled regimes (``None`` / ``False`` /
+    ``"off"``) so :meth:`LSHADE._apply_F_cap` can branch on a single
+    ``is None`` check.  Returns a key into :data:`_F_SCHEDULE_REGIMES`
+    for the active regimes.  Raises :class:`ValueError` for any other
+    input — bools other than ``True`` / ``False``, unknown strings, etc.
+    """
+    if value is None or value is False:
+        return None
+    if value is True:
+        return "jso"
+    if isinstance(value, str):
+        if value == "off":
+            return None
+        if value in _F_SCHEDULE_REGIMES:
+            return value
+        valid = ("off",) + tuple(sorted(_F_SCHEDULE_REGIMES))
+        raise ValueError(f"LSHADE: F_schedule must be one of {valid} (or None / True / False), got {value!r}")
+    raise ValueError(f"LSHADE: F_schedule must be a string regime name, bool, or None, got {value!r}")
 
 
 class _Dropped:
@@ -228,14 +275,17 @@ class LSHADE(Heuristic):
             archive is capped at ``ceil(archive_factor · NP_current)``.
             Default ``1.0``.  Setting it to ``0`` disables the archive
             (``r2`` is then drawn only from the live population).
-        F_schedule: Optional opt-in for the jSO asymmetric F-cap (Brest
-            et al. 2017).  When ``True``, sampled ``F`` is clamped to
-            ``0.7`` while ``progress < 0.6``, to ``0.8`` while
-            ``progress < 0.9``, and left unclamped in the final 10% of
-            the budget.  ``None`` (default) keeps the unclamped
-            Tanabe-Fukunaga behaviour.  jSO opts in by construction.
-            Falls back to the unclamped behaviour when the strategy
-            budget is unknown.
+        F_schedule: Optional asymmetric F-cap regime.  Accepts one of
+            the named regimes ``"off"`` / ``"jso"`` / ``"early"`` /
+            ``"strict"`` (see the module docstring for the per-regime
+            breakpoints and caps), or ``None`` (default — same as
+            ``"off"``).  ``True`` / ``False`` are accepted as
+            backwards-compatible synonyms for ``"jso"`` / ``"off"``.
+            The constructor normalizes the value so
+            :attr:`F_schedule` is ``None`` for the disabled regimes and
+            a string regime name otherwise.  Falls back to the
+            unclamped behaviour when the strategy budget is unknown.
+            jSO opts into ``"jso"`` by construction.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             seeds from ``np.random.default_rng()``.
         name: Override the heuristic's display name.
@@ -262,7 +312,7 @@ class LSHADE(Heuristic):
         p_best: float = _DEFAULT_P_BEST,
         p_best_end: Optional[float] = None,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
-        F_schedule: Optional[bool] = None,
+        F_schedule: Optional[Union[bool, str]] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -286,8 +336,10 @@ class LSHADE(Heuristic):
             raise ValueError(f"LSHADE: p_best_end must be in (0, 1] when set, got {p_best_end}")
         if not np.isfinite(archive_factor) or archive_factor < 0.0:
             raise ValueError(f"LSHADE: archive_factor must be a non-negative finite float, got {archive_factor}")
-        if F_schedule is not None and not isinstance(F_schedule, bool):
-            raise ValueError(f"LSHADE: F_schedule must be a bool or None, got {F_schedule!r}")
+        # ``_normalize_F_schedule`` validates and maps the input onto a
+        # regime name; backward-compat bool inputs collapse onto the
+        # canonical string regimes.
+        normalized_F_schedule = _normalize_F_schedule(F_schedule)
 
         super().__init__(strategy, name=name or "LSHADE")
         self.NP_init: int = NP_init
@@ -296,7 +348,7 @@ class LSHADE(Heuristic):
         self.p_best: float = float(p_best)
         self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
-        self.F_schedule: Optional[bool] = F_schedule
+        self.F_schedule: Optional[str] = normalized_F_schedule
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
@@ -379,30 +431,36 @@ class LSHADE(Heuristic):
         return self.p_best - (self.p_best - self.p_best_end) * progress
 
     def _apply_F_cap(self, F: float) -> float:
-        """Apply the jSO asymmetric F-cap (Brest et al. 2017) when opted in.
+        """Apply the configured asymmetric F-cap regime, when opted in.
 
-        ``F_schedule=None`` (default) leaves ``F`` unchanged — the
-        byte-identical L-SHADE behaviour.  ``F_schedule=True`` applies
-        the three-phase cap keyed on
-        ``progress = len(strategy.results) / strategy.config.max_eval``:
+        ``F_schedule`` resolves to ``None`` (default / ``"off"`` /
+        ``False``) → ``F`` is returned unchanged, byte-identical to the
+        unclamped Tanabe-Fukunaga L-SHADE.  For an active regime name,
+        the three-phase cap is keyed on
+        ``progress = len(strategy.results) / strategy.config.max_eval``
+        with the regime's ``(phase1_bound, phase2_bound, phase1_cap,
+        phase2_cap)`` 4-tuple from :data:`_F_SCHEDULE_REGIMES`:
 
-        * ``progress < 0.6``: ``F`` clamped at ``0.7``.
-        * ``0.6 <= progress < 0.9``: ``F`` clamped at ``0.8``.
-        * ``progress >= 0.9``: ``F`` left unclamped (≤ 1.0 by sampler).
+        * ``progress < phase1_bound``: ``F`` clamped at ``phase1_cap``.
+        * ``phase1_bound ≤ progress < phase2_bound``: ``F`` clamped at
+          ``phase2_cap``.
+        * ``progress ≥ phase2_bound``: ``F`` left unclamped (still
+          ``≤ 1.0`` from the sampler).
 
         When the strategy budget is unknown the cap is bypassed — the
         same safe fallback used by :meth:`_current_p_best` and
         :meth:`_apply_lpsr`.
         """
-        if not self.F_schedule:
+        if self.F_schedule is None:
             return F
         progress = self._progress()
         if progress is None:
             return F
-        if progress < _F_SCHEDULE_PHASE1_BOUND:
-            return min(F, _F_SCHEDULE_PHASE1_CAP)
-        if progress < _F_SCHEDULE_PHASE2_BOUND:
-            return min(F, _F_SCHEDULE_PHASE2_CAP)
+        bound1, bound2, cap1, cap2 = _F_SCHEDULE_REGIMES[self.F_schedule]
+        if progress < bound1:
+            return min(F, cap1)
+        if progress < bound2:
+            return min(F, cap2)
         return F
 
     def _make_trial_meta(self, slot_idx: int, F: float, CR: float) -> "_TrialMeta":

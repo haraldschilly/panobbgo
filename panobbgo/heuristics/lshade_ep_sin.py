@@ -75,8 +75,9 @@ state that drives it:
 for a random bin ``r``) in *both* phases — only ``F`` switches
 mechanisms.  The asymmetric F-cap (:meth:`LSHADE._apply_F_cap`) is
 applied to the sinusoidal-phase ``F`` only if the user opts in via
-``F_schedule=True``; the default is ``F_schedule=None`` because the
-sinusoidal envelope already provides its own time-varying cap.
+``F_schedule="jso"`` (or any other named regime); the default is
+``F_schedule=None`` because the sinusoidal envelope already provides
+its own time-varying cap.
 
 Asynchronous adaptation
 -----------------------
@@ -239,8 +240,9 @@ class LSHADE_EpSin(LSHADE):
           composing it with the jSO asymmetric F-cap (Brest 2017) is
           usually counter-productive in the first half.  The default
           (``F_schedule=None``) reproduces the literature behaviour.
-          Callers who want the cap can set ``F_schedule=True``
-          explicitly — it is applied to *both* phases' ``F`` then.
+          Callers who want the cap can set ``F_schedule="jso"``
+          (or another named regime) explicitly — it is applied to
+          *both* phases' ``F`` then.
         - When the strategy budget is unknown (no ``max_eval``, zero,
           or non-numeric), the phase split defaults to "sinusoidal" so
           the heuristic still produces a varied ``F`` distribution.

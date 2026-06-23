@@ -869,23 +869,40 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         h = LSHADE(self.strategy)
         assert h.F_schedule is None
 
-    def test_custom_F_schedule_construction(self):
+    def test_custom_F_schedule_construction_bool_compat(self):
+        """``True`` / ``False`` are accepted as backwards-compat synonyms."""
         from panobbgo.heuristics.lshade import LSHADE
 
         h = LSHADE(self.strategy, F_schedule=True)
-        assert h.F_schedule is True
+        assert h.F_schedule == "jso"
 
         h2 = LSHADE(self.strategy, F_schedule=False)
-        assert h2.F_schedule is False
+        assert h2.F_schedule is None
 
-    def test_invalid_F_schedule_type(self):
-        """``F_schedule`` must be a bool or ``None``."""
+    def test_custom_F_schedule_construction_named_regimes(self):
+        """Each named regime survives construction with the canonical name."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        with pytest.raises(ValueError, match="F_schedule must be a bool"):
+        for name in ("jso", "early", "strict"):
+            h = LSHADE(self.strategy, F_schedule=name)
+            assert h.F_schedule == name
+
+        # ``"off"`` collapses onto ``None`` (the cap-disabled regime).
+        h_off = LSHADE(self.strategy, F_schedule="off")
+        assert h_off.F_schedule is None
+
+    def test_invalid_F_schedule_type(self):
+        """``F_schedule`` must be a known regime, bool, or ``None``."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        with pytest.raises(ValueError, match="F_schedule must be"):
             LSHADE(self.strategy, F_schedule=1)  # type: ignore[arg-type]
-        with pytest.raises(ValueError, match="F_schedule must be a bool"):
-            LSHADE(self.strategy, F_schedule="yes")  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="F_schedule must be"):
+            LSHADE(self.strategy, F_schedule="yes")
+        with pytest.raises(ValueError, match="F_schedule must be"):
+            LSHADE(self.strategy, F_schedule="")
+        with pytest.raises(ValueError, match="F_schedule must be"):
+            LSHADE(self.strategy, F_schedule=2.0)  # type: ignore[arg-type]
 
     def test_apply_F_cap_disabled_by_default(self):
         """``F_schedule=None`` bypasses the cap entirely."""
@@ -899,20 +916,21 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
             assert h._apply_F_cap(F) == pytest.approx(F)
 
     def test_apply_F_cap_disabled_explicitly_false(self):
-        """``F_schedule=False`` is treated identically to ``None``."""
+        """``F_schedule=False`` is treated identically to ``None`` and to ``"off"``."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=False)
-        self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(30))
-        for F in (0.5, 0.9, 1.0):
-            assert h._apply_F_cap(F) == pytest.approx(F)
+        for value in (False, "off"):
+            h = LSHADE(self.strategy, F_schedule=value)
+            self.strategy.config.max_eval = 100
+            self.strategy.results = list(range(30))
+            for F in (0.5, 0.9, 1.0):
+                assert h._apply_F_cap(F) == pytest.approx(F)
 
     def test_apply_F_cap_phase1_clamps_to_07(self):
-        """``progress < 0.6`` clamps F at 0.7."""
+        """``progress < 0.6`` clamps F at 0.7 under the ``"jso"`` regime."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True)
+        h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 100
         self.strategy.results = list(range(30))  # progress = 0.3
         assert h._apply_F_cap(0.5) == pytest.approx(0.5)
@@ -921,10 +939,10 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._apply_F_cap(1.0) == pytest.approx(0.7)
 
     def test_apply_F_cap_phase2_clamps_to_08(self):
-        """``0.6 ≤ progress < 0.9`` clamps F at 0.8 — the literature completion."""
+        """``0.6 ≤ progress < 0.9`` clamps F at 0.8 under ``"jso"`` — the literature completion."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True)
+        h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 100
         self.strategy.results = list(range(75))  # progress = 0.75 ∈ [0.6, 0.9)
         # F up to 0.8 passes through; F > 0.8 clamped to 0.8.
@@ -935,20 +953,20 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._apply_F_cap(1.0) == pytest.approx(0.8)
 
     def test_apply_F_cap_phase3_unclamped(self):
-        """``progress ≥ 0.9`` releases the cap entirely (still F ≤ 1.0 from sampler)."""
+        """``progress ≥ 0.9`` releases the ``"jso"`` cap entirely (still F ≤ 1.0 from sampler)."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True)
+        h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 100
         self.strategy.results = list(range(95))  # progress = 0.95 ≥ 0.9
         for F in (0.0, 0.5, 0.7, 0.85, 0.95, 1.0):
             assert h._apply_F_cap(F) == pytest.approx(F)
 
     def test_apply_F_cap_phase_boundaries(self):
-        """Phase boundaries are inclusive-lower: progress == 0.6 belongs to phase 2."""
+        """Phase boundaries are inclusive-lower: progress == 0.6 belongs to phase 2 (jso)."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True)
+        h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 100
         # progress = 0.6 exactly → phase 2 cap (0.8)
         self.strategy.results = list(range(60))
@@ -961,16 +979,76 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         """No ``max_eval`` → ``_apply_F_cap`` is a pass-through (matches LPSR fallback)."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True)
+        h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 0
         for F in (0.5, 0.85, 1.0):
             assert h._apply_F_cap(F) == pytest.approx(F)
 
+    def test_apply_F_cap_early_regime(self):
+        """``"early"`` regime kicks in earlier and tighter than jSO."""
+        from panobbgo.heuristics.lshade import LSHADE, _F_SCHEDULE_REGIMES
+
+        # Sanity-check the regime tuple matches the docstring claim.
+        assert _F_SCHEDULE_REGIMES["early"] == (0.4, 0.7, 0.6, 0.8)
+
+        h = LSHADE(self.strategy, F_schedule="early")
+        self.strategy.config.max_eval = 100
+
+        # Phase 1: progress 0.2 < 0.4 → clamp at 0.6.
+        self.strategy.results = list(range(20))
+        assert h._apply_F_cap(0.5) == pytest.approx(0.5)
+        assert h._apply_F_cap(0.7) == pytest.approx(0.6)
+        assert h._apply_F_cap(1.0) == pytest.approx(0.6)
+
+        # Phase 2: progress 0.55 ∈ [0.4, 0.7) → clamp at 0.8.
+        self.strategy.results = list(range(55))
+        assert h._apply_F_cap(0.7) == pytest.approx(0.7)
+        assert h._apply_F_cap(0.95) == pytest.approx(0.8)
+
+        # Phase 3: progress 0.85 ≥ 0.7 → unclamped.
+        self.strategy.results = list(range(85))
+        assert h._apply_F_cap(0.95) == pytest.approx(0.95)
+
+    def test_apply_F_cap_strict_regime(self):
+        """``"strict"`` regime is the most aggressive cap."""
+        from panobbgo.heuristics.lshade import LSHADE, _F_SCHEDULE_REGIMES
+
+        # Sanity-check the regime tuple matches the docstring claim.
+        assert _F_SCHEDULE_REGIMES["strict"] == (0.5, 0.85, 0.5, 0.7)
+
+        h = LSHADE(self.strategy, F_schedule="strict")
+        self.strategy.config.max_eval = 100
+
+        # Phase 1: progress 0.25 < 0.5 → clamp at 0.5.
+        self.strategy.results = list(range(25))
+        assert h._apply_F_cap(0.3) == pytest.approx(0.3)
+        assert h._apply_F_cap(0.7) == pytest.approx(0.5)
+        assert h._apply_F_cap(1.0) == pytest.approx(0.5)
+
+        # Phase 2: progress 0.7 ∈ [0.5, 0.85) → clamp at 0.7.
+        self.strategy.results = list(range(70))
+        assert h._apply_F_cap(0.6) == pytest.approx(0.6)
+        assert h._apply_F_cap(0.9) == pytest.approx(0.7)
+
+        # Phase 3: progress 0.9 ≥ 0.85 → unclamped.
+        self.strategy.results = list(range(90))
+        assert h._apply_F_cap(0.95) == pytest.approx(0.95)
+
+    def test_apply_F_cap_regime_dict_is_complete(self):
+        """Every named regime has a well-formed 4-tuple in :data:`_F_SCHEDULE_REGIMES`."""
+        from panobbgo.heuristics.lshade import _F_SCHEDULE_REGIMES
+
+        assert set(_F_SCHEDULE_REGIMES.keys()) == {"jso", "early", "strict"}
+        for name, params in _F_SCHEDULE_REGIMES.items():
+            bound1, bound2, cap1, cap2 = params
+            assert 0.0 < bound1 < bound2 <= 1.0, f"{name}: phase bounds malformed"
+            assert 0.0 < cap1 <= cap2 <= 1.0, f"{name}: caps malformed"
+
     def test_sample_F_CR_respects_F_schedule(self):
-        """When ``F_schedule=True``, drawn F never exceeds the current cap."""
+        """When ``F_schedule="jso"``, drawn F never exceeds the current cap."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        h = LSHADE(self.strategy, F_schedule=True, H=2, seed=42)
+        h = LSHADE(self.strategy, F_schedule="jso", H=2, seed=42)
         self.strategy.config.max_eval = 100
         # Force a high M_F so the Cauchy distribution often produces F > 0.7.
         h._M_F[:] = 0.95

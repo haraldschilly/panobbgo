@@ -1363,7 +1363,10 @@ def default_catalog() -> MutationCatalog:
       (``gbest`` ↔ ``lbest`` ↔ ``vonneumann``), ``Sobol.scramble``
       (``True`` ↔ ``False``), ``LSHADE.archive_factor``
       (``0.0`` / ``1.0`` / ``2.6``), ``LSHADE.F_schedule``
-      (``True`` ↔ ``False``), ``JSO.p_best_max``
+      (``"off"`` / ``"jso"`` / ``"early"`` / ``"strict"`` — four
+      asymmetric F-cap regimes shipped 2026-06-23, with the bool
+      inputs accepted as backwards-compat synonyms for ``"jso"`` /
+      ``"off"``), ``JSO.p_best_max``
       (``0.15`` / ``0.25`` / ``0.4`` — L-SHADE-like / jSO default /
       iLSHADE-like greediness regimes, alongside the continuous
       ``float_uniform`` rule), ``NLSHADE_RSP.adaptive_archive``
@@ -1706,22 +1709,31 @@ def default_catalog() -> MutationCatalog:
                 choices=(0.0, 1.0, 2.6),
                 probability=0.3,
             ),
-            # L-SHADE asymmetric F-cap toggle (categorical).  When ``True``
-            # the heuristic clamps drawn ``F`` to 0.7 in the first 60% of
-            # the budget, 0.8 in the next 30%, and leaves it unclamped in
-            # the final 10% — the jSO (Brest et al. 2017) refinement of
-            # the Cauchy F-sampler.  ``False`` reproduces the byte-identical
-            # Tanabe-Fukunaga 2014 L-SHADE.  Only fires when a spec sets
-            # ``F_schedule`` explicitly (the default kwarg is ``None``).
-            # Gives the loop a discrete way to opt L-SHADE into the
-            # literature-best mutation magnitude schedule without dropping
-            # and re-adding the heuristic.
+            # L-SHADE asymmetric F-cap regime (categorical).  Each named
+            # regime is a 3-phase asymmetric cap on the drawn ``F``:
+            #
+            # * ``"off"`` — no cap (byte-identical Tanabe-Fukunaga 2014).
+            # * ``"jso"`` — Brest et al. 2017: clamp at 0.7 in the first
+            #   60% of the budget, at 0.8 in the next 30%, unclamped in
+            #   the final 10%.
+            # * ``"early"`` — earlier kick-in: clamp at 0.6 in the first
+            #   40%, 0.8 in the next 30%, unclamped in the final 30%.
+            # * ``"strict"`` — aggressive throughout: clamp at 0.5 in the
+            #   first 50%, 0.7 in the next 35%, unclamped in the final 15%.
+            #
+            # See :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`
+            # for the per-regime (phase1_bound, phase2_bound, phase1_cap,
+            # phase2_cap) tuples.  Only fires when a spec sets
+            # ``F_schedule`` explicitly (the default kwarg is ``None``);
+            # the constructor accepts the bool synonyms ``True`` / ``False``
+            # for backwards compatibility with the binary ledger entries
+            # shipped between 2026-05-21 and this rule.
             MutationRule(
                 strategy_pattern="",
                 class_name="LSHADE",
                 param_name="F_schedule",
                 kind="categorical_choice",
-                choices=(True, False),
+                choices=("off", "jso", "early", "strict"),
                 probability=0.3,
             ),
             # jSO (Brest, Maučec & Bošković 2017) initial population size.

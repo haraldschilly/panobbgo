@@ -2,6 +2,68 @@
 
 ## Recent Improvements (continued)
 
+### Named regimes for `LSHADE.F_schedule` (categorical broadening) — 2026-06-23
+- [x] **New module-level dict
+      `panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`** — maps each
+      named regime to a `(phase1_bound, phase2_bound, phase1_cap,
+      phase2_cap)` 4-tuple.  Three regimes ship: `"jso"` (Brest et al.
+      2017 — `0.6 / 0.9` breakpoints, `0.7 / 0.8` caps), `"early"`
+      (kicks in earlier and tighter — `0.4 / 0.7` breakpoints, `0.6 /
+      0.8` caps), `"strict"` (most aggressive — `0.5 / 0.85`
+      breakpoints, `0.5 / 0.7` caps).  `"off"` collapses onto `None`
+      (cap disabled).
+- [x] **New helper
+      `panobbgo.heuristics.lshade._normalize_F_schedule`** validates
+      the constructor argument and maps the legacy bool inputs onto
+      the new strings (`True` → `"jso"`, `False` → `"off"` → `None`)
+      so ledger replay against the binary toggle shipped 2026-05-21
+      and any spec that still passes the boolean form keep working.
+- [x] **`LSHADE._apply_F_cap` rewritten** to look up the per-regime
+      tuple from `_F_SCHEDULE_REGIMES[self.F_schedule]` instead of
+      branching on hard-coded module-level constants.  The canonical
+      Brest 2017 constants (`_F_SCHEDULE_PHASE1_BOUND` etc.) stay as
+      module-level aliases for the `"jso"` regime tuple so any
+      external introspection code that references them by name keeps
+      working.
+- [x] **`default_catalog` rule broadened** — the `LSHADE.F_schedule`
+      `categorical_choice` rule's `choices` flip from `(True, False)`
+      to `("off", "jso", "early", "strict")`.  The bandit arm key
+      `(LSHADE, F_schedule, categorical_choice)` is unchanged so the
+      pre-2026-06-23 Beta posterior accumulates seamlessly across the
+      regime broadening — only the proposed value vocabulary expands.
+- [x] **JSO updated** — `panobbgo.heuristics.jso.JSO.__init__` now
+      passes `F_schedule="jso"` (canonical) instead of
+      `F_schedule=True` (legacy synonym).  Behaviour byte-identical.
+- [x] **Tests** — 4 new tests in `tests/test_heuristic_lshade.py`
+      (`test_apply_F_cap_early_regime` /
+      `test_apply_F_cap_strict_regime` /
+      `test_apply_F_cap_regime_dict_is_complete` /
+      `test_custom_F_schedule_construction_named_regimes`).  Existing
+      `_apply_F_cap` tests switched from `F_schedule=True` / `False`
+      to the equivalent `"jso"` / `"off"` strings; behaviour
+      byte-identical.  Tests in `test_heuristic_jso.py`,
+      `test_heuristic_nl_shade_rsp.py`, `test_heuristic_nl_shade_lbc.py`
+      that asserted `h.F_schedule is True` updated to assert
+      `h.F_schedule == "jso"`.  Full project test suite
+      (1681 tests) green.
+- [x] **Backwards compatibility** — strictly safe.  Default
+      `F_schedule=None` (cap disabled) unchanged.  Legacy bool inputs
+      still accepted by the constructor (normalized).  Ledger replay
+      against the prior categorical (`(True, False)`) still works —
+      bandit arm key is value-independent, and the constructor
+      accepts both bool values.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-23 dated entry; *Categorical regimes for
+      `LSHADE.F_schedule`* idea promoted from "Next iteration ideas"
+      to shipped), `panobbgo/heuristics/lshade.py` (module docstring
+      + `F_schedule` constructor docstring + `_apply_F_cap`
+      docstring), `panobbgo/heuristics/jso.py` (docstring +
+      `F_schedule="jso"` call site), `panobbgo/heuristics/lshade_ep_sin.py`
+      (docstring reference), `doc/source/guide_benchmarking.rst`
+      (categorical-rules bullet + example `MutationRule` literal +
+      L-SHADE prose paragraph), `AGENTS.md` (categorical-rules
+      bullet).
+
 ### Auto-tune widen factor from observed spread (V2 §9.3 follow-up) — 2026-06-22
 - [x] **New helper `panobbgo.self_improve._auto_tune_widen_factor`**
       sizes a widen factor from the ratio of observed spread to

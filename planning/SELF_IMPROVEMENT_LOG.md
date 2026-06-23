@@ -17,6 +17,175 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-23 — Named regimes for `LSHADE.F_schedule` (categorical broadening)
+
+* **What** — Closes the *Categorical regimes for ``LSHADE.F_schedule``
+  (named cap regimes)* follow-up seeded under *Next iteration ideas*.
+  Promotes the binary toggle shipped 2026-05-21 (``True`` / ``False``)
+  into a four-way categorical over named cap regimes:
+
+  * ``"off"`` — no cap (byte-identical Tanabe-Fukunaga 2014; replaces
+    ``False``).
+  * ``"jso"`` — Brest et al. 2017 §III-D: clamp ``F ≤ 0.7`` while
+    ``progress < 0.6``, ``F ≤ 0.8`` while ``progress < 0.9``,
+    unclamped in the final 10% (replaces ``True``).
+  * ``"early"`` — earlier and tighter kick-in: clamp ``F ≤ 0.6``
+    while ``progress < 0.4``, ``F ≤ 0.8`` while ``progress < 0.7``,
+    unclamped after that.
+  * ``"strict"`` — most aggressive: clamp ``F ≤ 0.5`` while
+    ``progress < 0.5``, ``F ≤ 0.7`` while ``progress < 0.85``,
+    unclamped in the final 15%.
+
+  Each regime is stored as a ``(phase1_bound, phase2_bound,
+  phase1_cap, phase2_cap)`` 4-tuple in the new module-level dict
+  :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`.
+  The :func:`panobbgo.heuristics.lshade._normalize_F_schedule` helper
+  validates the constructor argument and maps the legacy bool inputs
+  to the new strings (``True`` → ``"jso"``, ``False`` → ``"off"`` →
+  ``None``) so ledger replay against the binary toggle and any spec
+  that still passes the boolean form keep working.
+  :meth:`panobbgo.heuristics.lshade.LSHADE._apply_F_cap` is
+  rewritten to look up the per-regime tuple instead of branching on
+  hard-coded module-level constants — the canonical Brest 2017
+  constants (``_F_SCHEDULE_PHASE1_BOUND`` etc.) stay as aliases for
+  the ``"jso"`` regime tuple for backwards-compat with any
+  external introspection.
+  The ``default_catalog`` rule for ``LSHADE.F_schedule`` flips its
+  ``choices`` from ``(True, False)`` to
+  ``("off", "jso", "early", "strict")`` so the Thompson bandit can
+  search the broader cap geometry.  The bandit arm key
+  ``(LSHADE, F_schedule, categorical_choice)`` is unchanged, so the
+  pre-2026-06-23 ledger Beta posterior accumulates seamlessly across
+  the regime broadening — only the proposed value vocabulary expands.
+
+* **Why** — Three direct effects:
+
+  * **Algorithmic reach** — the bandit now searches across
+    qualitatively distinct asymmetric F-cap geometries rather than
+    just toggling Brest 2017 on/off.  The literature canonical jSO
+    cap (``0.6 / 0.9`` breakpoints, ``0.7 / 0.8`` caps) is one
+    well-tested operating point; the *shape* of the cap (when it
+    kicks in, how tight the early-phase cap is) varies meaningfully
+    across DE applications.  ``"early"`` and ``"strict"`` extend the
+    Brest 2017 regime to two adjacent operating points whose
+    geometry is differentiated in both the *progress* axis (when the
+    cap kicks in) and the *cap* axis (how tight it is) — see the
+    per-regime tuples in :data:`_F_SCHEDULE_REGIMES`.  On
+    ill-conditioned basins (Rosenbrock, DixonPrice) where large F
+    can blow the population apart, ``"strict"`` is a natural fit; on
+    smooth, well-conditioned landscapes where the population already
+    converges quickly, ``"early"`` lets the cap kick in before the
+    population shrinks under LPSR.
+  * **Catalog activation discipline** — the §7.3 freeze policy
+    permits broadening an existing rule's *choices vocabulary*
+    when the underlying signal exhausts the current dimension (the
+    binary toggle had been on the books since 2026-05-21 but
+    nightly evidence so far hasn't shown either of ``True`` /
+    ``False`` clearly dominating, suggesting the right answer lives
+    *between* them).  This entry stays within the freeze — no new
+    bandit arm, no new heuristic, just a wider value set on an
+    existing arm.
+  * **Persistence proximity** — the ``--open-pr`` codify driver
+    (still queued under *Next iteration ideas*) reads the catalog's
+    `choices` vocabulary directly.  A future ledger pattern where
+    ``"early"`` consistently beats ``"jso"`` on the loop registry's
+    DE family spec would surface as a regular kwarg-default codify
+    candidate via :func:`aggregate_codify_candidates` — exactly the
+    same path that surfaced ``Sobol.scramble=False`` in 2026-05-31.
+    The categorical broadening unblocks codify evidence on a slot
+    that previously had no expressive room for a non-trivial fix.
+
+* **Backwards compatibility** — strictly safe:
+
+  * The default ``F_schedule=None`` (cap disabled) is unchanged.
+  * Existing call sites that pass the bool form still work:
+    :class:`~panobbgo.heuristics.jso.JSO` now passes
+    ``F_schedule="jso"`` (canonical) but the constructor still
+    accepts ``True`` (normalized to ``"jso"``) so any user-facing
+    subclass that re-passes the legacy form keeps working.
+  * Ledger replay: the prior binary categorical rule emitted
+    ``new_value`` of ``True`` / ``False``.  Both are accepted by
+    the new constructor and normalize correctly; the bandit's
+    :func:`panobbgo.self_improve._proposal_rule_key` ignores the
+    value (only ``class_name / param_name / rule_kind`` matter), so
+    every pre-broadening Beta posterior entry on
+    ``(LSHADE, F_schedule, categorical_choice)`` is replayed onto
+    the same arm under the broader vocabulary.
+  * Documentation: the canonical Brest 2017 module-level constants
+    (``_F_SCHEDULE_PHASE1_BOUND`` etc.) stay as aliases into the
+    ``"jso"`` regime tuple, so any external introspection code that
+    references them by name keeps working.
+
+* **Tests** — 4 new tests in ``tests/test_heuristic_lshade.py``:
+
+  * ``test_apply_F_cap_early_regime`` — exercises the three phases
+    of the ``"early"`` regime against the regime tuple
+    ``(0.4, 0.7, 0.6, 0.8)``.
+  * ``test_apply_F_cap_strict_regime`` — exercises the three phases
+    of the ``"strict"`` regime against the regime tuple
+    ``(0.5, 0.85, 0.5, 0.7)``.
+  * ``test_apply_F_cap_regime_dict_is_complete`` — sanity-checks
+    the keys of :data:`_F_SCHEDULE_REGIMES` and the well-formedness
+    of every regime tuple.
+  * ``test_custom_F_schedule_construction_named_regimes`` —
+    verifies every named regime survives construction with the
+    canonical name *and* the explicit ``"off"`` collapses onto
+    ``None``.
+
+  The existing ``test_custom_F_schedule_construction`` test is
+  renamed to ``test_custom_F_schedule_construction_bool_compat``
+  and updated to assert the normalized form (``True`` → ``"jso"``,
+  ``False`` → ``None``) — verifying the back-compat path that
+  preserves ledger replay.  Existing ``_apply_F_cap`` test cases
+  switched from ``F_schedule=True`` / ``False`` to the equivalent
+  ``"jso"`` / ``"off"`` strings; behaviour is byte-identical.
+  Catalog test ``test_default_catalog_has_categorical_rules``
+  unchanged (asserts the slot exists, not the choices).  Tests in
+  ``test_heuristic_jso.py``, ``test_heuristic_nl_shade_rsp.py``,
+  ``test_heuristic_nl_shade_lbc.py`` that asserted
+  ``h.F_schedule is True`` are updated to assert
+  ``h.F_schedule == "jso"``.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the *Categorical
+    regimes for ``LSHADE.F_schedule``* follow-up promoted from
+    *Next iteration ideas* to shipped.
+  - ``doc/source/guide_benchmarking.rst``: the ``F_schedule``
+    categorical bullet, the example ``MutationRule`` literal, and
+    the L-SHADE prose paragraph all rewritten for the four regimes
+    plus the bool back-compat note.
+  - ``panobbgo/heuristics/lshade.py``: module docstring + the
+    ``F_schedule`` constructor docstring + the ``_apply_F_cap``
+    docstring all updated for the regime dict.
+  - ``panobbgo/heuristics/jso.py``: the ``F_schedule=True`` call
+    site rewritten to ``F_schedule="jso"`` for clarity; the
+    docstring reference updated.
+  - ``panobbgo/heuristics/lshade_ep_sin.py``: docstring reference
+    updated to mention named regimes.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Tunable F-cap breakpoints / cap values on ``LSHADE.F_schedule``**
+    — the open follow-up below is still relevant.  The
+    *categorical-regimes* shipped here covers the discrete operating
+    points; a future *continuous* refinement would expose the four
+    cap-geometry parameters directly so the bandit could climb the
+    cap surface.  Speculative until ledger evidence shows the named
+    regimes don't span the right space.
+  * **``F_schedule`` codify evidence** — once the cron has
+    accumulated 2-3 nights of consistent regime preference (say
+    ``"early"`` winning on the DE-family loop spec) the
+    ``codify-scan`` step shipped 2026-06-17 will surface the slot
+    as a candidate.  No code change needed — the queued
+    ``--open-pr`` driver picks the candidate up automatically.
+  * **Same broadening on ``LSHADE.archive_factor``** — the
+    archive_factor categorical currently ships three discrete
+    values ``(0.0, 1.0, 2.6)``.  A future categorical broadening
+    pattern: replace the bare-float choices with named regimes
+    (``"off"`` / ``"vanilla"`` / ``"rsp"``) so the catalog's
+    expressive vocabulary stays uniform.  Speculative — the bare
+    floats are already plenty discoverable.
+
 ### 2026-06-22 — Auto-tune widen factor from observed spread (V2 §9.3 follow-up)
 
 * **What** — Closes the *Auto-tune widen factor from observed spread*
@@ -6815,21 +6984,15 @@ kwarg-translation table that is structurally the same pattern.  Ship
 once two of these are on the table — one slot is not enough motivation
 for the new rule subtype.
 
-#### Categorical regimes for `LSHADE.F_schedule` (named cap regimes)
+#### Categorical regimes for `LSHADE.F_schedule` — shipped 2026-06-23
 
-The 2026-05-21 jSO ship made ``LSHADE.F_schedule`` a bool
-(``True`` → Brest et al. 2017 three-phase cap, ``False`` → unclamped
-L-SHADE).  ``default_catalog`` already exposes it as a binary
-``categorical_choice``.  A natural follow-up — flagged under
-*Tunable F-cap breakpoints / cap values on ``LSHADE.F_schedule``* — is
-to broaden the bool into a string-valued categorical over named
-regimes ``("off", "jso", "ilshade", "strict")``.  The two
-already-shipped categorical rules with multi-string choices
-(``PSO.topology``, ``Restart.restart_strategy``) provide the wire
-shape; the work is mostly heuristic-side (adding three module-level
-constant tuples for the breakpoints / caps of each named regime) plus
-a backwards-compat layer that maps the old ``True`` / ``False`` values
-to ``"jso"`` / ``"off"`` so existing specs and ledgers keep working.
-Picks up where the 2026-06-09 jSO ``p_best_max`` ship left off: the
-same shape — collapse a continuous-or-binary knob into a small fixed
-set of literature regimes — applied to the next under-catalogued dial.
+Shipped 2026-06-23 as the :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`
+dict + :func:`panobbgo.heuristics.lshade._normalize_F_schedule` plus the
+broadened ``default_catalog`` ``LSHADE.F_schedule`` rule.  The 2026-05-21
+binary toggle (``True`` / ``False``) is promoted to a four-way
+categorical (``"off"`` / ``"jso"`` / ``"early"`` / ``"strict"``) so the
+bandit can search across qualitatively distinct cap geometries instead
+of just toggling Brest 2017 on/off.  ``True`` / ``False`` continue to
+work as backwards-compatible synonyms for ``"jso"`` / ``"off"``
+(preserving ledger replay and any spec that still passes the boolean
+form).  See the 2026-06-23 dated entry above.

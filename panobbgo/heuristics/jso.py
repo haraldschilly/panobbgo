@@ -84,7 +84,7 @@ warm restart via :meth:`on_restart`.  The only methods that change
 are :meth:`_generate_trial` (``F_w`` weighting + linear ``p_best``)
 and :meth:`_update_memory` (skip the anchor bin, advance pointer
 mod ``H − 1``).  The asymmetric F-cap is inherited from
-:meth:`LSHADE._apply_F_cap` via ``F_schedule=True``.
+:meth:`LSHADE._apply_F_cap` via ``F_schedule="jso"``.
 
 Progress measurement uses ``len(strategy.results) / max_eval`` —
 the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and
@@ -213,7 +213,7 @@ class JSO(LSHADE):
             H=H,
             p_best=p_best_max,  # parent stores fixed greediness; we override per-call
             archive_factor=archive_factor,
-            F_schedule=True,  # jSO opts into the asymmetric F-cap by construction
+            F_schedule="jso",  # jSO opts into the asymmetric F-cap by construction
             seed=seed,
             name=name or "JSO",
         )

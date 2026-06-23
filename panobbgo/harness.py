@@ -612,8 +612,10 @@ def _make_loop_strategies() -> List[StrategySpec]:
     # * ``LSHADE_EpSin``— NP_init / mu_freq_init (two rules)
     #
     # ``p_best_end`` for LSHADE is set to half ``p_best`` (the jSO
-    # iLSHADE-style schedule); ``F_schedule = True`` opts the heuristic
-    # into the Brest et al. 2017 three-phase asymmetric F-cap.
+    # iLSHADE-style schedule); ``F_schedule = "jso"`` opts the heuristic
+    # into the Brest et al. 2017 three-phase asymmetric F-cap (one of the
+    # four named regimes shipped 2026-06-23 — see
+    # :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`).
     loop_de = StrategySpec(
         name="Loop_DE_Family",
         strategy_class=StrategyRewarding,
@@ -627,7 +629,7 @@ def _make_loop_strategies() -> List[StrategySpec]:
                     "p_best": 0.11,
                     "p_best_end": 0.055,
                     "archive_factor": 1.0,
-                    "F_schedule": True,
+                    "F_schedule": "jso",
                 },
             ),
             (JSO, {"NP_init": 15, "H": 5, "p_best_max": 0.25}),

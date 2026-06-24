@@ -17,6 +17,227 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-24 — Named LBC regimes for `NLSHADE_LBC.lbc_regime` (composite categorical arm)
+
+* **What** — Closes the *Categorical LBC regimes* follow-up seeded
+  under the *NL-SHADE-LBC follow-ups* backlog entry (2026-05-28
+  ship).  Introduces a single composite ``lbc_regime`` constructor
+  kwarg on
+  :class:`panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC` that wraps
+  the five LBC Lehmer-mean schedule fields
+  (``p_F_init`` / ``p_F_final`` / ``p_CR_init`` / ``p_CR_final`` /
+  ``m_lbc``) under four literature-motivated named regimes:
+
+  * ``"cec2022"`` — Stanovov, Akhmedova & Semenkin 2022 defaults
+    (``3.5, 1.5, 1.0, 1.5, 1.5``); byte-identical to opting into
+    the constructor defaults.  The CEC-2022 winning configuration.
+  * ``"lshade"`` — recovers the standard L-SHADE / jSO / NL-SHADE-RSP
+    weighted Lehmer mean (``p = 2, m = 1`` for both F and CR, with
+    no LBC schedule).  Useful as a degenerate baseline arm — turns
+    the LBC mechanism itself off without dropping the heuristic so
+    the bandit can A/B "LBC on" vs "LBC off" on the same population
+    seed.
+  * ``"flat"`` — pure arithmetic mean (``p = 1`` throughout, default
+    spread ``m_lbc = 1.5``).  Drops all bias toward larger successful
+    F / CR values; the success-history memory tracks the centre of
+    mass of recent successes.
+  * ``"aggressive"`` — strong bias throughout the run (``p_F`` decays
+    ``5 → 3``, ``p_CR`` grows ``3 → 5``, default spread).
+    Counterpart to ``"flat"`` — sharper concentration on the largest
+    successes than the literature default.
+
+  Each regime is stored as a ``(p_F_init, p_F_final, p_CR_init,
+  p_CR_final, m_lbc)`` 5-tuple in the new module-level dict
+  :data:`panobbgo.heuristics.nl_shade_lbc._LBC_REGIMES`.  The
+  :func:`panobbgo.heuristics.nl_shade_lbc._normalize_lbc_regime`
+  helper validates the constructor input and raises
+  :class:`ValueError` for unknown strings or non-string values.
+
+  Constructor semantics — the regime is **mutually exclusive** with
+  the five per-field LBC float kwargs (uses a sentinel ``_UNSET``
+  default on the five floats to detect explicit override; passing
+  both raises ``ValueError`` rather than silently overriding).
+  Existing call sites that set per-field kwargs explicitly continue
+  to work; new specs that opt into the regime get the named preset.
+
+  Catalog — :func:`panobbgo.self_improve.default_catalog` gains a
+  new ``categorical_choice`` :class:`MutationRule` on the
+  ``(NLSHADE_LBC, lbc_regime)`` slot with
+  ``choices=("cec2022", "lshade", "flat", "aggressive")``.  The
+  five previous per-field LBC ``float_uniform`` rules — shipped
+  2026-05-28 — are **retired** in the same change.  Net catalog
+  change: −5 rules + 1 = **−4** kwarg rules; the loop registry's
+  catalog reach drops from ``44 / 44`` to ``40 / 40`` arms (same
+  100% activation rate; the count is just lower because the five
+  dormant per-field rules disappear).
+
+  Loop registry —
+  :func:`panobbgo.harness._make_loop_strategies`'s
+  ``Loop_DE_Family`` spec now passes
+  ``NLSHADE_LBC(NP_init=15, H=5, lbc_regime="cec2022")`` instead
+  of the five explicit per-field LBC kwargs.  Behaviour is
+  byte-identical (``"cec2022"`` resolves to the same defaults) but
+  the new categorical arm fires on the seed registry the next
+  nightly run.
+
+* **Why** — Three direct effects:
+
+  * **Catalog cardinality reduction** — five independent
+    cold-started float arms replaced by one well-curated discrete
+    arm.  Strict simplification: the five per-field rules were
+    ``float_uniform`` over bounded ranges with no joint coupling;
+    the bandit had to find a *correlated* set of optimal values
+    across all five.  The composite arm collapses that
+    five-dimensional search into four literature-tested points,
+    each a coherent joint configuration.  Mirrors the §7.3 freeze
+    spirit — the freeze permits broadening / consolidation of
+    existing rule slots; this entry is a strict-strict
+    consolidation, *removing* arms net of the new composite.
+  * **Algorithmic reach** — the four named regimes span the
+    qualitatively distinct LBC operating points.  ``"cec2022"`` is
+    one well-tested point; the *shape* of the bias schedule (does
+    F bias decrease, stay flat, or stay sharp?  same for CR?)
+    varies meaningfully across DE applications.  ``"flat"`` and
+    ``"aggressive"`` extend the Stanovov regime to two adjacent
+    operating points whose geometry is differentiated in both the
+    *F* axis (initial vs final exponent magnitude) and the *CR*
+    axis (does CR bias grow or stay flat?).  ``"lshade"`` is the
+    "LBC off" degenerate that lets the bandit test whether the LBC
+    mechanism itself helps on the current battery — without
+    dropping the heuristic.  Pattern-matches the 2026-06-23
+    F_schedule broadening on L-SHADE.
+  * **Persistence proximity** — the ``--open-pr`` codify driver
+    (still queued under *Next iteration ideas*) reads the
+    catalog's ``choices`` vocabulary directly.  A future ledger
+    pattern where ``"flat"`` or ``"aggressive"`` consistently
+    beats ``"cec2022"`` on the loop registry's DE family spec
+    would surface as a regular kwarg-default codify candidate via
+    :func:`aggregate_codify_candidates` — exactly the same path
+    that surfaced ``Sobol.scramble=False`` in 2026-05-31.  The
+    composite arm makes the regime *codify-able* as a single
+    well-defined preset name.
+
+* **Backwards compatibility** — strictly safe on every existing
+  call path:
+
+  * The default ``lbc_regime=None`` is unchanged.  Every existing
+    spec — including the prior ``Loop_DE_Family`` spec that
+    explicitly set the five LBC fields — would behave identically;
+    the new ``Loop_DE_Family`` spec is byte-identical at the
+    constructor-output level because ``"cec2022"`` maps to the same
+    five defaults.
+  * Existing call sites that pass per-field LBC kwargs continue to
+    work (``lbc_regime`` stays ``None``); the constructor still
+    validates the per-field values and reports the same
+    ``ValueError`` messages on invalid input.
+  * Ledger replay: the prior five per-field rules emitted
+    ``new_value`` of floats.  Records replayed against the live
+    catalog now skip those (the rules are retired) — but the
+    bandit's :func:`panobbgo.self_improve._proposal_rule_key`
+    keying ignores the value (only ``class_name / param_name /
+    rule_kind`` matter), so any Beta posterior entry on the five
+    retired ``(NLSHADE_LBC, p_F_init/...)`` arms cleanly drops
+    out of the active prior on resume.  Existing ledgers stay
+    parseable; the bandit just no longer pulls those arms.
+  * Documentation: the canonical CEC-2022 module-level constants
+    (``_DEFAULT_P_F_INIT`` etc.) stay as module-level floats and
+    are referenced from the ``"cec2022"`` regime tuple, so any
+    external introspection code keeps working.
+
+* **Tests** — 13 new tests in
+  ``tests/test_heuristic_nl_shade_lbc.py``:
+
+  * ``test_default_regime_is_none`` — the bare constructor stores
+    ``lbc_regime = None`` (no regime applied; per-field defaults
+    take effect).
+  * ``test_regime_cec2022_matches_defaults`` — the ``"cec2022"``
+    regime is bit-identical to the per-field defaults
+    (back-compat invariant).
+  * ``test_regime_lshade_recovers_standard_lehmer`` — the
+    ``"lshade"`` regime sets ``p = 2, m = 1`` for both F and CR.
+  * ``test_regime_flat_is_constant_arithmetic`` — the ``"flat"``
+    regime sets ``p = 1`` throughout (pure arithmetic mean).
+  * ``test_regime_aggressive_is_high_biased`` — the ``"aggressive"``
+    regime sets the largest exponents (``F: 5 → 3``, ``CR: 3 → 5``).
+  * ``test_regime_dict_has_expected_keys`` — sanity-checks
+    :data:`_LBC_REGIMES` membership and tuple well-formedness.
+  * ``test_invalid_regime_string_raises`` — unknown / empty strings
+    raise ``ValueError``.
+  * ``test_invalid_regime_type_raises`` — non-string non-None
+    inputs (ints, bools) raise ``ValueError``.
+  * ``test_regime_with_explicit_kwargs_raises`` — passing
+    ``lbc_regime`` together with any per-field LBC float raises
+    ``ValueError`` ("mutually exclusive") — for each of the five
+    fields independently.
+  * ``test_regime_with_unrelated_kwargs_ok`` — regime composes
+    cleanly with non-LBC kwargs (``NP_init`` / ``H``).
+  * ``test_normalize_helper_collapses_none`` — direct test of the
+    ``_normalize_lbc_regime`` helper.
+  * ``test_lshade_regime_memory_update_matches_standard_lehmer``
+    — analytic equivalence: ``lbc_regime="lshade"`` reproduces
+    the standard ``s^2 / s^1`` weighted Lehmer mean
+    bit-identically on a hand-rolled test vector.
+  * ``test_kwarg_catalog_lbc_regime_is_categorical`` — verifies
+    the new ``categorical_choice`` rule lives on the
+    ``(NLSHADE_LBC, lbc_regime)`` slot with the four named
+    regime choices.
+
+  Existing ``test_kwarg_catalog_has_lbc_dials`` updated to assert
+  the consolidated rule set (``NP_init`` + ``lbc_regime``) and
+  explicitly forbid the retired five per-field rules from
+  reappearing without a deliberate evidence-driven PR.  All 1694
+  pre-existing tests in the project test suite pass unchanged.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    *Categorical LBC regimes* idea promoted from *Next iteration
+    ideas* to shipped.
+  - ``doc/source/heuristics.rst``: the ``NLSHADE_LBC`` bullet
+    now mentions the named regimes.
+  - ``doc/source/guide_benchmarking.rst``: the L-SHADE-derived
+    family description names the regime presets; the categorical
+    rule list adds the ``NLSHADE_LBC.lbc_regime`` entry (count
+    nine → ten); the categorical-knobs bullet gains the LBC
+    regime entry; the ``Loop_DE_Family`` description names the
+    regime arm.
+  - ``AGENTS.md``: categorical-rules list adds
+    ``NLSHADE_LBC.lbc_regime`` (count nine → ten).
+  - ``panobbgo/heuristics/nl_shade_lbc.py``: module docstring +
+    constructor docstring updated for the regime dict and
+    mutual-exclusion semantics.
+  - ``panobbgo/self_improve.py``: ``default_catalog`` docstring
+    + per-rule comment block updated for the consolidation.
+  - ``panobbgo/harness.py``: ``_make_loop_strategies`` comment
+    block updated for the per-heuristic rule count and the
+    consolidation rationale.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Per-CR / per-F sub-regime broadening** — the four named
+    regimes intentionally share spread ``m_lbc`` across regimes
+    (the literature default ``1.5`` except for ``"lshade"`` at
+    ``1.0``).  A future broadening could expose a separate
+    ``spread`` axis in a new categorical rule
+    (``"narrow"`` / ``"default"`` / ``"wide"``) so the bandit can
+    pick the spread independently of the bias regime.
+    Speculative until ledger evidence shows the named regimes
+    don't span the right space.
+  * **``lbc_regime`` codify evidence** — once the cron has
+    accumulated 2-3 nights of consistent regime preference (say
+    ``"lshade"`` winning on the DE-family loop spec, indicating
+    LBC mechanism itself is harmful at quick-mode budgets) the
+    ``codify-scan`` step shipped 2026-06-17 will surface the
+    slot as a candidate.  No code change needed — the queued
+    ``--open-pr`` driver picks the candidate up automatically.
+  * **Same broadening on the ``LSHADE``-base ``p_best_end``
+    schedule** — the ``p_best_end`` kwarg currently ships as a
+    ``float_uniform`` rule.  A future categorical broadening
+    pattern: replace the bare-float choices with named regimes
+    (``"fixed"`` / ``"half"`` / ``"quarter"``) so the catalog's
+    expressive vocabulary stays uniform across DE schedule
+    kwargs.  Speculative — the bare floats are already plenty
+    discoverable.
+
 ### 2026-06-23 — Named regimes for `LSHADE.F_schedule` (categorical broadening)
 
 * **What** — Closes the *Categorical regimes for ``LSHADE.F_schedule``
@@ -6861,19 +7082,22 @@ NL-SHADE-LBC shipped 2026-05-28 as
 entry above.  Natural extensions when the loop has collected enough
 evidence to motivate the work:
 
-* **Categorical LBC regimes** — the four LBC schedule kwargs
-  (``p_F_init``, ``p_F_final``, ``p_CR_init``, ``p_CR_final``) and the
-  spread ``m_lbc`` are exposed as ``float_uniform`` rules today.  A
-  set of literature-canonical *named* regimes — ``"cec2022"`` (the
-  Stanovov defaults 3.5/1.5/1.0/1.5/1.5), ``"lshade"``
-  (2/2/2/2/1 — recovers standard L-SHADE), ``"flat"``
-  (1/1/1/1/1.5 — pure arithmetic mean), ``"aggressive"``
-  (5/3/3/5/1.5 — strongly biased throughout) — wrapped as one
-  ``categorical_choice`` per slot would give the bandit a discrete
-  arm to flip the bias regime cleanly, the same way
-  ``LSHADE.F_schedule`` flips the jSO F-cap on / off.  Implementation
-  shape: a single composite kwarg ``lbc_regime`` whose setter applies
-  the named tuple to the five fields, plus the categorical rule.
+* **Categorical LBC regimes — shipped 2026-06-24** as the
+  :data:`panobbgo.heuristics.nl_shade_lbc._LBC_REGIMES` dict +
+  :func:`panobbgo.heuristics.nl_shade_lbc._normalize_lbc_regime`
+  helper plus the ``lbc_regime`` constructor kwarg on
+  :class:`NLSHADE_LBC` and the matching
+  ``(NLSHADE_LBC, lbc_regime, categorical_choice)``
+  :class:`MutationRule` on :func:`default_catalog`.  The four named
+  regimes (``"cec2022"`` / ``"lshade"`` / ``"flat"`` /
+  ``"aggressive"``) wrap the five LBC schedule fields under
+  literature-motivated joint configurations.  The five previous
+  per-field ``float_uniform`` rules (shipped 2026-05-28) are
+  retired in the same change — net catalog cardinality reduction:
+  five cold-started independent dial arms replaced by one
+  well-curated composite arm.  Mutually exclusive with the
+  per-field LBC kwargs (constructor raises ``ValueError`` if both
+  are passed).  See the 2026-06-24 entry above.
 * **Per-CR / per-F sub-regime A/B** — the literature defaults flow
   F-bias from high to low while CR-bias does the opposite.  The
   motivation in the paper is qualitative; nightly evidence may reveal
@@ -6996,3 +7220,34 @@ of just toggling Brest 2017 on/off.  ``True`` / ``False`` continue to
 work as backwards-compatible synonyms for ``"jso"`` / ``"off"``
 (preserving ledger replay and any spec that still passes the boolean
 form).  See the 2026-06-23 dated entry above.
+
+#### Named LBC regimes for `NLSHADE_LBC.lbc_regime` — shipped 2026-06-24
+
+Shipped 2026-06-24 as the
+:data:`panobbgo.heuristics.nl_shade_lbc._LBC_REGIMES` dict +
+:func:`panobbgo.heuristics.nl_shade_lbc._normalize_lbc_regime`
+helper plus the ``lbc_regime`` constructor kwarg on
+:class:`NLSHADE_LBC` and the matching ``categorical_choice``
+:class:`MutationRule` on :func:`default_catalog`.  The four named
+regimes (``"cec2022"`` / ``"lshade"`` / ``"flat"`` /
+``"aggressive"``) wrap the five LBC schedule fields under
+literature-motivated joint configurations; the five per-field LBC
+``float_uniform`` rules previously on the catalog (shipped
+2026-05-28) are retired in the same change.  Net catalog
+cardinality reduction: −4 kwarg rules.  See the 2026-06-24 dated
+entry above for the regime tuples, mutual-exclusion semantics, and
+the loop-registry wiring update.
+
+#### Tunable spread axis on `NLSHADE_LBC.lbc_regime`
+
+The four named regimes shipped 2026-06-24 share spread ``m_lbc``
+across regimes (``1.5`` everywhere except ``"lshade"`` at ``1.0`` —
+the L-SHADE recovery point).  A future broadening could split the
+*spread* axis into a separate categorical rule
+(``"narrow"`` / ``"default"`` / ``"wide"``) so the bandit can pick
+the spread independently of the bias regime.  Pairs with the
+*Categorical-with-dependent-kwarg rule pattern* idea above
+(``lbc_regime + spread_regime`` would be the second motivating slot
+the dependent-kwarg pattern needs).  Speculative until ledger
+evidence shows the four named regimes don't span the right joint
+space.

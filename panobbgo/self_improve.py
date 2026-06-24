@@ -1373,7 +1373,14 @@ def default_catalog() -> MutationCatalog:
       (``True`` ↔ ``False``), ``NLSHADE_RSP.k_rank``
       (``0.0`` / ``3.0`` / ``5.0`` — RSP-off / default / aggressive
       regimes, alongside the continuous ``float_uniform`` rule),
-      ``COBYQA.scale`` (``True`` ↔ ``False``), and
+      ``COBYQA.scale`` (``True`` ↔ ``False``),
+      ``NLSHADE_LBC.lbc_regime``
+      (``"cec2022"`` / ``"lshade"`` / ``"flat"`` / ``"aggressive"``
+      — one composite categorical arm over the five LBC fields
+      (``p_F_init`` / ``p_F_final`` / ``p_CR_init`` /
+      ``p_CR_final`` / ``m_lbc``); shipped 2026-06-24, replaced the
+      five per-field ``float_uniform`` rules previously on the
+      catalog with a single literature-motivated joint search), and
       ``Restart.restart_strategy`` (``"random"`` / ``"diverse"`` /
       ``"sphere"`` — uniform-in-box / max-min-distance / Gaussian-
       around-centre center-selection regimes).  These use the
@@ -1891,71 +1898,38 @@ def default_catalog() -> MutationCatalog:
                 delta_choices=(-10, -5, 5, 10),
                 probability=0.5,
             ),
-            # NL-SHADE-LBC F-memory initial Lehmer exponent.  Literature
-            # default ``3.5``; bracket ``[1.5, 5.0]`` so the loop can probe
-            # weaker (closer to the L-SHADE-style bias) or stronger
-            # (heavily weighting the largest successful F's at the start
-            # of the search) initial bias.  ``p_F_init`` only takes effect
-            # via the schedule when the strategy budget is known.
+            # NL-SHADE-LBC named bias-change regime (categorical).  Flips
+            # an existing :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`
+            # instance between four literature-motivated joint
+            # configurations of the five LBC fields
+            # (``p_F_init`` / ``p_F_final`` / ``p_CR_init`` /
+            # ``p_CR_final`` / ``m_lbc``) as a single discrete bandit
+            # arm: ``"cec2022"`` (Stanovov et al. 2022 defaults — the
+            # CEC-2022 winning configuration), ``"lshade"`` (recovers
+            # the standard L-SHADE / jSO / NL-SHADE-RSP Lehmer mean at
+            # ``p = 2, m = 1`` — turns the LBC mechanism off without
+            # dropping the heuristic), ``"flat"`` (pure arithmetic
+            # mean throughout, default spread) and ``"aggressive"``
+            # (strong bias throughout, default spread).  Only fires
+            # when the spec sets ``lbc_regime`` explicitly — the
+            # constructor's default is ``None`` (the five individual
+            # float kwargs apply, all at their byte-identical CEC 2022
+            # defaults).  Sits alongside the five per-field
+            # ``float_uniform`` rules above on the same heuristic — the
+            # categorical rule operates on the *joint* regime, the
+            # per-field rules on individual dials.  Distinct bandit arm
+            # keys by construction (different ``rule_kind``).  Mirrors
+            # the 2026-06-23 :class:`LSHADE`.``F_schedule`` regime
+            # broadening: one well-curated discrete arm for joint
+            # exploration of a high-dimensional dial group instead of
+            # five independent cold-started float arms.
             MutationRule(
                 strategy_pattern="",
                 class_name="NLSHADE_LBC",
-                param_name="p_F_init",
-                kind="float_uniform",
-                bounds=(1.5, 5.0),
-                low=1.5,
-                high=5.0,
-                probability=0.5,
-            ),
-            # NL-SHADE-LBC F-memory final Lehmer exponent.  Literature
-            # default ``1.5``; bracket ``[1.0, 3.0]`` so the loop can probe
-            # values bracketing the standard L-SHADE order-2 exponent.
-            MutationRule(
-                strategy_pattern="",
-                class_name="NLSHADE_LBC",
-                param_name="p_F_final",
-                kind="float_uniform",
-                bounds=(1.0, 3.0),
-                low=1.0,
-                high=3.0,
-                probability=0.5,
-            ),
-            # NL-SHADE-LBC CR-memory schedule (initial / final).  CR
-            # literature defaults are ``1.0 → 1.5``; bracket ``[0.5, 2.5]``
-            # so the loop can probe pure-arithmetic-mean-like behaviour
-            # (low exponent) as well as more biased regimes.
-            MutationRule(
-                strategy_pattern="",
-                class_name="NLSHADE_LBC",
-                param_name="p_CR_init",
-                kind="float_uniform",
-                bounds=(0.5, 2.5),
-                low=0.5,
-                high=2.5,
-                probability=0.5,
-            ),
-            MutationRule(
-                strategy_pattern="",
-                class_name="NLSHADE_LBC",
-                param_name="p_CR_final",
-                kind="float_uniform",
-                bounds=(0.5, 2.5),
-                low=0.5,
-                high=2.5,
-                probability=0.5,
-            ),
-            # NL-SHADE-LBC Lehmer spread.  Default ``1.5`` (CEC-2022);
-            # ``1.0`` recovers the standard L-SHADE Lehmer-mean spread.
-            # Bracket ``[1.0, 2.0]`` so the loop can flip between them.
-            MutationRule(
-                strategy_pattern="",
-                class_name="NLSHADE_LBC",
-                param_name="m_lbc",
-                kind="float_uniform",
-                bounds=(1.0, 2.0),
-                low=1.0,
-                high=2.0,
-                probability=0.5,
+                param_name="lbc_regime",
+                kind="categorical_choice",
+                choices=("cec2022", "lshade", "flat", "aggressive"),
+                probability=0.3,
             ),
             # LSHADE-EpSin (Awad, Ali, Suganthan 2016) initial population
             # size — same ``[10, 60]`` bracket as L-SHADE / jSO / NL-SHADE-RSP.

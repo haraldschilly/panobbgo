@@ -179,6 +179,158 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
+# Named LBC regimes (lbc_regime kwarg)
+# ----------------------------------------------------------------------
+
+
+class NLSHADELBCRegimeTests(_MockStrategyMixin, PanobbgoTestCase):
+    def test_default_regime_is_none(self):
+        """No-argument construction stores ``lbc_regime = None``."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy)
+        assert h.lbc_regime is None
+
+    def test_regime_cec2022_matches_defaults(self):
+        """The CEC 2022 regime is bit-identical to the per-field defaults."""
+        from panobbgo.heuristics.nl_shade_lbc import (
+            NLSHADE_LBC,
+            _DEFAULT_M_LBC,
+            _DEFAULT_P_CR_FINAL,
+            _DEFAULT_P_CR_INIT,
+            _DEFAULT_P_F_FINAL,
+            _DEFAULT_P_F_INIT,
+        )
+
+        h = NLSHADE_LBC(self.strategy, lbc_regime="cec2022")
+        assert h.lbc_regime == "cec2022"
+        assert h.p_F_init == _DEFAULT_P_F_INIT
+        assert h.p_F_final == _DEFAULT_P_F_FINAL
+        assert h.p_CR_init == _DEFAULT_P_CR_INIT
+        assert h.p_CR_final == _DEFAULT_P_CR_FINAL
+        assert h.m_lbc == _DEFAULT_M_LBC
+
+    def test_regime_lshade_recovers_standard_lehmer(self):
+        """The ``lshade`` regime recovers ``p = 2, m = 1`` for both F and CR."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, lbc_regime="lshade")
+        assert h.lbc_regime == "lshade"
+        assert h.p_F_init == 2.0
+        assert h.p_F_final == 2.0
+        assert h.p_CR_init == 2.0
+        assert h.p_CR_final == 2.0
+        assert h.m_lbc == 1.0
+
+    def test_regime_flat_is_constant_arithmetic(self):
+        """The ``flat`` regime sets ``p = 1`` throughout (pure arithmetic mean)."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC, _DEFAULT_M_LBC
+
+        h = NLSHADE_LBC(self.strategy, lbc_regime="flat")
+        assert h.lbc_regime == "flat"
+        assert h.p_F_init == 1.0
+        assert h.p_F_final == 1.0
+        assert h.p_CR_init == 1.0
+        assert h.p_CR_final == 1.0
+        assert h.m_lbc == _DEFAULT_M_LBC
+
+    def test_regime_aggressive_is_high_biased(self):
+        """The ``aggressive`` regime sets the largest exponents."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC, _DEFAULT_M_LBC
+
+        h = NLSHADE_LBC(self.strategy, lbc_regime="aggressive")
+        assert h.lbc_regime == "aggressive"
+        assert h.p_F_init == 5.0
+        assert h.p_F_final == 3.0
+        assert h.p_CR_init == 3.0
+        assert h.p_CR_final == 5.0
+        assert h.m_lbc == _DEFAULT_M_LBC
+
+    def test_regime_dict_has_expected_keys(self):
+        """Sanity-check the regime dict's keys and tuple width."""
+        from panobbgo.heuristics.nl_shade_lbc import _LBC_REGIMES
+
+        assert set(_LBC_REGIMES) == {"cec2022", "lshade", "flat", "aggressive"}
+        for name, tup in _LBC_REGIMES.items():
+            assert len(tup) == 5, f"Regime {name!r}: expected 5 fields, got {len(tup)}"
+            assert tup[4] > 0.0, f"Regime {name!r}: m_lbc must be > 0"
+            for v in tup:
+                assert np.isfinite(v), f"Regime {name!r}: non-finite field {v!r}"
+
+    def test_invalid_regime_string_raises(self):
+        """Unknown regime names raise :class:`ValueError`."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        with pytest.raises(ValueError, match="lbc_regime"):
+            NLSHADE_LBC(self.strategy, lbc_regime="bogus")
+        with pytest.raises(ValueError, match="lbc_regime"):
+            NLSHADE_LBC(self.strategy, lbc_regime="")
+
+    def test_invalid_regime_type_raises(self):
+        """Non-string / non-None ``lbc_regime`` raises :class:`ValueError`."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        with pytest.raises(ValueError, match="lbc_regime"):
+            NLSHADE_LBC(self.strategy, lbc_regime=42)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="lbc_regime"):
+            NLSHADE_LBC(self.strategy, lbc_regime=True)  # type: ignore[arg-type]
+
+    def test_regime_with_explicit_kwargs_raises(self):
+        """Regime + any explicit LBC field is mutually exclusive."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        for kwarg, value in (
+            ("p_F_init", 2.0),
+            ("p_F_final", 1.0),
+            ("p_CR_init", 1.2),
+            ("p_CR_final", 1.3),
+            ("m_lbc", 1.2),
+        ):
+            with pytest.raises(ValueError, match="mutually exclusive"):
+                NLSHADE_LBC(self.strategy, lbc_regime="lshade", **{kwarg: value})
+
+    def test_regime_with_unrelated_kwargs_ok(self):
+        """Regime composes cleanly with non-LBC kwargs (NP_init / H / etc.)."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, NP_init=15, H=5, lbc_regime="cec2022")
+        assert h.NP_init == 15
+        assert h.H == 5
+        assert h.lbc_regime == "cec2022"
+
+    def test_normalize_helper_collapses_none(self):
+        """The ``_normalize_lbc_regime`` helper preserves ``None``."""
+        from panobbgo.heuristics.nl_shade_lbc import _normalize_lbc_regime
+
+        assert _normalize_lbc_regime(None) is None
+
+    def test_lshade_regime_memory_update_matches_standard_lehmer(self):
+        """``lbc_regime="lshade"`` reproduces the standard ``s^2 / s^1`` mean.
+
+        With ``p = 2, m = 1`` the LBC generalised Lehmer mean collapses to
+        the standard L-SHADE / jSO weighted Lehmer mean — concretely
+        ``Σ(w_i · F_i^2) / Σ(w_i · F_i^1)``.  This is the analytic
+        equivalence the regime documents.
+        """
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, H=4, lbc_regime="lshade")
+        h.on_start()
+        # Strategy budget set so the schedule is deterministic.
+        self.strategy.config.max_eval = 1000
+        self.strategy.results = list(range(500))  # any progress; lshade is constant
+        F_vals = np.array([0.2, 0.4, 0.6, 0.8])
+        weights = np.array([1.0, 2.0, 3.0, 4.0])
+        w_norm = weights / weights.sum()
+        expected = float(np.sum(w_norm * F_vals**2) / np.sum(w_norm * F_vals**1))
+        h._success_F = list(F_vals.tolist())
+        h._success_CR = list(F_vals.tolist())
+        h._success_delta = list(weights.tolist())
+        h._update_memory()
+        assert h._M_F[0] == pytest.approx(expected)
+
+
+# ----------------------------------------------------------------------
 # Linear bias change schedule
 # ----------------------------------------------------------------------
 
@@ -509,6 +661,17 @@ class NLSHADELBCRegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
         assert has_lbc
 
     def test_kwarg_catalog_has_lbc_dials(self):
+        """``default_catalog`` ships the consolidated LBC kwarg rules.
+
+        The five per-field LBC float rules shipped 2026-05-28 were
+        retired when the ``lbc_regime`` categorical arm landed: one
+        well-curated composite bandit arm subsumes their joint search
+        space (see the dated entry in ``planning/SELF_IMPROVEMENT_LOG.md``).
+        Today the catalog ships ``NP_init`` (population sizing) and
+        ``lbc_regime`` (joint Lehmer-mean regime) — the per-field
+        constructors stay available for future opt-in specs, just no
+        longer have a dedicated catalog rule.
+        """
         from panobbgo.self_improve import MutationRule, default_catalog
 
         rules = default_catalog().rules
@@ -516,8 +679,27 @@ class NLSHADELBCRegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
             (r.class_name, r.param_name) for r in rules if isinstance(r, MutationRule) and r.class_name == "NLSHADE_LBC"
         }
         assert ("NLSHADE_LBC", "NP_init") in params
-        assert ("NLSHADE_LBC", "p_F_init") in params
-        assert ("NLSHADE_LBC", "p_F_final") in params
-        assert ("NLSHADE_LBC", "p_CR_init") in params
-        assert ("NLSHADE_LBC", "p_CR_final") in params
-        assert ("NLSHADE_LBC", "m_lbc") in params
+        assert ("NLSHADE_LBC", "lbc_regime") in params
+        # Retired per-field rules — must not reappear without a deliberate
+        # re-introduction motivated by the loop measurement.
+        retired = {"p_F_init", "p_F_final", "p_CR_init", "p_CR_final", "m_lbc"}
+        assert not (retired & {p for _, p in params}), (
+            "Per-field LBC float_uniform rules are retired in favour of the "
+            "composite ``lbc_regime`` categorical arm.  Restore them via "
+            "a deliberate, ledger-evidence-driven PR rather than carrying "
+            "them silently alongside the regime arm."
+        )
+
+    def test_kwarg_catalog_lbc_regime_is_categorical(self):
+        """The ``lbc_regime`` rule ships the four named regimes."""
+        from panobbgo.self_improve import MutationRule, default_catalog
+
+        regime_rules = [
+            r
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "NLSHADE_LBC" and r.param_name == "lbc_regime"
+        ]
+        assert len(regime_rules) == 1, "Expected exactly one lbc_regime rule"
+        rule = regime_rules[0]
+        assert rule.kind == "categorical_choice"
+        assert set(rule.choices or ()) == {"cec2022", "lshade", "flat", "aggressive"}

@@ -69,6 +69,32 @@ exponents — i.e. NL-SHADE-LBC behaves as if it were always at the start
 of the search.  This is a documented, predictable fallback and matches
 the convention used by :class:`~panobbgo.heuristics.lshade.LSHADE.F_schedule`.
 
+Named regimes
+-------------
+
+The five LBC schedule kwargs can be set jointly through a named
+``lbc_regime`` argument — a single composite knob the self-improvement
+loop can flip as one ``categorical_choice`` bandit arm.  See
+:data:`_LBC_REGIMES` for the regime-to-tuple mapping.  The four
+shipped regimes are:
+
+* ``"cec2022"`` — Stanovov, Akhmedova & Semenkin (2022) literature
+  defaults; identical to passing no explicit LBC fields.
+* ``"lshade"`` — recovers the standard L-SHADE / jSO / NL-SHADE-RSP
+  weighted Lehmer mean at ``p = 2, m = 1`` for both F and CR (no LBC
+  schedule).  Useful as a degenerate baseline arm — turns the LBC
+  mechanism itself off without dropping the heuristic.
+* ``"flat"`` — pure arithmetic mean (``p = 1`` throughout); the
+  spread ``m_lbc = 1.5`` is preserved.
+* ``"aggressive"`` — strong bias throughout the run (``p_F`` decays
+  ``5 → 3``, ``p_CR`` grows ``3 → 5``); the spread ``m_lbc = 1.5``
+  is preserved.
+
+The regime is mutually exclusive with explicit per-field LBC kwargs:
+passing both raises :class:`ValueError`.  Mirrors
+:data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES` shipped
+2026-06-23.
+
 Asynchronous execution
 ----------------------
 
@@ -123,7 +149,7 @@ References
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -147,6 +173,66 @@ _DEFAULT_P_CR_INIT: float = 1.0
 _DEFAULT_P_CR_FINAL: float = 1.5
 _DEFAULT_M_LBC: float = 1.5
 
+# Named LBC bias-change regimes.  Each value is a 5-tuple
+# ``(p_F_init, p_F_final, p_CR_init, p_CR_final, m_lbc)`` consumed by the
+# constructor when the matching :func:`_normalize_lbc_regime` key is
+# active.  Mirrors :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`:
+# one well-curated tuple per regime instead of five independent
+# float-dial arms.
+#
+# * ``"cec2022"`` — Stanovov, Akhmedova & Semenkin (2022) literature
+#   defaults: F bias starts high and decays toward the L-SHADE balance;
+#   CR bias starts low and grows toward the same balance.  Identical to
+#   the constructor's per-field defaults — opting into this regime is a
+#   no-op on the underlying memory update.
+# * ``"lshade"`` — recovers the standard L-SHADE / jSO / NL-SHADE-RSP
+#   weighted Lehmer mean (``p = 2, m = 1`` for both F and CR, with no
+#   linear change across budget progress).  Useful as a degenerate
+#   baseline arm — the bandit can A/B the LBC mechanism itself against
+#   its non-LBC predecessor without dropping the heuristic.
+# * ``"flat"`` — pure arithmetic mean (``p = 1`` and constant); the
+#   spread ``m_lbc = 1.5`` is preserved.  Drops all bias toward larger
+#   successful F / CR values; the success-history memory tracks the
+#   centre of mass of recent successes.
+# * ``"aggressive"`` — strong bias throughout the run (``p_F`` decays
+#   from ``5`` to ``3``, ``p_CR`` grows from ``3`` to ``5``); the
+#   spread ``m_lbc = 1.5`` is preserved.  Counterpart to ``"flat"`` —
+#   sharper concentration on the largest successes than the
+#   literature default.
+_LBC_REGIMES: Dict[str, Tuple[float, float, float, float, float]] = {
+    "cec2022": (_DEFAULT_P_F_INIT, _DEFAULT_P_F_FINAL, _DEFAULT_P_CR_INIT, _DEFAULT_P_CR_FINAL, _DEFAULT_M_LBC),
+    "lshade": (2.0, 2.0, 2.0, 2.0, 1.0),
+    "flat": (1.0, 1.0, 1.0, 1.0, _DEFAULT_M_LBC),
+    "aggressive": (5.0, 3.0, 3.0, 5.0, _DEFAULT_M_LBC),
+}
+
+
+def _normalize_lbc_regime(value: Optional[str]) -> Optional[str]:
+    """Validate the constructor's ``lbc_regime`` argument.
+
+    Returns ``None`` for the disabled case (``None``) so the
+    constructor can branch on a single ``is None`` check.  Returns a
+    key into :data:`_LBC_REGIMES` for the active regimes.  Raises
+    :class:`ValueError` for any other input.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        if value in _LBC_REGIMES:
+            return value
+        valid = tuple(sorted(_LBC_REGIMES))
+        raise ValueError(f"NLSHADE_LBC: lbc_regime must be one of {valid} (or None), got {value!r}")
+    raise ValueError(f"NLSHADE_LBC: lbc_regime must be a string regime name or None, got {value!r}")
+
+
+# Sentinel for the five LBC float kwargs.  Lets the constructor detect
+# which fields the caller explicitly passed so ``lbc_regime`` can raise
+# on the ambiguous "regime + field override" case.  Not ``None`` because
+# a downstream caller might legitimately pass ``None`` (e.g. via a YAML
+# config) and we want that to surface as a normal ``float`` validation
+# failure rather than silently activate the regime.
+_UNSET: Any = object()
+
 
 class NLSHADE_LBC(NLSHADE_RSP):
     """NL-SHADE-LBC: linear bias change on the SHADE memory update.
@@ -169,18 +255,34 @@ class NLSHADE_LBC(NLSHADE_RSP):
         adaptive_archive: When ``True`` (default), resample the archive
             cap per generation (NL-SHADE-RSP).
         p_F_init: Initial exponent of the F Lehmer mean's numerator
-            (at progress ``r = 0``).  Default ``3.5``.
+            (at progress ``r = 0``).  Default ``3.5``.  Mutually
+            exclusive with ``lbc_regime``.
         p_F_final: Final exponent of the F Lehmer mean's numerator
-            (at progress ``r = 1``).  Default ``1.5``.
+            (at progress ``r = 1``).  Default ``1.5``.  Mutually
+            exclusive with ``lbc_regime``.
         p_CR_init: Initial exponent of the CR Lehmer mean's numerator.
-            Default ``1.0``.
+            Default ``1.0``.  Mutually exclusive with ``lbc_regime``.
         p_CR_final: Final exponent of the CR Lehmer mean's numerator.
-            Default ``1.5``.
+            Default ``1.5``.  Mutually exclusive with ``lbc_regime``.
         m_lbc: Spread between numerator and denominator exponents of
             the Lehmer mean.  The denominator exponent is
             ``p − m_lbc``.  Default ``1.5``.  Must be a finite float
             ``> 0``.  At ``p = 2, m = 1`` the formula recovers the
-            standard L-SHADE weighted Lehmer mean.
+            standard L-SHADE weighted Lehmer mean.  Mutually exclusive
+            with ``lbc_regime``.
+        lbc_regime: Optional named LBC regime.  One of ``"cec2022"``
+            (Stanovov et al. 2022 defaults — equivalent to passing no
+            explicit LBC fields), ``"lshade"`` (recovers the standard
+            L-SHADE Lehmer mean at ``p = 2, m = 1``), ``"flat"``
+            (pure arithmetic mean — ``p = 1`` throughout, default
+            spread), or ``"aggressive"`` (strong bias throughout —
+            ``p_F`` decays ``5 → 3``, ``p_CR`` grows ``3 → 5``,
+            default spread).  Mutually exclusive with the five
+            individual LBC float kwargs above — passing both raises
+            :class:`ValueError`.  See
+            :data:`_LBC_REGIMES` for the regime-to-tuple mapping.
+            Default ``None`` (no preset; the individual float kwargs
+            apply, all at their byte-identical CEC 2022 defaults).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -190,6 +292,10 @@ class NLSHADE_LBC(NLSHADE_RSP):
         - Like every Panobbgo heuristic, all state is per-instance.
         - When the strategy budget is unknown, the LBC schedule falls
           back to its initial exponents.
+        - :attr:`lbc_regime` carries the *normalized* regime name (or
+          ``None`` when no preset was active) so the self-improvement
+          catalog's ``categorical_choice`` rule can flip the bias
+          regime as a single discrete bandit arm.
     """
 
     def __init__(
@@ -203,14 +309,47 @@ class NLSHADE_LBC(NLSHADE_RSP):
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         k_rank: float = _DEFAULT_K_RANK,
         adaptive_archive: bool = True,
-        p_F_init: float = _DEFAULT_P_F_INIT,
-        p_F_final: float = _DEFAULT_P_F_FINAL,
-        p_CR_init: float = _DEFAULT_P_CR_INIT,
-        p_CR_final: float = _DEFAULT_P_CR_FINAL,
-        m_lbc: float = _DEFAULT_M_LBC,
+        p_F_init: float = _UNSET,
+        p_F_final: float = _UNSET,
+        p_CR_init: float = _UNSET,
+        p_CR_final: float = _UNSET,
+        m_lbc: float = _UNSET,
+        lbc_regime: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
+        regime_key = _normalize_lbc_regime(lbc_regime)
+        explicit_lbc_fields = [
+            label
+            for label, value in (
+                ("p_F_init", p_F_init),
+                ("p_F_final", p_F_final),
+                ("p_CR_init", p_CR_init),
+                ("p_CR_final", p_CR_final),
+                ("m_lbc", m_lbc),
+            )
+            if value is not _UNSET
+        ]
+        if regime_key is not None and explicit_lbc_fields:
+            raise ValueError(
+                f"NLSHADE_LBC: lbc_regime={lbc_regime!r} is mutually exclusive with "
+                f"explicit kwargs {explicit_lbc_fields} — pass the named regime *or* "
+                f"the individual fields, not both."
+            )
+        if regime_key is not None:
+            p_F_init, p_F_final, p_CR_init, p_CR_final, m_lbc = _LBC_REGIMES[regime_key]
+        else:
+            if p_F_init is _UNSET:
+                p_F_init = _DEFAULT_P_F_INIT
+            if p_F_final is _UNSET:
+                p_F_final = _DEFAULT_P_F_FINAL
+            if p_CR_init is _UNSET:
+                p_CR_init = _DEFAULT_P_CR_INIT
+            if p_CR_final is _UNSET:
+                p_CR_final = _DEFAULT_P_CR_FINAL
+            if m_lbc is _UNSET:
+                m_lbc = _DEFAULT_M_LBC
+
         for label, v in (
             ("p_F_init", p_F_init),
             ("p_F_final", p_F_final),
@@ -241,6 +380,7 @@ class NLSHADE_LBC(NLSHADE_RSP):
         self.p_CR_init: float = float(p_CR_init)
         self.p_CR_final: float = float(p_CR_final)
         self.m_lbc: float = float(m_lbc)
+        self.lbc_regime: Optional[str] = regime_key
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -607,8 +607,14 @@ def _make_loop_strategies() -> List[StrategySpec]:
     #                    `p_best_max` categorical regime arm)
     # * ``NLSHADE_RSP``— NP_init / k_rank / H / adaptive_archive (four
     #                    rules + the `k_rank` categorical regime arm)
-    # * ``NLSHADE_LBC``— NP_init / p_F_init / p_F_final / p_CR_init /
-    #                    p_CR_final / m_lbc (six rules)
+    # * ``NLSHADE_LBC``— NP_init + lbc_regime (two rules: the
+    #                    ``NP_init`` ``integer_add`` and the joint
+    #                    ``lbc_regime`` ``categorical_choice``).
+    #                    The composite categorical arm shipped
+    #                    2026-06-24 replaced the five per-field LBC
+    #                    float rules with one literature-motivated
+    #                    joint search across the LBC Lehmer-mean
+    #                    exponent / spread tuple.
     # * ``LSHADE_EpSin``— NP_init / mu_freq_init (two rules)
     #
     # ``p_best_end`` for LSHADE is set to half ``p_best`` (the jSO
@@ -642,11 +648,7 @@ def _make_loop_strategies() -> List[StrategySpec]:
                 {
                     "NP_init": 15,
                     "H": 5,
-                    "p_F_init": 3.5,
-                    "p_F_final": 1.5,
-                    "p_CR_init": 1.0,
-                    "p_CR_final": 1.5,
-                    "m_lbc": 1.5,
+                    "lbc_regime": "cec2022",
                 },
             ),
             (LSHADE_EpSin, {"NP_init": 15, "mu_freq_init": 0.5}),

@@ -17,6 +17,153 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-25 — Auto-tune κ for hierarchical structural bandit (V2 follow-up)
+
+* **What** — Closes the *Auto-tune ``κ``* follow-up seeded under the
+  2026-06-01 hierarchical-borrow ship.  Pure additions to
+  :class:`panobbgo.self_improve.AdaptiveMutationSampler` and
+  :class:`panobbgo.self_improve.LoopConfig` plus one CLI flag on
+  ``scripts/self_improve.py run``:
+
+  * :attr:`AdaptiveMutationSampler.structural_borrow_horizon` —
+    new ``float ≥ 0`` constructor kwarg.  When ``> 0`` (and the two
+    borrow preconditions are met: ``structural_borrow_alpha > 0``
+    and ``per_class_structural = True``), the per-class arm's
+    effective borrow is annealed by::
+
+        κ_eff = κ / (1 + n_class_attempts / h)
+
+    Cold arm (``n_class_attempts = 0``) borrows the full configured
+    ``κ`` — same as the fixed-``κ`` path.  At
+    ``n_class_attempts = h`` the borrow halves exactly.  Saturated
+    arm (``n_class_attempts >> h``) effectively trusts its own
+    per-class posterior.
+  * New helper :meth:`AdaptiveMutationSampler._effective_borrow`
+    centralises the annealing math so the same rule is consulted
+    from the sample-path code and from tests.
+  * :attr:`LoopConfig.structural_borrow_horizon` mirrors the
+    constructor kwarg with the same default (``0.0`` → disabled).
+    Validated in ``__post_init__`` (raises ``ValueError`` on
+    negative).
+  * CLI surface on ``scripts/self_improve.py run``:
+    ``--structural-borrow-horizon`` (default ``0.0``).  Off by
+    default so the nightly cron's behaviour is byte-identical
+    until the flag is explicitly set.
+
+* **Why** — The 2026-06-01 hierarchical-borrow ship closed the
+  cold-start gap for per-class structural arms (a fresh candidate
+  class no longer starts at the symmetric ``Beta(1, 1)`` prior; it
+  warms with the op's empirical accept rate).  But the borrow
+  *never lets go*: an arm with hundreds of attempts of its own
+  still pays the ``κ ·`` op-aggregate cost, indefinitely pulling
+  its leaf posterior toward the op-level mean.  Empirically the
+  right behaviour is "borrow heavily early, vanish as evidence
+  grows" — every hierarchical-bandit textbook puts this knob
+  behind an annealing rule.
+
+  Three direct effects:
+
+  * **Convergence** — once an arm has accumulated enough evidence,
+    the leaf posterior dominates.  An arm that the op-aggregate
+    *underestimates* (say a niche heuristic that wins on a narrow
+    subset of problems) stops being held down by sibling failures.
+  * **Stability** — when sibling arms' posteriors are noisy (the
+    op-aggregate jitters around the truth), the annealing reduces
+    the noise contagion across siblings as each settles.
+  * **No regression** — the ``h = 0`` default keeps the
+    2026-06-01 fixed-``κ`` behaviour byte-identical.  Existing
+    ledgers replay correctly; the bandit's stored arm keys are
+    unchanged.
+
+  Recommended values for an unattended cron: ``h = 5`` to ``10``.
+  The per-arm posteriors warm up over a couple of nights at the
+  catalog's typical per-iteration cardinality.
+
+* **Backwards compatibility** — strictly safe:
+
+  * Default ``structural_borrow_horizon = 0.0`` on both
+    :class:`AdaptiveMutationSampler` and :class:`LoopConfig`
+    keeps every existing invocation byte-identical.
+  * The :meth:`_effective_borrow` helper returns the configured
+    :attr:`structural_borrow_alpha` unchanged whenever
+    annealing is off, when ``κ = 0`` (no borrow to anneal), or
+    when the arm has no attempts (cold-start case).
+  * The constructor's input validation matches the
+    :attr:`structural_borrow_alpha` validation shape (raises on
+    negative / non-finite).
+  * Ledger replay: the bandit's arm key
+    ``(class_name, op, "structural")`` is unchanged, so existing
+    archives replay onto the same per-class arms regardless of
+    whether the consumer enables the annealing knob.
+
+* **Tests** — 16 new tests in the new
+  ``tests/test_self_improve.py::TestStructuralBorrowAnneal`` class:
+
+  * ``test_default_horizon_is_zero`` — default constructor.
+  * ``test_negative_horizon_raises`` /
+    ``test_non_finite_horizon_raises`` — validation paths.
+  * ``test_effective_borrow_horizon_zero_returns_kappa`` —
+    ``h = 0`` disables annealing.
+  * ``test_effective_borrow_kappa_zero_returns_zero`` — ``κ = 0``
+    means no borrow at all.
+  * ``test_effective_borrow_cold_arm_returns_full_kappa`` —
+    cold-start path.
+  * ``test_effective_borrow_halved_at_horizon`` —
+    ``n_class_attempts == h`` halves exactly.
+  * ``test_effective_borrow_vanishes_at_saturation`` —
+    ``n_class_attempts = 10_000`` shrinks to ``< 0.01``.
+  * ``test_effective_borrow_monotonic_decreasing`` — strictly
+    decreasing in attempts.
+  * ``test_horizon_zero_byte_identical_to_no_annealing`` —
+    backwards-compat sampling trajectory.
+  * ``test_annealed_borrow_reduces_with_evidence`` — verifies the
+    cold sibling sees the full borrow even with annealing on.
+  * ``test_annealed_borrow_saturated_arm_drops`` — three-class
+    catalog with ``y_attempts = 20, h = 5`` produces
+    ``κ_eff = 0.2``; the rationale carries the exact
+    ``Beta(6.6, 17.4)`` parameters.
+  * ``test_annealed_borrow_inert_without_per_class`` — the knob
+    requires per-class arms (same precondition chain).
+  * LoopConfig integration: default, validation, propagation
+    through :class:`SelfImprover`.
+
+  All 16 new tests pass.  Full project test suite (1697 tests)
+  green; ``uv run ruff check`` / ``uv run ruff format --check`` /
+  ``uv run pyright panobbgo/self_improve.py scripts/self_improve.py``
+  all clean.
+
+* **Documentation updated**
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    *Auto-tune ``κ``* follow-up promoted from *Next iteration
+    ideas* to shipped.
+  - ``doc/source/guide_benchmarking.rst``: new "Auto-tune ``κ``
+    from observed evidence (``structural_borrow_horizon``)"
+    sub-section documenting the annealing rule, the recommended
+    horizon range, and the inert-preconditions matrix.
+  - ``panobbgo/self_improve.py``: ``AdaptiveMutationSampler``
+    docstring extended with the new ``structural_borrow_horizon``
+    parameter; ``LoopConfig`` docstring similarly extended;
+    ``_effective_borrow`` carries the full annealing-rule
+    explanation.
+  - ``TODO.md``: new "Recent Improvements" entry below.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Hierarchical kwarg arms with annealing** — the same
+    ``κ / (1 + n / h)`` rule could be applied to a hypothetical
+    hierarchical kwarg-arm posterior that borrows across rules
+    sharing the same heuristic class.  Lower priority than the
+    structural version because kwarg arms already have
+    literature-canonical centres (so cold-start is less painful),
+    but the annealing knob would naturally apply once that
+    hierarchy lands.
+  * **Categorical horizon regimes** —
+    ``structural_borrow_horizon ∈ {0, 5, 10, 25}`` as a meta-
+    bandit choice on the loop driver itself (mirrors the
+    *Categorical ``κ`` regimes* idea below).  Lets the loop tune
+    its own annealing horizon from ledger evidence — a true
+    second-order self-improvement.
+
 ### 2026-06-24 — Named LBC regimes for `NLSHADE_LBC.lbc_regime` (composite categorical arm)
 
 * **What** — Closes the *Categorical LBC regimes* follow-up seeded
@@ -6954,12 +7101,21 @@ prior.  See the §13 entry above.
 Natural follow-ups when the loop has collected enough evidence to
 motivate the work:
 
-* **Auto-tune ``κ``** — track per-iteration variance of the borrow
-  improvement, anneal ``κ`` down as per-class evidence accumulates
-  (close to ``κ = 0`` at large per-arm sample sizes, close to ``κ = 1``
-  when arms are still sparse).  A simple recipe is ``κ_eff =
-  κ_init / (1 + n_class_attempts / horizon)`` — borrow heavily early,
-  vanish as evidence grows.
+* ~**Auto-tune ``κ``**~ — **shipped 2026-06-25** as
+  :attr:`AdaptiveMutationSampler.structural_borrow_horizon`
+  (``h ≥ 0``) plus the matching
+  :attr:`LoopConfig.structural_borrow_horizon` field and
+  ``--structural-borrow-horizon`` CLI flag.  When ``h > 0`` (and the
+  two borrow preconditions are met) each per-class arm's effective
+  borrow shrinks toward zero as its own attempts accumulate:
+  ``κ_eff = κ / (1 + n_class_attempts / h)``.  Cold arms still
+  borrow the full configured ``κ``; at ``n_class_attempts = h`` the
+  borrow halves exactly; saturated arms effectively stop borrowing
+  and trust the leaf posterior.  Default ``h = 0`` disables annealing
+  (byte-identical to the 2026-06-01 fixed-``κ`` ship).  Recommended
+  values for an unattended cron: ``h = 5`` to ``10`` (per-arm
+  posteriors warm up over a couple of nights).  See the
+  2026-06-25 dated entry above.
 * **Hierarchical kwarg arms too** — the same mechanism could borrow
   across kwarg arms that share a heuristic class (e.g. all
   ``LSHADE.*`` arms borrowing from one aggregate "LSHADE rules"

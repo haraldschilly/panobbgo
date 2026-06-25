@@ -423,6 +423,23 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument(
+        "--structural-borrow-horizon",
+        dest="structural_borrow_horizon",
+        type=float,
+        default=0.0,
+        help=(
+            "Auto-tune horizon h >= 0 for the hierarchical borrow "
+            "coefficient kappa.  When > 0, the effective borrow per "
+            "per-class arm is kappa / (1 + n_class_attempts / h) — full "
+            "kappa at a cold arm, halved at h attempts, vanishing as "
+            "evidence accumulates.  Borrow heavily early, trust the "
+            "leaf signal once the arm has data.  0.0 (default) disables "
+            "annealing (every arm always borrows the full kappa).  Inert "
+            "when --structural-borrow-alpha=0 or when "
+            "--structural-per-class-arms is off."
+        ),
+    )
+    run_p.add_argument(
         "--structural",
         dest="structural",
         action="store_true",
@@ -866,6 +883,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             adaptive_prime_archive_dir=args.adaptive_prime_archive_dir,
             structural_per_class_arms=args.structural_per_class_arms,
             structural_borrow_alpha=args.structural_borrow_alpha,
+            structural_borrow_horizon=args.structural_borrow_horizon,
             holdout_base_seed=args.holdout_base_seed,
             holdout_base_seeds=holdout_seeds,
             holdout_iterations=args.holdout_iterations,

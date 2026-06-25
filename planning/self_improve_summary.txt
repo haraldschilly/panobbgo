@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    380  (decided=380, skipped=0, no-op=32)
-Accepts:       13  (3.7% of informative)
-Guards:        68  (rollbacks=43, total pops=6)
-Hold-outs:     23  (overfit=0, vacuous=14)
+Iterations:    400  (decided=400, skipped=0, no-op=32)
+Accepts:       14  (3.8% of informative)
+Guards:        70  (rollbacks=44, total pops=7)
+Hold-outs:     25  (overfit=0, vacuous=16)
 Best Δ seen:   +0.0678
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -18,6 +18,7 @@ Accepted changes:
   iter=0  Δ=+0.0143  Loop_DE_Family/LSHADE_EpSin.mu_freq_init: 0.5 -> 0.5666560375387808
   iter=13  Δ=+0.0273  Loop_DE_Family/LSHADE.p_best_end: 0.055 -> 0.13493842867285713
   iter=1  Δ=+0.0511  Loop_LocalSearch/LatinHypercube.: None -> None
+  iter=14  Δ=+0.0286  Loop_DE_Family/NLSHADE_LBC.: None -> None
 Guard rollbacks:
   iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
@@ -62,6 +63,7 @@ Guard rollbacks:
   iter=9  pops=0  score=0.0244 vs stored 0.0717; new top iter=-1
   iter=14  pops=0  score=0.0089 vs stored 0.0717; new top iter=-1
   iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
+  iter=19  pops=1  score=0.0330 vs stored 0.0722; new top iter=-1
 Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -86,8 +88,10 @@ Hold-out validation:
   OK  drift=-0.0022  holdout_gap=-0.0061 training_gap=-0.0040  top_iter=13  (base_seed=1234, n=5)
   OK  drift=+0.0434  holdout_gap=+0.0653 training_gap=+0.0219  top_iter=1  (base_seed=7, n=5)
   OK  drift=+0.0143  holdout_gap=+0.0363 training_gap=+0.0219  top_iter=1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0051  overfit=0/23  vacuous=14/23  worst_seed=1234
-  --> drift CI: OK_CI  mean=+0.0146  CI95%=[+0.0072, +0.0225]  n_samples=45  n_records=23  vacuous=14/23
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0051  overfit=0/25  vacuous=16/25  worst_seed=1234
+  --> drift CI: OK_CI  mean=+0.0146  CI95%=[+0.0072, +0.0225]  n_samples=45  n_records=25  vacuous=16/25
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -110,20 +114,21 @@ Trend (one row per loop run, oldest first):
   2026-06-22 08:55:55     42  quick        20    20     1     0   +0.0325      0.0403
   2026-06-23 06:48:24     42  quick        20    20     2     0   +0.0273      0.0335
   2026-06-24 06:44:59     42  quick        20    20     1     0   +0.0511      0.0365
+  2026-06-25 06:45:15     42  quick        20    20     1     0   +0.0389      0.0402
 
-Bandit posteriors (n_attempts >= 3, 12 eligible rules):
+Bandit posteriors (n_attempts >= 3, 16 eligible rules):
   Top 10 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   NLSHADE_LBC             p_F_final               float_uniform          4     1    0.542     25.0%
-  LBFGSB                  max_starts              integer_add            3     1    0.500     33.3%
+  COBYQA                  final_tr_radius         log_uniform_pertur     3     0    0.500      0.0%
+  NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
+  LSHADE                  H                       integer_add            3     0    0.489      0.0%
+  PSO                     w                       float_uniform          3     0    0.468      0.0%
+  LBFGSB                  max_starts              integer_add            4     1    0.419     25.0%
   RegionUCB               ucb_c                   log_uniform_pertur     3     0    0.333      0.0%
   LSHADE                  p_best_end              float_uniform          3     1    0.331     33.3%
-  *                       drop_heuristic          structural            38     1    0.109      2.6%
+  *                       drop_heuristic          structural            43     2    0.163      4.7%
   Nearby                  radius                  log_uniform_pertur    79     6    0.076      7.6%
-  *                       add_heuristic           structural            34     0    0.062      0.0%
-  *                       add_analyzer            structural            35     1    0.029      2.9%
-  *                       drop_analyzer           structural            30     0    0.005      0.0%
-  Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
   Bottom 5 (lowest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
@@ -134,4 +139,4 @@ Bandit posteriors (n_attempts >= 3, 12 eligible rules):
 
 Inactivity:
   eps_accept_base=0.0050  longest_drought=19 iters
-  relaxed_accepts=2/13  mean_decay_at_accept=0.500
+  relaxed_accepts=3/14  mean_decay_at_accept=0.500

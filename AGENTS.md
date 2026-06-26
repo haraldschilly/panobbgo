@@ -683,6 +683,14 @@ The harness is the measurement substrate for an autonomous
     bound widens from `[0.049, 0.203]` to `[0.032, 0.313]`.  See the
     2026-06-22 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Manual codify of the `Nearby.radius` widening proposal** —
+    **shipped 2026-06-26**.  The auto-tuned `[0.032, 0.313]` proposal
+    landed as a `default_catalog` change (bounds tightened from
+    `(0.005, 0.5)`); the first widening-detector output to land as a
+    catalog change.  Pure bound update — no new arms, no constructor
+    changes, no behaviour change for the `Nearby` heuristic itself.
+    See the 2026-06-26 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **Nightly cron flipped to V2 substrate** — **shipped 2026-06-21**.
     The `self_improve_nightly.yml` workflow now invokes
     `scripts/self_improve.py run` with every zero-cost V2 flag:

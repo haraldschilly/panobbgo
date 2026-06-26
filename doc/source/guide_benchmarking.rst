@@ -1150,14 +1150,21 @@ targets the slot), the proposed bounds, and a one-token tag — one
 of ``[widens current]`` / ``[tightens current — focuses bandit on
 observed range]`` / ``[partial overlap]`` — so the operator can
 prioritise.  On the live project ledger today (2026-06-19) the
-detector surfaces two bidirectional patterns:
+detector surfaced two bidirectional patterns:
 
-* ``Nearby.radius`` — observed ``[0.073, 0.135]``, current ``[0.005,
-  0.5]``, proposed ``[0.049, 0.203]`` — **tightens current**: the
-  bandit consistently picks values in a window 5-10× narrower than
-  the catalog admits, so concentrating draws there frees compute.
+* ``Nearby.radius`` — observed ``[0.073, 0.135]``, original catalog
+  ``[0.005, 0.5]``, proposed ``[0.049, 0.203]`` — **tightens current**:
+  the bandit consistently picks values in a window 5-10× narrower than
+  the catalog admitted, so concentrating draws there frees compute.
+  **Manually codified 2026-06-26** — the catalog bounds were
+  tightened to ``[0.032, 0.313]`` (the 2026-06-22 auto-tuned proposal;
+  see the dated entry in ``planning/SELF_IMPROVEMENT_LOG.md``) — the
+  first widening-detector output to land as a catalog change.
 * ``Sobol.n`` — observed ``[8, 24]``, current ``[4, 64]``, proposed
-  ``[5, 36]`` — **tightens current** for the same reason.
+  ``[5, 36]`` — **tightens current** for the same reason; not yet
+  codified because the 2026-06-22 auto-tune classifies it as
+  ``"widens current"`` (mixed signal) when the larger widen factor
+  is applied (proposed flips to ``[3, 52]``).
 
 In ``--json`` mode every widening candidate rides the same
 line-delimited stream tagged ``"_type": "widening_candidate"`` while
@@ -1202,20 +1209,31 @@ unavailable — the helper falls back to the supplied ``--widen-factor``
 (default ``1.5``), so existing operators have a single-flag opt-in
 path.
 
-Live-ledger evidence on the day of ship:
+Live-ledger evidence on the day of ship (2026-06-22; the
+``Nearby.radius`` catalog has since been tightened — see the
+2026-06-26 codify note in the *Bidirectional-bound widening*
+sub-section above):
 
 * ``Nearby.radius`` (``log_uniform_perturb``) — observed
-  ``[0.073, 0.135]``, catalog ``[0.005, 0.5]``, log-ratio ``≈ 0.13`` →
-  auto-tuned factor **≈ 2.31** (vs the fixed ``1.5``).  Proposed
-  bound widens from ``[0.049, 0.203]`` to ``[0.032, 0.313]`` —
-  meaningfully more headroom outside the consensus window the bandit
-  has converged into.
+  ``[0.073, 0.135]``, **pre-codify** catalog ``[0.005, 0.5]``,
+  log-ratio ``≈ 0.13`` → auto-tuned factor **≈ 2.31** (vs the fixed
+  ``1.5``).  Proposed bound widens from ``[0.049, 0.203]`` to
+  ``[0.032, 0.313]`` — meaningfully more headroom outside the
+  consensus window the bandit had converged into.  The 2026-06-26
+  codify shipped exactly the auto-tuned proposal as the new catalog
+  bounds.  Re-running the detector against the same ledger after
+  the codify shows the auto-tune converges on ``[0.0345, 0.287]``
+  (factor ≈ 2.12 because the now-narrower catalog yields a larger
+  spread-ratio for the same observed range), which sits effectively
+  at the new bounds — the detector is self-stabilising.
 * ``Sobol.n`` (``integer_add``) — observed ``[8, 24]``, catalog
   ``[4, 64]``, linear-ratio ``≈ 0.27`` → auto-tuned factor **≈ 2.13**
   (vs ``1.5``).  Proposed bound flips from *tightening*
   (``[5, 36]``) to *widening* (``[3, 52]``) the catalog because the
   observed window covers enough of the catalog that a generous widen
-  pushes the upper end past the catalog's current 36.
+  pushes the upper end past the catalog's current 36.  Not yet
+  codified — the mixed *widens / tightens* signal is less clear-cut
+  than the ``Nearby.radius`` shape; deferred to a future iteration.
 
 CLI:
 

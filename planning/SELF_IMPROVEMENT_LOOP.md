@@ -384,6 +384,18 @@ larger factor for exploration headroom; wide spread (low agreement)
 → smaller factor focused on the consensus.  Lifts the live
 ``Nearby.radius`` factor from a fixed 1.5 to ~2.31, opening the
 proposed bound to ``[0.032, 0.313]`` instead of ``[0.049, 0.203]``.
+*2026-06-26 update:* the ``Nearby.radius`` auto-tuned proposal has
+been **manually codified** into :func:`default_catalog` (bounds
+``(0.005, 0.5) → (0.032, 0.313)``) — the first widening-detector
+output to land as a catalog change.  Re-running the detector against
+the same ledger after the codify shows the auto-tune converges on
+``[0.0345, 0.287]`` (the now-narrower catalog yields a smaller
+spread ratio so the per-candidate factor settles near 2.12), which
+sits effectively at the new bounds — the detector is
+self-stabilising.  The ``Sobol.n`` bidirectional candidate is *not*
+codified in the same change because the auto-tune classifies it as
+``"widens current"`` rather than ``"tightens"`` (mixed signal); see
+the 2026-06-26 entry in ``SELF_IMPROVEMENT_LOG.md``.
 
 ### 9.4 Target invocation
 

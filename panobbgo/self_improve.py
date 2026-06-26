@@ -1455,12 +1455,23 @@ def default_catalog() -> MutationCatalog:
     """
     return MutationCatalog(
         [
+            # Nearby.radius — tightened 2026-06-26 from (0.005, 0.5) to
+            # (0.032, 0.313) based on cross-night ledger evidence: 13
+            # accepts across 9 nights cluster in the observed window
+            # [0.073, 0.135] with the bandit consistently rejecting
+            # proposals well outside that window.  The auto-tuned widening
+            # detector (shipped 2026-06-22) sizes the catalog bound to a
+            # ~2.31× headroom factor around the observed range — wide
+            # enough to keep exploration headroom on either side, narrow
+            # enough that every per-iteration pull lands in the
+            # productive region.  See the 2026-06-26 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
             MutationRule(
                 strategy_pattern="",
                 class_name="Nearby",
                 param_name="radius",
                 kind="log_uniform_perturb",
-                bounds=(0.005, 0.5),
+                bounds=(0.032, 0.313),
                 log_step=0.15,
                 probability=1.0,
             ),

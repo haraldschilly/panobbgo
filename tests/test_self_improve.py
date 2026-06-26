@@ -9250,7 +9250,9 @@ class TestCatalogNumericBounds:
 
         bounds = _catalog_numeric_bounds(default_catalog(), "Nearby", "radius", "log_uniform_perturb")
         assert bounds is not None
-        assert bounds == pytest.approx((0.005, 0.5))
+        # Tightened 2026-06-26 from (0.005, 0.5) — see the dated entry
+        # in planning/SELF_IMPROVEMENT_LOG.md.
+        assert bounds == pytest.approx((0.032, 0.313))
 
     def test_returns_none_for_unknown_slot(self):
         from panobbgo.self_improve import _catalog_numeric_bounds
@@ -9412,7 +9414,9 @@ class TestDetectWideningCandidates:
         up = _codify_candidate(direction="up", new_values=(0.12,))
         down = _codify_candidate(direction="down", new_values=(0.08,))
         [w] = detect_widening_candidates([up, down])
-        assert w.current_bounds == pytest.approx((0.005, 0.5))
+        # Tightened 2026-06-26 from (0.005, 0.5) — see the dated entry
+        # in planning/SELF_IMPROVEMENT_LOG.md.
+        assert w.current_bounds == pytest.approx((0.032, 0.313))
 
     def test_unknown_slot_yields_none_current_bounds(self):
         # A slot the default catalog doesn't ship a rule for still
@@ -10035,18 +10039,19 @@ class TestDetectWideningCandidatesAutoTune:
         assert w.widen_factor == pytest.approx(1.5)
 
     def test_auto_tune_sizes_factor_per_candidate(self):
-        # Nearby.radius live shape — narrow observed spread inside a
-        # wide catalog (default rule [0.005, 0.5]).  Auto-tune should
-        # produce a factor > the default 1.5.
+        # Nearby.radius live shape — narrow observed spread inside the
+        # tightened catalog (default rule [0.032, 0.313] from the
+        # 2026-06-26 codify; previously [0.005, 0.5]).  Auto-tune should
+        # still produce a factor > the default 1.5.
         from panobbgo.self_improve import detect_widening_candidates
 
         up = _codify_candidate(direction="up", new_values=(0.12, 0.135))
         down = _codify_candidate(direction="down", new_values=(0.073, 0.08))
         [w] = detect_widening_candidates([up, down], auto_tune=True)
-        # observed [0.073, 0.135] in catalog [0.005, 0.5] →
-        # log(1.85)/log(100) ≈ 0.133 → factor ≈ 2.31 (in [1.1, 2.5]).
-        assert 2.2 < w.widen_factor < 2.5
-        # Proposed bound is wider than the fixed-1.5 baseline would give.
+        # observed [0.073, 0.135] in catalog [0.032, 0.313] →
+        # log(1.85)/log(9.78) ≈ 0.270 → factor ≈ 2.12 (in [1.1, 2.5]).
+        assert 2.0 < w.widen_factor < 2.3
+        # Proposed bound is still wider than the fixed-1.5 baseline.
         assert w.proposed_hi > 0.135 * 1.5
 
     def test_auto_tune_falls_back_to_widen_factor_when_no_rule(self):
@@ -10089,8 +10094,11 @@ class TestDetectWideningCandidatesAutoTune:
             auto_tune_min_factor=1.2,
             auto_tune_max_factor=4.0,
         )
-        # Narrow spread → close to max_factor=4.0.
-        assert w.widen_factor > 3.5
+        # Narrow spread → close to max_factor=4.0.  With the 2026-06-26
+        # tightening (default catalog [0.032, 0.313]) the observed-spread
+        # ratio is ~0.27 so factor = 4.0 - (4.0-1.2)*0.27 ≈ 3.24, vs
+        # ~3.63 under the prior [0.005, 0.5] bounds.
+        assert w.widen_factor > 3.0
 
 
 class TestCodifyScanCLIAutoTuneWidening:
@@ -10190,9 +10198,13 @@ class TestCodifyScanCLIAutoTuneWidening:
         assert len(widening) == 1
         w = widening[0]
         # The per-candidate factor for the Nearby.radius live shape sits
-        # near the max-factor end of the [1.1, 2.5] range — see
+        # in the upper half of the [1.1, 2.5] range — see
         # TestDetectWideningCandidatesAutoTune.test_auto_tune_sizes_factor_per_candidate.
-        assert 2.2 < w["widen_factor"] < 2.5
+        # The tightened 2026-06-26 catalog bounds [0.032, 0.313] put the
+        # observed-spread ratio at ~0.27 (vs ~0.13 under the previous
+        # [0.005, 0.5] bounds) so the factor sits near 2.12 rather than
+        # 2.31.
+        assert 2.0 < w["widen_factor"] < 2.3
 
     def test_auto_tune_custom_range_propagates(self, tmp_path, capsys):
         cli = self._import_cli()
@@ -10213,5 +10225,8 @@ class TestCodifyScanCLIAutoTuneWidening:
             json.loads(line) for line in out.splitlines() if line.strip() and '"_type": "widening_candidate"' in line
         ]
         assert len(widening) == 1
-        # Narrow spread + max_factor=4.0 → widen_factor near 4.0.
-        assert widening[0]["widen_factor"] > 3.5
+        # Narrow spread + max_factor=4.0 → widen_factor near the high
+        # end of [1.2, 4.0].  With the 2026-06-26 tightening (default
+        # catalog [0.032, 0.313]) the observed-spread ratio is ~0.27 so
+        # factor ≈ 3.24, vs ~3.63 under the prior [0.005, 0.5] bounds.
+        assert widening[0]["widen_factor"] > 3.0

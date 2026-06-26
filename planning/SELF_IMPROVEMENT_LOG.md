@@ -17,6 +17,133 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-26 — Codify auto-tuned `Nearby.radius` catalog tightening (manual widening-detector codify)
+
+* **What** — Tightens the :func:`panobbgo.self_improve.default_catalog`
+  ``Nearby.radius`` :class:`MutationRule` ``bounds`` from
+  ``(0.005, 0.5)`` to ``(0.032, 0.313)`` based on cross-night ledger
+  evidence surfaced by the 2026-06-19 widening detector and sized by
+  the 2026-06-22 auto-tune.  Pure catalog-bound update — no new arms,
+  no constructor changes, no behaviour change for the heuristic itself.
+  Codifies the manual companion to the auto-tuned widening
+  ``codify-scan --widen-bounds --widen-auto-tune`` proposal — the same
+  shape as the 2026-05-31 ``Sobol.scramble=False`` codify (also a
+  ledger-evidence-driven default change) but on a continuous numeric
+  slot instead of a categorical.
+
+* **Why** — Two direct effects:
+
+  * **Bandit productivity** — the live ledger today carries 13 accepts
+    on the ``(Nearby, radius, log_uniform_perturb)`` arm across 9
+    distinct nights, with every accepted ``new_value`` falling inside
+    the observed window ``[0.073, 0.135]``.  The pre-tightening
+    catalog bounds ``[0.005, 0.5]`` admit values 6.25× below and 1.6×
+    above that window — a sizable fraction of each ``log_uniform_perturb``
+    pull lands outside the productive range and the rule was the
+    catalog's dominant no-op generator.  The auto-tuned widening
+    detector (2026-06-22) recommends a ~2.31× headroom factor around
+    the observed range, i.e. proposed catalog
+    ``[0.0317, 0.3130]`` ≈ ``[0.032, 0.313]`` (rounded for readability
+    in the literal).  Tightening focuses every per-iteration pull onto
+    the productive region without removing exploration headroom on
+    either side.
+  * **Per-arm posterior resolution** — concentrating proposals into the
+    productive window means each accept / reject feedback updates the
+    arm's Beta posterior on a value drawn from a meaningfully narrower
+    distribution.  Same nightly budget → tighter per-arm posterior →
+    the §11.1 "resolution" criterion improves on the same compute.
+
+* **Backwards compatibility** — strictly safe:
+
+  * The :class:`~panobbgo.heuristics.nearby.Nearby` constructor default
+    (``radius=0.01``) is unchanged.  The catalog rule only fires when a
+    spec sets ``radius`` explicitly (via :func:`_find_targets`), and the
+    four registry seed specs that ship explicit
+    ``radius={0.1, 0.05}`` are well inside the new bounds.
+  * Bandit arm key ``(Nearby, radius, log_uniform_perturb)`` is
+    unchanged, so the pre-tightening Beta posterior accumulates
+    seamlessly across the bound change — the bandit only sees a
+    narrower proposal distribution.  Ledger replay through
+    :meth:`AdaptiveMutationSampler.prime_from_ledger` continues to map
+    every historical proposal onto the same arm.
+  * Every observed ``new_value`` from the live ledger (range
+    ``[0.073, 0.135]``) sits comfortably inside the new bounds, so
+    the bandit's accepted-region knowledge survives the change.
+  * The widening detector's own ``current_bounds`` cache (looked up
+    via :func:`_catalog_numeric_bounds`) is the single source of
+    truth — re-running ``codify-scan --widen-bounds --widen-auto-tune``
+    against the same ledger after this codify shows the auto-tuned
+    proposal converges on ``[0.0345, 0.287]`` (essentially the new
+    catalog bounds, modulo the ~2.12 factor the now-narrower catalog
+    yields for the same observed spread).  The detector is
+    self-stabilising.
+
+* **Tests** — two existing tests updated (assertion-only):
+
+  * ``TestCatalogNumericBounds.test_finds_existing_rule`` —
+    expected value flipped from ``(0.005, 0.5)`` to ``(0.032, 0.313)``
+    with a comment pointing back to this dated entry.
+  * ``TestDetectWideningCandidates.test_looks_up_current_bounds_from_default_catalog`` —
+    same flip; the test exercises the
+    :func:`_catalog_numeric_bounds` lookup path the widening detector
+    uses to size its proposal.
+  * ``TestDetectWideningCandidatesAutoTune.test_auto_tune_sizes_factor_per_candidate``
+    (and the JSON-mode CLI sibling
+    ``TestCodifyScanCLIAutoTuneWidening.test_auto_tune_json_mode_emits_per_candidate_factor``)
+    relaxed from ``2.2 < factor < 2.5`` to ``2.0 < factor < 2.3`` —
+    the observed-spread ratio is now ~0.27 (vs ~0.13 under the prior
+    wider bounds) so the auto-tuned factor sits near 2.12 rather than
+    2.31.  Both still verify the spirit ("factor sits in the upper
+    half of the [1.1, 2.5] range").
+  * ``TestDetectWideningCandidatesAutoTune.test_auto_tune_with_custom_range``
+    (and the JSON-mode CLI sibling
+    ``TestCodifyScanCLIAutoTuneWidening.test_auto_tune_custom_range_propagates``)
+    relaxed from ``> 3.5`` to ``> 3.0`` for the custom ``[1.2, 4.0]``
+    range — same reason as above: tighter catalog → larger
+    spread ratio → smaller per-candidate factor for the same
+    observed range.
+
+  All 1681 pre-existing tests (incl. the four updated assertions) pass.
+  ``ruff check`` / ``ruff format`` / ``pyright`` are clean on every
+  touched file.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the *Codify
+    widening-detector proposals as a catalog bound update* idea
+    promoted from speculative-because-no-driver-yet to shipped
+    (manual codify, no driver needed — the §9.5 step 4 ``--open-pr``
+    driver remains queued for the automation).
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 widening-detector
+    paragraph extended with a note that the live ``Nearby.radius``
+    candidate has been manually codified; the proposed
+    ``Sobol.n`` candidate is left for a future iteration because the
+    auto-tune classifies it as ``"widens current"`` (mixed signal,
+    less clear than ``Nearby.radius``'s clean tightening).
+  - ``panobbgo/self_improve.py``: in-rule comment in
+    :func:`default_catalog` cites this dated entry and the ledger
+    evidence count.
+  - ``tests/test_self_improve.py``: two new-bounds assertions, two
+    relaxed assertions; comments cite this entry for the rationale.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Codify-scan `--widen-bounds --open-pr` driver** — the queued
+    automation layer that turns a :class:`WideningCandidate` into a
+    draft codify PR.  Speculative until the basic
+    ``codify-scan --open-pr`` driver lands.  Sketch in the existing
+    *Mutation-bound widening rule for bidirectional codify
+    candidates* follow-up.
+  * **``Sobol.n`` widening codify (manual companion)** — the
+    auto-tune output today classifies the ``Sobol.n`` bidirectional
+    candidate as ``"widens current"`` (proposed ``[3, 52]`` vs
+    current ``[4, 64]``: expands the lower bound from 4 to 3 but
+    contracts the upper from 64 to 52).  Less clear-cut than the
+    ``Nearby.radius`` tightening; defer until either (a) more
+    nights of evidence cluster the observed range more tightly or
+    (b) the ``--open-pr`` driver decides what to do with the mixed
+    signal.
+
 ### 2026-06-25 — Auto-tune κ for hierarchical structural bandit (V2 follow-up)
 
 * **What** — Closes the *Auto-tune ``κ``* follow-up seeded under the
@@ -6487,7 +6614,12 @@ Follow-ups still queued:
   :class:`WideningCandidate` into a concrete edit on
   :func:`~panobbgo.self_improve.default_catalog` and open a draft
   codify PR.  Speculative until the basic ``--open-pr`` driver
-  lands.
+  lands.  *2026-06-26 update:* the ``Nearby.radius`` candidate has
+  been manually codified (see the 2026-06-26 dated entry above) —
+  this is the first widening-detector candidate to land as a
+  catalog change.  The pattern (manual codify before automation) is
+  the same shape as 2026-05-31's ``Sobol.scramble=False`` codify;
+  the driver remains queued for the automation.
 * **Per-kind widen factor** — log-scale knobs tolerate a larger
   widen factor than linear ones; a
   ``--widen-factor-log`` / ``--widen-factor-linear`` flag pair would
@@ -6507,6 +6639,15 @@ Follow-ups still queued:
   — directly closes the *Auto-tune widen factor from observed
   spread* idea seeded in the 2026-06-19 widening-detector ship.  See
   the 2026-06-22 dated entry above.
+* **``Sobol.n`` widening codify (manual companion to 2026-06-26)** —
+  the auto-tune output today classifies the ``Sobol.n`` bidirectional
+  candidate as ``"widens current"`` (proposed ``[3, 52]`` vs current
+  ``[4, 64]``: expands the lower bound from 4 to 3 but contracts the
+  upper from 64 to 52).  Mixed signal — defer the manual codify until
+  either (a) more nights of evidence cluster the observed range more
+  tightly or (b) the ``--open-pr`` driver decides on a tie-breaking
+  rule for ``"widens"`` candidates.  See the 2026-06-26 entry above
+  for the manual-codify shape the queued driver should emulate.
 
 #### Suppress already-codified candidates in codify-scan — shipped 2026-06-18
 

@@ -435,7 +435,7 @@ The harness is the measurement substrate for an autonomous
     `kind="categorical_choice"`.  Picks uniformly from a discrete
     `choices` tuple while always excluding the current value (no-op
     mutations are eliminated by construction).  The default catalog
-    ships nine categorical rules out-of-the-box: `PSO.topology`
+    ships ten categorical rules out-of-the-box: `PSO.topology`
     (`"gbest"` ↔ `"lbest"` ↔ `"vonneumann"` ↔ `"random"`), `Sobol.scramble` (`True` ↔ `False`),
     `LSHADE.archive_factor` (`0.0` / `1.0` / `2.6`),
     `LSHADE.F_schedule` (`"off"` / `"jso"` / `"early"` / `"strict"` —
@@ -452,7 +452,14 @@ The harness is the measurement substrate for an autonomous
     slot; the L-SHADE setting is raised from the canonical `0.11`
     to `0.15` so it clears jSO's default `p_best_min = 0.125`
     floor — shipped 2026-06-09), `COBYQA.scale`
-    (`True` ↔ `False`), and `Restart.restart_strategy`
+    (`True` ↔ `False`),
+    `NLSHADE_LBC.lbc_regime` (`"cec2022"` / `"lshade"` / `"flat"`
+    / `"aggressive"` — four named LBC bias regimes over the
+    five-tuple `(p_F_init, p_F_final, p_CR_init, p_CR_final,
+    m_lbc)`; shipped 2026-06-24, replaced the five per-field LBC
+    `float_uniform` rules with one composite joint-search arm —
+    mirrors the `LSHADE.F_schedule` broadening pattern),
+    and `Restart.restart_strategy`
     (`"random"` / `"diverse"` / `"sphere"` — uniform-in-box /
     max-min-distance / Gaussian-around-centre center-selection
     regimes, shipped 2026-06-07).  Each fires only

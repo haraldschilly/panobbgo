@@ -146,7 +146,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#adaptive-mutation-sampler-10">Adaptive mutation sampler (&#167;10)</a></li>
 <li><a class="reference internal" href="#strategy-portfolio-composition-7-2">Strategy portfolio composition (&#167;7.2)</a></li>
 <li><a class="reference internal" href="#per-class-structural-bandit-arms">Per-class structural bandit arms</a></li>
-<li><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms">Hierarchical bandit over per-class structural arms</a></li>
+<li><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms">Hierarchical bandit over per-class structural arms</a><ul>
+<li><a class="reference internal" href="#auto-tune-from-observed-evidence-structural-borrow-horizon">Auto-tune <code class="docutils literal notranslate"><span class="pre">&#954;</span></code> from observed evidence (<code class="docutils literal notranslate"><span class="pre">structural_borrow_horizon</span></code>)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#categorical-mutation-rule">Categorical mutation rule</a></li>
 <li><a class="reference internal" href="#hold-out-validation-set">Hold-out validation set</a><ul>
 <li><a class="reference internal" href="#multi-seed-hold-out">Multi-seed hold-out</a></li>
@@ -1839,6 +1842,62 @@ grouped by an “op”, so there is no aggregate to borrow from).</p></li>
 </span><span data-line="9"><span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="n">default_structural_catalog</span><span class="p">())</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </span></pre></div>
 </div>
+<section id="auto-tune-from-observed-evidence-structural-borrow-horizon">
+<h4>Auto-tune <code class="docutils literal notranslate"><span class="pre">κ</span></code> from observed evidence (<code class="docutils literal notranslate"><span class="pre">structural_borrow_horizon</span></code>)<a class="headerlink" href="#auto-tune-from-observed-evidence-structural-borrow-horizon" title="Link to this heading">¶</a></h4>
+<p>The fixed-<code class="docutils literal notranslate"><span class="pre">κ</span></code> posterior above closes the cold-start gap but never
+<em>lets go</em>: an arm with hundreds of attempts of its own still pays the
+<code class="docutils literal notranslate"><span class="pre">κ</span> <span class="pre">·</span></code> op-aggregate cost, indefinitely pulling its leaf posterior
+toward the op-level mean.  Empirically the right behaviour is
+“borrow heavily early, vanish as evidence grows” — every
+hierarchical-bandit textbook puts this knob behind an annealing rule.</p>
+<p><code class="xref py py-attr docutils literal notranslate"><span class="pre">structural_borrow_horizon</span></code>
+(<code class="docutils literal notranslate"><span class="pre">h</span> <span class="pre">≥</span> <span class="pre">0</span></code>) provides exactly that.  When <code class="docutils literal notranslate"><span class="pre">h</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (and the two
+borrow preconditions are met — <code class="docutils literal notranslate"><span class="pre">κ</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> and per-class arms enabled),
+each per-class arm’s <em>effective</em> borrow shrinks toward zero as that
+arm’s own attempts accumulate:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\kappa_{\text{eff}}(n_{\text{class}}^{\text{attempts}}) =
+  \frac{\kappa}{1 + n_{\text{class}}^{\text{attempts}} / h}\]</div>
+</div>
+<p>So a cold arm (<code class="docutils literal notranslate"><span class="pre">n_class_attempts</span> <span class="pre">=</span> <span class="pre">0</span></code>) borrows the full configured
+<code class="docutils literal notranslate"><span class="pre">κ</span></code> — same as the fixed-<code class="docutils literal notranslate"><span class="pre">κ</span></code> path.  At <code class="docutils literal notranslate"><span class="pre">n_class_attempts</span> <span class="pre">=</span> <span class="pre">h</span></code> the
+borrow halves exactly.  By <code class="docutils literal notranslate"><span class="pre">n_class_attempts</span> <span class="pre">=</span> <span class="pre">10·h</span></code> the borrow has
+shrunk to roughly <code class="docutils literal notranslate"><span class="pre">κ</span> <span class="pre">/</span> <span class="pre">11</span></code> — the leaf posterior now trusts its own
+evidence instead of being pulled toward the op-level aggregate.</p>
+<p>The annealing is <strong>inert</strong> under the same preconditions as the borrow
+itself: <code class="docutils literal notranslate"><span class="pre">κ</span> <span class="pre">=</span> <span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">structural_per_class_arms</span> <span class="pre">=</span> <span class="pre">False</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">adaptive_sampling</span> <span class="pre">=</span> <span class="pre">False</span></code> all make <code class="docutils literal notranslate"><span class="pre">structural_borrow_horizon</span></code>
+a silent no-op.  The default <code class="docutils literal notranslate"><span class="pre">h</span> <span class="pre">=</span> <span class="pre">0</span></code> <em>also</em> disables annealing
+(every arm always sees the full <code class="docutils literal notranslate"><span class="pre">κ</span></code>) so the knob is opt-in and
+byte-identical to the 2026-06-01 fixed-<code class="docutils literal notranslate"><span class="pre">κ</span></code> ship when unset.</p>
+<p>Recommended values for an unattended cron: <code class="docutils literal notranslate"><span class="pre">h</span> <span class="pre">=</span> <span class="pre">5</span></code> to <code class="docutils literal notranslate"><span class="pre">10</span></code>.  The
+per-arm posteriors warm up over a couple of nights at the catalog’s
+typical per-iteration cardinality, beyond which the bandit should
+trust the leaf-level signal rather than continue being pulled toward
+the op-level mean.</p>
+<p>CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Per-class structural arms with annealed hierarchical borrow.</span>
+</span><span data-line="2"><span class="c1"># Cold arms borrow the full κ=1.0; arms with ≥ 10 attempts borrow ≤ κ/3.</span>
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--structural<span class="w"> </span>--adaptive<span class="w"> </span>--structural-per-class-arms<span class="w"> </span><span class="se">\</span>
+</span><span data-line="5"><span class="w">    </span>--structural-borrow-alpha<span class="w"> </span><span class="m">1</span>.0<span class="w"> </span>--structural-borrow-horizon<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="6"><span class="w">    </span>--adaptive-prime-from-ledger
+</span></pre></div>
+</div>
+<p>Programmatic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoopConfig</span><span class="p">,</span> <span class="n">SelfImprover</span><span class="p">,</span> <span class="n">default_structural_catalog</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">cfg</span> <span class="o">=</span> <span class="n">LoopConfig</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">adaptive_sampling</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">structural_per_class_arms</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">structural_borrow_alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">structural_borrow_horizon</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>  <span class="c1"># halve the borrow at 5 per-class attempts</span>
+</span><span data-line="9"><span class="p">)</span>
+</span><span data-line="10"><span class="n">SelfImprover</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="n">default_structural_catalog</span><span class="p">())</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span></pre></div>
+</div>
 <p>CLI:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Structural catalog, uniform sampler.</span>
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--iterations<span class="w"> </span><span class="m">50</span><span class="w"> </span>--structural
@@ -1877,6 +1936,7 @@ grouped by an “op”, so there is no aggregate to borrow from).</p></li>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">--structural</span></code> flag is <strong>off by default</strong> so existing CLI
 invocations and existing ledgers stay byte-identical.</p>
+</section>
 </section>
 <section id="categorical-mutation-rule">
 <h3><a class="toc-backref" href="#id34" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>

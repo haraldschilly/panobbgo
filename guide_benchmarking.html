@@ -851,10 +851,15 @@ immediately applicable:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">Loop_DE_Family</span></code> — one Rewarding strategy carrying all five DE
 variants (L-SHADE, jSO, NL-SHADE-RSP, NL-SHADE-LBC, LSHADE-EpSin)
 at <code class="docutils literal notranslate"><span class="pre">NP_init</span> <span class="pre">=</span> <span class="pre">15</span></code>.  Activates every numeric and categorical
-rule across the DE family (~20 rules), including the L-SHADE
-<code class="docutils literal notranslate"><span class="pre">F_schedule</span></code> and <code class="docutils literal notranslate"><span class="pre">archive_factor</span></code> categorical toggles, the
-jSO <code class="docutils literal notranslate"><span class="pre">p_best_max</span></code> regime arm, the NL-SHADE-RSP <code class="docutils literal notranslate"><span class="pre">k_rank</span></code>
-regime arm, and every NL-SHADE-LBC schedule kwarg.</p></li>
+rule across the DE family (~16 rules after the 2026-06-24 LBC
+catalog consolidation), including the L-SHADE <code class="docutils literal notranslate"><span class="pre">F_schedule</span></code> and
+<code class="docutils literal notranslate"><span class="pre">archive_factor</span></code> categorical toggles, the jSO <code class="docutils literal notranslate"><span class="pre">p_best_max</span></code>
+regime arm, the NL-SHADE-RSP <code class="docutils literal notranslate"><span class="pre">k_rank</span></code> regime arm, and the
+NL-SHADE-LBC <code class="docutils literal notranslate"><span class="pre">lbc_regime</span></code> composite categorical arm
+(<code class="docutils literal notranslate"><span class="pre">&quot;cec2022&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;lshade&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;flat&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;aggressive&quot;</span></code>)
+that replaced the five per-field LBC float rules with one
+literature-motivated joint search across the Lehmer-mean exponent
+/ spread tuple.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Loop_PSO</span></code> — LatinHypercube + PSO + NelderMead.  PSO ships
 <code class="docutils literal notranslate"><span class="pre">NP=15</span> <span class="pre">/</span> <span class="pre">w=0.7298</span> <span class="pre">/</span> <span class="pre">w_end=0.4</span> <span class="pre">/</span> <span class="pre">stagnation_threshold=10</span> <span class="pre">/</span>
 <span class="pre">topology=&quot;gbest&quot;</span></code> so every PSO rule fires — including the
@@ -1648,7 +1653,19 @@ CR Lehmer-mean order <code class="docutils literal notranslate"><span class="pre
 progress (<code class="docutils literal notranslate"><span class="pre">p_F:</span> <span class="pre">3.5</span> <span class="pre">→</span> <span class="pre">1.5</span></code>, <code class="docutils literal notranslate"><span class="pre">p_CR:</span> <span class="pre">1.0</span> <span class="pre">→</span> <span class="pre">1.5</span></code>) instead of fixed
 at <code class="docutils literal notranslate"><span class="pre">2</span></code>; the numerator / denominator exponent spread <code class="docutils literal notranslate"><span class="pre">m_lbc</span></code> is
 held constant at <code class="docutils literal notranslate"><span class="pre">1.5</span></code> (<code class="docutils literal notranslate"><span class="pre">m</span> <span class="pre">=</span> <span class="pre">1</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">2</span></code> everywhere recovers
-the standard L-SHADE Lehmer mean).  LSHADE-EpSin (Awad, Ali &amp; Suganthan
+the standard L-SHADE Lehmer mean).  The constructor’s
+<code class="docutils literal notranslate"><span class="pre">lbc_regime</span></code> kwarg (shipped 2026-06-24) wraps four named regime
+presets — <code class="docutils literal notranslate"><span class="pre">&quot;cec2022&quot;</span></code> (the Stanovov defaults above), <code class="docutils literal notranslate"><span class="pre">&quot;lshade&quot;</span></code>
+(recovers the standard L-SHADE Lehmer mean at <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">2,</span> <span class="pre">m</span> <span class="pre">=</span> <span class="pre">1</span></code>),
+<code class="docutils literal notranslate"><span class="pre">&quot;flat&quot;</span></code> (pure arithmetic mean — <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">1</span></code> throughout, default
+spread), and <code class="docutils literal notranslate"><span class="pre">&quot;aggressive&quot;</span></code> (strong bias throughout — <code class="docutils literal notranslate"><span class="pre">p_F</span></code>
+decays <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">→</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">p_CR</span></code> grows <code class="docutils literal notranslate"><span class="pre">3</span> <span class="pre">→</span> <span class="pre">5</span></code>, default spread).
+The named regime is mutually exclusive with the explicit per-field
+LBC kwargs and is exposed to the self-improvement bandit as a
+single <code class="docutils literal notranslate"><span class="pre">categorical_choice</span></code> rule on the
+<code class="docutils literal notranslate"><span class="pre">(NLSHADE_LBC,</span> <span class="pre">lbc_regime)</span></code> slot — joint exploration of the
+five-field LBC regime space in one well-curated discrete arm
+rather than five cold-started independent float arms.  LSHADE-EpSin (Awad, Ali &amp; Suganthan
 2016) is the <em>orthogonal</em> CEC-2016 sinusoidal-F branch — it replaces
 SHADE Cauchy-from-memory <code class="docutils literal notranslate"><span class="pre">F</span></code> sampling with an ensemble of two
 sinusoidal candidates (fixed-frequency / decreasing-envelope vs
@@ -1914,6 +1931,24 @@ that opt into NL-SHADE-RSP.</p></li>
 well-conditioned) vs <code class="docutils literal notranslate"><span class="pre">False</span></code> (raw box).  Useful when the
 problem’s box is already isotropic and the rescale adds
 rounding noise that hurts the quadratic-model fit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC.lbc_regime</span></code> — four named regime presets over the
+five LBC Lehmer-mean kwargs (<code class="docutils literal notranslate"><span class="pre">p_F_init</span></code> / <code class="docutils literal notranslate"><span class="pre">p_F_final</span></code> /
+<code class="docutils literal notranslate"><span class="pre">p_CR_init</span></code> / <code class="docutils literal notranslate"><span class="pre">p_CR_final</span></code> / <code class="docutils literal notranslate"><span class="pre">m_lbc</span></code>): <code class="docutils literal notranslate"><span class="pre">&quot;cec2022&quot;</span></code>
+(Stanovov et al. 2022 defaults — F bias decays <code class="docutils literal notranslate"><span class="pre">3.5</span> <span class="pre">→</span> <span class="pre">1.5</span></code>,
+CR bias grows <code class="docutils literal notranslate"><span class="pre">1.0</span> <span class="pre">→</span> <span class="pre">1.5</span></code>, spread <code class="docutils literal notranslate"><span class="pre">1.5</span></code>), <code class="docutils literal notranslate"><span class="pre">&quot;lshade&quot;</span></code>
+(recovers the standard L-SHADE Lehmer mean at <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">2,</span> <span class="pre">m</span> <span class="pre">=</span> <span class="pre">1</span></code> —
+turns the LBC mechanism itself off without dropping the
+heuristic), <code class="docutils literal notranslate"><span class="pre">&quot;flat&quot;</span></code> (pure arithmetic mean — <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">=</span> <span class="pre">1</span></code>
+throughout, default spread), and <code class="docutils literal notranslate"><span class="pre">&quot;aggressive&quot;</span></code> (strong bias
+throughout — <code class="docutils literal notranslate"><span class="pre">p_F</span></code> decays <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">→</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">p_CR</span></code> grows <code class="docutils literal notranslate"><span class="pre">3</span> <span class="pre">→</span> <span class="pre">5</span></code>,
+default spread).  Mutually exclusive with the five per-field
+LBC float kwargs.  Replaces the five per-field
+<code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> rules previously on the catalog (shipped
+2026-05-28; retired 2026-06-24) with a single
+literature-motivated composite arm — joint exploration of the
+five-field LBC regime space instead of five cold-started
+independent dial arms.  Mirrors the 2026-06-23 <code class="docutils literal notranslate"><span class="pre">F_schedule</span></code>
+regime broadening on L-SHADE.</p></li>
 </ul>
 <p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">MutationRule</span></code> <code class="docutils literal notranslate"><span class="pre">categorical_choice</span></code>
 kind closes this gap.  The rule carries a <code class="docutils literal notranslate"><span class="pre">choices</span></code> tuple of
@@ -1924,7 +1959,7 @@ eliminated by construction).  The bandit treats categorical rules
 as their own arm — distinct from any numeric rule on the same
 <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param)</span></code> slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.</p>
-<p>The default catalog ships nine categorical rules out-of-the-box:</p>
+<p>The default catalog ships ten categorical rules out-of-the-box:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;PSO&quot;</span><span class="p">,</span>
@@ -1998,16 +2033,30 @@ flipping a discrete knob is worthwhile.</p>
 </span><span data-line="71"><span class="p">),</span>
 </span><span data-line="72"><span class="n">MutationRule</span><span class="p">(</span>
 </span><span data-line="73">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-</span><span data-line="74">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span>
-</span><span data-line="75">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;restart_strategy&quot;</span><span class="p">,</span>
+</span><span data-line="74">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;NLSHADE_LBC&quot;</span><span class="p">,</span>
+</span><span data-line="75">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;lbc_regime&quot;</span><span class="p">,</span>
 </span><span data-line="76">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
-</span><span data-line="77">    <span class="c1"># &quot;random&quot; = uniform-in-box; &quot;diverse&quot; = max-min distance from</span>
-</span><span data-line="78">    <span class="c1"># previous restart centres; &quot;sphere&quot; = Gaussian around the box</span>
-</span><span data-line="79">    <span class="c1"># centre with std = ranges / 6 (clipped to the box).  Shipped</span>
-</span><span data-line="80">    <span class="c1"># 2026-06-07 — see §13 entry.</span>
-</span><span data-line="81">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="s2">&quot;diverse&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">),</span>
-</span><span data-line="82">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-</span><span data-line="83"><span class="p">),</span>
+</span><span data-line="77">    <span class="c1"># &quot;cec2022&quot; = Stanovov et al. 2022 defaults; &quot;lshade&quot; =</span>
+</span><span data-line="78">    <span class="c1"># standard L-SHADE Lehmer mean (p=2, m=1 — turns LBC off);</span>
+</span><span data-line="79">    <span class="c1"># &quot;flat&quot; = pure arithmetic mean (p=1, default spread);</span>
+</span><span data-line="80">    <span class="c1"># &quot;aggressive&quot; = strong bias throughout.  Shipped 2026-06-24 —</span>
+</span><span data-line="81">    <span class="c1"># replaced the five per-field LBC float_uniform rules with one</span>
+</span><span data-line="82">    <span class="c1"># composite joint-search arm.  See §13 entry.</span>
+</span><span data-line="83">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;cec2022&quot;</span><span class="p">,</span> <span class="s2">&quot;lshade&quot;</span><span class="p">,</span> <span class="s2">&quot;flat&quot;</span><span class="p">,</span> <span class="s2">&quot;aggressive&quot;</span><span class="p">),</span>
+</span><span data-line="84">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="85"><span class="p">),</span>
+</span><span data-line="86"><span class="n">MutationRule</span><span class="p">(</span>
+</span><span data-line="87">    <span class="n">strategy_pattern</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span data-line="88">    <span class="n">class_name</span><span class="o">=</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span>
+</span><span data-line="89">    <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;restart_strategy&quot;</span><span class="p">,</span>
+</span><span data-line="90">    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;categorical_choice&quot;</span><span class="p">,</span>
+</span><span data-line="91">    <span class="c1"># &quot;random&quot; = uniform-in-box; &quot;diverse&quot; = max-min distance from</span>
+</span><span data-line="92">    <span class="c1"># previous restart centres; &quot;sphere&quot; = Gaussian around the box</span>
+</span><span data-line="93">    <span class="c1"># centre with std = ranges / 6 (clipped to the box).  Shipped</span>
+</span><span data-line="94">    <span class="c1"># 2026-06-07 — see §13 entry.</span>
+</span><span data-line="95">    <span class="n">choices</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="s2">&quot;diverse&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">),</span>
+</span><span data-line="96">    <span class="n">probability</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="97"><span class="p">),</span>
 </span></pre></div>
 </div>
 <p>Each fires only when the target spec sets the kwarg <em>explicitly</em>

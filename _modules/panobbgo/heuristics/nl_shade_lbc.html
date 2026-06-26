@@ -203,260 +203,400 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="69"><span class="sd">of the search.  This is a documented, predictable fallback and matches</span>
 </span><span data-line="70"><span class="sd">the convention used by :class:`~panobbgo.heuristics.lshade.LSHADE.F_schedule`.</span>
 </span><span data-line="71">
-</span><span data-line="72"><span class="sd">Asynchronous execution</span>
-</span><span data-line="73"><span class="sd">----------------------</span>
+</span><span data-line="72"><span class="sd">Named regimes</span>
+</span><span data-line="73"><span class="sd">-------------</span>
 </span><span data-line="74">
-</span><span data-line="75"><span class="sd">Identical to NL-SHADE-RSP / jSO / L-SHADE.  The only method that</span>
-</span><span data-line="76"><span class="sd">changes is :meth:`_update_memory` (the Lehmer-mean computation).</span>
-</span><span data-line="77"><span class="sd">Everything else — NLPSR, RSP r1 selection, the randomised adaptive</span>
-</span><span data-line="78"><span class="sd">archive, the jSO frozen anchor bin and pointer-skip rule, warm</span>
-</span><span data-line="79"><span class="sd">restart — is inherited unchanged.</span>
+</span><span data-line="75"><span class="sd">The five LBC schedule kwargs can be set jointly through a named</span>
+</span><span data-line="76"><span class="sd">``lbc_regime`` argument — a single composite knob the self-improvement</span>
+</span><span data-line="77"><span class="sd">loop can flip as one ``categorical_choice`` bandit arm.  See</span>
+</span><span data-line="78"><span class="sd">:data:`_LBC_REGIMES` for the regime-to-tuple mapping.  The four</span>
+</span><span data-line="79"><span class="sd">shipped regimes are:</span>
 </span><span data-line="80">
-</span><span data-line="81"><span class="sd">Deviations from the full CEC-2022 paper</span>
-</span><span data-line="82"><span class="sd">---------------------------------------</span>
-</span><span data-line="83">
-</span><span data-line="84"><span class="sd">For transparency (the Panobbgo norm is literature-faithful ports): two</span>
-</span><span data-line="85"><span class="sd">NL-SHADE-LBC mechanisms are intentionally **not** ported here, because</span>
-</span><span data-line="86"><span class="sd">they interact with the synchronous generation model in ways the</span>
-</span><span data-line="87"><span class="sd">asynchronous pipeline does not expose cleanly:</span>
-</span><span data-line="88">
-</span><span data-line="89"><span class="sd">* the *adaptive binomial / exponential crossover blend* (inherited</span>
-</span><span data-line="90"><span class="sd">  from NL-SHADE-RSP — see the same caveat there), and</span>
-</span><span data-line="91"><span class="sd">* the *repetitive generation* bound-constraint handling (Panobbgo&#39;s</span>
-</span><span data-line="92"><span class="sd">  asynchronous pipeline runs through ``strategy.constraint_handler`` and</span>
-</span><span data-line="93"><span class="sd">  the L-SHADE midpoint-reflection repair instead).</span>
-</span><span data-line="94">
-</span><span data-line="95"><span class="sd">Both are queued as follow-ups in</span>
-</span><span data-line="96"><span class="sd">``planning/SELF_IMPROVEMENT_LOOP.md``.</span>
+</span><span data-line="81"><span class="sd">* ``&quot;cec2022&quot;`` — Stanovov, Akhmedova &amp; Semenkin (2022) literature</span>
+</span><span data-line="82"><span class="sd">  defaults; identical to passing no explicit LBC fields.</span>
+</span><span data-line="83"><span class="sd">* ``&quot;lshade&quot;`` — recovers the standard L-SHADE / jSO / NL-SHADE-RSP</span>
+</span><span data-line="84"><span class="sd">  weighted Lehmer mean at ``p = 2, m = 1`` for both F and CR (no LBC</span>
+</span><span data-line="85"><span class="sd">  schedule).  Useful as a degenerate baseline arm — turns the LBC</span>
+</span><span data-line="86"><span class="sd">  mechanism itself off without dropping the heuristic.</span>
+</span><span data-line="87"><span class="sd">* ``&quot;flat&quot;`` — pure arithmetic mean (``p = 1`` throughout); the</span>
+</span><span data-line="88"><span class="sd">  spread ``m_lbc = 1.5`` is preserved.</span>
+</span><span data-line="89"><span class="sd">* ``&quot;aggressive&quot;`` — strong bias throughout the run (``p_F`` decays</span>
+</span><span data-line="90"><span class="sd">  ``5 → 3``, ``p_CR`` grows ``3 → 5``); the spread ``m_lbc = 1.5``</span>
+</span><span data-line="91"><span class="sd">  is preserved.</span>
+</span><span data-line="92">
+</span><span data-line="93"><span class="sd">The regime is mutually exclusive with explicit per-field LBC kwargs:</span>
+</span><span data-line="94"><span class="sd">passing both raises :class:`ValueError`.  Mirrors</span>
+</span><span data-line="95"><span class="sd">:data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES` shipped</span>
+</span><span data-line="96"><span class="sd">2026-06-23.</span>
 </span><span data-line="97">
-</span><span data-line="98"><span class="sd">CR-zero handling</span>
-</span><span data-line="99"><span class="sd">----------------</span>
+</span><span data-line="98"><span class="sd">Asynchronous execution</span>
+</span><span data-line="99"><span class="sd">----------------------</span>
 </span><span data-line="100">
-</span><span data-line="101"><span class="sd">The standard L-SHADE / jSO / NL-SHADE-RSP CR=0 terminal sentinel rule</span>
-</span><span data-line="102"><span class="sd">is preserved: if every successful CR in this generation is zero, *or*</span>
-</span><span data-line="103"><span class="sd">the memory bin has already been planted with the sentinel, the bin</span>
-</span><span data-line="104"><span class="sd">remains terminal.  The LBC Lehmer mean is applied only to the strictly</span>
-</span><span data-line="105"><span class="sd">positive subset of the success CR vector, because at ``p_CR &lt; m_lbc``</span>
-</span><span data-line="106"><span class="sd">the denominator exponent goes negative and ``0^{negative} → ∞``.</span>
-</span><span data-line="107">
-</span><span data-line="108"><span class="sd">References</span>
-</span><span data-line="109"><span class="sd">----------</span>
-</span><span data-line="110">
-</span><span data-line="111"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2022). &quot;NL-SHADE-LBC</span>
-</span><span data-line="112"><span class="sd">  algorithm with linear parameter adaptation bias change for CEC 2022</span>
-</span><span data-line="113"><span class="sd">  Numerical Optimization.&quot; *Proceedings of CEC 2022*.  Winner of the</span>
-</span><span data-line="114"><span class="sd">  CEC-2022 single-objective bound-constrained competition.</span>
-</span><span data-line="115"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). &quot;NL-SHADE-RSP</span>
-</span><span data-line="116"><span class="sd">  Algorithm with Adaptive Archive and Selective Pressure for CEC 2021</span>
-</span><span data-line="117"><span class="sd">  Numerical Optimization.&quot; *Proceedings of CEC 2021*.  The</span>
-</span><span data-line="118"><span class="sd">  NL-SHADE-RSP foundation this refines.</span>
-</span><span data-line="119"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). &quot;Single Objective</span>
-</span><span data-line="120"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot; *Proceedings of CEC</span>
-</span><span data-line="121"><span class="sd">  2017*.  The jSO foundation NL-SHADE-RSP refines.</span>
-</span><span data-line="122"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="101"><span class="sd">Identical to NL-SHADE-RSP / jSO / L-SHADE.  The only method that</span>
+</span><span data-line="102"><span class="sd">changes is :meth:`_update_memory` (the Lehmer-mean computation).</span>
+</span><span data-line="103"><span class="sd">Everything else — NLPSR, RSP r1 selection, the randomised adaptive</span>
+</span><span data-line="104"><span class="sd">archive, the jSO frozen anchor bin and pointer-skip rule, warm</span>
+</span><span data-line="105"><span class="sd">restart — is inherited unchanged.</span>
+</span><span data-line="106">
+</span><span data-line="107"><span class="sd">Deviations from the full CEC-2022 paper</span>
+</span><span data-line="108"><span class="sd">---------------------------------------</span>
+</span><span data-line="109">
+</span><span data-line="110"><span class="sd">For transparency (the Panobbgo norm is literature-faithful ports): two</span>
+</span><span data-line="111"><span class="sd">NL-SHADE-LBC mechanisms are intentionally **not** ported here, because</span>
+</span><span data-line="112"><span class="sd">they interact with the synchronous generation model in ways the</span>
+</span><span data-line="113"><span class="sd">asynchronous pipeline does not expose cleanly:</span>
+</span><span data-line="114">
+</span><span data-line="115"><span class="sd">* the *adaptive binomial / exponential crossover blend* (inherited</span>
+</span><span data-line="116"><span class="sd">  from NL-SHADE-RSP — see the same caveat there), and</span>
+</span><span data-line="117"><span class="sd">* the *repetitive generation* bound-constraint handling (Panobbgo&#39;s</span>
+</span><span data-line="118"><span class="sd">  asynchronous pipeline runs through ``strategy.constraint_handler`` and</span>
+</span><span data-line="119"><span class="sd">  the L-SHADE midpoint-reflection repair instead).</span>
+</span><span data-line="120">
+</span><span data-line="121"><span class="sd">Both are queued as follow-ups in</span>
+</span><span data-line="122"><span class="sd">``planning/SELF_IMPROVEMENT_LOOP.md``.</span>
 </span><span data-line="123">
-</span><span data-line="124"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span data-line="125">
-</span><span data-line="126"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-</span><span data-line="127">
-</span><span data-line="128"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="129">
-</span><span data-line="130"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.jso</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="131">    <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
-</span><span data-line="132">    <span class="n">_DEFAULT_H</span><span class="p">,</span>
-</span><span data-line="133">    <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
-</span><span data-line="134">    <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
-</span><span data-line="135">    <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
-</span><span data-line="136">    <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
-</span><span data-line="137"><span class="p">)</span>
-</span><span data-line="138"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.lshade</span><span class="w"> </span><span class="kn">import</span> <span class="n">_CR_TERMINAL</span>
-</span><span data-line="139"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.nl_shade_rsp</span><span class="w"> </span><span class="kn">import</span> <span class="n">NLSHADE_RSP</span><span class="p">,</span> <span class="n">_DEFAULT_K_RANK</span>
-</span><span data-line="140">
-</span><span data-line="141"><span class="c1"># Defaults from Stanovov, Akhmedova &amp; Semenkin (2022) — also published</span>
-</span><span data-line="142"><span class="c1"># in the MetaBox reference implementation</span>
-</span><span data-line="143"><span class="c1"># (https://github.com/MetaEvo/MetaBox/blob/master/src/baseline/bbo/nlshadelbc.py).</span>
-</span><span data-line="144"><span class="n">_DEFAULT_P_F_INIT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.5</span>
-</span><span data-line="145"><span class="n">_DEFAULT_P_F_FINAL</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
-</span><span data-line="146"><span class="n">_DEFAULT_P_CR_INIT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="147"><span class="n">_DEFAULT_P_CR_FINAL</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
-</span><span data-line="148"><span class="n">_DEFAULT_M_LBC</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+</span><span data-line="124"><span class="sd">CR-zero handling</span>
+</span><span data-line="125"><span class="sd">----------------</span>
+</span><span data-line="126">
+</span><span data-line="127"><span class="sd">The standard L-SHADE / jSO / NL-SHADE-RSP CR=0 terminal sentinel rule</span>
+</span><span data-line="128"><span class="sd">is preserved: if every successful CR in this generation is zero, *or*</span>
+</span><span data-line="129"><span class="sd">the memory bin has already been planted with the sentinel, the bin</span>
+</span><span data-line="130"><span class="sd">remains terminal.  The LBC Lehmer mean is applied only to the strictly</span>
+</span><span data-line="131"><span class="sd">positive subset of the success CR vector, because at ``p_CR &lt; m_lbc``</span>
+</span><span data-line="132"><span class="sd">the denominator exponent goes negative and ``0^{negative} → ∞``.</span>
+</span><span data-line="133">
+</span><span data-line="134"><span class="sd">References</span>
+</span><span data-line="135"><span class="sd">----------</span>
+</span><span data-line="136">
+</span><span data-line="137"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2022). &quot;NL-SHADE-LBC</span>
+</span><span data-line="138"><span class="sd">  algorithm with linear parameter adaptation bias change for CEC 2022</span>
+</span><span data-line="139"><span class="sd">  Numerical Optimization.&quot; *Proceedings of CEC 2022*.  Winner of the</span>
+</span><span data-line="140"><span class="sd">  CEC-2022 single-objective bound-constrained competition.</span>
+</span><span data-line="141"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). &quot;NL-SHADE-RSP</span>
+</span><span data-line="142"><span class="sd">  Algorithm with Adaptive Archive and Selective Pressure for CEC 2021</span>
+</span><span data-line="143"><span class="sd">  Numerical Optimization.&quot; *Proceedings of CEC 2021*.  The</span>
+</span><span data-line="144"><span class="sd">  NL-SHADE-RSP foundation this refines.</span>
+</span><span data-line="145"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). &quot;Single Objective</span>
+</span><span data-line="146"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot; *Proceedings of CEC</span>
+</span><span data-line="147"><span class="sd">  2017*.  The jSO foundation NL-SHADE-RSP refines.</span>
+</span><span data-line="148"><span class="sd">&quot;&quot;&quot;</span>
 </span><span data-line="149">
-</span><span data-line="150">
+</span><span data-line="150"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="151">
+</span><span data-line="152"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span data-line="153">
+</span><span data-line="154"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="155">
+</span><span data-line="156"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.jso</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="157">    <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
+</span><span data-line="158">    <span class="n">_DEFAULT_H</span><span class="p">,</span>
+</span><span data-line="159">    <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
+</span><span data-line="160">    <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
+</span><span data-line="161">    <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
+</span><span data-line="162">    <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
+</span><span data-line="163"><span class="p">)</span>
+</span><span data-line="164"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.lshade</span><span class="w"> </span><span class="kn">import</span> <span class="n">_CR_TERMINAL</span>
+</span><span data-line="165"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.nl_shade_rsp</span><span class="w"> </span><span class="kn">import</span> <span class="n">NLSHADE_RSP</span><span class="p">,</span> <span class="n">_DEFAULT_K_RANK</span>
+</span><span data-line="166">
+</span><span data-line="167"><span class="c1"># Defaults from Stanovov, Akhmedova &amp; Semenkin (2022) — also published</span>
+</span><span data-line="168"><span class="c1"># in the MetaBox reference implementation</span>
+</span><span data-line="169"><span class="c1"># (https://github.com/MetaEvo/MetaBox/blob/master/src/baseline/bbo/nlshadelbc.py).</span>
+</span><span data-line="170"><span class="n">_DEFAULT_P_F_INIT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.5</span>
+</span><span data-line="171"><span class="n">_DEFAULT_P_F_FINAL</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+</span><span data-line="172"><span class="n">_DEFAULT_P_CR_INIT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="173"><span class="n">_DEFAULT_P_CR_FINAL</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+</span><span data-line="174"><span class="n">_DEFAULT_M_LBC</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+</span><span data-line="175">
+</span><span data-line="176"><span class="c1"># Named LBC bias-change regimes.  Each value is a 5-tuple</span>
+</span><span data-line="177"><span class="c1"># ``(p_F_init, p_F_final, p_CR_init, p_CR_final, m_lbc)`` consumed by the</span>
+</span><span data-line="178"><span class="c1"># constructor when the matching :func:`_normalize_lbc_regime` key is</span>
+</span><span data-line="179"><span class="c1"># active.  Mirrors :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`:</span>
+</span><span data-line="180"><span class="c1"># one well-curated tuple per regime instead of five independent</span>
+</span><span data-line="181"><span class="c1"># float-dial arms.</span>
+</span><span data-line="182"><span class="c1">#</span>
+</span><span data-line="183"><span class="c1"># * ``&quot;cec2022&quot;`` — Stanovov, Akhmedova &amp; Semenkin (2022) literature</span>
+</span><span data-line="184"><span class="c1">#   defaults: F bias starts high and decays toward the L-SHADE balance;</span>
+</span><span data-line="185"><span class="c1">#   CR bias starts low and grows toward the same balance.  Identical to</span>
+</span><span data-line="186"><span class="c1">#   the constructor&#39;s per-field defaults — opting into this regime is a</span>
+</span><span data-line="187"><span class="c1">#   no-op on the underlying memory update.</span>
+</span><span data-line="188"><span class="c1"># * ``&quot;lshade&quot;`` — recovers the standard L-SHADE / jSO / NL-SHADE-RSP</span>
+</span><span data-line="189"><span class="c1">#   weighted Lehmer mean (``p = 2, m = 1`` for both F and CR, with no</span>
+</span><span data-line="190"><span class="c1">#   linear change across budget progress).  Useful as a degenerate</span>
+</span><span data-line="191"><span class="c1">#   baseline arm — the bandit can A/B the LBC mechanism itself against</span>
+</span><span data-line="192"><span class="c1">#   its non-LBC predecessor without dropping the heuristic.</span>
+</span><span data-line="193"><span class="c1"># * ``&quot;flat&quot;`` — pure arithmetic mean (``p = 1`` and constant); the</span>
+</span><span data-line="194"><span class="c1">#   spread ``m_lbc = 1.5`` is preserved.  Drops all bias toward larger</span>
+</span><span data-line="195"><span class="c1">#   successful F / CR values; the success-history memory tracks the</span>
+</span><span data-line="196"><span class="c1">#   centre of mass of recent successes.</span>
+</span><span data-line="197"><span class="c1"># * ``&quot;aggressive&quot;`` — strong bias throughout the run (``p_F`` decays</span>
+</span><span data-line="198"><span class="c1">#   from ``5`` to ``3``, ``p_CR`` grows from ``3`` to ``5``); the</span>
+</span><span data-line="199"><span class="c1">#   spread ``m_lbc = 1.5`` is preserved.  Counterpart to ``&quot;flat&quot;`` —</span>
+</span><span data-line="200"><span class="c1">#   sharper concentration on the largest successes than the</span>
+</span><span data-line="201"><span class="c1">#   literature default.</span>
+</span><span data-line="202"><span class="n">_LBC_REGIMES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="203">    <span class="s2">&quot;cec2022&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">_DEFAULT_P_F_INIT</span><span class="p">,</span> <span class="n">_DEFAULT_P_F_FINAL</span><span class="p">,</span> <span class="n">_DEFAULT_P_CR_INIT</span><span class="p">,</span> <span class="n">_DEFAULT_P_CR_FINAL</span><span class="p">,</span> <span class="n">_DEFAULT_M_LBC</span><span class="p">),</span>
+</span><span data-line="204">    <span class="s2">&quot;lshade&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+</span><span data-line="205">    <span class="s2">&quot;flat&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">_DEFAULT_M_LBC</span><span class="p">),</span>
+</span><span data-line="206">    <span class="s2">&quot;aggressive&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="n">_DEFAULT_M_LBC</span><span class="p">),</span>
+</span><span data-line="207"><span class="p">}</span>
+</span><span data-line="208">
+</span><span data-line="209">
+</span><span data-line="210"><span class="k">def</span><span class="w"> </span><span class="nf">_normalize_lbc_regime</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="211"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate the constructor&#39;s ``lbc_regime`` argument.</span>
+</span><span data-line="212">
+</span><span data-line="213"><span class="sd">    Returns ``None`` for the disabled case (``None``) so the</span>
+</span><span data-line="214"><span class="sd">    constructor can branch on a single ``is None`` check.  Returns a</span>
+</span><span data-line="215"><span class="sd">    key into :data:`_LBC_REGIMES` for the active regimes.  Raises</span>
+</span><span data-line="216"><span class="sd">    :class:`ValueError` for any other input.</span>
+</span><span data-line="217"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="218">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="219">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="220">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="221">        <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">_LBC_REGIMES</span><span class="p">:</span>
+</span><span data-line="222">            <span class="k">return</span> <span class="n">value</span>
+</span><span data-line="223">        <span class="n">valid</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_LBC_REGIMES</span><span class="p">))</span>
+</span><span data-line="224">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: lbc_regime must be one of </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2"> (or None), got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="225">    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: lbc_regime must be a string regime name or None, got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="226">
+</span><span data-line="227">
+</span><span data-line="228"><span class="c1"># Sentinel for the five LBC float kwargs.  Lets the constructor detect</span>
+</span><span data-line="229"><span class="c1"># which fields the caller explicitly passed so ``lbc_regime`` can raise</span>
+</span><span data-line="230"><span class="c1"># on the ambiguous &quot;regime + field override&quot; case.  Not ``None`` because</span>
+</span><span data-line="231"><span class="c1"># a downstream caller might legitimately pass ``None`` (e.g. via a YAML</span>
+</span><span data-line="232"><span class="c1"># config) and we want that to surface as a normal ``float`` validation</span>
+</span><span data-line="233"><span class="c1"># failure rather than silently activate the regime.</span>
+</span><span data-line="234"><span class="n">_UNSET</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+</span><span data-line="235">
+</span><span data-line="236">
 <div class="viewcode-block" id="NLSHADE_LBC">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_LBC">[docs]</a>
-</span><span data-line="151"><span class="k">class</span><span class="w"> </span><span class="nc">NLSHADE_LBC</span><span class="p">(</span><span class="n">NLSHADE_RSP</span><span class="p">):</span>
-</span><span data-line="152"><span class="w">    </span><span class="sd">&quot;&quot;&quot;NL-SHADE-LBC: linear bias change on the SHADE memory update.</span>
-</span><span data-line="153">
-</span><span data-line="154"><span class="sd">    Args:</span>
-</span><span data-line="155"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="156"><span class="sd">        NP_init: Initial population size.  Default ``30``.</span>
-</span><span data-line="157"><span class="sd">        NP_min: Minimum population size after non-linear reduction.</span>
-</span><span data-line="158"><span class="sd">            Default ``4``.</span>
-</span><span data-line="159"><span class="sd">        H: History memory size.  Default ``5`` (inherits the jSO</span>
-</span><span data-line="160"><span class="sd">            anchor bin; must be ``&gt;= 2``).</span>
-</span><span data-line="161"><span class="sd">        p_best_max: Upper bound on the linear ``p_best`` schedule.</span>
-</span><span data-line="162"><span class="sd">            Default ``0.25``.</span>
-</span><span data-line="163"><span class="sd">        p_best_min: Lower bound on the linear ``p_best`` schedule.</span>
-</span><span data-line="164"><span class="sd">            Default ``0.125``.</span>
-</span><span data-line="165"><span class="sd">        archive_factor: Multiplier for the external archive cap.</span>
-</span><span data-line="166"><span class="sd">            Default ``1.0``.</span>
-</span><span data-line="167"><span class="sd">        k_rank: Rank-based selective-pressure coefficient (NL-SHADE-RSP).</span>
-</span><span data-line="168"><span class="sd">            Default ``3.0``.</span>
-</span><span data-line="169"><span class="sd">        adaptive_archive: When ``True`` (default), resample the archive</span>
-</span><span data-line="170"><span class="sd">            cap per generation (NL-SHADE-RSP).</span>
-</span><span data-line="171"><span class="sd">        p_F_init: Initial exponent of the F Lehmer mean&#39;s numerator</span>
-</span><span data-line="172"><span class="sd">            (at progress ``r = 0``).  Default ``3.5``.</span>
-</span><span data-line="173"><span class="sd">        p_F_final: Final exponent of the F Lehmer mean&#39;s numerator</span>
-</span><span data-line="174"><span class="sd">            (at progress ``r = 1``).  Default ``1.5``.</span>
-</span><span data-line="175"><span class="sd">        p_CR_init: Initial exponent of the CR Lehmer mean&#39;s numerator.</span>
-</span><span data-line="176"><span class="sd">            Default ``1.0``.</span>
-</span><span data-line="177"><span class="sd">        p_CR_final: Final exponent of the CR Lehmer mean&#39;s numerator.</span>
-</span><span data-line="178"><span class="sd">            Default ``1.5``.</span>
-</span><span data-line="179"><span class="sd">        m_lbc: Spread between numerator and denominator exponents of</span>
-</span><span data-line="180"><span class="sd">            the Lehmer mean.  The denominator exponent is</span>
-</span><span data-line="181"><span class="sd">            ``p − m_lbc``.  Default ``1.5``.  Must be a finite float</span>
-</span><span data-line="182"><span class="sd">            ``&gt; 0``.  At ``p = 2, m = 1`` the formula recovers the</span>
-</span><span data-line="183"><span class="sd">            standard L-SHADE weighted Lehmer mean.</span>
-</span><span data-line="184"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
-</span><span data-line="185"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
-</span><span data-line="186">
-</span><span data-line="187"><span class="sd">    Notes:</span>
-</span><span data-line="188"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
-</span><span data-line="189"><span class="sd">          :class:`ValueError`.</span>
-</span><span data-line="190"><span class="sd">        - Like every Panobbgo heuristic, all state is per-instance.</span>
-</span><span data-line="191"><span class="sd">        - When the strategy budget is unknown, the LBC schedule falls</span>
-</span><span data-line="192"><span class="sd">          back to its initial exponents.</span>
-</span><span data-line="193"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="194">
-</span><span data-line="195">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="196">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="197">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="198">        <span class="n">NP_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
-</span><span data-line="199">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
-</span><span data-line="200">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
-</span><span data-line="201">        <span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
-</span><span data-line="202">        <span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
-</span><span data-line="203">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
-</span><span data-line="204">        <span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_K_RANK</span><span class="p">,</span>
-</span><span data-line="205">        <span class="n">adaptive_archive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="206">        <span class="n">p_F_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_F_INIT</span><span class="p">,</span>
-</span><span data-line="207">        <span class="n">p_F_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_F_FINAL</span><span class="p">,</span>
-</span><span data-line="208">        <span class="n">p_CR_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_CR_INIT</span><span class="p">,</span>
-</span><span data-line="209">        <span class="n">p_CR_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_CR_FINAL</span><span class="p">,</span>
-</span><span data-line="210">        <span class="n">m_lbc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_M_LBC</span><span class="p">,</span>
-</span><span data-line="211">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="212">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="213">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="214">        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span>
-</span><span data-line="215">            <span class="p">(</span><span class="s2">&quot;p_F_init&quot;</span><span class="p">,</span> <span class="n">p_F_init</span><span class="p">),</span>
-</span><span data-line="216">            <span class="p">(</span><span class="s2">&quot;p_F_final&quot;</span><span class="p">,</span> <span class="n">p_F_final</span><span class="p">),</span>
-</span><span data-line="217">            <span class="p">(</span><span class="s2">&quot;p_CR_init&quot;</span><span class="p">,</span> <span class="n">p_CR_init</span><span class="p">),</span>
-</span><span data-line="218">            <span class="p">(</span><span class="s2">&quot;p_CR_final&quot;</span><span class="p">,</span> <span class="n">p_CR_final</span><span class="p">),</span>
-</span><span data-line="219">            <span class="p">(</span><span class="s2">&quot;m_lbc&quot;</span><span class="p">,</span> <span class="n">m_lbc</span><span class="p">),</span>
-</span><span data-line="220">        <span class="p">):</span>
-</span><span data-line="221">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-</span><span data-line="222">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> must be a finite float, got </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="223">        <span class="k">if</span> <span class="n">m_lbc</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="224">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: m_lbc must be &gt; 0, got </span><span class="si">{</span><span class="n">m_lbc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="225">
-</span><span data-line="226">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="227">            <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="228">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
-</span><span data-line="229">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
-</span><span data-line="230">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
-</span><span data-line="231">            <span class="n">p_best_max</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>
-</span><span data-line="232">            <span class="n">p_best_min</span><span class="o">=</span><span class="n">p_best_min</span><span class="p">,</span>
-</span><span data-line="233">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
-</span><span data-line="234">            <span class="n">k_rank</span><span class="o">=</span><span class="n">k_rank</span><span class="p">,</span>
-</span><span data-line="235">            <span class="n">adaptive_archive</span><span class="o">=</span><span class="n">adaptive_archive</span><span class="p">,</span>
-</span><span data-line="236">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-</span><span data-line="237">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;NLSHADE_LBC&quot;</span><span class="p">,</span>
-</span><span data-line="238">        <span class="p">)</span>
-</span><span data-line="239">        <span class="bp">self</span><span class="o">.</span><span class="n">p_F_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_F_init</span><span class="p">)</span>
-</span><span data-line="240">        <span class="bp">self</span><span class="o">.</span><span class="n">p_F_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_F_final</span><span class="p">)</span>
-</span><span data-line="241">        <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_CR_init</span><span class="p">)</span>
-</span><span data-line="242">        <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_CR_final</span><span class="p">)</span>
-</span><span data-line="243">        <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_lbc</span><span class="p">)</span>
-</span><span data-line="244">
-</span><span data-line="245">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="246">    <span class="c1"># Internal helpers</span>
-</span><span data-line="247">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="248">
-</span><span data-line="249">    <span class="k">def</span><span class="w"> </span><span class="nf">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p_init</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">p_final</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="250"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear bias change schedule.</span>
-</span><span data-line="251">
-</span><span data-line="252"><span class="sd">        ``p(r) = (1 − r) · p_init + r · p_final``.  When the strategy</span>
-</span><span data-line="253"><span class="sd">        budget is unknown (``_progress() is None``) the schedule falls</span>
-</span><span data-line="254"><span class="sd">        back to ``p_init`` — a documented, predictable fallback.</span>
-</span><span data-line="255"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="256">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
-</span><span data-line="257">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="258">            <span class="k">return</span> <span class="n">p_init</span>
-</span><span data-line="259">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="260">        <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_init</span> <span class="o">+</span> <span class="n">r</span> <span class="o">*</span> <span class="n">p_final</span>
-</span><span data-line="261">
-</span><span data-line="262">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="263">    <span class="c1"># Overrides</span>
-</span><span data-line="264">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="265">
-</span><span data-line="266">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="267"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the LBC generalized Lehmer mean for one generation.</span>
-</span><span data-line="268">
-</span><span data-line="269"><span class="sd">        Identical to :meth:`JSO._update_memory` except the fixed</span>
-</span><span data-line="270"><span class="sd">        ``s^2 / s^1`` exponents are replaced by the LBC schedule</span>
-</span><span data-line="271"><span class="sd">        ``s^p(r) / s^(p(r) − m_lbc)``.  The jSO anchor-bin skip and</span>
-</span><span data-line="272"><span class="sd">        pointer-modulo logic (write range ``[0, H − 2]``, advance</span>
-</span><span data-line="273"><span class="sd">        ``% (H − 1)``) is preserved by writing through ``write_idx``</span>
-</span><span data-line="274"><span class="sd">        rather than ``self._mem_ptr`` directly.</span>
-</span><span data-line="275"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="276">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">:</span>
-</span><span data-line="277">            <span class="k">return</span>
-</span><span data-line="278">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># defensive — constructor enforces H &gt;= 2</span>
-</span><span data-line="279">            <span class="k">return</span>
-</span><span data-line="280">
-</span><span data-line="281">        <span class="n">F_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="282">        <span class="n">CR_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="283">        <span class="n">delta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="284">        <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta_arr</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-</span><span data-line="285">        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="286">            <span class="n">w</span> <span class="o">=</span> <span class="n">delta_arr</span> <span class="o">/</span> <span class="n">total</span>
-</span><span data-line="287">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="288">            <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">))</span>
-</span><span data-line="289">
-</span><span data-line="290">        <span class="c1"># jSO-style anchor-bin skip: only bins [0, H-2] are writable.</span>
-</span><span data-line="291">        <span class="n">write_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span>
-</span><span data-line="292">        <span class="k">if</span> <span class="n">write_idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="293">            <span class="n">write_idx</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># defensive — should be impossible by construction</span>
-</span><span data-line="294">
-</span><span data-line="295">        <span class="c1"># F memory: LBC Lehmer mean.  F &gt; 0 is guaranteed by the Cauchy</span>
-</span><span data-line="296">        <span class="c1"># redraw logic, so no zero-handling is required.</span>
-</span><span data-line="297">        <span class="n">p_F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_F_init</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_F_final</span><span class="p">)</span>
-</span><span data-line="298">        <span class="n">F_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span><span class="o">**</span><span class="n">p_F</span><span class="p">))</span>
-</span><span data-line="299">        <span class="n">F_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span> <span class="o">**</span> <span class="p">(</span><span class="n">p_F</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">)))</span>
-</span><span data-line="300">        <span class="k">if</span> <span class="n">F_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="301">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F_num</span> <span class="o">/</span> <span class="n">F_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="302">
-</span><span data-line="303">        <span class="c1"># CR memory: terminal-sentinel rule preserved; LBC Lehmer mean on</span>
-</span><span data-line="304">        <span class="c1"># the strictly-positive subset (so ``CR^{negative}`` is never</span>
-</span><span data-line="305">        <span class="c1"># evaluated at zero).</span>
-</span><span data-line="306">        <span class="n">cr_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">CR_arr</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-</span><span data-line="307">        <span class="k">if</span> <span class="n">cr_max</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="308">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_CR_TERMINAL</span>
-</span><span data-line="309">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="310">            <span class="n">positive</span> <span class="o">=</span> <span class="n">CR_arr</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
-</span><span data-line="311">            <span class="n">w_pos</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">positive</span><span class="p">]</span>
-</span><span data-line="312">            <span class="n">CR_pos</span> <span class="o">=</span> <span class="n">CR_arr</span><span class="p">[</span><span class="n">positive</span><span class="p">]</span>
-</span><span data-line="313">            <span class="n">w_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">w_pos</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
-</span><span data-line="314">            <span class="k">if</span> <span class="n">w_sum</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="315">                <span class="n">w_pos</span> <span class="o">=</span> <span class="n">w_pos</span> <span class="o">/</span> <span class="n">w_sum</span>
-</span><span data-line="316">                <span class="n">p_CR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_CR_init</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_final</span><span class="p">)</span>
-</span><span data-line="317">                <span class="n">CR_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w_pos</span> <span class="o">*</span> <span class="n">CR_pos</span><span class="o">**</span><span class="n">p_CR</span><span class="p">))</span>
-</span><span data-line="318">                <span class="n">CR_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w_pos</span> <span class="o">*</span> <span class="n">CR_pos</span> <span class="o">**</span> <span class="p">(</span><span class="n">p_CR</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">)))</span>
-</span><span data-line="319">                <span class="k">if</span> <span class="n">CR_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="320">                    <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">CR_num</span> <span class="o">/</span> <span class="n">CR_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="321">
-</span><span data-line="322">        <span class="c1"># Advance pointer over writable range only.</span>
-</span><span data-line="323">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="n">write_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+</span><span data-line="237"><span class="k">class</span><span class="w"> </span><span class="nc">NLSHADE_LBC</span><span class="p">(</span><span class="n">NLSHADE_RSP</span><span class="p">):</span>
+</span><span data-line="238"><span class="w">    </span><span class="sd">&quot;&quot;&quot;NL-SHADE-LBC: linear bias change on the SHADE memory update.</span>
+</span><span data-line="239">
+</span><span data-line="240"><span class="sd">    Args:</span>
+</span><span data-line="241"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="242"><span class="sd">        NP_init: Initial population size.  Default ``30``.</span>
+</span><span data-line="243"><span class="sd">        NP_min: Minimum population size after non-linear reduction.</span>
+</span><span data-line="244"><span class="sd">            Default ``4``.</span>
+</span><span data-line="245"><span class="sd">        H: History memory size.  Default ``5`` (inherits the jSO</span>
+</span><span data-line="246"><span class="sd">            anchor bin; must be ``&gt;= 2``).</span>
+</span><span data-line="247"><span class="sd">        p_best_max: Upper bound on the linear ``p_best`` schedule.</span>
+</span><span data-line="248"><span class="sd">            Default ``0.25``.</span>
+</span><span data-line="249"><span class="sd">        p_best_min: Lower bound on the linear ``p_best`` schedule.</span>
+</span><span data-line="250"><span class="sd">            Default ``0.125``.</span>
+</span><span data-line="251"><span class="sd">        archive_factor: Multiplier for the external archive cap.</span>
+</span><span data-line="252"><span class="sd">            Default ``1.0``.</span>
+</span><span data-line="253"><span class="sd">        k_rank: Rank-based selective-pressure coefficient (NL-SHADE-RSP).</span>
+</span><span data-line="254"><span class="sd">            Default ``3.0``.</span>
+</span><span data-line="255"><span class="sd">        adaptive_archive: When ``True`` (default), resample the archive</span>
+</span><span data-line="256"><span class="sd">            cap per generation (NL-SHADE-RSP).</span>
+</span><span data-line="257"><span class="sd">        p_F_init: Initial exponent of the F Lehmer mean&#39;s numerator</span>
+</span><span data-line="258"><span class="sd">            (at progress ``r = 0``).  Default ``3.5``.  Mutually</span>
+</span><span data-line="259"><span class="sd">            exclusive with ``lbc_regime``.</span>
+</span><span data-line="260"><span class="sd">        p_F_final: Final exponent of the F Lehmer mean&#39;s numerator</span>
+</span><span data-line="261"><span class="sd">            (at progress ``r = 1``).  Default ``1.5``.  Mutually</span>
+</span><span data-line="262"><span class="sd">            exclusive with ``lbc_regime``.</span>
+</span><span data-line="263"><span class="sd">        p_CR_init: Initial exponent of the CR Lehmer mean&#39;s numerator.</span>
+</span><span data-line="264"><span class="sd">            Default ``1.0``.  Mutually exclusive with ``lbc_regime``.</span>
+</span><span data-line="265"><span class="sd">        p_CR_final: Final exponent of the CR Lehmer mean&#39;s numerator.</span>
+</span><span data-line="266"><span class="sd">            Default ``1.5``.  Mutually exclusive with ``lbc_regime``.</span>
+</span><span data-line="267"><span class="sd">        m_lbc: Spread between numerator and denominator exponents of</span>
+</span><span data-line="268"><span class="sd">            the Lehmer mean.  The denominator exponent is</span>
+</span><span data-line="269"><span class="sd">            ``p − m_lbc``.  Default ``1.5``.  Must be a finite float</span>
+</span><span data-line="270"><span class="sd">            ``&gt; 0``.  At ``p = 2, m = 1`` the formula recovers the</span>
+</span><span data-line="271"><span class="sd">            standard L-SHADE weighted Lehmer mean.  Mutually exclusive</span>
+</span><span data-line="272"><span class="sd">            with ``lbc_regime``.</span>
+</span><span data-line="273"><span class="sd">        lbc_regime: Optional named LBC regime.  One of ``&quot;cec2022&quot;``</span>
+</span><span data-line="274"><span class="sd">            (Stanovov et al. 2022 defaults — equivalent to passing no</span>
+</span><span data-line="275"><span class="sd">            explicit LBC fields), ``&quot;lshade&quot;`` (recovers the standard</span>
+</span><span data-line="276"><span class="sd">            L-SHADE Lehmer mean at ``p = 2, m = 1``), ``&quot;flat&quot;``</span>
+</span><span data-line="277"><span class="sd">            (pure arithmetic mean — ``p = 1`` throughout, default</span>
+</span><span data-line="278"><span class="sd">            spread), or ``&quot;aggressive&quot;`` (strong bias throughout —</span>
+</span><span data-line="279"><span class="sd">            ``p_F`` decays ``5 → 3``, ``p_CR`` grows ``3 → 5``,</span>
+</span><span data-line="280"><span class="sd">            default spread).  Mutually exclusive with the five</span>
+</span><span data-line="281"><span class="sd">            individual LBC float kwargs above — passing both raises</span>
+</span><span data-line="282"><span class="sd">            :class:`ValueError`.  See</span>
+</span><span data-line="283"><span class="sd">            :data:`_LBC_REGIMES` for the regime-to-tuple mapping.</span>
+</span><span data-line="284"><span class="sd">            Default ``None`` (no preset; the individual float kwargs</span>
+</span><span data-line="285"><span class="sd">            apply, all at their byte-identical CEC 2022 defaults).</span>
+</span><span data-line="286"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
+</span><span data-line="287"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="288">
+</span><span data-line="289"><span class="sd">    Notes:</span>
+</span><span data-line="290"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
+</span><span data-line="291"><span class="sd">          :class:`ValueError`.</span>
+</span><span data-line="292"><span class="sd">        - Like every Panobbgo heuristic, all state is per-instance.</span>
+</span><span data-line="293"><span class="sd">        - When the strategy budget is unknown, the LBC schedule falls</span>
+</span><span data-line="294"><span class="sd">          back to its initial exponents.</span>
+</span><span data-line="295"><span class="sd">        - :attr:`lbc_regime` carries the *normalized* regime name (or</span>
+</span><span data-line="296"><span class="sd">          ``None`` when no preset was active) so the self-improvement</span>
+</span><span data-line="297"><span class="sd">          catalog&#39;s ``categorical_choice`` rule can flip the bias</span>
+</span><span data-line="298"><span class="sd">          regime as a single discrete bandit arm.</span>
+</span><span data-line="299"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="300">
+</span><span data-line="301">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="302">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="303">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="304">        <span class="n">NP_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
+</span><span data-line="305">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
+</span><span data-line="306">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
+</span><span data-line="307">        <span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
+</span><span data-line="308">        <span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
+</span><span data-line="309">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
+</span><span data-line="310">        <span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_K_RANK</span><span class="p">,</span>
+</span><span data-line="311">        <span class="n">adaptive_archive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="312">        <span class="n">p_F_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+</span><span data-line="313">        <span class="n">p_F_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+</span><span data-line="314">        <span class="n">p_CR_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+</span><span data-line="315">        <span class="n">p_CR_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+</span><span data-line="316">        <span class="n">m_lbc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_UNSET</span><span class="p">,</span>
+</span><span data-line="317">        <span class="n">lbc_regime</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="318">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="319">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="320">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="321">        <span class="n">regime_key</span> <span class="o">=</span> <span class="n">_normalize_lbc_regime</span><span class="p">(</span><span class="n">lbc_regime</span><span class="p">)</span>
+</span><span data-line="322">        <span class="n">explicit_lbc_fields</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="323">            <span class="n">label</span>
+</span><span data-line="324">            <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+</span><span data-line="325">                <span class="p">(</span><span class="s2">&quot;p_F_init&quot;</span><span class="p">,</span> <span class="n">p_F_init</span><span class="p">),</span>
+</span><span data-line="326">                <span class="p">(</span><span class="s2">&quot;p_F_final&quot;</span><span class="p">,</span> <span class="n">p_F_final</span><span class="p">),</span>
+</span><span data-line="327">                <span class="p">(</span><span class="s2">&quot;p_CR_init&quot;</span><span class="p">,</span> <span class="n">p_CR_init</span><span class="p">),</span>
+</span><span data-line="328">                <span class="p">(</span><span class="s2">&quot;p_CR_final&quot;</span><span class="p">,</span> <span class="n">p_CR_final</span><span class="p">),</span>
+</span><span data-line="329">                <span class="p">(</span><span class="s2">&quot;m_lbc&quot;</span><span class="p">,</span> <span class="n">m_lbc</span><span class="p">),</span>
+</span><span data-line="330">            <span class="p">)</span>
+</span><span data-line="331">            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_UNSET</span>
+</span><span data-line="332">        <span class="p">]</span>
+</span><span data-line="333">        <span class="k">if</span> <span class="n">regime_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">explicit_lbc_fields</span><span class="p">:</span>
+</span><span data-line="334">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="335">                <span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: lbc_regime=</span><span class="si">{</span><span class="n">lbc_regime</span><span class="si">!r}</span><span class="s2"> is mutually exclusive with &quot;</span>
+</span><span data-line="336">                <span class="sa">f</span><span class="s2">&quot;explicit kwargs </span><span class="si">{</span><span class="n">explicit_lbc_fields</span><span class="si">}</span><span class="s2"> — pass the named regime *or* &quot;</span>
+</span><span data-line="337">                <span class="sa">f</span><span class="s2">&quot;the individual fields, not both.&quot;</span>
+</span><span data-line="338">            <span class="p">)</span>
+</span><span data-line="339">        <span class="k">if</span> <span class="n">regime_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="340">            <span class="n">p_F_init</span><span class="p">,</span> <span class="n">p_F_final</span><span class="p">,</span> <span class="n">p_CR_init</span><span class="p">,</span> <span class="n">p_CR_final</span><span class="p">,</span> <span class="n">m_lbc</span> <span class="o">=</span> <span class="n">_LBC_REGIMES</span><span class="p">[</span><span class="n">regime_key</span><span class="p">]</span>
+</span><span data-line="341">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="342">            <span class="k">if</span> <span class="n">p_F_init</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+</span><span data-line="343">                <span class="n">p_F_init</span> <span class="o">=</span> <span class="n">_DEFAULT_P_F_INIT</span>
+</span><span data-line="344">            <span class="k">if</span> <span class="n">p_F_final</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+</span><span data-line="345">                <span class="n">p_F_final</span> <span class="o">=</span> <span class="n">_DEFAULT_P_F_FINAL</span>
+</span><span data-line="346">            <span class="k">if</span> <span class="n">p_CR_init</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+</span><span data-line="347">                <span class="n">p_CR_init</span> <span class="o">=</span> <span class="n">_DEFAULT_P_CR_INIT</span>
+</span><span data-line="348">            <span class="k">if</span> <span class="n">p_CR_final</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+</span><span data-line="349">                <span class="n">p_CR_final</span> <span class="o">=</span> <span class="n">_DEFAULT_P_CR_FINAL</span>
+</span><span data-line="350">            <span class="k">if</span> <span class="n">m_lbc</span> <span class="ow">is</span> <span class="n">_UNSET</span><span class="p">:</span>
+</span><span data-line="351">                <span class="n">m_lbc</span> <span class="o">=</span> <span class="n">_DEFAULT_M_LBC</span>
+</span><span data-line="352">
+</span><span data-line="353">        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span>
+</span><span data-line="354">            <span class="p">(</span><span class="s2">&quot;p_F_init&quot;</span><span class="p">,</span> <span class="n">p_F_init</span><span class="p">),</span>
+</span><span data-line="355">            <span class="p">(</span><span class="s2">&quot;p_F_final&quot;</span><span class="p">,</span> <span class="n">p_F_final</span><span class="p">),</span>
+</span><span data-line="356">            <span class="p">(</span><span class="s2">&quot;p_CR_init&quot;</span><span class="p">,</span> <span class="n">p_CR_init</span><span class="p">),</span>
+</span><span data-line="357">            <span class="p">(</span><span class="s2">&quot;p_CR_final&quot;</span><span class="p">,</span> <span class="n">p_CR_final</span><span class="p">),</span>
+</span><span data-line="358">            <span class="p">(</span><span class="s2">&quot;m_lbc&quot;</span><span class="p">,</span> <span class="n">m_lbc</span><span class="p">),</span>
+</span><span data-line="359">        <span class="p">):</span>
+</span><span data-line="360">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+</span><span data-line="361">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> must be a finite float, got </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="362">        <span class="k">if</span> <span class="n">m_lbc</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="363">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_LBC: m_lbc must be &gt; 0, got </span><span class="si">{</span><span class="n">m_lbc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="364">
+</span><span data-line="365">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="366">            <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="367">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
+</span><span data-line="368">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
+</span><span data-line="369">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+</span><span data-line="370">            <span class="n">p_best_max</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>
+</span><span data-line="371">            <span class="n">p_best_min</span><span class="o">=</span><span class="n">p_best_min</span><span class="p">,</span>
+</span><span data-line="372">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
+</span><span data-line="373">            <span class="n">k_rank</span><span class="o">=</span><span class="n">k_rank</span><span class="p">,</span>
+</span><span data-line="374">            <span class="n">adaptive_archive</span><span class="o">=</span><span class="n">adaptive_archive</span><span class="p">,</span>
+</span><span data-line="375">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+</span><span data-line="376">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;NLSHADE_LBC&quot;</span><span class="p">,</span>
+</span><span data-line="377">        <span class="p">)</span>
+</span><span data-line="378">        <span class="bp">self</span><span class="o">.</span><span class="n">p_F_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_F_init</span><span class="p">)</span>
+</span><span data-line="379">        <span class="bp">self</span><span class="o">.</span><span class="n">p_F_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_F_final</span><span class="p">)</span>
+</span><span data-line="380">        <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_CR_init</span><span class="p">)</span>
+</span><span data-line="381">        <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_final</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_CR_final</span><span class="p">)</span>
+</span><span data-line="382">        <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">m_lbc</span><span class="p">)</span>
+</span><span data-line="383">        <span class="bp">self</span><span class="o">.</span><span class="n">lbc_regime</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">regime_key</span>
+</span><span data-line="384">
+</span><span data-line="385">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="386">    <span class="c1"># Internal helpers</span>
+</span><span data-line="387">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="388">
+</span><span data-line="389">    <span class="k">def</span><span class="w"> </span><span class="nf">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p_init</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">p_final</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="390"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear bias change schedule.</span>
+</span><span data-line="391">
+</span><span data-line="392"><span class="sd">        ``p(r) = (1 − r) · p_init + r · p_final``.  When the strategy</span>
+</span><span data-line="393"><span class="sd">        budget is unknown (``_progress() is None``) the schedule falls</span>
+</span><span data-line="394"><span class="sd">        back to ``p_init`` — a documented, predictable fallback.</span>
+</span><span data-line="395"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="396">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="397">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="398">            <span class="k">return</span> <span class="n">p_init</span>
+</span><span data-line="399">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="400">        <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_init</span> <span class="o">+</span> <span class="n">r</span> <span class="o">*</span> <span class="n">p_final</span>
+</span><span data-line="401">
+</span><span data-line="402">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="403">    <span class="c1"># Overrides</span>
+</span><span data-line="404">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="405">
+</span><span data-line="406">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="407"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the LBC generalized Lehmer mean for one generation.</span>
+</span><span data-line="408">
+</span><span data-line="409"><span class="sd">        Identical to :meth:`JSO._update_memory` except the fixed</span>
+</span><span data-line="410"><span class="sd">        ``s^2 / s^1`` exponents are replaced by the LBC schedule</span>
+</span><span data-line="411"><span class="sd">        ``s^p(r) / s^(p(r) − m_lbc)``.  The jSO anchor-bin skip and</span>
+</span><span data-line="412"><span class="sd">        pointer-modulo logic (write range ``[0, H − 2]``, advance</span>
+</span><span data-line="413"><span class="sd">        ``% (H − 1)``) is preserved by writing through ``write_idx``</span>
+</span><span data-line="414"><span class="sd">        rather than ``self._mem_ptr`` directly.</span>
+</span><span data-line="415"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="416">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">:</span>
+</span><span data-line="417">            <span class="k">return</span>
+</span><span data-line="418">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># defensive — constructor enforces H &gt;= 2</span>
+</span><span data-line="419">            <span class="k">return</span>
+</span><span data-line="420">
+</span><span data-line="421">        <span class="n">F_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="422">        <span class="n">CR_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="423">        <span class="n">delta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="424">        <span class="n">total</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta_arr</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</span><span data-line="425">        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="426">            <span class="n">w</span> <span class="o">=</span> <span class="n">delta_arr</span> <span class="o">/</span> <span class="n">total</span>
+</span><span data-line="427">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="428">            <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">delta_arr</span><span class="p">))</span>
+</span><span data-line="429">
+</span><span data-line="430">        <span class="c1"># jSO-style anchor-bin skip: only bins [0, H-2] are writable.</span>
+</span><span data-line="431">        <span class="n">write_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span>
+</span><span data-line="432">        <span class="k">if</span> <span class="n">write_idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="433">            <span class="n">write_idx</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># defensive — should be impossible by construction</span>
+</span><span data-line="434">
+</span><span data-line="435">        <span class="c1"># F memory: LBC Lehmer mean.  F &gt; 0 is guaranteed by the Cauchy</span>
+</span><span data-line="436">        <span class="c1"># redraw logic, so no zero-handling is required.</span>
+</span><span data-line="437">        <span class="n">p_F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_F_init</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_F_final</span><span class="p">)</span>
+</span><span data-line="438">        <span class="n">F_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span><span class="o">**</span><span class="n">p_F</span><span class="p">))</span>
+</span><span data-line="439">        <span class="n">F_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">F_arr</span> <span class="o">**</span> <span class="p">(</span><span class="n">p_F</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">)))</span>
+</span><span data-line="440">        <span class="k">if</span> <span class="n">F_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="441">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F_num</span> <span class="o">/</span> <span class="n">F_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="442">
+</span><span data-line="443">        <span class="c1"># CR memory: terminal-sentinel rule preserved; LBC Lehmer mean on</span>
+</span><span data-line="444">        <span class="c1"># the strictly-positive subset (so ``CR^{negative}`` is never</span>
+</span><span data-line="445">        <span class="c1"># evaluated at zero).</span>
+</span><span data-line="446">        <span class="n">cr_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">CR_arr</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+</span><span data-line="447">        <span class="k">if</span> <span class="n">cr_max</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="448">            <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">_CR_TERMINAL</span>
+</span><span data-line="449">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="450">            <span class="n">positive</span> <span class="o">=</span> <span class="n">CR_arr</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+</span><span data-line="451">            <span class="n">w_pos</span> <span class="o">=</span> <span class="n">w</span><span class="p">[</span><span class="n">positive</span><span class="p">]</span>
+</span><span data-line="452">            <span class="n">CR_pos</span> <span class="o">=</span> <span class="n">CR_arr</span><span class="p">[</span><span class="n">positive</span><span class="p">]</span>
+</span><span data-line="453">            <span class="n">w_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">w_pos</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</span><span data-line="454">            <span class="k">if</span> <span class="n">w_sum</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="455">                <span class="n">w_pos</span> <span class="o">=</span> <span class="n">w_pos</span> <span class="o">/</span> <span class="n">w_sum</span>
+</span><span data-line="456">                <span class="n">p_CR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lbc_exponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_CR_init</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_CR_final</span><span class="p">)</span>
+</span><span data-line="457">                <span class="n">CR_num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w_pos</span> <span class="o">*</span> <span class="n">CR_pos</span><span class="o">**</span><span class="n">p_CR</span><span class="p">))</span>
+</span><span data-line="458">                <span class="n">CR_den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w_pos</span> <span class="o">*</span> <span class="n">CR_pos</span> <span class="o">**</span> <span class="p">(</span><span class="n">p_CR</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_lbc</span><span class="p">)))</span>
+</span><span data-line="459">                <span class="k">if</span> <span class="n">CR_den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="460">                    <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">write_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">CR_num</span> <span class="o">/</span> <span class="n">CR_den</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="461">
+</span><span data-line="462">        <span class="c1"># Advance pointer over writable range only.</span>
+</span><span data-line="463">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="n">write_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

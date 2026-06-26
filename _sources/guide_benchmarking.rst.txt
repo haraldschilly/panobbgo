@@ -607,10 +607,15 @@ immediately applicable:
 * ``Loop_DE_Family`` — one Rewarding strategy carrying all five DE
   variants (L-SHADE, jSO, NL-SHADE-RSP, NL-SHADE-LBC, LSHADE-EpSin)
   at ``NP_init = 15``.  Activates every numeric and categorical
-  rule across the DE family (~20 rules), including the L-SHADE
-  ``F_schedule`` and ``archive_factor`` categorical toggles, the
-  jSO ``p_best_max`` regime arm, the NL-SHADE-RSP ``k_rank``
-  regime arm, and every NL-SHADE-LBC schedule kwarg.
+  rule across the DE family (~16 rules after the 2026-06-24 LBC
+  catalog consolidation), including the L-SHADE ``F_schedule`` and
+  ``archive_factor`` categorical toggles, the jSO ``p_best_max``
+  regime arm, the NL-SHADE-RSP ``k_rank`` regime arm, and the
+  NL-SHADE-LBC ``lbc_regime`` composite categorical arm
+  (``"cec2022"`` / ``"lshade"`` / ``"flat"`` / ``"aggressive"``)
+  that replaced the five per-field LBC float rules with one
+  literature-motivated joint search across the Lehmer-mean exponent
+  / spread tuple.
 * ``Loop_PSO`` — LatinHypercube + PSO + NelderMead.  PSO ships
   ``NP=15 / w=0.7298 / w_end=0.4 / stagnation_threshold=10 /
   topology="gbest"`` so every PSO rule fires — including the
@@ -1459,7 +1464,19 @@ space with two new ops that change the *shape* of a
   progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) instead of fixed
   at ``2``; the numerator / denominator exponent spread ``m_lbc`` is
   held constant at ``1.5`` (``m = 1`` and ``p = 2`` everywhere recovers
-  the standard L-SHADE Lehmer mean).  LSHADE-EpSin (Awad, Ali & Suganthan
+  the standard L-SHADE Lehmer mean).  The constructor's
+  ``lbc_regime`` kwarg (shipped 2026-06-24) wraps four named regime
+  presets — ``"cec2022"`` (the Stanovov defaults above), ``"lshade"``
+  (recovers the standard L-SHADE Lehmer mean at ``p = 2, m = 1``),
+  ``"flat"`` (pure arithmetic mean — ``p = 1`` throughout, default
+  spread), and ``"aggressive"`` (strong bias throughout — ``p_F``
+  decays ``5 → 3``, ``p_CR`` grows ``3 → 5``, default spread).
+  The named regime is mutually exclusive with the explicit per-field
+  LBC kwargs and is exposed to the self-improvement bandit as a
+  single ``categorical_choice`` rule on the
+  ``(NLSHADE_LBC, lbc_regime)`` slot — joint exploration of the
+  five-field LBC regime space in one well-curated discrete arm
+  rather than five cold-started independent float arms.  LSHADE-EpSin (Awad, Ali & Suganthan
   2016) is the *orthogonal* CEC-2016 sinusoidal-F branch — it replaces
   SHADE Cauchy-from-memory ``F`` sampling with an ensemble of two
   sinusoidal candidates (fixed-frequency / decreasing-envelope vs
@@ -1745,6 +1762,24 @@ Panobbgo's heuristic portfolio are **discrete** instead:
   well-conditioned) vs ``False`` (raw box).  Useful when the
   problem's box is already isotropic and the rescale adds
   rounding noise that hurts the quadratic-model fit.
+* ``NLSHADE_LBC.lbc_regime`` — four named regime presets over the
+  five LBC Lehmer-mean kwargs (``p_F_init`` / ``p_F_final`` /
+  ``p_CR_init`` / ``p_CR_final`` / ``m_lbc``): ``"cec2022"``
+  (Stanovov et al. 2022 defaults — F bias decays ``3.5 → 1.5``,
+  CR bias grows ``1.0 → 1.5``, spread ``1.5``), ``"lshade"``
+  (recovers the standard L-SHADE Lehmer mean at ``p = 2, m = 1`` —
+  turns the LBC mechanism itself off without dropping the
+  heuristic), ``"flat"`` (pure arithmetic mean — ``p = 1``
+  throughout, default spread), and ``"aggressive"`` (strong bias
+  throughout — ``p_F`` decays ``5 → 3``, ``p_CR`` grows ``3 → 5``,
+  default spread).  Mutually exclusive with the five per-field
+  LBC float kwargs.  Replaces the five per-field
+  ``float_uniform`` rules previously on the catalog (shipped
+  2026-05-28; retired 2026-06-24) with a single
+  literature-motivated composite arm — joint exploration of the
+  five-field LBC regime space instead of five cold-started
+  independent dial arms.  Mirrors the 2026-06-23 ``F_schedule``
+  regime broadening on L-SHADE.
 
 The :class:`~panobbgo.self_improve.MutationRule` ``categorical_choice``
 kind closes this gap.  The rule carries a ``choices`` tuple of
@@ -1756,7 +1791,7 @@ as their own arm — distinct from any numeric rule on the same
 ``(class, param)`` slot — so the Thompson sampler can learn whether
 flipping a discrete knob is worthwhile.
 
-The default catalog ships nine categorical rules out-of-the-box:
+The default catalog ships ten categorical rules out-of-the-box:
 
 .. code-block:: python
 
@@ -1829,6 +1864,20 @@ The default catalog ships nine categorical rules out-of-the-box:
        param_name="scale",
        kind="categorical_choice",
        choices=(True, False),
+       probability=0.3,
+   ),
+   MutationRule(
+       strategy_pattern="",
+       class_name="NLSHADE_LBC",
+       param_name="lbc_regime",
+       kind="categorical_choice",
+       # "cec2022" = Stanovov et al. 2022 defaults; "lshade" =
+       # standard L-SHADE Lehmer mean (p=2, m=1 — turns LBC off);
+       # "flat" = pure arithmetic mean (p=1, default spread);
+       # "aggressive" = strong bias throughout.  Shipped 2026-06-24 —
+       # replaced the five per-field LBC float_uniform rules with one
+       # composite joint-search arm.  See §13 entry.
+       choices=("cec2022", "lshade", "flat", "aggressive"),
        probability=0.3,
    ),
    MutationRule(

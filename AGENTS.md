@@ -764,6 +764,19 @@ uv run python scripts/self_improve.py run --iterations 100 \
     --structural --adaptive --structural-per-class-arms \
     --structural-borrow-alpha 0.5 --adaptive-prime-from-ledger
 
+# Auto-tuned hierarchical borrow (shipped 2026-06-25): anneal kappa
+# down per-arm as that arm's own attempts accumulate.  At the recommended
+# horizon h = 5, a cold arm borrows the full kappa = 1.0 from the
+# op-level aggregate; at 5 per-class attempts the borrow halves; at
+# 20 attempts the borrow shrinks to ~kappa / 5.  Cold-start case is
+# unchanged; long-run convergence is no longer dragged toward the
+# op-level mean.  Inert when --structural-borrow-alpha = 0 or when
+# --structural-per-class-arms is off.
+uv run python scripts/self_improve.py run --iterations 100 \
+    --structural --adaptive --structural-per-class-arms \
+    --structural-borrow-alpha 1.0 --structural-borrow-horizon 5 \
+    --adaptive-prime-from-ledger
+
 # End-of-loop hold-out validation against an independent base_seed,
 # fail with exit code 3 if the ladder is flagged as overfit
 uv run python scripts/self_improve.py run --iterations 100 \

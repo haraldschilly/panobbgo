@@ -925,8 +925,8 @@ class AdaptiveMutationSampler:
             :attr:`per_class_structural` is also ``True``) each per-class
             arm's Beta posterior is built as::
 
-                Beta(prior_alpha + n_class_accepts + κ · n_op_accepts,
-                     prior_beta  + n_class_failures + κ · n_op_failures)
+                Beta(prior_alpha + n_class_accepts + κ_eff · n_op_accepts,
+                     prior_beta  + n_class_failures + κ_eff · n_op_failures)
 
             where ``(n_op_accepts, n_op_failures)`` is the aggregate
             over every per-class arm sharing the same structural op.  A
@@ -941,10 +941,39 @@ class AdaptiveMutationSampler:
             :attr:`per_class_structural` is ``False`` or when the rule
             being sampled is a kwarg perturbation (kwarg arms are not
             grouped by an "op" so there is nothing to borrow from).
+            See :attr:`structural_borrow_horizon` for adaptive annealing
+            that reduces the effective ``κ`` as per-class evidence
+            accumulates.
+        structural_borrow_horizon: Optional adaptive annealing horizon
+            ``h > 0`` for the hierarchical borrow coefficient.  When
+            ``> 0`` (and :attr:`structural_borrow_alpha` is also ``> 0``
+            and :attr:`per_class_structural` is ``True``), each
+            per-class arm's effective borrow shrinks toward zero as
+            its own evidence accumulates::
+
+                κ_eff = κ / (1 + n_class_attempts / h)
+
+            So a brand-new arm (zero attempts) borrows the full ``κ``
+            from the op aggregate — same behaviour as the fixed-``κ``
+            path — and a saturated arm (``n_class_attempts >> h``)
+            effectively stops borrowing and trusts its own per-class
+            posterior.  At ``n_class_attempts == h`` the effective
+            borrow is exactly ``κ / 2``.  Default ``0.0`` disables the
+            annealing — every arm always borrows the full ``κ``,
+            byte-identical to the 2026-06-01 ship.  Recommended values
+            for a typical cron: ``5`` to ``10`` (the per-arm posteriors
+            warm up within a couple of nights, beyond which the bandit
+            should trust the leaf-level signal rather than continue
+            being pulled toward the op-level mean).  Inert when any of
+            the three preconditions above is missing.  See the
+            *Auto-tune κ* idea under :attr:`structural_borrow_alpha`'s
+            follow-up backlog in
+            ``planning/SELF_IMPROVEMENT_LOG.md``.
 
     Raises:
-        ValueError: If either prior is non-positive, or if
-            ``structural_borrow_alpha`` is negative.
+        ValueError: If either prior is non-positive, if
+            ``structural_borrow_alpha`` is negative, or if
+            ``structural_borrow_horizon`` is negative / non-finite.
     """
 
     def __init__(
@@ -954,16 +983,20 @@ class AdaptiveMutationSampler:
         prior_beta: float = 1.0,
         per_class_structural: bool = False,
         structural_borrow_alpha: float = 0.0,
+        structural_borrow_horizon: float = 0.0,
     ) -> None:
         if prior_alpha <= 0 or prior_beta <= 0:
             raise ValueError(f"prior_alpha and prior_beta must be > 0, got {prior_alpha!r}, {prior_beta!r}")
         if structural_borrow_alpha < 0 or not np.isfinite(structural_borrow_alpha):
             raise ValueError(f"structural_borrow_alpha must be >= 0 and finite, got {structural_borrow_alpha!r}")
+        if structural_borrow_horizon < 0 or not np.isfinite(structural_borrow_horizon):
+            raise ValueError(f"structural_borrow_horizon must be >= 0 and finite, got {structural_borrow_horizon!r}")
         self.catalog = catalog
         self.prior_alpha = float(prior_alpha)
         self.prior_beta = float(prior_beta)
         self.per_class_structural = bool(per_class_structural)
         self.structural_borrow_alpha = float(structural_borrow_alpha)
+        self.structural_borrow_horizon = float(structural_borrow_horizon)
         self._stats: Dict[RuleKey, MutationRuleStats] = {}
         self._last_rule_key: Optional[RuleKey] = None
 
@@ -983,6 +1016,35 @@ class AdaptiveMutationSampler:
         if self.per_class_structural:
             return (str(class_name), str(op), "structural")
         return ("*", str(op), "structural")
+
+    def _effective_borrow(self, n_class_attempts: int) -> float:
+        """Return the per-arm effective hierarchical borrow coefficient.
+
+        Closes the *Auto-tune ``κ``* follow-up below the 2026-06-01
+        hierarchical-borrow ship: when
+        :attr:`structural_borrow_horizon` is ``> 0``, anneal the
+        configured :attr:`structural_borrow_alpha` toward zero as
+        per-class evidence accumulates::
+
+            κ_eff = κ / (1 + n_class_attempts / h)
+
+        So a cold arm (``n_class_attempts == 0``) borrows the full
+        configured ``κ``, and a saturated arm
+        (``n_class_attempts >> h``) effectively stops borrowing — the
+        leaf posterior trusts its own per-class evidence rather than
+        being indefinitely pulled toward the op-level aggregate.  At
+        ``n_class_attempts == h`` the borrow is halved exactly.
+
+        Returns the configured :attr:`structural_borrow_alpha`
+        unchanged when annealing is disabled (``horizon == 0``) or
+        when the arm has no attempts (``n_class_attempts == 0``) — the
+        cold-start case where the borrow is most valuable.
+        """
+        kappa = self.structural_borrow_alpha
+        h = self.structural_borrow_horizon
+        if kappa == 0.0 or h == 0.0 or n_class_attempts <= 0:
+            return kappa
+        return kappa / (1.0 + float(n_class_attempts) / h)
 
     def get_stats(self, rule: MutationRule) -> MutationRuleStats:
         """Return (creating if needed) the stats bucket for ``rule``."""
@@ -1088,14 +1150,15 @@ class AdaptiveMutationSampler:
                 op_reward, op_attempts = op_aggregate.get(rule.op, (0.0, 0))
                 # Exclude this arm's own contribution so the borrow is
                 # over *other* classes' evidence — the leaf posterior is
-                # ``Beta(α₀ + r_class + κ·r_other_class, ...)``.
+                # ``Beta(α₀ + r_class + κ_eff·r_other_class, ...)``.
                 # Otherwise an arm with lots of evidence would borrow from
                 # itself and the hierarchy would collapse to a κ-amplified
                 # version of the same per-class posterior.
                 other_reward = op_reward - reward_sum
                 other_failures = (op_attempts - stats.n_attempts) - other_reward
-                alpha += self.structural_borrow_alpha * other_reward
-                beta_param += self.structural_borrow_alpha * other_failures
+                kappa_eff = self._effective_borrow(stats.n_attempts)
+                alpha += kappa_eff * other_reward
+                beta_param += kappa_eff * other_failures
             alpha_eff_arr[i] = alpha
             beta_eff_arr[i] = beta_param
             sampled[i] = float(rng.beta(alpha, beta_param))
@@ -2740,7 +2803,33 @@ class LoopConfig:
             local accept; ``1.0`` weights them equally.  Inert when
             :attr:`structural_per_class_arms` is ``False`` (no per-class
             arms exist to borrow from each other) or when
-            :attr:`adaptive_sampling` is ``False``.
+            :attr:`adaptive_sampling` is ``False``.  See
+            :attr:`structural_borrow_horizon` for the auto-tune knob
+            that anneals ``κ`` down as per-class evidence accumulates.
+        structural_borrow_horizon: Optional adaptive annealing horizon
+            ``h > 0`` for the hierarchical borrow coefficient.  When
+            ``> 0`` (and the two preconditions for borrow itself —
+            :attr:`structural_borrow_alpha` ``> 0`` and
+            :attr:`structural_per_class_arms` ``= True`` — are also
+            met), each per-class arm's effective borrow shrinks toward
+            zero as its own attempts accumulate::
+
+                κ_eff = κ / (1 + n_class_attempts / h)
+
+            So a cold arm borrows the full ``κ`` (same as the
+            non-annealed path); a saturated arm
+            (``n_class_attempts >> h``) effectively trusts its own
+            per-class posterior.  Closes the *Auto-tune κ* follow-up:
+            "borrow heavily early, vanish as evidence grows" so the
+            hierarchy stops dragging well-evidenced arms back toward
+            the op-level mean indefinitely.  Default ``0.0`` disables
+            annealing (every arm always borrows the full ``κ``),
+            byte-identical to the 2026-06-01 ship.  Recommended values
+            for an unattended cron: ``5`` to ``10`` (the per-arm
+            posteriors warm up over a couple of nights).  Inert when
+            :attr:`structural_borrow_alpha` ``= 0`` (no borrow to
+            anneal),  :attr:`structural_per_class_arms` ``= False``,
+            or :attr:`adaptive_sampling` ``= False``.
         holdout_base_seed: Independent ``base_seed`` used for the
             end-of-loop hold-out validation.  ``0`` (default) disables
             hold-out entirely (unless :attr:`holdout_base_seeds` is set).
@@ -2849,6 +2938,7 @@ class LoopConfig:
     adaptive_prime_archive_dir: Optional[str] = None
     structural_per_class_arms: bool = False
     structural_borrow_alpha: float = 0.0
+    structural_borrow_horizon: float = 0.0
     holdout_base_seed: int = 0
     holdout_base_seeds: Tuple[int, ...] = ()
     holdout_iterations: int = 5
@@ -3016,6 +3106,8 @@ class LoopConfig:
             raise ValueError(f"adaptive_prior_beta must be > 0, got {self.adaptive_prior_beta}")
         if self.structural_borrow_alpha < 0:
             raise ValueError(f"structural_borrow_alpha must be >= 0, got {self.structural_borrow_alpha}")
+        if self.structural_borrow_horizon < 0:
+            raise ValueError(f"structural_borrow_horizon must be >= 0, got {self.structural_borrow_horizon}")
         if self.holdout_iterations < 0:
             raise ValueError(f"holdout_iterations must be >= 0, got {self.holdout_iterations}")
         if self.holdout_eps_overfit < 0:
@@ -4025,6 +4117,7 @@ class SelfImprover:
                 prior_beta=self.config.adaptive_prior_beta,
                 per_class_structural=self.config.structural_per_class_arms,
                 structural_borrow_alpha=self.config.structural_borrow_alpha,
+                structural_borrow_horizon=self.config.structural_borrow_horizon,
             )
             if self.config.adaptive_prime_from_ledger:
                 if self.config.adaptive_prime_include_archives:

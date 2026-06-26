@@ -2,6 +2,58 @@
 
 ## Recent Improvements (continued)
 
+### Auto-tune κ for hierarchical structural bandit — 2026-06-25
+- [x] **New `AdaptiveMutationSampler.structural_borrow_horizon`
+      parameter** (`float ≥ 0`, default `0.0`).  When `> 0` and the
+      two borrow preconditions are met (`structural_borrow_alpha > 0`
+      and `per_class_structural = True`), each per-class arm's
+      effective borrow shrinks toward zero as its own attempts
+      accumulate: `κ_eff = κ / (1 + n_class_attempts / h)`.  Cold
+      arms borrow the full configured `κ`; at `n_class_attempts = h`
+      the borrow halves exactly; saturated arms effectively trust
+      the leaf posterior.
+- [x] **New helper `AdaptiveMutationSampler._effective_borrow`**
+      centralises the annealing math so the sample-path code and
+      tests consult the same rule.  Returns the configured `κ`
+      unchanged whenever `h = 0`, `κ = 0`, or the arm has no
+      attempts (cold-start case).
+- [x] **`LoopConfig.structural_borrow_horizon` field + validation**
+      mirrors the constructor kwarg with the same default (`0.0` →
+      disabled).  `__post_init__` raises `ValueError` on negative
+      values.
+- [x] **CLI surface on `scripts/self_improve.py run`:
+      `--structural-borrow-horizon`** (default `0.0`).  Off by
+      default so existing invocations stay byte-identical.
+- [x] **Tests** — 16 new tests in the new
+      `tests/test_self_improve.py::TestStructuralBorrowAnneal` class
+      covering: default constructor, validation paths (negative /
+      non-finite), helper math (`h = 0` returns `κ`; `κ = 0` returns
+      `0`; cold arm returns full `κ`; halved at `n = h`; vanishes at
+      saturation; monotonic decreasing), backwards-compat sampling
+      trajectory (`h = 0` byte-identical), cold-sibling still gets
+      full borrow with annealing on, saturated-arm uses the reduced
+      `κ_eff` (verified by parsing the rationale `Beta(α, β)`
+      string), inert without per-class arms, and LoopConfig
+      integration (default / validation / propagation through
+      `SelfImprover`).
+- [x] **Backwards compatibility** — strictly safe.  Default
+      `h = 0` keeps every existing invocation byte-identical (the
+      annealing path is taken only when the knob is explicitly set
+      to a positive value).  Ledger replay: the bandit's arm key
+      `(class_name, op, "structural")` is unchanged, so existing
+      archives replay onto the same per-class arms regardless of
+      whether the consumer enables the annealing knob.  Full
+      project test suite (1697 tests) green; `uv run ruff check` /
+      `uv run ruff format --check` / `uv run pyright` all clean.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-25 dated entry; *Auto-tune ``κ``* idea promoted from
+      "Next iteration ideas" to shipped),
+      `doc/source/guide_benchmarking.rst` (new "Auto-tune ``κ``
+      from observed evidence (``structural_borrow_horizon``)"
+      sub-section), `panobbgo/self_improve.py`
+      (`AdaptiveMutationSampler` + `LoopConfig` docstrings extended
+      for the new parameter and the annealing rule).
+
 ### Named regimes for `LSHADE.F_schedule` (categorical broadening) — 2026-06-23
 - [x] **New module-level dict
       `panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`** — maps each

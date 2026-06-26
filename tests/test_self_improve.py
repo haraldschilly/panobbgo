@@ -2032,6 +2032,14 @@ class _NewHeuristicY:
     pass
 
 
+class _NewHeuristicZ:
+    """Third add-target used by the annealing tests that need a non-trivial
+    sibling-count for the per-class hierarchical bandit.
+    """
+
+    pass
+
+
 class TestStructuralMutationRule:
     def test_unknown_op_raises(self):
         with pytest.raises(ValueError, match="Unknown structural op"):
@@ -3021,6 +3029,297 @@ class TestHierarchicalStructuralBandit:
         )
         si = SelfImprover(cfg, seed_strategies=_make_specs())
         assert si.sampler is None
+
+
+class TestStructuralBorrowAnneal:
+    """Auto-tune κ — annealed hierarchical borrow for per-class arms.
+
+    Closes the *Auto-tune ``κ``* follow-up below the 2026-06-01
+    hierarchical-borrow ship.  ``κ_eff = κ / (1 + n_class_attempts / h)``:
+    cold arm gets the full configured borrow; saturated arm
+    (``n_class_attempts >> h``) effectively stops borrowing.
+    """
+
+    def _add_only_catalog(self) -> MutationCatalog:
+        return MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_heuristic",
+                    candidate_classes=((_NewHeuristicX, {}), (_NewHeuristicY, {})),
+                ),
+            ]
+        )
+
+    # ---- helper math -------------------------------------------------
+
+    def test_default_horizon_is_zero(self):
+        samp = AdaptiveMutationSampler(self._add_only_catalog())
+        assert samp.structural_borrow_horizon == 0.0
+
+    def test_negative_horizon_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_horizon"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_horizon=-0.1)
+
+    def test_non_finite_horizon_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_horizon"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_horizon=float("inf"))
+        with pytest.raises(ValueError, match="structural_borrow_horizon"):
+            AdaptiveMutationSampler(self._add_only_catalog(), structural_borrow_horizon=float("nan"))
+
+    def test_effective_borrow_horizon_zero_returns_kappa(self):
+        """``horizon == 0`` is the disabled path — full ``κ`` regardless
+        of attempts, byte-identical to the 2026-06-01 ship.
+        """
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=0.7,
+            structural_borrow_horizon=0.0,
+        )
+        for n in (0, 1, 5, 100, 1_000_000):
+            assert samp._effective_borrow(n) == 0.7
+
+    def test_effective_borrow_kappa_zero_returns_zero(self):
+        """``κ == 0`` means no borrow at all; the annealing knob is a
+        no-op because there is nothing to anneal.
+        """
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=0.0,
+            structural_borrow_horizon=5.0,
+        )
+        for n in (0, 1, 5, 100):
+            assert samp._effective_borrow(n) == 0.0
+
+    def test_effective_borrow_cold_arm_returns_full_kappa(self):
+        """A cold arm (zero attempts) always borrows the full ``κ``."""
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        assert samp._effective_borrow(0) == 1.0
+
+    def test_effective_borrow_halved_at_horizon(self):
+        """``n_class_attempts == h`` halves the borrow exactly."""
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        assert samp._effective_borrow(5) == 0.5
+        samp2 = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=0.4,
+            structural_borrow_horizon=8.0,
+        )
+        assert samp2._effective_borrow(8) == 0.2
+
+    def test_effective_borrow_vanishes_at_saturation(self):
+        """As ``n_class_attempts >> h`` the borrow approaches zero."""
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        eff_far = samp._effective_borrow(10_000)
+        assert eff_far < 0.01
+        assert eff_far > 0.0  # never exactly zero
+
+    def test_effective_borrow_monotonic_decreasing(self):
+        """``κ_eff`` is strictly decreasing in ``n_class_attempts`` once
+        annealing is on — the bandit's reliance on the op-level mean
+        falls monotonically as evidence accumulates.
+        """
+        samp = AdaptiveMutationSampler(
+            self._add_only_catalog(),
+            structural_borrow_alpha=0.5,
+            structural_borrow_horizon=10.0,
+        )
+        values = [samp._effective_borrow(n) for n in range(20)]
+        for a, b in zip(values, values[1:]):
+            assert a > b
+
+    # ---- sampling-path equivalence -----------------------------------
+
+    def test_horizon_zero_byte_identical_to_no_annealing(self):
+        """``horizon == 0`` must produce a byte-identical sampling
+        trajectory to the previous fixed-``κ`` sampler.  This is the
+        backwards-compatibility contract.
+        """
+        cat = self._add_only_catalog()
+        a = AdaptiveMutationSampler(
+            cat,
+            per_class_structural=True,
+            structural_borrow_alpha=0.5,
+            structural_borrow_horizon=0.0,
+        )
+        b = AdaptiveMutationSampler(
+            cat,
+            per_class_structural=True,
+            structural_borrow_alpha=0.5,
+        )
+        rng_a = np.random.default_rng(7)
+        rng_b = np.random.default_rng(7)
+        for _ in range(40):
+            pa = a.sample(rng_a, _make_specs())
+            pb = b.sample(rng_b, _make_specs())
+            assert pa is not None and pb is not None
+            assert pa.class_name == pb.class_name
+            assert pa.rationale == pb.rationale
+            a.record_outcome(pa.class_name == "_NewHeuristicX")
+            b.record_outcome(pb.class_name == "_NewHeuristicX")
+
+    def test_annealed_borrow_reduces_with_evidence(self):
+        """A saturated arm draws from a tighter posterior with annealing
+        on than with a fixed κ: the leaf's own evidence dominates,
+        rather than being indefinitely pulled toward the op-level mean.
+
+        Seed X with 30 attempts / 30 accepts (so its own posterior is
+        ``Beta(31, 1)``).  With ``κ = 1, h = 0`` X would also borrow
+        ``1·0 = 0`` more from itself (self-exclusion) — but its own
+        ``Beta(31, 1)`` dominates already.  This test focuses on the
+        *cold sibling* (Y), where annealing leaves the borrow untouched
+        because Y has zero attempts.  Y's draw should equal the
+        ``Beta(prior + 0 + κ_eff(0)·30, prior + 0 + κ_eff(0)·0) =
+        Beta(31, 1)`` — same as without annealing.
+        """
+        from panobbgo.self_improve import MutationRuleStats
+
+        cat = self._add_only_catalog()
+        # With annealing on (h=5): cold arm Y sees the full κ=1 borrow.
+        a = AdaptiveMutationSampler(
+            cat,
+            per_class_structural=True,
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        a._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=30, n_accepts=30)
+
+        rng = np.random.default_rng(0)
+        y_rationale = None
+        for _ in range(200):
+            prop = a.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicY":
+                y_rationale = prop.rationale
+                break
+            a._last_rule_key = None
+        assert y_rationale is not None
+        # Y has 0 attempts → κ_eff(0) = κ = 1.0; borrows 30 from X.
+        # Y's draw is Beta(1 + 0 + 1·30, 1 + 0 + 1·0) = Beta(31, 1).
+        assert "Beta(31.0, 1.0)" in y_rationale, (
+            f"Y at 0 attempts should borrow full κ from X; got rationale={y_rationale!r}"
+        )
+
+    def test_annealed_borrow_saturated_arm_drops(self):
+        """A saturated sibling arm sees a *reduced* borrow contribution
+        from its own evidence (it is the OTHER arm now, from the
+        perspective of the third arm).  Easier setup: planted Y with
+        20 attempts / 4 accepts.  Fresh arm Z (introduced via a
+        three-class catalog) should borrow with κ_eff(0) = κ from Y's
+        evidence, but Y itself (when sampled) should borrow Z's *and*
+        X's evidence at κ_eff(20) which is much smaller than κ.
+
+        Verify Y's own rationale prints with the *reduced* borrow.
+        """
+        from panobbgo.self_improve import MutationRuleStats
+
+        # Three-class catalog so when sampling Y, there are siblings
+        # X and Z to borrow from (not just self-exclusion).
+        cat = MutationCatalog(
+            [
+                StructuralMutationRule(
+                    strategy_pattern="",
+                    op="add_heuristic",
+                    candidate_classes=(
+                        (_NewHeuristicX, {}),
+                        (_NewHeuristicY, {}),
+                        (_NewHeuristicZ, {}),
+                    ),
+                ),
+            ]
+        )
+        samp = AdaptiveMutationSampler(
+            cat,
+            per_class_structural=True,
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        y_key = ("_NewHeuristicY", "add_heuristic", "structural")
+        x_key = ("_NewHeuristicX", "add_heuristic", "structural")
+        samp._stats[y_key] = MutationRuleStats(rule_key=y_key, n_attempts=20, n_accepts=4)
+        samp._stats[x_key] = MutationRuleStats(rule_key=x_key, n_attempts=10, n_accepts=8)
+
+        rng = np.random.default_rng(2)
+        y_rationale = None
+        for _ in range(500):
+            prop = samp.sample(rng, _make_specs())
+            assert prop is not None
+            if prop.class_name == "_NewHeuristicY":
+                y_rationale = prop.rationale
+                break
+            samp._last_rule_key = None
+        assert y_rationale is not None
+        # Y's κ_eff = 1.0 / (1 + 20/5) = 1/5 = 0.2.
+        # Borrow from X only (Z has no stats): other_reward = 8, other_failures = 2.
+        # Y's α = 1 + 4 + 0.2·8 = 1 + 4 + 1.6 = 6.6
+        # Y's β = 1 + 16 + 0.2·2 = 1 + 16 + 0.4 = 17.4
+        assert "Beta(6.6, 17.4)" in y_rationale, (
+            f"Y at 20 attempts should borrow with κ_eff=0.2; got rationale={y_rationale!r}"
+        )
+
+    def test_annealed_borrow_inert_without_per_class(self):
+        """The horizon knob requires per-class arms (same precondition
+        chain as the borrow itself).  Verify the sampling trajectory
+        with horizon set but per-class off is byte-identical to no
+        borrow at all.
+        """
+        cat = self._add_only_catalog()
+        a = AdaptiveMutationSampler(
+            cat,
+            per_class_structural=False,
+            structural_borrow_alpha=1.0,
+            structural_borrow_horizon=5.0,
+        )
+        b = AdaptiveMutationSampler(cat, per_class_structural=False)
+        rng_a = np.random.default_rng(11)
+        rng_b = np.random.default_rng(11)
+        for _ in range(20):
+            pa = a.sample(rng_a, _make_specs())
+            pb = b.sample(rng_b, _make_specs())
+            assert pa is not None and pb is not None
+            assert pa.class_name == pb.class_name
+            a.record_outcome(True)
+            b.record_outcome(True)
+
+    # ---- LoopConfig + SelfImprover integration -----------------------
+
+    def test_loop_config_default_horizon_zero(self):
+        cfg = LoopConfig()
+        assert cfg.structural_borrow_horizon == 0.0
+
+    def test_loop_config_negative_horizon_raises(self):
+        with pytest.raises(ValueError, match="structural_borrow_horizon"):
+            LoopConfig(structural_borrow_horizon=-0.5)
+
+    def test_loop_config_propagates_horizon_to_sampler(self, tmp_path):
+        from panobbgo.self_improve import SelfImprover
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            adaptive_sampling=True,
+            structural_per_class_arms=True,
+            structural_borrow_alpha=0.7,
+            structural_borrow_horizon=8.0,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        assert si.sampler is not None
+        assert si.sampler.structural_borrow_horizon == 8.0
+        assert si.sampler.structural_borrow_alpha == 0.7
 
 
 class TestDefaultStructuralCatalog:

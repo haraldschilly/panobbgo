@@ -1665,6 +1665,72 @@ Programmatic:
    )
    SelfImprover(cfg, catalog=default_structural_catalog()).run()
 
+Auto-tune ``κ`` from observed evidence (``structural_borrow_horizon``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The fixed-``κ`` posterior above closes the cold-start gap but never
+*lets go*: an arm with hundreds of attempts of its own still pays the
+``κ ·`` op-aggregate cost, indefinitely pulling its leaf posterior
+toward the op-level mean.  Empirically the right behaviour is
+"borrow heavily early, vanish as evidence grows" — every
+hierarchical-bandit textbook puts this knob behind an annealing rule.
+
+:attr:`~panobbgo.self_improve.LoopConfig.structural_borrow_horizon`
+(``h ≥ 0``) provides exactly that.  When ``h > 0`` (and the two
+borrow preconditions are met — ``κ > 0`` and per-class arms enabled),
+each per-class arm's *effective* borrow shrinks toward zero as that
+arm's own attempts accumulate:
+
+.. math::
+
+   \kappa_{\text{eff}}(n_{\text{class}}^{\text{attempts}}) =
+     \frac{\kappa}{1 + n_{\text{class}}^{\text{attempts}} / h}
+
+So a cold arm (``n_class_attempts = 0``) borrows the full configured
+``κ`` — same as the fixed-``κ`` path.  At ``n_class_attempts = h`` the
+borrow halves exactly.  By ``n_class_attempts = 10·h`` the borrow has
+shrunk to roughly ``κ / 11`` — the leaf posterior now trusts its own
+evidence instead of being pulled toward the op-level aggregate.
+
+The annealing is **inert** under the same preconditions as the borrow
+itself: ``κ = 0``, ``structural_per_class_arms = False``, or
+``adaptive_sampling = False`` all make ``structural_borrow_horizon``
+a silent no-op.  The default ``h = 0`` *also* disables annealing
+(every arm always sees the full ``κ``) so the knob is opt-in and
+byte-identical to the 2026-06-01 fixed-``κ`` ship when unset.
+
+Recommended values for an unattended cron: ``h = 5`` to ``10``.  The
+per-arm posteriors warm up over a couple of nights at the catalog's
+typical per-iteration cardinality, beyond which the bandit should
+trust the leaf-level signal rather than continue being pulled toward
+the op-level mean.
+
+CLI:
+
+.. code-block:: bash
+
+   # Per-class structural arms with annealed hierarchical borrow.
+   # Cold arms borrow the full κ=1.0; arms with ≥ 10 attempts borrow ≤ κ/3.
+   uv run python scripts/self_improve.py run --iterations 100 \
+       --structural --adaptive --structural-per-class-arms \
+       --structural-borrow-alpha 1.0 --structural-borrow-horizon 5 \
+       --adaptive-prime-from-ledger
+
+Programmatic:
+
+.. code-block:: python
+
+   from panobbgo.self_improve import LoopConfig, SelfImprover, default_structural_catalog
+
+   cfg = LoopConfig(
+       iterations=100,
+       adaptive_sampling=True,
+       structural_per_class_arms=True,
+       structural_borrow_alpha=1.0,
+       structural_borrow_horizon=5.0,  # halve the borrow at 5 per-class attempts
+   )
+   SelfImprover(cfg, catalog=default_structural_catalog()).run()
+
 CLI:
 
 .. code-block:: bash

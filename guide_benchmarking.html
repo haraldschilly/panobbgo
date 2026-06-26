@@ -1365,14 +1365,21 @@ targets the slot), the proposed bounds, and a one-token tag — one
 of <code class="docutils literal notranslate"><span class="pre">[widens</span> <span class="pre">current]</span></code> / <code class="docutils literal notranslate"><span class="pre">[tightens</span> <span class="pre">current</span> <span class="pre">—</span> <span class="pre">focuses</span> <span class="pre">bandit</span> <span class="pre">on</span>
 <span class="pre">observed</span> <span class="pre">range]</span></code> / <code class="docutils literal notranslate"><span class="pre">[partial</span> <span class="pre">overlap]</span></code> — so the operator can
 prioritise.  On the live project ledger today (2026-06-19) the
-detector surfaces two bidirectional patterns:</p>
+detector surfaced two bidirectional patterns:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> — observed <code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, current <code class="docutils literal notranslate"><span class="pre">[0.005,</span>
-<span class="pre">0.5]</span></code>, proposed <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> — <strong>tightens current</strong>: the
-bandit consistently picks values in a window 5-10× narrower than
-the catalog admits, so concentrating draws there frees compute.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> — observed <code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, original catalog
+<code class="docutils literal notranslate"><span class="pre">[0.005,</span> <span class="pre">0.5]</span></code>, proposed <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> — <strong>tightens current</strong>:
+the bandit consistently picks values in a window 5-10× narrower than
+the catalog admitted, so concentrating draws there frees compute.
+<strong>Manually codified 2026-06-26</strong> — the catalog bounds were
+tightened to <code class="docutils literal notranslate"><span class="pre">[0.032,</span> <span class="pre">0.313]</span></code> (the 2026-06-22 auto-tuned proposal;
+see the dated entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>) — the
+first widening-detector output to land as a catalog change.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Sobol.n</span></code> — observed <code class="docutils literal notranslate"><span class="pre">[8,</span> <span class="pre">24]</span></code>, current <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">64]</span></code>, proposed
-<code class="docutils literal notranslate"><span class="pre">[5,</span> <span class="pre">36]</span></code> — <strong>tightens current</strong> for the same reason.</p></li>
+<code class="docutils literal notranslate"><span class="pre">[5,</span> <span class="pre">36]</span></code> — <strong>tightens current</strong> for the same reason; not yet
+codified because the 2026-06-22 auto-tune classifies it as
+<code class="docutils literal notranslate"><span class="pre">&quot;widens</span> <span class="pre">current&quot;</span></code> (mixed signal) when the larger widen factor
+is applied (proposed flips to <code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">52]</span></code>).</p></li>
 </ul>
 <p>In <code class="docutils literal notranslate"><span class="pre">--json</span></code> mode every widening candidate rides the same
 line-delimited stream tagged <code class="docutils literal notranslate"><span class="pre">&quot;_type&quot;:</span> <span class="pre">&quot;widening_candidate&quot;</span></code> while
@@ -1412,20 +1419,31 @@ When no catalog rule targets the slot — the relative-spread signal is
 unavailable — the helper falls back to the supplied <code class="docutils literal notranslate"><span class="pre">--widen-factor</span></code>
 (default <code class="docutils literal notranslate"><span class="pre">1.5</span></code>), so existing operators have a single-flag opt-in
 path.</p>
-<p>Live-ledger evidence on the day of ship:</p>
+<p>Live-ledger evidence on the day of ship (2026-06-22; the
+<code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> catalog has since been tightened — see the
+2026-06-26 codify note in the <em>Bidirectional-bound widening</em>
+sub-section above):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> (<code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>) — observed
-<code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, catalog <code class="docutils literal notranslate"><span class="pre">[0.005,</span> <span class="pre">0.5]</span></code>, log-ratio <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">0.13</span></code> →
-auto-tuned factor <strong>≈ 2.31</strong> (vs the fixed <code class="docutils literal notranslate"><span class="pre">1.5</span></code>).  Proposed
-bound widens from <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> to <code class="docutils literal notranslate"><span class="pre">[0.032,</span> <span class="pre">0.313]</span></code> —
-meaningfully more headroom outside the consensus window the bandit
-has converged into.</p></li>
+<code class="docutils literal notranslate"><span class="pre">[0.073,</span> <span class="pre">0.135]</span></code>, <strong>pre-codify</strong> catalog <code class="docutils literal notranslate"><span class="pre">[0.005,</span> <span class="pre">0.5]</span></code>,
+log-ratio <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">0.13</span></code> → auto-tuned factor <strong>≈ 2.31</strong> (vs the fixed
+<code class="docutils literal notranslate"><span class="pre">1.5</span></code>).  Proposed bound widens from <code class="docutils literal notranslate"><span class="pre">[0.049,</span> <span class="pre">0.203]</span></code> to
+<code class="docutils literal notranslate"><span class="pre">[0.032,</span> <span class="pre">0.313]</span></code> — meaningfully more headroom outside the
+consensus window the bandit had converged into.  The 2026-06-26
+codify shipped exactly the auto-tuned proposal as the new catalog
+bounds.  Re-running the detector against the same ledger after
+the codify shows the auto-tune converges on <code class="docutils literal notranslate"><span class="pre">[0.0345,</span> <span class="pre">0.287]</span></code>
+(factor ≈ 2.12 because the now-narrower catalog yields a larger
+spread-ratio for the same observed range), which sits effectively
+at the new bounds — the detector is self-stabilising.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Sobol.n</span></code> (<code class="docutils literal notranslate"><span class="pre">integer_add</span></code>) — observed <code class="docutils literal notranslate"><span class="pre">[8,</span> <span class="pre">24]</span></code>, catalog
 <code class="docutils literal notranslate"><span class="pre">[4,</span> <span class="pre">64]</span></code>, linear-ratio <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">0.27</span></code> → auto-tuned factor <strong>≈ 2.13</strong>
 (vs <code class="docutils literal notranslate"><span class="pre">1.5</span></code>).  Proposed bound flips from <em>tightening</em>
 (<code class="docutils literal notranslate"><span class="pre">[5,</span> <span class="pre">36]</span></code>) to <em>widening</em> (<code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">52]</span></code>) the catalog because the
 observed window covers enough of the catalog that a generous widen
-pushes the upper end past the catalog’s current 36.</p></li>
+pushes the upper end past the catalog’s current 36.  Not yet
+codified — the mixed <em>widens / tightens</em> signal is less clear-cut
+than the <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> shape; deferred to a future iteration.</p></li>
 </ul>
 <p>CLI:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Auto-tuned factor per candidate, default range [1.1, 2.5]:</span>

@@ -711,6 +711,23 @@ The harness is the measurement substrate for an autonomous
     ≫ registry mismatch" fully.  See the 2026-06-21 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Nightly cron flipped to `--confirm-accepts`** — **shipped
+    2026-06-27** (V2 §9.5 step 5 completion).  The same workflow file
+    edit promotes the §6.4 same-night confirmation gate to the cron
+    default by appending `--confirm-accepts` to the run command (now
+    constructed as a bash array so the toggle composes cleanly).  A
+    new `workflow_dispatch.inputs.confirm_accepts` boolean input
+    (default `true`) is exposed so the operator can opt back into the
+    screen-only regime for an explicit A/B comparison without editing
+    the workflow.  The "2-3× per-iteration cost" hedge was
+    re-evaluated against the live ~3.6 % accept rate: the gate only
+    fires on accepts, so the worst-case per-night overhead is
+    ~30-60 s (~0.7 accept events × 2 × 15 s) against the 90-min cap.
+    Closes V2 §9.5 step 5 fully (only `--metric aocc` remains queued,
+    blocked on IOH worker availability) and structurally closes the
+    §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
+    entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 Run the loop:
 
 ```bash

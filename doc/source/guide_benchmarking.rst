@@ -1090,6 +1090,18 @@ continuing to surface from the pre-codification archive on every
 subsequent ``codify-scan`` invocation; the suppression layer
 collapses the report to the actionable set.
 
+The canonical example of a *numeric* ``"up"`` direction suppression
+shipped 2026-06-28 — the ``Nearby.radius`` seed shift from ``0.1``
+to ``0.124`` (median of the 9-accept ``direction=up`` candidate the
+scan had been surfacing for eight nights running, rounded slightly
+outward so the ``max(live) >= median(new_values)`` predicate cleanly
+suppresses the now-redundant candidate next night).  Pairs cleanly
+with the 2026-06-26 *catalog tightening* codify on the same slot —
+the catalog bound ``(0.032, 0.313)`` defines the bandit's exploration
+*range* while the seed value ``0.124`` defines the *centre* the
+``log_uniform_perturb`` rule perturbs around.  See the 2026-06-28
+entry in ``planning/SELF_IMPROVEMENT_LOG.md``.
+
 The scanner's library functions
 (:class:`panobbgo.self_improve.CodifyCandidate`,
 :func:`panobbgo.self_improve.aggregate_codify_candidates`,

@@ -469,7 +469,11 @@ file stands.
 1. **Resolution**: median per-night seed score in the metric's
    responsive range; exactly-zero-delta iterations < 10%.
 2. **Throughput**: ≥ 3 codify PRs opened from ledger evidence; ≥ 2
-   merged.
+   merged.  *2026-06-28 update: ``3 codify PRs opened`` —
+   ``Sobol.scramble=False`` (2026-05-31, merged), ``Nearby.radius``
+   catalog-bound tightening (2026-06-26, merged), and
+   ``Nearby.radius`` seed shift (2026-06-28, this entry's companion
+   PR).  Two merged so far; the third is in flight.*
 3. **Durability**: merged codify changes re-confirmed by the next
    night's seed measurement; zero guard rollbacks of *confirmed*
    accepts.

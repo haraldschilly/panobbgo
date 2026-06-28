@@ -17,6 +17,191 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-28 — Codify `Nearby.radius` seed shift from `0.1` to `0.124` (manual codify-scan output)
+
+* **What** — Shifts the ``Nearby.radius`` seed value from ``0.1`` to
+  ``0.124`` in five sibling :class:`StrategySpec` factories that share
+  the same heuristic mix:
+
+  * :func:`panobbgo.harness._make_quick_strategies` — the
+    ``Rewarding_Diverse`` spec (the seed every codify-scan
+    contributing record was generated against).
+  * :func:`panobbgo.harness._make_standard_strategies` — the
+    ``Rewarding_RegionUCB`` spec (identical heuristic mix + the
+    RegionUCB arm) and the ``UCB_Diverse`` spec (same heuristic mix
+    under the UCB bandit).
+  * :func:`panobbgo.harness._make_full_strategies` — the
+    ``Thompson_Diverse`` spec (Thompson-sampling counterpart of the
+    diverse mix).
+  * :func:`panobbgo.harness._make_loop_strategies` — both
+    ``Loop_RegionUCB`` and ``Loop_Restart`` (the catalog-exercising
+    loop registry's two specs that include :class:`Nearby`).
+
+  Pure seed-spec value update — no new arms, no catalog edit, no
+  constructor change.  Same shape as the 2026-05-31
+  ``Sobol.scramble=False`` codify (the first ledger-evidence-driven
+  default change) and the 2026-06-26 ``Nearby.radius`` catalog
+  tightening (the second).
+
+* **Why** — :command:`uv run python scripts/self_improve.py codify-scan`
+  against the live ledger surfaces ``Nearby.radius [log_uniform_perturb]
+  direction=up`` as the strongest current codify candidate (9 accepts
+  across 8 distinct nights, 2026-05-26 → 2026-06-18, every contributing
+  record's per-record ``ci_low > 0``, pooled per-record CI
+  ``[+0.0365, +0.0658]``).  The accepted ``new_value`` distribution
+  (chronological)::
+
+      0.100885, 0.108882, 0.105456, 0.129437, 0.123105, 0.135257,
+      0.134681, 0.123105, 0.123105
+
+  has median ``0.123105`` and an exact mode of ``0.123105`` (three
+  accepts at the same value).  The shipped seed is rounded slightly
+  outward to ``0.124`` so the
+  :func:`panobbgo.self_improve._candidate_already_codified` predicate
+  cleanly suppresses the candidate from future codify-scan reports
+  (the ``"up"`` predicate ``max(live) >= median(new_values)`` requires
+  ``max(live) >= 0.123105``; ``0.124 >= 0.123105`` is True, so the
+  candidate is correctly marked ``already_codified=True`` next night).
+
+  Three direct effects:
+
+  * **Bandit proposes from the consensus, not the prior** — the
+    ``log_uniform_perturb`` rule samples symmetric perturbations
+    around the *current* spec value.  Pre-codify the bandit had to
+    pull itself out of the ``0.1`` neighbourhood every night through a
+    chain of accept events; post-codify it starts at ``0.124`` and
+    explores around the consensus.  Tighter per-night exploration
+    means more proposals land in the productive region and the
+    bandit's per-arm Beta posterior updates on values drawn from a
+    meaningfully narrower distribution — directly improving the §11.1
+    *resolution* criterion on the same nightly budget.
+  * **Persists the loop's accumulated knowledge** — the V1 ladder
+    discards every accept at the end of each night because the only
+    durable channel is manual codification (§2.3 in the V2 loop
+    diagnosis).  Eight nights of consistent ``"up"`` accepts on a
+    single arm is the canonical "manual codify" pattern — exactly the
+    cross-night-evidence shape that the
+    :command:`codify-scan --open-pr` driver will automate once it
+    lands (§9.5 step 4).  Until then, manual codification is the
+    persistence mechanism.
+  * **Advances the §11.2 *throughput* criterion** — the V2 success
+    bar is "≥ 3 codify PRs opened from ledger evidence, ≥ 2 merged
+    over the first 30 nights".  Today's ledger count (this entry
+    inclusive) is **3 ledger-evidence-driven codify PRs**:
+    ``Sobol.scramble=False`` (2026-05-31, merged),
+    ``Nearby.radius`` catalog tightening (2026-06-26, merged), and
+    ``Nearby.radius`` seed shift (this entry, open).  The codify
+    cadence is on-track relative to the V2 target.
+
+* **Pairs cleanly with 2026-06-26** — the catalog tightening
+  ``(0.005, 0.5) → (0.032, 0.313)`` and this seed shift act on
+  different layers of the same parameter:
+
+  * Catalog bound (2026-06-26): defines the *range* the bandit can
+    propose values from for the ``Nearby.radius`` arm.  ``0.124`` sits
+    comfortably inside the new ``[0.032, 0.313]`` window with ~3.9×
+    headroom upward and ~3.9× headroom downward.
+  * Seed value (2026-06-28, this entry): defines the *centre* the
+    ``log_uniform_perturb`` rule perturbs around.  Combined effect:
+    the bandit now explores a ~2.5× window in log-space centred on the
+    consensus value, instead of a ~16× window centred on a value the
+    bandit had consistently moved away from.
+
+  The two changes were intentionally split into separate PRs because
+  they have different reversal characteristics — a catalog change is a
+  pure-policy update, while a seed change shifts the constructor
+  invocation in user-visible benchmark output.
+
+* **Backwards compatibility** — strictly safe:
+
+  * The :class:`~panobbgo.heuristics.nearby.Nearby` constructor
+    default (``radius=1.0 / 100 = 0.01``) is unchanged.  Every direct
+    caller that does not pass ``radius=`` continues to receive ``0.01``.
+  * The catalog rule key
+    ``(Nearby, radius, log_uniform_perturb)`` is unchanged, so the
+    pre-codify Beta posterior accumulates seamlessly across the
+    seed change — the bandit only sees a different starting point.
+    Ledger replay through
+    :meth:`AdaptiveMutationSampler.prime_from_ledger` continues to
+    map every historical proposal onto the same arm.
+  * The :func:`panobbgo.self_improve._find_targets` "param already in
+    kwargs" predicate still fires (``0.124 != 0.01`` constructor
+    default), so the catalog rule continues to fire on every affected
+    spec — the codify is a value shift, not a deactivation.
+  * Four built-in factory locations updated; the IOH-battery seed
+    (``Rewarding_Restart`` in :mod:`panobbgo.harness_ioh`), the legacy
+    :func:`panobbgo.benchmark.create_standard_strategies` factory, and
+    the smaller-radius BayesOpt / CMAES specs (``0.05``) are
+    intentionally left at their existing values — different evidence
+    contexts, separate codify decisions.
+
+* **Tests** — no test assertion changes required.
+
+  * The ``TestCodifyScanCLI`` /
+    ``TestAlreadyCodifiedAnnotation`` suites construct their own mock
+    factories and ``new_values`` arrays so they are insulated from
+    the live registry change.
+  * ``TestLoopRegistry.test_quick_registry_covers_few_rules`` /
+    ``test_loop_registry_exercises_full_catalog`` count rule
+    activations rather than asserting specific kwarg values — the
+    ``Nearby.radius`` rule continues to fire (``0.124 != 0.01``
+    constructor default), so the active-rule count stays at 4 in
+    quick mode and 44 in the loop registry.
+  * Smoke-checked the full test suite: 1127 tests + 583 specific
+    self_improve/harness tests pass byte-identically; no test depended
+    on the literal ``0.1`` seed value.
+  * Smoke-checked the codify-scan output: the live ledger now
+    surfaces ``3 candidates surfaced (of 5; 2 already codified,
+    hidden)`` — the ``Nearby.radius direction=up`` candidate is
+    correctly suppressed by the
+    :func:`_candidate_already_codified` predicate (the
+    ``Sobol.scramble=False`` historical suppression is preserved).
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the *Codify
+    persistent wins* idea from §12.3 (a rule with repeated confirmed
+    accepts → a PR changing the default kwarg) graduated from
+    standing-instruction-with-no-PR-yet to shipped on the
+    ``Nearby.radius`` slot.  The ledger evidence is now ~9 accepts
+    deep; the next manual codify candidate is open for the
+    ``Sobol.n`` slot once the auto-tune classifies it as a clear
+    tightening rather than ``"widens current"``.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §11.2 throughput-count
+    note bumped to ``3 codify PRs opened`` (this entry inclusive).
+  - ``doc/source/guide_benchmarking.rst``: *Codify-scan suppression*
+    sub-section extended with a paragraph noting that the
+    ``Nearby.radius`` seed shift to ``0.124`` is the second
+    ledger-evidence-driven default change to land via manual codify
+    (after ``Sobol.scramble=False``), and is the canonical example of
+    a numeric ``"up"`` direction suppression because the live ledger
+    now exhibits it.
+  - ``doc/source/guide.rst``: Benchmarking summary line extended with
+    the 2026-06-28 entry alongside the existing 2026-05-31 /
+    2026-06-26 codify entries.
+  - ``AGENTS.md``: new bullet under the V2 ship list pointing at
+    this entry.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **``Sobol.n`` seed shift (manual companion to 2026-06-28)** —
+    accumulating evidence (4 accepts at ``new_value ∈ {8, 12, 12, 12}``
+    across 4 nights for ``direction=down``) suggests a future codify
+    from ``Sobol.n = 16`` to ``Sobol.n = 12``.  Deferred today
+    because the widening detector classifies the bidirectional
+    pattern as ``"widens current"`` (mixed signal: 4 accepts also in
+    ``direction=up`` at ``new_value ∈ {20, 24, 20, 24}``).  Re-visit
+    once more nights of evidence cluster the observed range more
+    tightly in one direction.
+  * **Re-run the widening detector on post-shift ledger evidence** —
+    the 2026-06-26 catalog tightening + this 2026-06-28 seed shift
+    together meaningfully change the bandit's exploration regime.
+    A few nights from now, re-running ``codify-scan --widen-bounds
+    --widen-auto-tune`` will show whether the bandit converges on a
+    tighter consensus window or starts exploring outward — both
+    outcomes inform whether a second-round catalog adjustment is
+    warranted.
+
 ### 2026-06-26 — Codify auto-tuned `Nearby.radius` catalog tightening (manual widening-detector codify)
 
 * **What** — Tightens the :func:`panobbgo.self_improve.default_catalog`

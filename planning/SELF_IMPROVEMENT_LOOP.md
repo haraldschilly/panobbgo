@@ -353,6 +353,22 @@ source edit + PR:
 - **Merged codify PRs are the persistence mechanism**: the next night
   reads the improved defaults from source.  No in-memory ladder
   serialization needed.
+- The value the driver would ship is centralised in
+  :meth:`CodifyCandidate.proposed_codify_value` (shipped 2026-06-29):
+  median of `new_values` rounded *outward* in `direction` to 3
+  significant digits (for floats) or `ceil` / `floor` (for
+  `integer_add`).  The rule is self-stable — applying the proposed
+  value as a live seed value satisfies
+  :func:`_candidate_already_codified` on the next scan, so the driver
+  cannot re-open the same PR every night.  Categorical candidates
+  return the chosen value verbatim; structural ops return `None`
+  (the driver consults `class_name` + `op` directly).  Surfaced in
+  the human-readable scan as a `proposed codify value:` line and in
+  the JSON payload as the `proposed_codify_value` field — saves the
+  daily routine from hand-computing the median (the 2026-06-26
+  `Nearby.radius` catalog tightening and PR #271's seed shift both
+  used the same `median → round outward` policy this method now
+  encodes).
 
 `scripts/self_improve.py codify-scan --widen-bounds` (**shipped
 2026-06-19**) is the sibling detection mode for *bidirectional*

@@ -2,6 +2,93 @@
 
 ## Recent Improvements (continued)
 
+### `CodifyCandidate.proposed_codify_value()` — codify-value derivation centralised on the dataclass (V2 §9.5 step 4 plumbing) — 2026-06-29
+- [x] **New method `CodifyCandidate.proposed_codify_value(*, n_sig=3)`**
+      in `panobbgo/self_improve.py` that computes the seed value a
+      codify edit would ship.  Per-rule-kind branching: numeric
+      `direction="up"`/`"down"` → median of `new_values` rounded
+      *outward* in `direction` to `n_sig` significant digits (floats)
+      or `math.ceil` / `math.floor` (`integer_add`); categorical →
+      the chosen literal verbatim (preserving Python type — `False`
+      stays `False`, not `"False"`); structural ops → `None`
+      (caller consults `class_name` + `op` directly).
+- [x] **New helper `_round_outward_to_significant(value, direction,
+      n_sig)`** centralises the float rounding policy.  Handles
+      `value == 0.0` (returned unchanged), non-finite inputs (passed
+      through), and negative values (the abs-rounding direction is
+      inverted so the result still moves in the linear direction —
+      `"up"` on `-0.5` returns a less-negative value).  Invalid
+      directions raise `ValueError`.
+- [x] **`CodifyCandidate.to_dict()` carries the new
+      `proposed_codify_value` field** so JSON-mode consumers
+      (`codify-scan --json`) and the queued `--open-pr` driver
+      share one source of truth for "what value should the codify
+      edit ship?".  Value preserves its Python type
+      (bool / int / float / None) under `_to_plain`.
+- [x] **`_print_codify_candidate` in `scripts/self_improve.py`**
+      now emits a `proposed codify value:` line on every actionable
+      candidate (suppressed automatically when the value is `None`
+      — structural ops and edge cases).  Float formatting uses
+      `{value:.6g}` to match the existing `_format_old_new`
+      style; bools render as `repr` so `False` reads as `False`
+      not `0`.
+- [x] **Live ledger verification** — `uv run python
+      scripts/self_improve.py codify-scan` surfaces four actionable
+      candidates with the proposed values:
+      `Nearby.radius` direction=up → `0.124` (matches PR #271
+      exactly), `Sobol.n` direction=down → `12` (matches the
+      deferred-codify note for the manual companion),
+      `Nearby.radius` direction=down → `0.0809`, `Sobol.n`
+      direction=up → `22`.
+- [x] **Why it improves Panobbgo** — three direct effects:
+      (1) closes the manual computation gap (every prior codify
+      PR had to hand-compute the median and pick a rounding
+      step); (2) unblocks the queued `--open-pr` driver (V2 §9.5
+      step 4) by centralising the core "what value to ship?"
+      question on the dataclass; (3) the self-stability invariant
+      (`proposed >= median` for `up` / `proposed <= median` for
+      `down`) ensures the codified value cleanly suppresses the
+      candidate on the next scan so the future driver cannot
+      re-open the same PR every night.
+- [x] **Tests** — 19 new tests in
+      `tests/test_self_improve.py::TestProposedCodifyValue` covering:
+      direct unit tests of `_round_outward_to_significant` (PR #271
+      round-trip, down-rounding, zero / negative / non-finite /
+      invalid-direction handling); end-to-end on numeric `up` / `down`
+      / `integer_add up` / `integer_add down` (verifies the
+      float/int type of the returned value); categorical preserves
+      boolean type; structural returns `None`; empty `new_values`
+      returns `None`; self-stability invariant
+      (`_candidate_already_codified(c, [proposed]) is True`) for
+      `up` / `down` / `integer_add`; `to_dict()` carries the new
+      field, JSON-serialisable, boolean preserved.  Plus assertion
+      lines added to `TestCodifyScanCLI.test_realistic_two_night_pattern_surfaces_candidate`
+      (verifies the `proposed codify value: 0.125` line in the
+      report) and
+      `TestCodifyScanCLI.test_json_mode_emits_one_object_per_candidate`
+      (verifies the JSON payload carries
+      `proposed_codify_value: 0.125`).  All 19 new tests pass;
+      full `test_self_improve.py` suite (516 tests) clean;
+      `ruff check` / `ruff format --check` / `pyright` all clean.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-29 dated entry; *Follow-up ideas* seeded for the
+      `--apply-top` driver, `--open-pr` driver, log-space rounding
+      refinement), `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3
+      `--open-pr` paragraph extended with a bullet pointing at the
+      new method and its self-stability invariant),
+      `doc/source/guide_benchmarking.rst` (the codify-scan
+      sub-section documents the `proposed codify value:` line, the
+      JSON field, and the `proposed_codify_value` method),
+      `doc/source/guide.rst` (Benchmarking summary line extended
+      with the 2026-06-29 entry), `AGENTS.md` (new bullet under the
+      V2 ship list).
+- [x] **Follow-ups** seeded under *Next iteration ideas* in
+      `planning/SELF_IMPROVEMENT_LOG.md`: `codify-scan --apply-top`
+      working-tree-edit driver (mechanises the next-most-tedious
+      manual step), `codify-scan --open-pr` PR-creation driver (the
+      full V2 §9.5 step 4 closure), log-space rounding for
+      `log_uniform_perturb` rules (speculative).
+
 ### Codify auto-tuned `Nearby.radius` catalog tightening (manual widening-detector codify) — 2026-06-26
 - [x] **Catalog edit** in `panobbgo.self_improve.default_catalog`:
       `Nearby.radius` `MutationRule.bounds` tightened from

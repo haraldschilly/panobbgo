@@ -691,6 +691,29 @@ The harness is the measurement substrate for an autonomous
     changes, no behaviour change for the `Nearby` heuristic itself.
     See the 2026-06-26 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **`CodifyCandidate.proposed_codify_value()` — codify-value
+    derivation centralised on the dataclass** — **shipped 2026-06-29**.
+    The new method computes the seed value a codify edit would ship:
+    median of `new_values` rounded *outward* in `direction` to 3
+    significant digits (floats) or `ceil` / `floor` (`integer_add`).
+    Categorical candidates return the chosen literal verbatim;
+    structural ops return `None`.  Surfaced as a `proposed codify
+    value:` line in the `codify-scan` report and as the
+    `proposed_codify_value` field in the JSON payload.  Reproduces
+    PR #271's `Nearby.radius: 0.123105 → 0.124` exactly so the
+    manual codify history validates against the centralised helper.
+    Self-stability invariant — applying the proposed value as a
+    live seed value satisfies
+    `_candidate_already_codified` on the next scan, so the queued
+    `--open-pr` driver cannot re-open the same PR every night.
+    Pure additions to `panobbgo/self_improve.py` and
+    `scripts/self_improve.py`; 19 new tests in
+    `TestProposedCodifyValue`.  V2 §9.5 step 4 plumbing — the
+    queued `--open-pr` driver consumes the same field; until then
+    the manual daily routine reads the value from the report
+    instead of hand-computing the median.  See the 2026-06-29 entry
+    in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **Nightly cron flipped to V2 substrate** — **shipped 2026-06-21**.
     The `self_improve_nightly.yml` workflow now invokes
     `scripts/self_improve.py run` with every zero-cost V2 flag:

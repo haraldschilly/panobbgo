@@ -17,6 +17,188 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-29 — `CodifyCandidate.proposed_codify_value()` — centralise the median+round-outward policy (V2 §9.5 step 4 plumbing)
+
+* **What** — Adds a new method
+  :meth:`panobbgo.self_improve.CodifyCandidate.proposed_codify_value`
+  that computes the seed value a codify edit would ship, and surfaces
+  it in the ``codify-scan`` CLI report (new
+  ``proposed codify value:`` line on every actionable candidate) and
+  the JSON payload (new ``proposed_codify_value`` field).  Pure
+  additions to ``panobbgo/self_improve.py`` and the
+  ``_print_codify_candidate`` helper in ``scripts/self_improve.py`` —
+  no behaviour change for the existing ``codify-scan`` consumers,
+  byte-identical for every existing JSONL ledger and test invocation
+  that does not read the new field.
+
+  The rounding policy:
+
+  * **Numeric kwarg, direction='up'/'down'** —
+    ``median(new_values)`` rounded outward in ``direction`` to 3
+    significant digits (floats) or :func:`math.ceil` / :func:`math.floor`
+    (``integer_add``).  Captured in the new
+    :func:`panobbgo.self_improve._round_outward_to_significant` helper
+    so the same policy applies anywhere a codify value is derived.
+  * **Categorical** — the chosen literal (``False`` for the
+    ``Sobol.scramble=False`` direction etc.), preserved as the
+    original Python type (no string-coercion that would break a
+    bool-typed constructor argument).
+  * **Structural ops** — returns ``None``.  Structural codification
+    adds / drops a class, it has no kwarg value; callers consult
+    :attr:`CodifyCandidate.class_name` and :attr:`CodifyCandidate.op`
+    directly.
+
+  Self-stability invariant — the rounded value satisfies
+  :func:`_candidate_already_codified` on the next scan:
+
+  * ``direction="up"``: ``proposed >= median(new_values)`` →
+    ``max(live) >= median(new_values)`` after codify → suppressed.
+  * ``direction="down"``: ``proposed <= median(new_values)`` →
+    ``min(live) <= median(new_values)`` after codify → suppressed.
+
+  This is the property the queued ``--open-pr`` driver needs: the
+  source edit it ships must cleanly remove the candidate from the
+  work-list, otherwise it would re-open the same PR every night.
+
+* **Why** — Three direct effects:
+
+  * **Closes the manual computation gap** — every prior codify PR
+    (PR #271's ``Nearby.radius`` seed shift, the 2026-06-26 catalog
+    tightening, the 2026-05-31 ``Sobol.scramble=False`` codify) had to
+    hand-compute the median of the accepted ``new_values`` and pick
+    a rounding policy.  PR #271's description spells it out:
+    "Median ``0.123105``; exact mode ``0.123105`` (three accepts at
+    the same value).  The shipped seed is rounded slightly outward to
+    ``0.124`` so the ``_candidate_already_codified`` predicate
+    ``max(live) >= median(new_values)`` cleanly suppresses the
+    candidate next night."  This entry codifies that policy into the
+    library so every future codify PR (manual or automated) uses
+    the same rule.
+  * **Unblocks the queued ``--open-pr`` driver (V2 §9.5 step 4)** —
+    the driver's core "what value to ship?" question is answered by
+    this method.  When the driver lands it consumes the new field
+    directly; until then the manual codify routine reads the value
+    from the report header instead of computing it by hand.
+  * **Pairs with the existing suppression machinery** — the
+    self-stability invariant ties the new method to the existing
+    :func:`_candidate_already_codified` predicate (shipped 2026-06-18
+    in the §9.3 already-codified detection).  Together they form a
+    closed loop: the method proposes a value, the predicate confirms
+    it suppresses the candidate next night, the codify scan no longer
+    re-surfaces it.
+
+* **Live ledger verification** — running
+  ``uv run python scripts/self_improve.py codify-scan`` against the
+  live ledger surfaces four actionable candidates with the proposed
+  values:
+
+  * ``Nearby.radius`` direction=up: **0.124** (matches PR #271 exactly).
+  * ``Sobol.n`` direction=down: **12** (the floor of median([8, 12, 12, 12]) = 12,
+    matches the deferred-codify note in
+    ``planning/SELF_IMPROVEMENT_LOG.md`` for the manual companion).
+  * ``Nearby.radius`` direction=down: **0.0809** (down-rounded median).
+  * ``Sobol.n`` direction=up: **22** (ceil of median([20, 24, 20, 24]) = 22).
+
+* **Backwards compatibility** — strictly safe:
+
+  * All five fields on the existing :func:`CodifyCandidate.to_dict`
+    return value remain unchanged; the new
+    ``proposed_codify_value`` key is appended, so a JSON consumer
+    that filters by known keys (no ``**`` spread) sees the same data.
+  * The ``codify-scan`` text report gains one optional line per
+    candidate (``proposed codify value: <value>``); existing CLI
+    tests that assert specific text fragments pass unchanged.
+  * No mutation rule changes, no catalog modifications, no new
+    bandit arms — strictly compatible with the §7.3 catalog freeze
+    (the V2 priority pre-empts new arms until the loop resolves
+    them; this entry is loop infrastructure, not a new arm).
+
+* **Tests** — 19 new tests in the new
+  ``tests/test_self_improve.py::TestProposedCodifyValue`` class
+  covering:
+
+  * Direct unit tests of
+    :func:`_round_outward_to_significant`: matches PR #271's
+    ``0.123105 → 0.124``; rounds ``0.080996535 → 0.0809``;
+    handles ``0.0`` (returned unchanged); negative-value
+    sign-flip direction handling; invalid direction raises;
+    non-finite inputs pass through.
+  * Numeric ``direction="up"``: ``Nearby.radius`` end-to-end
+    against synthetic records returns ``0.124``.
+  * Numeric ``direction="down"``: integer rule
+    (``Sobol.n``) returns ``12``; the result is an ``int`` not a
+    ``float`` (preserves heuristic constructor signature).
+  * Numeric ``direction="up"``: integer rule returns ``22``.
+  * Categorical: returns the chosen value (``False``) verbatim
+    with the boolean type preserved.
+  * Structural: returns ``None`` (no kwarg value).
+  * Empty ``new_values``: returns ``None`` (defensive).
+  * Self-stability: ``_candidate_already_codified(c, [proposed])``
+    is ``True`` for ``up`` direction, ``down`` direction, and
+    integer rules.  This is the invariant the queued
+    ``--open-pr`` driver depends on.
+  * ``to_dict()``: the new field is present, JSON-serialisable,
+    and preserves boolean type for categorical candidates.
+
+  Plus one new assertion line on
+  ``TestCodifyScanCLI.test_realistic_two_night_pattern_surfaces_candidate``
+  (verifies the ``proposed codify value: 0.125`` line appears) and
+  one on
+  ``TestCodifyScanCLI.test_json_mode_emits_one_object_per_candidate``
+  (verifies the JSON payload carries ``proposed_codify_value: 0.125``).
+
+  All 19 new tests pass.  The full ``tests/test_self_improve.py``
+  suite (516 tests) passes; ``uv run ruff check`` /
+  ``uv run ruff format --check`` /
+  ``uv run pyright panobbgo/self_improve.py scripts/self_improve.py``
+  all clean.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 ``--open-pr`` paragraph
+    extended with a bullet pointing at the new method and its
+    self-stability invariant.
+  - ``doc/source/guide_benchmarking.rst``: the codify-scan
+    ``proposed codify value:`` line documented alongside the
+    suppression rule.
+  - ``doc/source/guide.rst``: Benchmarking summary line extended with
+    the 2026-06-29 entry alongside the existing 2026-05-31 /
+    2026-06-26 / 2026-06-27 / 2026-06-28 codify entries.
+  - ``AGENTS.md``: new bullet under the V2 ship list.
+  - ``panobbgo/self_improve.py``: full docstring on the new method
+    explaining the per-rule-kind branching, the self-stability
+    invariant, and the manual-codify policy lineage.
+  - ``TODO.md``: new "Recent Improvements" entry below.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **`codify-scan --apply-top` driver (working-tree edit only)** —
+    one step toward the full ``--open-pr`` driver: read the top
+    actionable candidate, derive the source edit (find every
+    matching spec factory in ``panobbgo/harness.py`` and replace
+    the literal old value with :meth:`proposed_codify_value`), and
+    write the change to the working tree.  Operator runs tests and
+    opens the PR manually.  Skips the PR-creation and ``gh pr
+    list`` deduplication that the full ``--open-pr`` driver still
+    needs, but mechanises the next-most-tedious manual step.
+  * **`--open-pr` driver itself (V2 §9.5 step 4)** — translates
+    each surfaced candidate into a draft PR with the ledger
+    evidence in the PR body.  The new
+    :meth:`CodifyCandidate.proposed_codify_value` is the value the
+    driver edits the source to; the
+    :func:`_candidate_already_codified` predicate verifies the
+    same value would suppress the candidate next night before the
+    PR is opened (sanity-check on the rounding).
+  * **Log-space rounding for `log_uniform_perturb`** — the current
+    helper rounds in linear space (3 sig digits).  For
+    ``log_uniform_perturb`` rules the natural metric space is
+    *log* — a future refinement could compute the median in
+    log-space and round outward in log-space, then exp-transform
+    back.  Speculative until live evidence shows the linear
+    rounding produces values that the codified rule then needs to
+    re-tune.
+
 ### 2026-06-26 — Codify auto-tuned `Nearby.radius` catalog tightening (manual widening-detector codify)
 
 * **What** — Tightens the :func:`panobbgo.self_improve.default_catalog`

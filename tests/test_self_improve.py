@@ -7595,6 +7595,343 @@ class TestLoadLedgersForCodifyScan:
         assert [r["timestamp"][:10] for r in records] == ["2026-05-15", "2026-05-31"]
 
 
+class TestProposedCodifyValue:
+    """:meth:`CodifyCandidate.proposed_codify_value` — value the codify edit
+    would ship.  Centralises the rounding policy used by the manual codify
+    entries (PR #271's ``Nearby.radius: 0.123105 -> 0.124``, the
+    2026-06-26 catalog tightening, the queued ``--open-pr`` driver)."""
+
+    def test_round_outward_up_matches_pr_271(self):
+        """Self-stability: the rounding produces PR #271's shipped value.
+
+        PR #271 hand-computed median(new_values) = 0.123105 on the
+        live ``Nearby.radius`` codify candidate and rounded *outward*
+        (up) to 3 sig digits → 0.124.  The new helper must reproduce
+        the same value so the manual codify policy can be moved
+        wholesale to the queued ``--open-pr`` driver without changing
+        which file edits ship.
+        """
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        assert _round_outward_to_significant(0.123105, "up", n_sig=3) == 0.124
+
+    def test_round_outward_down(self):
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        # 0.08099 rounds down to 0.0809 (3 sig digits, towards smaller).
+        assert _round_outward_to_significant(0.080996535, "down", n_sig=3) == 0.0809
+
+    def test_round_outward_zero_returns_zero(self):
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        assert _round_outward_to_significant(0.0, "up") == 0.0
+        assert _round_outward_to_significant(0.0, "down") == 0.0
+
+    def test_round_outward_negative_up_rounds_linearly_up(self):
+        """For negative values, ``"up"`` means linearly larger (less negative)."""
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        # -0.123105 with direction="up" should produce a value > -0.123105,
+        # so closer to zero in magnitude.  3 sig figs: -0.123.
+        result = _round_outward_to_significant(-0.123105, "up", n_sig=3)
+        assert result > -0.123105
+        assert result == -0.123
+
+    def test_round_outward_negative_down_rounds_linearly_down(self):
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        result = _round_outward_to_significant(-0.123105, "down", n_sig=3)
+        assert result < -0.123105
+        assert result == -0.124
+
+    def test_round_outward_invalid_direction_raises(self):
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        with pytest.raises(ValueError, match="direction must be"):
+            _round_outward_to_significant(0.1, "sideways")
+
+    def test_round_outward_non_finite_returned_unchanged(self):
+        from panobbgo.self_improve import _round_outward_to_significant
+
+        import math as _math
+
+        assert _math.isnan(_round_outward_to_significant(float("nan"), "up"))
+        assert _round_outward_to_significant(float("inf"), "up") == float("inf")
+
+    def test_numeric_up_returns_outward_rounded_median(self):
+        """End-to-end on a ``Nearby.radius`` direction=up candidate."""
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Reproduce a subset of the live ledger's accepted new_values
+        # for ``Nearby.radius`` direction=up to verify the rounded
+        # proposal matches PR #271's 0.124.
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                new_value=v,
+            )
+            for day, v in enumerate([0.108882, 0.123105, 0.134681], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.direction == "up"
+        # median([0.108882, 0.123105, 0.134681]) == 0.123105 → round up → 0.124
+        assert c.proposed_codify_value() == 0.124
+
+    def test_numeric_down_integer_rule_floors(self):
+        """``integer_add`` direction=down uses :func:`math.floor` on the median."""
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # Sobol.n down evidence — median([8, 12, 12, 12]) == 12 → floor(12) == 12.
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-05-2{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="n",
+                rule_kind="integer_add",
+                old_value=16,
+                new_value=v,
+            )
+            for day, v in enumerate([8, 12, 12, 12], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.direction == "down"
+        assert c.proposed_codify_value() == 12
+        # Must be an int, not a float, to match the heuristic constructor signature.
+        assert isinstance(c.proposed_codify_value(), int)
+
+    def test_numeric_up_integer_rule_ceils(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        # median([20, 24, 20, 24]) == 22 → ceil(22) == 22.
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-05-2{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="n",
+                rule_kind="integer_add",
+                old_value=16,
+                new_value=v,
+            )
+            for day, v in enumerate([20, 24, 20, 24], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.direction == "up"
+        assert c.proposed_codify_value() == 22
+        assert isinstance(c.proposed_codify_value(), int)
+
+    def test_categorical_returns_chosen_value(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="scramble",
+                rule_kind="categorical_choice",
+                old_value=True,
+                new_value=False,
+            )
+            for day in (1, 2)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.direction == "False"
+        # Categorical: returns the chosen literal (False), preserving bool type.
+        assert c.proposed_codify_value() is False
+
+    def test_structural_returns_none(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Restart",
+                param_name="",
+                rule_kind="structural",
+                op="add_analyzer",
+                old_value=None,
+                new_value=None,
+            )
+            for day in (1, 2)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        # Structural ops have no kwarg value — caller consults class_name/op directly.
+        assert cands[0].proposed_codify_value() is None
+
+    def test_empty_new_values_returns_none(self):
+        from panobbgo.self_improve import CodifyCandidate
+
+        # Defensive: manually-constructed candidate with empty evidence.
+        c = CodifyCandidate(
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            op=None,
+            direction="up",
+            n_accepts=0,
+            distinct_dates=(),
+            deltas=(),
+            ci_lows=(),
+            ci_highs=(),
+            old_values=(),
+            new_values=(),
+            timestamps=(),
+            strategy_names=(),
+            confirmed_flags=(),
+        )
+        assert c.proposed_codify_value() is None
+
+    def test_round_trip_self_stable_under_already_codified(self):
+        """The proposed value cleanly suppresses the candidate on the next scan.
+
+        Self-stability invariant: applying the proposed value as a live seed
+        value satisfies :func:`_candidate_already_codified`, so re-running
+        the scanner against the same evidence after the codify edit no
+        longer surfaces the candidate (the source change cleanly removes
+        the proposal from the work-list).  Crucial for the queued
+        ``--open-pr`` driver — otherwise it would re-open the same PR
+        every night.
+        """
+        from panobbgo.self_improve import (
+            _candidate_already_codified,
+            aggregate_codify_candidates,
+        )
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                new_value=v,
+            )
+            for day, v in enumerate([0.108882, 0.123105, 0.134681], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        proposed = c.proposed_codify_value()
+        assert proposed is not None
+        # Apply the proposed value as the live seed value and verify the
+        # suppression predicate fires.
+        assert _candidate_already_codified(c, [proposed]) is True
+
+    def test_round_trip_self_stable_for_down_direction(self):
+        from panobbgo.self_improve import (
+            _candidate_already_codified,
+            aggregate_codify_candidates,
+        )
+
+        # Down direction with float new_values.
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                old_value=0.1,
+                new_value=v,
+            )
+            for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        assert c.direction == "down"
+        proposed = c.proposed_codify_value()
+        assert proposed is not None
+        # min(live) <= median(new_values) — codified.
+        assert _candidate_already_codified(c, [proposed]) is True
+
+    def test_round_trip_self_stable_for_integer_rule(self):
+        """Integer rule: ceil/floor on the median is self-stable too."""
+        from panobbgo.self_improve import (
+            _candidate_already_codified,
+            aggregate_codify_candidates,
+        )
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-05-2{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="n",
+                rule_kind="integer_add",
+                old_value=16,
+                new_value=v,
+            )
+            for day, v in enumerate([8, 12, 12, 12], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        c = cands[0]
+        proposed = c.proposed_codify_value()
+        assert proposed == 12
+        assert _candidate_already_codified(c, [proposed]) is True
+
+    def test_to_dict_includes_proposed_codify_value(self):
+        """JSON-mode emit carries the new field for the queued ``--open-pr`` driver."""
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                new_value=v,
+            )
+            for day, v in enumerate([0.108882, 0.123105, 0.134681], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        d = cands[0].to_dict()
+        assert "proposed_codify_value" in d
+        assert d["proposed_codify_value"] == 0.124
+
+    def test_to_dict_proposed_value_is_json_serialisable(self):
+        """The new field must round-trip through ``json.dumps`` for CLI JSON mode."""
+        import json as _json
+
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-05-2{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="n",
+                rule_kind="integer_add",
+                old_value=16,
+                new_value=v,
+            )
+            for day, v in enumerate([8, 12, 12, 12], start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        d = cands[0].to_dict()
+        round_tripped = _json.loads(_json.dumps(d, sort_keys=True))
+        assert round_tripped["proposed_codify_value"] == 12
+
+    def test_categorical_to_dict_preserves_boolean(self):
+        """``False`` survives JSON round-trip without coercing to the string ``"False"``."""
+        import json as _json
+
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Sobol",
+                param_name="scramble",
+                rule_kind="categorical_choice",
+                old_value=True,
+                new_value=False,
+            )
+            for day in (1, 2)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        d = cands[0].to_dict()
+        round_tripped = _json.loads(_json.dumps(d, sort_keys=True))
+        assert round_tripped["proposed_codify_value"] is False
+
+
 class TestCodifyScanCLI:
     """End-to-end smoke tests for the ``codify-scan`` CLI subcommand."""
 
@@ -7678,6 +8015,11 @@ class TestCodifyScanCLI:
         assert "n_nights=2" in out
         # Evidence section renders both records.
         assert out.count("Δ=") >= 2
+        # Proposed codify value is surfaced (median([0.12, 0.13]) = 0.125 → round
+        # up to 3 sig digits → 0.125).  The new field saves the operator from
+        # hand-computing the median; the queued ``--open-pr`` driver consumes
+        # the same value.
+        assert "proposed codify value: 0.125" in out
 
     def test_json_mode_emits_one_object_per_candidate(self, tmp_path, capsys):
         cli = self._import_cli()
@@ -7719,6 +8061,10 @@ class TestCodifyScanCLI:
         assert d["n_accepts"] == 2
         assert "pooled_ci_low" in d
         assert "pooled_ci_high" in d
+        # The proposed_codify_value field is in the JSON payload for the
+        # queued ``--open-pr`` driver — median([0.12, 0.13]) = 0.125 →
+        # round up to 3 sig digits → 0.125.
+        assert d["proposed_codify_value"] == 0.125
 
     def test_top_truncates_report(self, tmp_path, capsys):
         cli = self._import_cli()

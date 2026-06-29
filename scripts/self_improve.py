@@ -1533,6 +1533,19 @@ def _print_codify_candidate(
         # so the operator can confirm the suppression rule's reasoning.
         live_repr = ", ".join(repr(v) for v in cand.live_codified_values)
         print(f"    live seed value(s): {live_repr}")
+    # Surface the value a codify edit would shift the seed-spec to (the
+    # median of new_values, rounded outward).  Saves the operator from
+    # hand-computing it; the queued ``--open-pr`` driver will consume
+    # the same field.
+    proposed = cand.proposed_codify_value()
+    if proposed is not None:
+        if isinstance(proposed, bool):
+            proposed_repr = repr(proposed)
+        elif isinstance(proposed, float):
+            proposed_repr = f"{proposed:.6g}"
+        else:
+            proposed_repr = repr(proposed)
+        print(f"    proposed codify value: {proposed_repr}")
     strategies = sorted(set(cand.strategy_names))
     if strategies:
         print(f"    strategies: {', '.join(strategies)}")

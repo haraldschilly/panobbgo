@@ -1335,7 +1335,34 @@ detection — the slot identifier
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">CodifyCandidate.slot_key</span></code> is the <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span> <span class="pre">op)</span></code> tuple
 the §12.3 deduplication rule should consult against
 <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">list</span> <span class="pre">--state</span> <span class="pre">open</span></code>.</p>
-<p>See the 2026-06-17 / 2026-06-18 / 2026-06-19 entries in
+<p>Each actionable candidate’s report now (shipped 2026-06-29) carries a
+<code class="docutils literal notranslate"><span class="pre">proposed</span> <span class="pre">codify</span> <span class="pre">value:</span></code> line surfacing the value the codify edit
+would shift the seed-spec factory to — the median of <code class="docutils literal notranslate"><span class="pre">new_values</span></code>,
+rounded <em>outward</em> in the candidate’s direction (<code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> rounds up,
+<code class="docutils literal notranslate"><span class="pre">&quot;down&quot;</span></code> rounds down) to 3 significant digits for floats or
+<a class="reference external" href="https://docs.python.org/3/library/math.html#math.ceil" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">math.ceil()</span></code></a> / <a class="reference external" href="https://docs.python.org/3/library/math.html#math.floor" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">math.floor()</span></code></a> for <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>.  For
+categorical candidates the proposed value is the chosen literal
+(<code class="docutils literal notranslate"><span class="pre">False</span></code> for the <code class="docutils literal notranslate"><span class="pre">Sobol.scramble=False</span></code> direction, etc.);
+structural ops have no kwarg value (the line is suppressed).  The
+rounding rule is <em>self-stable</em> — applying the proposed value as a
+live seed value satisfies
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve._candidate_already_codified()</span></code> on the
+next scan, so the source edit cleanly suppresses the candidate on
+the following nightly run and the queued <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver
+cannot re-open the same PR every night.</p>
+<p>Centralising this rounding policy on
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> (also exposed in the
+<code class="docutils literal notranslate"><span class="pre">--json</span></code> payload as the <code class="docutils literal notranslate"><span class="pre">proposed_codify_value</span></code> field) means the
+queued <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver, the manual daily routine, and the codify
+scan share one definition of “the codify value” — historically the
+manual codify PRs (the 2026-05-31 <code class="docutils literal notranslate"><span class="pre">Sobol.scramble=False</span></code>, the
+2026-06-26 <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> catalog tightening, PR #271’s
+<code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> seed shift) each hand-computed the median and
+picked a rounding step.  The <code class="xref py py-meth docutils literal notranslate"><span class="pre">proposed_codify_value()</span></code> method
+reproduces PR #271’s <code class="docutils literal notranslate"><span class="pre">0.123105</span> <span class="pre">→</span> <span class="pre">0.124</span></code> exactly so the manual
+codify history continues to validate against the centralised
+helper.</p>
+<p>See the 2026-06-17 / 2026-06-18 / 2026-06-19 / 2026-06-29 entries in
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the design rationale and
 the dated entry’s “Follow-up ideas” section for the queued
 <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>

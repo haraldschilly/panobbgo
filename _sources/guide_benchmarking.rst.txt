@@ -1117,7 +1117,36 @@ detection — the slot identifier
 the §12.3 deduplication rule should consult against
 ``gh pr list --state open``.
 
-See the 2026-06-17 / 2026-06-18 / 2026-06-19 entries in
+Each actionable candidate's report now (shipped 2026-06-29) carries a
+``proposed codify value:`` line surfacing the value the codify edit
+would shift the seed-spec factory to — the median of ``new_values``,
+rounded *outward* in the candidate's direction (``"up"`` rounds up,
+``"down"`` rounds down) to 3 significant digits for floats or
+:func:`math.ceil` / :func:`math.floor` for ``integer_add``.  For
+categorical candidates the proposed value is the chosen literal
+(``False`` for the ``Sobol.scramble=False`` direction, etc.);
+structural ops have no kwarg value (the line is suppressed).  The
+rounding rule is *self-stable* — applying the proposed value as a
+live seed value satisfies
+:func:`panobbgo.self_improve._candidate_already_codified` on the
+next scan, so the source edit cleanly suppresses the candidate on
+the following nightly run and the queued ``--open-pr`` driver
+cannot re-open the same PR every night.
+
+Centralising this rounding policy on
+:meth:`CodifyCandidate.proposed_codify_value` (also exposed in the
+``--json`` payload as the ``proposed_codify_value`` field) means the
+queued ``--open-pr`` driver, the manual daily routine, and the codify
+scan share one definition of "the codify value" — historically the
+manual codify PRs (the 2026-05-31 ``Sobol.scramble=False``, the
+2026-06-26 ``Nearby.radius`` catalog tightening, PR #271's
+``Nearby.radius`` seed shift) each hand-computed the median and
+picked a rounding step.  The :meth:`proposed_codify_value` method
+reproduces PR #271's ``0.123105 → 0.124`` exactly so the manual
+codify history continues to validate against the centralised
+helper.
+
+See the 2026-06-17 / 2026-06-18 / 2026-06-19 / 2026-06-29 entries in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the design rationale and
 the dated entry's "Follow-up ideas" section for the queued
 ``--open-pr`` work.

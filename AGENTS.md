@@ -691,6 +691,21 @@ The harness is the measurement substrate for an autonomous
     changes, no behaviour change for the `Nearby` heuristic itself.
     See the 2026-06-26 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Manual codify of the `Nearby.radius` seed shift** — **shipped
+    2026-06-28**.  Seed value raised from `0.1` to `0.124` across five
+    sibling `StrategySpec` factories (`Rewarding_Diverse` /
+    `Rewarding_RegionUCB` / `UCB_Diverse` / `Thompson_Diverse` /
+    `Loop_RegionUCB` / `Loop_Restart`) based on nine independent codify-scan accepts in
+    the `"up"` direction across eight distinct nights (median
+    `new_value = 0.123105`, pooled per-record CI `[+0.0365, +0.0658]`;
+    shipped value rounded outward to `0.124` so the
+    `max(live) >= median(new_values)` suppression predicate cleanly
+    hides the candidate next night).  The third ledger-evidence-driven
+    codify PR — pairs with the 2026-06-26 catalog tightening on the
+    same slot (catalog bound defines the bandit's exploration *range*;
+    seed value defines the *centre* it perturbs around).  See the
+    2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`CodifyCandidate.proposed_codify_value()` — codify-value
     derivation centralised on the dataclass** — **shipped 2026-06-29**.
     The new method computes the seed value a codify edit would ship:
@@ -733,6 +748,23 @@ The harness is the measurement substrate for an autonomous
     §9.5 step 5 partially (one toggle remaining) and §2.4 "catalog
     ≫ registry mismatch" fully.  See the 2026-06-21 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
+
+*   **Nightly cron flipped to `--confirm-accepts`** — **shipped
+    2026-06-27** (V2 §9.5 step 5 completion).  The same workflow file
+    edit promotes the §6.4 same-night confirmation gate to the cron
+    default by appending `--confirm-accepts` to the run command (now
+    constructed as a bash array so the toggle composes cleanly).  A
+    new `workflow_dispatch.inputs.confirm_accepts` boolean input
+    (default `true`) is exposed so the operator can opt back into the
+    screen-only regime for an explicit A/B comparison without editing
+    the workflow.  The "2-3× per-iteration cost" hedge was
+    re-evaluated against the live ~3.6 % accept rate: the gate only
+    fires on accepts, so the worst-case per-night overhead is
+    ~30-60 s (~0.7 accept events × 2 × 15 s) against the 90-min cap.
+    Closes V2 §9.5 step 5 fully (only `--metric aocc` remains queued,
+    blocked on IOH worker availability) and structurally closes the
+    §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
+    entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 

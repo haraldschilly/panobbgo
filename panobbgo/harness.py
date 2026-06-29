@@ -307,7 +307,23 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # evidence accumulates.
                 (Sobol, {"n": 16, "scramble": False}),
                 (Random, {}),
-                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                # ``radius=0.124`` codified 2026-06-28 from nine independent
+                # self-improvement loop accepts in the ``"up"`` direction
+                # across eight distinct nights (2026-05-26 → 2026-06-18).
+                # Median accepted ``new_value`` is ``0.123105`` (most
+                # frequent: three accepts at exactly that value); the
+                # shipped seed is rounded slightly outward to ``0.124`` so
+                # the ``max(live) >= median(new_values)`` predicate in
+                # :func:`panobbgo.self_improve._candidate_already_codified`
+                # cleanly suppresses the now-redundant codify candidate
+                # next night.  Pooled per-record CI ``[+0.0365, +0.0658]``
+                # — every contributing accept cleared its own per-record
+                # statistical-accept gate.  Pairs with the 2026-06-26
+                # catalog-bound tightening ``(0.032, 0.313)`` — the
+                # bandit now explores a productive ~2.5× window around
+                # the new seed.  See the 2026-06-28 entry in
+                # ``planning/SELF_IMPROVEMENT_LOG.md``.
+                (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
                 (Center, {}),
                 (NelderMead, {}),
             ],
@@ -364,9 +380,12 @@ def _make_standard_strategies() -> List[StrategySpec]:
         heuristics=[
             # Identical pool to ``Rewarding_Diverse`` plus the RegionUCB arm —
             # see the docstring above and panobbgo/heuristics/region_ucb.py.
+            # ``radius=0.124`` matches the 2026-06-28 codify on
+            # ``Rewarding_Diverse`` (sibling spec, same heuristic mix); see
+            # the rationale comment there.
             (Sobol, {"n": 16, "scramble": False}),
             (Random, {}),
-            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
             (Center, {}),
             (NelderMead, {}),
             # Explicit kwargs match the constructor defaults
@@ -386,7 +405,11 @@ def _make_standard_strategies() -> List[StrategySpec]:
         strategy_class=StrategyUCB,
         heuristics=[
             (Random, {}),
-            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            # ``radius=0.124`` matches the 2026-06-28 codify on
+            # ``Rewarding_Diverse``; the Nearby refinement step plays the
+            # same role here under the UCB bandit as under the rewarding
+            # one.  See the rationale comment there.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
@@ -480,7 +503,10 @@ def _make_full_strategies() -> List[StrategySpec]:
         strategy_class=StrategyThompsonSampling,
         heuristics=[
             (Random, {}),
-            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            # ``radius=0.124`` matches the 2026-06-28 codify on
+            # ``Rewarding_Diverse`` (same heuristic mix shape); see the
+            # rationale comment there.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
@@ -696,9 +722,12 @@ def _make_loop_strategies() -> List[StrategySpec]:
         name="Loop_RegionUCB",
         strategy_class=StrategyRewarding,
         heuristics=[
+            # ``radius=0.124`` matches the 2026-06-28 codify on
+            # ``Rewarding_Diverse`` (sibling spec — same heuristic mix
+            # plus RegionUCB).  See the rationale comment there.
             (Sobol, {"n": 16, "scramble": False}),
             (Random, {}),
-            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
             (Center, {}),
             (NelderMead, {}),
             (RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25}),
@@ -741,10 +770,14 @@ def _make_loop_strategies() -> List[StrategySpec]:
         name="Loop_Restart",
         strategy_class=StrategyRewarding,
         heuristics=[
+            # ``radius=0.124`` matches the 2026-06-28 codify on
+            # ``Rewarding_Diverse``; the Nearby refinement step plays the
+            # same role here (between Restart-driven jumps) as in the
+            # baseline diverse stack.  See the rationale comment there.
             (LatinHypercube, {"div": 4}),
             (CMAES, {"sigma0": 0.3}),
             (Random, {}),
-            (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
             (NelderMead, {}),
         ],
         analyzers=[

@@ -69,6 +69,17 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    measurably improve on the next 2-3 nights from the bandit
    activations alone; symptom (2) "Accept → rollback churn" stays
    open until the confirm-gate flip lands.*
+   *2026-06-27 update: the confirm-gate flip shipped — the nightly
+   cron now passes ``--confirm-accepts`` by default (toggleable off
+   via a new ``workflow_dispatch`` ``confirm_accepts`` boolean input
+   for the explicitly-A/B regime).  The cost concern was overblown:
+   at quick-mode budgets the screening cost is ~15 s × 20 iter, and
+   the gate fires only on the ~3.6% of iterations that accept, so
+   the worst-case overhead is ~30-60 s vs the 90-min cap.  Symptom
+   (2) is closed pending one nightly run's evidence; future
+   guard-rollback records of *confirmed* accepts now qualify as
+   anomalies per §6.3.  See the 2026-06-27 entry in
+   ``SELF_IMPROVEMENT_LOG.md``.*
 3. **Nothing persists between nights.**  The ladder is in-memory; the
    only durable channel is manual codification (used once:
    `Sobol.scramble=False`, 2026-05-31 — which *worked*).
@@ -455,16 +466,18 @@ file stands.
    (closes the §2.6 second half); summary trend block shipped
    2026-06-16.*
 5. Flip the workflow to §9.4 — **partially shipped 2026-06-21**
-   (see ``SELF_IMPROVEMENT_LOG.md`` entry).  All zero-cost V2 flags are
-   now in the nightly cron: ``--registry loop``,
-   ``--prime-include-archives``, ``--structural-per-class-arms``,
-   ``--bandit-reward graded``, ``--inactivity-relax-after 10``,
-   ``--holdout-base-seeds 7,1234``, ``--guard-interval 10``.  The
-   remaining toggle is ``--confirm-accepts`` (held back pending a
-   manual ``workflow_dispatch`` A/B because it carries ~2-3× per-
-   iteration compute cost) and ``--metric aocc`` (queued at step 2,
-   needs the IOH worker on the runner).  Enforce the catalog freeze
-   (§7.3).
+   (see ``SELF_IMPROVEMENT_LOG.md`` entry); ``--confirm-accepts``
+   flipped on 2026-06-27 (see that dated entry).  All V2 flags
+   except ``--metric aocc`` are now in the nightly cron:
+   ``--registry loop``, ``--prime-include-archives``,
+   ``--structural-per-class-arms``, ``--bandit-reward graded``,
+   ``--inactivity-relax-after 10``, ``--holdout-base-seeds 7,1234``,
+   ``--guard-interval 10``, ``--confirm-accepts``.  The
+   ``confirm_accepts`` toggle is exposed as a ``workflow_dispatch``
+   boolean input (default ``true``) so the operator can opt back
+   into the screen-only regime for explicit A/B nights.  The only
+   remaining queued lever is ``--metric aocc`` (step 2, needs the
+   IOH worker on the runner).  Enforce the catalog freeze (§7.3).
 
 ## 10. Open questions / known constraints
 
@@ -485,7 +498,11 @@ file stands.
 1. **Resolution**: median per-night seed score in the metric's
    responsive range; exactly-zero-delta iterations < 10%.
 2. **Throughput**: ≥ 3 codify PRs opened from ledger evidence; ≥ 2
-   merged.
+   merged.  *2026-06-28 update: ``3 codify PRs opened`` —
+   ``Sobol.scramble=False`` (2026-05-31, merged), ``Nearby.radius``
+   catalog-bound tightening (2026-06-26, merged), and
+   ``Nearby.radius`` seed shift (2026-06-28, this entry's companion
+   PR).  Two merged so far; the third is in flight.*
 3. **Durability**: merged codify changes re-confirmed by the next
    night's seed measurement; zero guard rollbacks of *confirmed*
    accepts.

@@ -19,6 +19,11 @@ on:
         description: "Harness mode (quick / standard / full)"
         required: false
         default: "quick"
+      confirm_accepts:
+        description: "Enable §6.4 same-night confirmation gate (--confirm-accepts)"
+        required: false
+        type: boolean
+        default: true
 
 # Only one nightly run at a time.  Manual workflow_dispatch invocations
 # wait for the scheduled run to finish (or vice versa).
@@ -77,6 +82,11 @@ jobs:
         env:
           ITERATIONS: ${{ github.event.inputs.iterations || '20' }}
           MODE: ${{ github.event.inputs.mode || 'quick' }}
+          # workflow_dispatch input defaults to 'true'; scheduled runs
+          # have no input → fall through to 'true' too so the §6.4
+          # confirmation gate is the default everywhere.  Override with
+          # workflow_dispatch confirm_accepts=false for the A/B regime.
+          CONFIRM_ACCEPTS: ${{ github.event.inputs.confirm_accepts || 'true' }}
         # V2 nightly invocation (planning/SELF_IMPROVEMENT_LOOP.md §9.4 /
         # §9.5 step 5).  Flags previously held back from the V1 cron and
         # promoted here:
@@ -106,34 +116,42 @@ jobs:
         #   --guard-interval 10             §6.3 — guard cadence relaxed
         #                                   from 5 → 10 now that the same-
         #                                   night confirm gate is the
-        #                                   primary noise-spike defence
-        #                                   (left off here; flipped in a
-        #                                   follow-up PR, see §9.5 step 5
-        #                                   note in SELF_IMPROVEMENT_LOG).
+        #                                   primary noise-spike defence.
+        #   --confirm-accepts               §6.4 — every screening accept
+        #                                   re-measured on a fresh seed
+        #                                   (and first hold-out seed when
+        #                                   configured) before promotion;
+        #                                   closes §2.2 "Accept → rollback
+        #                                   churn".  Toggleable via the
+        #                                   workflow_dispatch confirm_accepts
+        #                                   input for A/B; default true.
         # NOT enabled here (queued, intentional):
-        #   --confirm-accepts               needs a manual workflow_dispatch
-        #                                   A/B to size the confirm-reject
-        #                                   rate vs the per-iter compute
-        #                                   cost before flipping the cron.
         #   --metric aocc                   needs the IOH worker available
         #                                   on the runner; current cron
         #                                   stays on composite_score.
         run: |
-          uv run python scripts/self_improve.py run \
-            --iterations "$ITERATIONS" \
-            --mode "$MODE" \
-            --registry loop \
-            --adaptive \
-            --adaptive-prime-from-ledger \
-            --prime-include-archives \
-            --structural \
-            --structural-per-class-arms \
-            --bandit-reward graded \
-            --inactivity-relax-after 10 \
-            --inactivity-relax-factor 0.5 \
-            --holdout-base-seeds 7,1234 \
-            --guard-interval 10 \
+          set -euo pipefail
+          CMD=(
+            uv run python scripts/self_improve.py run
+            --iterations "$ITERATIONS"
+            --mode "$MODE"
+            --registry loop
+            --adaptive
+            --adaptive-prime-from-ledger
+            --prime-include-archives
+            --structural
+            --structural-per-class-arms
+            --bandit-reward graded
+            --inactivity-relax-after 10
+            --inactivity-relax-factor 0.5
+            --holdout-base-seeds 7,1234
+            --guard-interval 10
             --ledger planning/self_improve_ledger.jsonl
+          )
+          if [ "$CONFIRM_ACCEPTS" = "true" ]; then
+            CMD+=(--confirm-accepts)
+          fi
+          "${CMD[@]}"
 
       - name: Regenerate summary
         if: always()

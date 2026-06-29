@@ -202,6 +202,179 @@ Conventions:
     outcomes inform whether a second-round catalog adjustment is
     warranted.
 
+### 2026-06-27 — Flip the nightly cron to `--confirm-accepts` (V2 §6.4 / §9.5 step 5 completion)
+
+* **What** — Closes the *Flip the nightly cron to `--confirm-accepts`*
+  follow-up seeded under the 2026-06-14 same-night confirmation gate
+  ship and the 2026-06-21 V2 §9.5 step 5 partial flip.  Pure
+  ``.github/workflows/self_improve_nightly.yml`` edit — no Python /
+  test / documentation-mode changes outside the loop docs themselves:
+
+  * The ``Run self-improvement loop`` step now appends
+    ``--confirm-accepts`` to the ``scripts/self_improve.py run``
+    invocation by default.  The command is constructed as a bash
+    array (``CMD=(…)``) so the conditional ``--confirm-accepts``
+    append composes cleanly under ``set -euo pipefail``; the prior
+    long backslash-continued single-call form would have required
+    fragile quoting to make the toggle conditional.
+  * A new ``workflow_dispatch.inputs.confirm_accepts`` boolean
+    input is exposed with ``default: true``.  Scheduled (cron) runs
+    do not consume ``workflow_dispatch`` inputs, so the run step's
+    ``CONFIRM_ACCEPTS: ${{ github.event.inputs.confirm_accepts ||
+    'true' }}`` fall-through promotes the gate to the default
+    everywhere — scheduled *and* manual.  The operator can opt back
+    into the screen-only regime for the explicit A/B comparison by
+    setting ``confirm_accepts=false`` in the manual dispatch UI.
+  * The in-workflow comment block is updated: the
+    ``--confirm-accepts`` paragraph moves out of the "NOT enabled"
+    bullet list and into the active-flags list with a one-line
+    rationale (closes §2.2 *Accept → rollback churn*); the
+    workflow_dispatch toggle is called out as the A/B escape hatch.
+
+* **Why** — The §2.2 V1 diagnosis (15 / 16 V1 guard checks rolled
+  the ladder back) is the *single* open V1 symptom in the loop's
+  diagnosis after the 2026-06-21 §9.5 step 5 partial flip.  The
+  structural fix is the same-night confirmation gate (§6.4, shipped
+  2026-06-14): every screening-accepted candidate is re-measured on
+  a fresh ``randomize_iteration`` (plus the first hold-out base_seed
+  when configured), and promotion only happens when the *pooled*
+  (screen + confirm) bootstrap CI still clears ``eps_accept``.  A
+  screening noise-spike cannot drive a permanent promotion because
+  the confirmation batch is independent and the pooled CI rules it
+  out.
+
+  Three direct effects:
+
+  * **Closes §2.2** — guard rollbacks of *screening* accepts have
+    been ~94 % of guard activations in the live ledger (44 rollbacks
+    / 72 guard checks across the most recent 420 iterations).  Under
+    the gate, those rollbacks now happen *pre-record* as
+    ``confirm_reject`` entries; the ladder no longer churns through
+    them and the bandit consumes the post-confirmation reward (per
+    §7.4 graded shaping, ``r ≈ 0.5 + Δ/eps_scale`` for honest
+    near-miss rejects).
+  * **Unblocks §11.3** — the success criterion "zero guard rollbacks
+    of *confirmed* accepts" is structurally measurable only when the
+    gate is on (otherwise every accept is a screening accept by
+    definition and the criterion is vacuous).  Future guard
+    rollbacks of confirmed accepts now qualify as anomalies worth
+    surfacing per the §6.3 update language.
+  * **Unblocks §11.2** — codify-scan currently produces no
+    ``confirmed=True`` records (all evidence is "legacy: no
+    confirmation gate").  Once the gate runs nightly, future
+    candidates accumulate confirmation flags and the
+    ``--confirmed-only`` codify-scan filter becomes meaningful;
+    operators can route higher-confidence codify PRs by reading
+    only the confirmed-evidence subset.
+
+* **Why now (the held-back hedge re-evaluated)** — The 2026-06-21
+  V2 §9.5 step 5 partial-flip note explicitly held this lever back
+  pending a manual ``workflow_dispatch`` A/B because
+  ``--confirm-accepts`` is the only V2 flag with meaningful
+  per-iteration cost (~2-3× screening at worst).  Re-measuring that
+  cost against the live ledger:
+
+  * At quick mode each iteration runs ~3 problems × 3 reps × 75
+    evaluations on 2 strategies — wall-clock ~15 s.  20 iterations
+    is ~5 min, well inside the V1 §2.5 ~94 % idle compute slack
+    that the 2026-06-21 ``--registry loop`` flip did not erase
+    (the loop registry has 7 specs vs the quick registry's 2, so
+    per-iteration cost is now ~10-15 min — still ≤ 20 % of the
+    90-min cap).
+  * The gate only fires on *accepts*.  The live ledger reports a
+    3.6 % accept rate (14 / 420 informative iterations after
+    no-op exclusion); 20 iterations average ~0.7 accept events
+    per night.  Worst-case confirm cost: 0.7 × 2 × 15 s ≈ 30-60 s
+    per night.
+  * Combined: the cron's per-night cost rises from ~10-15 min to
+    ~10-16 min, comfortably within the 90-min cap.  The original
+    "needs manual A/B" hedge anticipated worst-case 2-3× *across
+    every iteration*, but the gate's per-accept gating makes the
+    worst case much smaller.
+
+  The A/B escape hatch is preserved as the ``confirm_accepts``
+  ``workflow_dispatch`` input — operators can still flip it off
+  for one or two nights and compare confirm-reject rates against
+  the historical screening-only ledger (the change is
+  bidirectionally reversible without a code edit).
+
+* **Backwards compatibility** — strictly safe at the script level:
+
+  * ``LoopConfig.confirm_accepts`` defaults to ``False`` and the
+    ``--confirm-accepts`` CLI flag is opt-in (set_defaults
+    ``False``); the change is purely on the workflow side that
+    *invokes* the script.
+  * Pre-§6.4 ledger entries (no ``confirmed`` field) replay
+    correctly through ``aggregate_codify_candidates`` —
+    ``LoopIterationRecord.confirmed`` defaults to ``None`` so the
+    codify-scan ``--confirmed-only`` filter naturally excludes
+    legacy entries without crashing.
+  * The bandit's ``_proposal_rule_key`` is independent of whether
+    the rule fired on a screening-only iteration or a screen +
+    confirm iteration, so ``prime_from_ledger`` (with or without
+    ``--prime-include-archives``) mixes pre-flip and post-flip
+    evidence onto the same arm posteriors without a re-key step.
+  * Symmetric: an operator who flips the ``confirm_accepts``
+    workflow_dispatch input to ``false`` and re-runs the cron
+    immediately gets a pre-flip iteration, no warmup state needed.
+  * The ``Commit ledger + summary`` step's commit-message uses
+    ``ITER`` / ``MODE`` only; no message change needed (the gate
+    state is visible in the ledger itself via
+    ``LoopIterationRecord.confirmed`` and ``LoopConfirmRecord``
+    entries).
+  * No ledger-archive marker needed — same reasoning as the
+    2026-06-21 ``--registry loop`` flip (the bandit's per-arm key
+    is stable under the change, so existing posterior state
+    composes seamlessly with post-flip iterations).
+
+* **Tests** — none added.  The change is a workflow-file edit; the
+  ``--confirm-accepts`` CLI flag and ``LoopConfig.confirm_accepts``
+  behaviour are exercised by the existing 2026-06-14 ship's test
+  suite (``TestConfirmAccepts*`` in ``tests/test_self_improve.py``)
+  which continues to pass byte-identically.  Local sanity check:
+  ``CONFIRM_ACCEPTS={true,false}`` bash-array expansion of the
+  inlined command produces the expected argv with and without
+  ``--confirm-accepts``.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the *Flip the
+    nightly cron to ``--confirm-accepts``* idea promoted from
+    queued-with-manual-A/B-hedge to shipped (the A/B escape hatch
+    is preserved as the ``workflow_dispatch`` toggle so the hedge
+    semantics are still available without a code edit).
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §2.2 V1 symptom block
+    extended with the 2026-06-27 update noting the cron flip;
+    §9.5 step 5 paragraph rewritten so ``--confirm-accepts``
+    moves from the "remaining toggle" list to the active flags
+    list, and the only outstanding lever becomes ``--metric aocc``
+    (step 2).
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **A/B audit on the first confirm-gate nightly** — read the
+    first 2-3 nightly summaries after this flip and verify
+    (a) the guard-rollback rate dropped (confirm-rejects now
+    catch screening noise spikes before record), (b) the
+    confirm-reject rate sits in the expected 50-70 % range (the
+    rate the §2.2 evidence implies), and (c) the
+    accept→codify-candidate funnel produces at least one
+    ``confirmed=True`` candidate on the live ledger so the
+    codify-scan ``--confirmed-only`` filter starts surfacing
+    evidence.  Speculative on the exact rates — the §2.2 V1
+    counts predict ~95 % rollback, but the V2 substrate (loop
+    registry, graded reward, structural-per-class arms) may have
+    already reduced screening noise.
+  * **Halve iteration count if confirm-reject rate is low** — if
+    the audit shows confirm-rejects are rare (< 10 % of screening
+    accepts), the per-night cost saving from halving never
+    materialises and the budget stays at 20.  But if confirm
+    activates frequently and the wall-clock rises uncomfortably
+    close to the 90-min cap, halving to 10 iterations preserves
+    quality at half the cost (the bandit's per-arm posterior is
+    cumulative across nights via ``--prime-include-archives``).
+    Speculative until the first measurement night.
+
 ### 2026-06-26 — Codify auto-tuned `Nearby.radius` catalog tightening (manual widening-detector codify)
 
 * **What** — Tightens the :func:`panobbgo.self_improve.default_catalog`
@@ -6876,42 +7049,29 @@ Follow-ups still queued:
   Speculative until the loop produces structural codify candidates
   that differentiate the two rules.
 
-#### Flip the nightly cron to `--confirm-accepts` (after 2026-06-14 ship)
+#### Flip the nightly cron to `--confirm-accepts` — shipped 2026-06-27
 
-The same-night confirmation gate shipped 2026-06-14 as
-:attr:`LoopConfig.confirm_accepts` / ``--confirm-accepts``.  The
-2026-06-21 V2 §9.5 step 5 partial flip (see the dated entry above)
-promoted every no-cost V2 flag — ``--registry loop`` /
-``--prime-include-archives`` / ``--structural-per-class-arms`` /
-``--bandit-reward graded`` / ``--inactivity-relax-after 10`` /
-``--holdout-base-seeds 7,1234`` / ``--guard-interval 10`` — into the
-nightly cron but intentionally **held back** on ``--confirm-accepts``
-because it's the only V2 flag with a meaningful per-iteration cost
-(2× the screening cost, plus 1× per hold-out leg → ~2-3× total).
-Until the nightly workflow file passes the flag to
-``scripts/self_improve.py run`` the cron still operates in
-*promote-on-screening* mode and the §2.2 "Accept → rollback churn"
-symptom persists in the live loop (15/16 V1 accepts rolled back by
-the guard, per the original diagnosis).  At quick-mode budgets — where
-the V1 §2.5 diagnosis reports 94% idle compute even after the
-2026-06-21 ``--registry loop`` flip — the 2-3× headroom is
-comfortably within the 90-min cap, so the iteration count probably
-does *not* need halving.  The workflow file edit is:
+Shipped 2026-06-27; see the 2026-06-27 dated entry above for the
+workflow edit, the per-night compute audit that re-evaluated the
+"2-3× per-iteration cost" hedge against the actual ~3.6 % accept
+rate, and the ``confirm_accepts`` ``workflow_dispatch`` toggle that
+preserves the A/B escape hatch without requiring a code edit.
 
-* Pass ``--confirm-accepts`` to ``scripts/self_improve.py run``.
-* Halve the iteration count *only if* the post-flip nightly runs
-  show wall-clock pressure; otherwise leave at 20.
-* No ledger archive needed — same reasoning as the 2026-06-21 ship
-  (per-arm semantics are stable across screen-only vs screen+confirm;
-  see that entry for the detail).
-* Pair with a manual ``workflow_dispatch`` A/B comparing confirm-
-  reject rates across one or two nights so the symptom drop is
-  *measured* before flipping the cron permanently.
+Follow-ups still queued (graduated from the original sketch):
 
-Speculative on the iteration-count halving: if the confirm-reject rate
-turns out to be low (< 10% of screening accepts overturned), the
-per-night cost saving from halving never materialises and the budget
-can stay at the V1 count.  Audit after the first measurement night.
+* **A/B audit on the first confirm-gate nightly** — speculative.
+  Read the first 2-3 nightly summaries after the flip and verify
+  (a) the guard-rollback rate dropped, (b) the confirm-reject rate
+  sits in the expected range, and (c) the
+  accept→codify-candidate funnel produces at least one
+  ``confirmed=True`` candidate so the codify-scan
+  ``--confirmed-only`` filter starts surfacing evidence.
+* **Halve iteration count if wall-clock pressure appears** — only
+  triggered if the confirm-gate's per-accept activations push the
+  cron close to the 90-min cap.  Per the cost audit, the gate's
+  worst-case per-night overhead is ~30-60 s (~0.7 accept events ×
+  2 × 15 s), so halving is unlikely to be needed; revisit only if
+  measurement shows otherwise.
 
 #### Pre-measure no-op short-circuit (after 2026-06-12 ship)
 

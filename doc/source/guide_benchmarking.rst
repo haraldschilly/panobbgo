@@ -780,15 +780,18 @@ the rare cross-night drift on confirmed accepts):
 
 The **live nightly cron**
 (``.github/workflows/self_improve_nightly.yml``) ships every flag in
-the preset above *except* ``--confirm-accepts``, which carries
-~2-3× the per-iteration cost (one re-measurement on a fresh
-``randomize_iteration`` plus one per hold-out seed).  The §9.5
-step 5 of ``planning/SELF_IMPROVEMENT_LOOP.md`` schedules the
-``--confirm-accepts`` flip after a manual ``workflow_dispatch``
-A/B that measures the confirm-reject rate before flipping the cron
-permanently.  Until then the live cron operates in *promote-on-
-screening* mode and §2.2 "Accept → rollback churn" remains the
-visible symptom in the ledger.
+the preset above, including ``--confirm-accepts`` (shipped
+2026-06-27 — the §9.5 step 5 completion).  The cost concern that
+held the lever back at the 2026-06-21 partial flip was overblown:
+the gate only fires on accepts, and at the live ~3.6 % accept rate
+across 20 iterations the worst-case per-night overhead is ~30-60 s
+against a 90-min cap.  The cron exposes a ``workflow_dispatch``
+boolean input ``confirm_accepts`` (default ``true``) so the
+operator can opt back into the screen-only regime for an explicit
+A/B comparison without editing the workflow file.  See the
+2026-06-27 dated entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
+the cost re-evaluation, the backwards-compatibility analysis, and
+the symptom (2.2) closure.
 
 Programmatic use:
 

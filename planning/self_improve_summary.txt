@@ -1,9 +1,9 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    440  (decided=440, skipped=0, no-op=32)
-Accepts:       15  (3.7% of informative)
-Guards:        74  (rollbacks=44, total pops=7)
-Hold-outs:     29  (overfit=0, vacuous=18)
-Best Δ seen:   +0.0678
+Iterations:    480  (decided=480, skipped=0, no-op=32)
+Accepts:       20  (4.5% of informative)
+Guards:        78  (rollbacks=44, total pops=7)
+Hold-outs:     33  (overfit=0, vacuous=18)
+Best Δ seen:   +0.0703
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
   iter=17  Δ=+0.0461  Rewarding_Diverse/Restart.: None -> None
@@ -20,6 +20,11 @@ Accepted changes:
   iter=1  Δ=+0.0511  Loop_LocalSearch/LatinHypercube.: None -> None
   iter=14  Δ=+0.0286  Loop_DE_Family/NLSHADE_LBC.: None -> None
   iter=3  Δ=+0.0254  Loop_LocalSearch/COBYQA.scale: True -> False
+  iter=13  Δ=+0.0194  Loop_RegionUCB/RegionUCB.gauss_fraction: 0.5 -> 0.8422414449499556
+  iter=16  Δ=+0.0327  Loop_LocalSearch/LatinHypercube.div: 4 -> 3
+  iter=8  Δ=+0.0300  Loop_DE_Family/NLSHADE_RSP.NP_init: 15 -> 25
+  iter=12  Δ=+0.0151  Loop_Restart/CMAES.sigma0: 0.3 -> 0.24206155330118695
+  iter=13  Δ=+0.0471  Loop_LocalSearch/LatinHypercube.: None -> None
 Guard rollbacks:
   iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
   iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
@@ -95,8 +100,12 @@ Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
   OK  drift=+0.0026  holdout_gap=+0.0059 training_gap=+0.0033  top_iter=3  (base_seed=7, n=5)
   OK  drift=-0.0039  holdout_gap=-0.0006 training_gap=+0.0033  top_iter=3  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0051  overfit=0/29  vacuous=18/29  worst_seed=1234
-  --> drift CI: OK_CI  mean=+0.0118  CI95%=[+0.0053, +0.0188]  n_samples=55  n_records=29  vacuous=18/29
+  OK  drift=-0.0083  holdout_gap=+0.0023 training_gap=+0.0106  top_iter=16  (base_seed=7, n=5)
+  OK  drift=-0.0039  holdout_gap=+0.0067 training_gap=+0.0106  top_iter=16  (base_seed=1234, n=5)
+  OK  drift=+0.0050  holdout_gap=+0.0366 training_gap=+0.0316  top_iter=13  (base_seed=7, n=5)
+  OK  drift=+0.0037  holdout_gap=+0.0353 training_gap=+0.0316  top_iter=13  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0083  overfit=0/33  vacuous=18/33  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=33  vacuous=18/33
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -122,28 +131,30 @@ Trend (one row per loop run, oldest first):
   2026-06-25 06:45:15     42  quick        20    20     1     0   +0.0389      0.0402
   2026-06-26 06:53:37     42  quick        20    20     0     0   +0.0229      0.0351
   2026-06-27 06:28:00     42  quick        20    20     1     0   +0.0254      0.0422
+  2026-06-28 07:01:12     42  quick        20    20     2     0   +0.0395      0.0300
+  2026-06-29 07:28:22     42  quick        20    20     3     0   +0.0703      0.0297
 
-Bandit posteriors (n_attempts >= 3, 24 eligible rules):
+Bandit posteriors (n_attempts >= 3, 35 eligible rules):
   Top 10 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  COBYQA                  scale                   categorical_choice     4     1    0.619     25.0%
-  Restart                 patience                integer_add            3     1    0.556     33.3%
+  LatinHypercube          div                     integer_add            5     1    0.600     20.0%
+  Restart                 patience                integer_add            4     1    0.542     25.0%
   NLSHADE_LBC             p_F_final               float_uniform          4     1    0.542     25.0%
   COBYQA                  final_tr_radius         log_uniform_pertur     3     0    0.500      0.0%
   NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
-  LatinHypercube          div                     integer_add            3     0    0.500      0.0%
+  COBYQA                  scale                   categorical_choice     5     1    0.495     20.0%
+  NLSHADE_RSP             NP_init                 integer_add            3     1    0.487     33.3%
+  PSO                     w                       float_uniform          5     0    0.481      0.0%
   NLSHADE_LBC             p_CR_final              float_uniform          3     0    0.471      0.0%
   NLSHADE_LBC             p_F_init                float_uniform          3     0    0.471      0.0%
-  PSO                     w                       float_uniform          3     0    0.468      0.0%
-  LBFGSB                  max_starts              integer_add            4     1    0.419     25.0%
   Bottom 5 (lowest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
   Sobol                   n                       integer_add           24     0    0.000      0.0%
   Sensitivity             update_interval         integer_add           20     0    0.000      0.0%
-  *                       drop_analyzer           structural            31     0    0.021      0.0%
   *                       add_analyzer            structural            35     1    0.029      2.9%
+  *                       drop_analyzer           structural            32     0    0.036      0.0%
 
 Inactivity:
   eps_accept_base=0.0050  longest_drought=19 iters
-  relaxed_accepts=3/15  mean_decay_at_accept=0.500
+  relaxed_accepts=4/20  mean_decay_at_accept=0.500

@@ -691,6 +691,21 @@ The harness is the measurement substrate for an autonomous
     changes, no behaviour change for the `Nearby` heuristic itself.
     See the 2026-06-26 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Manual codify of the `Nearby.radius` seed shift** — **shipped
+    2026-06-28**.  Seed value raised from `0.1` to `0.124` across five
+    sibling `StrategySpec` factories (`Rewarding_Diverse` /
+    `Rewarding_RegionUCB` / `UCB_Diverse` / `Thompson_Diverse` /
+    `Loop_RegionUCB` / `Loop_Restart`) based on nine independent codify-scan accepts in
+    the `"up"` direction across eight distinct nights (median
+    `new_value = 0.123105`, pooled per-record CI `[+0.0365, +0.0658]`;
+    shipped value rounded outward to `0.124` so the
+    `max(live) >= median(new_values)` suppression predicate cleanly
+    hides the candidate next night).  The third ledger-evidence-driven
+    codify PR — pairs with the 2026-06-26 catalog tightening on the
+    same slot (catalog bound defines the bandit's exploration *range*;
+    seed value defines the *centre* it perturbs around).  See the
+    2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **Nightly cron flipped to V2 substrate** — **shipped 2026-06-21**.
     The `self_improve_nightly.yml` workflow now invokes
     `scripts/self_improve.py run` with every zero-cost V2 flag:

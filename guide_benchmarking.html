@@ -1018,15 +1018,18 @@ the rare cross-night drift on confirmed accepts):</p>
 </div>
 <p>The <strong>live nightly cron</strong>
 (<code class="docutils literal notranslate"><span class="pre">.github/workflows/self_improve_nightly.yml</span></code>) ships every flag in
-the preset above <em>except</em> <code class="docutils literal notranslate"><span class="pre">--confirm-accepts</span></code>, which carries
-~2-3× the per-iteration cost (one re-measurement on a fresh
-<code class="docutils literal notranslate"><span class="pre">randomize_iteration</span></code> plus one per hold-out seed).  The §9.5
-step 5 of <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> schedules the
-<code class="docutils literal notranslate"><span class="pre">--confirm-accepts</span></code> flip after a manual <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>
-A/B that measures the confirm-reject rate before flipping the cron
-permanently.  Until then the live cron operates in <em>promote-on-
-screening</em> mode and §2.2 “Accept → rollback churn” remains the
-visible symptom in the ledger.</p>
+the preset above, including <code class="docutils literal notranslate"><span class="pre">--confirm-accepts</span></code> (shipped
+2026-06-27 — the §9.5 step 5 completion).  The cost concern that
+held the lever back at the 2026-06-21 partial flip was overblown:
+the gate only fires on accepts, and at the live ~3.6 % accept rate
+across 20 iterations the worst-case per-night overhead is ~30-60 s
+against a 90-min cap.  The cron exposes a <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>
+boolean input <code class="docutils literal notranslate"><span class="pre">confirm_accepts</span></code> (default <code class="docutils literal notranslate"><span class="pre">true</span></code>) so the
+operator can opt back into the screen-only regime for an explicit
+A/B comparison without editing the workflow file.  See the
+2026-06-27 dated entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
+the cost re-evaluation, the backwards-compatibility analysis, and
+the symptom (2.2) closure.</p>
 <p>Programmatic use:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.self_improve</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoopConfig</span><span class="p">,</span> <span class="n">SelfImprover</span>
 </span><span data-line="2">

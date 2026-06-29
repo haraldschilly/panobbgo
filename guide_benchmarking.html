@@ -1313,6 +1313,17 @@ fields itself.  The motivating example was
 continuing to surface from the pre-codification archive on every
 subsequent <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> invocation; the suppression layer
 collapses the report to the actionable set.</p>
+<p>The canonical example of a <em>numeric</em> <code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> direction suppression
+shipped 2026-06-28 — the <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code> seed shift from <code class="docutils literal notranslate"><span class="pre">0.1</span></code>
+to <code class="docutils literal notranslate"><span class="pre">0.124</span></code> (median of the 9-accept <code class="docutils literal notranslate"><span class="pre">direction=up</span></code> candidate the
+scan had been surfacing for eight nights running, rounded slightly
+outward so the <code class="docutils literal notranslate"><span class="pre">max(live)</span> <span class="pre">&gt;=</span> <span class="pre">median(new_values)</span></code> predicate cleanly
+suppresses the now-redundant candidate next night).  Pairs cleanly
+with the 2026-06-26 <em>catalog tightening</em> codify on the same slot —
+the catalog bound <code class="docutils literal notranslate"><span class="pre">(0.032,</span> <span class="pre">0.313)</span></code> defines the bandit’s exploration
+<em>range</em> while the seed value <code class="docutils literal notranslate"><span class="pre">0.124</span></code> defines the <em>centre</em> the
+<code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code> rule perturbs around.  See the 2026-06-28
+entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>.</p>
 <p>The scanner’s library functions
 (<code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.CodifyCandidate</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.aggregate_codify_candidates()</span></code>,

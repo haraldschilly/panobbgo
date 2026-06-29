@@ -158,6 +158,7 @@ See also
 from __future__ import annotations
 
 import json
+import math
 import pathlib
 import time
 from dataclasses import dataclass, field
@@ -5153,6 +5154,64 @@ def _date_from_timestamp(ts: Any) -> str:
     return s[:10] if len(s) >= 10 else ""
 
 
+def _round_outward_to_significant(value: float, direction: str, n_sig: int = 3) -> float:
+    """Round ``value`` outward (away from the median) to ``n_sig`` significant digits.
+
+    "Outward" is the linear direction of the codify signal: ``direction="up"``
+    rounds toward a larger value, ``direction="down"`` rounds toward a smaller
+    value.  The result satisfies the
+    :func:`_candidate_already_codified` predicate on the next scan (i.e.
+    ``rounded_up >= value`` for ``direction="up"`` and ``rounded_down <= value``
+    for ``direction="down"``), which is the self-stability property the
+    manual codify entries (PR #271's :class:`~panobbgo.heuristics.nearby.Nearby`
+    ``radius`` shift, 2026-06-28; the 2026-06-26 ``Nearby.radius`` catalog
+    tightening) relied on so the source edit cleanly suppresses the candidate
+    on the following nightly run.
+
+    For ``n_sig=3`` and ``direction="up"`` the value ``0.123105`` rounds to
+    ``0.124`` (the value PR #271 shipped after hand-computing the median of
+    the accepted ``new_value`` distribution).
+
+    Args:
+        value: The numeric value to round, typically the median of accepted
+            ``new_value`` entries on a codify candidate.  ``0.0`` and
+            non-finite inputs are returned unchanged.
+        direction: ``"up"`` (round up / toward larger magnitude for positive
+            values) or ``"down"`` (round down / toward smaller magnitude).
+            For negative values the abs-rounding direction is inverted so the
+            result still moves in the *linear* direction (``"up"`` on
+            ``-0.5`` returns a less-negative value).
+        n_sig: Number of significant digits to preserve.  Default ``3`` is
+            the precision used by the manual codify entries (PR #271 shipped
+            ``0.124`` after rounding ``0.123105`` to 3 sig figs).
+
+    Returns:
+        The rounded value.  Always returns a ``float`` to avoid surprise
+        promotion of ``int`` inputs — callers handling integer rules
+        (``"integer_add"``) should wrap with ``int(...)`` and use
+        :func:`math.ceil` / :func:`math.floor` directly instead.
+    """
+    if not math.isfinite(value) or value == 0.0:
+        return value
+    sign = 1.0 if value > 0 else -1.0
+    abs_value = abs(value)
+    exp = math.floor(math.log10(abs_value))
+    scale = 10.0 ** (exp - n_sig + 1)
+    scaled = abs_value / scale
+    # For negative values, swap direction so "up" still means "larger in linear sense":
+    # rounding abs DOWN on a negative value moves the linear value UP toward zero.
+    abs_direction = direction
+    if sign < 0:
+        abs_direction = "down" if direction == "up" else "up"
+    if abs_direction == "up":
+        rounded_scaled = math.ceil(scaled)
+    elif abs_direction == "down":
+        rounded_scaled = math.floor(scaled)
+    else:
+        raise ValueError(f"direction must be 'up' or 'down', got {direction!r}")
+    return sign * rounded_scaled * scale
+
+
 def _percentile_bootstrap_ci(
     samples: Sequence[float],
     *,
@@ -5326,6 +5385,78 @@ class CodifyCandidate:
         """
         return _percentile_bootstrap_ci(self.deltas, n_boot=n_boot, confidence=confidence, seed=seed)
 
+    def proposed_codify_value(self, *, n_sig: int = 3) -> Any:
+        """Compute the new seed value a codify edit would apply for this candidate.
+
+        Surfaces the value the operator (or a future
+        ``codify-scan --open-pr`` driver) would shift the seed-spec
+        factory to.  Centralises the rounding policy used by the manual
+        codify PRs (PR #257 / #271 / 2026-06-26 catalog tightening) so
+        the report and any downstream automation share one source of
+        truth.
+
+        The rule depends on the candidate's :attr:`rule_kind` and
+        :attr:`direction`:
+
+        * Structural ops (``op is not None``): returns ``None`` —
+          structural codification adds / drops a class, it has no kwarg
+          value.  Callers should consult :attr:`class_name` and
+          :attr:`op` directly.
+        * Categorical (``rule_kind == "categorical_choice"``): returns
+          the chosen value.  By construction every record in the
+          candidate's bucket carries the same ``new_value`` (the
+          :attr:`direction` is ``repr(new_value)``), so the most recent
+          ``new_value`` is the canonical choice.
+        * Numeric (``rule_kind in {"integer_add", "float_uniform",
+          "log_uniform_perturb"}``) with ``direction in {"up", "down"}``:
+          returns the median of :attr:`new_values`, rounded *outward*
+          (in :attr:`direction`) to ``n_sig`` significant digits.  For
+          ``integer_add`` the median is rounded to the nearest integer
+          via :func:`math.ceil` (``"up"``) / :func:`math.floor`
+          (``"down"``).  The outward rounding ensures the codified
+          value satisfies :func:`_candidate_already_codified` on the
+          next scan (``max(live) >= median`` for ``"up"``,
+          ``min(live) <= median`` for ``"down"``) — i.e. the source
+          edit cleanly suppresses the candidate on the following night.
+        * Numeric with ``direction not in {"up", "down"}``: returns
+          ``None`` (the candidate is not directionally consistent;
+          rare with current catalogs since the no-op detector filters
+          zero-delta records).
+        * Empty :attr:`new_values` (defensive): returns ``None``.
+        * Non-numeric :attr:`new_values` for a numeric rule kind
+          (defensive): returns ``None``.
+
+        Args:
+            n_sig: Number of significant digits to round to for
+                float-valued numeric rules.  Default ``3`` matches the
+                precision the manual codify entries (PR #271's
+                ``Nearby.radius: 0.123105 -> 0.124``) used.  Ignored
+                for ``integer_add`` (always integer-rounded) and for
+                categorical / structural candidates.
+        """
+        if self.op is not None:
+            return None
+        if not self.new_values:
+            return None
+        if self.rule_kind == "categorical_choice":
+            # Every record in a categorical bucket shares the same new_value
+            # (the bucket key is repr(new_value)); take the most recent.
+            return self.new_values[-1]
+        if self.direction not in ("up", "down"):
+            return None
+        try:
+            new_floats = [float(v) for v in self.new_values]
+        except (TypeError, ValueError):
+            return None
+        if not new_floats:
+            return None
+        target = float(np.median(new_floats))
+        if self.rule_kind == "integer_add":
+            if self.direction == "up":
+                return int(math.ceil(target))
+            return int(math.floor(target))
+        return _round_outward_to_significant(target, self.direction, n_sig=n_sig)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "class_name": self.class_name,
@@ -5349,6 +5480,7 @@ class CodifyCandidate:
             "max_ci_high": float(self.max_ci_high),
             "already_codified": bool(self.already_codified),
             "live_codified_values": [_to_plain(v) for v in self.live_codified_values],
+            "proposed_codify_value": _to_plain(self.proposed_codify_value()),
         }
 
 

@@ -1151,6 +1151,87 @@ See the 2026-06-17 / 2026-06-18 / 2026-06-19 / 2026-06-29 entries in
 the dated entry's "Follow-up ideas" section for the queued
 ``--open-pr`` work.
 
+Apply the top candidate to the working tree (``--apply-top``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Shipped 2026-06-30.  The detection half of ``codify-scan`` produces
+a ranked list of candidates plus the
+:meth:`CodifyCandidate.proposed_codify_value` for each kwarg slot.
+The ``--apply-top`` driver mechanises the *next* manual step the
+2026-05-31 / 2026-06-26 / 2026-06-28 codify PRs all followed: find
+every sibling :class:`StrategySpec` factory that ships the kwarg
+explicitly, edit each literal to the proposed value, and re-format.
+
+.. code-block:: bash
+
+   # Preview the edits the top actionable candidate would apply:
+   uv run python scripts/self_improve.py codify-scan \
+       --apply-top --apply-dry-run
+
+   # Same, but actually write the file:
+   uv run python scripts/self_improve.py codify-scan --apply-top
+
+The driver picks the *first* visible candidate that:
+
+1. is **not** structural (``op is None``) — structural ops
+   (``add_/drop_heuristic`` / ``add_/drop_analyzer``) require
+   list-entry insertion or removal, which is out of scope for the
+   kwarg-edit driver and stays manual until the queued
+   ``--open-pr`` driver ships;
+2. is **not** bidirectional — i.e. the same ``(class_name, param_name)``
+   slot doesn't also appear with the opposite direction in the full
+   candidate list (including already-codified ones, so a freshly-
+   codified "up" direction whose "down" sibling is still active
+   doesn't trigger a re-shift).  The recommended action for
+   bidirectional slots is a *catalog bound update* via
+   ``--widen-bounds`` — applying either direction's default shift
+   would guess against contradictory ledger evidence.  Override the
+   skip with ``--apply-include-bidirectional`` when the operator has
+   a specific reason to force the shift.
+
+For each kwarg edit the driver walks every ``(ClassName, {param_name:
+value, ...})`` heuristic / analyzer literal across the four registry
+factories in ``panobbgo/harness.py`` (``_make_quick_strategies`` /
+``_make_standard_strategies`` / ``_make_full_strategies`` /
+``_make_loop_strategies`` — broader than the suppression scan's
+quick+loop scope, so the apply propagates to every sibling spec the
+manual 2026-06-28 codify covered).  A **per-site direction guard**
+keeps the driver from touching sites that already sit at-or-beyond
+the proposal in the candidate's direction — so ``BayesOpt_GP``'s
+``Nearby(radius=0.05)`` is preserved when the proposal is
+``radius=0.08``, the same way the manual codify routine deliberately
+left smaller-radius specs alone.
+
+The driver is **idempotent**: a second ``--apply-top`` pass against
+the now-codified source derives an empty edit list because every
+matching site already satisfies the per-site direction guard.  This
+matches the self-stability invariant of
+:meth:`CodifyCandidate.proposed_codify_value` — applying the codified
+value as a live seed value satisfies
+:func:`_candidate_already_codified` on the next scan, so the
+candidate is suppressed at the scan layer too.
+
+Library API: :class:`panobbgo.self_improve.CodifyEdit`,
+:func:`panobbgo.self_improve.derive_codify_edits`,
+:func:`panobbgo.self_improve.apply_codify_edits`,
+:func:`panobbgo.self_improve.apply_codify_candidate`,
+:func:`panobbgo.self_improve.default_codify_apply_sources`.
+
+The driver **does NOT touch git** — operator workflow is unchanged:
+preview with ``--apply-dry-run``, run ``uv run pytest`` to verify
+the test suite passes, then commit and open a draft PR with the
+codify-scan output (rule / evidence / pooled CI / per-record old →
+new) in the body.  The PR template is the existing manual codify
+shape; see the 2026-06-28 entry in
+``planning/SELF_IMPROVEMENT_LOG.md`` for the canonical example.
+
+See the 2026-06-30 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
+the design rationale and the queued follow-up: a ``--open-pr`` driver
+that consumes :class:`CodifyEdit` for the source-edit phase, then
+opens a draft PR with the ledger evidence pre-populated in the body
+(V2 §9.5 step 4 plumbing — :func:`derive_codify_edits` is the
+primitive that driver also calls).
+
 Bidirectional-bound widening (``--widen-bounds``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

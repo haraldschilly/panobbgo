@@ -157,6 +157,7 @@ See also
 
 from __future__ import annotations
 
+import ast
 import json
 import math
 import pathlib
@@ -5958,6 +5959,554 @@ def annotate_codified_status(
             cand.already_codified = _candidate_already_codified(cand, live_values)
 
 
+# Default source file + factory function names the ``--apply-top`` driver
+# scans for kwarg-default edits.  Broader than
+# :func:`default_codify_registries` (quick + loop only): the apply driver
+# also edits ``standard`` / ``full`` so a single codify run covers every
+# sibling spec sharing the same heuristic mix — matching the 2026-06-28
+# manual codify pattern (the ``Nearby.radius = 0.124`` shift updated
+# ``Rewarding_Diverse`` plus five sibling specs across the four registry
+# tiers in one PR).  Listed as a top-level constant rather than a function
+# so callers can mutate-in-place for tests.
+_DEFAULT_APPLY_SOURCES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    (
+        "panobbgo/harness.py",
+        (
+            "_make_quick_strategies",
+            "_make_standard_strategies",
+            "_make_full_strategies",
+            "_make_loop_strategies",
+        ),
+    ),
+)
+
+
+def default_codify_apply_sources() -> List[Tuple[str, Tuple[str, ...]]]:
+    """Source files + factory function names the ``--apply-top`` driver scans.
+
+    Returns ``[(source_path, (factory_name, ...))]``.  Each ``source_path``
+    is repo-relative; the driver resolves it against the current working
+    directory.  Each ``factory_name`` is the name of a top-level function
+    in the source file whose body builds and returns a list of
+    :class:`~panobbgo.benchmark.StrategySpec` literals — the driver walks
+    those function bodies to find every ``(ClassName, {param_name:
+    value, ...})`` heuristic / analyzer entry that the codify candidate
+    targets.
+
+    Broader than :func:`default_codify_registries` (which returns only
+    the ``quick`` + ``loop`` registries, the regime the nightly cron
+    measures): the apply driver covers ``standard`` / ``full`` too so a
+    single codify run updates every sibling spec sharing the same
+    heuristic mix.  This matches the 2026-06-28 manual codify pattern
+    (``Nearby.radius = 0.124`` across ``Rewarding_Diverse`` plus five
+    sibling specs across all four registry tiers in one PR).
+
+    Returns a fresh ``list`` so callers can mutate without affecting the
+    module-level constant.
+    """
+    return [(path, names) for (path, names) in _DEFAULT_APPLY_SOURCES]
+
+
+def _format_value_repr(value: Any) -> str:
+    """Source-text representation of ``value`` matching project style.
+
+    Uses :func:`repr` for booleans / strings / ``None`` (so ``False``
+    renders as ``False`` and ``"all"`` renders as ``'all'``), ``str()``
+    for integers (no quotes / trailing ``L``), and :func:`repr` for
+    floats (Python's ``repr`` chooses the shortest round-trippable
+    representation, so ``repr(0.124) == '0.124'``).  Used by the
+    ``--apply-top`` driver to produce the replacement source segment.
+
+    The deliberate ``repr`` use guarantees a round-trip safe literal —
+    ``ast.literal_eval(_format_value_repr(v)) == v`` for every value the
+    codify pipeline can produce (numeric, boolean, string, ``None``).
+    """
+    if isinstance(value, bool):
+        return repr(value)
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    return repr(value)
+
+
+@dataclass(frozen=True)
+class CodifyEdit:
+    """One concrete source-file edit derived from a :class:`CodifyCandidate`.
+
+    Produced by :func:`derive_codify_edits` (which walks the seed-spec
+    factory functions and finds every site where the candidate's slot is
+    set explicitly) and consumed by :func:`apply_codify_edits` (which
+    rewrites the source file).
+
+    The edit carries both the AST coordinates (``lineno`` / ``col_offset``
+    / ``end_lineno`` / ``end_col_offset``) and the exact textual
+    replacement so the apply step is a pure string operation — no AST
+    round-trip that would reformat the surrounding code.  Repeatedly
+    applying the same edit list is idempotent: after the first apply the
+    old source segment no longer matches, so a second
+    :func:`apply_codify_edits` pass is a no-op against the now-codified
+    file (the per-site current-direction guard in
+    :func:`_scan_source_for_kwarg_edits` ensures sites that already
+    satisfy the proposal are not re-listed).
+
+    Attributes:
+        source_path: Repo-relative path of the source file the edit
+            applies to (e.g. ``"panobbgo/harness.py"``).
+        factory_name: Name of the function in ``source_path`` whose body
+            contains the edited :class:`StrategySpec` literal.
+        spec_name: ``StrategySpec.name`` extracted from the surrounding
+            constructor call.  ``"<unknown>"`` when the call uses a
+            non-literal name (rare; the project convention is a string
+            literal).
+        class_name: Heuristic / analyzer class targeted by the edit
+            (e.g. ``"Nearby"``).
+        param_name: Kwarg name on ``class_name`` being shifted
+            (e.g. ``"radius"``).
+        rule_kind: ``"log_uniform_perturb"`` / ``"integer_add"`` /
+            ``"float_uniform"`` / ``"categorical_choice"`` — copied from
+            the originating candidate so consumers can disambiguate
+            without re-aggregating.
+        direction: ``"up"`` / ``"down"`` / ``repr(value)`` from the
+            originating candidate.  Used by
+            :func:`_scan_source_for_kwarg_edits` to filter sites that
+            already satisfy the proposal in the candidate's direction.
+        old_value: Literal value present in the source before the edit
+            (parsed via :func:`ast.literal_eval`).
+        new_value: Value the edit replaces ``old_value`` with — always
+            equal to :meth:`CodifyCandidate.proposed_codify_value`.
+        lineno: 1-indexed line of the value literal's start.
+        col_offset: 0-indexed column of the value literal's start.
+        end_lineno: 1-indexed line of the value literal's end.
+        end_col_offset: 0-indexed column of the value literal's end.
+        old_source: Exact text segment being replaced (slice of the
+            source file at the AST coordinates).
+        new_source: Replacement text segment (the new value formatted
+            via :func:`_format_value_repr`).
+    """
+
+    source_path: str
+    factory_name: str
+    spec_name: str
+    class_name: str
+    param_name: str
+    rule_kind: str
+    direction: str
+    old_value: Any
+    new_value: Any
+    lineno: int
+    col_offset: int
+    end_lineno: int
+    end_col_offset: int
+    old_source: str
+    new_source: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Plain-Python dict for JSON serialisation / diagnostic prints.
+
+        Mirrors :meth:`CodifyCandidate.to_dict` — every value is JSON-safe
+        via :func:`_to_plain` so the dict round-trips through
+        :func:`json.dumps` / :func:`json.loads` without precision loss.
+        """
+        return {
+            "source_path": self.source_path,
+            "factory_name": self.factory_name,
+            "spec_name": self.spec_name,
+            "class_name": self.class_name,
+            "param_name": self.param_name,
+            "rule_kind": self.rule_kind,
+            "direction": self.direction,
+            "old_value": _to_plain(self.old_value),
+            "new_value": _to_plain(self.new_value),
+            "lineno": int(self.lineno),
+            "col_offset": int(self.col_offset),
+            "end_lineno": int(self.end_lineno),
+            "end_col_offset": int(self.end_col_offset),
+            "old_source": self.old_source,
+            "new_source": self.new_source,
+        }
+
+
+def _extract_keyword_value(call: ast.Call, name: str) -> Optional[ast.AST]:
+    """Return the AST node bound to keyword ``name`` on ``call`` (or ``None``)."""
+    for kw in call.keywords:
+        if kw.arg == name:
+            return kw.value
+    return None
+
+
+def _safe_literal_eval(node: ast.AST) -> Tuple[bool, Any]:
+    """Best-effort :func:`ast.literal_eval` returning ``(ok, value)``.
+
+    Returns ``(False, None)`` when the node isn't a literal — protects
+    callers that need to filter out computed expressions (e.g. ``5 * dim``)
+    without raising.
+    """
+    try:
+        return True, ast.literal_eval(node)
+    except (ValueError, SyntaxError, TypeError):
+        return False, None
+
+
+def _should_apply_at_site(
+    *,
+    direction: str,
+    rule_kind: str,
+    current_value: Any,
+    new_value: Any,
+) -> bool:
+    """Decide whether a kwarg site should be edited given the candidate direction.
+
+    Conservative policy that respects deliberately-different settings on
+    sibling specs:
+
+    * ``categorical_choice`` (``direction = repr(new_value)``): edit iff
+      the current value isn't already at the target.
+    * Numeric ``"up"``: edit iff ``current_value < new_value`` — the
+      site is still below the consensus; updating it advances it toward
+      the proposal.  Sites already at or above the proposal are left
+      alone (they were probably deliberately set there).
+    * Numeric ``"down"``: edit iff ``current_value > new_value``.
+    * Numeric without a direction (``new_value is None`` or
+      ``direction not in ("up", "down")``): never edit (defensive — the
+      caller should have filtered the candidate out before reaching
+      here).
+
+    The matching ``current_value < new_value`` predicate for ``"up"`` is
+    *strict* so re-applying the same edit list is idempotent: after the
+    first apply the site sits at ``new_value`` and the predicate
+    evaluates ``False``.  Same shape as
+    :func:`_candidate_already_codified`'s ``max(live) >= median`` rule
+    but applied per-site rather than across the full ``live_values``
+    set.
+    """
+    if rule_kind == "categorical_choice":
+        return repr(current_value) != repr(new_value)
+    if direction == "up":
+        try:
+            return float(current_value) < float(new_value)
+        except (TypeError, ValueError):
+            return False
+    if direction == "down":
+        try:
+            return float(current_value) > float(new_value)
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
+def _scan_source_for_kwarg_edits(
+    source_path: str,
+    *,
+    factory_names: Sequence[str],
+    class_name: str,
+    param_name: str,
+    rule_kind: str,
+    direction: str,
+    new_value: Any,
+) -> List[CodifyEdit]:
+    """Find every ``(class_name, {param_name: literal, ...})`` site in named factories.
+
+    AST-based: parses ``source_path`` with :func:`ast.parse`, walks every
+    top-level function whose name is in ``factory_names``, and within
+    those functions finds every :class:`StrategySpec` literal — i.e.
+    every ``StrategySpec(name=..., heuristics=[...], analyzers=[...])``
+    call.  Within each spec's ``heuristics`` / ``analyzers`` list,
+    finds every ``(ClassName, {…})`` tuple where ``ClassName`` matches
+    ``class_name`` and ``param_name`` appears in the dict literal.
+
+    For each site, the per-site direction guard
+    (:func:`_should_apply_at_site`) decides whether the edit should fire
+    — sites already at-or-beyond the proposal are skipped so
+    deliberately-different sibling specs (e.g. ``BayesOpt_GP`` shipping
+    ``Nearby(radius=0.05)`` while everything else uses ``0.124``) are
+    left alone.  Sites whose value isn't a Python literal (e.g.
+    ``patience=5 * dim``) are also skipped — the AST can't safely
+    rewrite a computed expression to a literal.
+
+    Returns the list of :class:`CodifyEdit` objects with source spans
+    already populated; pair with :func:`apply_codify_edits` to commit
+    the changes.  Returns an empty list when the source file doesn't
+    exist or when no site matches (so the caller's loop over multiple
+    source files is silent on miss).
+    """
+    path = pathlib.Path(source_path)
+    if not path.exists():
+        return []
+    text = path.read_text()
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        # The source file doesn't parse — surface no edits rather than
+        # raising, so a misbehaving source file doesn't break the apply
+        # driver mid-run.  The CLI prints a warning when the returned
+        # edit list is empty.
+        return []
+    edits: List[CodifyEdit] = []
+    factory_set = set(factory_names)
+    for top in ast.walk(tree):
+        if not isinstance(top, ast.FunctionDef):
+            continue
+        if top.name not in factory_set:
+            continue
+        # Within the factory, walk every nested Call to find StrategySpec(…)
+        # literals.  The convention is StrategySpec(name=…, heuristics=[…],
+        # analyzers=[…]) so we only inspect calls whose func.id is
+        # "StrategySpec" — drops nested helper / wrapper calls.
+        for inner in ast.walk(top):
+            if not isinstance(inner, ast.Call):
+                continue
+            func = inner.func
+            if isinstance(func, ast.Attribute):
+                func_name = func.attr
+            elif isinstance(func, ast.Name):
+                func_name = func.id
+            else:
+                continue
+            if func_name != "StrategySpec":
+                continue
+            # Spec name (best-effort): only string literals are extracted;
+            # a non-literal name (e.g. f-string) reports "<unknown>" rather
+            # than crashing.
+            spec_name_node = _extract_keyword_value(inner, "name")
+            spec_name = "<unknown>"
+            if isinstance(spec_name_node, ast.Constant) and isinstance(spec_name_node.value, str):
+                spec_name = spec_name_node.value
+            # Inspect heuristics + analyzers buckets symmetrically.
+            for bucket_name in ("heuristics", "analyzers"):
+                bucket = _extract_keyword_value(inner, bucket_name)
+                if bucket is None or not isinstance(bucket, (ast.List, ast.Tuple)):
+                    continue
+                for entry in bucket.elts:
+                    if not isinstance(entry, ast.Tuple) or len(entry.elts) != 2:
+                        continue
+                    cls_node, dict_node = entry.elts
+                    if not isinstance(cls_node, ast.Name):
+                        continue
+                    if cls_node.id != class_name:
+                        continue
+                    if not isinstance(dict_node, ast.Dict):
+                        continue
+                    for key_node, value_node in zip(dict_node.keys, dict_node.values):
+                        if not isinstance(key_node, ast.Constant):
+                            continue
+                        if key_node.value != param_name:
+                            continue
+                        ok, current_value = _safe_literal_eval(value_node)
+                        if not ok:
+                            continue
+                        if not _should_apply_at_site(
+                            direction=direction,
+                            rule_kind=rule_kind,
+                            current_value=current_value,
+                            new_value=new_value,
+                        ):
+                            continue
+                        # ast nodes carry start + end coordinates since
+                        # Python 3.8.  ``end_lineno`` / ``end_col_offset``
+                        # are 1-indexed / 0-indexed respectively.
+                        if value_node.end_lineno is None or value_node.end_col_offset is None:
+                            continue
+                        old_source = ast.get_source_segment(text, value_node) or ""
+                        edits.append(
+                            CodifyEdit(
+                                source_path=source_path,
+                                factory_name=top.name,
+                                spec_name=spec_name,
+                                class_name=class_name,
+                                param_name=param_name,
+                                rule_kind=rule_kind,
+                                direction=direction,
+                                old_value=current_value,
+                                new_value=new_value,
+                                lineno=value_node.lineno,
+                                col_offset=value_node.col_offset,
+                                end_lineno=value_node.end_lineno,
+                                end_col_offset=value_node.end_col_offset,
+                                old_source=old_source,
+                                new_source=_format_value_repr(new_value),
+                            )
+                        )
+                        # First matching key in the dict is the binding —
+                        # don't keep walking the dict (Python dict literals
+                        # with duplicate keys are pathological).
+                        break
+    return edits
+
+
+def derive_codify_edits(
+    candidate: CodifyCandidate,
+    *,
+    sources: Optional[Sequence[Tuple[str, Sequence[str]]]] = None,
+) -> List[CodifyEdit]:
+    """Compute every source edit that codifies ``candidate`` into the seed-spec factories.
+
+    Kwarg candidates (``op is None``): walks every named factory function
+    in ``sources``, finds every ``(class_name, {param_name: literal,
+    ...})`` heuristic / analyzer entry, and produces a
+    :class:`CodifyEdit` that replaces the literal with the candidate's
+    :meth:`~CodifyCandidate.proposed_codify_value`.  Sites already at or
+    beyond the proposal in the candidate's direction are skipped (so
+    deliberately-tighter sibling specs are left alone).
+
+    Structural candidates (``op is not None``): returns an empty list —
+    applying structural edits requires inserting / removing list entries,
+    which is a more invasive AST mutation.  Operators apply structural
+    codify candidates manually for now.  (Same scope split as the queued
+    ``--open-pr`` driver — see the V2 §9.5 step 4 *Next iteration ideas*
+    entry in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`.)
+
+    Args:
+        candidate: The codify candidate produced by
+            :func:`aggregate_codify_candidates` (typically the top of a
+            human-readable scan).  The candidate's
+            :meth:`~CodifyCandidate.proposed_codify_value` is consulted
+            for the value the edits ship.
+        sources: Source files + factory function names to scan.
+            Defaults to :func:`default_codify_apply_sources` (which
+            spans all four registry tiers in ``panobbgo/harness.py``).
+            Tests pass a custom list pointing at a synthetic source
+            file to keep the suite hermetic.
+
+    Returns:
+        List of :class:`CodifyEdit` objects, one per matching site, in
+        the order encountered by :func:`ast.walk` (factory-then-spec
+        order).  Empty when the candidate is structural, when
+        :meth:`~CodifyCandidate.proposed_codify_value` returns ``None``,
+        or when no source site matches the candidate's slot in a
+        direction consistent with the proposal.
+    """
+    if candidate.op is not None:
+        return []
+    proposed = candidate.proposed_codify_value()
+    if proposed is None:
+        return []
+    if sources is None:
+        sources = default_codify_apply_sources()
+    edits: List[CodifyEdit] = []
+    for source_path, factory_names in sources:
+        edits.extend(
+            _scan_source_for_kwarg_edits(
+                source_path,
+                factory_names=tuple(factory_names),
+                class_name=candidate.class_name,
+                param_name=candidate.param_name,
+                rule_kind=candidate.rule_kind,
+                direction=candidate.direction,
+                new_value=proposed,
+            )
+        )
+    return edits
+
+
+def _apply_edits_to_text(text: str, edits: Sequence[CodifyEdit]) -> str:
+    """Apply ``edits`` to ``text`` in reverse byte-offset order.
+
+    Reverse order ensures earlier edits don't invalidate the line/col
+    coordinates of later ones.  Edits referencing line / column pairs
+    outside the text bounds are silently skipped (defensive — the AST
+    coordinates are authoritative for the parsed snapshot, so an
+    out-of-bound edit signals that ``text`` is not what was parsed).
+    """
+    if not edits:
+        return text
+    line_starts = [0]
+    for i, ch in enumerate(text):
+        if ch == "\n":
+            line_starts.append(i + 1)
+
+    def start_offset(edit: CodifyEdit) -> int:
+        if edit.lineno <= 0 or edit.lineno > len(line_starts):
+            return -1
+        return line_starts[edit.lineno - 1] + edit.col_offset
+
+    sorted_edits = sorted(edits, key=start_offset, reverse=True)
+    result = text
+    for edit in sorted_edits:
+        if edit.lineno <= 0 or edit.lineno > len(line_starts):
+            continue
+        if edit.end_lineno <= 0 or edit.end_lineno > len(line_starts):
+            continue
+        start = line_starts[edit.lineno - 1] + edit.col_offset
+        end = line_starts[edit.end_lineno - 1] + edit.end_col_offset
+        if start < 0 or end > len(result) or start > end:
+            continue
+        result = result[:start] + edit.new_source + result[end:]
+    return result
+
+
+def apply_codify_edits(
+    edits: Sequence[CodifyEdit],
+    *,
+    dry_run: bool = False,
+) -> Dict[str, str]:
+    """Apply :class:`CodifyEdit` objects to disk (or simulate via ``dry_run``).
+
+    Edits are grouped by :attr:`CodifyEdit.source_path`; each source
+    file is read once, all its edits applied via
+    :func:`_apply_edits_to_text` (in reverse byte-offset order so
+    earlier edits don't invalidate later coordinates), and written back
+    to disk unless ``dry_run`` is set.
+
+    Args:
+        edits: Edits to apply.  Typically the output of
+            :func:`derive_codify_edits` for a single
+            :class:`CodifyCandidate`, but ``apply_codify_edits`` doesn't
+            enforce same-candidate provenance — a caller can mix edits
+            from multiple candidates if they don't overlap.
+        dry_run: When ``True``, compute the new file contents but do
+            **not** write them to disk.  The returned dict still maps
+            each touched path to its new contents so a CLI consumer can
+            print a preview / diff before the operator commits the
+            apply.
+
+    Returns:
+        Dict mapping each touched ``source_path`` to its new contents
+        (after every edit applies).  Empty when ``edits`` is empty.
+    """
+    by_path: Dict[str, List[CodifyEdit]] = {}
+    for edit in edits:
+        by_path.setdefault(edit.source_path, []).append(edit)
+    out: Dict[str, str] = {}
+    for source_path, file_edits in by_path.items():
+        path = pathlib.Path(source_path)
+        if not path.exists():
+            continue
+        text = path.read_text()
+        new_text = _apply_edits_to_text(text, file_edits)
+        out[source_path] = new_text
+        if not dry_run and new_text != text:
+            path.write_text(new_text)
+    return out
+
+
+def apply_codify_candidate(
+    candidate: CodifyCandidate,
+    *,
+    sources: Optional[Sequence[Tuple[str, Sequence[str]]]] = None,
+    dry_run: bool = False,
+) -> Tuple[List[CodifyEdit], Dict[str, str]]:
+    """Convenience wrapper: derive edits for ``candidate``, then apply them.
+
+    Combines :func:`derive_codify_edits` and :func:`apply_codify_edits`
+    into the single call the ``--apply-top`` CLI driver makes per
+    invocation.  Equivalent to::
+
+        edits = derive_codify_edits(candidate, sources=sources)
+        modified_files = apply_codify_edits(edits, dry_run=dry_run)
+
+    Returns ``(edits, modified_files)`` so the caller can inspect both
+    the per-site decisions and the final file contents.  ``edits`` is
+    empty for structural candidates and for candidates whose
+    :meth:`~CodifyCandidate.proposed_codify_value` is ``None``;
+    ``modified_files`` is empty when ``edits`` is empty or when no edit
+    actually changed its source file.
+    """
+    edits = derive_codify_edits(candidate, sources=sources)
+    modified = apply_codify_edits(edits, dry_run=dry_run)
+    return edits, modified
+
+
 # Numeric mutation kinds the widening detector reasons about.  Categorical
 # rules and structural ops have no meaningful "wider bound" — they live on
 # discrete choice sets or op names.
@@ -6482,9 +7031,14 @@ __all__ = [
     "SelfImprover",
     "load_ledger",
     "CodifyCandidate",
+    "CodifyEdit",
     "aggregate_codify_candidates",
     "annotate_codified_status",
     "default_codify_registries",
+    "default_codify_apply_sources",
+    "derive_codify_edits",
+    "apply_codify_edits",
+    "apply_codify_candidate",
     "load_ledgers_for_codify_scan",
     "WideningCandidate",
     "detect_widening_candidates",

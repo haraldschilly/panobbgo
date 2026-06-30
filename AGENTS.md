@@ -706,6 +706,31 @@ The harness is the measurement substrate for an autonomous
     seed value defines the *centre* it perturbs around).  See the
     2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **`codify-scan --apply-top` driver — mechanise the manual codify
+    edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
+    Translates the top actionable kwarg `CodifyCandidate` into
+    concrete AST-located source edits on every matching `(ClassName,
+    {param_name: value, ...})` heuristic / analyzer literal across the
+    four registry factories in `panobbgo/harness.py`
+    (`_make_quick_strategies` / `_make_standard_strategies` /
+    `_make_full_strategies` / `_make_loop_strategies`).  New library
+    surface: `CodifyEdit` dataclass plus `derive_codify_edits` /
+    `apply_codify_edits` / `apply_codify_candidate` /
+    `default_codify_apply_sources` functions.  New CLI flags
+    `--apply-top` / `--apply-dry-run` / `--apply-include-bidirectional`.
+    Two safety guards: per-site direction check (deliberately-tighter
+    sibling specs like `BayesOpt_GP`'s `Nearby(radius=0.05)` are
+    preserved) and default skip-on-bidirectional (slots where both
+    `"up"` and `"down"` directions are active defer to the
+    `--widen-bounds` catalog-update path rather than guessing a
+    default-shift direction).  Idempotent re-runs: a second apply
+    against the now-codified file derives an empty edit list.  Pure
+    additions to `panobbgo/self_improve.py` and
+    `scripts/self_improve.py`; 25 new tests in `TestApplyCodifyEdits`
+    + `TestApplyTopCLI`.  Unblocks the queued `--open-pr` driver by
+    landing the source-edit primitive it depends on.  See the
+    2026-06-30 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`CodifyCandidate.proposed_codify_value()` — codify-value
     derivation centralised on the dataclass** — **shipped 2026-06-29**.
     The new method computes the seed value a codify edit would ship:
@@ -929,6 +954,26 @@ uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-factor 
 uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-auto-tune
 uv run python scripts/self_improve.py codify-scan --widen-bounds --widen-auto-tune \
     --widen-factor-min 1.2 --widen-factor-max 4.0
+
+# Apply the top actionable kwarg codify candidate to panobbgo/harness.py
+# in place (shipped 2026-06-30 — V2 §9.5 step 4 plumbing).  Picks the
+# first visible non-structural, non-bidirectional candidate (the safety
+# guards keep the driver from shipping questionable changes) and applies
+# the implied source edits to every matching (ClassName, {"param":
+# value, ...}) heuristic / analyzer literal across the four registry
+# factories.  Per-site direction guard preserves deliberately-tighter
+# sibling specs (e.g. BayesOpt_GP's Nearby(radius=0.05) stays at 0.05
+# when the consensus group shifts).  Idempotent: a second apply against
+# the now-codified file derives an empty edit list.  Operator workflow:
+# preview with --apply-dry-run, run `uv run pytest` to verify, then
+# commit and open a draft PR with the codify-scan evidence in the body.
+# The driver does NOT touch git.
+uv run python scripts/self_improve.py codify-scan --apply-top --apply-dry-run
+uv run python scripts/self_improve.py codify-scan --apply-top
+# Override the default skip-on-bidirectional safety guard (rare edge
+# case — prefer --widen-bounds for bidirectional slots):
+uv run python scripts/self_improve.py codify-scan --apply-top \
+    --apply-include-bidirectional
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

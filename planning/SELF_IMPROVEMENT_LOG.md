@@ -17,6 +17,303 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-06-30 — `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing)
+
+* **What** — Translates the top actionable kwarg :class:`CodifyCandidate`
+  into concrete AST-located source edits on every matching
+  ``(ClassName, {param_name: value, ...})`` heuristic / analyzer literal
+  across the four registry factories in ``panobbgo/harness.py``
+  (``_make_quick_strategies`` / ``_make_standard_strategies`` /
+  ``_make_full_strategies`` / ``_make_loop_strategies``).  Strictly
+  additive — the existing ``codify-scan`` report is unchanged on
+  default invocations.
+
+  New library surface:
+
+  * :class:`panobbgo.self_improve.CodifyEdit` (frozen dataclass) —
+    one concrete source edit derived from a :class:`CodifyCandidate`.
+    Carries the source path, factory + spec name (for traceability),
+    rule kind / direction (so consumers don't re-aggregate), AST
+    coordinates (``lineno`` / ``col_offset`` / ``end_lineno`` /
+    ``end_col_offset``), and both the old + new source text.
+    :meth:`CodifyEdit.to_dict` round-trips through ``json.dumps`` for
+    the JSON-mode / log surface.
+  * :func:`panobbgo.self_improve.derive_codify_edits` — given a
+    candidate, walks every named factory function via
+    :func:`ast.parse` and returns the list of edits without writing
+    to disk.  Numeric candidates: replaces the kwarg literal with
+    :meth:`CodifyCandidate.proposed_codify_value` formatted via
+    :func:`repr` (boundary case: integers render without a trailing
+    ``.0`` so ``Sobol(n=12)`` reads naturally).  Categorical
+    candidates: same shape with the chosen literal verbatim
+    (preserves bool/str types).  Structural candidates: returns an
+    empty list (out of scope — see "Why" below).
+  * :func:`panobbgo.self_improve.apply_codify_edits` — applies the
+    edits to disk (or simulates via ``dry_run=True``), in
+    reverse byte-offset order so earlier edits don't invalidate
+    later coordinates.  Returns ``{source_path: new_text}`` for the
+    diff / preview shape.
+  * :func:`panobbgo.self_improve.apply_codify_candidate` — convenience
+    wrapper that combines the two above into the single call the
+    ``--apply-top`` CLI driver makes.  Returns
+    ``(edits, modified_files)``.
+  * :func:`panobbgo.self_improve.default_codify_apply_sources` —
+    returns the default source-file + factory-name pairs the driver
+    scans.  Broader than :func:`default_codify_registries` (the
+    suppression scope, quick + loop only): the apply driver covers
+    ``standard`` / ``full`` too so a single apply propagates to
+    every sibling spec sharing the same heuristic mix — matches the
+    2026-06-28 manual codify pattern (one PR shifted six sibling
+    spec literals).
+
+  New CLI surface on ``scripts/self_improve.py codify-scan``:
+
+  * ``--apply-top`` — after printing the candidate report, take the
+    top actionable kwarg candidate and apply its implied source
+    edits to ``panobbgo/harness.py`` in place.  Skipped candidates
+    (structural / bidirectional) are reported with a one-line note
+    so the operator knows the driver isn't quietly ignoring
+    evidence.
+  * ``--apply-dry-run`` — print the edits the driver would apply
+    but don't write to disk.  Useful for previewing.  Inert without
+    ``--apply-top``.
+  * ``--apply-include-bidirectional`` — override the default
+    skip-on-bidirectional safety guard (for the rare case where the
+    operator has a specific reason to force a default shift on a
+    slot whose ``"up"`` and ``"down"`` directions are both active).
+
+  Two **safety guards** are built into the apply driver:
+
+  * **Per-site direction guard** (in :func:`_should_apply_at_site`):
+    sites whose current value already sits at-or-beyond the
+    proposal in the candidate's direction are skipped.  So
+    ``BayesOpt_GP``'s deliberately-tighter ``Nearby(radius=0.05)``
+    is preserved when the proposal is ``radius=0.08`` — same shape
+    as the manual 2026-06-28 codify explicitly left smaller-radius
+    specs alone.  The guard makes the apply **idempotent**: a
+    second pass against the now-codified source derives an empty
+    edit list (every site already satisfies the direction
+    predicate).
+  * **Bidirectional-slot skip** (in the CLI's apply-top dispatcher,
+    on by default): if the same ``(class_name, param_name)`` slot
+    appears with both ``"up"`` and ``"down"`` directions anywhere
+    in the full candidate list — including already-codified ones,
+    so a freshly-codified ``"up"`` whose ``"down"`` sibling is
+    still active doesn't trigger a re-shift — the candidate is
+    skipped.  The right action for bidirectional slots is a
+    *catalog bound update* via ``--widen-bounds``; applying either
+    direction's default shift would guess against contradictory
+    ledger evidence.
+
+* **Why** — Three direct effects, each tied to a V2 §11 success
+  criterion:
+
+  * **Closes the manual-edit gap in the daily routine (§12.3).**
+    The four ledger-evidence-driven codify PRs to date
+    (``Sobol.scramble=False`` 2026-05-31; ``Nearby.radius`` catalog
+    tightening 2026-06-26; ``Nearby.radius`` seed shift 2026-06-28;
+    :meth:`CodifyCandidate.proposed_codify_value` plumbing
+    2026-06-29) each required the operator to hand-find every
+    sibling spec literal, edit each one, re-format, and re-test —
+    the 2026-06-28 entry alone touched six sibling specs across
+    four registry tiers.  The driver mechanises that step: one
+    command (``--apply-top``) produces the same file edits the
+    manual routine would have, with the same per-site direction
+    guard the manual routine applied implicitly.
+  * **Unblocks the queued ``--open-pr`` driver (V2 §9.5 step 4).**
+    The full automation has three layers — detection
+    (``aggregate_codify_candidates``, shipped 2026-06-17), value
+    derivation (:meth:`CodifyCandidate.proposed_codify_value`,
+    shipped 2026-06-29), and source editing (this entry).  All
+    three are now library primitives; the queued ``--open-pr``
+    driver wraps them with a ``gh pr create`` call and a PR body
+    populated from :meth:`CodifyCandidate.to_dict`.  The remaining
+    work is the ``gh`` integration and the dedup-against-open-PRs
+    pass, not any new primitive.
+  * **Advances the §11.2 throughput criterion.**  Three codify PRs
+    have shipped so far (the V2 bar is ≥ 3 opened, ≥ 2 merged
+    over the first 30 nights — currently 3 / 2).  With the apply
+    driver, opening the *fourth* codify PR (whenever the live
+    ledger surfaces a non-bidirectional kwarg candidate that isn't
+    already codified) drops from ~30 minutes of careful manual
+    editing to ~30 seconds of running one command and reviewing
+    its diff.  The cadence ceiling lifts proportionally.
+
+* **Why structural candidates are out of scope (initial ship)** —
+  The kwarg-edit path is a pure value substitution in a dict
+  literal; the AST coordinates uniquely identify the value node and
+  the replacement is a literal text swap.  Structural edits
+  (``add_heuristic`` / ``drop_heuristic`` / ``add_/drop_analyzer``)
+  require *inserting* or *removing* a tuple element in the
+  ``heuristics`` / ``analyzers`` list — which the AST can represent
+  cleanly but the source-text edit is more invasive (need to
+  re-flow the list literal, preserve trailing commas, decide
+  formatting).  Out of scope for the initial ship; the structural
+  case stays manual, with the apply driver printing
+  ``skipped N structural candidate(s) — apply manually for now``
+  so the operator knows the driver isn't quietly ignoring evidence.
+
+  Live-ledger relevance: the current top candidate today is
+  ``LatinHypercube`` ``drop_heuristic`` from ``Loop_LocalSearch``
+  (n_nights=2, mean_Δ=+0.0491).  The driver surfaces it in the
+  skip note; a follow-up structural-apply driver can pick this up
+  whenever the bandit accumulates one more night of evidence.
+
+* **Why bidirectional is skipped by default** — On the live
+  ledger today, three of the four visible candidates are
+  bidirectional: ``Sobol.n`` (both up and down accepts across
+  3-4 nights each), ``Nearby.radius`` (the up direction was just
+  codified 2026-06-28 → ``0.124``; the down direction has 4
+  accepts at lower values).  The widening detector
+  (``--widen-bounds``) correctly classifies these as "should be a
+  catalog bound update, not a default shift" — applying either
+  direction's default shift would oscillate the bandit between
+  contradictory signals.  The safety guard makes the apply driver
+  defer to ``--widen-bounds`` (which has its own dedicated codify
+  path the 2026-06-26 ``Nearby.radius`` tightening exercised) for
+  these cases.
+
+  The override (``--apply-include-bidirectional``) exists for the
+  edge case where the operator has a specific reason to force the
+  shift — e.g. the up evidence is stale (predates a relevant
+  source change) but the down evidence is fresh, or one direction
+  has 10× the night count of the other.  Not the recommended
+  path; the daily routine should prefer ``--widen-bounds`` for
+  bidirectional slots.
+
+* **Live-ledger smoke test** — Running
+  ``uv run python scripts/self_improve.py codify-scan --apply-top
+  --apply-dry-run`` against the live ledger today reports::
+
+      Apply-top:
+        skipped 1 structural candidate(s) — the apply driver
+        currently handles kwarg edits only.  Apply structural
+        candidates manually for now (see V2 §9.5 step 4 in
+        planning/SELF_IMPROVEMENT_LOG.md).
+        skipped 3 bidirectional candidate(s) — same (class, param)
+        slot fired in both 'up' and 'down' directions.  Use
+        --widen-bounds for catalog bound updates (the recommended
+        action), or pass --apply-include-bidirectional to override.
+        (every visible candidate was skipped — nothing to apply)
+
+  Exactly the *correct* outcome on the live ledger — the four
+  visible candidates today are all either structural or
+  bidirectional, so the driver refuses to ship a questionable
+  change.  The next time the bandit surfaces a clean
+  unidirectional kwarg candidate (e.g. a new ``COBYQA.scale``
+  ``False`` accept or a fresh ``LSHADE.archive_factor`` shift),
+  the driver will apply it in one command.
+
+* **Backwards compatibility** — strictly safe:
+
+  * All four registry factories in ``panobbgo/harness.py`` are
+    byte-identical (the change is in :mod:`panobbgo.self_improve`
+    + :mod:`scripts.self_improve` only).  No seed-spec values
+    change.
+  * The ``codify-scan`` text + JSON output is byte-identical
+    without ``--apply-top`` set.
+  * Library additions only — no signature changes to existing
+    public functions.  :func:`derive_codify_edits` returns an
+    empty list for every existing-style structural candidate, so
+    a caller that mistakenly passes a structural candidate gets
+    a graceful no-op rather than a crash.
+  * The CLI dispatcher uses ``getattr(args, "apply_top", False)``
+    so existing test invocations that pass a hand-rolled
+    namespace without the new attributes continue to work
+    byte-identically.
+
+* **Tests** — 25 new tests in
+  ``tests/test_self_improve.py``:
+
+  * ``TestApplyCodifyEdits`` (18 tests) — library-level tests
+    covering numeric / categorical / structural candidates,
+    per-site direction guard (sites already at-or-beyond proposal
+    skipped), dry-run preserves source, idempotent re-apply,
+    missing source / invalid Python / unknown factory return
+    empty list gracefully, ``to_dict`` JSON round-trip,
+    ``default_codify_apply_sources`` shape.
+  * ``TestApplyTopCLI`` (7 tests) — end-to-end CLI tests using a
+    synthetic harness snippet in ``tmp_path``: dry-run writes
+    nothing, real apply writes the file, bidirectional skip
+    on by default, override flag works, structural-only ledger
+    skipped with note, no-candidates graceful exit, already-
+    codified yields no edits.
+
+  Smoke-checked the full suite: ``uv run pytest`` reports 1779
+  passed / 11 skipped (the IOH worker-dependent set).
+  ``uv run ruff check panobbgo/self_improve.py
+  scripts/self_improve.py`` and ``uv run ruff format --check
+  panobbgo/self_improve.py scripts/self_improve.py`` both clean.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry; the
+    ``codify-scan --apply-top driver`` follow-up seeded under
+    the 2026-06-29 entry graduates from queued to shipped.
+    Next iteration ideas seeds the ``--open-pr`` follow-up that
+    builds on top.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 follow-up
+    paragraph noting the driver lands as the third layer
+    (detection → value derivation → source editing → ``--open-pr``)
+    of the V2 §9.5 step 4 stack.
+  - ``doc/source/guide_benchmarking.rst``: new *Apply the top
+    candidate to the working tree (--apply-top)* sub-section under
+    *Cross-night codify-scan* with the safety-guard rationale and
+    the operator workflow (preview → apply → test → commit → PR).
+  - ``doc/source/guide.rst``: Benchmarking summary line extended
+    with the 2026-06-30 entry alongside the existing 2026-05-31 /
+    2026-06-26 / 2026-06-28 / 2026-06-29 codify entries.
+  - ``AGENTS.md``: new bullet under the V2 ship list referencing
+    this entry.
+  - ``panobbgo/self_improve.py``: full docstrings on every new
+    function / dataclass explaining the per-rule-kind branching,
+    the direction-guard policy, the dry-run semantics, and the
+    self-stability invariant the queued ``--open-pr`` driver
+    depends on.
+  - ``TODO.md``: new "Recent Improvements" entry below.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **`codify-scan --open-pr` driver (V2 §9.5 step 4 final layer)** —
+    wraps :func:`derive_codify_edits` /
+    :func:`apply_codify_candidate` with a ``gh pr create`` call
+    and a PR body populated from
+    :meth:`CodifyCandidate.to_dict`.  Three remaining pieces:
+    (1) dedup against ``gh pr list --state open`` using the
+    :attr:`CodifyCandidate.slot_key` tuple (matches §12.3 step 0
+    lesson); (2) draft PR body template citing the ledger
+    evidence (timestamps, deltas, CIs, per-record old → new) +
+    a "test plan" stub linking to the
+    ``benchmark_harness.py compare --statistical`` invocation;
+    (3) branch naming convention matching the existing
+    ``claude/funny-*-*`` so the watcher infrastructure picks it
+    up.  No new primitives — pure assembly on top of the three
+    layers now in place.
+  * **Structural-edit primitive for the apply driver** — extend
+    :func:`derive_codify_edits` to support ``add_/drop_heuristic`` /
+    ``add_/drop_analyzer`` candidates by emitting a richer
+    :class:`CodifyEdit` shape that targets a list literal
+    insertion / removal rather than a single value substitution.
+    Live-ledger motivation: the current top kwarg candidate
+    today is the ``LatinHypercube`` ``drop_heuristic`` from
+    ``Loop_LocalSearch`` (n_nights=2, mean_Δ=+0.0491), one more
+    night away from clearing the daily-routine threshold.  Once
+    structural candidates start surfacing as the *top* actionable
+    evidence, the structural-edit primitive moves from
+    speculative to motivated.
+  * **`--apply-top --auto-format` flag** — after applying the
+    edits, run ``uv run ruff format`` on the modified file
+    automatically.  Today the apply driver doesn't touch
+    formatting (the AST coordinates already preserve indentation
+    / surrounding whitespace).  Speculative until ledger evidence
+    surfaces a slot whose edit needs re-flowing.
+  * **`--apply-top --run-tests` flag** — after applying, run
+    ``uv run pytest tests/test_self_improve.py`` (the most
+    relevant suite) so the operator gets immediate feedback on
+    whether the apply broke anything.  Trivial addition; deferred
+    because the manual operator already runs tests before
+    committing.
+
 ### 2026-06-29 — `CodifyCandidate.proposed_codify_value()` — centralise the median+round-outward policy (V2 §9.5 step 4 plumbing)
 
 * **What** — Adds a new method
@@ -7086,13 +7383,49 @@ a dated entry above when shipped.
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
 
-#### `codify-scan --open-pr` driver (after 2026-06-17 ship)
+#### `codify-scan --apply-top` follow-ups (after 2026-06-30 ship)
+
+The 2026-06-30 ship landed the *source-edit* layer of the
+``--apply-top`` driver — every kwarg :class:`CodifyCandidate` can now
+be applied to ``panobbgo/harness.py`` in one CLI command.  Three
+follow-ups are natural next tickets:
+
+* **Structural-edit primitive** — extend
+  :func:`derive_codify_edits` to support ``add_/drop_heuristic`` /
+  ``add_/drop_analyzer`` candidates by emitting a richer
+  :class:`CodifyEdit` shape that targets a list literal insertion /
+  removal rather than a single value substitution.  The AST can
+  represent the change cleanly (``ast.List.elts`` slice + a
+  re-formatting pass via :mod:`black` or :func:`ast.unparse`).
+  Live-ledger motivation: the current top kwarg-or-structural
+  candidate today is the ``LatinHypercube`` ``drop_heuristic`` from
+  ``Loop_LocalSearch`` (n_nights=2, mean_Δ=+0.0491, min_record_ci_low
+  +0.0352).  Once structural candidates start surfacing as the *top*
+  actionable evidence repeatedly, the structural-edit primitive
+  moves from speculative to motivated.
+* **`--apply-top --auto-format` flag** — after applying the edits,
+  run ``uv run ruff format panobbgo/harness.py`` automatically so
+  the operator doesn't have to remember.  Trivial addition; the AST
+  coordinates already preserve indentation so this is a hygiene-only
+  follow-up.  Speculative until ledger evidence surfaces a slot
+  whose edit needs re-flowing.
+* **`--apply-top --run-tests` flag** — after applying, invoke
+  ``uv run pytest tests/test_self_improve.py`` (the most relevant
+  suite) so the operator gets immediate "did my edit break
+  anything?" feedback before committing.  Trivial wrapper around
+  :mod:`subprocess`; deferred because the manual routine already
+  runs tests before committing.
+
+#### `codify-scan --open-pr` driver (after 2026-06-17 / 2026-06-29 / 2026-06-30 ships)
 
 The 2026-06-17 ship landed the *detection* half of V2 §9.3 (the
-``codify-scan`` subcommand surfaces candidates as text / JSON).  The
-queued *write* half is the ``--open-pr`` flag that translates each
-surfaced :class:`CodifyCandidate` into a concrete source edit + draft
-PR.  Sketch:
+``codify-scan`` subcommand surfaces candidates as text / JSON), the
+2026-06-29 ship landed the *value derivation* layer
+(:meth:`CodifyCandidate.proposed_codify_value`), and the 2026-06-30
+ship landed the *source-edit* layer
+(:func:`derive_codify_edits` / :func:`apply_codify_candidate`).  The
+remaining queued *publish* layer is the ``--open-pr`` flag that
+opens a draft PR for each apply.  Sketch:
 
 1. **Dedup pass** — ``gh pr list --state open --json title,headRefName``,
    parse each open PR for a known "codify ``Class.param``" marker
@@ -7100,17 +7433,18 @@ PR.  Sketch:
    :attr:`CodifyCandidate.slot_key` already has an open PR.  Matches
    the §12.3 step 0 lesson (the four duplicate NL-SHADE-RSP PRs
    #227–#230) — enforced in code rather than left to operator memory.
-2. **Source-edit primitive** — for numeric / categorical candidates the
-   edit is on the heuristic constructor's keyword default (e.g.
-   ``Sobol.__init__(n=16, …)`` → ``n=12``) or on the seed-spec
-   factory (``_make_quick_strategies`` / ``_make_loop_strategies``
-   already passes the kwarg explicitly).  A small "where does this
-   kwarg get set" lookup table can be derived from the catalog
-   strategy_pattern + class_name + the AST of the factories, then
-   the edit applied with the existing ``ruff format`` pipeline so
-   diff hygiene is preserved.  For structural ops the edit is
-   "append this heuristic class to the seed pool" / "drop this
-   class from the seed pool" — same factory locations.
+2. **Source-edit primitive** — *shipped 2026-06-30* as
+   :func:`derive_codify_edits` + :func:`apply_codify_candidate`.  For
+   numeric / categorical candidates the edit is on the seed-spec
+   factory ``(ClassName, {"param": value, ...})`` literal across
+   every registered factory function.  Per-site direction guard
+   preserves deliberately-tighter sibling specs.  The ``--open-pr``
+   driver consumes :func:`apply_codify_candidate` directly — the
+   queued work is the PR-creation wrapper, not any new edit
+   primitive.  For structural ops the source-edit primitive is
+   still queued (the 2026-06-30 ship intentionally scopes to kwarg
+   edits; structural list-entry insertion / removal is a future
+   extension flagged under *Next iteration ideas*).
 3. **PR body** — populate from
    :meth:`CodifyCandidate.to_dict` so the ledger evidence
    (timestamps, deltas, CIs, per-record old → new) lands in the PR

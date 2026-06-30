@@ -52,6 +52,14 @@ Two subcommands:
         # Audit mode: include candidates whose implied edit is already
         # live in the seed-spec factories (default suppresses them):
         uv run python scripts/self_improve.py codify-scan --include-already-codified
+        # Apply the top actionable kwarg candidate to panobbgo/harness.py
+        # in place (shipped 2026-06-30 — V2 §9.5 step 4 plumbing).  Preview
+        # with --apply-dry-run, then run pytest + commit + open a draft PR
+        # manually.  The driver skips structural and bidirectional
+        # candidates by default; override the bidirectional skip with
+        # --apply-include-bidirectional (rare).
+        uv run python scripts/self_improve.py codify-scan --apply-top --apply-dry-run
+        uv run python scripts/self_improve.py codify-scan --apply-top
 
 ``--adaptive``
     Enable Thompson-sampling adaptive mutation sampler (§10 of the
@@ -131,7 +139,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -815,6 +823,54 @@ def _build_parser() -> argparse.ArgumentParser:
             "range is a tight band inside the catalog).  Must be >= "
             "--widen-factor-min.  Only consulted when --widen-auto-tune "
             "is set.  Default: 2.5."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-top",
+        action="store_true",
+        help=(
+            "After printing the candidate report, take the top "
+            "actionable kwarg candidate (skipping already-codified and "
+            "structural candidates) and apply its implied source edits "
+            "to panobbgo/harness.py in place — every (ClassName, "
+            "{param_name: value, ...}) heuristic / analyzer literal "
+            "across the four registry factories (quick / standard / "
+            "full / loop) is updated to the candidate's "
+            "proposed_codify_value.  Sites already at-or-beyond the "
+            "proposal in the candidate's direction are left alone "
+            "(deliberately-tighter sibling specs preserved).  The "
+            "operator runs tests + commits + opens the PR manually — "
+            "this driver does NOT touch git or the working-tree commit "
+            "state.  Combine with --apply-dry-run to preview the edits "
+            "without writing.  See the *codify-scan --apply-top driver* "
+            "entry under planning/SELF_IMPROVEMENT_LOG.md for the "
+            "design and the 2026-06-29 *Follow-up ideas* seed that "
+            "motivates this driver."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-dry-run",
+        action="store_true",
+        help=(
+            "With --apply-top, print the edits the driver would apply "
+            "but do not write them to disk.  Useful for previewing "
+            "what the apply would do before committing to the in-place "
+            "rewrite.  Inert without --apply-top."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-include-bidirectional",
+        action="store_true",
+        help=(
+            "With --apply-top, do NOT skip candidates whose (class, "
+            "param) slot also appears with the opposite direction in "
+            "the visible candidate list.  Default behaviour skips "
+            "bidirectional slots because the right action for those is "
+            "usually a catalog bound update (see --widen-bounds) rather "
+            "than a default shift — applying either direction's edit "
+            "would be a guess against contradictory ledger evidence.  "
+            "Override only when the operator has a specific reason to "
+            "force a default shift on a bidirectional slot."
         ),
     )
     scan_p.set_defaults(func=_cmd_codify_scan)
@@ -1798,6 +1854,138 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
             for w in widening:
                 _print_widening_candidate(w)
                 print()
+
+    if getattr(args, "apply_top", False):
+        rc = _apply_top_codify_candidate(
+            visible_candidates,
+            all_candidates=candidates,
+            dry_run=bool(getattr(args, "apply_dry_run", False)),
+            include_bidirectional=bool(getattr(args, "apply_include_bidirectional", False)),
+        )
+        if rc != 0:
+            return rc
+    return 0
+
+
+def _apply_top_codify_candidate(
+    visible_candidates: Sequence[Any],
+    *,
+    all_candidates: Sequence[Any],
+    dry_run: bool,
+    include_bidirectional: bool = False,
+) -> int:
+    """Apply the top actionable kwarg codify candidate to ``panobbgo/harness.py``.
+
+    Picks the *first* visible candidate that is a kwarg edit (skips
+    structural candidates whose ``op is not None`` — the queued
+    ``--open-pr`` driver will handle those once structural source-edit
+    primitives ship; see the V2 §9.5 step 4 *Next iteration ideas*
+    entry in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`).  Calls
+    :func:`panobbgo.self_improve.apply_codify_candidate`, prints the
+    derived edits, and writes them to disk unless ``dry_run`` is set.
+
+    Operator-friendly output: one block per edit showing the
+    ``factory/spec`` location, the ``old -> new`` value transition, and
+    the source line.  At the end, a one-line "Wrote N file(s)" /
+    "Would write" summary so the operator can re-run with
+    ``--apply-dry-run`` off / on without re-reading the candidate list.
+
+    Returns the process exit code: ``0`` on success (including the
+    no-op case where no actionable candidate exists or no site needs
+    editing), non-zero only if an actual error occurred.  Matches the
+    convention of every other ``_cmd_*`` helper in this module — exit
+    codes signal subprocess failure, not "nothing to do".
+    """
+    from panobbgo.self_improve import apply_codify_candidate
+
+    print()
+    print("Apply-top:")
+    if not visible_candidates:
+        print("  (no actionable candidates to apply)")
+        return 0
+    # Identify bidirectional (class, param) slots — same slot with both
+    # an "up" and a "down" candidate anywhere in the full candidate
+    # list, *including* already-codified ones.  Walking the full list
+    # rather than just ``visible_candidates`` catches the post-codify
+    # case where one direction (e.g. Nearby.radius "up") was just
+    # codified into the source (so the up-candidate is now suppressed
+    # as already_codified) but the opposite-direction evidence (down)
+    # is still live — naive selection of the down-direction candidate
+    # would un-codify the up signal and oscillate the bandit.  The
+    # widening detector handles bidirectional slots cleanly via
+    # --widen-bounds; the apply driver defers to it.
+    direction_by_slot: Dict[Tuple[str, str], set] = {}
+    for cand in all_candidates:
+        if cand.op is not None or cand.direction not in ("up", "down"):
+            continue
+        direction_by_slot.setdefault((cand.class_name, cand.param_name), set()).add(cand.direction)
+    bidirectional_slots = {slot for slot, dirs in direction_by_slot.items() if dirs == {"up", "down"}}
+    # Pick the first non-structural, non-bidirectional candidate.  Skips
+    # are reported so the operator knows the driver isn't quietly
+    # ignoring evidence.
+    chosen = None
+    skipped_structural = 0
+    skipped_bidirectional = 0
+    for cand in visible_candidates:
+        if cand.op is not None:
+            skipped_structural += 1
+            continue
+        slot = (cand.class_name, cand.param_name)
+        if not include_bidirectional and slot in bidirectional_slots:
+            skipped_bidirectional += 1
+            continue
+        chosen = cand
+        break
+    if skipped_structural:
+        print(
+            f"  skipped {skipped_structural} structural candidate(s) — "
+            "the apply driver currently handles kwarg edits only.  "
+            "Apply structural candidates manually for now (see V2 §9.5 "
+            "step 4 in planning/SELF_IMPROVEMENT_LOG.md)."
+        )
+    if skipped_bidirectional:
+        print(
+            f"  skipped {skipped_bidirectional} bidirectional candidate(s) "
+            "— same (class, param) slot fired in both 'up' and 'down' "
+            "directions.  Use --widen-bounds for catalog bound updates "
+            "(the recommended action), or pass "
+            "--apply-include-bidirectional to override."
+        )
+    if chosen is None:
+        if skipped_structural or skipped_bidirectional:
+            print("  (every visible candidate was skipped — nothing to apply)")
+        else:
+            print("  (no actionable candidates to apply)")
+        return 0
+
+    slot = f"{chosen.class_name}.{chosen.param_name}" if chosen.param_name else chosen.class_name
+    proposed = chosen.proposed_codify_value()
+    print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
+    print(f"  proposed codify value: {proposed!r}")
+
+    edits, modified_files = apply_codify_candidate(chosen, dry_run=dry_run)
+    if not edits:
+        print(
+            "  (no source site needed editing — every matching "
+            "(class, param) literal already sits at-or-beyond the "
+            "proposal in the candidate's direction)"
+        )
+        return 0
+    print(f"  derived {len(edits)} edit(s):")
+    for edit in edits:
+        print(
+            f"    {edit.source_path}:{edit.lineno} "
+            f"{edit.factory_name}/{edit.spec_name}: "
+            f"{edit.class_name}.{edit.param_name} = "
+            f"{edit.old_source} -> {edit.new_source}"
+        )
+    action = "Would write" if dry_run else "Wrote"
+    print(f"  {action} {len(modified_files)} file(s): {', '.join(sorted(modified_files))}")
+    if not dry_run:
+        print(
+            "  Next: run the test suite (uv run pytest), then commit and "
+            "open a draft PR with the codify evidence in the body."
+        )
     return 0
 
 

@@ -2,6 +2,112 @@
 
 ## Recent Improvements (continued)
 
+### `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing) — 2026-06-30
+- [x] **New library surface in `panobbgo/self_improve.py`** —
+      `CodifyEdit` (frozen dataclass with AST coordinates + old /
+      new source text), `derive_codify_edits(candidate, *, sources)`
+      (AST-based scan: walks every named factory function in
+      `sources`, finds every `(ClassName, {param_name: literal, ...})`
+      heuristic / analyzer entry, returns a list of `CodifyEdit`),
+      `apply_codify_edits(edits, *, dry_run)` (writes edits to disk
+      in reverse byte-offset order so earlier edits don't invalidate
+      later coordinates; `dry_run=True` returns the new file
+      contents without writing), `apply_codify_candidate(candidate,
+      *, sources, dry_run)` (convenience wrapper combining the two),
+      and `default_codify_apply_sources()` (default
+      `[("panobbgo/harness.py", (factory names ×4))]`).  All four
+      added to `__all__`.
+- [x] **New CLI flags on `scripts/self_improve.py codify-scan`** —
+      `--apply-top` (after the report, apply the top actionable
+      kwarg candidate), `--apply-dry-run` (preview the edits
+      without writing), `--apply-include-bidirectional` (override
+      the default skip-on-bidirectional safety guard).  The CLI
+      dispatcher uses `getattr` so existing test invocations with
+      hand-rolled NS namespaces continue to work byte-identically.
+- [x] **Two safety guards** prevent the driver from shipping
+      questionable changes:
+      (1) **per-site direction guard** in `_should_apply_at_site`
+      skips sites where the current value already sits at-or-beyond
+      the proposal in the candidate's direction — so
+      `BayesOpt_GP`'s deliberately-tighter `Nearby(radius=0.05)`
+      is preserved when the consensus group shifts; (2)
+      **bidirectional-slot skip** in the CLI's apply-top
+      dispatcher (on by default) — if the same `(class_name,
+      param_name)` slot appears with both `"up"` and `"down"`
+      directions anywhere in the full candidate list (including
+      already-codified ones), the candidate is skipped with a note
+      pointing the operator at `--widen-bounds` for the catalog-
+      update path.
+- [x] **Idempotent re-runs** — a second `--apply-top` pass against
+      the now-codified source derives an empty edit list because
+      every matching site already satisfies the per-site direction
+      guard.  Matches the self-stability invariant of
+      `CodifyCandidate.proposed_codify_value` — applying the
+      codified value as a live seed value satisfies
+      `_candidate_already_codified` on the next scan, so the
+      candidate is suppressed at the scan layer too.
+- [x] **Live-ledger smoke test** — running `uv run python
+      scripts/self_improve.py codify-scan --apply-top
+      --apply-dry-run` against the live ledger today reports
+      "skipped 1 structural candidate(s)" + "skipped 3
+      bidirectional candidate(s)" + "every visible candidate was
+      skipped — nothing to apply".  Exactly the correct outcome —
+      the four visible candidates today are all either structural
+      or bidirectional, so the driver refuses to ship a
+      questionable change.
+- [x] **Why it improves Panobbgo** — three direct effects:
+      (1) **closes the manual-edit gap in the daily routine
+      (§12.3)** — the four ledger-evidence-driven codify PRs to
+      date each required the operator to hand-find every sibling
+      spec literal, edit each one, re-format, and re-test (the
+      2026-06-28 PR alone touched six sibling specs across four
+      registry tiers); the driver mechanises that step to one
+      command; (2) **unblocks the queued `--open-pr` driver
+      (V2 §9.5 step 4)** by landing the source-edit primitive
+      as a library function — the queued driver wraps the existing
+      three layers (detection → value derivation → source editing)
+      with a `gh pr create` call; (3) **advances the §11.2
+      throughput criterion** — opening a fourth codify PR drops
+      from ~30 minutes of careful manual editing to ~30 seconds
+      of running one command + reviewing the diff.
+- [x] **Tests** — 25 new tests in `tests/test_self_improve.py`:
+      `TestApplyCodifyEdits` (18 tests) covering numeric / categorical
+      / structural candidates, per-site direction guard (sites already
+      at-or-beyond proposal are skipped), dry-run preserves source,
+      idempotent re-apply, missing source / invalid Python / unknown
+      factory return empty list gracefully, `to_dict` JSON round-trip,
+      `default_codify_apply_sources` shape;  `TestApplyTopCLI`
+      (7 tests) covering dry-run writes nothing, real apply writes
+      the file, bidirectional skip on by default, override flag
+      works, structural-only ledger skipped with note, no-candidates
+      graceful exit, already-codified yields no edits.  Full suite
+      passes (1754 + 25 = 1779 tests + 11 skipped IOH workers);
+      `ruff check` / `ruff format --check` clean.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-06-30 dated entry; *Next iteration ideas* seeded for
+      the structural-edit primitive, `--auto-format` / `--run-tests`
+      hygiene flags), `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3
+      paragraph extended noting the source-edit layer is shipped),
+      `doc/source/guide_benchmarking.rst` (new *Apply the top
+      candidate to the working tree (--apply-top)* sub-section
+      with the safety-guard rationale + the operator workflow),
+      `doc/source/guide.rst` (Benchmarking summary line extended
+      with the 2026-06-30 entry), `AGENTS.md` (new bullet under
+      the V2 ship list).
+- [x] **Follow-ups** seeded under *Next iteration ideas* in
+      `planning/SELF_IMPROVEMENT_LOG.md`: structural-edit primitive
+      for the apply driver (extends `derive_codify_edits` to
+      support `add_/drop_heuristic` / `add_/drop_analyzer`
+      candidates via list-entry insertion / removal — currently
+      motivated by the live ledger's `LatinHypercube`
+      `drop_heuristic` from `Loop_LocalSearch` candidate one
+      night away from clearing the daily-routine threshold);
+      `--apply-top --auto-format` flag (run `ruff format` after
+      apply); `--apply-top --run-tests` flag (run pytest after
+      apply); the full `--open-pr` driver itself (now reduced to
+      a `gh pr create` wrapper around the existing primitives,
+      plus dedup-against-open-PRs + branch naming).
+
 ### `CodifyCandidate.proposed_codify_value()` — codify-value derivation centralised on the dataclass (V2 §9.5 step 4 plumbing) — 2026-06-29
 - [x] **New method `CodifyCandidate.proposed_codify_value(*, n_sig=3)`**
       in `panobbgo/self_improve.py` that computes the seed value a

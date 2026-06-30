@@ -380,6 +380,24 @@ source edit + PR:
   `Nearby.radius` catalog tightening and PR #271's seed shift both
   used the same `median → round outward` policy this method now
   encodes).
+- The *source-edit* layer is centralised in
+  :func:`derive_codify_edits` /
+  :func:`apply_codify_candidate` (**shipped 2026-06-30**): the
+  ``codify-scan --apply-top`` driver picks the top actionable kwarg
+  candidate and applies the implied edits in-place to every
+  matching ``(ClassName, {param_name: value, ...})`` heuristic /
+  analyzer literal across the four registry factories in
+  ``panobbgo/harness.py``.  A per-site direction guard preserves
+  deliberately-tighter sibling specs (so ``BayesOpt_GP``'s
+  ``Nearby(radius=0.05)`` stays at ``0.05`` even when the consensus
+  group shifts).  A default skip-on-bidirectional safety guard
+  defers contradictory slots to the ``--widen-bounds`` catalog-
+  update path rather than guessing a default-shift direction.
+  ``--apply-dry-run`` previews without writing.  The driver does
+  NOT touch git — the queued ``--open-pr`` driver consumes
+  :func:`apply_codify_candidate` directly for its source-edit
+  phase, then wraps it with a ``gh pr create`` call and a PR body
+  populated from :meth:`CodifyCandidate.to_dict`.
 
 `scripts/self_improve.py codify-scan --widen-bounds` (**shipped
 2026-06-19**) is the sibling detection mode for *bidirectional*

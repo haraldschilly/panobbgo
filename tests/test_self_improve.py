@@ -10576,3 +10576,731 @@ class TestCodifyScanCLIAutoTuneWidening:
         # catalog [0.032, 0.313]) the observed-spread ratio is ~0.27 so
         # factor ≈ 3.24, vs ~3.63 under the prior [0.005, 0.5] bounds.
         assert widening[0]["widen_factor"] > 3.0
+
+
+# Synthetic harness-source snippet used by the apply-top tests.  Mirrors
+# the structure of panobbgo/harness.py: a top-level factory function
+# returning a list of ``StrategySpec`` literals whose ``heuristics`` /
+# ``analyzers`` buckets carry ``(ClassName, {kwarg: value, ...})``
+# tuples.  Hermetic: the tests parse and re-write this synthetic source
+# without ever touching the real harness file, so the suite is robust to
+# future seed-spec evolution.
+_APPLY_TOP_HARNESS_SNIPPET = '''
+"""Synthetic harness factories for apply-top tests — not imported at runtime."""
+
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Sobol, Nearby, Random, NelderMead
+
+
+def _make_quick_strategies():
+    return [
+        StrategySpec(
+            name="Rewarding_Diverse",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+    ]
+
+
+def _make_standard_strategies():
+    return [
+        StrategySpec(
+            name="Rewarding_RegionUCB",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+        StrategySpec(
+            name="BayesOpt_Sobol",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": True}),
+                (Nearby, {"radius": 0.05, "axes": "all", "new": 3}),
+            ],
+            analyzers=[],
+        ),
+    ]
+'''
+
+
+class TestApplyCodifyEdits:
+    """Library-level tests for ``derive_codify_edits`` /
+    ``apply_codify_edits`` / ``apply_codify_candidate`` —
+    the V2 §9.5 step 4 plumbing that translates a codify
+    candidate into concrete source edits.  Hermetic: every
+    test writes a synthetic harness snippet to ``tmp_path``
+    and verifies the AST-based scanner / edit-writer round-trip
+    against it.
+    """
+
+    def _write_snippet(self, tmp_path, body: str = _APPLY_TOP_HARNESS_SNIPPET) -> pathlib.Path:
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(body)
+        return src
+
+    def _build_candidate(
+        self,
+        *,
+        class_name: str = "Nearby",
+        param_name: str = "radius",
+        rule_kind: str = "log_uniform_perturb",
+        old_value: Any = 0.1,
+        new_values: Sequence[Any] = (0.075, 0.080, 0.085),
+        direction_override: Optional[str] = None,
+        op: Optional[str] = None,
+    ):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name=class_name,
+                param_name=param_name,
+                rule_kind=rule_kind,
+                old_value=old_value,
+                new_value=v,
+                op=op,
+            )
+            for day, v in enumerate(new_values, start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1, f"expected one candidate, got {len(cands)}"
+        cand = cands[0]
+        if direction_override is not None:
+            # Allow tests to override direction without re-engineering the
+            # whole aggregator's grouping logic.
+            from dataclasses import replace
+
+            cand = replace(cand, direction=direction_override)
+        return cand
+
+    def test_derive_edits_numeric_down_returns_one_per_matching_site(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()  # Nearby.radius, direction=down, proposed=0.08
+        assert c.direction == "down"
+        assert c.proposed_codify_value() == 0.08
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        # Two sites match: Rewarding_Diverse and Rewarding_RegionUCB both
+        # ship radius=0.1, which is > 0.08 so the "down" predicate fires.
+        # BayesOpt_Sobol ships radius=0.05 which is already < 0.08 so it
+        # is skipped.
+        assert len(edits) == 2
+        spec_names = sorted(e.spec_name for e in edits)
+        assert spec_names == ["Rewarding_Diverse", "Rewarding_RegionUCB"]
+        for e in edits:
+            assert e.class_name == "Nearby"
+            assert e.param_name == "radius"
+            assert e.old_value == 0.1
+            assert e.new_value == 0.08
+            assert e.new_source == "0.08"
+            assert e.old_source == "0.1"
+
+    def test_derive_edits_numeric_up_skips_sites_at_or_above_proposal(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        # Up direction with proposed value 0.124 — radius=0.1 sites should
+        # be edited (current < proposal), radius=0.05 sites also (current
+        # < proposal), but no site should be edited to a value below 0.124.
+        # Use new_values with median=0.123 → outward-up rounds to 0.124 only
+        # when the median needs rounding outward; here median 0.123 already
+        # sits at 3 sig digits so proposed stays at 0.123 — see
+        # TestProposedCodifyValue for the rounding policy.
+        c = self._build_candidate(new_values=[0.12, 0.124, 0.135])
+        assert c.direction == "up"
+        # median([0.12, 0.124, 0.135]) == 0.124 → round-up at 3 sig
+        # digits → 0.124 (boundary: outward-up of 0.124 with 3 sig
+        # figs is 0.124 because 124 == ceil(124.0)).
+        assert c.proposed_codify_value() == 0.124
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        # All three Nearby sites have radius < 0.124, so all three are edited.
+        assert len(edits) == 3
+        assert all(e.new_value == 0.124 for e in edits)
+        assert all(e.new_source == "0.124" for e in edits)
+
+    def test_derive_edits_numeric_up_leaves_higher_sites_alone(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Variant snippet with one Nearby site at 0.2 — already above
+        # any reasonable "up" proposal — to verify the per-site direction
+        # guard skips it.
+        snippet = _APPLY_TOP_HARNESS_SNIPPET.replace(
+            '(Nearby, {"radius": 0.1, "axes": "all", "new": 3})',
+            '(Nearby, {"radius": 0.2, "axes": "all", "new": 3})',
+            1,  # only the first occurrence
+        )
+        src = self._write_snippet(tmp_path, body=snippet)
+        c = self._build_candidate(new_values=[0.12, 0.124, 0.135])
+        assert c.direction == "up"
+        assert c.proposed_codify_value() == 0.124
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        # The Nearby site at radius=0.2 (Rewarding_Diverse) is skipped
+        # because 0.2 > 0.124 already.  Rewarding_RegionUCB (0.1) and
+        # BayesOpt_Sobol (0.05) are both below — both edited.
+        spec_names = sorted(e.spec_name for e in edits)
+        assert "Rewarding_Diverse" not in spec_names
+        assert spec_names == ["BayesOpt_Sobol", "Rewarding_RegionUCB"]
+
+    def test_derive_edits_integer_kind_produces_int_replacement(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Sobol",
+            param_name="n",
+            rule_kind="integer_add",
+            old_value=16,
+            new_values=[8, 12, 12, 12],
+        )
+        assert c.direction == "down"
+        assert c.proposed_codify_value() == 12
+        assert isinstance(c.proposed_codify_value(), int)
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        # Two Sobol sites with n=16 → editable to 12 (down direction);
+        # BayesOpt_Sobol also has n=16 — that's three sites total.
+        assert len(edits) == 3
+        for e in edits:
+            assert e.new_value == 12
+            assert e.new_source == "12"  # int → no decimal point
+            assert e.old_source == "16"
+
+    def test_derive_edits_categorical_returns_repr_replacement(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Snippet with Sobol scramble=True so the categorical "False"
+        # candidate has a site to edit.
+        snippet = _APPLY_TOP_HARNESS_SNIPPET.replace('"scramble": False', '"scramble": True', 1)
+        src = self._write_snippet(tmp_path, body=snippet)
+        c = self._build_candidate(
+            class_name="Sobol",
+            param_name="scramble",
+            rule_kind="categorical_choice",
+            old_value=True,
+            new_values=[False, False, False],
+        )
+        assert c.direction == "False"
+        assert c.proposed_codify_value() is False
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        # One scramble=True site in the snippet (Rewarding_Diverse) and
+        # BayesOpt_Sobol's scramble=True — both edited.  The other site
+        # had scramble=False already.
+        assert len(edits) == 2
+        for e in edits:
+            assert e.new_source == "False"
+            assert e.old_source == "True"
+
+    def test_derive_edits_structural_returns_empty_list(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="LatinHypercube",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        # Structural candidates require list-entry insertion / removal —
+        # out of scope for the kwarg-edit driver.
+        assert edits == []
+
+    def test_apply_edits_rewrites_source_in_reverse_offset_order(self, tmp_path):
+        from panobbgo.self_improve import apply_codify_edits, derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()  # Nearby.radius, direction=down, proposed=0.08
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        modified = apply_codify_edits(edits)
+        assert str(src) in modified
+        # File on disk now contains the new value at the matching sites.
+        new_text = src.read_text()
+        assert '"radius": 0.08' in new_text
+        # Rewarding_RegionUCB also updated (was 0.1, > 0.08, so edited).
+        # BayesOpt_Sobol left alone (was 0.05, < 0.08).
+        assert '"radius": 0.05' in new_text  # untouched
+        # The pre-edit "0.1" literal no longer appears in any Nearby
+        # heuristic line (assert by counting: the snippet originally had
+        # 2 occurrences of `"radius": 0.1`, both edited).
+        assert '"radius": 0.1,' not in new_text
+
+    def test_apply_edits_dry_run_does_not_write(self, tmp_path):
+        from panobbgo.self_improve import apply_codify_edits, derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        original_text = src.read_text()
+        c = self._build_candidate()
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        modified = apply_codify_edits(edits, dry_run=True)
+        # dry_run returns the new content but does NOT write it to disk.
+        assert str(src) in modified
+        assert modified[str(src)] != original_text
+        assert src.read_text() == original_text
+
+    def test_apply_edits_empty_input_no_op(self, tmp_path):
+        from panobbgo.self_improve import apply_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        original_text = src.read_text()
+        modified = apply_codify_edits([])
+        assert modified == {}
+        assert src.read_text() == original_text
+
+    def test_apply_codify_candidate_combines_derive_and_apply(self, tmp_path):
+        from panobbgo.self_improve import apply_codify_candidate
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()
+        edits, modified = apply_codify_candidate(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            dry_run=False,
+        )
+        assert len(edits) == 2
+        assert str(src) in modified
+        # File reflects the apply.
+        assert '"radius": 0.08' in src.read_text()
+
+    def test_apply_codify_candidate_dry_run_propagates(self, tmp_path):
+        from panobbgo.self_improve import apply_codify_candidate
+
+        src = self._write_snippet(tmp_path)
+        original_text = src.read_text()
+        c = self._build_candidate()
+        edits, modified = apply_codify_candidate(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            dry_run=True,
+        )
+        assert len(edits) == 2
+        assert str(src) in modified
+        # Dry run preserves the source file unchanged.
+        assert src.read_text() == original_text
+
+    def test_apply_idempotent_under_re_run(self, tmp_path):
+        """Self-stability: applying the same edits twice is a no-op the second time.
+
+        Mirrors the :func:`_candidate_already_codified` self-stability
+        property the queued ``--open-pr`` driver depends on.  After the
+        first apply, the per-site direction guard
+        (:func:`_should_apply_at_site`) classifies every now-codified
+        site as already-at-proposal, so the second call returns an
+        empty edit list and a second :func:`apply_codify_edits` no-ops.
+        """
+        from panobbgo.self_improve import apply_codify_candidate, derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()
+        apply_codify_candidate(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            dry_run=False,
+        )
+        # Re-derive on the now-codified source: no edits should appear.
+        edits_round2 = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        assert edits_round2 == []
+
+    def test_derive_edits_missing_source_returns_empty(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        c = self._build_candidate()
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(tmp_path / "does_not_exist.py"), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_invalid_python_returns_empty(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = tmp_path / "broken.py"
+        src.write_text("def _make_quick_strategies(:\n    return []\n")  # SyntaxError
+        c = self._build_candidate()
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_skips_unknown_factory_names(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()
+        # Factory name doesn't exist → no edits, no error.
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_does_not_exist",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_to_dict_round_trips_through_json(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate()
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert len(edits) == 1
+        d = edits[0].to_dict()
+        round_tripped = json.loads(json.dumps(d, sort_keys=True))
+        assert round_tripped["spec_name"] == "Rewarding_Diverse"
+        assert round_tripped["class_name"] == "Nearby"
+        assert round_tripped["new_value"] == 0.08
+        assert round_tripped["old_value"] == 0.1
+        assert round_tripped["new_source"] == "0.08"
+        # Coordinates are present and integer-typed.
+        assert isinstance(round_tripped["lineno"], int)
+        assert isinstance(round_tripped["col_offset"], int)
+
+    def test_default_apply_sources_returns_fresh_list(self):
+        """Caller mutation of the returned list must not affect future calls."""
+        from panobbgo.self_improve import default_codify_apply_sources
+
+        first = default_codify_apply_sources()
+        first.append(("does/not/matter.py", ("nope",)))
+        second = default_codify_apply_sources()
+        assert ("does/not/matter.py", ("nope",)) not in second
+
+    def test_default_apply_sources_covers_all_four_factories(self):
+        """The default scan walks every registry tier — quick + standard + full + loop."""
+        from panobbgo.self_improve import default_codify_apply_sources
+
+        sources = default_codify_apply_sources()
+        assert len(sources) == 1
+        path, names = sources[0]
+        assert path == "panobbgo/harness.py"
+        assert set(names) == {
+            "_make_quick_strategies",
+            "_make_standard_strategies",
+            "_make_full_strategies",
+            "_make_loop_strategies",
+        }
+
+
+class TestApplyTopCLI:
+    """End-to-end CLI tests for ``codify-scan --apply-top``.
+
+    Uses a synthetic harness snippet in ``tmp_path`` plus a custom
+    ``sources`` injection (via monkeypatch) so the suite never mutates
+    the real ``panobbgo/harness.py``.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _build_ns(
+        self,
+        live,
+        *,
+        apply_top=True,
+        apply_dry_run=False,
+        apply_include_bidirectional=False,
+        as_json=False,
+    ):
+        return type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": as_json,
+                "top": 0,
+                "include_already_codified": False,
+                "suppress_codified": True,
+                "widen_bounds": False,
+                "widen_factor": 1.5,
+                "widen_auto_tune": False,
+                "widen_factor_min": 1.1,
+                "widen_factor_max": 2.5,
+                "apply_top": apply_top,
+                "apply_dry_run": apply_dry_run,
+                "apply_include_bidirectional": apply_include_bidirectional,
+            },
+        )()
+
+    def _setup_synthetic_source(self, tmp_path, monkeypatch):
+        """Write the test snippet + redirect ``default_codify_apply_sources``."""
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
+        # Both the library function (consumed by derive_codify_edits when
+        # sources=None) and the CLI's apply driver go through
+        # ``default_codify_apply_sources``.  Monkeypatching one place is
+        # sufficient because derive_codify_edits looks up the default
+        # lazily inside the function body.
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        return src
+
+    def test_apply_top_dry_run_writes_nothing(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        live = tmp_path / "live.jsonl"
+        # Build a unidirectional "down" candidate so the bidirectional
+        # filter doesn't skip it.
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Apply-top:" in out
+        assert "selected: Nearby.radius" in out
+        assert "Would write" in out
+        assert "harness_snippet.py" in out
+        # File is unchanged.
+        assert src.read_text() == original_text
+
+    def test_apply_top_writes_when_not_dry_run(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Wrote" in out
+        assert "Next: run the test suite" in out
+        # File now contains the new radius value.
+        new_text = src.read_text()
+        assert '"radius": 0.08' in new_text
+
+    def test_apply_top_skips_bidirectional_by_default(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        live = tmp_path / "live.jsonl"
+        # Bidirectional pattern on Nearby.radius — both up and down accepts.
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                old_value=0.1,
+                new_value=v,
+            )
+            for day, v in enumerate([0.075, 0.080], start=1)
+        ] + [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                old_value=0.1,
+                new_value=v,
+            )
+            for day, v in enumerate([0.12, 0.13], start=3)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Apply-top:" in out
+        assert "bidirectional" in out
+        assert "every visible candidate was skipped" in out
+        # File untouched.
+        assert src.read_text() == original_text
+
+    def test_apply_top_include_bidirectional_overrides(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                old_value=0.1,
+                new_value=v,
+            )
+            for day, v in enumerate([0.075, 0.080], start=1)
+        ] + [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                old_value=0.1,
+                new_value=v,
+            )
+            for day, v in enumerate([0.12, 0.13], start=3)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_include_bidirectional=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "selected: Nearby.radius" in out
+        assert "Wrote" in out
+
+    def test_apply_top_skips_structural_with_note(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        live = tmp_path / "live.jsonl"
+        # Only structural candidates in the visible set.
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="LatinHypercube",
+                param_name="",
+                rule_kind="structural",
+                op="drop_heuristic",
+                old_value=None,
+                new_value=None,
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "skipped" in out
+        assert "structural" in out
+        assert src.read_text() == original_text
+
+    def test_apply_top_no_candidates_graceful_exit(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        live = tmp_path / "live.jsonl"
+        # Only one accept — below min_nights threshold.
+        live.write_text(json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00")) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # The codify-scan body says "no group cleared the gates"; the
+        # apply-top block does not run because the early-return on the
+        # empty visible list short-circuits before our hook.  Validate
+        # the gate message instead.
+        assert "no group cleared the gates" in out
+        assert src.read_text() == original_text
+
+    def test_apply_top_already_codified_yields_no_edits(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        # Snippet already has Nearby.radius=0.08 — the "down to 0.08"
+        # candidate has no actionable sites left because every existing
+        # value sits at-or-below the proposal in the candidate's
+        # direction.
+        snippet = _APPLY_TOP_HARNESS_SNIPPET.replace('"radius": 0.1', '"radius": 0.08')
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(snippet)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        original_text = src.read_text()
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # The suppression check uses ``default_codify_registries`` (the
+        # *real* harness factories) — distinct from the apply driver's
+        # ``default_codify_apply_sources`` (which the monkeypatch above
+        # redirected to the synthetic snippet).  So the candidate is
+        # visible at the codify-scan layer; apply-top selects it, but
+        # the per-site direction guard finds every snippet site already
+        # sits at-or-beyond the proposal in the candidate's direction
+        # and reports "no source site needed editing" — the symmetric
+        # outcome to suppression at the scan layer.
+        assert "Apply-top:" in out
+        assert "no source site needed editing" in out
+        # File untouched.
+        assert src.read_text() == original_text

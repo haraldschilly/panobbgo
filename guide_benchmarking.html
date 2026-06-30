@@ -137,6 +137,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#no-op-detection-12-4">No-op detection (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#summary-trend-block-12-4">Summary trend block (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a><ul>
+<li><a class="reference internal" href="#apply-the-top-candidate-to-the-working-tree-apply-top">Apply the top candidate to the working tree (<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>)</a></li>
 <li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a><ul>
 <li><a class="reference internal" href="#auto-tuned-widen-factor-widen-auto-tune">Auto-tuned widen factor (<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code>)</a></li>
 </ul>
@@ -1366,6 +1367,80 @@ helper.</p>
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the design rationale and
 the dated entry’s “Follow-up ideas” section for the queued
 <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>
+<section id="apply-the-top-candidate-to-the-working-tree-apply-top">
+<h4>Apply the top candidate to the working tree (<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>)<a class="headerlink" href="#apply-the-top-candidate-to-the-working-tree-apply-top" title="Link to this heading">¶</a></h4>
+<p>Shipped 2026-06-30.  The detection half of <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> produces
+a ranked list of candidates plus the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> for each kwarg slot.
+The <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> driver mechanises the <em>next</em> manual step the
+2026-05-31 / 2026-06-26 / 2026-06-28 codify PRs all followed: find
+every sibling <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> factory that ships the kwarg
+explicitly, edit each literal to the proposed value, and re-format.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Preview the edits the top actionable candidate would apply:</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--apply-top<span class="w"> </span>--apply-dry-run
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Same, but actually write the file:</span>
+</span><span data-line="6">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span>--apply-top
+</span></pre></div>
+</div>
+<p>The driver picks the <em>first</em> visible candidate that:</p>
+<ol class="arabic simple">
+<li><p>is <strong>not</strong> structural (<code class="docutils literal notranslate"><span class="pre">op</span> <span class="pre">is</span> <span class="pre">None</span></code>) — structural ops
+(<code class="docutils literal notranslate"><span class="pre">add_/drop_heuristic</span></code> / <code class="docutils literal notranslate"><span class="pre">add_/drop_analyzer</span></code>) require
+list-entry insertion or removal, which is out of scope for the
+kwarg-edit driver and stays manual until the queued
+<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver ships;</p></li>
+<li><p>is <strong>not</strong> bidirectional — i.e. the same <code class="docutils literal notranslate"><span class="pre">(class_name,</span> <span class="pre">param_name)</span></code>
+slot doesn’t also appear with the opposite direction in the full
+candidate list (including already-codified ones, so a freshly-
+codified “up” direction whose “down” sibling is still active
+doesn’t trigger a re-shift).  The recommended action for
+bidirectional slots is a <em>catalog bound update</em> via
+<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code> — applying either direction’s default shift
+would guess against contradictory ledger evidence.  Override the
+skip with <code class="docutils literal notranslate"><span class="pre">--apply-include-bidirectional</span></code> when the operator has
+a specific reason to force the shift.</p></li>
+</ol>
+<p>For each kwarg edit the driver walks every <code class="docutils literal notranslate"><span class="pre">(ClassName,</span> <span class="pre">{param_name:</span>
+<span class="pre">value,</span> <span class="pre">...})</span></code> heuristic / analyzer literal across the four registry
+factories in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code> (<code class="docutils literal notranslate"><span class="pre">_make_quick_strategies</span></code> /
+<code class="docutils literal notranslate"><span class="pre">_make_standard_strategies</span></code> / <code class="docutils literal notranslate"><span class="pre">_make_full_strategies</span></code> /
+<code class="docutils literal notranslate"><span class="pre">_make_loop_strategies</span></code> — broader than the suppression scan’s
+quick+loop scope, so the apply propagates to every sibling spec the
+manual 2026-06-28 codify covered).  A <strong>per-site direction guard</strong>
+keeps the driver from touching sites that already sit at-or-beyond
+the proposal in the candidate’s direction — so <code class="docutils literal notranslate"><span class="pre">BayesOpt_GP</span></code>’s
+<code class="docutils literal notranslate"><span class="pre">Nearby(radius=0.05)</span></code> is preserved when the proposal is
+<code class="docutils literal notranslate"><span class="pre">radius=0.08</span></code>, the same way the manual codify routine deliberately
+left smaller-radius specs alone.</p>
+<p>The driver is <strong>idempotent</strong>: a second <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> pass against
+the now-codified source derives an empty edit list because every
+matching site already satisfies the per-site direction guard.  This
+matches the self-stability invariant of
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> — applying the codified
+value as a live seed value satisfies
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_candidate_already_codified()</span></code> on the next scan, so the
+candidate is suppressed at the scan layer too.</p>
+<p>Library API: <code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.CodifyEdit</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.derive_codify_edits()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.apply_codify_edits()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.apply_codify_candidate()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.default_codify_apply_sources()</span></code>.</p>
+<p>The driver <strong>does NOT touch git</strong> — operator workflow is unchanged:
+preview with <code class="docutils literal notranslate"><span class="pre">--apply-dry-run</span></code>, run <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">pytest</span></code> to verify
+the test suite passes, then commit and open a draft PR with the
+codify-scan output (rule / evidence / pooled CI / per-record old →
+new) in the body.  The PR template is the existing manual codify
+shape; see the 2026-06-28 entry in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the canonical example.</p>
+<p>See the 2026-06-30 entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
+the design rationale and the queued follow-up: a <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver
+that consumes <code class="xref py py-class docutils literal notranslate"><span class="pre">CodifyEdit</span></code> for the source-edit phase, then
+opens a draft PR with the ledger evidence pre-populated in the body
+(V2 §9.5 step 4 plumbing — <code class="xref py py-func docutils literal notranslate"><span class="pre">derive_codify_edits()</span></code> is the
+primitive that driver also calls).</p>
+</section>
 <section id="bidirectional-bound-widening-widen-bounds">
 <h4>Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)<a class="headerlink" href="#bidirectional-bound-widening-widen-bounds" title="Link to this heading">¶</a></h4>
 <p>Shipped 2026-06-19.  The codify scanner detects each <code class="docutils literal notranslate"><span class="pre">(class,</span> <span class="pre">param,</span>

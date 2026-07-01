@@ -1154,13 +1154,17 @@ the dated entry's "Follow-up ideas" section for the queued
 Apply the top candidate to the working tree (``--apply-top``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Shipped 2026-06-30.  The detection half of ``codify-scan`` produces
-a ranked list of candidates plus the
-:meth:`CodifyCandidate.proposed_codify_value` for each kwarg slot.
-The ``--apply-top`` driver mechanises the *next* manual step the
+Kwarg support shipped 2026-06-30; structural support shipped
+2026-07-01.  The detection half of ``codify-scan`` produces a ranked
+list of candidates plus the
+:meth:`CodifyCandidate.proposed_codify_value` for each kwarg slot
+(or the ``add_/drop_`` op name for structural candidates).  The
+``--apply-top`` driver mechanises the *next* manual step the
 2026-05-31 / 2026-06-26 / 2026-06-28 codify PRs all followed: find
 every sibling :class:`StrategySpec` factory that ships the kwarg
-explicitly, edit each literal to the proposed value, and re-format.
+explicitly (or has the class in the relevant bucket), edit each
+literal to the proposed value (or insert / remove the tuple entry),
+and re-format.
 
 .. code-block:: bash
 
@@ -1171,45 +1175,74 @@ explicitly, edit each literal to the proposed value, and re-format.
    # Same, but actually write the file:
    uv run python scripts/self_improve.py codify-scan --apply-top
 
-The driver picks the *first* visible candidate that:
+The driver picks the *first* visible candidate that is not
+bidirectional — i.e. the same ``(class_name, param_name)`` slot
+doesn't also appear with the opposite direction in the full
+candidate list (including already-codified ones, so a freshly-
+codified "up" direction whose "down" sibling is still active
+doesn't trigger a re-shift).  The recommended action for
+bidirectional slots is a *catalog bound update* via
+``--widen-bounds`` — applying either direction's default shift
+would guess against contradictory ledger evidence.  Override the
+skip with ``--apply-include-bidirectional`` when the operator has a
+specific reason to force the shift.  The bidirectional guard applies
+only to kwarg candidates (numeric ``"up"`` / ``"down"`` directions);
+structural candidates use the op name as the direction and never
+collide with the bidirectional heuristic.
 
-1. is **not** structural (``op is None``) — structural ops
-   (``add_/drop_heuristic`` / ``add_/drop_analyzer``) require
-   list-entry insertion or removal, which is out of scope for the
-   kwarg-edit driver and stays manual until the queued
-   ``--open-pr`` driver ships;
-2. is **not** bidirectional — i.e. the same ``(class_name, param_name)``
-   slot doesn't also appear with the opposite direction in the full
-   candidate list (including already-codified ones, so a freshly-
-   codified "up" direction whose "down" sibling is still active
-   doesn't trigger a re-shift).  The recommended action for
-   bidirectional slots is a *catalog bound update* via
-   ``--widen-bounds`` — applying either direction's default shift
-   would guess against contradictory ledger evidence.  Override the
-   skip with ``--apply-include-bidirectional`` when the operator has
-   a specific reason to force the shift.
+**Kwarg candidates.**  The driver walks every ``(ClassName,
+{param_name: value, ...})`` heuristic / analyzer literal across the
+four registry factories in ``panobbgo/harness.py``
+(``_make_quick_strategies`` / ``_make_standard_strategies`` /
+``_make_full_strategies`` / ``_make_loop_strategies`` — broader than
+the suppression scan's quick+loop scope, so the apply propagates to
+every sibling spec the manual 2026-06-28 codify covered).  A
+**per-site direction guard** keeps the driver from touching sites
+that already sit at-or-beyond the proposal in the candidate's
+direction — so ``BayesOpt_GP``'s ``Nearby(radius=0.05)`` is
+preserved when the proposal is ``radius=0.08``, the same way the
+manual codify routine deliberately left smaller-radius specs alone.
 
-For each kwarg edit the driver walks every ``(ClassName, {param_name:
-value, ...})`` heuristic / analyzer literal across the four registry
-factories in ``panobbgo/harness.py`` (``_make_quick_strategies`` /
-``_make_standard_strategies`` / ``_make_full_strategies`` /
-``_make_loop_strategies`` — broader than the suppression scan's
-quick+loop scope, so the apply propagates to every sibling spec the
-manual 2026-06-28 codify covered).  A **per-site direction guard**
-keeps the driver from touching sites that already sit at-or-beyond
-the proposal in the candidate's direction — so ``BayesOpt_GP``'s
-``Nearby(radius=0.05)`` is preserved when the proposal is
-``radius=0.08``, the same way the manual codify routine deliberately
-left smaller-radius specs alone.
+**Structural candidates.**  The driver dispatches to a sibling
+primitive (:func:`_scan_source_for_structural_edits`) that either
+inserts a new ``(ClassName, {})`` tuple in the target
+``heuristics`` / ``analyzers`` list literal (``add_heuristic`` /
+``add_analyzer``) or removes an existing one (``drop_heuristic`` /
+``drop_analyzer``).  Unlike kwarg edits — which safely propagate
+across every matching spec — structural edits are *scoped to the
+specs the ledger accumulated evidence against* via the candidate's
+:attr:`CodifyCandidate.strategy_names` set.  Three safety guards
+apply:
 
-The driver is **idempotent**: a second ``--apply-top`` pass against
-the now-codified source derives an empty edit list because every
-matching site already satisfies the per-site direction guard.  This
-matches the self-stability invariant of
-:meth:`CodifyCandidate.proposed_codify_value` — applying the codified
-value as a live seed value satisfies
+* **Single-entry bucket protected from drop.**  A spec whose
+  ``heuristics`` bucket has only one entry cannot have that entry
+  dropped without leaving the spec unable to generate points; the
+  primitive skips such candidates.
+* **Already-present class not re-added.**  Matches
+  :func:`_structural_already_codified` so re-runs are idempotent.
+* **Missing class not re-dropped.**  Same shape.
+
+The ``add_*`` primitive currently ships ``(ClassName, {})`` (empty
+kwargs → constructor defaults) rather than the per-record
+``structural_kwargs``; the operator can subsequently tune via the
+kwarg mutation catalog.  When dropping the last entry of a
+multi-line bucket the removal span extends *backwards* through the
+entry's leading newline + indent so the closing ``]`` inherits the
+pre-entry indentation.  When the target bucket is empty
+(``analyzers=[]``) the ``add_*`` primitive inserts inline
+(``analyzers=[(ClassName, {})]``).
+
+The driver is **idempotent** for both kwarg and structural
+candidates: a second ``--apply-top`` pass against the now-codified
+source derives an empty edit list because every matching site
+already satisfies the per-site direction guard (kwarg) or the
+present / absent membership check (structural).  This matches the
+self-stability invariant of
+:meth:`CodifyCandidate.proposed_codify_value` for kwargs — applying
+the codified value as a live seed value satisfies
 :func:`_candidate_already_codified` on the next scan, so the
-candidate is suppressed at the scan layer too.
+candidate is suppressed at the scan layer too — and
+:func:`_structural_already_codified` for structural ops.
 
 Library API: :class:`panobbgo.self_improve.CodifyEdit`,
 :func:`panobbgo.self_improve.derive_codify_edits`,
@@ -1225,11 +1258,12 @@ new) in the body.  The PR template is the existing manual codify
 shape; see the 2026-06-28 entry in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the canonical example.
 
-See the 2026-06-30 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
-the design rationale and the queued follow-up: a ``--open-pr`` driver
-that consumes :class:`CodifyEdit` for the source-edit phase, then
-opens a draft PR with the ledger evidence pre-populated in the body
-(V2 §9.5 step 4 plumbing — :func:`derive_codify_edits` is the
+See the 2026-06-30 entry (kwarg support) and the 2026-07-01 entry
+(structural support) in ``planning/SELF_IMPROVEMENT_LOG.md`` for
+the design rationale and the queued follow-up: a ``--open-pr``
+driver that consumes :class:`CodifyEdit` for the source-edit phase,
+then opens a draft PR with the ledger evidence pre-populated in the
+body (V2 §9.5 step 4 plumbing — :func:`derive_codify_edits` is the
 primitive that driver also calls).
 
 Bidirectional-bound widening (``--widen-bounds``)

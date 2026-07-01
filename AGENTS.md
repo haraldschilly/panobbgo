@@ -706,6 +706,36 @@ The harness is the measurement substrate for an autonomous
     seed value defines the *centre* it perturbs around).  See the
     2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Structural-edit primitive for the `codify-scan --apply-top`
+    driver** — **shipped 2026-07-01** (V2 §9.5 step 4 follow-up).
+    Extends the 2026-06-30 kwarg-only apply driver to handle the four
+    structural codify ops (`add_heuristic` / `drop_heuristic` /
+    `add_analyzer` / `drop_analyzer`) via a sibling AST-based scanner
+    (`_scan_source_for_structural_edits`) that inserts or removes
+    `(ClassName, {...})` tuple entries in the target spec's
+    `heuristics` / `analyzers` list literal.  Edit scope is narrowed
+    to the specs listed in the candidate's `strategy_names` (unlike
+    kwarg edits which propagate across every matching spec).  Three
+    safety guards mirror `_structural_already_codified` for
+    idempotent re-runs: single-entry buckets are protected from
+    drop, already-present classes are not re-added, missing classes
+    are not re-dropped.  A corner-case backwards-expansion path
+    handles the "drop last entry of multi-line bucket" case so the
+    closing `]` inherits the pre-entry indentation instead of the
+    entry's inner indent.  The CLI's Apply-top block now emits
+    `selected: X [op]` and `target spec(s): ...` for structural
+    candidates instead of the pre-2026-07-01 `skipped N structural`
+    note.  Unblocks the live-ledger's top structural candidate
+    (`LatinHypercube` `drop_heuristic` from `Loop_LocalSearch`,
+    `n_nights=2`, `mean_Δ=+0.0491`) once one more night of evidence
+    accumulates.  Closes the structural codify gap in the §12.3
+    daily routine — every surfaced candidate (kwarg, categorical,
+    structural) now translates to source edits via
+    `codify-scan --apply-top` alone.  Pure additions to
+    `panobbgo/self_improve.py` and `scripts/self_improve.py`; 7 new
+    tests in `TestApplyCodifyEdits` + `TestApplyTopCLI`.  See the
+    2026-07-01 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`codify-scan --apply-top` driver — mechanise the manual codify
     edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
     Translates the top actionable kwarg `CodifyCandidate` into

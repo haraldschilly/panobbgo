@@ -1,9 +1,9 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    500  (decided=500, skipped=0, no-op=32)
-Accepts:       20  (4.3% of informative)
+Iterations:    520  (decided=520, skipped=0, no-op=32)
+Accepts:       20  (4.1% of informative)
 Confirm-rej:   1  (4.8% of screening accepts overturned)
-Guards:        80  (rollbacks=44, total pops=7)
-Hold-outs:     35  (overfit=0, vacuous=20)
+Guards:        82  (rollbacks=44, total pops=7)
+Hold-outs:     37  (overfit=0, vacuous=22)
 Best Δ seen:   +0.0703
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -109,8 +109,10 @@ Hold-out validation:
   OK  drift=+0.0037  holdout_gap=+0.0353 training_gap=+0.0316  top_iter=13  (base_seed=1234, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0083  overfit=0/35  vacuous=20/35  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=35  vacuous=20/35
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0083  overfit=0/37  vacuous=22/37  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=37  vacuous=22/37
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -139,20 +141,21 @@ Trend (one row per loop run, oldest first):
   2026-06-28 07:01:12     42  quick        20    20     2     0   +0.0395      0.0300
   2026-06-29 07:28:22     42  quick        20    20     3     0   +0.0703      0.0297
   2026-06-30 06:54:48     42  quick        20    20     0     0   +0.0324      0.0167
+  2026-07-01 07:09:22     42  quick        20    20     0     0   +0.0157      0.0252
 
-Bandit posteriors (n_attempts >= 3, 38 eligible rules):
+Bandit posteriors (n_attempts >= 3, 41 eligible rules):
   Top 10 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  LatinHypercube          div                     integer_add            6     1    0.565     16.7%
-  Restart                 patience                integer_add            4     1    0.542     25.0%
+  LatinHypercube          div                     integer_add            7     1    0.556     14.3%
   NLSHADE_LBC             p_F_final               float_uniform          4     1    0.542     25.0%
   NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
-  COBYQA                  scale                   categorical_choice     5     1    0.495     20.0%
-  NLSHADE_RSP             NP_init                 integer_add            3     1    0.487     33.3%
+  NLSHADE_RSP             NP_init                 integer_add            5     1    0.492     20.0%
   NLSHADE_LBC             p_CR_final              float_uniform          3     0    0.471      0.0%
   NLSHADE_LBC             p_F_init                float_uniform          3     0    0.471      0.0%
-  JSO                     p_best_max              categorical_choice     3     0    0.466      0.0%
-  RegionUCB               gauss_fraction          float_uniform          3     1    0.466     33.3%
+  CMAES                   sigma0                  log_uniform_pertur     6     1    0.456     16.7%
+  LBFGSB                  max_starts              integer_add            5     1    0.435     20.0%
+  Restart                 patience                integer_add            5     1    0.433     20.0%
+  JSO                     NP_init                 integer_add            4     0    0.427      0.0%
   Bottom 5 (lowest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   Sobol                   scramble                categorical_choice    25     0    0.000      0.0%

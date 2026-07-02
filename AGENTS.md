@@ -706,6 +706,29 @@ The harness is the measurement substrate for an autonomous
     seed value defines the *centre* it perturbs around).  See the
     2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **`codify-scan --open-pr` driver — mechanise the codify PR** —
+    **shipped 2026-07-02** (V2 §9.5 step 4 final layer, closes the
+    stack).  Adds a `--open-pr` flag on `scripts/self_improve.py
+    codify-scan` that, after applying the top actionable kwarg
+    candidate (implies `--apply-top`), creates a git branch, commits
+    the codify diff, pushes it, and opens a draft PR via `gh pr
+    create`.  Dedups against `gh pr list --state open` using the
+    `codify-slot: <slot_key>` marker embedded in an HTML comment at
+    the top of every codify PR body — an existing open PR for the
+    same `(class, param)` slot skips the open-PR step with a `PR #N
+    already covers this slot` note.  New library surface:
+    `codify_pr_marker` / `codify_pr_title` / `codify_pr_body` /
+    `codify_pr_branch_name` / `find_open_pr_for_slot` (all pure
+    functions).  New CLI flags `--open-pr` / `--pr-branch-prefix`
+    (default `claude/codify`) / `--pr-base` (default `master`) /
+    `--pr-gh-bin` / `--pr-git-bin`.  Composes with `--apply-dry-run`
+    (prints the `gh` / `git` command sequence the driver *would* run
+    without invoking subprocess).  Runner dependency-injection hook
+    on `_open_pr_for_candidate` so tests intercept every subprocess
+    call without shelling out.  19 new tests in
+    `TestCodifyPrPrimitives` + `TestOpenPRCLIDriver`.  See the
+    2026-07-02 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`codify-scan --apply-top` driver — mechanise the manual codify
     edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
     Translates the top actionable kwarg `CodifyCandidate` into
@@ -974,6 +997,19 @@ uv run python scripts/self_improve.py codify-scan --apply-top
 # case — prefer --widen-bounds for bidirectional slots):
 uv run python scripts/self_improve.py codify-scan --apply-top \
     --apply-include-bidirectional
+
+# Open a draft PR for the top actionable candidate (shipped 2026-07-02
+# — V2 §9.5 step 4 final layer).  Implies --apply-top.  Dedups against
+# `gh pr list --state open` using the `codify-slot: <slot_key>` marker
+# embedded in every codify PR body — an existing open PR for the same
+# (class, param) slot skips with a `PR #N already covers this slot`
+# note rather than producing a duplicate.  Branch defaults to
+# `claude/codify-<class_snake>-<param_snake>-<direction>` so the
+# watcher infrastructure keys on the `claude/` prefix.  Compose with
+# --apply-dry-run to preview the full `gh` / `git` command sequence
+# without side effects.  Requires the `gh` CLI on PATH.
+uv run python scripts/self_improve.py codify-scan --open-pr --apply-dry-run
+uv run python scripts/self_improve.py codify-scan --open-pr
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

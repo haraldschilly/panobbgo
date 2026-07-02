@@ -1217,20 +1217,93 @@ Library API: :class:`panobbgo.self_improve.CodifyEdit`,
 :func:`panobbgo.self_improve.apply_codify_candidate`,
 :func:`panobbgo.self_improve.default_codify_apply_sources`.
 
-The driver **does NOT touch git** — operator workflow is unchanged:
-preview with ``--apply-dry-run``, run ``uv run pytest`` to verify
-the test suite passes, then commit and open a draft PR with the
-codify-scan output (rule / evidence / pooled CI / per-record old →
-new) in the body.  The PR template is the existing manual codify
-shape; see the 2026-06-28 entry in
+The driver **does NOT touch git** — operator workflow with just
+``--apply-top``: preview with ``--apply-dry-run``, run ``uv run
+pytest`` to verify the test suite passes, then commit and open a
+draft PR with the codify-scan output (rule / evidence / pooled CI /
+per-record old → new) in the body.  The PR template is the existing
+manual codify shape; see the 2026-06-28 entry in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the canonical example.
 
 See the 2026-06-30 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
-the design rationale and the queued follow-up: a ``--open-pr`` driver
-that consumes :class:`CodifyEdit` for the source-edit phase, then
-opens a draft PR with the ledger evidence pre-populated in the body
-(V2 §9.5 step 4 plumbing — :func:`derive_codify_edits` is the
-primitive that driver also calls).
+the design rationale of the source-edit primitive.
+
+Open a draft PR for the top candidate (``--open-pr``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Shipped 2026-07-02 as the final layer of the V2 §9.5 step 4 codify
+pipeline.  The ``--open-pr`` flag composes on top of ``--apply-top``:
+after the source edits land in the working tree, the driver creates
+a git branch, commits the diff, pushes to ``origin``, and opens a
+draft PR via ``gh pr create``.  Dedup runs first — if a same-slot PR
+is already open, the driver exits cleanly with a ``PR #N already
+covers this slot`` note.
+
+.. code-block:: bash
+
+   # Preview the git / gh command sequence the driver would run
+   # (no subprocess invoked; useful for auditing the shape):
+   uv run python scripts/self_improve.py codify-scan \
+       --open-pr --apply-dry-run
+
+   # Real invocation — requires ``gh`` and ``git`` on PATH:
+   uv run python scripts/self_improve.py codify-scan --open-pr
+
+The driver flow (both dedup + PR body use the pure-function library
+layer so the shape is testable in isolation):
+
+1. **Dedup** — run ``gh pr list --state open --json
+   number,title,body,headRefName`` and search each PR's body for the
+   candidate's :func:`~panobbgo.self_improve.codify_pr_marker` —
+   an HTML-comment marker ``<!-- codify-slot: <slot_key> -->``
+   embedded at the top of every codify PR body.  A match short-
+   circuits the driver with a ``PR #N already covers this slot``
+   note; direction is intentionally excluded from the slot key so a
+   same-slot opposite-direction signal supersedes the open PR rather
+   than duplicating it (matches the §12.3 step 0 lesson: open PRs
+   are the source of truth for in-flight work).
+2. **Branch** — ``git checkout -b
+   <prefix>-<class_snake>-<param_snake>-<direction>``.  Default
+   prefix ``claude/codify`` matches the watcher-infrastructure
+   ``claude/`` naming convention; override with
+   ``--pr-branch-prefix``.
+3. **Commit + push** — ``git add <edited paths>`` +
+   ``git commit -m <title>`` + ``git push -u origin <branch>``.
+   The title is
+   :func:`~panobbgo.self_improve.codify_pr_title` — a one-line
+   ``codify(<Class>.<param>): shift default <old> -> <new>
+   (<direction>, ledger evidence)`` form so the PR list rendering
+   fits one line.
+4. **PR** — ``gh pr create --draft --base <base_branch> --head
+   <branch> --title <title> --body-file <tmpfile>``.  The body is
+   :func:`~panobbgo.self_improve.codify_pr_body`, four sections:
+   **Codify slot** (marker + direction + rule kind + proposed
+   value), **Ledger evidence** (per-record table with date /
+   strategy / Δ / CI / old → new), **Proposed source edit** (one
+   bullet per :class:`CodifyEdit` citing
+   ``source_path:lineno``), and **Test plan** (``uv run pytest`` +
+   ``benchmark_harness.py compare --statistical`` checklist).
+
+CLI knobs: ``--pr-branch-prefix`` (default ``claude/codify``),
+``--pr-base`` (default ``master``), ``--pr-gh-bin`` (default
+``gh``), ``--pr-git-bin`` (default ``git``).  Any subprocess step
+returning a non-zero code aborts the sequence at the failing step
+and propagates the return code so the workflow logs surface which
+step failed.
+
+Library API:
+:func:`panobbgo.self_improve.codify_pr_marker`,
+:func:`panobbgo.self_improve.codify_pr_title`,
+:func:`panobbgo.self_improve.codify_pr_body`,
+:func:`panobbgo.self_improve.codify_pr_branch_name`,
+:func:`panobbgo.self_improve.find_open_pr_for_slot`.
+
+See the 2026-07-02 entry in ``planning/SELF_IMPROVEMENT_LOG.md``
+for the design rationale, the runner dependency-injection hook
+(``_open_pr_for_candidate(runner=...)``) that keeps every test
+hermetic, and the marker-in-HTML-comment tradeoff that keeps the
+dedup layer greppable without polluting the human-readable PR
+rendering.
 
 Bidirectional-bound widening (``--widen-bounds``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

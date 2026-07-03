@@ -706,6 +706,27 @@ The harness is the measurement substrate for an autonomous
     seed value defines the *centre* it perturbs around).  See the
     2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **`codify-scan --apply-top --apply-format` / `--apply-run-tests`
+    hygiene flags** — **shipped 2026-07-03**.  Two optional flags on
+    the 2026-06-30 `--apply-top` driver that chain the daily codify
+    routine's last two manual steps into the same command:
+    `--apply-format` runs `uv run ruff format` on the modified files
+    after the write; `--apply-run-tests` runs `uv run pytest
+    tests/test_self_improve.py` for a smoke check.  Both flags are
+    inert under `--apply-dry-run` (no edits landed, nothing to
+    format or test) and inert when no site needed editing.  Non-zero
+    subprocess rc propagates so a CI wrapper surfaces the failure.
+    Recommended one-liner: `codify-scan --apply-top --apply-format
+    --apply-run-tests` — one command replaces the previous
+    three-step manual sequence.  Additions to
+    `scripts/self_improve.py` (module-level `_run_subprocess`
+    indirection for test monkeypatching, two new argparse flags,
+    two new keyword-only parameters on `_apply_top_codify_candidate`);
+    8 new tests in `TestApplyTopHygieneFlags`.  Closes the two
+    hygiene-flag follow-ups seeded under the 2026-06-30 entry's
+    *Next iteration ideas* section.  See the 2026-07-03 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`codify-scan --apply-top` driver — mechanise the manual codify
     edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
     Translates the top actionable kwarg `CodifyCandidate` into
@@ -974,6 +995,15 @@ uv run python scripts/self_improve.py codify-scan --apply-top
 # case — prefer --widen-bounds for bidirectional slots):
 uv run python scripts/self_improve.py codify-scan --apply-top \
     --apply-include-bidirectional
+
+# Hygiene flags (shipped 2026-07-03) that chain the daily routine's
+# last two manual steps into the same command: --apply-format runs
+# `uv run ruff format` on the modified files after the write;
+# --apply-run-tests runs `uv run pytest tests/test_self_improve.py`
+# for a smoke check.  Both inert with --apply-dry-run and inert when
+# no site needed editing.  Non-zero subprocess rc propagates.
+uv run python scripts/self_improve.py codify-scan --apply-top \
+    --apply-format --apply-run-tests
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

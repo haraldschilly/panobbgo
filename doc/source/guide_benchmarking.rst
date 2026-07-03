@@ -1225,6 +1225,28 @@ new) in the body.  The PR template is the existing manual codify
 shape; see the 2026-06-28 entry in
 ``planning/SELF_IMPROVEMENT_LOG.md`` for the canonical example.
 
+**Hygiene flags** (shipped 2026-07-03): two optional flags on
+``--apply-top`` mechanise the last two manual steps of the daily
+routine so the operator can chain them into one command.
+
+* ``--apply-format`` — after the write, runs ``uv run ruff format``
+  on the modified files.  Preserves the existing AST-coordinate
+  invariants; useful because a per-site edit can shift indentation
+  or leave stale trailing whitespace on adjacent literals.
+* ``--apply-run-tests`` — after the (optional) format step, runs
+  ``uv run pytest tests/test_self_improve.py`` so the operator gets
+  immediate feedback that the codify edit did not break the codify
+  plumbing itself.  Non-zero rc from either subprocess propagates
+  to the caller so a CI wrapper surfaces the failure.
+
+Both flags are **inert under** ``--apply-dry-run`` (no edits landed,
+nothing to format or test) and **inert when no site needed editing**
+(the per-site direction guard skipped every candidate).  Suggested
+one-liner for the daily routine::
+
+   uv run python scripts/self_improve.py codify-scan \
+       --apply-top --apply-format --apply-run-tests
+
 See the 2026-06-30 entry in ``planning/SELF_IMPROVEMENT_LOG.md`` for
 the design rationale and the queued follow-up: a ``--open-pr`` driver
 that consumes :class:`CodifyEdit` for the source-edit phase, then

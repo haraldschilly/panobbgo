@@ -1,9 +1,9 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    560  (decided=560, skipped=0, no-op=32)
-Accepts:       21  (4.0% of informative)
+Iterations:    580  (decided=580, skipped=0, no-op=32)
+Accepts:       21  (3.8% of informative)
 Confirm-rej:   3  (12.5% of screening accepts overturned)
-Guards:        86  (rollbacks=45, total pops=8)
-Hold-outs:     41  (overfit=0, vacuous=26)
+Guards:        88  (rollbacks=45, total pops=8)
+Hold-outs:     43  (overfit=0, vacuous=28)
 Best Δ seen:   +0.0703
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -119,8 +119,10 @@ Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0083  overfit=0/41  vacuous=26/41  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=41  vacuous=26/41
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0083  overfit=0/43  vacuous=28/43  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=43  vacuous=28/43
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -152,8 +154,9 @@ Trend (one row per loop run, oldest first):
   2026-07-01 07:09:22     42  quick        20    20     0     0   +0.0157      0.0252
   2026-07-02 06:38:38     42  quick        20    20     1     0   +0.0435      0.0332
   2026-07-03 06:28:27     42  quick        20    20     0     0   +0.0500      0.0189
+  2026-07-04 06:16:35     42  quick        20    20     0     0   +0.0279      0.0268
 
-Bandit posteriors (n_attempts >= 3, 44 eligible rules):
+Bandit posteriors (n_attempts >= 3, 45 eligible rules):
   Top 10 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   LatinHypercube          div                     integer_add            8     1    0.549     12.5%
@@ -162,9 +165,9 @@ Bandit posteriors (n_attempts >= 3, 44 eligible rules):
   NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
   NLSHADE_LBC             p_CR_final              float_uniform          3     0    0.471      0.0%
   NLSHADE_LBC             p_F_init                float_uniform          3     0    0.471      0.0%
-  Restart                 patience                integer_add            6     1    0.444     16.7%
-  LBFGSB                  max_starts              integer_add            5     1    0.435     20.0%
-  JSO                     NP_init                 integer_add            4     0    0.427      0.0%
+  Restart                 patience                integer_add            7     1    0.452     14.3%
+  LBFGSB                  max_starts              integer_add            6     1    0.446     16.7%
+  JSO                     NP_init                 integer_add            5     0    0.441      0.0%
   COBYQA                  initial_tr_radius       log_uniform_pertur     6     0    0.414      0.0%
   Bottom 5 (lowest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate

@@ -24,6 +24,21 @@ on:
         required: false
         type: boolean
         default: true
+      metric:
+        description: >-
+          Metric that drives accept/reject (§9.5 step 2 A/B).
+          'composite' is the historical default (Panobbgo's internal
+          problem battery).  'aocc' switches to the IOH/MA-BBOB anytime
+          metric — the V2 answer to §2.1 "no metric resolution": every
+          evaluation moves AOCC continuously, eliminating the composite
+          Δ=0 dead zone.  Requires the IOH worker on the runner (built
+          on demand below).
+        required: false
+        type: choice
+        options:
+          - composite
+          - aocc
+        default: composite
 
 # Only one nightly run at a time.  Manual workflow_dispatch invocations
 # wait for the scheduled run to finish (or vice versa).
@@ -66,6 +81,22 @@ jobs:
           restore-keys: |
             uv-${{ runner.os }}-python-${{ env.PYTHON }}-
 
+      # The IOH worker venv is only needed when the operator flips the
+      # workflow_dispatch `metric` input to `aocc`.  We still cache /
+      # sync it eagerly here (mirrors tests.yml) so a scheduled run
+      # started with --metric aocc via workflow_dispatch does not need
+      # a fresh manylinux wheel download on every fire — the cp312
+      # wheel is ~8 MiB, so this adds ~2s to a cold cache and is a
+      # no-op on a warm cache.
+      - name: Cache IOH worker venv
+        id: cache-ioh-worker
+        uses: actions/cache@v5
+        with:
+          path: tools/ioh_worker/.venv
+          key: ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('tools/ioh_worker/pyproject.toml', 'tools/ioh_worker/uv.lock') }}
+          restore-keys: |
+            ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-
+
       - name: Install UV
         run: |
           if [ ! -f "$HOME/.cargo/bin/uv" ]; then
@@ -77,6 +108,18 @@ jobs:
         if: steps.cache-uv.outputs.cache-hit != 'true'
         run: uv sync --extra dev
 
+      - name: Sync IOH worker venv
+        # Enables --metric aocc (§9.5 step 2).  Cheap: the cp312
+        # manylinux wheel downloads in seconds; no C++ compile.  Kept
+        # eager (not gated on the workflow_dispatch metric input) so
+        # the ioh_worker .venv is warm the moment an operator flips
+        # metric=aocc — otherwise the first aocc run pays the ~2 s
+        # cold-cache tax under the 90-min cap.
+        if: steps.cache-ioh-worker.outputs.cache-hit != 'true'
+        run: |
+          cd tools/ioh_worker
+          uv sync
+
       - name: Run self-improvement loop
         id: loop
         env:
@@ -87,6 +130,16 @@ jobs:
           # confirmation gate is the default everywhere.  Override with
           # workflow_dispatch confirm_accepts=false for the A/B regime.
           CONFIRM_ACCEPTS: ${{ github.event.inputs.confirm_accepts || 'true' }}
+          # V2 §9.5 step 2 A/B lever.  workflow_dispatch input defaults
+          # to 'composite'; scheduled runs have no input → fall through
+          # to 'composite' too so the historical metric is the default
+          # everywhere.  Flip to 'aocc' via workflow_dispatch to run the
+          # anytime-metric regime for signal-quality comparison against
+          # the same night's composite baseline (kept in-summary by the
+          # ledger regardless of which metric drove accepts).  With
+          # metric=aocc the --mode input selects the IOH battery preset
+          # (quick / standard / full) rather than the composite battery.
+          METRIC: ${{ github.event.inputs.metric || 'composite' }}
         # V2 nightly invocation (planning/SELF_IMPROVEMENT_LOOP.md §9.4 /
         # §9.5 step 5).  Flags previously held back from the V1 cron and
         # promoted here:
@@ -125,10 +178,15 @@ jobs:
         #                                   churn".  Toggleable via the
         #                                   workflow_dispatch confirm_accepts
         #                                   input for A/B; default true.
-        # NOT enabled here (queued, intentional):
-        #   --metric aocc                   needs the IOH worker available
-        #                                   on the runner; current cron
-        #                                   stays on composite_score.
+        #   --metric aocc                   §9.5 step 2 A/B lever — only
+        #                                   appended when workflow_dispatch
+        #                                   metric=aocc.  Default composite
+        #                                   preserves the historical ladder
+        #                                   comparability; aocc runs the
+        #                                   IOH/MA-BBOB anytime metric via
+        #                                   the ioh_worker venv synced
+        #                                   above (§9.1 — closes the last
+        #                                   V2 lever from §9.5).
         run: |
           set -euo pipefail
           CMD=(
@@ -150,6 +208,9 @@ jobs:
           )
           if [ "$CONFIRM_ACCEPTS" = "true" ]; then
             CMD+=(--confirm-accepts)
+          fi
+          if [ "$METRIC" = "aocc" ]; then
+            CMD+=(--metric aocc)
           fi
           "${CMD[@]}"
 
@@ -177,7 +238,15 @@ jobs:
           git add planning/self_improve_ledger.jsonl planning/self_improve_summary.txt
           ITER="${{ github.event.inputs.iterations || '20' }}"
           MODE="${{ github.event.inputs.mode || 'quick' }}"
-          git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE) [skip ci]"
+          METRIC="${{ github.event.inputs.metric || 'composite' }}"
+          # Suppress the metric tag on the historical default so scheduled
+          # runs keep the pre-2026-07-04 commit-message shape and only
+          # aocc-regime dispatch invocations surface the tag.
+          if [ "$METRIC" = "aocc" ]; then
+            git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE, metric=aocc) [skip ci]"
+          else
+            git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE) [skip ci]"
+          fi
           # Retry once on push race: someone landed a commit while we were running.
           for attempt in 1 2 3; do
             if git push origin HEAD:master; then

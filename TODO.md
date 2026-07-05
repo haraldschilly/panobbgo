@@ -2,6 +2,42 @@
 
 ## Recent Improvements (continued)
 
+### Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption — 2026-07-05
+- [x] **`LSHADE` (and subclasses `JSO` / `NLSHADE_RSP` / `NLSHADE_LBC` /
+      `LSHADE_EpSin`) accept `NP_init="auto"`** — budget-adaptive population
+      sizing `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)`,
+      resolved in the base constructor via `_resolve_auto_np_init` so every
+      subclass and downstream path (validation, `on_start`, LPSR,
+      `LSHADE_EpSin` `G_max`) sees a normal `int`.  Falls back to the fixed
+      default `30` when the budget is unknown; the `int` default is unchanged
+      (byte-identical).  A `bool` is now rejected explicitly (it is an `int`
+      subclass and must not size a population).
+- [x] **`default_structural_catalog` DE candidates ship `NP_init="auto"`** —
+      so a structurally-added DE arm is sized for the strategy budget instead
+      of a fixed oversized swarm.  `_find_targets` gained a `rule_kind`
+      argument: numeric mutation rules skip non-numeric values (the `"auto"`
+      sentinel is ignored, never `int("auto")`-crashed) while categorical
+      rules still see strings (`F_schedule` regime flips keep working).
+- [x] **Measured impact** — lone `LSHADE` / `Rosenbrock_2D`, 6 reps: at the
+      quick-mode budget 75 (the nightly loop's operating budget) `NP_init=30`
+      scores **0.036** vs `"auto"` (NP=6) **0.604** — a ~16× win (an
+      oversized swarm otherwise burns the budget on the initial random fill);
+      at budget 200 a 3-seed sweep of `NP_init ∈ {15,17,30}` measured
+      0.42/0.43/0.46 — within noise, no regression.  Respects the §7.3
+      catalog freeze (no new arms).
+- [x] **Rejected (measured negative result)** — a Hooke-Jeeves pattern-move /
+      directional momentum for `Nearby` was implemented and measured across
+      three designs at momentum ∈ {0.5, 1.0} over 5 seeds; every variant was
+      null-to-negative on composite (`Rosenbrock_2D` degraded — straight
+      extrapolation overshoots the curved valley).  Reverted; documented in
+      the 2026-07-05 log entry so it is not re-tried.
+- [x] **Tests** — 8 new `LSHADEAutoNPInitTests` + 6 new tests
+      (`TestNumericRuleSkipsStringSentinel` / `TestStructuralCatalogDEAutoSizing`);
+      all affected suites green (802 passed).
+- [x] **Docs** — `doc/source/heuristics.rst`, `panobbgo/heuristics/lshade.py`
+      (+ 4 subclass docstrings), `AGENTS.md`, `planning/SELF_IMPROVEMENT_LOG.md`
+      (dated entry + Next iteration ideas), this entry.
+
 ### Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up) — 2026-07-01
 - [x] **Extended library surface in `panobbgo/self_improve.py`** —
       `_scan_source_for_structural_edits(source_path, *,

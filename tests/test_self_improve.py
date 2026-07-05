@@ -72,6 +72,7 @@ from panobbgo.self_improve import (
     default_structural_catalog,
     load_ledger,
 )
+from panobbgo.self_improve import _find_targets, _is_numeric_value
 
 
 # ===========================================================================
@@ -11721,3 +11722,94 @@ def _make_quick_strategies():
         assert "no source site needed editing" in out
         # File untouched.
         assert src.read_text() == original_text
+
+
+# ===========================================================================
+# Numeric-rule skip of string sentinels (NP_init="auto")
+# ===========================================================================
+
+
+class TestNumericRuleSkipsStringSentinel:
+    """A numeric mutation rule must not try to perturb a string sentinel.
+
+    ``NP_init="auto"`` (budget-adaptive DE sizing, see
+    :class:`panobbgo.heuristics.lshade.LSHADE`) is a legal kwarg value that a
+    structurally-added DE arm can carry.  The ``LSHADE.NP_init`` ``integer_add``
+    catalog rule must skip it — matching it would crash ``int("auto")`` inside
+    :meth:`MutationRule.apply`.
+    """
+
+    def _spec_with(self, value):
+        return [
+            StrategySpec(
+                name="StratX",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"NP_init": value})],
+            )
+        ]
+
+    def test_is_numeric_value(self):
+        assert _is_numeric_value(30)
+        assert _is_numeric_value(1.5)
+        assert _is_numeric_value(np.int64(4))
+        assert not _is_numeric_value("auto")
+        assert not _is_numeric_value(True)  # bool excluded
+        assert not _is_numeric_value(None)
+
+    def test_integer_rule_skips_auto(self):
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert hits == []
+
+    def test_integer_rule_matches_int(self):
+        specs = self._spec_with(30)
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert len(hits) == 1 and hits[0][3] == 30
+
+    def test_categorical_rule_still_sees_strings(self):
+        # rule_kind=None (or categorical) must NOT skip string values so
+        # e.g. an F_schedule regime flip keeps working.
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init")
+        assert len(hits) == 1 and hits[0][3] == "auto"
+
+    def test_np_init_rule_does_not_crash_on_auto_spec(self):
+        """End-to-end: sampling the catalog against an ``NP_init="auto"`` spec is safe."""
+        rng = np.random.default_rng(0)
+        catalog = default_catalog()
+        specs = [
+            StrategySpec(
+                name="LSHADE_spec",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_LSHADEStub, {"NP_init": "auto"})],
+            )
+        ]
+        # Sampling many times must never raise int("auto"); any proposal
+        # returned for LSHADE.NP_init would only come from a numeric value.
+        for _ in range(50):
+            catalog.sample(rng, specs)
+
+
+class _LSHADEStub:
+    """Class named ``LSHADE`` so the real ``LSHADE.NP_init`` rule targets it."""
+
+
+_LSHADEStub.__name__ = "LSHADE"
+
+
+class TestStructuralCatalogDEAutoSizing:
+    """The structural DE candidates ship ``NP_init="auto"`` (budget-adaptive)."""
+
+    def test_de_candidates_use_auto_np_init(self):
+        catalog = default_structural_catalog()
+        de_names = {"LSHADE", "JSO", "NLSHADE_RSP", "NLSHADE_LBC", "LSHADE_EpSin"}
+        seen = {}
+        for rule in catalog.rules:
+            if not isinstance(rule, StructuralMutationRule):
+                continue
+            for cls, kwargs in rule.candidate_classes:
+                if cls.__name__ in de_names:
+                    seen[cls.__name__] = kwargs.get("NP_init")
+        assert de_names <= set(seen), f"missing DE candidates: {de_names - set(seen)}"
+        for name, np_init in seen.items():
+            assert np_init == "auto", f"{name} should size NP_init automatically, got {np_init!r}"

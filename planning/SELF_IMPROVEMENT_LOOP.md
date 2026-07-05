@@ -402,22 +402,42 @@ concrete source edit + PR:
   encodes).
 - The *source-edit* layer is centralised in
   :func:`derive_codify_edits` /
-  :func:`apply_codify_candidate` (**shipped 2026-06-30**): the
-  ``codify-scan --apply-top`` driver picks the top actionable kwarg
-  candidate and applies the implied edits in-place to every
-  matching ``(ClassName, {param_name: value, ...})`` heuristic /
-  analyzer literal across the four registry factories in
-  ``panobbgo/harness.py``.  A per-site direction guard preserves
-  deliberately-tighter sibling specs (so ``BayesOpt_GP``'s
-  ``Nearby(radius=0.05)`` stays at ``0.05`` even when the consensus
-  group shifts).  A default skip-on-bidirectional safety guard
-  defers contradictory slots to the ``--widen-bounds`` catalog-
-  update path rather than guessing a default-shift direction.
-  ``--apply-dry-run`` previews without writing.  The driver does
-  NOT touch git — the queued ``--open-pr`` driver consumes
-  :func:`apply_codify_candidate` directly for its source-edit
-  phase, then wraps it with a ``gh pr create`` call and a PR body
-  populated from :meth:`CodifyCandidate.to_dict`.
+  :func:`apply_codify_candidate` (**kwarg support shipped
+  2026-06-30**; **structural support shipped 2026-07-01**): the
+  ``codify-scan --apply-top`` driver picks the top actionable
+  candidate (kwarg or structural) and applies the implied edits
+  in-place across every matching site in the four registry
+  factories in ``panobbgo/harness.py``.  A per-site direction
+  guard preserves deliberately-tighter sibling specs (so
+  ``BayesOpt_GP``'s ``Nearby(radius=0.05)`` stays at ``0.05`` even
+  when the consensus group shifts).  A default skip-on-
+  bidirectional safety guard defers contradictory kwarg slots to
+  the ``--widen-bounds`` catalog-update path rather than guessing
+  a default-shift direction.  Structural candidates
+  (``add_/drop_heuristic``, ``add_/drop_analyzer``) route to
+  :func:`_scan_source_for_structural_edits` which handles list-
+  entry insertion / removal in the target ``heuristics`` /
+  ``analyzers`` bucket; the edit scope is narrowed to the specs
+  named in the candidate's :attr:`~CodifyCandidate.strategy_names`
+  and three safety guards apply (single-entry bucket protected
+  from drop, already-present class not re-added, missing class
+  not re-dropped).  ``--apply-dry-run`` previews without writing.
+  The driver does NOT touch git — the queued ``--open-pr`` driver
+  consumes :func:`apply_codify_candidate` directly for its source-
+  edit phase, then wraps it with a ``gh pr create`` call and a PR
+  body populated from :meth:`CodifyCandidate.to_dict`.  The
+  ``--apply-format`` / ``--apply-run-tests`` hygiene flags
+  (**shipped 2026-07-03**) chain the daily routine's last two
+  manual steps into the same command: ``--apply-format`` runs
+  ``uv run ruff format`` on the modified files after the write;
+  ``--apply-run-tests`` runs ``uv run pytest
+  tests/test_self_improve.py`` for a smoke check.  Both flags
+  are inert under ``--apply-dry-run`` and inert when no site
+  needed editing.  Non-zero subprocess rc propagates so a CI
+  wrapper surfaces the failure.  Recommended daily-routine
+  one-liner: ``codify-scan --apply-top --apply-format
+  --apply-run-tests`` — one command replaces the previous
+  three-step manual sequence.
 
 `scripts/self_improve.py codify-scan --widen-bounds` (**shipped
 2026-06-19**) is the sibling detection mode for *bidirectional*

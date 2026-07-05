@@ -145,6 +145,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -887,22 +888,28 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "After printing the candidate report, take the top "
-            "actionable kwarg candidate (skipping already-codified and "
-            "structural candidates) and apply its implied source edits "
-            "to panobbgo/harness.py in place — every (ClassName, "
-            "{param_name: value, ...}) heuristic / analyzer literal "
-            "across the four registry factories (quick / standard / "
-            "full / loop) is updated to the candidate's "
-            "proposed_codify_value.  Sites already at-or-beyond the "
-            "proposal in the candidate's direction are left alone "
-            "(deliberately-tighter sibling specs preserved).  The "
-            "operator runs tests + commits + opens the PR manually — "
-            "this driver does NOT touch git or the working-tree commit "
-            "state.  Combine with --apply-dry-run to preview the edits "
-            "without writing.  See the *codify-scan --apply-top driver* "
-            "entry under planning/SELF_IMPROVEMENT_LOG.md for the "
-            "design and the 2026-06-29 *Follow-up ideas* seed that "
-            "motivates this driver."
+            "actionable candidate and apply its implied source edits "
+            "to panobbgo/harness.py in place.  Kwarg candidates: every "
+            "(ClassName, {param_name: value, ...}) heuristic / analyzer "
+            "literal across the four registry factories (quick / "
+            "standard / full / loop) is updated to the candidate's "
+            "proposed_codify_value; sites already at-or-beyond the "
+            "proposal are left alone (deliberately-tighter sibling "
+            "specs preserved).  Structural candidates (add_/drop_"
+            "heuristic, add_/drop_analyzer — shipped 2026-07-01) "
+            "insert or remove a tuple entry in the target bucket, "
+            "scoped to the specs listed in the candidate's "
+            "strategy_names; drop safety guards preserve buckets with "
+            "one entry and skip specs where the class is already "
+            "absent, add safety guards skip specs where the class is "
+            "already present.  The operator runs tests + commits + "
+            "opens the PR manually — this driver does NOT touch git or "
+            "the working-tree commit state.  Combine with "
+            "--apply-dry-run to preview the edits without writing.  "
+            "See the *codify-scan --apply-top driver* entry under "
+            "planning/SELF_IMPROVEMENT_LOG.md for the design and the "
+            "2026-06-30 *Follow-up ideas* seed that motivates the "
+            "structural extension shipped 2026-07-01."
         ),
     )
     scan_p.add_argument(
@@ -930,9 +937,43 @@ def _build_parser() -> argparse.ArgumentParser:
             "force a default shift on a bidirectional slot."
         ),
     )
+    scan_p.add_argument(
+        "--apply-format",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk, run "
+            "``uv run ruff format`` on the modified files so the "
+            "operator does not have to remember.  Inert with "
+            "--apply-dry-run (nothing to format) and inert when no "
+            "site needed editing.  Non-zero rc from the formatter "
+            "propagates so a CI wrapper surfaces the failure."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-run-tests",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk (and after "
+            "--apply-format if requested), run ``uv run pytest "
+            "tests/test_self_improve.py`` so the operator gets "
+            "immediate feedback that the codify edit did not break "
+            "the codify plumbing.  Inert with --apply-dry-run and "
+            "inert when no site needed editing.  Non-zero rc from "
+            "pytest propagates so a CI wrapper surfaces the failure."
+        ),
+    )
     scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
+
+
+# Overridable subprocess runner so tests can intercept the
+# ``uv run ruff format`` / ``uv run pytest`` invocations without
+# shelling out to the real binaries.  Signature matches
+# :func:`subprocess.run`'s minimal shape (list of args, returns an
+# object with a ``.returncode`` int attribute).
+def _run_subprocess(cmd: Sequence[str]) -> "subprocess.CompletedProcess[Any]":
+    return subprocess.run(list(cmd), check=False)
 
 
 def _parse_seed_list(raw: str) -> tuple:
@@ -1930,6 +1971,8 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
             pr_base=str(getattr(args, "pr_base", "master")),
             pr_gh_bin=str(getattr(args, "pr_gh_bin", "gh")),
             pr_git_bin=str(getattr(args, "pr_git_bin", "git")),
+            run_format=bool(getattr(args, "apply_format", False)),
+            run_tests=bool(getattr(args, "apply_run_tests", False)),
         )
         if rc != 0:
             return rc
@@ -1947,6 +1990,8 @@ def _apply_top_codify_candidate(
     pr_base: str = "master",
     pr_gh_bin: str = "gh",
     pr_git_bin: str = "git",
+    run_format: bool = False,
+    run_tests: bool = False,
 ) -> int:
     """Apply the top actionable kwarg codify candidate to ``panobbgo/harness.py``.
 
@@ -1963,6 +2008,14 @@ def _apply_top_codify_candidate(
     the source line.  At the end, a one-line "Wrote N file(s)" /
     "Would write" summary so the operator can re-run with
     ``--apply-dry-run`` off / on without re-reading the candidate list.
+
+    When ``run_format`` is set and edits were written, follows the write
+    with ``uv run ruff format`` on the modified files.  When
+    ``run_tests`` is set, follows the (optional) format step with
+    ``uv run pytest tests/test_self_improve.py``.  Both flags are
+    inert under ``dry_run`` (nothing to format / test) and inert when
+    no site needed editing.  Non-zero rc from either subprocess is
+    propagated to the caller.
 
     Returns the process exit code: ``0`` on success (including the
     no-op case where no actionable candidate exists or no site needs
@@ -1994,29 +2047,22 @@ def _apply_top_codify_candidate(
             continue
         direction_by_slot.setdefault((cand.class_name, cand.param_name), set()).add(cand.direction)
     bidirectional_slots = {slot for slot, dirs in direction_by_slot.items() if dirs == {"up", "down"}}
-    # Pick the first non-structural, non-bidirectional candidate.  Skips
-    # are reported so the operator knows the driver isn't quietly
-    # ignoring evidence.
+    # Pick the first non-bidirectional candidate.  Structural candidates
+    # are now handled by
+    # :func:`panobbgo.self_improve._scan_source_for_structural_edits`
+    # (shipped 2026-07-01) — add / drop of a heuristic or analyzer
+    # tuple in the target spec's bucket, scoped to the specs in the
+    # candidate's ``strategy_names``.  Bidirectional-slot skip still
+    # applies as before.
     chosen = None
-    skipped_structural = 0
     skipped_bidirectional = 0
     for cand in visible_candidates:
-        if cand.op is not None:
-            skipped_structural += 1
-            continue
         slot = (cand.class_name, cand.param_name)
-        if not include_bidirectional and slot in bidirectional_slots:
+        if cand.op is None and not include_bidirectional and slot in bidirectional_slots:
             skipped_bidirectional += 1
             continue
         chosen = cand
         break
-    if skipped_structural:
-        print(
-            f"  skipped {skipped_structural} structural candidate(s) — "
-            "the apply driver currently handles kwarg edits only.  "
-            "Apply structural candidates manually for now (see V2 §9.5 "
-            "step 4 in planning/SELF_IMPROVEMENT_LOG.md)."
-        )
     if skipped_bidirectional:
         print(
             f"  skipped {skipped_bidirectional} bidirectional candidate(s) "
@@ -2026,36 +2072,93 @@ def _apply_top_codify_candidate(
             "--apply-include-bidirectional to override."
         )
     if chosen is None:
-        if skipped_structural or skipped_bidirectional:
+        if skipped_bidirectional:
             print("  (every visible candidate was skipped — nothing to apply)")
         else:
             print("  (no actionable candidates to apply)")
         return 0
 
-    slot = f"{chosen.class_name}.{chosen.param_name}" if chosen.param_name else chosen.class_name
-    proposed = chosen.proposed_codify_value()
-    print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
-    print(f"  proposed codify value: {proposed!r}")
+    if chosen.op is not None:
+        # Structural candidate — the "slot" is the (class, op) pair; there
+        # is no param_name / proposed_codify_value to print.
+        slot = f"{chosen.class_name} [{chosen.op}]"
+        print(f"  selected: {slot} direction={chosen.direction}")
+        target_spec_names = sorted({n for n in chosen.strategy_names if n})
+        if target_spec_names:
+            print(f"  target spec(s): {', '.join(target_spec_names)}")
+    else:
+        slot = f"{chosen.class_name}.{chosen.param_name}" if chosen.param_name else chosen.class_name
+        proposed = chosen.proposed_codify_value()
+        print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
+        print(f"  proposed codify value: {proposed!r}")
 
     edits, modified_files = apply_codify_candidate(chosen, dry_run=dry_run)
     if not edits:
-        print(
-            "  (no source site needed editing — every matching "
-            "(class, param) literal already sits at-or-beyond the "
-            "proposal in the candidate's direction)"
-        )
+        if chosen.op is not None:
+            print(
+                "  (no source site needed editing — either every target "
+                "spec already reflects the structural op, or the safety "
+                "guards suppressed every match — e.g. dropping the last "
+                "entry in a bucket)"
+            )
+        else:
+            print(
+                "  (no source site needed editing — every matching "
+                "(class, param) literal already sits at-or-beyond the "
+                "proposal in the candidate's direction)"
+            )
         return 0
     print(f"  derived {len(edits)} edit(s):")
     for edit in edits:
-        print(
-            f"    {edit.source_path}:{edit.lineno} "
-            f"{edit.factory_name}/{edit.spec_name}: "
-            f"{edit.class_name}.{edit.param_name} = "
-            f"{edit.old_source} -> {edit.new_source}"
-        )
+        if edit.rule_kind == "structural":
+            # Structural edits don't have a ``old_value → new_value``
+            # story — they add / remove a whole tuple entry.  Print a
+            # compact "op class in factory/spec" line instead.
+            action_word = "drop" if edit.direction.startswith("drop_") else "add"
+            print(
+                f"    {edit.source_path}:{edit.lineno} "
+                f"{edit.factory_name}/{edit.spec_name}: "
+                f"{action_word} {edit.class_name}"
+            )
+        else:
+            print(
+                f"    {edit.source_path}:{edit.lineno} "
+                f"{edit.factory_name}/{edit.spec_name}: "
+                f"{edit.class_name}.{edit.param_name} = "
+                f"{edit.old_source} -> {edit.new_source}"
+            )
     action = "Would write" if dry_run else "Wrote"
     print(f"  {action} {len(modified_files)} file(s): {', '.join(sorted(modified_files))}")
-    if not dry_run:
+    if dry_run:
+        # --apply-format / --apply-run-tests are inert under dry-run: no
+        # edits landed, so nothing to format or test.  Report the skip so
+        # the operator knows the flags were parsed but no-oped.
+        if run_format or run_tests:
+            skipped = []
+            if run_format:
+                skipped.append("--apply-format")
+            if run_tests:
+                skipped.append("--apply-run-tests")
+            print(f"  (inert under --apply-dry-run: {', '.join(skipped)} skipped)")
+        return 0
+
+    files = sorted(modified_files)
+    if run_format:
+        cmd = ["uv", "run", "ruff", "format", *files]
+        print(f"  Formatting: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  ruff format failed (rc={result.returncode})")
+            return int(result.returncode)
+    if run_tests:
+        cmd = ["uv", "run", "pytest", "tests/test_self_improve.py"]
+        print(f"  Running tests: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  pytest failed (rc={result.returncode})")
+            return int(result.returncode)
+        print("  Next: commit and open a draft PR with the codify evidence in the body.")
+    else:
         print(
             "  Next: run the test suite (uv run pytest), then commit and "
             "open a draft PR with the codify evidence in the body."

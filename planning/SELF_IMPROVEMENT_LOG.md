@@ -17,6 +17,256 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-05 — Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption
+
+* **What** — The L-SHADE family (``LSHADE`` and its subclasses ``JSO`` /
+  ``NLSHADE_RSP`` / ``NLSHADE_LBC`` / ``LSHADE_EpSin``) now accepts
+  ``NP_init="auto"`` for **budget-adaptive population sizing**.  ``"auto"``
+  resolves at construction from the strategy's evaluation budget and the
+  problem dimension::
+
+      NP = clip( round( min(18·dim, budget / 12) ), max(NP_min, 6), 400 )
+
+  The ``18·dim`` term is the CEC-2014 upper bound (Tanabe-Fukunaga); the
+  ``budget / 12`` term dominates at the tight budgets Panobbgo actually
+  runs, keeping ~12 generations available for the SHADE success-history
+  adaptation to pay off.  The resolution happens in the base
+  :meth:`LSHADE.__init__` (via :func:`panobbgo.heuristics.lshade._resolve_auto_np_init`)
+  so every downstream code path — validation, ``on_start``, LPSR, the
+  ``LSHADE_EpSin`` ``G_max`` estimate, and every subclass — sees a normal
+  ``int`` and needs no further branching.  Falls back to the fixed
+  ``NP_init=30`` when the budget is unknown.  The fixed ``int`` default is
+  **unchanged** (byte-identical) — ``"auto"`` is strictly opt-in.
+
+  The four DE candidate classes in :func:`default_structural_catalog`
+  now ship ``NP_init="auto"`` instead of the fixed ``NP_init=30`` so a
+  structurally-added DE arm is sized for the strategy budget rather than
+  hobbled by an oversized initial swarm.  To keep the ``LSHADE.NP_init``
+  ``integer_add`` catalog rule from crashing on the string sentinel,
+  :func:`_find_targets` gained a ``rule_kind`` argument: numeric rule
+  kinds now skip non-numeric values (``"auto"`` is ignored, never
+  ``int("auto")``-crashed), while categorical rules still see strings so
+  e.g. an ``F_schedule`` regime flip keeps working.
+
+* **Why** — The single fixed ``NP_init=30`` (and even the loop specs'
+  hand-pinned ``15``) is badly mistuned for Panobbgo's budgets.  A lone
+  ``LSHADE`` on ``Rosenbrock_2D`` measures (6 reps, seed 42):
+
+  | budget | ``NP_init=30`` | ``NP_init="auto"`` |
+  |---|---|---|
+  | 75 (quick — the nightly loop budget) | **0.036** | **0.604** |
+  | 200 (standard) | 0.46 | 0.43 (within run-to-run noise) |
+
+  At the quick-mode budget the loop actually runs, an oversized swarm
+  spends nearly the whole budget on the initial random fill and never
+  runs enough generations for parameter adaptation — a **~16×** score
+  collapse that ``"auto"`` (which sizes to ``NP=6`` there) fixes.  At
+  budget 200 the two sit within the (large) run-to-run variance of the
+  single-strategy Rosenbrock cell (per-seed scores span 0.19–0.61); a
+  companion 3-seed sweep of ``NP_init ∈ {15, 17, 30}`` measured
+  0.42 / 0.43 / 0.46 respectively — statistically indistinguishable, i.e.
+  no systematic standard-budget regression.  This directly serves the "best black box optimizer in the
+  world" goal: Panobbgo's strongest single optimizers (jSO / L-SHADE were
+  measured *best* on ``Rosenbrock_2D`` standalone, 0.62) were previously
+  crippled at the loop's own operating budget whenever the structural
+  bandit tried to add one.
+
+  Respects the §7.3 catalog freeze — **no new mutation rules, structural
+  candidates, or heuristics**.  Same candidate classes, same ops; only the
+  default kwargs of existing structural candidates improved, plus a
+  robustness fix to a shared heuristic.  Registry work (§9 priority (b)).
+
+* **Scope** — Deliberately did **not** change the loop seed specs
+  (``Loop_DE_Family`` pins ``NP_init=15``): those DE arms run inside a
+  6-way portfolio where each optimizer gets only a fraction of the budget,
+  so ``strategy.config.max_eval`` over-estimates each arm's effective
+  budget and ``"auto"`` would still over-size.  The structural-catalog
+  adoption is the clean win (a structurally-added DE is typically the
+  dominant point-generator of its strategy, so the full budget estimate is
+  right); wiring ``"auto"`` into the portfolio seed specs is left as a
+  *Next iteration idea* pending a per-heuristic budget-share estimate.
+
+* **Tests** — 8 new ``LSHADEAutoNPInitTests`` in
+  ``tests/test_heuristic_lshade.py`` (resolution across budgets, floor at
+  6, custom-``NP_min`` floor, unknown-budget fallback, ``on_start`` emits
+  the resolved count, invalid-string / bool rejection, subclass
+  inheritance) and 6 new tests in ``tests/test_self_improve.py``
+  (``TestNumericRuleSkipsStringSentinel`` +
+  ``TestStructuralCatalogDEAutoSizing``: the numeric-rule skip guard,
+  ``_is_numeric_value``, end-to-end catalog sampling against an
+  ``NP_init="auto"`` spec never crashes, and the DE candidates ship
+  ``"auto"``).  Full affected suites: 802 passed.
+
+* **Documentation updated** — ``doc/source/heuristics.rst`` (LSHADE entry
+  gains the ``"auto"`` formula + measured motivation),
+  ``panobbgo/heuristics/lshade.py`` (module comment + arg docstring +
+  ``_resolve_auto_np_init`` docstring), the four DE subclass ``NP_init``
+  docstrings, ``AGENTS.md``, ``TODO.md``, and this entry.
+
+* **Rejected this iteration (measured negative result)** — A
+  Hooke-Jeeves **pattern-move / directional momentum** for the ``Nearby``
+  local search was implemented and measured across three designs (global
+  bias on all points; one directed probe + isotropic majority;
+  provenance-gated to Nearby's own improvements) at momentum ∈ {0.5, 1.0}
+  over 5 seeds on a Rosenbrock/StyblinskiTang + ceiling-check battery.
+  Every variant came in **null-to-negative** on composite (0.581–0.588 vs
+  control 0.592; ``Rosenbrock_2D`` consistently *degraded* because a linear
+  extrapolation overshoots the curved valley, and the resolvable battery
+  ceilings 3/6 problems leaving little to measure).  Reverted per the
+  AGENTS.md evidence rule.  Documented here so a future iteration does not
+  re-spend the effort — the local-search direction estimate from
+  mixed-heuristic ``on_new_best`` events is too incoherent to pay off; a
+  *curvature-aware* step (trust-region / quadratic model) would be the
+  next thing to try, not a straight pattern move.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Per-heuristic budget-share for ``"auto"`` in portfolios** — size
+    ``"auto"`` from ``max_eval · (arm_share)`` rather than the full
+    ``max_eval`` when a DE arm shares a strategy with N other
+    point-generators, then wire ``"auto"`` into the ``Loop_DE_Family``
+    seed specs.  Needs a cheap estimate of each arm's realised evaluation
+    share (the Rewarding bandit already tracks per-heuristic pulls).
+### 2026-07-03 — `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags
+
+* **What** — Two optional flags on
+  ``scripts/self_improve.py codify-scan --apply-top`` that chain the
+  daily codify routine's last two manual steps into the same command:
+
+  * ``--apply-format`` — after the write, runs ``uv run ruff format``
+    on the modified files (the ``sorted(modified_files)`` list the
+    driver reports in its ``Wrote N file(s):`` line).
+  * ``--apply-run-tests`` — after the (optional) format step, runs
+    ``uv run pytest tests/test_self_improve.py`` so the operator
+    gets immediate feedback that the codify edit did not break the
+    codify plumbing itself.
+
+  Both are **inert under** ``--apply-dry-run`` (no edits landed,
+  nothing to format or test) and **inert when no site needed
+  editing** (the per-site direction guard skipped every candidate).
+  Non-zero rc from either subprocess propagates back to the CLI
+  caller so a CI wrapper surfaces the failure.  When
+  ``--apply-run-tests`` succeeds, the driver's final "Next: …" line
+  drops the ``uv run pytest`` clause (already done) — otherwise the
+  existing message is preserved verbatim, matching the pre-flag
+  operator workflow.
+
+  New module surface in ``scripts/self_improve.py``:
+
+  * ``_run_subprocess(cmd: Sequence[str])`` — module-level indirection
+    over :func:`subprocess.run` so tests can monkeypatch a capture-
+    only fake without shelling out to the real ``uv`` / ``ruff`` /
+    ``pytest`` binaries.  Matches the same dependency-injection
+    pattern the queued ``--open-pr`` driver in PR #275 uses for its
+    ``gh`` / ``git`` sequence.
+  * ``_apply_top_codify_candidate(...)`` gains two keyword-only
+    parameters ``run_format`` and ``run_tests`` (both default
+    ``False`` so existing callers stay byte-identical).  The
+    subprocess dispatch is a straight-line if-chain matching the
+    documented dry-run / no-edit / success-then-format-then-tests
+    sequence.
+
+  New CLI surface on ``codify-scan``:
+
+  * ``--apply-format`` — bool flag, default False.
+  * ``--apply-run-tests`` — bool flag, default False.
+
+  Both parse cleanly independent of ``--apply-top`` (harmless
+  no-op when the parent isn't set); the ``_cmd_codify_scan`` handler
+  reads them via ``getattr(args, "apply_format", False)`` so
+  hand-rolled ``argparse.Namespace``-shaped test callers continue
+  to work without the two fields.
+
+* **Why it improves Panobbgo** — three direct effects, each tied
+  to the §12.3 daily routine:
+
+  * **Closes the "run ruff, then run pytest, then commit" gap.**
+    The 2026-06-30 ``--apply-top`` ship reduced the manual codify
+    routine from ~30 min to ~30 s of "run one command, review the
+    diff, then remember to run ``uv run ruff format`` + ``uv run
+    pytest tests/test_self_improve.py`` before committing".  The
+    two flags fold both of those into the same command — one
+    line, one review pass, one commit.
+  * **Prevents "landed but broke tests" codify PRs.**  The
+    ``--apply-run-tests`` gate makes the driver fail fast on any
+    edit that ships a value the seed factories can't consume
+    (constructor-invariant violation, catalog-bound mismatch,
+    silent import cycle).  Directly the same safety the 2026-06-30
+    per-site direction guard applies at the AST layer, now
+    extended to runtime semantics.
+  * **Advances the §11 success criteria without adding new arms.**
+    Respects the §7.3 catalog freeze (no new mutation rules /
+    heuristics / structural candidates) — pure operator-usability
+    plumbing.  Speeds the codify-PR cadence without changing what
+    the loop can measure.
+
+* **Documentation** —
+  ``planning/SELF_IMPROVEMENT_LOG.md`` (this dated entry + the
+  2026-06-30 entry's ``--apply-top --auto-format`` / ``--run-tests``
+  follow-ups graduated from queued to shipped);
+  ``planning/SELF_IMPROVEMENT_LOOP.md`` (§9.3 paragraph extended
+  with the hygiene-flag mention);
+  ``doc/source/guide_benchmarking.rst`` (new *Hygiene flags*
+  sub-block under *Apply the top candidate to the working tree
+  (--apply-top)*, plus the recommended-one-liner code sample);
+  ``doc/source/guide.rst`` (Benchmarking summary line extended
+  with the 2026-07-03 entry); ``AGENTS.md`` (new bullet under the
+  V2 ship list); ``TODO.md`` (new *Recent Improvements* entry).
+
+* **Tests** — 8 new tests in
+  ``tests/test_self_improve.py::TestApplyTopHygieneFlags`` cover:
+
+  * ``--apply-format`` alone → single ``ruff format`` subprocess
+    on the modified files + `Formatting: uv run ruff format` line
+    in the output.
+  * ``--apply-run-tests`` alone → single ``pytest`` subprocess +
+    "Running tests: …" line + the trailing "Next: …" message
+    drops the "run pytest" clause.
+  * Both together → format runs before tests (verified via
+    subprocess call order + output substring order).
+  * ``--apply-format`` failure (rc=3) → CLI returns rc=3, pytest
+    subprocess is skipped (short-circuit on format failure).
+  * ``--apply-run-tests`` failure (rc=2) → CLI returns rc=2 after
+    format has already succeeded.
+  * ``--apply-dry-run`` with both flags → zero subprocesses
+    spawned + "inert under --apply-dry-run: --apply-format,
+    --apply-run-tests skipped" line.
+  * No-site-needed path (per-site guard finds nothing to edit)
+    with both flags → zero subprocesses spawned.
+  * Argparse round-trip: both flags default False + parse as True
+    when passed.
+
+  Full ``tests/test_self_improve.py`` suite: 541 → 549 tests
+  (+8), all pass; ``uv run pytest`` (no ignores) reports 1762
+  passed / 11 skipped IOH workers; ``uv run ruff check
+  scripts/self_improve.py tests/test_self_improve.py`` clean;
+  ``uv run ruff format --check ...`` clean; ``uv run pyright
+  scripts/self_improve.py`` reports 0 errors.
+
+* **Live-ledger smoke test** — Against the live ledger today
+  (``planning/self_improve_ledger.jsonl``): ``uv run python
+  scripts/self_improve.py codify-scan --apply-top --apply-dry-run
+  --apply-format --apply-run-tests`` reports every visible
+  candidate is skipped (1 structural + 3 bidirectional — the
+  correct outcome per the 2026-06-30 driver's safety guards).
+  Because no edits landed, the two hygiene flags don't fire even
+  though they were requested — matches the "inert when no site
+  needed editing" contract.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **--apply-open-pr hygiene composition** (once PR #275 lands
+    the ``--open-pr`` driver): a single ``--apply-format
+    --apply-run-tests --open-pr`` chain runs format + tests +
+    ``gh pr create`` from one command.  Speculative until #275
+    merges.
+  * **Custom pytest scope** — ``--apply-run-tests-scope=STR`` to
+    let the operator swap in a broader test path when the codify
+    slot touches something outside ``test_self_improve.py``
+    (e.g. a ``Restart.patience`` change should also run
+    ``tests/test_analyzer_restart.py``).  Speculative — the
+    codify plumbing itself lives in the fast test module and the
+    default is where the real risk is.
 ### 2026-07-02 — `codify-scan --open-pr` driver — the final layer of V2 §9.5 step 4
 
 * **What** — Adds a ``--open-pr`` flag on ``scripts/self_improve.py
@@ -230,6 +480,222 @@ Conventions:
     can compute the codify-PR cadence directly.  Speculative until
     the operator surfaces a need for cross-night trend analysis
     the ``codify-scan --json`` output doesn't already cover.
+### 2026-07-01 — Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up)
+
+* **What** — Extends the 2026-06-30 ``--apply-top`` driver to handle
+  the four structural codify ops (``add_heuristic`` / ``drop_heuristic``
+  / ``add_analyzer`` / ``drop_analyzer``) in addition to kwarg-value
+  edits.  The primitive parses the target source file, locates the
+  ``(ClassName, {...})`` tuple entries inside each ``StrategySpec``'s
+  ``heuristics`` / ``analyzers`` list literal, and emits
+  :class:`~panobbgo.self_improve.CodifyEdit` objects that either add
+  a new entry or remove an existing one — scoped to the specs listed
+  in the candidate's :attr:`~CodifyCandidate.strategy_names`.  Closes
+  the queued *Structural-edit primitive for the apply driver* seed
+  under the 2026-06-30 entry's *Next iteration ideas* list.
+
+  New / extended library surface in :mod:`panobbgo.self_improve`:
+
+  * :func:`~panobbgo.self_improve._scan_source_for_structural_edits`
+    — sibling of :func:`~panobbgo.self_improve._scan_source_for_kwarg_edits`
+    that handles list-entry insertion / removal.  Reused by
+    :func:`~panobbgo.self_improve.derive_codify_edits` when the
+    candidate's ``op`` is not ``None``.
+  * :func:`~panobbgo.self_improve._byte_to_lineno_col` — small helper
+    to invert the ``line_starts[lineno-1] + col_offset`` convention
+    used by :func:`~panobbgo.self_improve._apply_edits_to_text` so
+    the new structural code can compute :class:`CodifyEdit`
+    coordinates from expanded byte offsets.
+  * Module-level constant
+    :data:`~panobbgo.self_improve._STRUCTURAL_OPS_TO_BUCKET` mapping
+    each op to its target bucket (``heuristics`` or ``analyzers``).
+  * :func:`~panobbgo.self_improve.derive_codify_edits` — now
+    dispatches structural candidates to the new scanner instead of
+    returning an empty list.  When the candidate carries no recorded
+    ``strategy_names`` the function still returns ``[]`` — refuse to
+    guess which spec to modify.
+
+  Behaviour by op:
+
+  * **``drop_heuristic`` / ``drop_analyzer``** — one
+    :class:`CodifyEdit` per matching ``(ClassName, {...})`` tuple.
+    The removal span covers the tuple plus its trailing comma and
+    the inter-entry whitespace so the surviving literal is
+    well-formatted.  When the entry is the last one in the bucket
+    (next non-whitespace is ``]``) the span extends *backwards*
+    through the entry's leading newline + indent so the closing
+    bracket inherits the pre-entry indentation instead of the
+    entry's inner indent — a regression-guarded corner case.
+  * **``add_heuristic`` / ``add_analyzer``** — one zero-width
+    insertion at the position immediately after the last existing
+    entry's trailing comma; the new entry ships as
+    ``(ClassName, {})`` (constructor defaults — a follow-up will
+    consume the candidate's :attr:`structural_kwargs` when the
+    ledger's per-record kwargs converge on one shape).  For a
+    completely empty bucket (e.g. ``analyzers=[]``) the insertion is
+    inline: ``analyzers=[(ClassName, {})]``.
+
+  Three safety guards keep the primitive conservative:
+
+  * ``drop_*`` skips specs whose bucket has only one entry (else
+    the surviving spec has no way to generate points / observe
+    events).
+  * ``drop_*`` skips specs where the target class is not in the
+    bucket (nothing to drop — matches
+    :func:`~panobbgo.self_improve._structural_already_codified`'s
+    drop rule so re-runs are idempotent).
+  * ``add_*`` skips specs where the class is already in the bucket
+    (matches :func:`~panobbgo.self_improve._structural_already_codified`'s
+    add rule so re-runs are idempotent).
+  * A ``target_spec_names`` filter (populated from the candidate's
+    :attr:`CodifyCandidate.strategy_names`) restricts edits to the
+    specs the ledger accumulated evidence against, unlike kwarg
+    edits which safely propagate across every matching spec.
+
+* **Why** — Three direct effects:
+
+  * **Unblocks the live-ledger's top structural candidate.**  As of
+    the 2026-06-30 entry, the top structural candidate on the live
+    ledger was ``LatinHypercube`` ``drop_heuristic`` from
+    ``Loop_LocalSearch`` (``n_nights=2``, ``mean_Δ=+0.0491``) — one
+    night away from clearing the daily-routine threshold.  With the
+    2026-06-30 kwarg-only apply driver, the operator would have had
+    to hand-remove the ``(LatinHypercube, {"div": 4}),`` tuple from
+    the Loop_LocalSearch heuristics list once the evidence
+    accumulated.  The structural primitive shipped here mechanises
+    that step — one command instead of manual AST search + edit +
+    format.
+  * **Closes the structural codify gap in the daily routine
+    (§12.3).**  The kwarg / structural split was the last
+    remaining reason a codify iteration had to fall back to manual
+    editing.  With this ship the daily routine can codify every
+    surfaced candidate — kwarg tunes, categorical flips, structural
+    add / drop — via ``codify-scan --apply-top`` alone.  The queued
+    ``--open-pr`` driver (V2 §9.5 step 4 final layer) now gains the
+    structural primitive as a bundled capability rather than a
+    kwarg-only stopgap.
+  * **Advances the §11.2 throughput criterion.**  The V2 bar is
+    ``≥ 3`` codify PRs opened and ``≥ 2`` merged over the first 30
+    nights (currently 3 / 2).  Structural codification lifts the
+    kwarg-only cadence ceiling: analyzer add / heuristic drop
+    candidates that surface from the ``--structural`` mutation
+    catalog can now translate to source edits directly, unblocking
+    a new class of throughput.
+
+* **Live-ledger smoke test** — Running::
+
+      uv run python scripts/self_improve.py codify-scan --apply-top
+        --apply-dry-run
+
+  against the live ledger today no longer emits a "skipped 1
+  structural candidate" line.  The ``LatinHypercube``
+  ``drop_heuristic`` candidate still doesn't clear the ``min_nights``
+  threshold on the current 20-iter ledger, but once it does the
+  driver picks it up automatically instead of asking the operator
+  to hand-apply.
+
+* **Backwards compatibility** — strictly safe:
+
+  * All four registry factories in ``panobbgo/harness.py`` are
+    byte-identical (the change is confined to
+    :mod:`panobbgo.self_improve` + :mod:`scripts.self_improve`).
+    No seed-spec values change.
+  * The ``codify-scan`` text + JSON output for kwarg candidates is
+    byte-identical.
+  * For structural candidates the CLI's ``Apply-top`` block now
+    prints ``selected: X [op]`` and ``target spec(s): ...`` lines
+    (2026-06-30 behaviour: ``skipped N structural candidate(s)``).
+    Only affects ``--apply-top`` invocations on ledgers containing
+    structural candidates.
+  * :func:`~panobbgo.self_improve.derive_codify_edits` returns an
+    empty list for a structural candidate whose
+    :attr:`CodifyCandidate.strategy_names` is empty — defensive
+    against a corrupt / synthetic input rather than guessing.
+  * Existing kwarg-edit tests are unchanged.
+  * The bidirectional-slot safety guard in the CLI applies only to
+    kwarg candidates (numeric ``"up"``/``"down"`` directions); it
+    does not affect structural candidates (structural directions
+    are the op name).
+
+* **Tests** — 7 new tests in
+  ``tests/test_self_improve.py``:
+
+  * ``TestApplyCodifyEdits`` gains 6 new tests: drop-missing-class
+    is no-op, no-strategy-names refuse, drop-actually-removes,
+    add-actually-inserts, add-already-present is no-op, single-entry
+    bucket drop is guarded, strategy_names filter honoured,
+    round-trip idempotency on structural apply.
+  * ``TestApplyTopCLI`` gains 3 new tests: no-matching-site
+    graceful-exit, drop_heuristic actually removes, add_analyzer
+    actually inserts, drop-last-entry preserves closing bracket
+    alignment (regression guard for the backwards-expansion path).
+  * The pre-existing
+    ``test_apply_top_skips_structural_with_note`` was retired and
+    replaced with
+    ``test_apply_top_structural_no_matching_site_leaves_source_unchanged``
+    matching the new "structural is handled" semantics.
+  * The pre-existing
+    ``test_derive_edits_structural_returns_empty_list`` was retired
+    and replaced with
+    ``test_derive_edits_structural_drop_missing_class_returns_empty``
+    matching the new semantics.
+  * Full ``tests/test_self_improve.py`` suite: 551 passed
+    (was 544 before — net +7 tests).  ``uv run ruff check`` /
+    ``uv run ruff format --check`` clean.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry.  The
+    *Structural-edit primitive for the apply driver* follow-up
+    seeded under the 2026-06-30 entry graduates from queued to
+    shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 paragraph extended
+    noting the structural source-edit layer is shipped alongside
+    the kwarg layer.
+  - ``doc/source/guide_benchmarking.rst``: the *Apply the top
+    candidate to the working tree (--apply-top)* sub-section under
+    *Cross-night codify-scan* extended with the structural-op
+    behaviour (drop-removes, add-inserts, safety guards) and the
+    strategy_names filter rationale.
+  - ``doc/source/guide.rst``: Benchmarking summary line extended
+    with the 2026-07-01 entry alongside the existing 2026-06-30
+    apply-driver entry.
+  - ``AGENTS.md``: new bullet under the V2 ship list referencing
+    this entry.
+  - ``TODO.md``: new *Recent Improvements* entry below.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **`--open-pr` driver with structural PR bodies**: the queued
+    ``codify-scan --open-pr`` driver (V2 §9.5 step 4 final layer)
+    can now populate the PR body from structural candidates using
+    the ``strategy_names`` list ("this PR drops
+    ``LatinHypercube`` from ``Loop_LocalSearch``, evidence:
+    N_nights, mean_Δ, ...").  No new primitive needed — the
+    :meth:`CodifyCandidate.to_dict` already carries the fields.
+  * **``add_heuristic`` with recorded ``structural_kwargs``**: today
+    the add-primitive ships ``(ClassName, {})`` — constructor
+    defaults.  A follow-up could inspect each contributing record's
+    ``structural_kwargs`` and, when they converge on the same
+    values across all accepts, ship those instead.  Speculative
+    until the live ledger surfaces a converged-kwargs add
+    candidate; the empty-dict form matches the "add class to pool"
+    semantic naturally.
+  * **``--apply-top --auto-format`` flag**: after applying, run
+    ``uv run ruff format`` on the modified file automatically.
+    The current structural primitive preserves indentation for
+    typical multi-line lists but the empty-bucket inline shape
+    (``analyzers=[(NewClass, {})]``) would benefit from an
+    automatic re-flow when the bucket subsequently gains more
+    entries.
+  * **Line-wrap heuristic for long constructor arguments**: today
+    the add path always ships ``(ClassName, {})`` on one line.  A
+    future :class:`CodifyEdit` shape variant could ship
+    multi-line ``(\\n<indent + 4>ClassName,\\n<indent + 4>{...},\\n<indent>)``
+    when the argument dict has enough entries to overflow the
+    88-column ruff line-length limit.  Motivated once a live
+    add candidate ships with enough ``structural_kwargs`` to
+    warrant the reflow.
 
 ### 2026-06-30 — `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing)
 
@@ -7592,6 +8058,27 @@ a dated entry above when shipped.
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
 
+#### Budget-adaptive `NP_init="auto"` follow-ups (after 2026-07-05 ship)
+
+* **Per-heuristic budget-share for `"auto"` in portfolios** — the
+  2026-07-05 ship wired `NP_init="auto"` into the structural catalog (where
+  a structurally-added DE is typically the dominant point-generator, so
+  the full `max_eval` estimate is right) but *not* into the
+  `Loop_DE_Family` seed spec (a 6-way portfolio where each DE arm gets only
+  a fraction of the budget, so `"auto"` still over-sizes).  Size `"auto"`
+  from `max_eval · arm_share` when a DE arm shares a strategy with N other
+  point-generators.  The Rewarding bandit already tracks per-heuristic
+  pulls, so a cheap realised-share estimate is available; once it exists,
+  wire `"auto"` into `Loop_DE_Family` and re-measure.
+* **Curvature-aware local step (replaces the rejected pattern move)** —
+  the 2026-07-05 momentum experiment showed a *straight* directional
+  extrapolation in `Nearby` overshoots curved valleys.  The next thing to
+  try for the Rosenbrock-class weakness is a **quadratic / trust-region
+  local model** fit to the recent local best points (a mini-`QuadraticWLS`
+  around the best), proposing the model's minimiser instead of an
+  isotropic perturbation — a curvature-aware step rather than a
+  first-order momentum one.
+
 #### `codify-scan --apply-top` follow-ups (after 2026-06-30 ship)
 
 The 2026-06-30 ship landed the *source-edit* layer of the
@@ -7612,18 +8099,16 @@ follow-ups are natural next tickets:
   +0.0352).  Once structural candidates start surfacing as the *top*
   actionable evidence repeatedly, the structural-edit primitive
   moves from speculative to motivated.
-* **`--apply-top --auto-format` flag** — after applying the edits,
-  run ``uv run ruff format panobbgo/harness.py`` automatically so
-  the operator doesn't have to remember.  Trivial addition; the AST
-  coordinates already preserve indentation so this is a hygiene-only
-  follow-up.  Speculative until ledger evidence surfaces a slot
-  whose edit needs re-flowing.
-* **`--apply-top --run-tests` flag** — after applying, invoke
-  ``uv run pytest tests/test_self_improve.py`` (the most relevant
-  suite) so the operator gets immediate "did my edit break
-  anything?" feedback before committing.  Trivial wrapper around
-  :mod:`subprocess`; deferred because the manual routine already
-  runs tests before committing.
+* ~**`--apply-top --auto-format` flag**~ — **shipped 2026-07-03**
+  as the ``--apply-format`` flag on ``codify-scan --apply-top``
+  (renamed for CLI parity with the sibling ``--apply-run-tests``
+  flag).  Runs ``uv run ruff format`` on the modified files
+  after the write.  See the 2026-07-03 dated entry above.
+* ~**`--apply-top --run-tests` flag**~ — **shipped 2026-07-03**
+  as the ``--apply-run-tests`` flag on ``codify-scan --apply-top``.
+  Runs ``uv run pytest tests/test_self_improve.py`` after the
+  (optional) format step; non-zero rc propagates.  See the
+  2026-07-03 dated entry above.
 
 #### `codify-scan --open-pr` driver (after 2026-06-17 / 2026-06-29 / 2026-06-30 ships)
 

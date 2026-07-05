@@ -1369,13 +1369,17 @@ the dated entry’s “Follow-up ideas” section for the queued
 <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> work.</p>
 <section id="apply-the-top-candidate-to-the-working-tree-apply-top">
 <h4>Apply the top candidate to the working tree (<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>)<a class="headerlink" href="#apply-the-top-candidate-to-the-working-tree-apply-top" title="Link to this heading">¶</a></h4>
-<p>Shipped 2026-06-30.  The detection half of <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> produces
-a ranked list of candidates plus the
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> for each kwarg slot.
-The <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> driver mechanises the <em>next</em> manual step the
+<p>Kwarg support shipped 2026-06-30; structural support shipped
+2026-07-01.  The detection half of <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> produces a ranked
+list of candidates plus the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> for each kwarg slot
+(or the <code class="docutils literal notranslate"><span class="pre">add_/drop_</span></code> op name for structural candidates).  The
+<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> driver mechanises the <em>next</em> manual step the
 2026-05-31 / 2026-06-26 / 2026-06-28 codify PRs all followed: find
 every sibling <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> factory that ships the kwarg
-explicitly, edit each literal to the proposed value, and re-format.</p>
+explicitly (or has the class in the relevant bucket), edit each
+literal to the proposed value (or insert / remove the tuple entry),
+and re-format.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Preview the edits the top actionable candidate would apply:</span>
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span><span class="se">\</span>
 </span><span data-line="3"><span class="w">    </span>--apply-top<span class="w"> </span>--apply-dry-run
@@ -1384,44 +1388,71 @@ explicitly, edit each literal to the proposed value, and re-format.</p>
 </span><span data-line="6">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span>--apply-top
 </span></pre></div>
 </div>
-<p>The driver picks the <em>first</em> visible candidate that:</p>
-<ol class="arabic simple">
-<li><p>is <strong>not</strong> structural (<code class="docutils literal notranslate"><span class="pre">op</span> <span class="pre">is</span> <span class="pre">None</span></code>) — structural ops
-(<code class="docutils literal notranslate"><span class="pre">add_/drop_heuristic</span></code> / <code class="docutils literal notranslate"><span class="pre">add_/drop_analyzer</span></code>) require
-list-entry insertion or removal, which is out of scope for the
-kwarg-edit driver and stays manual until the queued
-<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver ships;</p></li>
-<li><p>is <strong>not</strong> bidirectional — i.e. the same <code class="docutils literal notranslate"><span class="pre">(class_name,</span> <span class="pre">param_name)</span></code>
-slot doesn’t also appear with the opposite direction in the full
+<p>The driver picks the <em>first</em> visible candidate that is not
+bidirectional — i.e. the same <code class="docutils literal notranslate"><span class="pre">(class_name,</span> <span class="pre">param_name)</span></code> slot
+doesn’t also appear with the opposite direction in the full
 candidate list (including already-codified ones, so a freshly-
 codified “up” direction whose “down” sibling is still active
 doesn’t trigger a re-shift).  The recommended action for
 bidirectional slots is a <em>catalog bound update</em> via
 <code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code> — applying either direction’s default shift
 would guess against contradictory ledger evidence.  Override the
-skip with <code class="docutils literal notranslate"><span class="pre">--apply-include-bidirectional</span></code> when the operator has
-a specific reason to force the shift.</p></li>
-</ol>
-<p>For each kwarg edit the driver walks every <code class="docutils literal notranslate"><span class="pre">(ClassName,</span> <span class="pre">{param_name:</span>
-<span class="pre">value,</span> <span class="pre">...})</span></code> heuristic / analyzer literal across the four registry
-factories in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code> (<code class="docutils literal notranslate"><span class="pre">_make_quick_strategies</span></code> /
-<code class="docutils literal notranslate"><span class="pre">_make_standard_strategies</span></code> / <code class="docutils literal notranslate"><span class="pre">_make_full_strategies</span></code> /
-<code class="docutils literal notranslate"><span class="pre">_make_loop_strategies</span></code> — broader than the suppression scan’s
-quick+loop scope, so the apply propagates to every sibling spec the
-manual 2026-06-28 codify covered).  A <strong>per-site direction guard</strong>
-keeps the driver from touching sites that already sit at-or-beyond
-the proposal in the candidate’s direction — so <code class="docutils literal notranslate"><span class="pre">BayesOpt_GP</span></code>’s
-<code class="docutils literal notranslate"><span class="pre">Nearby(radius=0.05)</span></code> is preserved when the proposal is
-<code class="docutils literal notranslate"><span class="pre">radius=0.08</span></code>, the same way the manual codify routine deliberately
-left smaller-radius specs alone.</p>
-<p>The driver is <strong>idempotent</strong>: a second <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> pass against
-the now-codified source derives an empty edit list because every
-matching site already satisfies the per-site direction guard.  This
-matches the self-stability invariant of
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> — applying the codified
-value as a live seed value satisfies
+skip with <code class="docutils literal notranslate"><span class="pre">--apply-include-bidirectional</span></code> when the operator has a
+specific reason to force the shift.  The bidirectional guard applies
+only to kwarg candidates (numeric <code class="docutils literal notranslate"><span class="pre">&quot;up&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;down&quot;</span></code> directions);
+structural candidates use the op name as the direction and never
+collide with the bidirectional heuristic.</p>
+<p><strong>Kwarg candidates.</strong>  The driver walks every <code class="docutils literal notranslate"><span class="pre">(ClassName,</span>
+<span class="pre">{param_name:</span> <span class="pre">value,</span> <span class="pre">...})</span></code> heuristic / analyzer literal across the
+four registry factories in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>
+(<code class="docutils literal notranslate"><span class="pre">_make_quick_strategies</span></code> / <code class="docutils literal notranslate"><span class="pre">_make_standard_strategies</span></code> /
+<code class="docutils literal notranslate"><span class="pre">_make_full_strategies</span></code> / <code class="docutils literal notranslate"><span class="pre">_make_loop_strategies</span></code> — broader than
+the suppression scan’s quick+loop scope, so the apply propagates to
+every sibling spec the manual 2026-06-28 codify covered).  A
+<strong>per-site direction guard</strong> keeps the driver from touching sites
+that already sit at-or-beyond the proposal in the candidate’s
+direction — so <code class="docutils literal notranslate"><span class="pre">BayesOpt_GP</span></code>’s <code class="docutils literal notranslate"><span class="pre">Nearby(radius=0.05)</span></code> is
+preserved when the proposal is <code class="docutils literal notranslate"><span class="pre">radius=0.08</span></code>, the same way the
+manual codify routine deliberately left smaller-radius specs alone.</p>
+<p><strong>Structural candidates.</strong>  The driver dispatches to a sibling
+primitive (<code class="xref py py-func docutils literal notranslate"><span class="pre">_scan_source_for_structural_edits()</span></code>) that either
+inserts a new <code class="docutils literal notranslate"><span class="pre">(ClassName,</span> <span class="pre">{})</span></code> tuple in the target
+<code class="docutils literal notranslate"><span class="pre">heuristics</span></code> / <code class="docutils literal notranslate"><span class="pre">analyzers</span></code> list literal (<code class="docutils literal notranslate"><span class="pre">add_heuristic</span></code> /
+<code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code>) or removes an existing one (<code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> /
+<code class="docutils literal notranslate"><span class="pre">drop_analyzer</span></code>).  Unlike kwarg edits — which safely propagate
+across every matching spec — structural edits are <em>scoped to the
+specs the ledger accumulated evidence against</em> via the candidate’s
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">CodifyCandidate.strategy_names</span></code> set.  Three safety guards
+apply:</p>
+<ul class="simple">
+<li><p><strong>Single-entry bucket protected from drop.</strong>  A spec whose
+<code class="docutils literal notranslate"><span class="pre">heuristics</span></code> bucket has only one entry cannot have that entry
+dropped without leaving the spec unable to generate points; the
+primitive skips such candidates.</p></li>
+<li><p><strong>Already-present class not re-added.</strong>  Matches
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_structural_already_codified()</span></code> so re-runs are idempotent.</p></li>
+<li><p><strong>Missing class not re-dropped.</strong>  Same shape.</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">add_*</span></code> primitive currently ships <code class="docutils literal notranslate"><span class="pre">(ClassName,</span> <span class="pre">{})</span></code> (empty
+kwargs → constructor defaults) rather than the per-record
+<code class="docutils literal notranslate"><span class="pre">structural_kwargs</span></code>; the operator can subsequently tune via the
+kwarg mutation catalog.  When dropping the last entry of a
+multi-line bucket the removal span extends <em>backwards</em> through the
+entry’s leading newline + indent so the closing <code class="docutils literal notranslate"><span class="pre">]</span></code> inherits the
+pre-entry indentation.  When the target bucket is empty
+(<code class="docutils literal notranslate"><span class="pre">analyzers=[]</span></code>) the <code class="docutils literal notranslate"><span class="pre">add_*</span></code> primitive inserts inline
+(<code class="docutils literal notranslate"><span class="pre">analyzers=[(ClassName,</span> <span class="pre">{})]</span></code>).</p>
+<p>The driver is <strong>idempotent</strong> for both kwarg and structural
+candidates: a second <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> pass against the now-codified
+source derives an empty edit list because every matching site
+already satisfies the per-site direction guard (kwarg) or the
+present / absent membership check (structural).  This matches the
+self-stability invariant of
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">CodifyCandidate.proposed_codify_value()</span></code> for kwargs — applying
+the codified value as a live seed value satisfies
 <code class="xref py py-func docutils literal notranslate"><span class="pre">_candidate_already_codified()</span></code> on the next scan, so the
-candidate is suppressed at the scan layer too.</p>
+candidate is suppressed at the scan layer too — and
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_structural_already_codified()</span></code> for structural ops.</p>
 <p>Library API: <code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.self_improve.CodifyEdit</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.derive_codify_edits()</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.apply_codify_edits()</span></code>,
@@ -1434,11 +1465,12 @@ codify-scan output (rule / evidence / pooled CI / per-record old →
 new) in the body.  The PR template is the existing manual codify
 shape; see the 2026-06-28 entry in
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the canonical example.</p>
-<p>See the 2026-06-30 entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
-the design rationale and the queued follow-up: a <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> driver
-that consumes <code class="xref py py-class docutils literal notranslate"><span class="pre">CodifyEdit</span></code> for the source-edit phase, then
-opens a draft PR with the ledger evidence pre-populated in the body
-(V2 §9.5 step 4 plumbing — <code class="xref py py-func docutils literal notranslate"><span class="pre">derive_codify_edits()</span></code> is the
+<p>See the 2026-06-30 entry (kwarg support) and the 2026-07-01 entry
+(structural support) in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
+the design rationale and the queued follow-up: a <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code>
+driver that consumes <code class="xref py py-class docutils literal notranslate"><span class="pre">CodifyEdit</span></code> for the source-edit phase,
+then opens a draft PR with the ledger evidence pre-populated in the
+body (V2 §9.5 step 4 plumbing — <code class="xref py py-func docutils literal notranslate"><span class="pre">derive_codify_edits()</span></code> is the
 primitive that driver also calls).</p>
 </section>
 <section id="bidirectional-bound-widening-widen-bounds">

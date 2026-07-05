@@ -512,6 +512,18 @@ Until step 2 lands, the V1 metric stays on the composite score.
    pick `--registry loop` so the dormant catalog actually fires.
 2. Nightly to `--metric aocc` (or battery re-base), after one manual
    `workflow_dispatch` A/B comparing signal quality.
+   *2026-07-04 update:* the ``workflow_dispatch`` A/B mechanism
+   itself shipped (``.github/workflows/self_improve_nightly.yml``
+   gains a ``metric: choice[composite, aocc]`` input plus the
+   ioh_worker venv sync step so the runner has the IOH C++ backend
+   available).  Default remains ``composite`` (scheduled runs stay
+   byte-identical to the pre-2026-07-04 cron so ladder comparability
+   is preserved); manual dispatch with ``metric=aocc`` runs the
+   IOH/MA-BBOB anytime regime end-to-end.  What's still queued is
+   the manual A/B itself: one or two dispatch nights on ``aocc``
+   next to a matched ``composite`` night to compare signal quality
+   before flipping the scheduled default.  See the 2026-07-04
+   dated entry in ``SELF_IMPROVEMENT_LOG.md``.
 3. ~`--confirm-accepts` (§6.4)~ + ~graded bandit reward (§7.4)~ + ~no-op
    detection (§12.4)~ — **no-op detection shipped 2026-06-12**;
    **graded bandit reward shipped 2026-06-13**; **same-night
@@ -526,17 +538,25 @@ Until step 2 lands, the V1 metric stays on the composite score.
    shipped 2026-07-02 — closes the last open piece of step 4.*
 5. Flip the workflow to §9.4 — **partially shipped 2026-06-21**
    (see ``SELF_IMPROVEMENT_LOG.md`` entry); ``--confirm-accepts``
-   flipped on 2026-06-27 (see that dated entry).  All V2 flags
-   except ``--metric aocc`` are now in the nightly cron:
+   flipped on 2026-06-27 (see that dated entry); the
+   ``--metric aocc`` A/B mechanism shipped 2026-07-04.  All V2
+   flags are now wired into the nightly cron:
    ``--registry loop``, ``--prime-include-archives``,
    ``--structural-per-class-arms``, ``--bandit-reward graded``,
    ``--inactivity-relax-after 10``, ``--holdout-base-seeds 7,1234``,
-   ``--guard-interval 10``, ``--confirm-accepts``.  The
+   ``--guard-interval 10``, ``--confirm-accepts``, and
+   ``--metric aocc`` (opt-in via ``workflow_dispatch``).  The
    ``confirm_accepts`` toggle is exposed as a ``workflow_dispatch``
    boolean input (default ``true``) so the operator can opt back
-   into the screen-only regime for explicit A/B nights.  The only
-   remaining queued lever is ``--metric aocc`` (step 2, needs the
-   IOH worker on the runner).  Enforce the catalog freeze (§7.3).
+   into the screen-only regime for explicit A/B nights; the
+   ``metric`` toggle is a matching ``choice[composite, aocc]`` input
+   (default ``composite``) so scheduled runs stay byte-identical to
+   the pre-2026-07-04 cron while operators can flip to ``aocc`` for
+   the anytime-metric regime.  Once the manual A/B nights show the
+   aocc metric produces meaningfully more resolution (<10% Δ=0
+   iterations; median seed score in 0.3–0.6 per §11.1), flipping
+   the ``metric`` default from ``composite`` to ``aocc`` is a
+   one-line workflow edit.  Enforce the catalog freeze (§7.3).
 
 ## 10. Open questions / known constraints
 

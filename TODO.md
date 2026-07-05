@@ -38,6 +38,61 @@
       (+ 4 subclass docstrings), `AGENTS.md`, `planning/SELF_IMPROVEMENT_LOG.md`
       (dated entry + Next iteration ideas), this entry.
 
+### `--metric aocc` workflow_dispatch A/B mechanism in the nightly cron (V2 §9.5 step 2) — 2026-07-04
+- [x] **Workflow surface** — new
+      `workflow_dispatch.inputs.metric: choice[composite, aocc]`
+      input (default `composite`) on
+      `.github/workflows/self_improve_nightly.yml`, sitting next to
+      the existing `iterations` / `mode` / `confirm_accepts` inputs.
+      Scheduled runs default to `composite` (fall-through pattern
+      mirrors `confirm_accepts`), so pre-2026-07-04 cron behaviour
+      is byte-identical for the daily trend-table `seed_score`
+      column that would otherwise become apples-to-oranges across
+      the transition night.
+- [x] **IOH worker sync step** — new `Cache IOH worker venv` +
+      `Sync IOH worker venv` steps mirroring `tests.yml`.  Key
+      derived from `tools/ioh_worker/pyproject.toml` +
+      `tools/ioh_worker/uv.lock`; the cp312 manylinux `ioh` wheel
+      (~8 MiB) survives normal lockfile refreshes via restore-keys
+      degradation.  Kept **eager** (not conditional on
+      `METRIC == aocc`) so an operator who flips the dropdown gets
+      a warm venv immediately — the ~2 s cold-cache tax is
+      amortised across every scheduled run instead of surfacing as
+      a spike on the first aocc dispatch.
+- [x] **CMD-array append** — two-way conditional at the end of the
+      loop invocation (mirrors the `CONFIRM_ACCEPTS` shape shipped
+      2026-06-27): `if [ "$METRIC" = "aocc" ]; then CMD+=(--metric
+      aocc); fi`.  Nothing else in the CMD array changes; every
+      other V2 flag (`--registry loop`, `--adaptive`,
+      `--prime-include-archives`, `--structural-per-class-arms`,
+      `--bandit-reward graded`, `--inactivity-relax-after 10`,
+      `--holdout-base-seeds 7,1234`, `--guard-interval 10`) composes
+      cleanly with either metric.
+- [x] **Commit-message tag** — aocc-regime dispatch runs get
+      `mode=$MODE, metric=aocc` in the commit subject so an auditor
+      grepping `git log` can identify A/B nights; the composite
+      default preserves the pre-2026-07-04 commit-message shape so
+      scheduled runs read identically to the trailing 30 days of
+      history.
+- [x] **Local smoke test** — `uv run python
+      scripts/self_improve.py run --iterations 1 --mode quick
+      --metric aocc --base-seed 42 --ledger /tmp/aocc_smoke.jsonl`
+      after `cd tools/ioh_worker && uv sync`.  The IOH worker
+      spawned successfully, the AOCC harness ran end-to-end against
+      the quick IOH battery, and the loop produced a single reject
+      iteration (`Rewarding_Restart / Sobol.n: 32 → 36`) with a
+      non-zero Δ (`+0.0033`) where the same slot has historically
+      produced Δ = 0 exactly on the composite path — smoke-test
+      only, not a signal-quality claim, but confirms the wiring is
+      intact.
+- [x] **Documentation** — `planning/SELF_IMPROVEMENT_LOG.md` new
+      2026-07-04 dated entry; `planning/SELF_IMPROVEMENT_LOOP.md`
+      §9.5 step 2 progress note plus the summary in §9.5 step 5
+      updated to reflect that all V2 flags are now wired in the
+      cron; `doc/source/guide.rst` benchmarking summary line
+      extended with the new entry; `AGENTS.md` new bullet under
+      the V2 ship list + expanded AOCC section with the
+      `workflow_dispatch` usage note; this TODO entry.
 ### `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags — 2026-07-03
 - [x] **Two new CLI flags on `scripts/self_improve.py codify-scan`** —
       `--apply-format` (after write, run `uv run ruff format` on the

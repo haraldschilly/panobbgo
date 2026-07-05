@@ -127,6 +127,127 @@ Conventions:
     point-generators, then wire ``"auto"`` into the ``Loop_DE_Family``
     seed specs.  Needs a cheap estimate of each arm's realised evaluation
     share (the Rewarding bandit already tracks per-heuristic pulls).
+### 2026-07-04 — `--metric aocc` workflow_dispatch A/B mechanism in the nightly cron (V2 §9.5 step 2)
+
+* **What** — Adds a ``metric: choice[composite, aocc]``
+  ``workflow_dispatch`` input to
+  ``.github/workflows/self_improve_nightly.yml`` plus the matching
+  ioh_worker venv sync / cache steps so the GitHub-hosted runner has
+  the IOH C++ backend available at loop start.  Scheduled runs
+  continue on ``composite`` (byte-identical to the pre-2026-07-04
+  cron so ledger comparability is preserved); manual dispatch with
+  ``metric=aocc`` invokes the loop with ``--metric aocc``, routing
+  the accept/reject decision through :meth:`SelfImprover._measure_aocc`
+  (:mod:`panobbgo.self_improve`) which delegates to
+  :func:`panobbgo.harness_ioh.run_ioh_harness` against the mode-mapped
+  IOH battery (quick / standard / full) and converts the per-instance
+  AOCC values into a :class:`~panobbgo.harness.HarnessResult` the rest
+  of the loop (statistical_accept, ledger writer, guard, hold-out)
+  consumes unchanged.
+
+  Workflow surface changes (single file):
+
+  * New ``inputs.metric`` under ``workflow_dispatch`` with
+    ``options: [composite, aocc]`` and ``default: composite``.  Preserves
+    the pre-existing ``inputs.iterations`` / ``inputs.mode`` /
+    ``inputs.confirm_accepts`` shape — the operator opt-in is a single
+    dropdown next to the ``mode`` dropdown they already use.
+  * New "Cache IOH worker venv" step (id ``cache-ioh-worker``) mirroring
+    the tests.yml equivalent — key derived from
+    ``tools/ioh_worker/pyproject.toml`` + ``tools/ioh_worker/uv.lock``,
+    restore-keys degrade gracefully on lockfile bumps so the cp312
+    manylinux wheel (~8 MiB) survives normal lockfile refreshes.
+  * New "Sync IOH worker venv" step gated on the cache miss.  Kept
+    **eager** (not conditional on ``METRIC == aocc``) so an operator
+    who flips the dropdown gets a warm venv immediately — the ~2 s
+    cold-cache tax is amortised across every scheduled run instead of
+    surfacing as a spike on the first aocc dispatch.
+  * New ``METRIC`` env variable derived from the input default; two-way
+    conditional append at the end of the ``CMD`` array (mirroring the
+    ``CONFIRM_ACCEPTS`` shape shipped 2026-06-27):
+    ``if [ "$METRIC" = "aocc" ]; then CMD+=(--metric aocc); fi``.
+  * Commit-message tag: aocc-regime dispatch runs get
+    ``mode=$MODE, metric=aocc`` in the commit subject so an auditor
+    grepping ``git log`` can identify A/B nights; the composite
+    default preserves the historical commit-message shape.
+
+* **Why this closes the last V2 lever** — Direct effect on the V2
+  §11 success criteria:
+
+  * **Unblocks §9.5 step 2** — the last remaining implementation-order
+    task before "Enforce the catalog freeze" is the operational bar
+    for any new work.  Every other V2 flag is already in the cron
+    (see §9.5 step 5 dated notes 2026-06-21 / 2026-06-27).  The
+    mechanism ships today; the manual A/B nights that gate the
+    *default* flip (from ``composite`` to ``aocc``) are the operator's
+    next lever — one line of workflow edit once the aocc regime has
+    demonstrated meaningfully-more resolution than composite.
+  * **Directly addresses §2.1 "no metric resolution where the loop
+    operates"** — the root-cause diagnosis every other V2 symptom
+    is downstream of.  AOCC is anytime and continuous — every
+    evaluation moves the metric, eliminating the composite Δ=0 dead
+    zone (34% of V1 mutations measured Δ = exactly 0.0000).  Local
+    smoke-test evidence: a one-iteration ``--metric aocc`` run
+    against the quick IOH battery on ``Rewarding_Restart / Sobol.n``
+    produced ``Δ = +0.0033``, ``CI = [+0.0033, +0.0033]`` where the
+    same slot has historically produced Δ = 0 exactly on the
+    composite path.  The A/B nights will quantify the resolution
+    delta across the full 20-iteration sweep.
+  * **Preserves the§7.3 catalog freeze policy** — pure operational
+    plumbing, no new mutation rules / heuristics / structural
+    candidates.  Directly aligns with the freeze's *"weekly agent
+    priority order: (a) merge/close open codify PRs, (b) metric &
+    registry work (§9), (c) only then new rules"* — this ship is
+    the **(b)** work, unblocking the freeze exit criterion.
+
+* **Why the default stays composite** — Three practical reasons:
+
+  1. **Ladder comparability across the pre/post transition night.**
+     If the scheduled run silently switched metric the very next
+     night, the summary trend block's ``seed_score`` column becomes
+     apples-to-oranges (composite in ``0.02-0.08``; AOCC in
+     ``0.5-0.9``) — an auditor scrolling the trend would see a
+     phantom 10× improvement.  The manual A/B nights let the
+     operator explicitly compare and codify the flip in a dated
+     entry when the evidence supports it.
+  2. **§9.5 step 2 explicitly calls for a manual A/B** — the loop
+     doc's language is precise: "after one manual
+     ``workflow_dispatch`` A/B comparing signal quality".  The ship
+     provides the A/B *mechanism*; the A/B itself is the operator's
+     job.
+  3. **Iteration-cost hedge remains reversible.**  A scheduled aocc
+     run costs one ioh_worker subprocess spawn per iteration (~50-100
+     ms overhead) plus the per-instance AOCC computation.  On a
+     20-iteration quick-mode night the aggregate overhead is bounded
+     but not zero; the composite default lets the operator revert
+     with zero risk if the aocc regime surfaces any unexpected
+     failure mode (worker crash, IOH battery timeout, etc.) that
+     wasn't caught in local smoke tests.
+
+* **Live-test evidence** — Ran
+  ``uv run python scripts/self_improve.py run --iterations 1
+  --mode quick --metric aocc --base-seed 42 --ledger /tmp/aocc_smoke.jsonl``
+  locally (after ``cd tools/ioh_worker && uv sync``).  The IOH
+  worker spawned successfully, the AOCC harness ran end-to-end
+  against the quick IOH battery, and the loop produced a single
+  reject iteration (``Rewarding_Restart / Sobol.n: 32 → 36``) with a
+  non-zero Δ (``+0.0033``) — smoke-test only; not a signal-quality
+  claim, but confirms the wiring is intact.
+
+* **Follow-ups seeded** (see the "Next iteration ideas" section below):
+
+  * *A/B night: dispatch ``metric=aocc`` beside next scheduled
+    composite night* — the immediate next step for the daily
+    routine.  Compare no-op-rate, accept-rate, and median-Δ CI
+    width across the two regimes; when aocc's <10% Δ=0 rate is
+    demonstrated, flip the scheduled default in a follow-up
+    single-line workflow edit.
+  * *Composite battery re-base as the fallback* — the §2.1 fallback
+    if the aocc A/B evidence surfaces reasons to prefer composite
+    (worker instability, per-iteration cost, etc.): larger budgets,
+    easier family mix, or relaxed tolerance until the composite
+    median score sits in 0.3–0.6.  Not primary path; retained as an
+    escape hatch.
 ### 2026-07-03 — `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags
 
 * **What** — Two optional flags on

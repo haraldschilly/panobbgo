@@ -885,6 +885,28 @@ The harness is the measurement substrate for an autonomous
     (no new arms — better default kwargs for existing candidates + a
     heuristic robustness fix).  See the 2026-07-05 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **2026-07-04 — `--metric aocc` workflow_dispatch A/B mechanism
+    in the nightly cron** — closes V2 §9.5 step 2 (the last
+    remaining implementation-order lever).  Adds
+    `workflow_dispatch.inputs.metric: choice[composite, aocc]`
+    (default `composite`) to `self_improve_nightly.yml` plus the
+    ioh_worker venv `Cache` + `Sync` steps (mirrors `tests.yml`) so
+    the runner has the IOH C++ backend available.  Scheduled runs
+    stay byte-identical to the pre-2026-07-04 cron (default
+    `composite` preserves ladder comparability); manual dispatch
+    with `metric=aocc` runs the loop through
+    `SelfImprover._measure_aocc` against the mode-mapped IOH battery
+    (quick/standard/full) via the isolated ioh_worker subprocess.
+    Directly addresses §2.1 "no metric resolution where the loop
+    operates" — AOCC is anytime and continuous, eliminating the
+    composite Δ=0 dead zone that dominates ~34% of V1 mutations.
+    Local smoke test on one iteration produced a non-zero Δ =
+    +0.0033 where the composite path would have measured Δ = 0
+    exactly.  The manual A/B nights are the next daily-routine
+    step; once aocc shows meaningfully-more resolution (<10% Δ=0,
+    seed score in 0.3–0.6 per §11.1), flipping the scheduled
+    default is a one-line workflow edit.  See the 2026-07-04 entry
+    in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 
@@ -1191,6 +1213,23 @@ the IOH/MA-BBOB anytime metric instead of `composite_score`.  Under
 # Five iterations of mutation search against the MA-BBOB anytime metric
 uv run python scripts/self_improve.py run --iterations 5 --metric aocc
 ```
+
+The nightly cron accepts the same regime via a `workflow_dispatch`
+`metric` input (shipped 2026-07-04, V2 §9.5 step 2):
+
+```
+Actions → Nightly Self-Improvement Loop → Run workflow →
+  metric = aocc
+```
+
+Scheduled runs default to `composite` (byte-identical to the
+pre-2026-07-04 cron so the trend-table `seed_score` column stays
+comparable across the transition); manual dispatch with
+`metric=aocc` runs the loop through the isolated ioh_worker
+subprocess against the mode-mapped IOH battery.  See the
+2026-07-04 entry in `planning/SELF_IMPROVEMENT_LOG.md` for the
+V2 §2.1 "no metric resolution" rationale and the local
+smoke-test evidence.
 
 ## CI/CD and Testing
 

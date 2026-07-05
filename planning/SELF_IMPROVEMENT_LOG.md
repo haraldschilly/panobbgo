@@ -267,6 +267,219 @@ Conventions:
     ``tests/test_analyzer_restart.py``).  Speculative — the
     codify plumbing itself lives in the fast test module and the
     default is where the real risk is.
+### 2026-07-02 — `codify-scan --open-pr` driver — the final layer of V2 §9.5 step 4
+
+* **What** — Adds a ``--open-pr`` flag on ``scripts/self_improve.py
+  codify-scan`` that, after applying the top actionable kwarg
+  candidate (implies ``--apply-top``), creates a git branch, commits
+  the codify diff, pushes it, and opens a draft PR via ``gh pr
+  create``.  Closes the last open piece of V2 §9.5 step 4 (the
+  detection → value derivation → source edit → **PR** pipeline the
+  three prior 2026-06-17 / 2026-06-29 / 2026-06-30 entries stood up).
+
+  New library surface in ``panobbgo/self_improve.py`` — every helper
+  is a pure function so the test suite exercises the shape without
+  shelling out:
+
+  * :func:`~panobbgo.self_improve.codify_pr_marker(candidate)` —
+    machine-readable dedup marker.  Format:
+    ``codify-slot: <slot_key_string>`` where ``slot_key_string``
+    renders ``(class_name, param_name, op)`` as ``Class.param`` for
+    kwarg candidates or ``Class::structural::op`` for structural
+    candidates.  The direction is intentionally excluded so a
+    same-slot opposite-direction signal is treated as "an existing
+    PR already covers this slot, supersede it in review" rather than
+    "open a duplicate" — matches the §12.3 step 0 lesson and the
+    docstring on :attr:`CodifyCandidate.slot_key`.
+  * :func:`~panobbgo.self_improve.codify_pr_title(candidate)` —
+    one-line PR title.  Format:
+    ``codify(<Class>.<param>): shift default <old_repr> -> <new_repr>
+    (<direction>, ledger evidence)`` for kwarg candidates;
+    ``codify(<Class>): <op_name> (ledger evidence)`` for structural
+    candidates.
+  * :func:`~panobbgo.self_improve.codify_pr_branch_name(candidate, *,
+    prefix)` — stable branch name.  Format:
+    ``<prefix>-<class_snake>-<param_snake>-<direction>``, non-ASCII
+    collapsed to ``_``.  Default prefix ``claude/codify`` keys on the
+    watcher-infrastructure ``claude/`` namespace.
+  * :func:`~panobbgo.self_improve.codify_pr_body(candidate, edits, *,
+    marker, base_branch)` — draft PR body in Markdown with four
+    sections: **Codify slot** (marker + direction + rule kind +
+    proposed value + live seed values), **Ledger evidence** (per-
+    record table with date / strategy / Δ / CI / old→new /
+    confirmed?), **Proposed source edit** (per-``CodifyEdit`` bullet
+    list citing ``source_path:lineno``), **Test plan** (``uv run
+    pytest`` + ``benchmark_harness.py compare --statistical``
+    checklist).  Marker embedded in an HTML comment at the top so the
+    dedup layer picks it up without polluting the human-readable
+    rendering.
+  * :func:`~panobbgo.self_improve.find_open_pr_for_slot(candidate,
+    open_prs)` — dedup helper.  Consumes the parsed JSON output of
+    ``gh pr list --state open --json number,title,body,headRefName``,
+    returns the first PR whose title or body contains the candidate's
+    marker (``None`` when no match).  Defensive against missing keys
+    in the JSON payload — a partial gh response doesn't raise.
+
+  New CLI surface on ``scripts/self_improve.py codify-scan``:
+
+  * ``--open-pr`` — the driver flag.  Implies ``--apply-top`` when
+    not set explicitly (opening a PR without an apply would produce
+    an empty commit).  Composes with ``--apply-dry-run`` — a dry-run
+    invocation prints the ``gh`` / ``git`` command sequence the
+    driver *would* run without invoking any subprocess.  Skipped
+    (with a note) when :func:`find_open_pr_for_slot` finds a
+    matching open PR.
+  * ``--pr-branch-prefix`` (default ``claude/codify``),
+    ``--pr-base`` (default ``master``), ``--pr-gh-bin`` (default
+    ``gh``), ``--pr-git-bin`` (default ``git``) — knobs the operator
+    can tweak per-invocation without editing source.
+
+  New CLI driver ``_open_pr_for_candidate`` in
+  ``scripts/self_improve.py``:
+
+  * Presence-checks ``gh`` and ``git`` via
+    :func:`shutil.which` before touching subprocess; missing binary
+    yields a clean rc=4 with an actionable diagnostic instead of a
+    :class:`FileNotFoundError` deep in the git call.
+  * Runs the dedup ``gh pr list`` step; parses the JSON output; skips
+    (rc=0 with a ``PR #N already covers this slot`` note) on match.
+  * Sequences ``git checkout -b`` → ``git add <edited files>`` →
+    ``git commit -m <title>`` → ``git push -u origin <branch>`` →
+    ``gh pr create --draft --base <base_branch> --head <branch>
+    --title <title> --body-file <tmpfile>``.  Any step's non-zero
+    return code aborts the sequence and propagates the rc so the
+    workflow logs surface the failing step.
+  * Accepts a ``runner`` dependency-injection hook (defaults to
+    :func:`subprocess.run` with ``capture_output=True``,
+    ``text=True``, ``check=False``) so the test suite intercepts
+    every subprocess call without touching the real ``gh`` / ``git``
+    binaries.  Same shape as the ``sources`` DI in
+    :func:`derive_codify_edits` from the 2026-06-30 ship.
+
+* **Why** — Two direct effects, each tied to a V2 §11 success
+  criterion:
+
+  * **Automates the last manual step in the codify pipeline.**  The
+    prior four codify PRs (``Sobol.scramble=False`` 2026-05-31;
+    ``Nearby.radius`` catalog tightening 2026-06-26;
+    ``Nearby.radius`` seed shift 2026-06-28;
+    :meth:`CodifyCandidate.proposed_codify_value` plumbing
+    2026-06-29) each required the operator to hand-run ``gh pr
+    list`` for dedup, hand-craft the branch name, hand-copy the
+    ledger evidence into a Markdown body, and hand-invoke
+    ``gh pr create``.  The 2026-06-30 ``--apply-top`` driver
+    mechanised the source-edit step but stopped at the working-tree
+    diff — the operator still had to commit + push + open the PR.
+    The ``--open-pr`` driver closes that gap so the daily-routine
+    codify step drops from ~30 minutes of manual GitHub work to one
+    command that runs unattended in the nightly cron.
+  * **Advances the §11.2 throughput criterion.**  Three codify PRs
+    have shipped so far (§11.2 bar: ≥ 3 opened, ≥ 2 merged over 30
+    nights — currently 3 / 2).  With the ``--open-pr`` driver, the
+    marginal cost of opening the *fourth* codify PR drops to
+    zero — the nightly cron can invoke ``codify-scan --open-pr`` as
+    its final step and the driver's dedup guard makes the invocation
+    idempotent (a re-run against the same ledger evidence surfaces
+    ``PR #N already covers this slot`` and exits ``0``).  The
+    cadence ceiling lifts to "whenever the live ledger surfaces a
+    non-bidirectional kwarg candidate that isn't already codified".
+
+* **Why the runner DI hook** — The nightly workflow runs on a
+  GitHub-hosted runner with ``gh`` pre-installed and authenticated
+  via ``GH_TOKEN``, but the CI job that runs ``pytest`` on every PR
+  does not — and neither does an operator's local dev machine when
+  they run the tests interactively.  Sub-processing to ``gh`` from
+  inside a test would either need the binary + auth (fragile in CI)
+  or a mock at the ``subprocess`` module level (leaky, and
+  monkeypatching ``subprocess.run`` globally affects unrelated code
+  in the same test file).  The ``runner`` argument is the clean
+  answer: production code passes :func:`subprocess.run`, tests pass
+  a :class:`_StubRunner` that records the exact command list and
+  returns queued stubs.  Every code path — happy path, dedup match,
+  missing binary, dedup rc≠0, git step rc≠0 — is exercised without
+  ever invoking a real subprocess.
+
+* **Why the marker in an HTML comment** — GitHub renders the PR body
+  as Markdown, which strips ``<!-- ... -->`` from the visible
+  rendering but keeps it in the raw body served by ``gh pr list
+  --json body``.  The marker therefore stays greppable by the dedup
+  layer *and* invisible to a human reviewer.  Alternative shapes
+  considered:
+
+  * Marker in the title — pollutes the PR list rendering (``gh pr
+    list`` shows the title on every line) with a machine-readable
+    identifier the reviewer doesn't need.  Rejected.
+  * Marker as a distinct GitHub label — needs label management on
+    the repo (which the operator's non-admin PATs can't do) and
+    doesn't survive PR-body-only ``gh pr view --json`` responses.
+    Rejected.
+  * Marker in a hidden Markdown link ``[](#codify-slot-Class.param)``
+    — GitHub renders empty-text links as invisible in the diff view,
+    but the raw source still shows the marker.  Same effect as the
+    HTML comment with worse operator ergonomics.  Rejected.
+  * Marker in an HTML comment — ships (this entry).
+
+* **Live-ledger smoke test** — Running
+  ``uv run python scripts/self_improve.py codify-scan --open-pr
+  --apply-dry-run`` against the live ledger today reports the same
+  candidate-list the 2026-06-30 ``--apply-top`` smoke test surfaced
+  (four visible candidates, all skipped) plus an ``Open-PR:`` block
+  showing the git / gh command sequence that *would* run for the
+  top actionable candidate (currently ``LatinHypercube``
+  ``drop_heuristic`` from ``Loop_LocalSearch`` — surfaced as a
+  structural skip note by ``--apply-top`` before the PR block even
+  fires).  Once a non-bidirectional kwarg candidate clears the
+  gates on a future nightly run, the driver will open a real draft
+  PR without further operator intervention.
+
+* **Test coverage** — 19 new tests in ``tests/test_self_improve.py``
+  (``TestCodifyPrPrimitives`` + ``TestOpenPRCLIDriver``):
+
+  * Pure-function primitives: marker is slot-scoped +
+    direction-agnostic; structural encoding contains
+    ``::structural::``; branch name slug obeys git ref rules for
+    the identifiers Panobbgo ships; title / body / evidence table
+    round-trip; dedup helper handles missing JSON keys defensively.
+  * Driver flow: dry-run prints commands and skips the runner
+    entirely; dedup match short-circuits to rc=0 with a clean note;
+    happy path emits the full ``gh pr list`` → ``git checkout -b``
+    → ``git add`` → ``git commit`` → ``git push`` → ``gh pr create``
+    sequence in order; missing gh binary yields rc=4; dedup step rc
+    propagates; git step rc aborts the sequence at the failing step.
+  * CLI integration: ``--open-pr`` alone implies ``--apply-top``
+    (else the resulting PR would carry an empty commit).
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Structural-op ``--open-pr`` support** — today the driver
+    inherits the ``--apply-top`` skip for structural candidates
+    (``op is not None``).  Once :func:`derive_codify_edits` grows
+    an structural-edit path (the 2026-06-30 follow-up seed:
+    inserting / removing a tuple entry in the ``heuristics`` /
+    ``analyzers`` list literal), the ``--open-pr`` layer inherits
+    it for free — the driver already threads ``candidate.op``
+    through the title and branch name.
+  * **``--open-pr --auto-rebase``** — a follow-up run against a
+    stale branch (someone else merged a change that touched the
+    same file) currently fails on ``git push`` with a non-fast-
+    forward.  A ``--auto-rebase`` flag would ``git pull --rebase
+    origin <base_branch>`` after the ``git checkout -b`` and re-
+    push; deferred until the daily cron shows a failure caused by
+    this exact interaction (which the ``--apply-top`` per-site
+    guard makes rare because the guard skips sites that already
+    match the proposal).
+  * **``--open-pr --retry-network N``** — the cron's per-request
+    retry logic (documented in the top-level system prompt) lives
+    outside the driver; a ``--retry-network N`` flag would push the
+    same exponential-backoff loop inside the driver so a single
+    ``uv run`` invocation is resilient without a wrapper script.
+    Deferred until network flakes actually surface in the nightly
+    logs.
+  * **Structured-JSON ``--open-pr --json``** — emits one JSON
+    object per attempted (or skipped) PR so a downstream dashboard
+    can compute the codify-PR cadence directly.  Speculative until
+    the operator surfaces a need for cross-night trend analysis
+    the ``codify-scan --json`` output doesn't already cover.
 ### 2026-07-01 — Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up)
 
 * **What** — Extends the 2026-06-30 ``--apply-top`` driver to handle
@@ -741,21 +954,16 @@ Conventions:
 
 * **Follow-up ideas** seeded under *Next iteration ideas*:
 
-  * **`codify-scan --open-pr` driver (V2 §9.5 step 4 final layer)** —
-    wraps :func:`derive_codify_edits` /
-    :func:`apply_codify_candidate` with a ``gh pr create`` call
-    and a PR body populated from
-    :meth:`CodifyCandidate.to_dict`.  Three remaining pieces:
-    (1) dedup against ``gh pr list --state open`` using the
-    :attr:`CodifyCandidate.slot_key` tuple (matches §12.3 step 0
-    lesson); (2) draft PR body template citing the ledger
-    evidence (timestamps, deltas, CIs, per-record old → new) +
-    a "test plan" stub linking to the
-    ``benchmark_harness.py compare --statistical`` invocation;
-    (3) branch naming convention matching the existing
-    ``claude/funny-*-*`` so the watcher infrastructure picks it
-    up.  No new primitives — pure assembly on top of the three
-    layers now in place.
+  * ~**`codify-scan --open-pr` driver (V2 §9.5 step 4 final
+    layer)**~ — **shipped 2026-07-02**.  See the dated entry
+    above.  All three queued sub-pieces landed together: dedup via
+    :func:`~panobbgo.self_improve.find_open_pr_for_slot` /
+    :func:`~panobbgo.self_improve.codify_pr_marker`; PR body
+    template as :func:`~panobbgo.self_improve.codify_pr_body`;
+    branch naming as
+    :func:`~panobbgo.self_improve.codify_pr_branch_name`
+    (default ``claude/codify-*`` matches the watcher
+    infrastructure).
   * **Structural-edit primitive for the apply driver** — extend
     :func:`derive_codify_edits` to support ``add_/drop_heuristic`` /
     ``add_/drop_analyzer`` candidates by emitting a richer

@@ -350,17 +350,37 @@ open`.  Public library API:
 emits one `to_dict()` JSON per line; `--top N` truncates.  See the
 2026-06-17 entry in `SELF_IMPROVEMENT_LOG.md`.
 
-`scripts/self_improve.py codify-scan --open-pr` (still open) is the
-follow-up that translates each surfaced candidate into a concrete
-source edit + PR:
+`scripts/self_improve.py codify-scan --open-pr` (**shipped 2026-07-02**)
+is the follow-up that translates each surfaced candidate into a
+concrete source edit + PR:
 
-- For each hit, open **one** codify PR editing the seed spec /
+- ~For each hit, open **one** codify PR editing the seed spec /
   constructor default, with the ledger evidence
   (`base_seed`, `randomize_iteration`, iterations, deltas, CIs) in the
   PR body.  Dedup first: `gh pr list --state open` — skip if a codify
   PR for the same `(class, param)` exists (§12.3 step 0 lesson,
   enforced in code via the
-  :attr:`CodifyCandidate.slot_key` tuple).
+  :attr:`CodifyCandidate.slot_key` tuple).~ — **shipped 2026-07-02**
+  as ``codify-scan --open-pr`` in ``scripts/self_improve.py``.  The
+  driver wraps :func:`apply_codify_candidate` with a ``gh pr create``
+  call whose body is populated from
+  :func:`~panobbgo.self_improve.codify_pr_body` and whose title is
+  :func:`~panobbgo.self_improve.codify_pr_title`.  Dedup runs
+  ``gh pr list --state open --json number,title,body,headRefName``
+  before touching git and skips (with a ``PR #N already covers this
+  slot`` note) when
+  :func:`~panobbgo.self_improve.find_open_pr_for_slot` finds an open
+  PR carrying the candidate's
+  :func:`~panobbgo.self_improve.codify_pr_marker` — a stable
+  ``codify-slot: <slot_key>`` string embedded in an HTML comment at
+  the top of every codify PR body.  Branch name derives from
+  :func:`~panobbgo.self_improve.codify_pr_branch_name` (default
+  ``claude/codify-<class_snake>-<param_snake>-<direction>``) so the
+  watcher infrastructure keys on the same ``claude/`` prefix as the
+  human-driven bot branches.  Composes with ``--apply-dry-run`` — a
+  dry-run invocation prints the git / gh command sequence the driver
+  *would* run without executing any subprocess.  See the 2026-07-02
+  entry in ``SELF_IMPROVEMENT_LOG.md``.
 - **Merged codify PRs are the persistence mechanism**: the next night
   reads the improved defaults from source.  No in-memory ladder
   serialization needed.
@@ -478,9 +498,10 @@ uv run python scripts/self_improve.py codify-scan --open-pr
 ```
 
 (`permissions: pull-requests: write` in the workflow.)  ``--registry
-loop`` shipped 2026-06-10 (§9.5 step 1); the other open flags above
-remain queued.  Until they exist, the V1 invocation in the workflow
-file stands.
+loop`` shipped 2026-06-10 (§9.5 step 1); ``--open-pr`` shipped
+2026-07-02 (§9.5 step 4).  The only remaining queued lever is
+``--metric aocc`` (step 2), which needs the IOH worker on the runner.
+Until step 2 lands, the V1 metric stays on the composite score.
 
 ### 9.5 Implementation order (one PR each)
 
@@ -496,13 +517,13 @@ file stands.
    **graded bandit reward shipped 2026-06-13**; **same-night
    confirmation gate shipped 2026-06-14**.  All three V2 sub-tasks
    closed; see the dated entries in `SELF_IMPROVEMENT_LOG.md`.
-4. `codify-scan --open-pr` + ~`--prime-include-archives`~
-   (**shipped 2026-06-15**) + ~vacuous-holdout fix~
-   (**shipped 2026-06-11**) + summary trend block.  *Detection half of
-   `codify-scan` shipped 2026-06-17 (no `--open-pr` yet — that's the
-   queued follow-up); `--prime-include-archives` shipped 2026-06-15
-   (closes the §2.6 second half); summary trend block shipped
-   2026-06-16.*
+4. ~`codify-scan --open-pr`~ (**shipped 2026-07-02**) +
+   ~`--prime-include-archives`~ (**shipped 2026-06-15**) +
+   ~vacuous-holdout fix~ (**shipped 2026-06-11**) + summary trend
+   block (**shipped 2026-06-16**).  *Detection half of
+   `codify-scan` shipped 2026-06-17; ``--apply-top`` (source-edit
+   layer) shipped 2026-06-30; ``--open-pr`` (gh integration + dedup)
+   shipped 2026-07-02 — closes the last open piece of step 4.*
 5. Flip the workflow to §9.4 — **partially shipped 2026-06-21**
    (see ``SELF_IMPROVEMENT_LOG.md`` entry); ``--confirm-accepts``
    flipped on 2026-06-27 (see that dated entry).  All V2 flags

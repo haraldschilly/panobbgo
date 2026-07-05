@@ -11302,6 +11302,11 @@ class TestApplyTopCLI:
         apply_format=False,
         apply_run_tests=False,
         as_json=False,
+        open_pr=False,
+        pr_branch_prefix="claude/codify",
+        pr_base="master",
+        pr_gh_bin="gh",
+        pr_git_bin="git",
     ):
         return type(
             "NS",
@@ -11328,6 +11333,11 @@ class TestApplyTopCLI:
                 "apply_top": apply_top,
                 "apply_dry_run": apply_dry_run,
                 "apply_include_bidirectional": apply_include_bidirectional,
+                "open_pr": open_pr,
+                "pr_branch_prefix": pr_branch_prefix,
+                "pr_base": pr_base,
+                "pr_gh_bin": pr_gh_bin,
+                "pr_git_bin": pr_git_bin,
                 "apply_format": apply_format,
                 "apply_run_tests": apply_run_tests,
             },
@@ -11726,6 +11736,480 @@ def _make_quick_strategies():
         assert "no source site needed editing" in out
         # File untouched.
         assert src.read_text() == original_text
+
+
+class TestCodifyPrPrimitives:
+    """Library-level tests for ``codify_pr_marker`` / ``codify_pr_title`` /
+    ``codify_pr_body`` / ``codify_pr_branch_name`` / ``find_open_pr_for_slot`` —
+    the pure-function layer the ``codify-scan --open-pr`` driver rests on.
+    """
+
+    def _build_candidate(
+        self,
+        *,
+        class_name: str = "Nearby",
+        param_name: str = "radius",
+        rule_kind: str = "log_uniform_perturb",
+        old_value: Any = 0.1,
+        new_values: Sequence[Any] = (0.12, 0.13, 0.15),
+        op: Optional[str] = None,
+    ):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name=class_name,
+                param_name=param_name,
+                rule_kind=rule_kind,
+                old_value=old_value,
+                new_value=v,
+                op=op,
+            )
+            for day, v in enumerate(new_values, start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        return cands[0]
+
+    def test_marker_is_deterministic_and_slot_scoped(self):
+        from panobbgo.self_improve import codify_pr_marker
+
+        c1 = self._build_candidate(new_values=(0.12, 0.13, 0.15))  # up
+        c2 = self._build_candidate(new_values=(0.075, 0.080, 0.085))  # down
+        # Same (class, param) slot → same marker regardless of direction:
+        # a same-slot opposite-direction PR should supersede, not stack.
+        assert codify_pr_marker(c1) == codify_pr_marker(c2)
+        # Different param → different marker.
+        c3 = self._build_candidate(param_name="axes", rule_kind="categorical_choice", new_values=("all", "all"))
+        assert codify_pr_marker(c1) != codify_pr_marker(c3)
+        # Prefix is stable so a downstream grep can find it.
+        assert codify_pr_marker(c1).startswith("codify-slot: ")
+
+    def test_marker_structural_encoding(self):
+        from panobbgo.self_improve import codify_pr_marker
+
+        c = self._build_candidate(op="add_heuristic", new_values=(None, None))
+        marker = codify_pr_marker(c)
+        assert "::structural::" in marker
+        assert "add_heuristic" in marker
+
+    def test_branch_name_slug(self):
+        from panobbgo.self_improve import codify_pr_branch_name
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        branch = codify_pr_branch_name(c)
+        assert branch == "claude/codify-nearby-radius-up"
+        branch2 = codify_pr_branch_name(c, prefix="feat/x")
+        assert branch2 == "feat/x-nearby-radius-up"
+
+    def test_branch_name_handles_repr_directions(self):
+        from panobbgo.self_improve import codify_pr_branch_name
+
+        # Categorical direction is repr(new_value); ensure the sanitizer
+        # produces a valid git ref even when repr embeds quotes / punctuation.
+        c = self._build_candidate(
+            rule_kind="categorical_choice",
+            new_values=("all", "all", "all"),
+            param_name="axes",
+        )
+        branch = codify_pr_branch_name(c)
+        # Contains only [a-z0-9-/].
+        import re
+
+        assert re.fullmatch(r"[a-z0-9/_-]+", branch), branch
+
+    def test_title_shape_kwarg(self):
+        from panobbgo.self_improve import codify_pr_title
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        title = codify_pr_title(c)
+        assert "codify(Nearby.radius)" in title
+        assert "shift default" in title
+        assert "->" in title
+        assert "ledger evidence" in title
+
+    def test_title_shape_structural(self):
+        from panobbgo.self_improve import codify_pr_title
+
+        c = self._build_candidate(op="add_heuristic", new_values=(None, None))
+        title = codify_pr_title(c)
+        assert "codify(Nearby)" in title
+        assert "add_heuristic" in title
+
+    def test_body_contains_marker_and_evidence(self):
+        from panobbgo.self_improve import codify_pr_body, codify_pr_marker
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c)
+        # Marker on the first line (inside an HTML comment).
+        assert body.startswith("<!--")
+        assert codify_pr_marker(c) in body
+        # Sections present.
+        for section in ("## Codify slot", "## Ledger evidence", "## Proposed source edit", "## Test plan"):
+            assert section in body
+        # Evidence table has one row per accept.
+        assert body.count("| 2026-06-0") == c.n_accepts
+        # Proposed value surfaced.
+        assert "0.13" in body
+
+    def test_body_omits_edits_gracefully(self):
+        from panobbgo.self_improve import codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c, edits=())
+        assert "no source edits derived" in body
+
+    def test_body_includes_edits_when_provided(self):
+        from panobbgo.self_improve import CodifyEdit, codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        edit = CodifyEdit(
+            source_path="panobbgo/harness.py",
+            factory_name="_make_quick_strategies",
+            spec_name="Rewarding_Diverse",
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            old_value=0.1,
+            new_value=0.13,
+            lineno=42,
+            col_offset=10,
+            end_lineno=42,
+            end_col_offset=13,
+            old_source="0.1",
+            new_source="0.13",
+        )
+        body = codify_pr_body(c, edits=(edit,))
+        assert "panobbgo/harness.py:42" in body
+        assert "_make_quick_strategies/Rewarding_Diverse" in body
+
+    def test_body_base_branch_propagates_to_test_plan(self):
+        from panobbgo.self_improve import codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c, base_branch="develop")
+        assert "--base develop" in body
+
+    def test_find_open_pr_marker_match(self):
+        from panobbgo.self_improve import codify_pr_marker, find_open_pr_for_slot
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        marker = codify_pr_marker(c)
+        # No matching PR — returns None.
+        assert find_open_pr_for_slot(c, []) is None
+        assert find_open_pr_for_slot(c, [{"title": "unrelated", "body": ""}]) is None
+        # Matching PR — returned verbatim.
+        pr = {"number": 42, "title": "unrelated title", "body": f"foo {marker} bar", "headRefName": "b"}
+        assert find_open_pr_for_slot(c, [pr]) is pr
+
+    def test_find_open_pr_missing_fields_defensive(self):
+        # Partial JSON payload from ``gh pr list`` — missing keys must
+        # not raise (the driver would then leak the exception into the
+        # cron log without a clean diagnostic).
+        from panobbgo.self_improve import find_open_pr_for_slot
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # Body key present but None; title key missing entirely.
+        assert find_open_pr_for_slot(c, [{"body": None}]) is None
+        assert find_open_pr_for_slot(c, [{}]) is None
+
+
+class _StubProc:
+    """Minimal stand-in for :class:`subprocess.CompletedProcess`."""
+
+    def __init__(self, returncode: int = 0, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+class _StubRunner:
+    """Records subprocess invocations, returns queued stubs.
+
+    Used as the ``runner`` dependency-injection hook of
+    :func:`_open_pr_for_candidate`.  Each call pops one stub from
+    ``responses`` (falling back to a rc=0 stub when the queue is
+    empty).  The full command list is stored in ``calls`` so tests can
+    assert on the exact sequence the driver invoked.
+    """
+
+    def __init__(self, responses: Optional[List[_StubProc]] = None) -> None:
+        self.responses = list(responses or [])
+        self.calls: List[List[str]] = []
+
+    def __call__(self, cmd, cwd=None):
+        self.calls.append(list(cmd))
+        if self.responses:
+            return self.responses.pop(0)
+        return _StubProc()
+
+
+class TestOpenPRCLIDriver:
+    """Tests for :func:`scripts.self_improve._open_pr_for_candidate` and its
+    integration with ``codify-scan --open-pr``.
+
+    Hermetic: every subprocess call is intercepted via the
+    ``_StubRunner`` injected as the ``runner`` argument.  ``gh`` /
+    ``git`` binaries are looked up via :func:`shutil.which`, which the
+    tests monkeypatch to always return a truthy path so the presence
+    check succeeds regardless of the actual CI environment.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _build_candidate(self, **kwargs):
+        return TestCodifyPrPrimitives()._build_candidate(**kwargs)
+
+    def test_open_pr_dry_run_prints_commands_no_subprocess(self, capsys):
+        """--open-pr with dry_run=True never invokes the runner."""
+        cli = self._import_cli()
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner()
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=True,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        # Dry-run bypasses the presence check + runner entirely.
+        assert runner.calls == []
+        out = capsys.readouterr().out
+        assert "Open-PR:" in out
+        assert "would run:" in out
+        assert "gh pr list --state open" in out
+        assert "git checkout -b claude/codify-nearby-radius-up" in out
+        assert "gh pr create --draft --base master" in out
+
+    def test_open_pr_deduplicates_against_existing_pr(self, capsys, monkeypatch):
+        """When gh pr list surfaces a matching marker, driver exits 0 with a note."""
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        from panobbgo.self_improve import codify_pr_marker
+
+        marker = codify_pr_marker(c)
+        gh_list_json = json.dumps(
+            [
+                {
+                    "number": 88,
+                    "title": "existing",
+                    "body": f"<!-- {marker} -->",
+                    "headRefName": "claude/codify-nearby-radius-up",
+                },
+            ]
+        )
+        runner = _StubRunner([_StubProc(stdout=gh_list_json)])
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "PR #88" in out
+        assert "already covers this slot" in out
+        # Only the dedup call ran — no branch / commit / push.
+        assert len(runner.calls) == 1
+        assert runner.calls[0][:5] == ["gh", "pr", "list", "--state", "open"]
+
+    def test_open_pr_happy_path_runs_full_sequence(self, capsys, monkeypatch):
+        """No dedup match → full git/gh command sequence in order."""
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # gh pr list returns empty → no dedup → proceed to git/gh sequence.
+        # Every runner call after that returns rc=0.
+        runner = _StubRunner([_StubProc(stdout="[]")])
+        # Build a synthetic edit list so ``git add`` gets a file arg.
+        from panobbgo.self_improve import CodifyEdit
+
+        edit = CodifyEdit(
+            source_path="panobbgo/harness.py",
+            factory_name="_make_quick_strategies",
+            spec_name="Rewarding_Diverse",
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            old_value=0.1,
+            new_value=0.13,
+            lineno=42,
+            col_offset=10,
+            end_lineno=42,
+            end_col_offset=13,
+            old_source="0.1",
+            new_source="0.13",
+        )
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[edit],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        cmds = runner.calls
+        # 1. dedup (gh pr list)
+        assert cmds[0][:5] == ["gh", "pr", "list", "--state", "open"]
+        # 2. git checkout -b <branch>
+        assert cmds[1] == ["git", "checkout", "-b", "claude/codify-nearby-radius-up"]
+        # 3. git add <edited path>
+        assert cmds[2][:2] == ["git", "add"]
+        assert "panobbgo/harness.py" in cmds[2]
+        # 4. git commit -m <title>
+        assert cmds[3][:3] == ["git", "commit", "-m"]
+        # 5. git push -u origin <branch>
+        assert cmds[4] == ["git", "push", "-u", "origin", "claude/codify-nearby-radius-up"]
+        # 6. gh pr create --draft
+        assert cmds[5][:5] == ["gh", "pr", "create", "--draft", "--base"]
+        # Sanity: --title carries the codify title
+        assert "--title" in cmds[5]
+        title_idx = cmds[5].index("--title")
+        assert "codify(Nearby.radius)" in cmds[5][title_idx + 1]
+        out = capsys.readouterr().out
+        assert "opened draft PR" in out
+
+    def test_open_pr_missing_gh_binary_returns_error(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        # gh missing but git present.
+        monkeypatch.setattr(shutil_module, "which", lambda name: "/usr/bin/git" if name == "git" else None)
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner()
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 4
+        out = capsys.readouterr().out
+        assert "gh binary" in out
+        assert runner.calls == []
+
+    def test_open_pr_dedup_failure_propagates_returncode(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner([_StubProc(returncode=2, stderr="authentication required")])
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 2
+        out = capsys.readouterr().out
+        assert "gh pr list" in out
+        assert "authentication required" in out
+
+    def test_open_pr_git_step_failure_stops_sequence(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # 1) dedup succeeds; 2) git checkout fails.
+        runner = _StubRunner(
+            [
+                _StubProc(stdout="[]"),
+                _StubProc(returncode=1, stderr="a branch named 'X' already exists"),
+            ]
+        )
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 1
+        # Only two commands ran: dedup + git checkout.  The rest are skipped.
+        assert len(runner.calls) == 2
+
+    def test_cli_open_pr_implies_apply_top(self, tmp_path, capsys, monkeypatch):
+        """``--open-pr`` alone triggers the apply-top path (else the PR would be empty)."""
+        cli = self._import_cli()
+        # Re-use the apply-top setup: synthetic snippet + monkeypatched sources.
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        ns = TestApplyTopCLI()._build_ns(
+            live,
+            apply_top=False,  # not explicitly set — --open-pr must flip it
+            apply_dry_run=True,  # dry-run so no real subprocess or writes
+            open_pr=True,
+        )
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Apply-top ran (dry-run) and the open-PR dry-run block followed.
+        assert "Apply-top:" in out
+        assert "Open-PR:" in out
+        assert "would run:" in out
 
 
 class TestApplyTopHygieneFlags:

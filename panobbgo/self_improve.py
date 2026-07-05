@@ -6905,6 +6905,289 @@ def apply_codify_candidate(
     return edits, modified
 
 
+def _slot_key_string(slot_key: Tuple[str, str, Optional[str]]) -> str:
+    """Human-readable form of a :attr:`CodifyCandidate.slot_key` tuple.
+
+    Used both as the *machine-readable dedup marker* embedded in every
+    codify PR body (see :func:`codify_pr_marker`) and as a hopefully-stable
+    identifier the operator can grep for.  Kwarg slots render as
+    ``ClassName.param_name``; structural slots render as
+    ``ClassName::structural::op_name`` — the double-colon separator keeps
+    the two spaces disjoint (no kwarg could ever produce a slot string
+    containing ``::``).
+    """
+    class_name, param_name, op = slot_key
+    if op is None:
+        return f"{class_name}.{param_name}"
+    return f"{class_name}::structural::{op}"
+
+
+def codify_pr_marker(candidate: CodifyCandidate) -> str:
+    """Machine-readable marker embedded in every codify PR body.
+
+    The queued ``codify-scan --open-pr`` driver (V2 §9.5 step 4) uses
+    this string to *dedup* against ``gh pr list --state open``: an open
+    PR carrying the marker for a given
+    :attr:`CodifyCandidate.slot_key` means the codify work has already
+    been proposed and the driver should skip re-opening a second PR for
+    the same slot.  The direction is intentionally excluded from the
+    marker so a same-slot opposite-direction signal is treated as
+    "an existing PR already covers this slot, supersede it in review"
+    rather than "open a duplicate" — matches the §12.3 step 0 lesson
+    (``gh pr list --state open`` first; open PRs are the source of
+    truth for in-flight work) and the docstring on
+    :attr:`CodifyCandidate.slot_key`.
+
+    Format: ``codify-slot: <slot_key_string>`` where
+    :func:`_slot_key_string` renders ``(class, param, op)`` in the
+    unambiguous form documented on that helper.  The literal
+    ``codify-slot:`` prefix makes the marker greppable both in PR bodies
+    and in local diffs / commit messages if a downstream driver decides
+    to embed it there too.
+    """
+    return f"codify-slot: {_slot_key_string(candidate.slot_key)}"
+
+
+def find_open_pr_for_slot(
+    candidate: CodifyCandidate,
+    open_prs: Sequence[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Return the first open PR whose body / title carries ``candidate``'s marker.
+
+    ``open_prs`` is the parsed JSON output of ``gh pr list --state open
+    --json number,title,body,headRefName`` — a list of dicts with at
+    least ``"title"`` / ``"body"`` keys.  Missing keys are treated as
+    empty strings so a partial JSON payload doesn't raise.  Returns
+    ``None`` when no PR matches the marker (the driver should proceed
+    to open a fresh PR).
+
+    Matching is a plain substring check on the concatenation of title +
+    body so the marker survives GitHub's Markdown rendering (backticks /
+    HTML comments don't rewrite text).  Case-sensitive: the marker is
+    machine-generated so a case-insensitive check would only produce
+    false positives from operator-written text.
+    """
+    marker = codify_pr_marker(candidate)
+    for pr in open_prs:
+        title = str(pr.get("title") or "")
+        body = str(pr.get("body") or "")
+        if marker in title or marker in body:
+            return pr
+    return None
+
+
+def codify_pr_title(candidate: CodifyCandidate) -> str:
+    """One-line PR title summarising the codify shift.
+
+    Format for kwarg candidates: ``codify(<Class>.<param>): shift default
+    <old_repr> -> <new_repr> (<direction>, ledger evidence)``.  Uses
+    :func:`_format_value_repr` for both values so the title reads
+    naturally for ints (``5 -> 7``), floats (``0.1 -> 0.124``) and
+    booleans (``True -> False``).  Falls back to a slot-only title for
+    structural candidates (``codify(<Class>): <op_name>``).
+
+    Deliberately short (< 80 chars for the vast majority of slots) so
+    the PR list rendering in ``gh pr list`` fits one line.  The
+    :func:`codify_pr_marker` string lives in the *body*, not the title —
+    keeping the title human-readable while the dedup marker stays
+    stable across title edits.
+    """
+    if candidate.op is not None:
+        return f"codify({candidate.class_name}): {candidate.op} (ledger evidence)"
+    proposed = candidate.proposed_codify_value()
+    if proposed is None:
+        return f"codify({candidate.class_name}.{candidate.param_name}): {candidate.direction} (ledger evidence)"
+    old_repr = _format_value_repr(candidate.old_values[-1]) if candidate.old_values else "?"
+    new_repr = _format_value_repr(proposed)
+    return (
+        f"codify({candidate.class_name}.{candidate.param_name}): "
+        f"shift default {old_repr} -> {new_repr} "
+        f"({candidate.direction}, ledger evidence)"
+    )
+
+
+def codify_pr_branch_name(
+    candidate: CodifyCandidate,
+    *,
+    prefix: str = "claude/codify",
+) -> str:
+    """Stable branch name for a codify PR.
+
+    Format: ``<prefix>-<class_snake>-<param_snake>-<direction>`` for
+    kwarg candidates; ``<prefix>-<class_snake>-<op_name>`` for
+    structural candidates.  The class / param are lower-cased so the
+    branch matches the common ``feat/`` / ``fix/`` casing on the repo.
+    Non-alphanumerics in the direction (e.g. ``repr(False) == "False"``,
+    ``repr("all") == "'all'"``) are collapsed to ``_`` so the branch is
+    always a valid git ref.
+
+    Deliberately *does not* embed a timestamp: the dedup path is the
+    marker in :func:`codify_pr_marker`, and a fixed branch name makes
+    "close-and-reopen" of the same slot (rare but possible) fall onto
+    the same branch instead of accumulating branch litter.  For a
+    version-bumped codify (same slot, different proposal) the operator
+    can pass ``--pr-branch-suffix`` on the CLI to disambiguate; the
+    default is stable.
+
+    Args:
+        candidate: The chosen kwarg / structural candidate.
+        prefix: Branch prefix.  Default ``"claude/codify"`` matches the
+            existing bot-branch naming convention (the watcher
+            infrastructure keys on the ``claude/`` prefix; see V2 §9.5
+            step 4 "branch naming convention" in the follow-up idea).
+
+    Returns:
+        Sanitised branch name.  Guaranteed to satisfy git's ref-format
+        rules for the identifiers Panobbgo ships (ASCII heuristic /
+        analyzer class names, snake_case kwarg names, up / down /
+        repr-form directions).
+    """
+    import re as _re
+
+    def _sanitize(s: str) -> str:
+        s = s.strip().lower()
+        s = _re.sub(r"[^a-z0-9]+", "_", s)
+        return s.strip("_") or "x"
+
+    parts: List[str] = [prefix.rstrip("/-")]
+    parts.append(_sanitize(candidate.class_name))
+    if candidate.op is not None:
+        parts.append(_sanitize(candidate.op))
+    else:
+        parts.append(_sanitize(candidate.param_name or "kwarg"))
+        parts.append(_sanitize(candidate.direction))
+    return "-".join(parts)
+
+
+def codify_pr_body(
+    candidate: CodifyCandidate,
+    edits: Sequence[CodifyEdit] = (),
+    *,
+    marker: Optional[str] = None,
+    base_branch: str = "master",
+) -> str:
+    """Draft PR body citing the ledger evidence behind ``candidate``.
+
+    Assembled as plain Markdown so ``gh pr create --body`` renders it on
+    GitHub without post-processing.  Contains four sections:
+
+    * **Codify slot** — the machine-readable marker (see
+      :func:`codify_pr_marker`) plus the human-readable slot label.
+      The marker line is what :func:`find_open_pr_for_slot` matches
+      against so an operator (or a follow-up run of the same driver)
+      does not open a duplicate PR against the same slot.
+    * **Ledger evidence** — one row per accepted iteration: date,
+      Δ, CI, strategy, old → new.  Copied straight from the candidate's
+      per-record fields; no re-aggregation, no bootstrap re-runs — the
+      body reflects exactly what the operator sees in the codify-scan
+      report.
+    * **Proposed source edit** — one line per :class:`CodifyEdit`
+      (``source_path:lineno  factory/spec: old -> new``) so a reviewer
+      can pattern-match the diff without opening the file.  Empty when
+      no edit list is passed (e.g. an early-exit dry-run).
+    * **Test plan** — the ``benchmark_harness.py compare --statistical``
+      invocation that reproduces the ledger evidence, mirroring the
+      wording of the ``--fix`` PR template.
+
+    Args:
+        candidate: Codify candidate the PR embodies.
+        edits: Source edits the PR ships (typically the output of
+            :func:`derive_codify_edits`).  When empty the "Proposed
+            source edit" section renders a warning line rather than an
+            empty bullet list.
+        marker: Machine-readable dedup marker.  Defaults to
+            :func:`codify_pr_marker` — override only in tests that want
+            to check body content without re-computing the marker.
+        base_branch: Branch the PR merges into.  Surfaced in the test-
+            plan snippet as the ``compare --statistical --base`` flag
+            reference.  Default ``"master"``.
+
+    Returns:
+        Full PR body as a single string.  Trailing newline included so
+        ``gh pr create --body-file`` sees a proper terminator.
+    """
+    if marker is None:
+        marker = codify_pr_marker(candidate)
+    slot = _slot_key_string(candidate.slot_key)
+    lines: List[str] = []
+    lines.append(f"<!-- {marker} -->")
+    lines.append("")
+    lines.append("## Codify slot")
+    lines.append("")
+    lines.append(f"- **Slot**: `{slot}`")
+    lines.append(f"- **Direction**: `{candidate.direction}`")
+    lines.append(f"- **Rule kind**: `{candidate.rule_kind}`")
+    if candidate.op is not None:
+        lines.append(f"- **Structural op**: `{candidate.op}`")
+    proposed = candidate.proposed_codify_value()
+    if proposed is not None:
+        lines.append(f"- **Proposed value**: `{_format_value_repr(proposed)}`")
+    if candidate.live_codified_values:
+        live_repr = ", ".join(_format_value_repr(v) for v in candidate.live_codified_values)
+        lines.append(f"- **Live seed value(s) before edit**: {live_repr}")
+    lines.append("")
+    lines.append("## Ledger evidence")
+    lines.append("")
+    lines.append(
+        f"- {candidate.n_accepts} accept(s) across {candidate.n_distinct_nights} distinct night(s) "
+        f"(dates: {', '.join(candidate.distinct_dates)})."
+    )
+    lines.append(f"- Mean Δ = `{candidate.mean_delta:+.4f}`; min per-record `ci_low` = `{candidate.min_ci_low:+.4f}`.")
+    n_confirmed = sum(1 for f in candidate.confirmed_flags if f is True)
+    if n_confirmed:
+        lines.append(f"- Confirmed by same-night gate: {n_confirmed}/{candidate.n_accepts}.")
+    strategies = sorted({s for s in candidate.strategy_names if s})
+    if strategies:
+        lines.append(f"- Strategies seen: {', '.join(f'`{s}`' for s in strategies)}.")
+    lines.append("")
+    lines.append("| Date | Strategy | Δ | CI | Old → New |")
+    lines.append("|---|---|---|---|---|")
+    for i in range(candidate.n_accepts):
+        ts = candidate.timestamps[i][:10] if candidate.timestamps[i] else "?"
+        strat = candidate.strategy_names[i] or "?"
+        old_repr = _format_value_repr(candidate.old_values[i])
+        new_repr = _format_value_repr(candidate.new_values[i])
+        confirmed_tag = ""
+        if candidate.confirmed_flags[i] is True:
+            confirmed_tag = " ✓"
+        elif candidate.confirmed_flags[i] is False:
+            confirmed_tag = " ✗"
+        lines.append(
+            f"| {ts} | `{strat}` | `{candidate.deltas[i]:+.4f}` | "
+            f"`[{candidate.ci_lows[i]:+.4f}, {candidate.ci_highs[i]:+.4f}]` | "
+            f"`{old_repr}` → `{new_repr}`{confirmed_tag} |"
+        )
+    lines.append("")
+    lines.append("## Proposed source edit")
+    lines.append("")
+    if edits:
+        for edit in edits:
+            lines.append(
+                f"- `{edit.source_path}:{edit.lineno}` "
+                f"`{edit.factory_name}/{edit.spec_name}`: "
+                f"`{edit.class_name}.{edit.param_name} = {edit.old_source} -> {edit.new_source}`"
+            )
+    else:
+        lines.append("- (no source edits derived — see `codify-scan --apply-top --apply-dry-run` output)")
+    lines.append("")
+    lines.append("## Test plan")
+    lines.append("")
+    lines.append("- [ ] `uv run pytest tests/test_self_improve.py`")
+    lines.append(
+        "- [ ] `uv run python benchmark_harness.py compare --statistical "
+        f"--randomize --base {base_branch}` (reproduces the paired-bootstrap "
+        "verdict the ledger evidence rests on)"
+    )
+    lines.append("")
+    lines.append(
+        "*Auto-drafted by `codify-scan --open-pr` (V2 §9.5 step 4).  "
+        "The `codify-slot` marker in the HTML comment above is used by "
+        "the driver to dedup against open PRs — do not remove it.*"
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
 # Numeric mutation kinds the widening detector reasons about.  Categorical
 # rules and structural ops have no meaningful "wider bound" — they live on
 # discrete choice sets or op names.
@@ -7437,6 +7720,11 @@ __all__ = [
     "derive_codify_edits",
     "apply_codify_edits",
     "apply_codify_candidate",
+    "codify_pr_marker",
+    "codify_pr_title",
+    "codify_pr_body",
+    "codify_pr_branch_name",
+    "find_open_pr_for_slot",
     "load_ledgers_for_codify_scan",
     "WideningCandidate",
     "detect_widening_candidates",

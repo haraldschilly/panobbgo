@@ -138,6 +138,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#summary-trend-block-12-4">Summary trend block (&#167;12.4)</a></li>
 <li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a><ul>
 <li><a class="reference internal" href="#apply-the-top-candidate-to-the-working-tree-apply-top">Apply the top candidate to the working tree (<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>)</a></li>
+<li><a class="reference internal" href="#open-a-draft-pr-for-the-top-candidate-open-pr">Open a draft PR for the top candidate (<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code>)</a></li>
 <li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a><ul>
 <li><a class="reference internal" href="#auto-tuned-widen-factor-widen-auto-tune">Auto-tuned widen factor (<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code>)</a></li>
 </ul>
@@ -1458,12 +1459,12 @@ candidate is suppressed at the scan layer too — and
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.apply_codify_edits()</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.apply_codify_candidate()</span></code>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.default_codify_apply_sources()</span></code>.</p>
-<p>The driver <strong>does NOT touch git</strong> — operator workflow is unchanged:
-preview with <code class="docutils literal notranslate"><span class="pre">--apply-dry-run</span></code>, run <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">pytest</span></code> to verify
-the test suite passes, then commit and open a draft PR with the
-codify-scan output (rule / evidence / pooled CI / per-record old →
-new) in the body.  The PR template is the existing manual codify
-shape; see the 2026-06-28 entry in
+<p>The driver <strong>does NOT touch git</strong> — operator workflow with just
+<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>: preview with <code class="docutils literal notranslate"><span class="pre">--apply-dry-run</span></code>, run <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span>
+<span class="pre">pytest</span></code> to verify the test suite passes, then commit and open a
+draft PR with the codify-scan output (rule / evidence / pooled CI /
+per-record old → new) in the body.  The PR template is the existing
+manual codify shape; see the 2026-06-28 entry in
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the canonical example.</p>
 <p><strong>Hygiene flags</strong> (shipped 2026-07-03): two optional flags on
 <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> mechanise the last two manual steps of the daily
@@ -1494,6 +1495,78 @@ driver that consumes <code class="xref py py-class docutils literal notranslate"
 then opens a draft PR with the ledger evidence pre-populated in the
 body (V2 §9.5 step 4 plumbing — <code class="xref py py-func docutils literal notranslate"><span class="pre">derive_codify_edits()</span></code> is the
 primitive that driver also calls).</p>
+</section>
+<section id="open-a-draft-pr-for-the-top-candidate-open-pr">
+<h4>Open a draft PR for the top candidate (<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code>)<a class="headerlink" href="#open-a-draft-pr-for-the-top-candidate-open-pr" title="Link to this heading">¶</a></h4>
+<p>Shipped 2026-07-02 as the final layer of the V2 §9.5 step 4 codify
+pipeline.  The <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code> flag composes on top of <code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>:
+after the source edits land in the working tree, the driver creates
+a git branch, commits the diff, pushes to <code class="docutils literal notranslate"><span class="pre">origin</span></code>, and opens a
+draft PR via <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">create</span></code>.  Dedup runs first — if a same-slot PR
+is already open, the driver exits cleanly with a <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#N</span> <span class="pre">already</span>
+<span class="pre">covers</span> <span class="pre">this</span> <span class="pre">slot</span></code> note.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Preview the git / gh command sequence the driver would run</span>
+</span><span data-line="2"><span class="c1"># (no subprocess invoked; useful for auditing the shape):</span>
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--open-pr<span class="w"> </span>--apply-dry-run
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Real invocation — requires ``gh`` and ``git`` on PATH:</span>
+</span><span data-line="7">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span>--open-pr
+</span></pre></div>
+</div>
+<p>The driver flow (both dedup + PR body use the pure-function library
+layer so the shape is testable in isolation):</p>
+<ol class="arabic simple">
+<li><p><strong>Dedup</strong> — run <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">list</span> <span class="pre">--state</span> <span class="pre">open</span> <span class="pre">--json</span>
+<span class="pre">number,title,body,headRefName</span></code> and search each PR’s body for the
+candidate’s <code class="xref py py-func docutils literal notranslate"><span class="pre">codify_pr_marker()</span></code> —
+an HTML-comment marker <code class="docutils literal notranslate"><span class="pre">&lt;!--</span> <span class="pre">codify-slot:</span> <span class="pre">&lt;slot_key&gt;</span> <span class="pre">--&gt;</span></code>
+embedded at the top of every codify PR body.  A match short-
+circuits the driver with a <code class="docutils literal notranslate"><span class="pre">PR</span> <span class="pre">#N</span> <span class="pre">already</span> <span class="pre">covers</span> <span class="pre">this</span> <span class="pre">slot</span></code>
+note; direction is intentionally excluded from the slot key so a
+same-slot opposite-direction signal supersedes the open PR rather
+than duplicating it (matches the §12.3 step 0 lesson: open PRs
+are the source of truth for in-flight work).</p></li>
+<li><p><strong>Branch</strong> — <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">-b</span>
+<span class="pre">&lt;prefix&gt;-&lt;class_snake&gt;-&lt;param_snake&gt;-&lt;direction&gt;</span></code>.  Default
+prefix <code class="docutils literal notranslate"><span class="pre">claude/codify</span></code> matches the watcher-infrastructure
+<code class="docutils literal notranslate"><span class="pre">claude/</span></code> naming convention; override with
+<code class="docutils literal notranslate"><span class="pre">--pr-branch-prefix</span></code>.</p></li>
+<li><p><strong>Commit + push</strong> — <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">&lt;edited</span> <span class="pre">paths&gt;</span></code> +
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&lt;title&gt;</span></code> + <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">-u</span> <span class="pre">origin</span> <span class="pre">&lt;branch&gt;</span></code>.
+The title is
+<code class="xref py py-func docutils literal notranslate"><span class="pre">codify_pr_title()</span></code> — a one-line
+<code class="docutils literal notranslate"><span class="pre">codify(&lt;Class&gt;.&lt;param&gt;):</span> <span class="pre">shift</span> <span class="pre">default</span> <span class="pre">&lt;old&gt;</span> <span class="pre">-&gt;</span> <span class="pre">&lt;new&gt;</span>
+<span class="pre">(&lt;direction&gt;,</span> <span class="pre">ledger</span> <span class="pre">evidence)</span></code> form so the PR list rendering
+fits one line.</p></li>
+<li><p><strong>PR</strong> — <code class="docutils literal notranslate"><span class="pre">gh</span> <span class="pre">pr</span> <span class="pre">create</span> <span class="pre">--draft</span> <span class="pre">--base</span> <span class="pre">&lt;base_branch&gt;</span> <span class="pre">--head</span>
+<span class="pre">&lt;branch&gt;</span> <span class="pre">--title</span> <span class="pre">&lt;title&gt;</span> <span class="pre">--body-file</span> <span class="pre">&lt;tmpfile&gt;</span></code>.  The body is
+<code class="xref py py-func docutils literal notranslate"><span class="pre">codify_pr_body()</span></code>, four sections:
+<strong>Codify slot</strong> (marker + direction + rule kind + proposed
+value), <strong>Ledger evidence</strong> (per-record table with date /
+strategy / Δ / CI / old → new), <strong>Proposed source edit</strong> (one
+bullet per <code class="xref py py-class docutils literal notranslate"><span class="pre">CodifyEdit</span></code> citing
+<code class="docutils literal notranslate"><span class="pre">source_path:lineno</span></code>), and <strong>Test plan</strong> (<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">pytest</span></code> +
+<code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span> <span class="pre">compare</span> <span class="pre">--statistical</span></code> checklist).</p></li>
+</ol>
+<p>CLI knobs: <code class="docutils literal notranslate"><span class="pre">--pr-branch-prefix</span></code> (default <code class="docutils literal notranslate"><span class="pre">claude/codify</span></code>),
+<code class="docutils literal notranslate"><span class="pre">--pr-base</span></code> (default <code class="docutils literal notranslate"><span class="pre">master</span></code>), <code class="docutils literal notranslate"><span class="pre">--pr-gh-bin</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">gh</span></code>), <code class="docutils literal notranslate"><span class="pre">--pr-git-bin</span></code> (default <code class="docutils literal notranslate"><span class="pre">git</span></code>).  Any subprocess step
+returning a non-zero code aborts the sequence at the failing step
+and propagates the return code so the workflow logs surface which
+step failed.</p>
+<p>Library API:
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.codify_pr_marker()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.codify_pr_title()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.codify_pr_body()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.codify_pr_branch_name()</span></code>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.find_open_pr_for_slot()</span></code>.</p>
+<p>See the 2026-07-02 entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>
+for the design rationale, the runner dependency-injection hook
+(<code class="docutils literal notranslate"><span class="pre">_open_pr_for_candidate(runner=...)</span></code>) that keeps every test
+hermetic, and the marker-in-HTML-comment tradeoff that keeps the
+dedup layer greppable without polluting the human-readable PR
+rendering.</p>
 </section>
 <section id="bidirectional-bound-widening-widen-bounds">
 <h4>Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)<a class="headerlink" href="#bidirectional-bound-widening-widen-bounds" title="Link to this heading">¶</a></h4>

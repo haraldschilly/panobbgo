@@ -136,6 +136,75 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         with pytest.raises(ValueError, match="NP_min must be >= 4"):
             LSHADE(self.strategy, NP_min=2)
 
+    def test_np_init_auto_resolves_from_budget(self):
+        """``NP_init="auto"`` sizes the population from budget and dimension."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        # dim=2 (Rosenbrock(2)).  budget/12 dominates when it is below 18*dim=36.
+        self.strategy.config.max_eval = 75
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 6  # round(75/12)=6
+        self.strategy.config.max_eval = 240
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 20  # round(240/12)=20
+        # Large budget: the 18*dim=36 CEC upper bound caps the size.
+        self.strategy.config.max_eval = 100000
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 36
+
+    def test_np_init_auto_floors_at_six(self):
+        """Auto never resolves below 6 even at tiny budgets (avoids NP=4 degeneracy)."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        self.strategy.config.max_eval = 12  # round(12/12)=1 → floored to 6
+        h = LSHADE(self.strategy, NP_init="auto")
+        assert h.NP_init == 6
+        assert h.NP_init >= h.NP_min
+
+    def test_np_init_auto_respects_custom_np_min_floor(self):
+        """A larger ``NP_min`` raises the auto floor so ``NP_min <= NP_init`` holds."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        self.strategy.config.max_eval = 60  # round(60/12)=5, below NP_min=10
+        h = LSHADE(self.strategy, NP_init="auto", NP_min=10)
+        assert h.NP_init == 10
+        assert h.NP_min <= h.NP_init
+
+    def test_np_init_auto_unknown_budget_falls_back(self):
+        """Auto degrades to the fixed default when the budget is unknown."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        self.strategy.config.max_eval = 0  # non-positive → unknown
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 30
+
+    def test_np_init_auto_emits_resolved_count_on_start(self):
+        """``on_start`` emits exactly the resolved auto population size."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        self.strategy.config.max_eval = 75
+        h = LSHADE(self.strategy, NP_init="auto")
+        h.__start__()
+        h.on_start()
+        assert len(h._pending) == h.NP_init == 6
+
+    def test_np_init_invalid_string_raises(self):
+        from panobbgo.heuristics.lshade import LSHADE
+
+        with pytest.raises(ValueError, match="NP_init string must be 'auto'"):
+            LSHADE(self.strategy, NP_init="big")
+
+    def test_np_init_bool_rejected(self):
+        """``True`` / ``False`` are ints but must not size a population."""
+        from panobbgo.heuristics.lshade import LSHADE
+
+        with pytest.raises(ValueError, match="NP_init must be an integer or 'auto'"):
+            LSHADE(self.strategy, NP_init=True)  # type: ignore[arg-type]
+
+    def test_np_init_auto_inherited_by_subclasses(self):
+        """Subclasses (jSO / NL-SHADE-RSP / …) inherit budget-adaptive sizing."""
+        from panobbgo.heuristics import JSO, NLSHADE_RSP, NLSHADE_LBC, LSHADE_EpSin
+
+        self.strategy.config.max_eval = 75
+        for cls in (JSO, NLSHADE_RSP, NLSHADE_LBC, LSHADE_EpSin):
+            assert cls(self.strategy, NP_init="auto").NP_init == 6, cls.__name__
+
     def test_invalid_NP_min_above_NP_init(self):
         from panobbgo.heuristics.lshade import LSHADE
 

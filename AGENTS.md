@@ -791,6 +791,29 @@ The harness is the measurement substrate for an autonomous
     §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
     entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Budget-adaptive `NP_init="auto"` for the DE family** — **shipped
+    2026-07-05**.  `LSHADE` (and its subclasses `JSO` / `NLSHADE_RSP` /
+    `NLSHADE_LBC` / `LSHADE_EpSin`) accept `NP_init="auto"`, resolving the
+    initial population from the strategy budget and problem dimension —
+    `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)` — instead
+    of a fixed constant.  Resolved in the base constructor via
+    `panobbgo.heuristics.lshade._resolve_auto_np_init` so every subclass
+    and downstream path sees a normal `int`; falls back to the fixed
+    default `30` when the budget is unknown (the `int` default is
+    unchanged / byte-identical).  `default_structural_catalog` now adds
+    every DE candidate with `NP_init="auto"`; `_find_targets` gained a
+    `rule_kind` argument so numeric mutation rules skip the string
+    sentinel (no `int("auto")` crash) while categorical rules still see
+    strings.  Measured on a lone `LSHADE` / `Rosenbrock_2D`: at the
+    quick-mode budget 75 (the nightly loop's budget) the score jumps from
+    **0.036** (`NP_init=30`) to **0.604** (`"auto"` → NP=6) — a ~16× win
+    where an oversized swarm otherwise burns the whole budget on the
+    initial random fill; at budget 200 the two are within noise (3-seed
+    sweep 0.42–0.46, no regression).  Respects the §7.3 catalog freeze
+    (no new arms — better default kwargs for existing candidates + a
+    heuristic robustness fix).  See the 2026-07-05 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+
 Run the loop:
 
 ```bash

@@ -726,6 +726,35 @@ The harness is the measurement substrate for an autonomous
     hygiene-flag follow-ups seeded under the 2026-06-30 entry's
     *Next iteration ideas* section.  See the 2026-07-03 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **Structural-edit primitive for the `codify-scan --apply-top`
+    driver** — **shipped 2026-07-01** (V2 §9.5 step 4 follow-up).
+    Extends the 2026-06-30 kwarg-only apply driver to handle the four
+    structural codify ops (`add_heuristic` / `drop_heuristic` /
+    `add_analyzer` / `drop_analyzer`) via a sibling AST-based scanner
+    (`_scan_source_for_structural_edits`) that inserts or removes
+    `(ClassName, {...})` tuple entries in the target spec's
+    `heuristics` / `analyzers` list literal.  Edit scope is narrowed
+    to the specs listed in the candidate's `strategy_names` (unlike
+    kwarg edits which propagate across every matching spec).  Three
+    safety guards mirror `_structural_already_codified` for
+    idempotent re-runs: single-entry buckets are protected from
+    drop, already-present classes are not re-added, missing classes
+    are not re-dropped.  A corner-case backwards-expansion path
+    handles the "drop last entry of multi-line bucket" case so the
+    closing `]` inherits the pre-entry indentation instead of the
+    entry's inner indent.  The CLI's Apply-top block now emits
+    `selected: X [op]` and `target spec(s): ...` for structural
+    candidates instead of the pre-2026-07-01 `skipped N structural`
+    note.  Unblocks the live-ledger's top structural candidate
+    (`LatinHypercube` `drop_heuristic` from `Loop_LocalSearch`,
+    `n_nights=2`, `mean_Δ=+0.0491`) once one more night of evidence
+    accumulates.  Closes the structural codify gap in the §12.3
+    daily routine — every surfaced candidate (kwarg, categorical,
+    structural) now translates to source edits via
+    `codify-scan --apply-top` alone.  Pure additions to
+    `panobbgo/self_improve.py` and `scripts/self_improve.py`; 7 new
+    tests in `TestApplyCodifyEdits` + `TestApplyTopCLI`.  See the
+    2026-07-01 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
 *   **`codify-scan --apply-top` driver — mechanise the manual codify
     edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
@@ -811,6 +840,29 @@ The harness is the measurement substrate for an autonomous
     blocked on IOH worker availability) and structurally closes the
     §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
     entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
+*   **Budget-adaptive `NP_init="auto"` for the DE family** — **shipped
+    2026-07-05**.  `LSHADE` (and its subclasses `JSO` / `NLSHADE_RSP` /
+    `NLSHADE_LBC` / `LSHADE_EpSin`) accept `NP_init="auto"`, resolving the
+    initial population from the strategy budget and problem dimension —
+    `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)` — instead
+    of a fixed constant.  Resolved in the base constructor via
+    `panobbgo.heuristics.lshade._resolve_auto_np_init` so every subclass
+    and downstream path sees a normal `int`; falls back to the fixed
+    default `30` when the budget is unknown (the `int` default is
+    unchanged / byte-identical).  `default_structural_catalog` now adds
+    every DE candidate with `NP_init="auto"`; `_find_targets` gained a
+    `rule_kind` argument so numeric mutation rules skip the string
+    sentinel (no `int("auto")` crash) while categorical rules still see
+    strings.  Measured on a lone `LSHADE` / `Rosenbrock_2D`: at the
+    quick-mode budget 75 (the nightly loop's budget) the score jumps from
+    **0.036** (`NP_init=30`) to **0.604** (`"auto"` → NP=6) — a ~16× win
+    where an oversized swarm otherwise burns the whole budget on the
+    initial random fill; at budget 200 the two are within noise (3-seed
+    sweep 0.42–0.46, no regression).  Respects the §7.3 catalog freeze
+    (no new arms — better default kwargs for existing candidates + a
+    heuristic robustness fix).  See the 2026-07-05 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 
 Run the loop:
 

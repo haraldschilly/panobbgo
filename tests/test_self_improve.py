@@ -72,6 +72,7 @@ from panobbgo.self_improve import (
     default_structural_catalog,
     load_ledger,
 )
+from panobbgo.self_improve import _find_targets, _is_numeric_value
 
 
 # ===========================================================================
@@ -10816,7 +10817,11 @@ class TestApplyCodifyEdits:
             assert e.new_source == "False"
             assert e.old_source == "True"
 
-    def test_derive_edits_structural_returns_empty_list(self, tmp_path):
+    def test_derive_edits_structural_drop_missing_class_returns_empty(self, tmp_path):
+        """Structural candidates are handled (2026-07-01); when the class
+        is not present in any target spec's bucket the drop safety guard
+        fires and no edits are emitted.
+        """
         from panobbgo.self_improve import derive_codify_edits
 
         src = self._write_snippet(tmp_path)
@@ -10832,9 +10837,257 @@ class TestApplyCodifyEdits:
             c,
             sources=[(str(src), ("_make_quick_strategies",))],
         )
-        # Structural candidates require list-entry insertion / removal —
-        # out of scope for the kwarg-edit driver.
+        # The synthetic snippet's Rewarding_Diverse spec doesn't carry
+        # LatinHypercube, so drop_heuristic surfaces no matching site
+        # — same shape as the ``already codified`` no-op.
         assert edits == []
+
+    def test_derive_edits_structural_no_strategy_names_returns_empty(self, tmp_path):
+        """A structural candidate carrying no ``strategy_names`` is
+        unrouted; refuse to guess which spec to modify.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c_no_names = replace(c, strategy_names=())
+        edits = derive_codify_edits(
+            c_no_names,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_drop_heuristic_removes_matching_entry(self, tmp_path):
+        """A ``drop_heuristic`` candidate targeting a class present in
+        the target spec produces a :class:`CodifyEdit` whose old_source
+        is the tuple text (plus trailing comma + inter-entry whitespace)
+        and new_source is empty.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        # Force strategy_names to Rewarding_Diverse so the scan targets
+        # the spec where Random lives in the snippet.
+        c = replace(c, strategy_names=("Rewarding_Diverse", "Rewarding_Diverse"))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert len(edits) == 1
+        e = edits[0]
+        assert e.class_name == "Random"
+        assert e.direction == "drop_heuristic"
+        assert e.rule_kind == "structural"
+        assert e.spec_name == "Rewarding_Diverse"
+        assert "(Random, {})" in e.old_source
+        assert e.new_source == ""
+
+    def test_derive_edits_structural_add_heuristic_inserts_entry(self, tmp_path):
+        """An ``add_heuristic`` candidate targeting a spec whose bucket
+        lacks the class produces one insertion edit with the new tuple.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="COBYQA",  # not present in the snippet
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert len(edits) == 1
+        e = edits[0]
+        assert e.direction == "add_heuristic"
+        assert e.rule_kind == "structural"
+        assert e.old_source == ""
+        assert "(COBYQA, {})," in e.new_source
+
+    def test_derive_edits_structural_add_already_present_is_no_op(self, tmp_path):
+        """The add-safety guard skips specs whose bucket already carries
+        the target class — matches ``_structural_already_codified``.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",  # already in Rewarding_Diverse
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_drop_single_entry_bucket_is_no_op(self, tmp_path):
+        """The drop-safety guard refuses to empty a single-entry bucket.
+
+        A spec whose heuristics list has exactly one entry cannot have
+        that entry dropped without leaving the spec unable to generate
+        points; the primitive skips such candidates.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Custom snippet with a spec that has exactly one heuristic.
+        snippet = """
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Random
+
+
+def _make_single_entry_strategies():
+    return [
+        StrategySpec(
+            name="OneEntry",
+            strategy_class=None,
+            heuristics=[(Random, {})],
+            analyzers=[],
+        ),
+    ]
+"""
+        src = tmp_path / "one_entry.py"
+        src.write_text(snippet)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("OneEntry",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_single_entry_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_respects_strategy_names_filter(self, tmp_path):
+        """When the candidate's ``strategy_names`` names one spec, the
+        scan skips other specs that also contain the target class.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Snippet with two specs both carrying Random; only one should
+        # be edited when strategy_names names that one.
+        snippet = """
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Random, Sobol, NelderMead
+
+
+def _make_two_strategies():
+    return [
+        StrategySpec(
+            name="Spec_A",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+        StrategySpec(
+            name="Spec_B",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+    ]
+"""
+        src = tmp_path / "two_specs.py"
+        src.write_text(snippet)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Spec_A",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_two_strategies",))],
+        )
+        assert len(edits) == 1
+        assert edits[0].spec_name == "Spec_A"
+
+    def test_apply_structural_drop_idempotent_under_re_run(self, tmp_path):
+        """After an apply, deriving edits on the codified source yields
+        an empty list — matches the self-stability invariant that the
+        queued ``--open-pr`` driver relies on.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import (
+            apply_codify_candidate,
+            derive_codify_edits,
+        )
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        apply_codify_candidate(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+            dry_run=False,
+        )
+        # Second derive on the now-codified source: no edits.
+        edits_round2 = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits_round2 == []
 
     def test_apply_edits_rewrites_source_in_reverse_offset_order(self, tmp_path):
         from panobbgo.self_improve import apply_codify_edits, derive_codify_edits
@@ -11080,15 +11333,12 @@ class TestApplyTopCLI:
             },
         )()
 
-    def _setup_synthetic_source(self, tmp_path, monkeypatch):
+    def _setup_synthetic_source(self, tmp_path, monkeypatch, snippet=None):
         """Write the test snippet + redirect ``default_codify_apply_sources``."""
+        if snippet is None:
+            snippet = _APPLY_TOP_HARNESS_SNIPPET
         src = tmp_path / "harness_snippet.py"
-        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
-        # Both the library function (consumed by derive_codify_edits when
-        # sources=None) and the CLI's apply driver go through
-        # ``default_codify_apply_sources``.  Monkeypatching one place is
-        # sufficient because derive_codify_edits looks up the default
-        # lazily inside the function body.
+        src.write_text(snippet)
         from panobbgo import self_improve as si
 
         monkeypatch.setattr(
@@ -11215,12 +11465,20 @@ class TestApplyTopCLI:
         assert "selected: Nearby.radius" in out
         assert "Wrote" in out
 
-    def test_apply_top_skips_structural_with_note(self, tmp_path, capsys, monkeypatch):
+    def test_apply_top_structural_no_matching_site_leaves_source_unchanged(self, tmp_path, capsys, monkeypatch):
+        """Structural candidates are now handled (2026-07-01) — but a
+        ``drop_heuristic`` for a class not present in the target spec's
+        bucket produces no edits, so the source is unchanged.  Matches
+        the behaviour of ``_scan_source_for_structural_edits``' drop
+        safety guard.
+        """
         cli = self._import_cli()
         src = self._setup_synthetic_source(tmp_path, monkeypatch)
         original_text = src.read_text()
         live = tmp_path / "live.jsonl"
-        # Only structural candidates in the visible set.
+        # Structural candidate: drop LatinHypercube from Rewarding_Diverse.
+        # But the synthetic snippet does not contain LatinHypercube, so
+        # the drop safety guard fires (nothing to drop).
         records = [
             _accepted_iter_record(
                 timestamp=f"2026-06-0{day}T05:00:00+00:00",
@@ -11238,9 +11496,169 @@ class TestApplyTopCLI:
         rc = cli._cmd_codify_scan(self._build_ns(live))
         assert rc == 0
         out = capsys.readouterr().out
-        assert "skipped" in out
-        assert "structural" in out
+        # The structural candidate is now selectable (was skipped
+        # pre-2026-07-01) but produces no edits because the target
+        # class is absent.
+        assert "selected: LatinHypercube [drop_heuristic]" in out
+        assert "no source site needed editing" in out
         assert src.read_text() == original_text
+
+    def test_apply_top_structural_drop_heuristic_actually_removes_entry(self, tmp_path, capsys, monkeypatch):
+        """End-to-end: a structural ``drop_heuristic`` candidate on a
+        class that IS present in the target spec produces a source edit
+        that removes the ``(ClassName, {...})`` tuple.
+        """
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        # Drop Random from Rewarding_Diverse (which does carry Random in
+        # the synthetic snippet).  Two records on distinct nights so the
+        # min_nights=2 gate passes; each carries a positive ci_low so
+        # require_positive_min_ci passes.
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Random",
+                param_name="",
+                rule_kind="structural",
+                op="drop_heuristic",
+                old_value=None,
+                new_value=None,
+                strategy_name="Rewarding_Diverse",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "selected: Random [drop_heuristic]" in out
+        assert "Wrote" in out
+        new_text = src.read_text()
+        assert "(Random, {})" not in new_text
+        # Other Rewarding_Diverse heuristics still present.
+        assert "(Sobol, " in new_text
+        assert "(Nearby, " in new_text
+        assert "(NelderMead, {})" in new_text
+        # File still parses as Python (idempotency guard against edit
+        # spans that break the AST).
+        import ast as _ast
+
+        _ast.parse(new_text)
+
+    def test_apply_top_structural_add_analyzer_inserts_entry(self, tmp_path, capsys, monkeypatch):
+        """End-to-end: a structural ``add_analyzer`` candidate on a spec
+        whose ``analyzers`` bucket is empty produces a source edit that
+        inserts ``(ClassName, {})`` inline in the ``[]``.
+
+        Uses ``Convergence`` as the target class rather than one of the
+        commonly-seeded analyzers (``Sensitivity`` / ``Restart``) so the
+        real ``default_codify_registries`` doesn't flag the candidate as
+        already-codified — Convergence isn't in any live registry's
+        ``analyzers`` bucket.  The synthetic snippet doesn't need to
+        import Convergence: the apply driver's AST edit is a pure text
+        insertion; :func:`ast.parse` on the resulting source succeeds
+        without name resolution.
+        """
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Convergence",
+                param_name="",
+                rule_kind="structural",
+                op="add_analyzer",
+                old_value=None,
+                new_value=None,
+                strategy_name="Rewarding_Diverse",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "selected: Convergence [add_analyzer]" in out
+        assert "Wrote" in out
+        new_text = src.read_text()
+        assert "(Convergence, {})" in new_text
+        # File still parses.
+        import ast as _ast
+
+        _ast.parse(new_text)
+
+    def test_apply_top_structural_drop_last_entry_preserves_bucket_alignment(self, tmp_path, capsys, monkeypatch):
+        """When the drop targets the last entry of a multi-line bucket,
+        the removal extends *backwards* through the leading newline +
+        indent so the closing ``]`` inherits the pre-entry indentation
+        rather than the entry's inner indent.  Regression guard for
+        the 2026-07-01 last-entry codepath.
+        """
+        # Custom snippet with LatinHypercube as the *last* heuristic
+        # entry so the "drop last" path exercises.
+        snippet = '''
+"""Synthetic harness for the drop-last-entry test."""
+
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Sobol, Random, LatinHypercube
+
+
+def _make_quick_strategies():
+    return [
+        StrategySpec(
+            name="Drop_Last_Spec",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (LatinHypercube, {"div": 4}),
+            ],
+            analyzers=[],
+        ),
+    ]
+'''
+        cli = self._import_cli()
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(snippet)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies",))],
+        )
+        live = tmp_path / "live.jsonl"
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="LatinHypercube",
+                param_name="",
+                rule_kind="structural",
+                op="drop_heuristic",
+                old_value=None,
+                new_value=None,
+                strategy_name="Drop_Last_Spec",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        new_text = src.read_text()
+        assert "(LatinHypercube, {" not in new_text
+        # Ensure closing ']' aligns with the pre-entry indent — the
+        # ``heuristics=[`` line was indented at 12 spaces so its
+        # matching ``]`` should be too.
+        assert "            ],\n" in new_text
+        # Sanity: still valid Python.
+        import ast as _ast
+
+        _ast.parse(new_text)
 
     def test_apply_top_no_candidates_graceful_exit(self, tmp_path, capsys, monkeypatch):
         cli = self._import_cli()
@@ -11544,3 +11962,93 @@ class TestApplyTopHygieneFlags:
         assert args.apply_top is True
         assert args.apply_format is True
         assert args.apply_run_tests is True
+
+# ===========================================================================
+# Numeric-rule skip of string sentinels (NP_init="auto")
+# ===========================================================================
+
+
+class TestNumericRuleSkipsStringSentinel:
+    """A numeric mutation rule must not try to perturb a string sentinel.
+
+    ``NP_init="auto"`` (budget-adaptive DE sizing, see
+    :class:`panobbgo.heuristics.lshade.LSHADE`) is a legal kwarg value that a
+    structurally-added DE arm can carry.  The ``LSHADE.NP_init`` ``integer_add``
+    catalog rule must skip it — matching it would crash ``int("auto")`` inside
+    :meth:`MutationRule.apply`.
+    """
+
+    def _spec_with(self, value):
+        return [
+            StrategySpec(
+                name="StratX",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"NP_init": value})],
+            )
+        ]
+
+    def test_is_numeric_value(self):
+        assert _is_numeric_value(30)
+        assert _is_numeric_value(1.5)
+        assert _is_numeric_value(np.int64(4))
+        assert not _is_numeric_value("auto")
+        assert not _is_numeric_value(True)  # bool excluded
+        assert not _is_numeric_value(None)
+
+    def test_integer_rule_skips_auto(self):
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert hits == []
+
+    def test_integer_rule_matches_int(self):
+        specs = self._spec_with(30)
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert len(hits) == 1 and hits[0][3] == 30
+
+    def test_categorical_rule_still_sees_strings(self):
+        # rule_kind=None (or categorical) must NOT skip string values so
+        # e.g. an F_schedule regime flip keeps working.
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init")
+        assert len(hits) == 1 and hits[0][3] == "auto"
+
+    def test_np_init_rule_does_not_crash_on_auto_spec(self):
+        """End-to-end: sampling the catalog against an ``NP_init="auto"`` spec is safe."""
+        rng = np.random.default_rng(0)
+        catalog = default_catalog()
+        specs = [
+            StrategySpec(
+                name="LSHADE_spec",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_LSHADEStub, {"NP_init": "auto"})],
+            )
+        ]
+        # Sampling many times must never raise int("auto"); any proposal
+        # returned for LSHADE.NP_init would only come from a numeric value.
+        for _ in range(50):
+            catalog.sample(rng, specs)
+
+
+class _LSHADEStub:
+    """Class named ``LSHADE`` so the real ``LSHADE.NP_init`` rule targets it."""
+
+
+_LSHADEStub.__name__ = "LSHADE"
+
+
+class TestStructuralCatalogDEAutoSizing:
+    """The structural DE candidates ship ``NP_init="auto"`` (budget-adaptive)."""
+
+    def test_de_candidates_use_auto_np_init(self):
+        catalog = default_structural_catalog()
+        de_names = {"LSHADE", "JSO", "NLSHADE_RSP", "NLSHADE_LBC", "LSHADE_EpSin"}
+        seen = {}
+        for rule in catalog.rules:
+            if not isinstance(rule, StructuralMutationRule):
+                continue
+            for cls, kwargs in rule.candidate_classes:
+                if cls.__name__ in de_names:
+                    seen[cls.__name__] = kwargs.get("NP_init")
+        assert de_names <= set(seen), f"missing DE candidates: {de_names - set(seen)}"
+        for name, np_init in seen.items():
+            assert np_init == "auto", f"{name} should size NP_init automatically, got {np_init!r}"

@@ -115,7 +115,7 @@ References
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -138,7 +138,9 @@ class NLSHADE_RSP(JSO):
 
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
-        NP_init: Initial population size.  Default ``30``.
+        NP_init: Initial population size, or ``"auto"`` for budget-adaptive
+            sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).
+            Default ``30``.
         NP_min: Minimum population size after non-linear reduction.
             Default ``4``.
         H: History memory size.  Default ``5`` (inherits the jSO anchor
@@ -176,7 +178,7 @@ class NLSHADE_RSP(JSO):
     def __init__(
         self,
         strategy,
-        NP_init: int = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best_max: float = _DEFAULT_P_BEST_MAX,

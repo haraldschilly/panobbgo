@@ -2,6 +2,42 @@
 
 ## Recent Improvements (continued)
 
+### Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption — 2026-07-05
+- [x] **`LSHADE` (and subclasses `JSO` / `NLSHADE_RSP` / `NLSHADE_LBC` /
+      `LSHADE_EpSin`) accept `NP_init="auto"`** — budget-adaptive population
+      sizing `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)`,
+      resolved in the base constructor via `_resolve_auto_np_init` so every
+      subclass and downstream path (validation, `on_start`, LPSR,
+      `LSHADE_EpSin` `G_max`) sees a normal `int`.  Falls back to the fixed
+      default `30` when the budget is unknown; the `int` default is unchanged
+      (byte-identical).  A `bool` is now rejected explicitly (it is an `int`
+      subclass and must not size a population).
+- [x] **`default_structural_catalog` DE candidates ship `NP_init="auto"`** —
+      so a structurally-added DE arm is sized for the strategy budget instead
+      of a fixed oversized swarm.  `_find_targets` gained a `rule_kind`
+      argument: numeric mutation rules skip non-numeric values (the `"auto"`
+      sentinel is ignored, never `int("auto")`-crashed) while categorical
+      rules still see strings (`F_schedule` regime flips keep working).
+- [x] **Measured impact** — lone `LSHADE` / `Rosenbrock_2D`, 6 reps: at the
+      quick-mode budget 75 (the nightly loop's operating budget) `NP_init=30`
+      scores **0.036** vs `"auto"` (NP=6) **0.604** — a ~16× win (an
+      oversized swarm otherwise burns the budget on the initial random fill);
+      at budget 200 a 3-seed sweep of `NP_init ∈ {15,17,30}` measured
+      0.42/0.43/0.46 — within noise, no regression.  Respects the §7.3
+      catalog freeze (no new arms).
+- [x] **Rejected (measured negative result)** — a Hooke-Jeeves pattern-move /
+      directional momentum for `Nearby` was implemented and measured across
+      three designs at momentum ∈ {0.5, 1.0} over 5 seeds; every variant was
+      null-to-negative on composite (`Rosenbrock_2D` degraded — straight
+      extrapolation overshoots the curved valley).  Reverted; documented in
+      the 2026-07-05 log entry so it is not re-tried.
+- [x] **Tests** — 8 new `LSHADEAutoNPInitTests` + 6 new tests
+      (`TestNumericRuleSkipsStringSentinel` / `TestStructuralCatalogDEAutoSizing`);
+      all affected suites green (802 passed).
+- [x] **Docs** — `doc/source/heuristics.rst`, `panobbgo/heuristics/lshade.py`
+      (+ 4 subclass docstrings), `AGENTS.md`, `planning/SELF_IMPROVEMENT_LOG.md`
+      (dated entry + Next iteration ideas), this entry.
+
 ### `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags — 2026-07-03
 - [x] **Two new CLI flags on `scripts/self_improve.py codify-scan`** —
       `--apply-format` (after write, run `uv run ruff format` on the
@@ -73,6 +109,104 @@
       custom pytest scope (`--apply-run-tests-scope=STR`) so the
       operator can swap in a broader test path when the codify slot
       touches something outside `test_self_improve.py`.
+### Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up) — 2026-07-01
+- [x] **Extended library surface in `panobbgo/self_improve.py`** —
+      `_scan_source_for_structural_edits(source_path, *,
+      factory_names, class_name, op, target_spec_names)` (sibling
+      of `_scan_source_for_kwarg_edits` handling `add_/drop_`
+      ops on the target `heuristics` / `analyzers` list literal),
+      `_byte_to_lineno_col(byte_offset, line_starts)` helper for
+      inverting the byte-offset ↔ (lineno, col_offset) mapping,
+      and module-level `_STRUCTURAL_OPS_TO_BUCKET` mapping each op
+      to its target bucket.  `derive_codify_edits` now dispatches
+      structural candidates to the new scanner instead of returning
+      an empty list; kwarg candidates route unchanged.
+- [x] **Behaviour by op**: `drop_heuristic` / `drop_analyzer` emit
+      one `CodifyEdit` per matching `(ClassName, {...})` tuple in
+      the target bucket — the removal span covers the tuple plus
+      trailing comma and inter-entry whitespace so the surviving
+      literal is well-formatted; a corner-case backwards-expansion
+      path applies to the "drop last entry of multi-line bucket"
+      case so the closing `]` inherits the pre-entry indent.
+      `add_heuristic` / `add_analyzer` emit a zero-width insertion
+      just after the last entry's trailing comma; the new entry
+      ships as `(ClassName, {})` (constructor defaults).  For an
+      empty bucket (`analyzers=[]`) the add-primitive inserts inline
+      (`analyzers=[(ClassName, {})]`).
+- [x] **Three safety guards** keep the primitive conservative:
+      (1) `drop_*` skips specs whose bucket has only one entry
+      (else the surviving spec has no way to generate points);
+      (2) `add_*` skips specs where the class is already in the
+      bucket (matches `_structural_already_codified`);
+      (3) `drop_*` skips specs where the class is not in the
+      bucket (nothing to drop).  Plus a `target_spec_names` filter
+      populated from the candidate's `strategy_names` restricts
+      edits to the specs the ledger accumulated evidence against —
+      unlike kwarg edits which safely propagate across every
+      matching spec.
+- [x] **CLI updates** in `scripts/self_improve.py` — the
+      `--apply-top` handler no longer skips structural candidates
+      with a "skipped N structural" note.  Instead it prints
+      `selected: X [op]` and `target spec(s): ...` lines for
+      structural picks, then delegates to `apply_codify_candidate`
+      exactly like the kwarg branch.  Bidirectional-slot skip
+      still applies to kwarg candidates only (structural directions
+      are the op name and don't collide with the up/down heuristic).
+- [x] **Idempotent re-runs** — a second `--apply-top` pass against
+      the now-codified source derives an empty edit list because
+      every safety guard (drop of missing class, add of present
+      class) fires for the codified state.  Matches the
+      self-stability shape of `_candidate_already_codified` /
+      `_structural_already_codified`.
+- [x] **Why it improves Panobbgo** — three direct effects:
+      (1) **unblocks the live-ledger's top structural candidate**
+      (`LatinHypercube` `drop_heuristic` from `Loop_LocalSearch`,
+      `n_nights=2`, `mean_Δ=+0.0491`) — one night away from
+      clearing the daily-routine threshold; the operator would
+      have had to hand-remove the tuple with the 2026-06-30
+      kwarg-only apply driver.  (2) **closes the structural
+      codify gap in the daily routine (§12.3)** — every surfaced
+      candidate (kwarg, categorical, structural) now translates
+      to source edits via `codify-scan --apply-top` alone.
+      (3) **advances the §11.2 throughput criterion** — structural
+      codification lifts the kwarg-only cadence ceiling; analyzer
+      add / heuristic drop candidates from the `--structural`
+      mutation catalog can now translate to source edits directly.
+- [x] **Tests** — 7 new tests in `tests/test_self_improve.py`:
+      `TestApplyCodifyEdits` gains structural drop-missing-class /
+      no-strategy-names / drop-actually-removes /
+      add-actually-inserts / add-already-present / single-entry-
+      bucket-guard / strategy_names-filter-honoured / structural-
+      apply-idempotency; `TestApplyTopCLI` gains structural
+      no-matching-site graceful-exit / drop-heuristic actually
+      removes / add-analyzer actually inserts / drop-last-entry
+      preserves closing bracket alignment.  The pre-existing
+      `test_apply_top_skips_structural_with_note` and
+      `test_derive_edits_structural_returns_empty_list` are
+      replaced by the new-semantics versions.  Full suite: 551
+      passed (was 544 before — net +7).  `ruff check` / `ruff
+      format --check` clean.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-07-01 dated entry; *Next iteration ideas* seeded for
+      `--open-pr` structural PR bodies, `add_heuristic` with
+      recorded `structural_kwargs`, `--auto-format`, line-wrap
+      heuristic), `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3
+      paragraph extended noting the structural source-edit layer
+      is shipped), `doc/source/guide_benchmarking.rst`
+      (*Apply the top candidate to the working tree
+      (--apply-top)* sub-section extended with the structural-op
+      behaviour + safety-guard rationale + strategy_names filter),
+      `doc/source/guide.rst` (Benchmarking summary line extended
+      with the 2026-07-01 entry), `AGENTS.md` (new bullet under
+      the V2 ship list).
+- [x] **Follow-ups** seeded under *Next iteration ideas* in
+      `planning/SELF_IMPROVEMENT_LOG.md`:
+      `--open-pr` structural PR body population using
+      `strategy_names`; `add_heuristic` with recorded
+      `structural_kwargs` when they converge across accepts;
+      `--apply-top --auto-format` (run `uv run ruff format` on
+      modified file); line-wrap heuristic for long constructor
+      arguments in structural inserts.
 
 ### `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing) — 2026-06-30
 - [x] **New library surface in `panobbgo/self_improve.py`** —

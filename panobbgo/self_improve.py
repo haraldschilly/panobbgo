@@ -158,13 +158,14 @@ See also
 from __future__ import annotations
 
 import ast
+import bisect
 import json
 import math
 import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -6371,6 +6372,343 @@ def _scan_source_for_kwarg_edits(
     return edits
 
 
+#: Structural op → bucket name it targets on :class:`StrategySpec`.
+#: ``add_/drop_heuristic`` target ``heuristics``; ``add_/drop_analyzer``
+#: target ``analyzers``.  Unknown ops are left out — callers that see an
+#: unrecognised op skip the candidate rather than raising.
+_STRUCTURAL_OPS_TO_BUCKET: Dict[str, str] = {
+    "add_heuristic": "heuristics",
+    "drop_heuristic": "heuristics",
+    "add_analyzer": "analyzers",
+    "drop_analyzer": "analyzers",
+}
+
+
+def _byte_to_lineno_col(byte_offset: int, line_starts: Sequence[int]) -> Tuple[int, int]:
+    """Convert a byte offset back to (1-indexed lineno, 0-indexed col_offset).
+
+    ``line_starts`` is the same ascending list of newline-start offsets
+    that :func:`_apply_edits_to_text` computes — line ``k`` starts at
+    ``line_starts[k - 1]``.  Uses :func:`bisect.bisect_right` so a byte
+    at ``line_starts[k]`` (i.e. the start of line ``k + 1``) resolves to
+    ``(k + 1, 0)`` rather than ``(k, len(line k))``, matching the
+    inverse of ``line_starts[lineno - 1] + col_offset`` used by
+    :func:`_apply_edits_to_text`.
+    """
+    lineno = bisect.bisect_right(list(line_starts), byte_offset)
+    if lineno < 1:
+        lineno = 1
+    col_offset = byte_offset - line_starts[lineno - 1]
+    return lineno, col_offset
+
+
+def _scan_source_for_structural_edits(
+    source_path: str,
+    *,
+    factory_names: Sequence[str],
+    class_name: str,
+    op: str,
+    target_spec_names: Optional[Set[str]] = None,
+) -> List[CodifyEdit]:
+    """Find every :class:`StrategySpec` site to structurally mutate for ``class_name``.
+
+    The structural sibling of :func:`_scan_source_for_kwarg_edits` — where
+    that function edits *values* inside ``(ClassName, {param: value, ...})``
+    dict literals, this one adds or removes the surrounding tuple entry
+    from the spec's ``heuristics`` / ``analyzers`` list literal.
+
+    Behaviour by ``op``:
+
+    * ``drop_heuristic`` / ``drop_analyzer``: emit one
+      :class:`CodifyEdit` per matching ``(ClassName, {...})`` tuple in
+      the target bucket.  The removal span covers the tuple *plus* the
+      trailing comma and the whitespace up to the start of the next
+      entry (or ``]`` when this was the last entry), so the surviving
+      source is well-formatted rather than left with a stray comma or
+      trailing blank line.
+    * ``add_heuristic`` / ``add_analyzer``: emit a single zero-width
+      insertion :class:`CodifyEdit` at the position just *before* the
+      closing ``]`` of the target bucket.  The inserted text is
+      ``(ClassName, {}),\\n<indent>`` where ``<indent>`` matches the
+      column offset of the bucket's first existing entry (falling back
+      to 12 spaces — the ``StrategySpec(...)`` convention used across
+      ``_make_*_strategies``).  The empty dict signals "use constructor
+      defaults"; operators tune the added heuristic via the standard
+      kwarg-mutation catalog after the add.
+
+    Safety guards keep the primitive conservative:
+
+    * ``drop_*`` skips specs whose bucket has only one entry — dropping
+      the last heuristic / analyzer would leave the spec unable to
+      generate points / observe events.
+    * ``drop_*`` skips specs whose bucket does not contain ``class_name``
+      (nothing to drop).
+    * ``add_*`` skips specs whose bucket already contains ``class_name``
+      (matches :func:`_structural_already_codified`, so the primitive
+      is idempotent under re-runs).
+    * When ``target_spec_names`` is given, only specs whose
+      :attr:`~panobbgo.benchmark.StrategySpec.name` appears in that
+      set are edited.  The ``--apply-top`` CLI passes the candidate's
+      :attr:`~CodifyCandidate.strategy_names` here so structural edits
+      only touch the specs the ledger actually accumulated evidence
+      against (unlike kwarg edits, which safely propagate across every
+      matching spec).
+
+    Args:
+        source_path: Repo-relative path of a source file whose top-level
+            functions build seed specs.
+        factory_names: Names of the top-level factory functions in
+            ``source_path`` whose bodies :class:`StrategySpec` literals
+            live in.
+        class_name: Heuristic / analyzer class ``__name__`` the op
+            targets (e.g. ``"LatinHypercube"``).
+        op: One of ``add_heuristic`` / ``drop_heuristic`` /
+            ``add_analyzer`` / ``drop_analyzer``.  Unknown ops return
+            an empty list rather than raising.
+        target_spec_names: Optional filter — restrict edits to specs
+            whose ``name`` is in this set.  ``None`` (default) allows
+            every scanned spec through.  An empty set disables all
+            edits (defensive).
+
+    Returns:
+        Zero or more :class:`CodifyEdit` objects.  Empty list on
+        missing file, syntax error, unknown op, or when no
+        surviving spec matches the safety guards above.
+    """
+    bucket_name = _STRUCTURAL_OPS_TO_BUCKET.get(op)
+    if bucket_name is None:
+        return []
+    if target_spec_names is not None and not target_spec_names:
+        return []
+    path = pathlib.Path(source_path)
+    if not path.exists():
+        return []
+    text = path.read_text()
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    edits: List[CodifyEdit] = []
+    factory_set = set(factory_names)
+    # Precompute line starts for byte-offset arithmetic — matches the
+    # convention in :func:`_apply_edits_to_text` so the resulting
+    # ``CodifyEdit`` coordinates apply cleanly.
+    line_starts: List[int] = [0]
+    for i, ch in enumerate(text):
+        if ch == "\n":
+            line_starts.append(i + 1)
+
+    def byte_offset(lineno: int, col_offset: int) -> int:
+        if lineno <= 0 or lineno > len(line_starts):
+            return -1
+        return line_starts[lineno - 1] + col_offset
+
+    for top in ast.walk(tree):
+        if not isinstance(top, ast.FunctionDef):
+            continue
+        if top.name not in factory_set:
+            continue
+        for inner in ast.walk(top):
+            if not isinstance(inner, ast.Call):
+                continue
+            func = inner.func
+            if isinstance(func, ast.Attribute):
+                func_name = func.attr
+            elif isinstance(func, ast.Name):
+                func_name = func.id
+            else:
+                continue
+            if func_name != "StrategySpec":
+                continue
+            spec_name_node = _extract_keyword_value(inner, "name")
+            spec_name = "<unknown>"
+            if isinstance(spec_name_node, ast.Constant) and isinstance(spec_name_node.value, str):
+                spec_name = spec_name_node.value
+            if target_spec_names is not None and spec_name not in target_spec_names:
+                continue
+            bucket = _extract_keyword_value(inner, bucket_name)
+            if bucket is None or not isinstance(bucket, ast.List):
+                continue
+            # Collect every existing ``(ClassName, {...})`` entry so the
+            # add / drop decisions can inspect current membership.
+            existing_entries: List[ast.Tuple] = []
+            for entry in bucket.elts:
+                if not isinstance(entry, ast.Tuple) or len(entry.elts) != 2:
+                    continue
+                cls_node = entry.elts[0]
+                if isinstance(cls_node, ast.Name) and cls_node.id == class_name:
+                    existing_entries.append(entry)
+
+            if op.startswith("drop_"):
+                if not existing_entries:
+                    # Nothing to drop — leave the spec untouched.
+                    continue
+                # Safety: never drop the last entry in a bucket.  The
+                # spec's downstream consumers (strategy factory, analyzer
+                # pipeline) expect at least one heuristic; dropping the
+                # last one would silently produce an unusable spec.
+                if len(bucket.elts) <= 1:
+                    continue
+                for entry in existing_entries:
+                    if entry.end_lineno is None or entry.end_col_offset is None:
+                        continue
+                    start_byte = byte_offset(entry.lineno, entry.col_offset)
+                    end_byte = byte_offset(entry.end_lineno, entry.end_col_offset)
+                    if start_byte < 0 or end_byte < 0 or end_byte > len(text):
+                        continue
+                    # Extend the removal span to consume the trailing
+                    # comma + any inter-entry whitespace so the surviving
+                    # list literal is well-formatted.  Two cases:
+                    #
+                    # * **Middle entry** (next non-whitespace is another
+                    #   tuple): consume the trailing ``,``, the newline
+                    #   after it, and the indent on the next line so
+                    #   the sibling below shifts up cleanly.
+                    # * **Last entry** (next non-whitespace is ``]``):
+                    #   consuming forward would eat the ``]``'s leading
+                    #   indent and leave the closing bracket at the
+                    #   wrong column.  Instead extend the removal
+                    #   *backwards* through the entry's own leading
+                    #   newline + indent so the whole line the entry
+                    #   sat on disappears cleanly.
+                    #
+                    # Idempotent under re-runs — after the removal the
+                    # ``existing_entries`` scan comes up empty on the
+                    # now-codified source, so :func:`derive_codify_edits`
+                    # returns ``[]``.
+                    scan = end_byte
+                    if scan < len(text) and text[scan] == ",":
+                        scan += 1
+                    peek = scan
+                    while peek < len(text) and text[peek] in " \t\n":
+                        peek += 1
+                    is_last_entry = peek < len(text) and text[peek] == "]"
+                    if is_last_entry:
+                        # Extend backwards through the entry's leading
+                        # whitespace + newline so the closing ``]``
+                        # inherits the pre-entry indentation.
+                        back = start_byte - 1
+                        while back >= 0 and text[back] in " \t":
+                            back -= 1
+                        if back >= 0 and text[back] == "\n":
+                            start_byte_final = back
+                        else:
+                            # No leading newline (compact single-line
+                            # bucket) — fall back to the original start.
+                            start_byte_final = start_byte
+                        end_byte_expanded = scan
+                    else:
+                        start_byte_final = start_byte
+                        tmp = scan
+                        while tmp < len(text) and text[tmp] in " \t":
+                            tmp += 1
+                        saw_newline = False
+                        if tmp < len(text) and text[tmp] == "\n":
+                            tmp += 1
+                            saw_newline = True
+                            while tmp < len(text) and text[tmp] in " \t":
+                                tmp += 1
+                        end_byte_expanded = tmp if saw_newline else scan
+                    start_lineno, start_col_offset = _byte_to_lineno_col(start_byte_final, line_starts)
+                    end_lineno, end_col_offset = _byte_to_lineno_col(end_byte_expanded, line_starts)
+                    old_source = text[start_byte_final:end_byte_expanded]
+                    edits.append(
+                        CodifyEdit(
+                            source_path=source_path,
+                            factory_name=top.name,
+                            spec_name=spec_name,
+                            class_name=class_name,
+                            param_name="",
+                            rule_kind="structural",
+                            direction=op,
+                            old_value=None,
+                            new_value=None,
+                            lineno=start_lineno,
+                            col_offset=start_col_offset,
+                            end_lineno=end_lineno,
+                            end_col_offset=end_col_offset,
+                            old_source=old_source,
+                            new_source="",
+                        )
+                    )
+            elif op.startswith("add_"):
+                if existing_entries:
+                    # Already codified — matches
+                    # ``_structural_already_codified``'s add-branch rule.
+                    continue
+                if bucket.end_lineno is None or bucket.end_col_offset is None:
+                    continue
+                # Insertion strategy varies by bucket population:
+                #
+                # * Non-empty bucket (the common case) — insert AFTER
+                #   the last entry's trailing comma so the new entry
+                #   lands on its own line at the same indent as its
+                #   siblings.  Sample layout::
+                #
+                #       heuristics=[
+                #           (COBYQA, {"scale": True}),  <-- last entry
+                #           (NewClass, {}),             <-- inserted
+                #       ],
+                #
+                # * Empty bucket — insert *inside* the ``[]`` with a
+                #   newline on each side so the new entry sits on its
+                #   own line matching the enclosing ``[`` indent.
+                #
+                # Both variants preserve the source's existing
+                # indentation convention rather than guessing.
+                if bucket.elts:
+                    last_entry = bucket.elts[-1]
+                    if last_entry.end_lineno is None or last_entry.end_col_offset is None:
+                        continue
+                    last_end = byte_offset(last_entry.end_lineno, last_entry.end_col_offset)
+                    if last_end < 0 or last_end > len(text):
+                        continue
+                    # Consume a trailing comma if present so the new
+                    # entry lands after it (not before).
+                    insert_byte = last_end
+                    if insert_byte < len(text) and text[insert_byte] == ",":
+                        insert_byte += 1
+                    # Match the last entry's indent (its column offset
+                    # is the number of leading spaces before it on its
+                    # line) so the new entry aligns visually.
+                    indent = " " * last_entry.col_offset
+                    insert_lineno, insert_col = _byte_to_lineno_col(insert_byte, line_starts)
+                    new_entry_source = f"\n{indent}({class_name}, {{}}),"
+                else:
+                    # Empty bucket (e.g. ``analyzers=[]``): insert
+                    # inline between ``[`` and ``]`` since there's no
+                    # existing entry style to match.  Result:
+                    # ``analyzers=[(NewClass, {})]``.  A future manual
+                    # tune can reformat to multi-line if the bucket
+                    # gains more entries.
+                    open_byte = byte_offset(bucket.lineno, bucket.col_offset + 1)
+                    if open_byte < 0 or open_byte > len(text):
+                        continue
+                    insert_byte = open_byte
+                    insert_lineno, insert_col = _byte_to_lineno_col(insert_byte, line_starts)
+                    new_entry_source = f"({class_name}, {{}})"
+                edits.append(
+                    CodifyEdit(
+                        source_path=source_path,
+                        factory_name=top.name,
+                        spec_name=spec_name,
+                        class_name=class_name,
+                        param_name="",
+                        rule_kind="structural",
+                        direction=op,
+                        old_value=None,
+                        new_value=None,
+                        lineno=insert_lineno,
+                        col_offset=insert_col,
+                        end_lineno=insert_lineno,
+                        end_col_offset=insert_col,
+                        old_source="",
+                        new_source=new_entry_source,
+                    )
+                )
+    return edits
+
+
 def derive_codify_edits(
     candidate: CodifyCandidate,
     *,
@@ -6386,17 +6724,21 @@ def derive_codify_edits(
     beyond the proposal in the candidate's direction are skipped (so
     deliberately-tighter sibling specs are left alone).
 
-    Structural candidates (``op is not None``): returns an empty list —
-    applying structural edits requires inserting / removing list entries,
-    which is a more invasive AST mutation.  Operators apply structural
-    codify candidates manually for now.  (Same scope split as the queued
-    ``--open-pr`` driver — see the V2 §9.5 step 4 *Next iteration ideas*
-    entry in :doc:`/planning/SELF_IMPROVEMENT_LOG.md`.)
+    Structural candidates (``op is not None``): dispatches to
+    :func:`_scan_source_for_structural_edits` which produces list-entry
+    insertions (``add_heuristic`` / ``add_analyzer``) or removals
+    (``drop_heuristic`` / ``drop_analyzer``) in the target bucket.
+    The ledger's :attr:`~CodifyCandidate.strategy_names` set narrows the
+    edit scope to the specs the ledger accumulated evidence against
+    (unlike kwarg edits, which safely propagate across every matching
+    spec).  Empty when no strategy_names are recorded — defensive: a
+    structural candidate without a recorded strategy_name cannot be
+    routed to a specific spec.
 
     Args:
         candidate: The codify candidate produced by
             :func:`aggregate_codify_candidates` (typically the top of a
-            human-readable scan).  The candidate's
+            human-readable scan).  For kwarg candidates the
             :meth:`~CodifyCandidate.proposed_codify_value` is consulted
             for the value the edits ship.
         sources: Source files + factory function names to scan.
@@ -6408,19 +6750,38 @@ def derive_codify_edits(
     Returns:
         List of :class:`CodifyEdit` objects, one per matching site, in
         the order encountered by :func:`ast.walk` (factory-then-spec
-        order).  Empty when the candidate is structural, when
+        order).  Empty when
         :meth:`~CodifyCandidate.proposed_codify_value` returns ``None``,
-        or when no source site matches the candidate's slot in a
-        direction consistent with the proposal.
+        when a structural candidate carries no recorded strategy names,
+        or when no source site clears the primitive's safety guards.
     """
+    if sources is None:
+        sources = default_codify_apply_sources()
     if candidate.op is not None:
-        return []
+        target_spec_names: Optional[Set[str]] = set(name for name in candidate.strategy_names if name)
+        # A structural candidate that never recorded a strategy_name is
+        # not routable — refuse to guess.  Kwarg candidates fall back to
+        # "every spec" but structural ops can't (adding a heuristic to
+        # every spec that lacks it is a much bigger edit than the
+        # ledger's evidence supports).
+        if not target_spec_names:
+            return []
+        edits: List[CodifyEdit] = []
+        for source_path, factory_names in sources:
+            edits.extend(
+                _scan_source_for_structural_edits(
+                    source_path,
+                    factory_names=tuple(factory_names),
+                    class_name=candidate.class_name,
+                    op=candidate.op,
+                    target_spec_names=target_spec_names,
+                )
+            )
+        return edits
     proposed = candidate.proposed_codify_value()
     if proposed is None:
         return []
-    if sources is None:
-        sources = default_codify_apply_sources()
-    edits: List[CodifyEdit] = []
+    edits = []
     for source_path, factory_names in sources:
         edits.extend(
             _scan_source_for_kwarg_edits(

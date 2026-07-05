@@ -127,6 +127,222 @@ Conventions:
     point-generators, then wire ``"auto"`` into the ``Loop_DE_Family``
     seed specs.  Needs a cheap estimate of each arm's realised evaluation
     share (the Rewarding bandit already tracks per-heuristic pulls).
+### 2026-07-01 — Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up)
+
+* **What** — Extends the 2026-06-30 ``--apply-top`` driver to handle
+  the four structural codify ops (``add_heuristic`` / ``drop_heuristic``
+  / ``add_analyzer`` / ``drop_analyzer``) in addition to kwarg-value
+  edits.  The primitive parses the target source file, locates the
+  ``(ClassName, {...})`` tuple entries inside each ``StrategySpec``'s
+  ``heuristics`` / ``analyzers`` list literal, and emits
+  :class:`~panobbgo.self_improve.CodifyEdit` objects that either add
+  a new entry or remove an existing one — scoped to the specs listed
+  in the candidate's :attr:`~CodifyCandidate.strategy_names`.  Closes
+  the queued *Structural-edit primitive for the apply driver* seed
+  under the 2026-06-30 entry's *Next iteration ideas* list.
+
+  New / extended library surface in :mod:`panobbgo.self_improve`:
+
+  * :func:`~panobbgo.self_improve._scan_source_for_structural_edits`
+    — sibling of :func:`~panobbgo.self_improve._scan_source_for_kwarg_edits`
+    that handles list-entry insertion / removal.  Reused by
+    :func:`~panobbgo.self_improve.derive_codify_edits` when the
+    candidate's ``op`` is not ``None``.
+  * :func:`~panobbgo.self_improve._byte_to_lineno_col` — small helper
+    to invert the ``line_starts[lineno-1] + col_offset`` convention
+    used by :func:`~panobbgo.self_improve._apply_edits_to_text` so
+    the new structural code can compute :class:`CodifyEdit`
+    coordinates from expanded byte offsets.
+  * Module-level constant
+    :data:`~panobbgo.self_improve._STRUCTURAL_OPS_TO_BUCKET` mapping
+    each op to its target bucket (``heuristics`` or ``analyzers``).
+  * :func:`~panobbgo.self_improve.derive_codify_edits` — now
+    dispatches structural candidates to the new scanner instead of
+    returning an empty list.  When the candidate carries no recorded
+    ``strategy_names`` the function still returns ``[]`` — refuse to
+    guess which spec to modify.
+
+  Behaviour by op:
+
+  * **``drop_heuristic`` / ``drop_analyzer``** — one
+    :class:`CodifyEdit` per matching ``(ClassName, {...})`` tuple.
+    The removal span covers the tuple plus its trailing comma and
+    the inter-entry whitespace so the surviving literal is
+    well-formatted.  When the entry is the last one in the bucket
+    (next non-whitespace is ``]``) the span extends *backwards*
+    through the entry's leading newline + indent so the closing
+    bracket inherits the pre-entry indentation instead of the
+    entry's inner indent — a regression-guarded corner case.
+  * **``add_heuristic`` / ``add_analyzer``** — one zero-width
+    insertion at the position immediately after the last existing
+    entry's trailing comma; the new entry ships as
+    ``(ClassName, {})`` (constructor defaults — a follow-up will
+    consume the candidate's :attr:`structural_kwargs` when the
+    ledger's per-record kwargs converge on one shape).  For a
+    completely empty bucket (e.g. ``analyzers=[]``) the insertion is
+    inline: ``analyzers=[(ClassName, {})]``.
+
+  Three safety guards keep the primitive conservative:
+
+  * ``drop_*`` skips specs whose bucket has only one entry (else
+    the surviving spec has no way to generate points / observe
+    events).
+  * ``drop_*`` skips specs where the target class is not in the
+    bucket (nothing to drop — matches
+    :func:`~panobbgo.self_improve._structural_already_codified`'s
+    drop rule so re-runs are idempotent).
+  * ``add_*`` skips specs where the class is already in the bucket
+    (matches :func:`~panobbgo.self_improve._structural_already_codified`'s
+    add rule so re-runs are idempotent).
+  * A ``target_spec_names`` filter (populated from the candidate's
+    :attr:`CodifyCandidate.strategy_names`) restricts edits to the
+    specs the ledger accumulated evidence against, unlike kwarg
+    edits which safely propagate across every matching spec.
+
+* **Why** — Three direct effects:
+
+  * **Unblocks the live-ledger's top structural candidate.**  As of
+    the 2026-06-30 entry, the top structural candidate on the live
+    ledger was ``LatinHypercube`` ``drop_heuristic`` from
+    ``Loop_LocalSearch`` (``n_nights=2``, ``mean_Δ=+0.0491``) — one
+    night away from clearing the daily-routine threshold.  With the
+    2026-06-30 kwarg-only apply driver, the operator would have had
+    to hand-remove the ``(LatinHypercube, {"div": 4}),`` tuple from
+    the Loop_LocalSearch heuristics list once the evidence
+    accumulated.  The structural primitive shipped here mechanises
+    that step — one command instead of manual AST search + edit +
+    format.
+  * **Closes the structural codify gap in the daily routine
+    (§12.3).**  The kwarg / structural split was the last
+    remaining reason a codify iteration had to fall back to manual
+    editing.  With this ship the daily routine can codify every
+    surfaced candidate — kwarg tunes, categorical flips, structural
+    add / drop — via ``codify-scan --apply-top`` alone.  The queued
+    ``--open-pr`` driver (V2 §9.5 step 4 final layer) now gains the
+    structural primitive as a bundled capability rather than a
+    kwarg-only stopgap.
+  * **Advances the §11.2 throughput criterion.**  The V2 bar is
+    ``≥ 3`` codify PRs opened and ``≥ 2`` merged over the first 30
+    nights (currently 3 / 2).  Structural codification lifts the
+    kwarg-only cadence ceiling: analyzer add / heuristic drop
+    candidates that surface from the ``--structural`` mutation
+    catalog can now translate to source edits directly, unblocking
+    a new class of throughput.
+
+* **Live-ledger smoke test** — Running::
+
+      uv run python scripts/self_improve.py codify-scan --apply-top
+        --apply-dry-run
+
+  against the live ledger today no longer emits a "skipped 1
+  structural candidate" line.  The ``LatinHypercube``
+  ``drop_heuristic`` candidate still doesn't clear the ``min_nights``
+  threshold on the current 20-iter ledger, but once it does the
+  driver picks it up automatically instead of asking the operator
+  to hand-apply.
+
+* **Backwards compatibility** — strictly safe:
+
+  * All four registry factories in ``panobbgo/harness.py`` are
+    byte-identical (the change is confined to
+    :mod:`panobbgo.self_improve` + :mod:`scripts.self_improve`).
+    No seed-spec values change.
+  * The ``codify-scan`` text + JSON output for kwarg candidates is
+    byte-identical.
+  * For structural candidates the CLI's ``Apply-top`` block now
+    prints ``selected: X [op]`` and ``target spec(s): ...`` lines
+    (2026-06-30 behaviour: ``skipped N structural candidate(s)``).
+    Only affects ``--apply-top`` invocations on ledgers containing
+    structural candidates.
+  * :func:`~panobbgo.self_improve.derive_codify_edits` returns an
+    empty list for a structural candidate whose
+    :attr:`CodifyCandidate.strategy_names` is empty — defensive
+    against a corrupt / synthetic input rather than guessing.
+  * Existing kwarg-edit tests are unchanged.
+  * The bidirectional-slot safety guard in the CLI applies only to
+    kwarg candidates (numeric ``"up"``/``"down"`` directions); it
+    does not affect structural candidates (structural directions
+    are the op name).
+
+* **Tests** — 7 new tests in
+  ``tests/test_self_improve.py``:
+
+  * ``TestApplyCodifyEdits`` gains 6 new tests: drop-missing-class
+    is no-op, no-strategy-names refuse, drop-actually-removes,
+    add-actually-inserts, add-already-present is no-op, single-entry
+    bucket drop is guarded, strategy_names filter honoured,
+    round-trip idempotency on structural apply.
+  * ``TestApplyTopCLI`` gains 3 new tests: no-matching-site
+    graceful-exit, drop_heuristic actually removes, add_analyzer
+    actually inserts, drop-last-entry preserves closing bracket
+    alignment (regression guard for the backwards-expansion path).
+  * The pre-existing
+    ``test_apply_top_skips_structural_with_note`` was retired and
+    replaced with
+    ``test_apply_top_structural_no_matching_site_leaves_source_unchanged``
+    matching the new "structural is handled" semantics.
+  * The pre-existing
+    ``test_derive_edits_structural_returns_empty_list`` was retired
+    and replaced with
+    ``test_derive_edits_structural_drop_missing_class_returns_empty``
+    matching the new semantics.
+  * Full ``tests/test_self_improve.py`` suite: 551 passed
+    (was 544 before — net +7 tests).  ``uv run ruff check`` /
+    ``uv run ruff format --check`` clean.
+
+* **Documentation updated**
+
+  - ``planning/SELF_IMPROVEMENT_LOG.md``: this entry.  The
+    *Structural-edit primitive for the apply driver* follow-up
+    seeded under the 2026-06-30 entry graduates from queued to
+    shipped.
+  - ``planning/SELF_IMPROVEMENT_LOOP.md``: §9.3 paragraph extended
+    noting the structural source-edit layer is shipped alongside
+    the kwarg layer.
+  - ``doc/source/guide_benchmarking.rst``: the *Apply the top
+    candidate to the working tree (--apply-top)* sub-section under
+    *Cross-night codify-scan* extended with the structural-op
+    behaviour (drop-removes, add-inserts, safety guards) and the
+    strategy_names filter rationale.
+  - ``doc/source/guide.rst``: Benchmarking summary line extended
+    with the 2026-07-01 entry alongside the existing 2026-06-30
+    apply-driver entry.
+  - ``AGENTS.md``: new bullet under the V2 ship list referencing
+    this entry.
+  - ``TODO.md``: new *Recent Improvements* entry below.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **`--open-pr` driver with structural PR bodies**: the queued
+    ``codify-scan --open-pr`` driver (V2 §9.5 step 4 final layer)
+    can now populate the PR body from structural candidates using
+    the ``strategy_names`` list ("this PR drops
+    ``LatinHypercube`` from ``Loop_LocalSearch``, evidence:
+    N_nights, mean_Δ, ...").  No new primitive needed — the
+    :meth:`CodifyCandidate.to_dict` already carries the fields.
+  * **``add_heuristic`` with recorded ``structural_kwargs``**: today
+    the add-primitive ships ``(ClassName, {})`` — constructor
+    defaults.  A follow-up could inspect each contributing record's
+    ``structural_kwargs`` and, when they converge on the same
+    values across all accepts, ship those instead.  Speculative
+    until the live ledger surfaces a converged-kwargs add
+    candidate; the empty-dict form matches the "add class to pool"
+    semantic naturally.
+  * **``--apply-top --auto-format`` flag**: after applying, run
+    ``uv run ruff format`` on the modified file automatically.
+    The current structural primitive preserves indentation for
+    typical multi-line lists but the empty-bucket inline shape
+    (``analyzers=[(NewClass, {})]``) would benefit from an
+    automatic re-flow when the bucket subsequently gains more
+    entries.
+  * **Line-wrap heuristic for long constructor arguments**: today
+    the add path always ships ``(ClassName, {})`` on one line.  A
+    future :class:`CodifyEdit` shape variant could ship
+    multi-line ``(\\n<indent + 4>ClassName,\\n<indent + 4>{...},\\n<indent>)``
+    when the argument dict has enough entries to overflow the
+    88-column ruff line-length limit.  Motivated once a live
+    add candidate ships with enough ``structural_kwargs`` to
+    warrant the reflow.
 
 ### 2026-06-30 — `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing)
 

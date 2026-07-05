@@ -11299,6 +11299,8 @@ class TestApplyTopCLI:
         apply_top=True,
         apply_dry_run=False,
         apply_include_bidirectional=False,
+        apply_format=False,
+        apply_run_tests=False,
         as_json=False,
     ):
         return type(
@@ -11326,6 +11328,8 @@ class TestApplyTopCLI:
                 "apply_top": apply_top,
                 "apply_dry_run": apply_dry_run,
                 "apply_include_bidirectional": apply_include_bidirectional,
+                "apply_format": apply_format,
+                "apply_run_tests": apply_run_tests,
             },
         )()
 
@@ -11722,6 +11726,242 @@ def _make_quick_strategies():
         assert "no source site needed editing" in out
         # File untouched.
         assert src.read_text() == original_text
+
+
+class TestApplyTopHygieneFlags:
+    """CLI tests for the ``--apply-format`` and ``--apply-run-tests``
+    hygiene flags on ``codify-scan --apply-top``.
+
+    These flags mechanise the last two manual steps of the daily
+    codify routine — running ``uv run ruff format`` on the modified
+    files and running the ``test_self_improve.py`` test module —
+    with the same monkeypatched-subprocess pattern the queued
+    ``--open-pr`` driver uses.  Uses the same synthetic-source setup
+    as :class:`TestApplyTopCLI` so no real ``panobbgo/harness.py``
+    edit is required.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _setup(self, tmp_path, monkeypatch):
+        """Write the synthetic harness snippet + redirect the sources default."""
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        return src, live
+
+    def _build_ns(self, live, **overrides):
+        # Re-use the TestApplyTopCLI helper via a fresh instance so the
+        # NS shape matches what the CLI parser produces.
+        return TestApplyTopCLI()._build_ns(live, **overrides)
+
+    def _install_subprocess_capture(self, cli, monkeypatch, *, returncodes=None):
+        """Replace ``cli._run_subprocess`` with a capture-only fake.
+
+        ``returncodes`` — optional list of ints, one per expected call
+        (defaults to ``[0, 0, ...]``).  Each call pops the next return
+        code; if the list is exhausted, further calls return ``0``.
+        """
+        calls: List[List[str]] = []
+        pending = list(returncodes or [])
+
+        class _Result:
+            def __init__(self, rc: int):
+                self.returncode = rc
+
+        def fake(cmd):
+            calls.append(list(cmd))
+            rc = pending.pop(0) if pending else 0
+            return _Result(rc)
+
+        monkeypatch.setattr(cli, "_run_subprocess", fake)
+        return calls
+
+    def test_apply_format_runs_ruff_on_modified_files(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=False),
+        )
+        assert rc == 0
+        assert len(calls) == 1
+        assert calls[0][:4] == ["uv", "run", "ruff", "format"]
+        # Every modified file path appears in the ruff invocation.
+        assert str(src) in calls[0]
+        out = capsys.readouterr().out
+        assert "Formatting: uv run ruff format" in out
+        # The apply itself still landed to disk.
+        assert '"radius": 0.08' in src.read_text()
+
+    def test_apply_run_tests_runs_pytest(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=False, apply_run_tests=True),
+        )
+        assert rc == 0
+        assert calls == [["uv", "run", "pytest", "tests/test_self_improve.py"]]
+        out = capsys.readouterr().out
+        assert "Running tests: uv run pytest tests/test_self_improve.py" in out
+        # When tests succeed, the "Next: commit" message drops the
+        # "run pytest" clause (already done).
+        assert "commit and open a draft PR" in out
+        assert "Next: run the test suite" not in out
+
+    def test_apply_format_and_run_tests_together_call_in_order(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 0
+        # Format runs first (files well-formatted before tests run).
+        assert calls[0][:4] == ["uv", "run", "ruff", "format"]
+        assert calls[1] == ["uv", "run", "pytest", "tests/test_self_improve.py"]
+        out = capsys.readouterr().out
+        format_pos = out.index("Formatting: ")
+        tests_pos = out.index("Running tests: ")
+        assert format_pos < tests_pos
+
+    def test_apply_format_failure_propagates_returncode(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch, returncodes=[3])
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 3
+        # Pytest is skipped when ruff format fails.
+        assert len(calls) == 1
+        out = capsys.readouterr().out
+        assert "ruff format failed (rc=3)" in out
+        assert "Running tests:" not in out
+
+    def test_apply_run_tests_failure_propagates_returncode(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch, returncodes=[0, 2])
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 2
+        assert len(calls) == 2
+        out = capsys.readouterr().out
+        assert "pytest failed (rc=2)" in out
+
+    def test_flags_inert_under_dry_run(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src, live = self._setup(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(
+                live,
+                apply_dry_run=True,
+                apply_format=True,
+                apply_run_tests=True,
+            ),
+        )
+        assert rc == 0
+        # No subprocesses spawned — nothing was written, nothing to
+        # format or test.
+        assert calls == []
+        # File untouched.
+        assert src.read_text() == original_text
+        out = capsys.readouterr().out
+        assert "inert under --apply-dry-run" in out
+        assert "--apply-format" in out
+        assert "--apply-run-tests" in out
+
+    def test_flags_inert_when_no_site_needs_editing(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        # Snippet already has Nearby.radius=0.08 — the down-to-0.08
+        # candidate's per-site direction guard leaves every site alone,
+        # so no edits land.  Both hygiene flags must no-op even when
+        # the operator asked for them.
+        snippet = _APPLY_TOP_HARNESS_SNIPPET.replace('"radius": 0.1', '"radius": 0.08')
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(snippet)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(
+                live,
+                apply_format=True,
+                apply_run_tests=True,
+            ),
+        )
+        assert rc == 0
+        assert calls == []
+        out = capsys.readouterr().out
+        assert "no source site needed editing" in out
+
+    def test_argparse_wires_flags_through(self, capsys):
+        cli = self._import_cli()
+        parser = cli._build_parser()
+        # Defaults: both flags off.
+        args = parser.parse_args(["codify-scan"])
+        assert args.apply_format is False
+        assert args.apply_run_tests is False
+        # Set both.
+        args = parser.parse_args(["codify-scan", "--apply-top", "--apply-format", "--apply-run-tests"])
+        assert args.apply_top is True
+        assert args.apply_format is True
+        assert args.apply_run_tests is True
 
 
 # ===========================================================================

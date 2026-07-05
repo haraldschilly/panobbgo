@@ -38,6 +38,77 @@
       (+ 4 subclass docstrings), `AGENTS.md`, `planning/SELF_IMPROVEMENT_LOG.md`
       (dated entry + Next iteration ideas), this entry.
 
+### `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags — 2026-07-03
+- [x] **Two new CLI flags on `scripts/self_improve.py codify-scan`** —
+      `--apply-format` (after write, run `uv run ruff format` on the
+      modified files) and `--apply-run-tests` (after the optional
+      format step, run `uv run pytest tests/test_self_improve.py`).
+      Both inert with `--apply-dry-run` (nothing landed, nothing to
+      format or test) and inert when the per-site direction guard
+      leaves every candidate site unchanged.  Non-zero subprocess rc
+      propagates so a CI wrapper surfaces the failure.
+- [x] **New module surface** — `scripts/self_improve.py._run_subprocess`
+      indirection over `subprocess.run` so tests can monkeypatch a
+      capture-only fake without shelling out to the real `uv` / `ruff`
+      / `pytest` binaries.  Matches the queued `--open-pr` driver's
+      dependency-injection pattern.  `_apply_top_codify_candidate`
+      gains two keyword-only parameters (`run_format` / `run_tests`,
+      both default `False`) so existing callers stay byte-identical.
+- [x] **Trailing "Next: …" message adapts** — when
+      `--apply-run-tests` succeeds, the trailing "Next: commit and
+      open a draft PR" line drops the "run pytest" clause (already
+      done).  Otherwise the pre-flag message is preserved verbatim,
+      matching the 2026-06-30 driver's operator workflow.
+- [x] **Why it improves Panobbgo** — three direct effects:
+      (1) closes the "run ruff, then run pytest, then commit" gap
+      in the §12.3 daily routine (one command replaces the previous
+      three-step sequence); (2) prevents "landed but broke tests"
+      codify PRs by gating the write behind the smoke-test suite;
+      (3) advances the §11 success criteria without adding new arms
+      (respects the §7.3 catalog freeze — pure operator-usability
+      plumbing).
+- [x] **Live-ledger smoke test** — `uv run python scripts/self_improve.py
+      codify-scan --apply-top --apply-dry-run --apply-format
+      --apply-run-tests` on the live ledger reports every candidate
+      is skipped (1 structural + 3 bidirectional — correct outcome
+      per the 2026-06-30 safety guards); because no edits landed,
+      the two hygiene flags don't fire even though requested,
+      matching the "inert when no site needed editing" contract.
+- [x] **Tests** — 8 new tests in
+      `tests/test_self_improve.py::TestApplyTopHygieneFlags` cover:
+      `--apply-format` alone runs ruff on modified files;
+      `--apply-run-tests` alone runs pytest + drops "run pytest"
+      clause; both together run format-before-tests;
+      `--apply-format` failure (rc=3) short-circuits so pytest is
+      skipped; `--apply-run-tests` failure (rc=2) propagates after
+      format succeeded; `--apply-dry-run` with both flags spawns
+      zero subprocesses + reports "inert under --apply-dry-run";
+      per-site-guard finds nothing to edit + both flags spawn zero
+      subprocesses; argparse round-trip (default False, parses as
+      True when passed).  Full `tests/test_self_improve.py` suite:
+      541 → 549 tests (+8), all pass; `uv run pytest` (no ignores)
+      reports 1762 passed / 11 skipped IOH workers; `ruff check` /
+      `ruff format --check` / `pyright` clean.
+- [x] **Documentation updated** — `planning/SELF_IMPROVEMENT_LOG.md`
+      (2026-07-03 dated entry; the 2026-06-30 entry's
+      `--apply-top --auto-format` / `--run-tests` follow-ups
+      graduated from queued to shipped);
+      `planning/SELF_IMPROVEMENT_LOOP.md` (§9.3 paragraph extended
+      with the hygiene-flag mention + recommended-one-liner);
+      `doc/source/guide_benchmarking.rst` (new *Hygiene flags*
+      sub-block under *Apply the top candidate to the working tree
+      (--apply-top)*); `doc/source/guide.rst` (Benchmarking
+      summary line extended with the 2026-07-03 entry); `AGENTS.md`
+      (new bullet under the V2 ship list + new CLI usage snippet at
+      the bottom); `TODO.md` (this entry).
+- [x] **Follow-ups** seeded under *Next iteration ideas* in
+      `planning/SELF_IMPROVEMENT_LOG.md`: `--apply-open-pr` hygiene
+      composition (once PR #275 lands the `--open-pr` driver, a
+      single `--apply-format --apply-run-tests --open-pr` chain
+      would run format + tests + `gh pr create` from one command);
+      custom pytest scope (`--apply-run-tests-scope=STR`) so the
+      operator can swap in a broader test path when the codify slot
+      touches something outside `test_self_improve.py`.
 ### Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up) — 2026-07-01
 - [x] **Extended library surface in `panobbgo/self_improve.py`** —
       `_scan_source_for_structural_edits(source_path, *,

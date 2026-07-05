@@ -405,7 +405,19 @@ source edit + PR:
   The driver does NOT touch git — the queued ``--open-pr`` driver
   consumes :func:`apply_codify_candidate` directly for its source-
   edit phase, then wraps it with a ``gh pr create`` call and a PR
-  body populated from :meth:`CodifyCandidate.to_dict`.
+  body populated from :meth:`CodifyCandidate.to_dict`.  The
+  ``--apply-format`` / ``--apply-run-tests`` hygiene flags
+  (**shipped 2026-07-03**) chain the daily routine's last two
+  manual steps into the same command: ``--apply-format`` runs
+  ``uv run ruff format`` on the modified files after the write;
+  ``--apply-run-tests`` runs ``uv run pytest
+  tests/test_self_improve.py`` for a smoke check.  Both flags
+  are inert under ``--apply-dry-run`` and inert when no site
+  needed editing.  Non-zero subprocess rc propagates so a CI
+  wrapper surfaces the failure.  Recommended daily-routine
+  one-liner: ``codify-scan --apply-top --apply-format
+  --apply-run-tests`` — one command replaces the previous
+  three-step manual sequence.
 
 `scripts/self_improve.py codify-scan --widen-bounds` (**shipped
 2026-06-19**) is the sibling detection mode for *bidirectional*

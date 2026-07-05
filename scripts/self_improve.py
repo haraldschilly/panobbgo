@@ -138,6 +138,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -879,9 +880,43 @@ def _build_parser() -> argparse.ArgumentParser:
             "force a default shift on a bidirectional slot."
         ),
     )
+    scan_p.add_argument(
+        "--apply-format",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk, run "
+            "``uv run ruff format`` on the modified files so the "
+            "operator does not have to remember.  Inert with "
+            "--apply-dry-run (nothing to format) and inert when no "
+            "site needed editing.  Non-zero rc from the formatter "
+            "propagates so a CI wrapper surfaces the failure."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-run-tests",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk (and after "
+            "--apply-format if requested), run ``uv run pytest "
+            "tests/test_self_improve.py`` so the operator gets "
+            "immediate feedback that the codify edit did not break "
+            "the codify plumbing.  Inert with --apply-dry-run and "
+            "inert when no site needed editing.  Non-zero rc from "
+            "pytest propagates so a CI wrapper surfaces the failure."
+        ),
+    )
     scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
+
+
+# Overridable subprocess runner so tests can intercept the
+# ``uv run ruff format`` / ``uv run pytest`` invocations without
+# shelling out to the real binaries.  Signature matches
+# :func:`subprocess.run`'s minimal shape (list of args, returns an
+# object with a ``.returncode`` int attribute).
+def _run_subprocess(cmd: Sequence[str]) -> "subprocess.CompletedProcess[Any]":
+    return subprocess.run(list(cmd), check=False)
 
 
 def _parse_seed_list(raw: str) -> tuple:
@@ -1867,6 +1902,8 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
             all_candidates=candidates,
             dry_run=bool(getattr(args, "apply_dry_run", False)),
             include_bidirectional=bool(getattr(args, "apply_include_bidirectional", False)),
+            run_format=bool(getattr(args, "apply_format", False)),
+            run_tests=bool(getattr(args, "apply_run_tests", False)),
         )
         if rc != 0:
             return rc
@@ -1879,6 +1916,8 @@ def _apply_top_codify_candidate(
     all_candidates: Sequence[Any],
     dry_run: bool,
     include_bidirectional: bool = False,
+    run_format: bool = False,
+    run_tests: bool = False,
 ) -> int:
     """Apply the top actionable kwarg codify candidate to ``panobbgo/harness.py``.
 
@@ -1895,6 +1934,14 @@ def _apply_top_codify_candidate(
     the source line.  At the end, a one-line "Wrote N file(s)" /
     "Would write" summary so the operator can re-run with
     ``--apply-dry-run`` off / on without re-reading the candidate list.
+
+    When ``run_format`` is set and edits were written, follows the write
+    with ``uv run ruff format`` on the modified files.  When
+    ``run_tests`` is set, follows the (optional) format step with
+    ``uv run pytest tests/test_self_improve.py``.  Both flags are
+    inert under ``dry_run`` (nothing to format / test) and inert when
+    no site needed editing.  Non-zero rc from either subprocess is
+    propagated to the caller.
 
     Returns the process exit code: ``0`` on success (including the
     no-op case where no actionable candidate exists or no site needs
@@ -2008,7 +2055,36 @@ def _apply_top_codify_candidate(
             )
     action = "Would write" if dry_run else "Wrote"
     print(f"  {action} {len(modified_files)} file(s): {', '.join(sorted(modified_files))}")
-    if not dry_run:
+    if dry_run:
+        # --apply-format / --apply-run-tests are inert under dry-run: no
+        # edits landed, so nothing to format or test.  Report the skip so
+        # the operator knows the flags were parsed but no-oped.
+        if run_format or run_tests:
+            skipped = []
+            if run_format:
+                skipped.append("--apply-format")
+            if run_tests:
+                skipped.append("--apply-run-tests")
+            print(f"  (inert under --apply-dry-run: {', '.join(skipped)} skipped)")
+        return 0
+
+    files = sorted(modified_files)
+    if run_format:
+        cmd = ["uv", "run", "ruff", "format", *files]
+        print(f"  Formatting: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  ruff format failed (rc={result.returncode})")
+            return int(result.returncode)
+    if run_tests:
+        cmd = ["uv", "run", "pytest", "tests/test_self_improve.py"]
+        print(f"  Running tests: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  pytest failed (rc={result.returncode})")
+            return int(result.returncode)
+        print("  Next: commit and open a draft PR with the codify evidence in the body.")
+    else:
         print(
             "  Next: run the test suite (uv run pytest), then commit and "
             "open a draft PR with the codify evidence in the body."

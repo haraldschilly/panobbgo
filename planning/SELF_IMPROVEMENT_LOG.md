@@ -127,6 +127,146 @@ Conventions:
     point-generators, then wire ``"auto"`` into the ``Loop_DE_Family``
     seed specs.  Needs a cheap estimate of each arm's realised evaluation
     share (the Rewarding bandit already tracks per-heuristic pulls).
+### 2026-07-03 — `codify-scan --apply-top --apply-format` / `--apply-run-tests` hygiene flags
+
+* **What** — Two optional flags on
+  ``scripts/self_improve.py codify-scan --apply-top`` that chain the
+  daily codify routine's last two manual steps into the same command:
+
+  * ``--apply-format`` — after the write, runs ``uv run ruff format``
+    on the modified files (the ``sorted(modified_files)`` list the
+    driver reports in its ``Wrote N file(s):`` line).
+  * ``--apply-run-tests`` — after the (optional) format step, runs
+    ``uv run pytest tests/test_self_improve.py`` so the operator
+    gets immediate feedback that the codify edit did not break the
+    codify plumbing itself.
+
+  Both are **inert under** ``--apply-dry-run`` (no edits landed,
+  nothing to format or test) and **inert when no site needed
+  editing** (the per-site direction guard skipped every candidate).
+  Non-zero rc from either subprocess propagates back to the CLI
+  caller so a CI wrapper surfaces the failure.  When
+  ``--apply-run-tests`` succeeds, the driver's final "Next: …" line
+  drops the ``uv run pytest`` clause (already done) — otherwise the
+  existing message is preserved verbatim, matching the pre-flag
+  operator workflow.
+
+  New module surface in ``scripts/self_improve.py``:
+
+  * ``_run_subprocess(cmd: Sequence[str])`` — module-level indirection
+    over :func:`subprocess.run` so tests can monkeypatch a capture-
+    only fake without shelling out to the real ``uv`` / ``ruff`` /
+    ``pytest`` binaries.  Matches the same dependency-injection
+    pattern the queued ``--open-pr`` driver in PR #275 uses for its
+    ``gh`` / ``git`` sequence.
+  * ``_apply_top_codify_candidate(...)`` gains two keyword-only
+    parameters ``run_format`` and ``run_tests`` (both default
+    ``False`` so existing callers stay byte-identical).  The
+    subprocess dispatch is a straight-line if-chain matching the
+    documented dry-run / no-edit / success-then-format-then-tests
+    sequence.
+
+  New CLI surface on ``codify-scan``:
+
+  * ``--apply-format`` — bool flag, default False.
+  * ``--apply-run-tests`` — bool flag, default False.
+
+  Both parse cleanly independent of ``--apply-top`` (harmless
+  no-op when the parent isn't set); the ``_cmd_codify_scan`` handler
+  reads them via ``getattr(args, "apply_format", False)`` so
+  hand-rolled ``argparse.Namespace``-shaped test callers continue
+  to work without the two fields.
+
+* **Why it improves Panobbgo** — three direct effects, each tied
+  to the §12.3 daily routine:
+
+  * **Closes the "run ruff, then run pytest, then commit" gap.**
+    The 2026-06-30 ``--apply-top`` ship reduced the manual codify
+    routine from ~30 min to ~30 s of "run one command, review the
+    diff, then remember to run ``uv run ruff format`` + ``uv run
+    pytest tests/test_self_improve.py`` before committing".  The
+    two flags fold both of those into the same command — one
+    line, one review pass, one commit.
+  * **Prevents "landed but broke tests" codify PRs.**  The
+    ``--apply-run-tests`` gate makes the driver fail fast on any
+    edit that ships a value the seed factories can't consume
+    (constructor-invariant violation, catalog-bound mismatch,
+    silent import cycle).  Directly the same safety the 2026-06-30
+    per-site direction guard applies at the AST layer, now
+    extended to runtime semantics.
+  * **Advances the §11 success criteria without adding new arms.**
+    Respects the §7.3 catalog freeze (no new mutation rules /
+    heuristics / structural candidates) — pure operator-usability
+    plumbing.  Speeds the codify-PR cadence without changing what
+    the loop can measure.
+
+* **Documentation** —
+  ``planning/SELF_IMPROVEMENT_LOG.md`` (this dated entry + the
+  2026-06-30 entry's ``--apply-top --auto-format`` / ``--run-tests``
+  follow-ups graduated from queued to shipped);
+  ``planning/SELF_IMPROVEMENT_LOOP.md`` (§9.3 paragraph extended
+  with the hygiene-flag mention);
+  ``doc/source/guide_benchmarking.rst`` (new *Hygiene flags*
+  sub-block under *Apply the top candidate to the working tree
+  (--apply-top)*, plus the recommended-one-liner code sample);
+  ``doc/source/guide.rst`` (Benchmarking summary line extended
+  with the 2026-07-03 entry); ``AGENTS.md`` (new bullet under the
+  V2 ship list); ``TODO.md`` (new *Recent Improvements* entry).
+
+* **Tests** — 8 new tests in
+  ``tests/test_self_improve.py::TestApplyTopHygieneFlags`` cover:
+
+  * ``--apply-format`` alone → single ``ruff format`` subprocess
+    on the modified files + `Formatting: uv run ruff format` line
+    in the output.
+  * ``--apply-run-tests`` alone → single ``pytest`` subprocess +
+    "Running tests: …" line + the trailing "Next: …" message
+    drops the "run pytest" clause.
+  * Both together → format runs before tests (verified via
+    subprocess call order + output substring order).
+  * ``--apply-format`` failure (rc=3) → CLI returns rc=3, pytest
+    subprocess is skipped (short-circuit on format failure).
+  * ``--apply-run-tests`` failure (rc=2) → CLI returns rc=2 after
+    format has already succeeded.
+  * ``--apply-dry-run`` with both flags → zero subprocesses
+    spawned + "inert under --apply-dry-run: --apply-format,
+    --apply-run-tests skipped" line.
+  * No-site-needed path (per-site guard finds nothing to edit)
+    with both flags → zero subprocesses spawned.
+  * Argparse round-trip: both flags default False + parse as True
+    when passed.
+
+  Full ``tests/test_self_improve.py`` suite: 541 → 549 tests
+  (+8), all pass; ``uv run pytest`` (no ignores) reports 1762
+  passed / 11 skipped IOH workers; ``uv run ruff check
+  scripts/self_improve.py tests/test_self_improve.py`` clean;
+  ``uv run ruff format --check ...`` clean; ``uv run pyright
+  scripts/self_improve.py`` reports 0 errors.
+
+* **Live-ledger smoke test** — Against the live ledger today
+  (``planning/self_improve_ledger.jsonl``): ``uv run python
+  scripts/self_improve.py codify-scan --apply-top --apply-dry-run
+  --apply-format --apply-run-tests`` reports every visible
+  candidate is skipped (1 structural + 3 bidirectional — the
+  correct outcome per the 2026-06-30 driver's safety guards).
+  Because no edits landed, the two hygiene flags don't fire even
+  though they were requested — matches the "inert when no site
+  needed editing" contract.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **--apply-open-pr hygiene composition** (once PR #275 lands
+    the ``--open-pr`` driver): a single ``--apply-format
+    --apply-run-tests --open-pr`` chain runs format + tests +
+    ``gh pr create`` from one command.  Speculative until #275
+    merges.
+  * **Custom pytest scope** — ``--apply-run-tests-scope=STR`` to
+    let the operator swap in a broader test path when the codify
+    slot touches something outside ``test_self_improve.py``
+    (e.g. a ``Restart.patience`` change should also run
+    ``tests/test_analyzer_restart.py``).  Speculative — the
+    codify plumbing itself lives in the fast test module and the
+    default is where the real risk is.
 ### 2026-07-01 — Structural-edit primitive for the `codify-scan --apply-top` driver (V2 §9.5 step 4 follow-up)
 
 * **What** — Extends the 2026-06-30 ``--apply-top`` driver to handle
@@ -7751,18 +7891,16 @@ follow-ups are natural next tickets:
   +0.0352).  Once structural candidates start surfacing as the *top*
   actionable evidence repeatedly, the structural-edit primitive
   moves from speculative to motivated.
-* **`--apply-top --auto-format` flag** — after applying the edits,
-  run ``uv run ruff format panobbgo/harness.py`` automatically so
-  the operator doesn't have to remember.  Trivial addition; the AST
-  coordinates already preserve indentation so this is a hygiene-only
-  follow-up.  Speculative until ledger evidence surfaces a slot
-  whose edit needs re-flowing.
-* **`--apply-top --run-tests` flag** — after applying, invoke
-  ``uv run pytest tests/test_self_improve.py`` (the most relevant
-  suite) so the operator gets immediate "did my edit break
-  anything?" feedback before committing.  Trivial wrapper around
-  :mod:`subprocess`; deferred because the manual routine already
-  runs tests before committing.
+* ~**`--apply-top --auto-format` flag**~ — **shipped 2026-07-03**
+  as the ``--apply-format`` flag on ``codify-scan --apply-top``
+  (renamed for CLI parity with the sibling ``--apply-run-tests``
+  flag).  Runs ``uv run ruff format`` on the modified files
+  after the write.  See the 2026-07-03 dated entry above.
+* ~**`--apply-top --run-tests` flag**~ — **shipped 2026-07-03**
+  as the ``--apply-run-tests`` flag on ``codify-scan --apply-top``.
+  Runs ``uv run pytest tests/test_self_improve.py`` after the
+  (optional) format step; non-zero rc propagates.  See the
+  2026-07-03 dated entry above.
 
 #### `codify-scan --open-pr` driver (after 2026-06-17 / 2026-06-29 / 2026-06-30 ships)
 

@@ -60,6 +60,13 @@ Two subcommands:
         # --apply-include-bidirectional (rare).
         uv run python scripts/self_improve.py codify-scan --apply-top --apply-dry-run
         uv run python scripts/self_improve.py codify-scan --apply-top
+        # Open a draft PR for the top actionable candidate (implies
+        # --apply-top).  Dedups against ``gh pr list --state open`` using
+        # the codify-slot marker embedded in every codify PR body.  Pair
+        # with --apply-dry-run to preview the git / gh command sequence
+        # without side effects.  Requires the ``gh`` CLI on PATH.
+        uv run python scripts/self_improve.py codify-scan --open-pr --apply-dry-run
+        uv run python scripts/self_improve.py codify-scan --open-pr
 
 ``--adaptive``
     Enable Thompson-sampling adaptive mutation sampler (§10 of the
@@ -138,6 +145,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -826,26 +834,82 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     scan_p.add_argument(
+        "--open-pr",
+        action="store_true",
+        help=(
+            "After applying the top actionable candidate (implies "
+            "--apply-top when not set explicitly), create a git branch, "
+            "commit the diff, push it, and open a draft PR via ``gh pr "
+            "create``.  Dedups against ``gh pr list --state open`` "
+            "using the codify-slot marker embedded in every codify PR "
+            "body — an existing open PR for the same (class, param) "
+            "slot skips the open-PR step (with a note) rather than "
+            "producing a duplicate.  Requires the ``gh`` and ``git`` "
+            "binaries on PATH (defaults; override with --pr-gh-bin / "
+            "--pr-git-bin).  Inert when combined with --apply-dry-run "
+            "(the dry-run just prints the commands the driver would "
+            "run instead of executing them).  See V2 §9.5 step 4 in "
+            "planning/SELF_IMPROVEMENT_LOOP.md."
+        ),
+    )
+    scan_p.add_argument(
+        "--pr-branch-prefix",
+        default="claude/codify",
+        help=(
+            "Prefix for the codify PR branch name (default "
+            "'claude/codify').  Full branch name is "
+            "'<prefix>-<class_snake>-<param_snake>-<direction>'.  The "
+            "'claude/' family matches the watcher-infrastructure naming "
+            "convention (see V2 §9.5 step 4 follow-up idea in "
+            "planning/SELF_IMPROVEMENT_LOG.md)."
+        ),
+    )
+    scan_p.add_argument(
+        "--pr-base",
+        default="master",
+        help=(
+            "Base branch the codify PR targets (default 'master').  "
+            "Surfaced verbatim in ``gh pr create --base`` and in the "
+            "test-plan snippet of the PR body."
+        ),
+    )
+    scan_p.add_argument(
+        "--pr-gh-bin",
+        default="gh",
+        help="Path to the ``gh`` binary (default 'gh').",
+    )
+    scan_p.add_argument(
+        "--pr-git-bin",
+        default="git",
+        help="Path to the ``git`` binary (default 'git').",
+    )
+    scan_p.add_argument(
         "--apply-top",
         action="store_true",
         help=(
             "After printing the candidate report, take the top "
-            "actionable kwarg candidate (skipping already-codified and "
-            "structural candidates) and apply its implied source edits "
-            "to panobbgo/harness.py in place — every (ClassName, "
-            "{param_name: value, ...}) heuristic / analyzer literal "
-            "across the four registry factories (quick / standard / "
-            "full / loop) is updated to the candidate's "
-            "proposed_codify_value.  Sites already at-or-beyond the "
-            "proposal in the candidate's direction are left alone "
-            "(deliberately-tighter sibling specs preserved).  The "
-            "operator runs tests + commits + opens the PR manually — "
-            "this driver does NOT touch git or the working-tree commit "
-            "state.  Combine with --apply-dry-run to preview the edits "
-            "without writing.  See the *codify-scan --apply-top driver* "
-            "entry under planning/SELF_IMPROVEMENT_LOG.md for the "
-            "design and the 2026-06-29 *Follow-up ideas* seed that "
-            "motivates this driver."
+            "actionable candidate and apply its implied source edits "
+            "to panobbgo/harness.py in place.  Kwarg candidates: every "
+            "(ClassName, {param_name: value, ...}) heuristic / analyzer "
+            "literal across the four registry factories (quick / "
+            "standard / full / loop) is updated to the candidate's "
+            "proposed_codify_value; sites already at-or-beyond the "
+            "proposal are left alone (deliberately-tighter sibling "
+            "specs preserved).  Structural candidates (add_/drop_"
+            "heuristic, add_/drop_analyzer — shipped 2026-07-01) "
+            "insert or remove a tuple entry in the target bucket, "
+            "scoped to the specs listed in the candidate's "
+            "strategy_names; drop safety guards preserve buckets with "
+            "one entry and skip specs where the class is already "
+            "absent, add safety guards skip specs where the class is "
+            "already present.  The operator runs tests + commits + "
+            "opens the PR manually — this driver does NOT touch git or "
+            "the working-tree commit state.  Combine with "
+            "--apply-dry-run to preview the edits without writing.  "
+            "See the *codify-scan --apply-top driver* entry under "
+            "planning/SELF_IMPROVEMENT_LOG.md for the design and the "
+            "2026-06-30 *Follow-up ideas* seed that motivates the "
+            "structural extension shipped 2026-07-01."
         ),
     )
     scan_p.add_argument(
@@ -873,9 +937,43 @@ def _build_parser() -> argparse.ArgumentParser:
             "force a default shift on a bidirectional slot."
         ),
     )
+    scan_p.add_argument(
+        "--apply-format",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk, run "
+            "``uv run ruff format`` on the modified files so the "
+            "operator does not have to remember.  Inert with "
+            "--apply-dry-run (nothing to format) and inert when no "
+            "site needed editing.  Non-zero rc from the formatter "
+            "propagates so a CI wrapper surfaces the failure."
+        ),
+    )
+    scan_p.add_argument(
+        "--apply-run-tests",
+        action="store_true",
+        help=(
+            "After --apply-top writes edits to disk (and after "
+            "--apply-format if requested), run ``uv run pytest "
+            "tests/test_self_improve.py`` so the operator gets "
+            "immediate feedback that the codify edit did not break "
+            "the codify plumbing.  Inert with --apply-dry-run and "
+            "inert when no site needed editing.  Non-zero rc from "
+            "pytest propagates so a CI wrapper surfaces the failure."
+        ),
+    )
     scan_p.set_defaults(func=_cmd_codify_scan)
 
     return parser
+
+
+# Overridable subprocess runner so tests can intercept the
+# ``uv run ruff format`` / ``uv run pytest`` invocations without
+# shelling out to the real binaries.  Signature matches
+# :func:`subprocess.run`'s minimal shape (list of args, returns an
+# object with a ``.returncode`` int attribute).
+def _run_subprocess(cmd: Sequence[str]) -> "subprocess.CompletedProcess[Any]":
+    return subprocess.run(list(cmd), check=False)
 
 
 def _parse_seed_list(raw: str) -> tuple:
@@ -1855,12 +1953,26 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
                 _print_widening_candidate(w)
                 print()
 
-    if getattr(args, "apply_top", False):
+    apply_top = bool(getattr(args, "apply_top", False))
+    open_pr = bool(getattr(args, "open_pr", False))
+    # --open-pr implies --apply-top: opening a PR without an apply would
+    # produce an empty commit.  Explicit here rather than at parse time so
+    # the flag description reads cleanly.
+    if open_pr and not apply_top:
+        apply_top = True
+    if apply_top:
         rc = _apply_top_codify_candidate(
             visible_candidates,
             all_candidates=candidates,
             dry_run=bool(getattr(args, "apply_dry_run", False)),
             include_bidirectional=bool(getattr(args, "apply_include_bidirectional", False)),
+            open_pr=open_pr,
+            pr_branch_prefix=str(getattr(args, "pr_branch_prefix", "claude/codify")),
+            pr_base=str(getattr(args, "pr_base", "master")),
+            pr_gh_bin=str(getattr(args, "pr_gh_bin", "gh")),
+            pr_git_bin=str(getattr(args, "pr_git_bin", "git")),
+            run_format=bool(getattr(args, "apply_format", False)),
+            run_tests=bool(getattr(args, "apply_run_tests", False)),
         )
         if rc != 0:
             return rc
@@ -1873,6 +1985,13 @@ def _apply_top_codify_candidate(
     all_candidates: Sequence[Any],
     dry_run: bool,
     include_bidirectional: bool = False,
+    open_pr: bool = False,
+    pr_branch_prefix: str = "claude/codify",
+    pr_base: str = "master",
+    pr_gh_bin: str = "gh",
+    pr_git_bin: str = "git",
+    run_format: bool = False,
+    run_tests: bool = False,
 ) -> int:
     """Apply the top actionable kwarg codify candidate to ``panobbgo/harness.py``.
 
@@ -1889,6 +2008,14 @@ def _apply_top_codify_candidate(
     the source line.  At the end, a one-line "Wrote N file(s)" /
     "Would write" summary so the operator can re-run with
     ``--apply-dry-run`` off / on without re-reading the candidate list.
+
+    When ``run_format`` is set and edits were written, follows the write
+    with ``uv run ruff format`` on the modified files.  When
+    ``run_tests`` is set, follows the (optional) format step with
+    ``uv run pytest tests/test_self_improve.py``.  Both flags are
+    inert under ``dry_run`` (nothing to format / test) and inert when
+    no site needed editing.  Non-zero rc from either subprocess is
+    propagated to the caller.
 
     Returns the process exit code: ``0`` on success (including the
     no-op case where no actionable candidate exists or no site needs
@@ -1920,29 +2047,22 @@ def _apply_top_codify_candidate(
             continue
         direction_by_slot.setdefault((cand.class_name, cand.param_name), set()).add(cand.direction)
     bidirectional_slots = {slot for slot, dirs in direction_by_slot.items() if dirs == {"up", "down"}}
-    # Pick the first non-structural, non-bidirectional candidate.  Skips
-    # are reported so the operator knows the driver isn't quietly
-    # ignoring evidence.
+    # Pick the first non-bidirectional candidate.  Structural candidates
+    # are now handled by
+    # :func:`panobbgo.self_improve._scan_source_for_structural_edits`
+    # (shipped 2026-07-01) — add / drop of a heuristic or analyzer
+    # tuple in the target spec's bucket, scoped to the specs in the
+    # candidate's ``strategy_names``.  Bidirectional-slot skip still
+    # applies as before.
     chosen = None
-    skipped_structural = 0
     skipped_bidirectional = 0
     for cand in visible_candidates:
-        if cand.op is not None:
-            skipped_structural += 1
-            continue
         slot = (cand.class_name, cand.param_name)
-        if not include_bidirectional and slot in bidirectional_slots:
+        if cand.op is None and not include_bidirectional and slot in bidirectional_slots:
             skipped_bidirectional += 1
             continue
         chosen = cand
         break
-    if skipped_structural:
-        print(
-            f"  skipped {skipped_structural} structural candidate(s) — "
-            "the apply driver currently handles kwarg edits only.  "
-            "Apply structural candidates manually for now (see V2 §9.5 "
-            "step 4 in planning/SELF_IMPROVEMENT_LOG.md)."
-        )
     if skipped_bidirectional:
         print(
             f"  skipped {skipped_bidirectional} bidirectional candidate(s) "
@@ -1952,40 +2072,335 @@ def _apply_top_codify_candidate(
             "--apply-include-bidirectional to override."
         )
     if chosen is None:
-        if skipped_structural or skipped_bidirectional:
+        if skipped_bidirectional:
             print("  (every visible candidate was skipped — nothing to apply)")
         else:
             print("  (no actionable candidates to apply)")
         return 0
 
-    slot = f"{chosen.class_name}.{chosen.param_name}" if chosen.param_name else chosen.class_name
-    proposed = chosen.proposed_codify_value()
-    print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
-    print(f"  proposed codify value: {proposed!r}")
+    if chosen.op is not None:
+        # Structural candidate — the "slot" is the (class, op) pair; there
+        # is no param_name / proposed_codify_value to print.
+        slot = f"{chosen.class_name} [{chosen.op}]"
+        print(f"  selected: {slot} direction={chosen.direction}")
+        target_spec_names = sorted({n for n in chosen.strategy_names if n})
+        if target_spec_names:
+            print(f"  target spec(s): {', '.join(target_spec_names)}")
+    else:
+        slot = f"{chosen.class_name}.{chosen.param_name}" if chosen.param_name else chosen.class_name
+        proposed = chosen.proposed_codify_value()
+        print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
+        print(f"  proposed codify value: {proposed!r}")
 
     edits, modified_files = apply_codify_candidate(chosen, dry_run=dry_run)
     if not edits:
-        print(
-            "  (no source site needed editing — every matching "
-            "(class, param) literal already sits at-or-beyond the "
-            "proposal in the candidate's direction)"
-        )
+        if chosen.op is not None:
+            print(
+                "  (no source site needed editing — either every target "
+                "spec already reflects the structural op, or the safety "
+                "guards suppressed every match — e.g. dropping the last "
+                "entry in a bucket)"
+            )
+        else:
+            print(
+                "  (no source site needed editing — every matching "
+                "(class, param) literal already sits at-or-beyond the "
+                "proposal in the candidate's direction)"
+            )
         return 0
     print(f"  derived {len(edits)} edit(s):")
     for edit in edits:
-        print(
-            f"    {edit.source_path}:{edit.lineno} "
-            f"{edit.factory_name}/{edit.spec_name}: "
-            f"{edit.class_name}.{edit.param_name} = "
-            f"{edit.old_source} -> {edit.new_source}"
-        )
+        if edit.rule_kind == "structural":
+            # Structural edits don't have a ``old_value → new_value``
+            # story — they add / remove a whole tuple entry.  Print a
+            # compact "op class in factory/spec" line instead.
+            action_word = "drop" if edit.direction.startswith("drop_") else "add"
+            print(
+                f"    {edit.source_path}:{edit.lineno} "
+                f"{edit.factory_name}/{edit.spec_name}: "
+                f"{action_word} {edit.class_name}"
+            )
+        else:
+            print(
+                f"    {edit.source_path}:{edit.lineno} "
+                f"{edit.factory_name}/{edit.spec_name}: "
+                f"{edit.class_name}.{edit.param_name} = "
+                f"{edit.old_source} -> {edit.new_source}"
+            )
     action = "Would write" if dry_run else "Wrote"
     print(f"  {action} {len(modified_files)} file(s): {', '.join(sorted(modified_files))}")
-    if not dry_run:
+    if dry_run:
+        # --apply-format / --apply-run-tests are inert under dry-run: no
+        # edits landed, so nothing to format or test.  Report the skip so
+        # the operator knows the flags were parsed but no-oped.
+        if run_format or run_tests:
+            skipped = []
+            if run_format:
+                skipped.append("--apply-format")
+            if run_tests:
+                skipped.append("--apply-run-tests")
+            print(f"  (inert under --apply-dry-run: {', '.join(skipped)} skipped)")
+        # --open-pr still runs under dry-run: _open_pr_for_candidate prints
+        # the git / gh command sequence it *would* execute without invoking
+        # any subprocess (the hygiene flags above are the only dry-run no-op).
+        if open_pr:
+            return _open_pr_for_candidate(
+                chosen,
+                edits=edits,
+                dry_run=dry_run,
+                branch_prefix=pr_branch_prefix,
+                base_branch=pr_base,
+                gh_bin=pr_gh_bin,
+                git_bin=pr_git_bin,
+            )
+        return 0
+
+    files = sorted(modified_files)
+    if run_format:
+        cmd = ["uv", "run", "ruff", "format", *files]
+        print(f"  Formatting: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  ruff format failed (rc={result.returncode})")
+            return int(result.returncode)
+    if run_tests:
+        cmd = ["uv", "run", "pytest", "tests/test_self_improve.py"]
+        print(f"  Running tests: {' '.join(cmd)}")
+        result = _run_subprocess(cmd)
+        if result.returncode != 0:
+            print(f"  pytest failed (rc={result.returncode})")
+            return int(result.returncode)
+        print("  Next: commit and open a draft PR with the codify evidence in the body.")
+    else:
         print(
             "  Next: run the test suite (uv run pytest), then commit and "
             "open a draft PR with the codify evidence in the body."
         )
+    if open_pr:
+        return _open_pr_for_candidate(
+            chosen,
+            edits=edits,
+            dry_run=dry_run,
+            branch_prefix=pr_branch_prefix,
+            base_branch=pr_base,
+            gh_bin=pr_gh_bin,
+            git_bin=pr_git_bin,
+        )
+    return 0
+
+
+def _open_pr_for_candidate(
+    chosen: Any,
+    *,
+    edits: Sequence[Any],
+    dry_run: bool,
+    branch_prefix: str,
+    base_branch: str,
+    gh_bin: str,
+    git_bin: str,
+    runner: Optional[Any] = None,
+) -> int:
+    """Open a draft codify PR for ``chosen`` via ``gh pr create``.
+
+    The final layer of the V2 §9.5 step 4 codify pipeline (detection →
+    value derivation → source edit → **PR**).  Called from
+    :func:`_apply_top_codify_candidate` after the source edit has been
+    applied to the working tree (or after ``--apply-dry-run`` printed
+    the would-be diff).
+
+    Flow:
+
+    1. Dedup — run ``gh pr list --state open --json
+       number,title,body,headRefName`` and skip if a PR carrying
+       :func:`codify_pr_marker` for the same slot already exists.
+       (§12.3 step 0 lesson: open PRs are the source of truth for
+       in-flight work.)
+    2. Branch — ``git checkout -b <branch_prefix>-<slot_key>-<direction>``.
+    3. Commit — ``git add <edited files>`` +
+       ``git commit -m <title>`` where title = :func:`codify_pr_title`.
+    4. Push — ``git push -u origin <branch>`` (retried on network
+       failures via the standard cron retry loop; the driver here
+       shells out once and lets the caller handle retries).
+    5. PR — ``gh pr create --draft --base <base_branch> --head <branch>
+       --title <title> --body-file <tmpfile>`` where body =
+       :func:`codify_pr_body`.  The marker embedded in the body's HTML
+       comment is what step 1 matches against on the next run so a
+       failed / re-run does not stack duplicates.
+
+    ``runner`` is a subprocess launcher (defaults to
+    :func:`subprocess.run` with ``check=False``, ``capture_output=True``,
+    ``text=True``) — dependency-injected for the test suite so the
+    hermetic tests never shell out.  A ``dry_run=True`` invocation
+    prints every command the driver *would* run but does not invoke the
+    launcher, mirroring the ``--apply-dry-run`` shape one layer up.
+
+    Returns the process exit code: ``0`` on success (including the
+    dedup / dry-run cases), non-zero on subprocess failure.
+    """
+    import json as _json
+    import shutil
+    import subprocess
+    import tempfile
+
+    from panobbgo.self_improve import (
+        codify_pr_body,
+        codify_pr_branch_name,
+        codify_pr_marker,
+        codify_pr_title,
+        find_open_pr_for_slot,
+    )
+
+    def _default_runner(cmd, cwd=None):
+        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+
+    run_cmd = _default_runner if runner is None else runner
+
+    print()
+    print("Open-PR:")
+    title = codify_pr_title(chosen)
+    branch = codify_pr_branch_name(chosen, prefix=branch_prefix)
+    body = codify_pr_body(chosen, edits=edits, base_branch=base_branch)
+    marker = codify_pr_marker(chosen)
+
+    if dry_run:
+        # Dry-run mode: print the commands the driver would run, then exit.
+        # Every command is quoted with :func:`shlex.join` so an operator can
+        # copy-paste it verbatim into a shell.
+        import shlex
+
+        dry_cmds = [
+            [gh_bin, "pr", "list", "--state", "open", "--json", "number,title,body,headRefName"],
+            [git_bin, "checkout", "-b", branch],
+        ]
+        # git add for each modified source file (deduplicated).
+        edited_paths = sorted({e.source_path for e in edits})
+        if edited_paths:
+            dry_cmds.append([git_bin, "add", *edited_paths])
+        dry_cmds.append([git_bin, "commit", "-m", title])
+        dry_cmds.append([git_bin, "push", "-u", "origin", branch])
+        dry_cmds.append(
+            [
+                gh_bin,
+                "pr",
+                "create",
+                "--draft",
+                "--base",
+                base_branch,
+                "--head",
+                branch,
+                "--title",
+                title,
+                "--body-file",
+                "<pr_body.md>",
+            ]
+        )
+        print(f"  slot: {marker}")
+        print(f"  branch: {branch}")
+        print(f"  title: {title}")
+        print("  would run:")
+        for cmd in dry_cmds:
+            print(f"    {shlex.join(cmd)}")
+        return 0
+
+    # gh presence check: dedup step needs it.  If the binary is missing,
+    # error clearly so the operator knows to install it rather than get a
+    # cryptic FileNotFoundError later.  ``shutil.which`` also honours the
+    # PATH the workflow runner sets up, matching the environment in which
+    # the cron would actually invoke this driver.
+    if shutil.which(gh_bin) is None:
+        print(
+            f"  ERROR: gh binary '{gh_bin}' not found on PATH; install "
+            "https://cli.github.com/ or override with --pr-gh-bin."
+        )
+        return 4
+    if shutil.which(git_bin) is None:
+        print(f"  ERROR: git binary '{git_bin}' not found on PATH; install git or override with --pr-git-bin.")
+        return 4
+
+    # Dedup — one shot ``gh pr list``.
+    print(f"  slot: {marker}")
+    dedup_cmd = [gh_bin, "pr", "list", "--state", "open", "--json", "number,title,body,headRefName"]
+    proc = run_cmd(dedup_cmd)
+    if proc.returncode != 0:
+        print(f"  ERROR: `{' '.join(dedup_cmd)}` failed (rc={proc.returncode}):")
+        if proc.stderr:
+            print(f"    stderr: {proc.stderr.strip()}")
+        return proc.returncode or 5
+    try:
+        open_prs = _json.loads(proc.stdout or "[]")
+    except _json.JSONDecodeError as exc:
+        print(f"  ERROR: failed to parse `gh pr list` output as JSON: {exc}")
+        return 5
+    existing = find_open_pr_for_slot(chosen, open_prs)
+    if existing is not None:
+        print(
+            f"  dedup: PR #{existing.get('number', '?')} "
+            f"({existing.get('headRefName', '<unknown branch>')}) "
+            "already covers this slot — skipping.  "
+            "Close / merge the existing PR before re-running."
+        )
+        return 0
+
+    # Branch + commit + push + create PR.
+    edited_paths = sorted({e.source_path for e in edits})
+
+    def _run(cmd: List[str], step: str) -> Optional[int]:
+        print(f"  $ {' '.join(cmd)}")
+        rc_proc = run_cmd(cmd)
+        if rc_proc.returncode != 0:
+            print(f"  ERROR: {step} failed (rc={rc_proc.returncode}):")
+            if getattr(rc_proc, "stderr", None):
+                print(f"    stderr: {rc_proc.stderr.strip()}")
+            return rc_proc.returncode or 5
+        return None
+
+    steps: List[Tuple[List[str], str]] = [
+        ([git_bin, "checkout", "-b", branch], "git checkout -b"),
+    ]
+    if edited_paths:
+        steps.append(([git_bin, "add", *edited_paths], "git add"))
+    steps.extend(
+        [
+            ([git_bin, "commit", "-m", title], "git commit"),
+            ([git_bin, "push", "-u", "origin", branch], "git push"),
+        ]
+    )
+    for cmd, step in steps:
+        rc = _run(cmd, step)
+        if rc is not None:
+            return rc
+
+    # Write the body to a temp file so ``gh pr create --body-file`` sees
+    # a clean argument (bash arg length limits are not a concern in
+    # practice, but a temp file avoids quoting hazards regardless).
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
+        body_path = f.name
+        f.write(body)
+    try:
+        cmd = [
+            gh_bin,
+            "pr",
+            "create",
+            "--draft",
+            "--base",
+            base_branch,
+            "--head",
+            branch,
+            "--title",
+            title,
+            "--body-file",
+            body_path,
+        ]
+        rc = _run(cmd, "gh pr create")
+        if rc is not None:
+            return rc
+    finally:
+        try:
+            pathlib.Path(body_path).unlink()
+        except OSError:
+            pass
+
+    print(f"  opened draft PR for slot {marker} on branch {branch}.")
     return 0
 
 

@@ -72,6 +72,7 @@ from panobbgo.self_improve import (
     default_structural_catalog,
     load_ledger,
 )
+from panobbgo.self_improve import _find_targets, _is_numeric_value
 
 
 # ===========================================================================
@@ -10816,7 +10817,11 @@ class TestApplyCodifyEdits:
             assert e.new_source == "False"
             assert e.old_source == "True"
 
-    def test_derive_edits_structural_returns_empty_list(self, tmp_path):
+    def test_derive_edits_structural_drop_missing_class_returns_empty(self, tmp_path):
+        """Structural candidates are handled (2026-07-01); when the class
+        is not present in any target spec's bucket the drop safety guard
+        fires and no edits are emitted.
+        """
         from panobbgo.self_improve import derive_codify_edits
 
         src = self._write_snippet(tmp_path)
@@ -10832,9 +10837,257 @@ class TestApplyCodifyEdits:
             c,
             sources=[(str(src), ("_make_quick_strategies",))],
         )
-        # Structural candidates require list-entry insertion / removal —
-        # out of scope for the kwarg-edit driver.
+        # The synthetic snippet's Rewarding_Diverse spec doesn't carry
+        # LatinHypercube, so drop_heuristic surfaces no matching site
+        # — same shape as the ``already codified`` no-op.
         assert edits == []
+
+    def test_derive_edits_structural_no_strategy_names_returns_empty(self, tmp_path):
+        """A structural candidate carrying no ``strategy_names`` is
+        unrouted; refuse to guess which spec to modify.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c_no_names = replace(c, strategy_names=())
+        edits = derive_codify_edits(
+            c_no_names,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_drop_heuristic_removes_matching_entry(self, tmp_path):
+        """A ``drop_heuristic`` candidate targeting a class present in
+        the target spec produces a :class:`CodifyEdit` whose old_source
+        is the tuple text (plus trailing comma + inter-entry whitespace)
+        and new_source is empty.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        # Force strategy_names to Rewarding_Diverse so the scan targets
+        # the spec where Random lives in the snippet.
+        c = replace(c, strategy_names=("Rewarding_Diverse", "Rewarding_Diverse"))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert len(edits) == 1
+        e = edits[0]
+        assert e.class_name == "Random"
+        assert e.direction == "drop_heuristic"
+        assert e.rule_kind == "structural"
+        assert e.spec_name == "Rewarding_Diverse"
+        assert "(Random, {})" in e.old_source
+        assert e.new_source == ""
+
+    def test_derive_edits_structural_add_heuristic_inserts_entry(self, tmp_path):
+        """An ``add_heuristic`` candidate targeting a spec whose bucket
+        lacks the class produces one insertion edit with the new tuple.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="COBYQA",  # not present in the snippet
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert len(edits) == 1
+        e = edits[0]
+        assert e.direction == "add_heuristic"
+        assert e.rule_kind == "structural"
+        assert e.old_source == ""
+        assert "(COBYQA, {})," in e.new_source
+
+    def test_derive_edits_structural_add_already_present_is_no_op(self, tmp_path):
+        """The add-safety guard skips specs whose bucket already carries
+        the target class — matches ``_structural_already_codified``.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",  # already in Rewarding_Diverse
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_drop_single_entry_bucket_is_no_op(self, tmp_path):
+        """The drop-safety guard refuses to empty a single-entry bucket.
+
+        A spec whose heuristics list has exactly one entry cannot have
+        that entry dropped without leaving the spec unable to generate
+        points; the primitive skips such candidates.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Custom snippet with a spec that has exactly one heuristic.
+        snippet = """
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Random
+
+
+def _make_single_entry_strategies():
+    return [
+        StrategySpec(
+            name="OneEntry",
+            strategy_class=None,
+            heuristics=[(Random, {})],
+            analyzers=[],
+        ),
+    ]
+"""
+        src = tmp_path / "one_entry.py"
+        src.write_text(snippet)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("OneEntry",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_single_entry_strategies",))],
+        )
+        assert edits == []
+
+    def test_derive_edits_structural_respects_strategy_names_filter(self, tmp_path):
+        """When the candidate's ``strategy_names`` names one spec, the
+        scan skips other specs that also contain the target class.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import derive_codify_edits
+
+        # Snippet with two specs both carrying Random; only one should
+        # be edited when strategy_names names that one.
+        snippet = """
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Random, Sobol, NelderMead
+
+
+def _make_two_strategies():
+    return [
+        StrategySpec(
+            name="Spec_A",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+        StrategySpec(
+            name="Spec_B",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (NelderMead, {}),
+            ],
+            analyzers=[],
+        ),
+    ]
+"""
+        src = tmp_path / "two_specs.py"
+        src.write_text(snippet)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Spec_A",))
+        edits = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_two_strategies",))],
+        )
+        assert len(edits) == 1
+        assert edits[0].spec_name == "Spec_A"
+
+    def test_apply_structural_drop_idempotent_under_re_run(self, tmp_path):
+        """After an apply, deriving edits on the codified source yields
+        an empty list — matches the self-stability invariant that the
+        queued ``--open-pr`` driver relies on.
+        """
+        from dataclasses import replace
+
+        from panobbgo.self_improve import (
+            apply_codify_candidate,
+            derive_codify_edits,
+        )
+
+        src = self._write_snippet(tmp_path)
+        c = self._build_candidate(
+            class_name="Random",
+            param_name="",
+            rule_kind="structural",
+            op="drop_heuristic",
+            old_value=None,
+            new_values=[None, None],
+        )
+        c = replace(c, strategy_names=("Rewarding_Diverse",))
+        apply_codify_candidate(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+            dry_run=False,
+        )
+        # Second derive on the now-codified source: no edits.
+        edits_round2 = derive_codify_edits(
+            c,
+            sources=[(str(src), ("_make_quick_strategies",))],
+        )
+        assert edits_round2 == []
 
     def test_apply_edits_rewrites_source_in_reverse_offset_order(self, tmp_path):
         from panobbgo.self_improve import apply_codify_edits, derive_codify_edits
@@ -11046,7 +11299,14 @@ class TestApplyTopCLI:
         apply_top=True,
         apply_dry_run=False,
         apply_include_bidirectional=False,
+        apply_format=False,
+        apply_run_tests=False,
         as_json=False,
+        open_pr=False,
+        pr_branch_prefix="claude/codify",
+        pr_base="master",
+        pr_gh_bin="gh",
+        pr_git_bin="git",
     ):
         return type(
             "NS",
@@ -11073,18 +11333,22 @@ class TestApplyTopCLI:
                 "apply_top": apply_top,
                 "apply_dry_run": apply_dry_run,
                 "apply_include_bidirectional": apply_include_bidirectional,
+                "open_pr": open_pr,
+                "pr_branch_prefix": pr_branch_prefix,
+                "pr_base": pr_base,
+                "pr_gh_bin": pr_gh_bin,
+                "pr_git_bin": pr_git_bin,
+                "apply_format": apply_format,
+                "apply_run_tests": apply_run_tests,
             },
         )()
 
-    def _setup_synthetic_source(self, tmp_path, monkeypatch):
+    def _setup_synthetic_source(self, tmp_path, monkeypatch, snippet=None):
         """Write the test snippet + redirect ``default_codify_apply_sources``."""
+        if snippet is None:
+            snippet = _APPLY_TOP_HARNESS_SNIPPET
         src = tmp_path / "harness_snippet.py"
-        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
-        # Both the library function (consumed by derive_codify_edits when
-        # sources=None) and the CLI's apply driver go through
-        # ``default_codify_apply_sources``.  Monkeypatching one place is
-        # sufficient because derive_codify_edits looks up the default
-        # lazily inside the function body.
+        src.write_text(snippet)
         from panobbgo import self_improve as si
 
         monkeypatch.setattr(
@@ -11211,12 +11475,20 @@ class TestApplyTopCLI:
         assert "selected: Nearby.radius" in out
         assert "Wrote" in out
 
-    def test_apply_top_skips_structural_with_note(self, tmp_path, capsys, monkeypatch):
+    def test_apply_top_structural_no_matching_site_leaves_source_unchanged(self, tmp_path, capsys, monkeypatch):
+        """Structural candidates are now handled (2026-07-01) — but a
+        ``drop_heuristic`` for a class not present in the target spec's
+        bucket produces no edits, so the source is unchanged.  Matches
+        the behaviour of ``_scan_source_for_structural_edits``' drop
+        safety guard.
+        """
         cli = self._import_cli()
         src = self._setup_synthetic_source(tmp_path, monkeypatch)
         original_text = src.read_text()
         live = tmp_path / "live.jsonl"
-        # Only structural candidates in the visible set.
+        # Structural candidate: drop LatinHypercube from Rewarding_Diverse.
+        # But the synthetic snippet does not contain LatinHypercube, so
+        # the drop safety guard fires (nothing to drop).
         records = [
             _accepted_iter_record(
                 timestamp=f"2026-06-0{day}T05:00:00+00:00",
@@ -11234,9 +11506,169 @@ class TestApplyTopCLI:
         rc = cli._cmd_codify_scan(self._build_ns(live))
         assert rc == 0
         out = capsys.readouterr().out
-        assert "skipped" in out
-        assert "structural" in out
+        # The structural candidate is now selectable (was skipped
+        # pre-2026-07-01) but produces no edits because the target
+        # class is absent.
+        assert "selected: LatinHypercube [drop_heuristic]" in out
+        assert "no source site needed editing" in out
         assert src.read_text() == original_text
+
+    def test_apply_top_structural_drop_heuristic_actually_removes_entry(self, tmp_path, capsys, monkeypatch):
+        """End-to-end: a structural ``drop_heuristic`` candidate on a
+        class that IS present in the target spec produces a source edit
+        that removes the ``(ClassName, {...})`` tuple.
+        """
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        # Drop Random from Rewarding_Diverse (which does carry Random in
+        # the synthetic snippet).  Two records on distinct nights so the
+        # min_nights=2 gate passes; each carries a positive ci_low so
+        # require_positive_min_ci passes.
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Random",
+                param_name="",
+                rule_kind="structural",
+                op="drop_heuristic",
+                old_value=None,
+                new_value=None,
+                strategy_name="Rewarding_Diverse",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "selected: Random [drop_heuristic]" in out
+        assert "Wrote" in out
+        new_text = src.read_text()
+        assert "(Random, {})" not in new_text
+        # Other Rewarding_Diverse heuristics still present.
+        assert "(Sobol, " in new_text
+        assert "(Nearby, " in new_text
+        assert "(NelderMead, {})" in new_text
+        # File still parses as Python (idempotency guard against edit
+        # spans that break the AST).
+        import ast as _ast
+
+        _ast.parse(new_text)
+
+    def test_apply_top_structural_add_analyzer_inserts_entry(self, tmp_path, capsys, monkeypatch):
+        """End-to-end: a structural ``add_analyzer`` candidate on a spec
+        whose ``analyzers`` bucket is empty produces a source edit that
+        inserts ``(ClassName, {})`` inline in the ``[]``.
+
+        Uses ``Convergence`` as the target class rather than one of the
+        commonly-seeded analyzers (``Sensitivity`` / ``Restart``) so the
+        real ``default_codify_registries`` doesn't flag the candidate as
+        already-codified — Convergence isn't in any live registry's
+        ``analyzers`` bucket.  The synthetic snippet doesn't need to
+        import Convergence: the apply driver's AST edit is a pure text
+        insertion; :func:`ast.parse` on the resulting source succeeds
+        without name resolution.
+        """
+        cli = self._import_cli()
+        src = self._setup_synthetic_source(tmp_path, monkeypatch)
+        live = tmp_path / "live.jsonl"
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="Convergence",
+                param_name="",
+                rule_kind="structural",
+                op="add_analyzer",
+                old_value=None,
+                new_value=None,
+                strategy_name="Rewarding_Diverse",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "selected: Convergence [add_analyzer]" in out
+        assert "Wrote" in out
+        new_text = src.read_text()
+        assert "(Convergence, {})" in new_text
+        # File still parses.
+        import ast as _ast
+
+        _ast.parse(new_text)
+
+    def test_apply_top_structural_drop_last_entry_preserves_bucket_alignment(self, tmp_path, capsys, monkeypatch):
+        """When the drop targets the last entry of a multi-line bucket,
+        the removal extends *backwards* through the leading newline +
+        indent so the closing ``]`` inherits the pre-entry indentation
+        rather than the entry's inner indent.  Regression guard for
+        the 2026-07-01 last-entry codepath.
+        """
+        # Custom snippet with LatinHypercube as the *last* heuristic
+        # entry so the "drop last" path exercises.
+        snippet = '''
+"""Synthetic harness for the drop-last-entry test."""
+
+from panobbgo.benchmark import StrategySpec
+from panobbgo.heuristics import Sobol, Random, LatinHypercube
+
+
+def _make_quick_strategies():
+    return [
+        StrategySpec(
+            name="Drop_Last_Spec",
+            strategy_class=None,
+            heuristics=[
+                (Sobol, {"n": 16, "scramble": False}),
+                (Random, {}),
+                (LatinHypercube, {"div": 4}),
+            ],
+            analyzers=[],
+        ),
+    ]
+'''
+        cli = self._import_cli()
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(snippet)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies",))],
+        )
+        live = tmp_path / "live.jsonl"
+        records = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name="LatinHypercube",
+                param_name="",
+                rule_kind="structural",
+                op="drop_heuristic",
+                old_value=None,
+                new_value=None,
+                strategy_name="Drop_Last_Spec",
+            )
+            for day in (1, 2)
+        ]
+        live.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        (tmp_path / "done").mkdir()
+        rc = cli._cmd_codify_scan(self._build_ns(live, apply_dry_run=False))
+        assert rc == 0
+        new_text = src.read_text()
+        assert "(LatinHypercube, {" not in new_text
+        # Ensure closing ']' aligns with the pre-entry indent — the
+        # ``heuristics=[`` line was indented at 12 spaces so its
+        # matching ``]`` should be too.
+        assert "            ],\n" in new_text
+        # Sanity: still valid Python.
+        import ast as _ast
+
+        _ast.parse(new_text)
 
     def test_apply_top_no_candidates_graceful_exit(self, tmp_path, capsys, monkeypatch):
         cli = self._import_cli()
@@ -11304,3 +11736,804 @@ class TestApplyTopCLI:
         assert "no source site needed editing" in out
         # File untouched.
         assert src.read_text() == original_text
+
+
+class TestCodifyPrPrimitives:
+    """Library-level tests for ``codify_pr_marker`` / ``codify_pr_title`` /
+    ``codify_pr_body`` / ``codify_pr_branch_name`` / ``find_open_pr_for_slot`` —
+    the pure-function layer the ``codify-scan --open-pr`` driver rests on.
+    """
+
+    def _build_candidate(
+        self,
+        *,
+        class_name: str = "Nearby",
+        param_name: str = "radius",
+        rule_kind: str = "log_uniform_perturb",
+        old_value: Any = 0.1,
+        new_values: Sequence[Any] = (0.12, 0.13, 0.15),
+        op: Optional[str] = None,
+    ):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        recs = [
+            _accepted_iter_record(
+                timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                class_name=class_name,
+                param_name=param_name,
+                rule_kind=rule_kind,
+                old_value=old_value,
+                new_value=v,
+                op=op,
+            )
+            for day, v in enumerate(new_values, start=1)
+        ]
+        cands = aggregate_codify_candidates(recs)
+        assert len(cands) == 1
+        return cands[0]
+
+    def test_marker_is_deterministic_and_slot_scoped(self):
+        from panobbgo.self_improve import codify_pr_marker
+
+        c1 = self._build_candidate(new_values=(0.12, 0.13, 0.15))  # up
+        c2 = self._build_candidate(new_values=(0.075, 0.080, 0.085))  # down
+        # Same (class, param) slot → same marker regardless of direction:
+        # a same-slot opposite-direction PR should supersede, not stack.
+        assert codify_pr_marker(c1) == codify_pr_marker(c2)
+        # Different param → different marker.
+        c3 = self._build_candidate(param_name="axes", rule_kind="categorical_choice", new_values=("all", "all"))
+        assert codify_pr_marker(c1) != codify_pr_marker(c3)
+        # Prefix is stable so a downstream grep can find it.
+        assert codify_pr_marker(c1).startswith("codify-slot: ")
+
+    def test_marker_structural_encoding(self):
+        from panobbgo.self_improve import codify_pr_marker
+
+        c = self._build_candidate(op="add_heuristic", new_values=(None, None))
+        marker = codify_pr_marker(c)
+        assert "::structural::" in marker
+        assert "add_heuristic" in marker
+
+    def test_branch_name_slug(self):
+        from panobbgo.self_improve import codify_pr_branch_name
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        branch = codify_pr_branch_name(c)
+        assert branch == "claude/codify-nearby-radius-up"
+        branch2 = codify_pr_branch_name(c, prefix="feat/x")
+        assert branch2 == "feat/x-nearby-radius-up"
+
+    def test_branch_name_handles_repr_directions(self):
+        from panobbgo.self_improve import codify_pr_branch_name
+
+        # Categorical direction is repr(new_value); ensure the sanitizer
+        # produces a valid git ref even when repr embeds quotes / punctuation.
+        c = self._build_candidate(
+            rule_kind="categorical_choice",
+            new_values=("all", "all", "all"),
+            param_name="axes",
+        )
+        branch = codify_pr_branch_name(c)
+        # Contains only [a-z0-9-/].
+        import re
+
+        assert re.fullmatch(r"[a-z0-9/_-]+", branch), branch
+
+    def test_title_shape_kwarg(self):
+        from panobbgo.self_improve import codify_pr_title
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        title = codify_pr_title(c)
+        assert "codify(Nearby.radius)" in title
+        assert "shift default" in title
+        assert "->" in title
+        assert "ledger evidence" in title
+
+    def test_title_shape_structural(self):
+        from panobbgo.self_improve import codify_pr_title
+
+        c = self._build_candidate(op="add_heuristic", new_values=(None, None))
+        title = codify_pr_title(c)
+        assert "codify(Nearby)" in title
+        assert "add_heuristic" in title
+
+    def test_body_contains_marker_and_evidence(self):
+        from panobbgo.self_improve import codify_pr_body, codify_pr_marker
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c)
+        # Marker on the first line (inside an HTML comment).
+        assert body.startswith("<!--")
+        assert codify_pr_marker(c) in body
+        # Sections present.
+        for section in ("## Codify slot", "## Ledger evidence", "## Proposed source edit", "## Test plan"):
+            assert section in body
+        # Evidence table has one row per accept.
+        assert body.count("| 2026-06-0") == c.n_accepts
+        # Proposed value surfaced.
+        assert "0.13" in body
+
+    def test_body_omits_edits_gracefully(self):
+        from panobbgo.self_improve import codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c, edits=())
+        assert "no source edits derived" in body
+
+    def test_body_includes_edits_when_provided(self):
+        from panobbgo.self_improve import CodifyEdit, codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        edit = CodifyEdit(
+            source_path="panobbgo/harness.py",
+            factory_name="_make_quick_strategies",
+            spec_name="Rewarding_Diverse",
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            old_value=0.1,
+            new_value=0.13,
+            lineno=42,
+            col_offset=10,
+            end_lineno=42,
+            end_col_offset=13,
+            old_source="0.1",
+            new_source="0.13",
+        )
+        body = codify_pr_body(c, edits=(edit,))
+        assert "panobbgo/harness.py:42" in body
+        assert "_make_quick_strategies/Rewarding_Diverse" in body
+
+    def test_body_base_branch_propagates_to_test_plan(self):
+        from panobbgo.self_improve import codify_pr_body
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        body = codify_pr_body(c, base_branch="develop")
+        assert "--base develop" in body
+
+    def test_find_open_pr_marker_match(self):
+        from panobbgo.self_improve import codify_pr_marker, find_open_pr_for_slot
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        marker = codify_pr_marker(c)
+        # No matching PR — returns None.
+        assert find_open_pr_for_slot(c, []) is None
+        assert find_open_pr_for_slot(c, [{"title": "unrelated", "body": ""}]) is None
+        # Matching PR — returned verbatim.
+        pr = {"number": 42, "title": "unrelated title", "body": f"foo {marker} bar", "headRefName": "b"}
+        assert find_open_pr_for_slot(c, [pr]) is pr
+
+    def test_find_open_pr_missing_fields_defensive(self):
+        # Partial JSON payload from ``gh pr list`` — missing keys must
+        # not raise (the driver would then leak the exception into the
+        # cron log without a clean diagnostic).
+        from panobbgo.self_improve import find_open_pr_for_slot
+
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # Body key present but None; title key missing entirely.
+        assert find_open_pr_for_slot(c, [{"body": None}]) is None
+        assert find_open_pr_for_slot(c, [{}]) is None
+
+
+class _StubProc:
+    """Minimal stand-in for :class:`subprocess.CompletedProcess`."""
+
+    def __init__(self, returncode: int = 0, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+class _StubRunner:
+    """Records subprocess invocations, returns queued stubs.
+
+    Used as the ``runner`` dependency-injection hook of
+    :func:`_open_pr_for_candidate`.  Each call pops one stub from
+    ``responses`` (falling back to a rc=0 stub when the queue is
+    empty).  The full command list is stored in ``calls`` so tests can
+    assert on the exact sequence the driver invoked.
+    """
+
+    def __init__(self, responses: Optional[List[_StubProc]] = None) -> None:
+        self.responses = list(responses or [])
+        self.calls: List[List[str]] = []
+
+    def __call__(self, cmd, cwd=None):
+        self.calls.append(list(cmd))
+        if self.responses:
+            return self.responses.pop(0)
+        return _StubProc()
+
+
+class TestOpenPRCLIDriver:
+    """Tests for :func:`scripts.self_improve._open_pr_for_candidate` and its
+    integration with ``codify-scan --open-pr``.
+
+    Hermetic: every subprocess call is intercepted via the
+    ``_StubRunner`` injected as the ``runner`` argument.  ``gh`` /
+    ``git`` binaries are looked up via :func:`shutil.which`, which the
+    tests monkeypatch to always return a truthy path so the presence
+    check succeeds regardless of the actual CI environment.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _build_candidate(self, **kwargs):
+        return TestCodifyPrPrimitives()._build_candidate(**kwargs)
+
+    def test_open_pr_dry_run_prints_commands_no_subprocess(self, capsys):
+        """--open-pr with dry_run=True never invokes the runner."""
+        cli = self._import_cli()
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner()
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=True,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        # Dry-run bypasses the presence check + runner entirely.
+        assert runner.calls == []
+        out = capsys.readouterr().out
+        assert "Open-PR:" in out
+        assert "would run:" in out
+        assert "gh pr list --state open" in out
+        assert "git checkout -b claude/codify-nearby-radius-up" in out
+        assert "gh pr create --draft --base master" in out
+
+    def test_open_pr_deduplicates_against_existing_pr(self, capsys, monkeypatch):
+        """When gh pr list surfaces a matching marker, driver exits 0 with a note."""
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        from panobbgo.self_improve import codify_pr_marker
+
+        marker = codify_pr_marker(c)
+        gh_list_json = json.dumps(
+            [
+                {
+                    "number": 88,
+                    "title": "existing",
+                    "body": f"<!-- {marker} -->",
+                    "headRefName": "claude/codify-nearby-radius-up",
+                },
+            ]
+        )
+        runner = _StubRunner([_StubProc(stdout=gh_list_json)])
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "PR #88" in out
+        assert "already covers this slot" in out
+        # Only the dedup call ran — no branch / commit / push.
+        assert len(runner.calls) == 1
+        assert runner.calls[0][:5] == ["gh", "pr", "list", "--state", "open"]
+
+    def test_open_pr_happy_path_runs_full_sequence(self, capsys, monkeypatch):
+        """No dedup match → full git/gh command sequence in order."""
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # gh pr list returns empty → no dedup → proceed to git/gh sequence.
+        # Every runner call after that returns rc=0.
+        runner = _StubRunner([_StubProc(stdout="[]")])
+        # Build a synthetic edit list so ``git add`` gets a file arg.
+        from panobbgo.self_improve import CodifyEdit
+
+        edit = CodifyEdit(
+            source_path="panobbgo/harness.py",
+            factory_name="_make_quick_strategies",
+            spec_name="Rewarding_Diverse",
+            class_name="Nearby",
+            param_name="radius",
+            rule_kind="log_uniform_perturb",
+            direction="up",
+            old_value=0.1,
+            new_value=0.13,
+            lineno=42,
+            col_offset=10,
+            end_lineno=42,
+            end_col_offset=13,
+            old_source="0.1",
+            new_source="0.13",
+        )
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[edit],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 0
+        cmds = runner.calls
+        # 1. dedup (gh pr list)
+        assert cmds[0][:5] == ["gh", "pr", "list", "--state", "open"]
+        # 2. git checkout -b <branch>
+        assert cmds[1] == ["git", "checkout", "-b", "claude/codify-nearby-radius-up"]
+        # 3. git add <edited path>
+        assert cmds[2][:2] == ["git", "add"]
+        assert "panobbgo/harness.py" in cmds[2]
+        # 4. git commit -m <title>
+        assert cmds[3][:3] == ["git", "commit", "-m"]
+        # 5. git push -u origin <branch>
+        assert cmds[4] == ["git", "push", "-u", "origin", "claude/codify-nearby-radius-up"]
+        # 6. gh pr create --draft
+        assert cmds[5][:5] == ["gh", "pr", "create", "--draft", "--base"]
+        # Sanity: --title carries the codify title
+        assert "--title" in cmds[5]
+        title_idx = cmds[5].index("--title")
+        assert "codify(Nearby.radius)" in cmds[5][title_idx + 1]
+        out = capsys.readouterr().out
+        assert "opened draft PR" in out
+
+    def test_open_pr_missing_gh_binary_returns_error(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        # gh missing but git present.
+        monkeypatch.setattr(shutil_module, "which", lambda name: "/usr/bin/git" if name == "git" else None)
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner()
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 4
+        out = capsys.readouterr().out
+        assert "gh binary" in out
+        assert runner.calls == []
+
+    def test_open_pr_dedup_failure_propagates_returncode(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        runner = _StubRunner([_StubProc(returncode=2, stderr="authentication required")])
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 2
+        out = capsys.readouterr().out
+        assert "gh pr list" in out
+        assert "authentication required" in out
+
+    def test_open_pr_git_step_failure_stops_sequence(self, capsys, monkeypatch):
+        cli = self._import_cli()
+        import shutil as shutil_module
+
+        monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+        c = self._build_candidate(new_values=(0.12, 0.13, 0.15))
+        # 1) dedup succeeds; 2) git checkout fails.
+        runner = _StubRunner(
+            [
+                _StubProc(stdout="[]"),
+                _StubProc(returncode=1, stderr="a branch named 'X' already exists"),
+            ]
+        )
+        rc = cli._open_pr_for_candidate(
+            c,
+            edits=[],
+            dry_run=False,
+            branch_prefix="claude/codify",
+            base_branch="master",
+            gh_bin="gh",
+            git_bin="git",
+            runner=runner,
+        )
+        assert rc == 1
+        # Only two commands ran: dedup + git checkout.  The rest are skipped.
+        assert len(runner.calls) == 2
+
+    def test_cli_open_pr_implies_apply_top(self, tmp_path, capsys, monkeypatch):
+        """``--open-pr`` alone triggers the apply-top path (else the PR would be empty)."""
+        cli = self._import_cli()
+        # Re-use the apply-top setup: synthetic snippet + monkeypatched sources.
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        ns = TestApplyTopCLI()._build_ns(
+            live,
+            apply_top=False,  # not explicitly set — --open-pr must flip it
+            apply_dry_run=True,  # dry-run so no real subprocess or writes
+            open_pr=True,
+        )
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Apply-top ran (dry-run) and the open-PR dry-run block followed.
+        assert "Apply-top:" in out
+        assert "Open-PR:" in out
+        assert "would run:" in out
+
+
+class TestApplyTopHygieneFlags:
+    """CLI tests for the ``--apply-format`` and ``--apply-run-tests``
+    hygiene flags on ``codify-scan --apply-top``.
+
+    These flags mechanise the last two manual steps of the daily
+    codify routine — running ``uv run ruff format`` on the modified
+    files and running the ``test_self_improve.py`` test module —
+    with the same monkeypatched-subprocess pattern the queued
+    ``--open-pr`` driver uses.  Uses the same synthetic-source setup
+    as :class:`TestApplyTopCLI` so no real ``panobbgo/harness.py``
+    edit is required.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def _setup(self, tmp_path, monkeypatch):
+        """Write the synthetic harness snippet + redirect the sources default."""
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(_APPLY_TOP_HARNESS_SNIPPET)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        return src, live
+
+    def _build_ns(self, live, **overrides):
+        # Re-use the TestApplyTopCLI helper via a fresh instance so the
+        # NS shape matches what the CLI parser produces.
+        return TestApplyTopCLI()._build_ns(live, **overrides)
+
+    def _install_subprocess_capture(self, cli, monkeypatch, *, returncodes=None):
+        """Replace ``cli._run_subprocess`` with a capture-only fake.
+
+        ``returncodes`` — optional list of ints, one per expected call
+        (defaults to ``[0, 0, ...]``).  Each call pops the next return
+        code; if the list is exhausted, further calls return ``0``.
+        """
+        calls: List[List[str]] = []
+        pending = list(returncodes or [])
+
+        class _Result:
+            def __init__(self, rc: int):
+                self.returncode = rc
+
+        def fake(cmd):
+            calls.append(list(cmd))
+            rc = pending.pop(0) if pending else 0
+            return _Result(rc)
+
+        monkeypatch.setattr(cli, "_run_subprocess", fake)
+        return calls
+
+    def test_apply_format_runs_ruff_on_modified_files(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=False),
+        )
+        assert rc == 0
+        assert len(calls) == 1
+        assert calls[0][:4] == ["uv", "run", "ruff", "format"]
+        # Every modified file path appears in the ruff invocation.
+        assert str(src) in calls[0]
+        out = capsys.readouterr().out
+        assert "Formatting: uv run ruff format" in out
+        # The apply itself still landed to disk.
+        assert '"radius": 0.08' in src.read_text()
+
+    def test_apply_run_tests_runs_pytest(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=False, apply_run_tests=True),
+        )
+        assert rc == 0
+        assert calls == [["uv", "run", "pytest", "tests/test_self_improve.py"]]
+        out = capsys.readouterr().out
+        assert "Running tests: uv run pytest tests/test_self_improve.py" in out
+        # When tests succeed, the "Next: commit" message drops the
+        # "run pytest" clause (already done).
+        assert "commit and open a draft PR" in out
+        assert "Next: run the test suite" not in out
+
+    def test_apply_format_and_run_tests_together_call_in_order(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 0
+        # Format runs first (files well-formatted before tests run).
+        assert calls[0][:4] == ["uv", "run", "ruff", "format"]
+        assert calls[1] == ["uv", "run", "pytest", "tests/test_self_improve.py"]
+        out = capsys.readouterr().out
+        format_pos = out.index("Formatting: ")
+        tests_pos = out.index("Running tests: ")
+        assert format_pos < tests_pos
+
+    def test_apply_format_failure_propagates_returncode(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch, returncodes=[3])
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 3
+        # Pytest is skipped when ruff format fails.
+        assert len(calls) == 1
+        out = capsys.readouterr().out
+        assert "ruff format failed (rc=3)" in out
+        assert "Running tests:" not in out
+
+    def test_apply_run_tests_failure_propagates_returncode(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        _src, live = self._setup(tmp_path, monkeypatch)
+        calls = self._install_subprocess_capture(cli, monkeypatch, returncodes=[0, 2])
+        rc = cli._cmd_codify_scan(
+            self._build_ns(live, apply_format=True, apply_run_tests=True),
+        )
+        assert rc == 2
+        assert len(calls) == 2
+        out = capsys.readouterr().out
+        assert "pytest failed (rc=2)" in out
+
+    def test_flags_inert_under_dry_run(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        src, live = self._setup(tmp_path, monkeypatch)
+        original_text = src.read_text()
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(
+                live,
+                apply_dry_run=True,
+                apply_format=True,
+                apply_run_tests=True,
+            ),
+        )
+        assert rc == 0
+        # No subprocesses spawned — nothing was written, nothing to
+        # format or test.
+        assert calls == []
+        # File untouched.
+        assert src.read_text() == original_text
+        out = capsys.readouterr().out
+        assert "inert under --apply-dry-run" in out
+        assert "--apply-format" in out
+        assert "--apply-run-tests" in out
+
+    def test_flags_inert_when_no_site_needs_editing(self, tmp_path, capsys, monkeypatch):
+        cli = self._import_cli()
+        # Snippet already has Nearby.radius=0.08 — the down-to-0.08
+        # candidate's per-site direction guard leaves every site alone,
+        # so no edits land.  Both hygiene flags must no-op even when
+        # the operator asked for them.
+        snippet = _APPLY_TOP_HARNESS_SNIPPET.replace('"radius": 0.1', '"radius": 0.08')
+        src = tmp_path / "harness_snippet.py"
+        src.write_text(snippet)
+        from panobbgo import self_improve as si
+
+        monkeypatch.setattr(
+            si,
+            "default_codify_apply_sources",
+            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+        )
+        live = tmp_path / "live.jsonl"
+        live.write_text(
+            "\n".join(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"2026-06-0{day}T05:00:00+00:00",
+                        old_value=0.1,
+                        new_value=v,
+                    )
+                )
+                for day, v in enumerate([0.075, 0.080, 0.085], start=1)
+            )
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+        calls = self._install_subprocess_capture(cli, monkeypatch)
+        rc = cli._cmd_codify_scan(
+            self._build_ns(
+                live,
+                apply_format=True,
+                apply_run_tests=True,
+            ),
+        )
+        assert rc == 0
+        assert calls == []
+        out = capsys.readouterr().out
+        assert "no source site needed editing" in out
+
+    def test_argparse_wires_flags_through(self, capsys):
+        cli = self._import_cli()
+        parser = cli._build_parser()
+        # Defaults: both flags off.
+        args = parser.parse_args(["codify-scan"])
+        assert args.apply_format is False
+        assert args.apply_run_tests is False
+        # Set both.
+        args = parser.parse_args(["codify-scan", "--apply-top", "--apply-format", "--apply-run-tests"])
+        assert args.apply_top is True
+        assert args.apply_format is True
+        assert args.apply_run_tests is True
+
+
+# ===========================================================================
+# Numeric-rule skip of string sentinels (NP_init="auto")
+# ===========================================================================
+
+
+class TestNumericRuleSkipsStringSentinel:
+    """A numeric mutation rule must not try to perturb a string sentinel.
+
+    ``NP_init="auto"`` (budget-adaptive DE sizing, see
+    :class:`panobbgo.heuristics.lshade.LSHADE`) is a legal kwarg value that a
+    structurally-added DE arm can carry.  The ``LSHADE.NP_init`` ``integer_add``
+    catalog rule must skip it — matching it would crash ``int("auto")`` inside
+    :meth:`MutationRule.apply`.
+    """
+
+    def _spec_with(self, value):
+        return [
+            StrategySpec(
+                name="StratX",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_DummyHeuristicA, {"NP_init": value})],
+            )
+        ]
+
+    def test_is_numeric_value(self):
+        assert _is_numeric_value(30)
+        assert _is_numeric_value(1.5)
+        assert _is_numeric_value(np.int64(4))
+        assert not _is_numeric_value("auto")
+        assert not _is_numeric_value(True)  # bool excluded
+        assert not _is_numeric_value(None)
+
+    def test_integer_rule_skips_auto(self):
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert hits == []
+
+    def test_integer_rule_matches_int(self):
+        specs = self._spec_with(30)
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init", rule_kind="integer_add")
+        assert len(hits) == 1 and hits[0][3] == 30
+
+    def test_categorical_rule_still_sees_strings(self):
+        # rule_kind=None (or categorical) must NOT skip string values so
+        # e.g. an F_schedule regime flip keeps working.
+        specs = self._spec_with("auto")
+        hits = _find_targets(specs, "", "_DummyHeuristicA", "NP_init")
+        assert len(hits) == 1 and hits[0][3] == "auto"
+
+    def test_np_init_rule_does_not_crash_on_auto_spec(self):
+        """End-to-end: sampling the catalog against an ``NP_init="auto"`` spec is safe."""
+        rng = np.random.default_rng(0)
+        catalog = default_catalog()
+        specs = [
+            StrategySpec(
+                name="LSHADE_spec",
+                strategy_class=_DummyStrategy,
+                heuristics=[(_LSHADEStub, {"NP_init": "auto"})],
+            )
+        ]
+        # Sampling many times must never raise int("auto"); any proposal
+        # returned for LSHADE.NP_init would only come from a numeric value.
+        for _ in range(50):
+            catalog.sample(rng, specs)
+
+
+class _LSHADEStub:
+    """Class named ``LSHADE`` so the real ``LSHADE.NP_init`` rule targets it."""
+
+
+_LSHADEStub.__name__ = "LSHADE"
+
+
+class TestStructuralCatalogDEAutoSizing:
+    """The structural DE candidates ship ``NP_init="auto"`` (budget-adaptive)."""
+
+    def test_de_candidates_use_auto_np_init(self):
+        catalog = default_structural_catalog()
+        de_names = {"LSHADE", "JSO", "NLSHADE_RSP", "NLSHADE_LBC", "LSHADE_EpSin"}
+        seen = {}
+        for rule in catalog.rules:
+            if not isinstance(rule, StructuralMutationRule):
+                continue
+            for cls, kwargs in rule.candidate_classes:
+                if cls.__name__ in de_names:
+                    seen[cls.__name__] = kwargs.get("NP_init")
+        assert de_names <= set(seen), f"missing DE candidates: {de_names - set(seen)}"
+        for name, np_init in seen.items():
+            assert np_init == "auto", f"{name} should size NP_init automatically, got {np_init!r}"

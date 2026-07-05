@@ -706,6 +706,78 @@ The harness is the measurement substrate for an autonomous
     seed value defines the *centre* it perturbs around).  See the
     2026-06-28 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **`codify-scan --apply-top --apply-format` / `--apply-run-tests`
+    hygiene flags** — **shipped 2026-07-03**.  Two optional flags on
+    the 2026-06-30 `--apply-top` driver that chain the daily codify
+    routine's last two manual steps into the same command:
+    `--apply-format` runs `uv run ruff format` on the modified files
+    after the write; `--apply-run-tests` runs `uv run pytest
+    tests/test_self_improve.py` for a smoke check.  Both flags are
+    inert under `--apply-dry-run` (no edits landed, nothing to
+    format or test) and inert when no site needed editing.  Non-zero
+    subprocess rc propagates so a CI wrapper surfaces the failure.
+    Recommended one-liner: `codify-scan --apply-top --apply-format
+    --apply-run-tests` — one command replaces the previous
+    three-step manual sequence.  Additions to
+    `scripts/self_improve.py` (module-level `_run_subprocess`
+    indirection for test monkeypatching, two new argparse flags,
+    two new keyword-only parameters on `_apply_top_codify_candidate`);
+    8 new tests in `TestApplyTopHygieneFlags`.  Closes the two
+    hygiene-flag follow-ups seeded under the 2026-06-30 entry's
+    *Next iteration ideas* section.  See the 2026-07-03 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **`codify-scan --open-pr` driver — mechanise the codify PR** —
+    **shipped 2026-07-02** (V2 §9.5 step 4 final layer, closes the
+    stack).  Adds a `--open-pr` flag on `scripts/self_improve.py
+    codify-scan` that, after applying the top actionable kwarg
+    candidate (implies `--apply-top`), creates a git branch, commits
+    the codify diff, pushes it, and opens a draft PR via `gh pr
+    create`.  Dedups against `gh pr list --state open` using the
+    `codify-slot: <slot_key>` marker embedded in an HTML comment at
+    the top of every codify PR body — an existing open PR for the
+    same `(class, param)` slot skips the open-PR step with a `PR #N
+    already covers this slot` note.  New library surface:
+    `codify_pr_marker` / `codify_pr_title` / `codify_pr_body` /
+    `codify_pr_branch_name` / `find_open_pr_for_slot` (all pure
+    functions).  New CLI flags `--open-pr` / `--pr-branch-prefix`
+    (default `claude/codify`) / `--pr-base` (default `master`) /
+    `--pr-gh-bin` / `--pr-git-bin`.  Composes with `--apply-dry-run`
+    (prints the `gh` / `git` command sequence the driver *would* run
+    without invoking subprocess).  Runner dependency-injection hook
+    on `_open_pr_for_candidate` so tests intercept every subprocess
+    call without shelling out.  19 new tests in
+    `TestCodifyPrPrimitives` + `TestOpenPRCLIDriver`.  See the
+    2026-07-02 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **Structural-edit primitive for the `codify-scan --apply-top`
+    driver** — **shipped 2026-07-01** (V2 §9.5 step 4 follow-up).
+    Extends the 2026-06-30 kwarg-only apply driver to handle the four
+    structural codify ops (`add_heuristic` / `drop_heuristic` /
+    `add_analyzer` / `drop_analyzer`) via a sibling AST-based scanner
+    (`_scan_source_for_structural_edits`) that inserts or removes
+    `(ClassName, {...})` tuple entries in the target spec's
+    `heuristics` / `analyzers` list literal.  Edit scope is narrowed
+    to the specs listed in the candidate's `strategy_names` (unlike
+    kwarg edits which propagate across every matching spec).  Three
+    safety guards mirror `_structural_already_codified` for
+    idempotent re-runs: single-entry buckets are protected from
+    drop, already-present classes are not re-added, missing classes
+    are not re-dropped.  A corner-case backwards-expansion path
+    handles the "drop last entry of multi-line bucket" case so the
+    closing `]` inherits the pre-entry indentation instead of the
+    entry's inner indent.  The CLI's Apply-top block now emits
+    `selected: X [op]` and `target spec(s): ...` for structural
+    candidates instead of the pre-2026-07-01 `skipped N structural`
+    note.  Unblocks the live-ledger's top structural candidate
+    (`LatinHypercube` `drop_heuristic` from `Loop_LocalSearch`,
+    `n_nights=2`, `mean_Δ=+0.0491`) once one more night of evidence
+    accumulates.  Closes the structural codify gap in the §12.3
+    daily routine — every surfaced candidate (kwarg, categorical,
+    structural) now translates to source edits via
+    `codify-scan --apply-top` alone.  Pure additions to
+    `panobbgo/self_improve.py` and `scripts/self_improve.py`; 7 new
+    tests in `TestApplyCodifyEdits` + `TestApplyTopCLI`.  See the
+    2026-07-01 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **`codify-scan --apply-top` driver — mechanise the manual codify
     edit** — **shipped 2026-06-30** (V2 §9.5 step 4 plumbing).
     Translates the top actionable kwarg `CodifyCandidate` into
@@ -791,6 +863,28 @@ The harness is the measurement substrate for an autonomous
     §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
     entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Budget-adaptive `NP_init="auto"` for the DE family** — **shipped
+    2026-07-05**.  `LSHADE` (and its subclasses `JSO` / `NLSHADE_RSP` /
+    `NLSHADE_LBC` / `LSHADE_EpSin`) accept `NP_init="auto"`, resolving the
+    initial population from the strategy budget and problem dimension —
+    `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)` — instead
+    of a fixed constant.  Resolved in the base constructor via
+    `panobbgo.heuristics.lshade._resolve_auto_np_init` so every subclass
+    and downstream path sees a normal `int`; falls back to the fixed
+    default `30` when the budget is unknown (the `int` default is
+    unchanged / byte-identical).  `default_structural_catalog` now adds
+    every DE candidate with `NP_init="auto"`; `_find_targets` gained a
+    `rule_kind` argument so numeric mutation rules skip the string
+    sentinel (no `int("auto")` crash) while categorical rules still see
+    strings.  Measured on a lone `LSHADE` / `Rosenbrock_2D`: at the
+    quick-mode budget 75 (the nightly loop's budget) the score jumps from
+    **0.036** (`NP_init=30`) to **0.604** (`"auto"` → NP=6) — a ~16× win
+    where an oversized swarm otherwise burns the whole budget on the
+    initial random fill; at budget 200 the two are within noise (3-seed
+    sweep 0.42–0.46, no regression).  Respects the §7.3 catalog freeze
+    (no new arms — better default kwargs for existing candidates + a
+    heuristic robustness fix).  See the 2026-07-05 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 *   **2026-07-04 — `--metric aocc` workflow_dispatch A/B mechanism
     in the nightly cron** — closes V2 §9.5 step 2 (the last
     remaining implementation-order lever).  Adds
@@ -997,6 +1091,27 @@ uv run python scripts/self_improve.py codify-scan --apply-top
 # case — prefer --widen-bounds for bidirectional slots):
 uv run python scripts/self_improve.py codify-scan --apply-top \
     --apply-include-bidirectional
+
+# Hygiene flags (shipped 2026-07-03) that chain the daily routine's
+# last two manual steps into the same command: --apply-format runs
+# `uv run ruff format` on the modified files after the write;
+# --apply-run-tests runs `uv run pytest tests/test_self_improve.py`
+# for a smoke check.  Both inert with --apply-dry-run and inert when
+# no site needed editing.  Non-zero subprocess rc propagates.
+uv run python scripts/self_improve.py codify-scan --apply-top \
+    --apply-format --apply-run-tests
+# Open a draft PR for the top actionable candidate (shipped 2026-07-02
+# — V2 §9.5 step 4 final layer).  Implies --apply-top.  Dedups against
+# `gh pr list --state open` using the `codify-slot: <slot_key>` marker
+# embedded in every codify PR body — an existing open PR for the same
+# (class, param) slot skips with a `PR #N already covers this slot`
+# note rather than producing a duplicate.  Branch defaults to
+# `claude/codify-<class_snake>-<param_snake>-<direction>` so the
+# watcher infrastructure keys on the `claude/` prefix.  Compose with
+# --apply-dry-run to preview the full `gh` / `git` command sequence
+# without side effects.  Requires the `gh` CLI on PATH.
+uv run python scripts/self_improve.py codify-scan --open-pr --apply-dry-run
+uv run python scripts/self_improve.py codify-scan --open-pr
 ```
 
 ## IOH / MA-BBOB Anytime competition harness

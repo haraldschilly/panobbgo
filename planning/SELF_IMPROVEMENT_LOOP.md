@@ -350,17 +350,37 @@ open`.  Public library API:
 emits one `to_dict()` JSON per line; `--top N` truncates.  See the
 2026-06-17 entry in `SELF_IMPROVEMENT_LOG.md`.
 
-`scripts/self_improve.py codify-scan --open-pr` (still open) is the
-follow-up that translates each surfaced candidate into a concrete
-source edit + PR:
+`scripts/self_improve.py codify-scan --open-pr` (**shipped 2026-07-02**)
+is the follow-up that translates each surfaced candidate into a
+concrete source edit + PR:
 
-- For each hit, open **one** codify PR editing the seed spec /
+- ~For each hit, open **one** codify PR editing the seed spec /
   constructor default, with the ledger evidence
   (`base_seed`, `randomize_iteration`, iterations, deltas, CIs) in the
   PR body.  Dedup first: `gh pr list --state open` — skip if a codify
   PR for the same `(class, param)` exists (§12.3 step 0 lesson,
   enforced in code via the
-  :attr:`CodifyCandidate.slot_key` tuple).
+  :attr:`CodifyCandidate.slot_key` tuple).~ — **shipped 2026-07-02**
+  as ``codify-scan --open-pr`` in ``scripts/self_improve.py``.  The
+  driver wraps :func:`apply_codify_candidate` with a ``gh pr create``
+  call whose body is populated from
+  :func:`~panobbgo.self_improve.codify_pr_body` and whose title is
+  :func:`~panobbgo.self_improve.codify_pr_title`.  Dedup runs
+  ``gh pr list --state open --json number,title,body,headRefName``
+  before touching git and skips (with a ``PR #N already covers this
+  slot`` note) when
+  :func:`~panobbgo.self_improve.find_open_pr_for_slot` finds an open
+  PR carrying the candidate's
+  :func:`~panobbgo.self_improve.codify_pr_marker` — a stable
+  ``codify-slot: <slot_key>`` string embedded in an HTML comment at
+  the top of every codify PR body.  Branch name derives from
+  :func:`~panobbgo.self_improve.codify_pr_branch_name` (default
+  ``claude/codify-<class_snake>-<param_snake>-<direction>``) so the
+  watcher infrastructure keys on the same ``claude/`` prefix as the
+  human-driven bot branches.  Composes with ``--apply-dry-run`` — a
+  dry-run invocation prints the git / gh command sequence the driver
+  *would* run without executing any subprocess.  See the 2026-07-02
+  entry in ``SELF_IMPROVEMENT_LOG.md``.
 - **Merged codify PRs are the persistence mechanism**: the next night
   reads the improved defaults from source.  No in-memory ladder
   serialization needed.
@@ -382,22 +402,42 @@ source edit + PR:
   encodes).
 - The *source-edit* layer is centralised in
   :func:`derive_codify_edits` /
-  :func:`apply_codify_candidate` (**shipped 2026-06-30**): the
-  ``codify-scan --apply-top`` driver picks the top actionable kwarg
-  candidate and applies the implied edits in-place to every
-  matching ``(ClassName, {param_name: value, ...})`` heuristic /
-  analyzer literal across the four registry factories in
-  ``panobbgo/harness.py``.  A per-site direction guard preserves
-  deliberately-tighter sibling specs (so ``BayesOpt_GP``'s
-  ``Nearby(radius=0.05)`` stays at ``0.05`` even when the consensus
-  group shifts).  A default skip-on-bidirectional safety guard
-  defers contradictory slots to the ``--widen-bounds`` catalog-
-  update path rather than guessing a default-shift direction.
-  ``--apply-dry-run`` previews without writing.  The driver does
-  NOT touch git — the queued ``--open-pr`` driver consumes
-  :func:`apply_codify_candidate` directly for its source-edit
-  phase, then wraps it with a ``gh pr create`` call and a PR body
-  populated from :meth:`CodifyCandidate.to_dict`.
+  :func:`apply_codify_candidate` (**kwarg support shipped
+  2026-06-30**; **structural support shipped 2026-07-01**): the
+  ``codify-scan --apply-top`` driver picks the top actionable
+  candidate (kwarg or structural) and applies the implied edits
+  in-place across every matching site in the four registry
+  factories in ``panobbgo/harness.py``.  A per-site direction
+  guard preserves deliberately-tighter sibling specs (so
+  ``BayesOpt_GP``'s ``Nearby(radius=0.05)`` stays at ``0.05`` even
+  when the consensus group shifts).  A default skip-on-
+  bidirectional safety guard defers contradictory kwarg slots to
+  the ``--widen-bounds`` catalog-update path rather than guessing
+  a default-shift direction.  Structural candidates
+  (``add_/drop_heuristic``, ``add_/drop_analyzer``) route to
+  :func:`_scan_source_for_structural_edits` which handles list-
+  entry insertion / removal in the target ``heuristics`` /
+  ``analyzers`` bucket; the edit scope is narrowed to the specs
+  named in the candidate's :attr:`~CodifyCandidate.strategy_names`
+  and three safety guards apply (single-entry bucket protected
+  from drop, already-present class not re-added, missing class
+  not re-dropped).  ``--apply-dry-run`` previews without writing.
+  The driver does NOT touch git — the queued ``--open-pr`` driver
+  consumes :func:`apply_codify_candidate` directly for its source-
+  edit phase, then wraps it with a ``gh pr create`` call and a PR
+  body populated from :meth:`CodifyCandidate.to_dict`.  The
+  ``--apply-format`` / ``--apply-run-tests`` hygiene flags
+  (**shipped 2026-07-03**) chain the daily routine's last two
+  manual steps into the same command: ``--apply-format`` runs
+  ``uv run ruff format`` on the modified files after the write;
+  ``--apply-run-tests`` runs ``uv run pytest
+  tests/test_self_improve.py`` for a smoke check.  Both flags
+  are inert under ``--apply-dry-run`` and inert when no site
+  needed editing.  Non-zero subprocess rc propagates so a CI
+  wrapper surfaces the failure.  Recommended daily-routine
+  one-liner: ``codify-scan --apply-top --apply-format
+  --apply-run-tests`` — one command replaces the previous
+  three-step manual sequence.
 
 `scripts/self_improve.py codify-scan --widen-bounds` (**shipped
 2026-06-19**) is the sibling detection mode for *bidirectional*
@@ -458,9 +498,10 @@ uv run python scripts/self_improve.py codify-scan --open-pr
 ```
 
 (`permissions: pull-requests: write` in the workflow.)  ``--registry
-loop`` shipped 2026-06-10 (§9.5 step 1); the other open flags above
-remain queued.  Until they exist, the V1 invocation in the workflow
-file stands.
+loop`` shipped 2026-06-10 (§9.5 step 1); ``--open-pr`` shipped
+2026-07-02 (§9.5 step 4).  The only remaining queued lever is
+``--metric aocc`` (step 2), which needs the IOH worker on the runner.
+Until step 2 lands, the V1 metric stays on the composite score.
 
 ### 9.5 Implementation order (one PR each)
 
@@ -488,13 +529,13 @@ file stands.
    **graded bandit reward shipped 2026-06-13**; **same-night
    confirmation gate shipped 2026-06-14**.  All three V2 sub-tasks
    closed; see the dated entries in `SELF_IMPROVEMENT_LOG.md`.
-4. `codify-scan --open-pr` + ~`--prime-include-archives`~
-   (**shipped 2026-06-15**) + ~vacuous-holdout fix~
-   (**shipped 2026-06-11**) + summary trend block.  *Detection half of
-   `codify-scan` shipped 2026-06-17 (no `--open-pr` yet — that's the
-   queued follow-up); `--prime-include-archives` shipped 2026-06-15
-   (closes the §2.6 second half); summary trend block shipped
-   2026-06-16.*
+4. ~`codify-scan --open-pr`~ (**shipped 2026-07-02**) +
+   ~`--prime-include-archives`~ (**shipped 2026-06-15**) +
+   ~vacuous-holdout fix~ (**shipped 2026-06-11**) + summary trend
+   block (**shipped 2026-06-16**).  *Detection half of
+   `codify-scan` shipped 2026-06-17; ``--apply-top`` (source-edit
+   layer) shipped 2026-06-30; ``--open-pr`` (gh integration + dedup)
+   shipped 2026-07-02 — closes the last open piece of step 4.*
 5. Flip the workflow to §9.4 — **partially shipped 2026-06-21**
    (see ``SELF_IMPROVEMENT_LOG.md`` entry); ``--confirm-accepts``
    flipped on 2026-06-27 (see that dated entry); the

@@ -279,7 +279,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="145">
 </span><span data-line="146"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="147">
-</span><span data-line="148"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span data-line="148"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 </span><span data-line="149">
 </span><span data-line="150"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="151">
@@ -345,321 +345,322 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="209">
 </span><span data-line="210"><span class="sd">    Args:</span>
 </span><span data-line="211"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="212"><span class="sd">        NP_init: Initial population size.  Default ``30``.  See</span>
-</span><span data-line="213"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE` for budget</span>
-</span><span data-line="214"><span class="sd">            sizing notes.</span>
-</span><span data-line="215"><span class="sd">        NP_min: Minimum population size after LPSR shrinking.</span>
-</span><span data-line="216"><span class="sd">            Default ``4``.</span>
-</span><span data-line="217"><span class="sd">        H: History memory size (used by the second-half Cauchy-from-memory</span>
-</span><span data-line="218"><span class="sd">            ``F`` sampling and the Normal-from-memory ``CR`` sampling at</span>
-</span><span data-line="219"><span class="sd">            all times).  Default ``6`` (inherited from</span>
-</span><span data-line="220"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE`).  Awad et al.</span>
-</span><span data-line="221"><span class="sd">            report results across a range of ``H`` values; the L-SHADE</span>
-</span><span data-line="222"><span class="sd">            default keeps EpSin in lock-step with its parent&#39;s defaults.</span>
-</span><span data-line="223"><span class="sd">        p_best: Greediness factor for ``current-to-pbest/1``.  Default</span>
-</span><span data-line="224"><span class="sd">            ``0.11`` — the L-SHADE default; EpSin inherits the</span>
-</span><span data-line="225"><span class="sd">            ``current-to-pbest/1`` mutation skeleton unchanged.</span>
-</span><span data-line="226"><span class="sd">        archive_factor: Multiplier for the external archive size.</span>
-</span><span data-line="227"><span class="sd">            Default ``1.0``.</span>
-</span><span data-line="228"><span class="sd">        mu_freq_init: Initial mean frequency for the variable-freq</span>
-</span><span data-line="229"><span class="sd">            sinusoid (Sinusoid 2).  Default ``0.5``.  Must lie in</span>
-</span><span data-line="230"><span class="sd">            ``(0, 1]``.</span>
-</span><span data-line="231"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
-</span><span data-line="232"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
-</span><span data-line="233">
-</span><span data-line="234"><span class="sd">    Notes:</span>
-</span><span data-line="235"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
-</span><span data-line="236"><span class="sd">          :class:`ValueError`.</span>
-</span><span data-line="237"><span class="sd">        - Like every Panobbgo heuristic, all state is per-instance.</span>
-</span><span data-line="238"><span class="sd">        - **F_schedule is intentionally opt-in.**  The sinusoidal</span>
-</span><span data-line="239"><span class="sd">          envelope already provides a time-varying ``F`` magnitude;</span>
-</span><span data-line="240"><span class="sd">          composing it with the jSO asymmetric F-cap (Brest 2017) is</span>
-</span><span data-line="241"><span class="sd">          usually counter-productive in the first half.  The default</span>
-</span><span data-line="242"><span class="sd">          (``F_schedule=None``) reproduces the literature behaviour.</span>
-</span><span data-line="243"><span class="sd">          Callers who want the cap can set ``F_schedule=&quot;jso&quot;``</span>
-</span><span data-line="244"><span class="sd">          (or another named regime) explicitly — it is applied to</span>
-</span><span data-line="245"><span class="sd">          *both* phases&#39; ``F`` then.</span>
-</span><span data-line="246"><span class="sd">        - When the strategy budget is unknown (no ``max_eval``, zero,</span>
-</span><span data-line="247"><span class="sd">          or non-numeric), the phase split defaults to &quot;sinusoidal&quot; so</span>
-</span><span data-line="248"><span class="sd">          the heuristic still produces a varied ``F`` distribution.</span>
-</span><span data-line="249"><span class="sd">          The ``G_max`` estimate falls back to</span>
-</span><span data-line="250"><span class="sd">          ``_GMAX_FALLBACK_FACTOR · NP_init``.</span>
-</span><span data-line="251"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="252">
-</span><span data-line="253">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="254">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="255">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="256">        <span class="n">NP_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
-</span><span data-line="257">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
-</span><span data-line="258">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
-</span><span data-line="259">        <span class="n">p_best</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST</span><span class="p">,</span>
-</span><span data-line="260">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
-</span><span data-line="261">        <span class="n">mu_freq_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_MU_FREQ</span><span class="p">,</span>
-</span><span data-line="262">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="263">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="264">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="265">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">mu_freq_init</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="266">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE_EpSin: mu_freq_init must be in (0, 1], got </span><span class="si">{</span><span class="n">mu_freq_init</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="267">
-</span><span data-line="268">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="269">            <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="270">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
-</span><span data-line="271">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
-</span><span data-line="272">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
-</span><span data-line="273">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best</span><span class="p">,</span>
-</span><span data-line="274">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
-</span><span data-line="275">            <span class="n">F_schedule</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span data-line="276">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-</span><span data-line="277">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;LSHADE_EpSin&quot;</span><span class="p">,</span>
-</span><span data-line="278">        <span class="p">)</span>
-</span><span data-line="279">        <span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span>
-</span><span data-line="280">
-</span><span data-line="281">        <span class="c1"># Ensemble bandit state.</span>
-</span><span data-line="282">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span>
-</span><span data-line="283">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
-</span><span data-line="284">        <span class="c1"># Per-generation success counters for the two sinusoids.</span>
-</span><span data-line="285">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="286">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="287">        <span class="c1"># Successful Sinusoid-2 frequencies for the in-flight generation.</span>
-</span><span data-line="288">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="289">        <span class="c1"># Integer generation counter.  Incremented at ``_end_of_generation``.</span>
-</span><span data-line="290">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="291">        <span class="c1"># Transient sin choice + freq, set by :meth:`_sample_F_CR` and</span>
-</span><span data-line="292">        <span class="c1"># consumed by :meth:`_make_trial_meta`.  Always reset to</span>
-</span><span data-line="293">        <span class="c1"># ``(_SIN_NONE, 0.0)`` between trials.</span>
-</span><span data-line="294">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-</span><span data-line="295">
-</span><span data-line="296">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="297">    <span class="c1"># Internal helpers</span>
-</span><span data-line="298">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="299">
-</span><span data-line="300">    <span class="k">def</span><span class="w"> </span><span class="nf">_in_sinusoidal_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="301"><span class="w">        </span><span class="sd">&quot;&quot;&quot;``True`` when the next trial should draw ``F`` from a sinusoid.</span>
-</span><span data-line="302">
-</span><span data-line="303"><span class="sd">        Maps to ``progress &lt; _PHASE_SPLIT`` when the budget is known;</span>
-</span><span data-line="304"><span class="sd">        falls back to ``True`` (sinusoidal) when the budget is unknown</span>
-</span><span data-line="305"><span class="sd">        so the heuristic still produces a varied ``F`` distribution</span>
-</span><span data-line="306"><span class="sd">        instead of accidentally sampling from the cold memory.</span>
-</span><span data-line="307"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="308">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
-</span><span data-line="309">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="310">            <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="311">        <span class="k">return</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_PHASE_SPLIT</span>
-</span><span data-line="312">
-</span><span data-line="313">    <span class="k">def</span><span class="w"> </span><span class="nf">_estimate_gmax</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="314"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Approximate the total generation count when budget exhausts.</span>
-</span><span data-line="315">
-</span><span data-line="316"><span class="sd">        Used by the sinusoidal envelopes (``(G_max − g)/G_max`` and</span>
-</span><span data-line="317"><span class="sd">        ``g/G_max``).  When ``max_eval`` is known we estimate it as</span>
-</span><span data-line="318"><span class="sd">        ``max_eval / avg_NP`` with ``avg_NP = (NP_init + NP_min) / 2``;</span>
-</span><span data-line="319"><span class="sd">        when unknown we use ``_GMAX_FALLBACK_FACTOR · NP_init``.</span>
-</span><span data-line="320"><span class="sd">        Always returns at least ``1.0`` so the envelope ratios stay</span>
-</span><span data-line="321"><span class="sd">        finite.</span>
-</span><span data-line="322"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="323">        <span class="n">max_eval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_eval</span><span class="p">()</span>
-</span><span data-line="324">        <span class="k">if</span> <span class="n">max_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="325">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">_GMAX_FALLBACK_FACTOR</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-</span><span data-line="326">        <span class="n">avg_NP</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="327">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">max_eval</span><span class="p">)</span> <span class="o">/</span> <span class="n">avg_NP</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="328">
-</span><span data-line="329">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_freq_cauchy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="330"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw a frequency for Sinusoid 2 from ``Cauchy(μ_freq, 0.1)``.</span>
-</span><span data-line="331">
-</span><span data-line="332"><span class="sd">        Clamped to ``(0, 1]`` via redraws on non-positive samples, with</span>
-</span><span data-line="333"><span class="sd">        bounded redraws to prevent worst-case loops.  Falls back to</span>
-</span><span data-line="334"><span class="sd">        ``μ_freq`` when every redraw fails (vanishingly unlikely with</span>
-</span><span data-line="335"><span class="sd">        the heavy-tailed Cauchy + 0.1 scale).</span>
-</span><span data-line="336"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="337">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
-</span><span data-line="338">            <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">+</span> <span class="n">_FREQ_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
-</span><span data-line="339">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="340">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="341">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="342">
-</span><span data-line="343">    <span class="k">def</span><span class="w"> </span><span class="nf">_sinusoid1_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">gmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="344"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoid 1: fixed-frequency, decreasing-envelope ``F``.</span>
-</span><span data-line="345">
-</span><span data-line="346"><span class="sd">        ``F = 0.5 · (sin(2π · freq_fixed · g) · (G_max − g)/G_max + 1)``,</span>
-</span><span data-line="347"><span class="sd">        clamped to ``[0, 1]`` to guard against floating-point edge cases.</span>
-</span><span data-line="348"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="349">        <span class="n">envelope</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="p">(</span><span class="n">gmax</span> <span class="o">-</span> <span class="n">g</span><span class="p">)</span> <span class="o">/</span> <span class="n">gmax</span><span class="p">)</span>
-</span><span data-line="350">        <span class="n">F</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">_FIXED_FREQ</span> <span class="o">*</span> <span class="n">g</span><span class="p">)</span> <span class="o">*</span> <span class="n">envelope</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="351">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="352">
-</span><span data-line="353">    <span class="k">def</span><span class="w"> </span><span class="nf">_sinusoid2_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">gmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">freq</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="354"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoid 2: variable-frequency, increasing-envelope ``F``.</span>
-</span><span data-line="355">
-</span><span data-line="356"><span class="sd">        ``F = 0.5 · (sin(2π · freq · g + π) · g/G_max + 1)``, clamped to</span>
-</span><span data-line="357"><span class="sd">        ``[0, 1]``.  The ``+ π`` phase shift means Sinusoid 2 starts at</span>
-</span><span data-line="358"><span class="sd">        the centre of its range while Sinusoid 1 starts at the top of</span>
-</span><span data-line="359"><span class="sd">        its range.</span>
-</span><span data-line="360"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="361">        <span class="n">envelope</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">g</span> <span class="o">/</span> <span class="n">gmax</span><span class="p">))</span>
-</span><span data-line="362">        <span class="n">F</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="n">g</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">envelope</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="363">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="364">
-</span><span data-line="365">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_sinusoidal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="366"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``F`` from one of the two sinusoids per current ``p_s``.</span>
-</span><span data-line="367">
-</span><span data-line="368"><span class="sd">        Returns ``(F, sin_choice, freq)`` where ``sin_choice`` is</span>
-</span><span data-line="369"><span class="sd">        ``_SIN_1`` or ``_SIN_2`` and ``freq`` is the literal frequency</span>
-</span><span data-line="370"><span class="sd">        used (Sinusoid 1 uses the fixed ``_FIXED_FREQ``; Sinusoid 2</span>
-</span><span data-line="371"><span class="sd">        carries its drawn frequency so end-of-generation can Lehmer-mean</span>
-</span><span data-line="372"><span class="sd">        the successful ones).</span>
-</span><span data-line="373"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="374">        <span class="n">g</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 1-indexed for the sinusoid argument</span>
-</span><span data-line="375">        <span class="n">gmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimate_gmax</span><span class="p">()</span>
-</span><span data-line="376">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span><span class="p">:</span>
-</span><span data-line="377">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinusoid1_F</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">gmax</span><span class="p">),</span> <span class="n">_SIN_1</span><span class="p">,</span> <span class="n">_FIXED_FREQ</span>
-</span><span data-line="378">        <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_freq_cauchy</span><span class="p">()</span>
-</span><span data-line="379">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinusoid2_F</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">gmax</span><span class="p">,</span> <span class="n">freq</span><span class="p">),</span> <span class="n">_SIN_2</span><span class="p">,</span> <span class="n">freq</span>
-</span><span data-line="380">
-</span><span data-line="381">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_CR_from_bin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="382"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``CR`` from a random SHADE memory bin (unchanged from L-SHADE).&quot;&quot;&quot;</span>
-</span><span data-line="383">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
-</span><span data-line="384">        <span class="n">m_cr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
-</span><span data-line="385">        <span class="k">if</span> <span class="n">m_cr</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="386">            <span class="k">return</span> <span class="mf">0.0</span>
-</span><span data-line="387">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">m_cr</span><span class="p">,</span> <span class="n">_PARAM_SCALE</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="388">
-</span><span data-line="389">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_cauchy_from_bin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="390"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``F`` from a random SHADE memory bin (Cauchy from M_F).&quot;&quot;&quot;</span>
-</span><span data-line="391">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
-</span><span data-line="392">        <span class="n">m_f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
-</span><span data-line="393">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
-</span><span data-line="394">            <span class="n">f</span> <span class="o">=</span> <span class="n">m_f</span> <span class="o">+</span> <span class="n">_PARAM_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
-</span><span data-line="395">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="396">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="397">        <span class="k">return</span> <span class="mf">0.5</span>
-</span><span data-line="398">
-</span><span data-line="399">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="400">    <span class="c1"># Overrides</span>
-</span><span data-line="401">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="402">
-</span><span data-line="403">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="404"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoidal-ensemble ``F`` in the first half, Cauchy-from-memory in the second.</span>
-</span><span data-line="405">
-</span><span data-line="406"><span class="sd">        ``CR`` is always sampled from a random SHADE bin (Normal centred</span>
-</span><span data-line="407"><span class="sd">        on ``M_CR[r]``, clamped to ``[0, 1]``) — identical to L-SHADE in</span>
-</span><span data-line="408"><span class="sd">        both phases.</span>
-</span><span data-line="409">
-</span><span data-line="410"><span class="sd">        Sets :attr:`_last_sin` to the chosen sinusoid (``_SIN_1`` /</span>
-</span><span data-line="411"><span class="sd">        ``_SIN_2``) and its frequency in the first half, or to</span>
-</span><span data-line="412"><span class="sd">        ``(_SIN_NONE, 0.0)`` in the second half.  Consumed by</span>
-</span><span data-line="413"><span class="sd">        :meth:`_make_trial_meta` and reset to ``(_SIN_NONE, 0.0)`` on</span>
-</span><span data-line="414"><span class="sd">        each call so an unused stash from a prior trial does not leak.</span>
-</span><span data-line="415"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="416">        <span class="n">CR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_CR_from_bin</span><span class="p">()</span>
-</span><span data-line="417">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_sinusoidal_phase</span><span class="p">():</span>
-</span><span data-line="418">            <span class="n">F</span><span class="p">,</span> <span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F_sinusoidal</span><span class="p">()</span>
-</span><span data-line="419">            <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
-</span><span data-line="420">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="421">            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F_cauchy_from_bin</span><span class="p">()</span>
-</span><span data-line="422">            <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-</span><span data-line="423">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_F_cap</span><span class="p">(</span><span class="n">F</span><span class="p">),</span> <span class="n">CR</span>
-</span><span data-line="424">
-</span><span data-line="425">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_trial_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_TrialMeta</span><span class="p">:</span>
-</span><span data-line="426"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Attach the most-recent sinusoid + freq to the trial record.</span>
-</span><span data-line="427">
-</span><span data-line="428"><span class="sd">        Reads :attr:`_last_sin` set by :meth:`_sample_F_CR` and resets</span>
-</span><span data-line="429"><span class="sd">        it to the no-op sentinel so the next ``_make_trial_meta`` call</span>
-</span><span data-line="430"><span class="sd">        (e.g. one triggered by the random-fill ``on_start`` /</span>
-</span><span data-line="431"><span class="sd">        ``on_restart`` path where ``F = NaN``) does not inherit a stale</span>
-</span><span data-line="432"><span class="sd">        sinusoid choice.</span>
-</span><span data-line="433"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="434">        <span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span>
-</span><span data-line="435">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-</span><span data-line="436">        <span class="k">return</span> <span class="n">_EpSinTrialMeta</span><span class="p">(</span><span class="n">slot_idx</span><span class="o">=</span><span class="n">slot_idx</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="o">=</span><span class="n">CR</span><span class="p">,</span> <span class="n">sin_choice</span><span class="o">=</span><span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">)</span>
-</span><span data-line="437">
-</span><span data-line="438">    <span class="k">def</span><span class="w"> </span><span class="nf">_record_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="n">_TrialMeta</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="439"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Count the successful sinusoid and stash its frequency for Lehmer averaging.</span>
-</span><span data-line="440">
-</span><span data-line="441"><span class="sd">        Random-fill trials (``F = CR = NaN``, ``sin_choice = _SIN_NONE``)</span>
-</span><span data-line="442"><span class="sd">        are skipped — the parent&#39;s NaN guard in :meth:`on_new_results`</span>
-</span><span data-line="443"><span class="sd">        already short-circuits, but we re-check here so subclassing</span>
-</span><span data-line="444"><span class="sd">        is hermetic.  Cauchy-phase successes (``sin_choice = _SIN_NONE``,</span>
-</span><span data-line="445"><span class="sd">        non-NaN F/CR) are tracked by the inherited SHADE memory update</span>
-</span><span data-line="446"><span class="sd">        and do not feed the ensemble bandit.</span>
-</span><span data-line="447"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="448">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">_EpSinTrialMeta</span><span class="p">):</span>
-</span><span data-line="449">            <span class="k">return</span>
-</span><span data-line="450">        <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">sin_choice</span> <span class="o">==</span> <span class="n">_SIN_1</span><span class="p">:</span>
-</span><span data-line="451">            <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="452">        <span class="k">elif</span> <span class="n">meta</span><span class="o">.</span><span class="n">sin_choice</span> <span class="o">==</span> <span class="n">_SIN_2</span><span class="p">:</span>
-</span><span data-line="453">            <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="454">            <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">freq</span><span class="p">))</span>
-</span><span data-line="455">
-</span><span data-line="456">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_ensemble_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="457"><span class="w">        </span><span class="sd">&quot;&quot;&quot;End-of-generation update for ``p_s``, ``μ_freq``, and counters.</span>
-</span><span data-line="458">
-</span><span data-line="459"><span class="sd">        ``p_s`` is the Laplace-smoothed Sinusoid-1 success rate</span>
-</span><span data-line="460"><span class="sd">        ``(ns_1 + 1) / (ns_1 + ns_2 + 2)``.  With no recorded</span>
-</span><span data-line="461"><span class="sd">        successes (``ns_1 = ns_2 = 0``) this collapses to the</span>
-</span><span data-line="462"><span class="sd">        cold-start ``0.5`` so the next generation samples the two</span>
-</span><span data-line="463"><span class="sd">        sinusoids equally.</span>
-</span><span data-line="464">
-</span><span data-line="465"><span class="sd">        ``μ_freq`` is the *weighted Lehmer mean* of successful</span>
-</span><span data-line="466"><span class="sd">        Sinusoid-2 frequencies in the just-finished generation, mirroring</span>
-</span><span data-line="467"><span class="sd">        the SHADE memory update for ``F``.  We do not have a per-trial</span>
-</span><span data-line="468"><span class="sd">        ``delta`` weight here (the L-SHADE parent already consumed it for</span>
-</span><span data-line="469"><span class="sd">        the F/CR memory bins; carrying a parallel weighted list of freqs</span>
-</span><span data-line="470"><span class="sd">        is fine but the Sinusoid-2 success counts are typically small),</span>
-</span><span data-line="471"><span class="sd">        so we use the unweighted Lehmer mean</span>
-</span><span data-line="472"><span class="sd">        ``Σ freq² / Σ freq`` — same monotonic direction, no per-call</span>
-</span><span data-line="473"><span class="sd">        bookkeeping.  When no Sinusoid-2 successes occurred this</span>
-</span><span data-line="474"><span class="sd">        generation, ``μ_freq`` is left untouched.</span>
-</span><span data-line="475">
-</span><span data-line="476"><span class="sd">        All counters are cleared after the update so the next generation</span>
-</span><span data-line="477"><span class="sd">        starts from a fresh per-generation slate.</span>
-</span><span data-line="478"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="479">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="480">            <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
-</span><span data-line="481">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">:</span>
-</span><span data-line="482">            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="483">            <span class="n">num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">arr</span> <span class="o">*</span> <span class="n">arr</span><span class="p">))</span>
-</span><span data-line="484">            <span class="n">den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
-</span><span data-line="485">            <span class="k">if</span> <span class="n">den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="486">                <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="487">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="488">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="489">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="490">
-</span><span data-line="491">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="492"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the EpSin ensemble update on top of the L-SHADE memory update.&quot;&quot;&quot;</span>
-</span><span data-line="493">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_ensemble_state</span><span class="p">()</span>
-</span><span data-line="494">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
-</span><span data-line="495">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="496">
-</span><span data-line="497">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="498">    <span class="c1"># Heuristic interface</span>
-</span><span data-line="499">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="500">
+</span><span data-line="212"><span class="sd">        NP_init: Initial population size, or ``&quot;auto&quot;`` for budget-adaptive</span>
+</span><span data-line="213"><span class="sd">            sizing.  Default ``30``.  See</span>
+</span><span data-line="214"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``&quot;auto&quot;``</span>
+</span><span data-line="215"><span class="sd">            sizing formula and budget notes.</span>
+</span><span data-line="216"><span class="sd">        NP_min: Minimum population size after LPSR shrinking.</span>
+</span><span data-line="217"><span class="sd">            Default ``4``.</span>
+</span><span data-line="218"><span class="sd">        H: History memory size (used by the second-half Cauchy-from-memory</span>
+</span><span data-line="219"><span class="sd">            ``F`` sampling and the Normal-from-memory ``CR`` sampling at</span>
+</span><span data-line="220"><span class="sd">            all times).  Default ``6`` (inherited from</span>
+</span><span data-line="221"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE`).  Awad et al.</span>
+</span><span data-line="222"><span class="sd">            report results across a range of ``H`` values; the L-SHADE</span>
+</span><span data-line="223"><span class="sd">            default keeps EpSin in lock-step with its parent&#39;s defaults.</span>
+</span><span data-line="224"><span class="sd">        p_best: Greediness factor for ``current-to-pbest/1``.  Default</span>
+</span><span data-line="225"><span class="sd">            ``0.11`` — the L-SHADE default; EpSin inherits the</span>
+</span><span data-line="226"><span class="sd">            ``current-to-pbest/1`` mutation skeleton unchanged.</span>
+</span><span data-line="227"><span class="sd">        archive_factor: Multiplier for the external archive size.</span>
+</span><span data-line="228"><span class="sd">            Default ``1.0``.</span>
+</span><span data-line="229"><span class="sd">        mu_freq_init: Initial mean frequency for the variable-freq</span>
+</span><span data-line="230"><span class="sd">            sinusoid (Sinusoid 2).  Default ``0.5``.  Must lie in</span>
+</span><span data-line="231"><span class="sd">            ``(0, 1]``.</span>
+</span><span data-line="232"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
+</span><span data-line="233"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="234">
+</span><span data-line="235"><span class="sd">    Notes:</span>
+</span><span data-line="236"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
+</span><span data-line="237"><span class="sd">          :class:`ValueError`.</span>
+</span><span data-line="238"><span class="sd">        - Like every Panobbgo heuristic, all state is per-instance.</span>
+</span><span data-line="239"><span class="sd">        - **F_schedule is intentionally opt-in.**  The sinusoidal</span>
+</span><span data-line="240"><span class="sd">          envelope already provides a time-varying ``F`` magnitude;</span>
+</span><span data-line="241"><span class="sd">          composing it with the jSO asymmetric F-cap (Brest 2017) is</span>
+</span><span data-line="242"><span class="sd">          usually counter-productive in the first half.  The default</span>
+</span><span data-line="243"><span class="sd">          (``F_schedule=None``) reproduces the literature behaviour.</span>
+</span><span data-line="244"><span class="sd">          Callers who want the cap can set ``F_schedule=&quot;jso&quot;``</span>
+</span><span data-line="245"><span class="sd">          (or another named regime) explicitly — it is applied to</span>
+</span><span data-line="246"><span class="sd">          *both* phases&#39; ``F`` then.</span>
+</span><span data-line="247"><span class="sd">        - When the strategy budget is unknown (no ``max_eval``, zero,</span>
+</span><span data-line="248"><span class="sd">          or non-numeric), the phase split defaults to &quot;sinusoidal&quot; so</span>
+</span><span data-line="249"><span class="sd">          the heuristic still produces a varied ``F`` distribution.</span>
+</span><span data-line="250"><span class="sd">          The ``G_max`` estimate falls back to</span>
+</span><span data-line="251"><span class="sd">          ``_GMAX_FALLBACK_FACTOR · NP_init``.</span>
+</span><span data-line="252"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="253">
+</span><span data-line="254">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="255">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="256">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="257">        <span class="n">NP_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_INIT</span><span class="p">,</span>
+</span><span data-line="258">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
+</span><span data-line="259">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
+</span><span data-line="260">        <span class="n">p_best</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST</span><span class="p">,</span>
+</span><span data-line="261">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
+</span><span data-line="262">        <span class="n">mu_freq_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_MU_FREQ</span><span class="p">,</span>
+</span><span data-line="263">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="264">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="265">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="266">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">mu_freq_init</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="267">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE_EpSin: mu_freq_init must be in (0, 1], got </span><span class="si">{</span><span class="n">mu_freq_init</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="268">
+</span><span data-line="269">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="270">            <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="271">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
+</span><span data-line="272">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
+</span><span data-line="273">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+</span><span data-line="274">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best</span><span class="p">,</span>
+</span><span data-line="275">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
+</span><span data-line="276">            <span class="n">F_schedule</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span data-line="277">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+</span><span data-line="278">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;LSHADE_EpSin&quot;</span><span class="p">,</span>
+</span><span data-line="279">        <span class="p">)</span>
+</span><span data-line="280">        <span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span>
+</span><span data-line="281">
+</span><span data-line="282">        <span class="c1"># Ensemble bandit state.</span>
+</span><span data-line="283">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu_freq_init</span><span class="p">)</span>
+</span><span data-line="284">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
+</span><span data-line="285">        <span class="c1"># Per-generation success counters for the two sinusoids.</span>
+</span><span data-line="286">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="287">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="288">        <span class="c1"># Successful Sinusoid-2 frequencies for the in-flight generation.</span>
+</span><span data-line="289">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="290">        <span class="c1"># Integer generation counter.  Incremented at ``_end_of_generation``.</span>
+</span><span data-line="291">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="292">        <span class="c1"># Transient sin choice + freq, set by :meth:`_sample_F_CR` and</span>
+</span><span data-line="293">        <span class="c1"># consumed by :meth:`_make_trial_meta`.  Always reset to</span>
+</span><span data-line="294">        <span class="c1"># ``(_SIN_NONE, 0.0)`` between trials.</span>
+</span><span data-line="295">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="296">
+</span><span data-line="297">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="298">    <span class="c1"># Internal helpers</span>
+</span><span data-line="299">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="300">
+</span><span data-line="301">    <span class="k">def</span><span class="w"> </span><span class="nf">_in_sinusoidal_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="302"><span class="w">        </span><span class="sd">&quot;&quot;&quot;``True`` when the next trial should draw ``F`` from a sinusoid.</span>
+</span><span data-line="303">
+</span><span data-line="304"><span class="sd">        Maps to ``progress &lt; _PHASE_SPLIT`` when the budget is known;</span>
+</span><span data-line="305"><span class="sd">        falls back to ``True`` (sinusoidal) when the budget is unknown</span>
+</span><span data-line="306"><span class="sd">        so the heuristic still produces a varied ``F`` distribution</span>
+</span><span data-line="307"><span class="sd">        instead of accidentally sampling from the cold memory.</span>
+</span><span data-line="308"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="309">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="310">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="311">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="312">        <span class="k">return</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_PHASE_SPLIT</span>
+</span><span data-line="313">
+</span><span data-line="314">    <span class="k">def</span><span class="w"> </span><span class="nf">_estimate_gmax</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="315"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Approximate the total generation count when budget exhausts.</span>
+</span><span data-line="316">
+</span><span data-line="317"><span class="sd">        Used by the sinusoidal envelopes (``(G_max − g)/G_max`` and</span>
+</span><span data-line="318"><span class="sd">        ``g/G_max``).  When ``max_eval`` is known we estimate it as</span>
+</span><span data-line="319"><span class="sd">        ``max_eval / avg_NP`` with ``avg_NP = (NP_init + NP_min) / 2``;</span>
+</span><span data-line="320"><span class="sd">        when unknown we use ``_GMAX_FALLBACK_FACTOR · NP_init``.</span>
+</span><span data-line="321"><span class="sd">        Always returns at least ``1.0`` so the envelope ratios stay</span>
+</span><span data-line="322"><span class="sd">        finite.</span>
+</span><span data-line="323"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="324">        <span class="n">max_eval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_eval</span><span class="p">()</span>
+</span><span data-line="325">        <span class="k">if</span> <span class="n">max_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="326">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">_GMAX_FALLBACK_FACTOR</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+</span><span data-line="327">        <span class="n">avg_NP</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="328">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">max_eval</span><span class="p">)</span> <span class="o">/</span> <span class="n">avg_NP</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="329">
+</span><span data-line="330">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_freq_cauchy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="331"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw a frequency for Sinusoid 2 from ``Cauchy(μ_freq, 0.1)``.</span>
+</span><span data-line="332">
+</span><span data-line="333"><span class="sd">        Clamped to ``(0, 1]`` via redraws on non-positive samples, with</span>
+</span><span data-line="334"><span class="sd">        bounded redraws to prevent worst-case loops.  Falls back to</span>
+</span><span data-line="335"><span class="sd">        ``μ_freq`` when every redraw fails (vanishingly unlikely with</span>
+</span><span data-line="336"><span class="sd">        the heavy-tailed Cauchy + 0.1 scale).</span>
+</span><span data-line="337"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="338">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
+</span><span data-line="339">            <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">+</span> <span class="n">_FREQ_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
+</span><span data-line="340">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="341">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="342">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="343">
+</span><span data-line="344">    <span class="k">def</span><span class="w"> </span><span class="nf">_sinusoid1_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">gmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="345"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoid 1: fixed-frequency, decreasing-envelope ``F``.</span>
+</span><span data-line="346">
+</span><span data-line="347"><span class="sd">        ``F = 0.5 · (sin(2π · freq_fixed · g) · (G_max − g)/G_max + 1)``,</span>
+</span><span data-line="348"><span class="sd">        clamped to ``[0, 1]`` to guard against floating-point edge cases.</span>
+</span><span data-line="349"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="350">        <span class="n">envelope</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="p">(</span><span class="n">gmax</span> <span class="o">-</span> <span class="n">g</span><span class="p">)</span> <span class="o">/</span> <span class="n">gmax</span><span class="p">)</span>
+</span><span data-line="351">        <span class="n">F</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">_FIXED_FREQ</span> <span class="o">*</span> <span class="n">g</span><span class="p">)</span> <span class="o">*</span> <span class="n">envelope</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="352">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="353">
+</span><span data-line="354">    <span class="k">def</span><span class="w"> </span><span class="nf">_sinusoid2_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">gmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">freq</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="355"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoid 2: variable-frequency, increasing-envelope ``F``.</span>
+</span><span data-line="356">
+</span><span data-line="357"><span class="sd">        ``F = 0.5 · (sin(2π · freq · g + π) · g/G_max + 1)``, clamped to</span>
+</span><span data-line="358"><span class="sd">        ``[0, 1]``.  The ``+ π`` phase shift means Sinusoid 2 starts at</span>
+</span><span data-line="359"><span class="sd">        the centre of its range while Sinusoid 1 starts at the top of</span>
+</span><span data-line="360"><span class="sd">        its range.</span>
+</span><span data-line="361"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="362">        <span class="n">envelope</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">g</span> <span class="o">/</span> <span class="n">gmax</span><span class="p">))</span>
+</span><span data-line="363">        <span class="n">F</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">freq</span> <span class="o">*</span> <span class="n">g</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">envelope</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="364">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="365">
+</span><span data-line="366">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_sinusoidal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="367"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``F`` from one of the two sinusoids per current ``p_s``.</span>
+</span><span data-line="368">
+</span><span data-line="369"><span class="sd">        Returns ``(F, sin_choice, freq)`` where ``sin_choice`` is</span>
+</span><span data-line="370"><span class="sd">        ``_SIN_1`` or ``_SIN_2`` and ``freq`` is the literal frequency</span>
+</span><span data-line="371"><span class="sd">        used (Sinusoid 1 uses the fixed ``_FIXED_FREQ``; Sinusoid 2</span>
+</span><span data-line="372"><span class="sd">        carries its drawn frequency so end-of-generation can Lehmer-mean</span>
+</span><span data-line="373"><span class="sd">        the successful ones).</span>
+</span><span data-line="374"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="375">        <span class="n">g</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 1-indexed for the sinusoid argument</span>
+</span><span data-line="376">        <span class="n">gmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimate_gmax</span><span class="p">()</span>
+</span><span data-line="377">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span><span class="p">:</span>
+</span><span data-line="378">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinusoid1_F</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">gmax</span><span class="p">),</span> <span class="n">_SIN_1</span><span class="p">,</span> <span class="n">_FIXED_FREQ</span>
+</span><span data-line="379">        <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_freq_cauchy</span><span class="p">()</span>
+</span><span data-line="380">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sinusoid2_F</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">gmax</span><span class="p">,</span> <span class="n">freq</span><span class="p">),</span> <span class="n">_SIN_2</span><span class="p">,</span> <span class="n">freq</span>
+</span><span data-line="381">
+</span><span data-line="382">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_CR_from_bin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="383"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``CR`` from a random SHADE memory bin (unchanged from L-SHADE).&quot;&quot;&quot;</span>
+</span><span data-line="384">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
+</span><span data-line="385">        <span class="n">m_cr</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
+</span><span data-line="386">        <span class="k">if</span> <span class="n">m_cr</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="387">            <span class="k">return</span> <span class="mf">0.0</span>
+</span><span data-line="388">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">m_cr</span><span class="p">,</span> <span class="n">_PARAM_SCALE</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="389">
+</span><span data-line="390">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_cauchy_from_bin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="391"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw ``F`` from a random SHADE memory bin (Cauchy from M_F).&quot;&quot;&quot;</span>
+</span><span data-line="392">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
+</span><span data-line="393">        <span class="n">m_f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
+</span><span data-line="394">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
+</span><span data-line="395">            <span class="n">f</span> <span class="o">=</span> <span class="n">m_f</span> <span class="o">+</span> <span class="n">_PARAM_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
+</span><span data-line="396">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="397">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="398">        <span class="k">return</span> <span class="mf">0.5</span>
+</span><span data-line="399">
+</span><span data-line="400">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="401">    <span class="c1"># Overrides</span>
+</span><span data-line="402">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="403">
+</span><span data-line="404">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="405"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sinusoidal-ensemble ``F`` in the first half, Cauchy-from-memory in the second.</span>
+</span><span data-line="406">
+</span><span data-line="407"><span class="sd">        ``CR`` is always sampled from a random SHADE bin (Normal centred</span>
+</span><span data-line="408"><span class="sd">        on ``M_CR[r]``, clamped to ``[0, 1]``) — identical to L-SHADE in</span>
+</span><span data-line="409"><span class="sd">        both phases.</span>
+</span><span data-line="410">
+</span><span data-line="411"><span class="sd">        Sets :attr:`_last_sin` to the chosen sinusoid (``_SIN_1`` /</span>
+</span><span data-line="412"><span class="sd">        ``_SIN_2``) and its frequency in the first half, or to</span>
+</span><span data-line="413"><span class="sd">        ``(_SIN_NONE, 0.0)`` in the second half.  Consumed by</span>
+</span><span data-line="414"><span class="sd">        :meth:`_make_trial_meta` and reset to ``(_SIN_NONE, 0.0)`` on</span>
+</span><span data-line="415"><span class="sd">        each call so an unused stash from a prior trial does not leak.</span>
+</span><span data-line="416"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="417">        <span class="n">CR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_CR_from_bin</span><span class="p">()</span>
+</span><span data-line="418">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_sinusoidal_phase</span><span class="p">():</span>
+</span><span data-line="419">            <span class="n">F</span><span class="p">,</span> <span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F_sinusoidal</span><span class="p">()</span>
+</span><span data-line="420">            <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+</span><span data-line="421">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="422">            <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F_cauchy_from_bin</span><span class="p">()</span>
+</span><span data-line="423">            <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="424">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_F_cap</span><span class="p">(</span><span class="n">F</span><span class="p">),</span> <span class="n">CR</span>
+</span><span data-line="425">
+</span><span data-line="426">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_trial_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_TrialMeta</span><span class="p">:</span>
+</span><span data-line="427"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Attach the most-recent sinusoid + freq to the trial record.</span>
+</span><span data-line="428">
+</span><span data-line="429"><span class="sd">        Reads :attr:`_last_sin` set by :meth:`_sample_F_CR` and resets</span>
+</span><span data-line="430"><span class="sd">        it to the no-op sentinel so the next ``_make_trial_meta`` call</span>
+</span><span data-line="431"><span class="sd">        (e.g. one triggered by the random-fill ``on_start`` /</span>
+</span><span data-line="432"><span class="sd">        ``on_restart`` path where ``F = NaN``) does not inherit a stale</span>
+</span><span data-line="433"><span class="sd">        sinusoid choice.</span>
+</span><span data-line="434"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="435">        <span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span>
+</span><span data-line="436">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="437">        <span class="k">return</span> <span class="n">_EpSinTrialMeta</span><span class="p">(</span><span class="n">slot_idx</span><span class="o">=</span><span class="n">slot_idx</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="o">=</span><span class="n">CR</span><span class="p">,</span> <span class="n">sin_choice</span><span class="o">=</span><span class="n">sin_choice</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="n">freq</span><span class="p">)</span>
+</span><span data-line="438">
+</span><span data-line="439">    <span class="k">def</span><span class="w"> </span><span class="nf">_record_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="n">_TrialMeta</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="440"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Count the successful sinusoid and stash its frequency for Lehmer averaging.</span>
+</span><span data-line="441">
+</span><span data-line="442"><span class="sd">        Random-fill trials (``F = CR = NaN``, ``sin_choice = _SIN_NONE``)</span>
+</span><span data-line="443"><span class="sd">        are skipped — the parent&#39;s NaN guard in :meth:`on_new_results`</span>
+</span><span data-line="444"><span class="sd">        already short-circuits, but we re-check here so subclassing</span>
+</span><span data-line="445"><span class="sd">        is hermetic.  Cauchy-phase successes (``sin_choice = _SIN_NONE``,</span>
+</span><span data-line="446"><span class="sd">        non-NaN F/CR) are tracked by the inherited SHADE memory update</span>
+</span><span data-line="447"><span class="sd">        and do not feed the ensemble bandit.</span>
+</span><span data-line="448"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="449">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">_EpSinTrialMeta</span><span class="p">):</span>
+</span><span data-line="450">            <span class="k">return</span>
+</span><span data-line="451">        <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">sin_choice</span> <span class="o">==</span> <span class="n">_SIN_1</span><span class="p">:</span>
+</span><span data-line="452">            <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="453">        <span class="k">elif</span> <span class="n">meta</span><span class="o">.</span><span class="n">sin_choice</span> <span class="o">==</span> <span class="n">_SIN_2</span><span class="p">:</span>
+</span><span data-line="454">            <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="455">            <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">freq</span><span class="p">))</span>
+</span><span data-line="456">
+</span><span data-line="457">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_ensemble_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="458"><span class="w">        </span><span class="sd">&quot;&quot;&quot;End-of-generation update for ``p_s``, ``μ_freq``, and counters.</span>
+</span><span data-line="459">
+</span><span data-line="460"><span class="sd">        ``p_s`` is the Laplace-smoothed Sinusoid-1 success rate</span>
+</span><span data-line="461"><span class="sd">        ``(ns_1 + 1) / (ns_1 + ns_2 + 2)``.  With no recorded</span>
+</span><span data-line="462"><span class="sd">        successes (``ns_1 = ns_2 = 0``) this collapses to the</span>
+</span><span data-line="463"><span class="sd">        cold-start ``0.5`` so the next generation samples the two</span>
+</span><span data-line="464"><span class="sd">        sinusoids equally.</span>
+</span><span data-line="465">
+</span><span data-line="466"><span class="sd">        ``μ_freq`` is the *weighted Lehmer mean* of successful</span>
+</span><span data-line="467"><span class="sd">        Sinusoid-2 frequencies in the just-finished generation, mirroring</span>
+</span><span data-line="468"><span class="sd">        the SHADE memory update for ``F``.  We do not have a per-trial</span>
+</span><span data-line="469"><span class="sd">        ``delta`` weight here (the L-SHADE parent already consumed it for</span>
+</span><span data-line="470"><span class="sd">        the F/CR memory bins; carrying a parallel weighted list of freqs</span>
+</span><span data-line="471"><span class="sd">        is fine but the Sinusoid-2 success counts are typically small),</span>
+</span><span data-line="472"><span class="sd">        so we use the unweighted Lehmer mean</span>
+</span><span data-line="473"><span class="sd">        ``Σ freq² / Σ freq`` — same monotonic direction, no per-call</span>
+</span><span data-line="474"><span class="sd">        bookkeeping.  When no Sinusoid-2 successes occurred this</span>
+</span><span data-line="475"><span class="sd">        generation, ``μ_freq`` is left untouched.</span>
+</span><span data-line="476">
+</span><span data-line="477"><span class="sd">        All counters are cleared after the update so the next generation</span>
+</span><span data-line="478"><span class="sd">        starts from a fresh per-generation slate.</span>
+</span><span data-line="479"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="480">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="481">            <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
+</span><span data-line="482">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">:</span>
+</span><span data-line="483">            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="484">            <span class="n">num</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">arr</span> <span class="o">*</span> <span class="n">arr</span><span class="p">))</span>
+</span><span data-line="485">            <span class="n">den</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">arr</span><span class="p">))</span>
+</span><span data-line="486">            <span class="k">if</span> <span class="n">den</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="487">                <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="488">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="489">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="490">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="491">
+</span><span data-line="492">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="493"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the EpSin ensemble update on top of the L-SHADE memory update.&quot;&quot;&quot;</span>
+</span><span data-line="494">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_ensemble_state</span><span class="p">()</span>
+</span><span data-line="495">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
+</span><span data-line="496">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="497">
+</span><span data-line="498">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="499">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="500">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="501">
 <div class="viewcode-block" id="LSHADE_EpSin.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE_EpSin.on_start">[docs]</a>
-</span><span data-line="501">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="502"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and reset the ensemble bandit + frequency memory.&quot;&quot;&quot;</span>
-</span><span data-line="503">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
-</span><span data-line="504">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">)</span>
-</span><span data-line="505">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
-</span><span data-line="506">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="507">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="508">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="509">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="510">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+</span><span data-line="502">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="503"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and reset the ensemble bandit + frequency memory.&quot;&quot;&quot;</span>
+</span><span data-line="504">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
+</span><span data-line="505">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">)</span>
+</span><span data-line="506">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
+</span><span data-line="507">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="508">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="509">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="510">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="511">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
 
-</span><span data-line="511">
+</span><span data-line="512">
 <div class="viewcode-block" id="LSHADE_EpSin.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE_EpSin.on_restart">[docs]</a>
-</span><span data-line="512">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="513"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reseed the population and reset the ensemble bandit + frequency memory.&quot;&quot;&quot;</span>
-</span><span data-line="514">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
-</span><span data-line="515">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">)</span>
-</span><span data-line="516">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
-</span><span data-line="517">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="518">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="519">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="520">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="521">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+</span><span data-line="513">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="514"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reseed the population and reset the ensemble bandit + frequency memory.&quot;&quot;&quot;</span>
+</span><span data-line="515">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+</span><span data-line="516">        <span class="bp">self</span><span class="o">.</span><span class="n">_mu_freq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_freq_init</span><span class="p">)</span>
+</span><span data-line="517">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_s</span> <span class="o">=</span> <span class="n">_DEFAULT_PS</span>
+</span><span data-line="518">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns1</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="519">        <span class="bp">self</span><span class="o">.</span><span class="n">_ns2</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="520">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_success_freq</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="521">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="522">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_sin</span> <span class="o">=</span> <span class="p">(</span><span class="n">_SIN_NONE</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

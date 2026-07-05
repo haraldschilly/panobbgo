@@ -2140,6 +2140,19 @@ def _apply_top_codify_candidate(
             if run_tests:
                 skipped.append("--apply-run-tests")
             print(f"  (inert under --apply-dry-run: {', '.join(skipped)} skipped)")
+        # --open-pr still runs under dry-run: _open_pr_for_candidate prints
+        # the git / gh command sequence it *would* execute without invoking
+        # any subprocess (the hygiene flags above are the only dry-run no-op).
+        if open_pr:
+            return _open_pr_for_candidate(
+                chosen,
+                edits=edits,
+                dry_run=dry_run,
+                branch_prefix=pr_branch_prefix,
+                base_branch=pr_base,
+                gh_bin=pr_gh_bin,
+                git_bin=pr_git_bin,
+            )
         return 0
 
     files = sorted(modified_files)

@@ -17,6 +17,117 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-05 — Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption
+
+* **What** — The L-SHADE family (``LSHADE`` and its subclasses ``JSO`` /
+  ``NLSHADE_RSP`` / ``NLSHADE_LBC`` / ``LSHADE_EpSin``) now accepts
+  ``NP_init="auto"`` for **budget-adaptive population sizing**.  ``"auto"``
+  resolves at construction from the strategy's evaluation budget and the
+  problem dimension::
+
+      NP = clip( round( min(18·dim, budget / 12) ), max(NP_min, 6), 400 )
+
+  The ``18·dim`` term is the CEC-2014 upper bound (Tanabe-Fukunaga); the
+  ``budget / 12`` term dominates at the tight budgets Panobbgo actually
+  runs, keeping ~12 generations available for the SHADE success-history
+  adaptation to pay off.  The resolution happens in the base
+  :meth:`LSHADE.__init__` (via :func:`panobbgo.heuristics.lshade._resolve_auto_np_init`)
+  so every downstream code path — validation, ``on_start``, LPSR, the
+  ``LSHADE_EpSin`` ``G_max`` estimate, and every subclass — sees a normal
+  ``int`` and needs no further branching.  Falls back to the fixed
+  ``NP_init=30`` when the budget is unknown.  The fixed ``int`` default is
+  **unchanged** (byte-identical) — ``"auto"`` is strictly opt-in.
+
+  The four DE candidate classes in :func:`default_structural_catalog`
+  now ship ``NP_init="auto"`` instead of the fixed ``NP_init=30`` so a
+  structurally-added DE arm is sized for the strategy budget rather than
+  hobbled by an oversized initial swarm.  To keep the ``LSHADE.NP_init``
+  ``integer_add`` catalog rule from crashing on the string sentinel,
+  :func:`_find_targets` gained a ``rule_kind`` argument: numeric rule
+  kinds now skip non-numeric values (``"auto"`` is ignored, never
+  ``int("auto")``-crashed), while categorical rules still see strings so
+  e.g. an ``F_schedule`` regime flip keeps working.
+
+* **Why** — The single fixed ``NP_init=30`` (and even the loop specs'
+  hand-pinned ``15``) is badly mistuned for Panobbgo's budgets.  A lone
+  ``LSHADE`` on ``Rosenbrock_2D`` measures (6 reps, seed 42):
+
+  | budget | ``NP_init=30`` | ``NP_init="auto"`` |
+  |---|---|---|
+  | 75 (quick — the nightly loop budget) | **0.036** | **0.604** |
+  | 200 (standard) | 0.46 | 0.43 (within run-to-run noise) |
+
+  At the quick-mode budget the loop actually runs, an oversized swarm
+  spends nearly the whole budget on the initial random fill and never
+  runs enough generations for parameter adaptation — a **~16×** score
+  collapse that ``"auto"`` (which sizes to ``NP=6`` there) fixes.  At
+  budget 200 the two sit within the (large) run-to-run variance of the
+  single-strategy Rosenbrock cell (per-seed scores span 0.19–0.61); a
+  companion 3-seed sweep of ``NP_init ∈ {15, 17, 30}`` measured
+  0.42 / 0.43 / 0.46 respectively — statistically indistinguishable, i.e.
+  no systematic standard-budget regression.  This directly serves the "best black box optimizer in the
+  world" goal: Panobbgo's strongest single optimizers (jSO / L-SHADE were
+  measured *best* on ``Rosenbrock_2D`` standalone, 0.62) were previously
+  crippled at the loop's own operating budget whenever the structural
+  bandit tried to add one.
+
+  Respects the §7.3 catalog freeze — **no new mutation rules, structural
+  candidates, or heuristics**.  Same candidate classes, same ops; only the
+  default kwargs of existing structural candidates improved, plus a
+  robustness fix to a shared heuristic.  Registry work (§9 priority (b)).
+
+* **Scope** — Deliberately did **not** change the loop seed specs
+  (``Loop_DE_Family`` pins ``NP_init=15``): those DE arms run inside a
+  6-way portfolio where each optimizer gets only a fraction of the budget,
+  so ``strategy.config.max_eval`` over-estimates each arm's effective
+  budget and ``"auto"`` would still over-size.  The structural-catalog
+  adoption is the clean win (a structurally-added DE is typically the
+  dominant point-generator of its strategy, so the full budget estimate is
+  right); wiring ``"auto"`` into the portfolio seed specs is left as a
+  *Next iteration idea* pending a per-heuristic budget-share estimate.
+
+* **Tests** — 8 new ``LSHADEAutoNPInitTests`` in
+  ``tests/test_heuristic_lshade.py`` (resolution across budgets, floor at
+  6, custom-``NP_min`` floor, unknown-budget fallback, ``on_start`` emits
+  the resolved count, invalid-string / bool rejection, subclass
+  inheritance) and 6 new tests in ``tests/test_self_improve.py``
+  (``TestNumericRuleSkipsStringSentinel`` +
+  ``TestStructuralCatalogDEAutoSizing``: the numeric-rule skip guard,
+  ``_is_numeric_value``, end-to-end catalog sampling against an
+  ``NP_init="auto"`` spec never crashes, and the DE candidates ship
+  ``"auto"``).  Full affected suites: 802 passed.
+
+* **Documentation updated** — ``doc/source/heuristics.rst`` (LSHADE entry
+  gains the ``"auto"`` formula + measured motivation),
+  ``panobbgo/heuristics/lshade.py`` (module comment + arg docstring +
+  ``_resolve_auto_np_init`` docstring), the four DE subclass ``NP_init``
+  docstrings, ``AGENTS.md``, ``TODO.md``, and this entry.
+
+* **Rejected this iteration (measured negative result)** — A
+  Hooke-Jeeves **pattern-move / directional momentum** for the ``Nearby``
+  local search was implemented and measured across three designs (global
+  bias on all points; one directed probe + isotropic majority;
+  provenance-gated to Nearby's own improvements) at momentum ∈ {0.5, 1.0}
+  over 5 seeds on a Rosenbrock/StyblinskiTang + ceiling-check battery.
+  Every variant came in **null-to-negative** on composite (0.581–0.588 vs
+  control 0.592; ``Rosenbrock_2D`` consistently *degraded* because a linear
+  extrapolation overshoots the curved valley, and the resolvable battery
+  ceilings 3/6 problems leaving little to measure).  Reverted per the
+  AGENTS.md evidence rule.  Documented here so a future iteration does not
+  re-spend the effort — the local-search direction estimate from
+  mixed-heuristic ``on_new_best`` events is too incoherent to pay off; a
+  *curvature-aware* step (trust-region / quadratic model) would be the
+  next thing to try, not a straight pattern move.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*:
+
+  * **Per-heuristic budget-share for ``"auto"`` in portfolios** — size
+    ``"auto"`` from ``max_eval · (arm_share)`` rather than the full
+    ``max_eval`` when a DE arm shares a strategy with N other
+    point-generators, then wire ``"auto"`` into the ``Loop_DE_Family``
+    seed specs.  Needs a cheap estimate of each arm's realised evaluation
+    share (the Rewarding bandit already tracks per-heuristic pulls).
+
 ### 2026-06-30 — `codify-scan --apply-top` driver — mechanise the manual codify edit (V2 §9.5 step 4 plumbing)
 
 * **What** — Translates the top actionable kwarg :class:`CodifyCandidate`
@@ -7382,6 +7493,27 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### Budget-adaptive `NP_init="auto"` follow-ups (after 2026-07-05 ship)
+
+* **Per-heuristic budget-share for `"auto"` in portfolios** — the
+  2026-07-05 ship wired `NP_init="auto"` into the structural catalog (where
+  a structurally-added DE is typically the dominant point-generator, so
+  the full `max_eval` estimate is right) but *not* into the
+  `Loop_DE_Family` seed spec (a 6-way portfolio where each DE arm gets only
+  a fraction of the budget, so `"auto"` still over-sizes).  Size `"auto"`
+  from `max_eval · arm_share` when a DE arm shares a strategy with N other
+  point-generators.  The Rewarding bandit already tracks per-heuristic
+  pulls, so a cheap realised-share estimate is available; once it exists,
+  wire `"auto"` into `Loop_DE_Family` and re-measure.
+* **Curvature-aware local step (replaces the rejected pattern move)** —
+  the 2026-07-05 momentum experiment showed a *straight* directional
+  extrapolation in `Nearby` overshoots curved valleys.  The next thing to
+  try for the Rosenbrock-class weakness is a **quadratic / trust-region
+  local model** fit to the recent local best points (a mini-`QuadraticWLS`
+  around the best), proposing the model's minimiser instead of an
+  isotropic perturbation — a curvature-aware step rather than a
+  first-order momentum one.
 
 #### `codify-scan --apply-top` follow-ups (after 2026-06-30 ship)
 

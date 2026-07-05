@@ -468,11 +468,28 @@ def _to_plain(val: Any) -> Any:
     return val
 
 
+#: Mutation kinds whose value arithmetic requires a real number — used by
+#: :func:`_find_targets` to skip string sentinels (e.g. ``NP_init="auto"``)
+#: that a categorical rule could legitimately carry but a numeric rule cannot
+#: perturb without a ``TypeError`` / ``int("auto")`` crash.  (A frozenset for
+#: O(1) membership; the codify-scan layer keeps its own ordered tuple of the
+#: same kinds under the name ``_NUMERIC_RULE_KINDS`` further down the module.)
+_NUMERIC_MUTATION_KINDS: frozenset = frozenset({"integer_add", "float_uniform", "log_uniform_perturb"})
+
+
+def _is_numeric_value(value: Any) -> bool:
+    """True for real int / float values (``bool`` excluded — it is an int subclass)."""
+    if isinstance(value, bool):
+        return False
+    return isinstance(value, (int, float, np.integer, np.floating))
+
+
 def _find_targets(
     specs: Sequence[StrategySpec],
     strategy_pattern: str,
     class_name: str,
     param_name: str,
+    rule_kind: Optional[str] = None,
 ) -> List[Tuple[int, str, int, Any]]:
     """Locate every ``(spec, bucket, entry, current_value)`` that matches.
 
@@ -495,7 +512,17 @@ def _find_targets(
     the predicate uniform across kinds and lets the catalog include
     ``patience``- / ``max_starts``-style rules without crashing on specs
     that opted into the auto-default sentinel.
+
+    When ``rule_kind`` names a numeric mutation kind (``integer_add`` /
+    ``float_uniform`` / ``log_uniform_perturb``), *non-numeric* values are
+    skipped too: a heuristic may carry a string sentinel such as
+    ``NP_init="auto"`` (budget-adaptive DE sizing) which a numeric rule
+    cannot perturb — matching it would crash ``int("auto")`` in
+    :meth:`MutationRule.apply`.  Categorical rules (``rule_kind=None`` or
+    ``"categorical_choice"``) still see string values so e.g. a
+    ``F_schedule`` regime flip keeps working.
     """
+    numeric_only = rule_kind in _NUMERIC_MUTATION_KINDS
     hits: List[Tuple[int, str, int, Any]] = []
     for si, spec in enumerate(specs):
         if strategy_pattern and strategy_pattern not in spec.name:
@@ -511,6 +538,8 @@ def _find_targets(
                     continue
                 value = kwargs[param_name]
                 if value is None:
+                    continue
+                if numeric_only and not _is_numeric_value(value):
                     continue
                 hits.append((si, bucket_name, ei, value))
     return hits
@@ -622,7 +651,9 @@ class MutationCatalog:
                 if s_hits:
                     out.append((rule, list(s_hits)))
             else:
-                k_hits = _find_targets(specs, rule.strategy_pattern, rule.class_name, rule.param_name)
+                k_hits = _find_targets(
+                    specs, rule.strategy_pattern, rule.class_name, rule.param_name, rule_kind=rule.kind
+                )
                 if k_hits:
                     out.append((rule, list(k_hits)))
         return out
@@ -2278,11 +2309,17 @@ def default_structural_catalog() -> MutationCatalog:
         (PSO, {"NP": 20, "topology": "lbest", "k_neighbors": 2}),  # ring topology
         (PSO, {"NP": 20, "topology": "vonneumann"}),  # 4-connected 2-D grid (Mendes 2004)
         (PSO, {"NP": 20, "topology": "random", "k_neighbors": 3}),  # Clerc 2007 / SPSO 2011 (K=3)
-        (LSHADE, {"NP_init": 30}),  # adaptive DE w/ linear pop reduction
-        (JSO, {"NP_init": 30}),  # CEC-2017 winner, weighted current-to-pbest-w/1
-        (NLSHADE_RSP, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
-        (NLSHADE_LBC, {"NP_init": 30, "k_rank": 3.0}),  # CEC-2022 winner, NLPSR + RSP + LBC
-        (LSHADE_EpSin, {"NP_init": 30, "mu_freq_init": 0.5}),  # ensemble-sinusoid F
+        # ``NP_init="auto"`` sizes each DE population from the strategy budget
+        # (see :class:`~panobbgo.heuristics.lshade.LSHADE`).  A fixed ``NP_init=30``
+        # is far too large for the tight budgets the loop runs (measured ~2× worse
+        # than budget-adaptive sizing at budget 200, worse still at the quick-mode
+        # budget 75), so a structurally-added DE arm was hobbled before it started;
+        # ``"auto"`` lets the bandit see these strong optimizers at a fair size.
+        (LSHADE, {"NP_init": "auto"}),  # adaptive DE w/ linear pop reduction
+        (JSO, {"NP_init": "auto"}),  # CEC-2017 winner, weighted current-to-pbest-w/1
+        (NLSHADE_RSP, {"NP_init": "auto", "k_rank": 3.0}),  # CEC-2021 winner, NLPSR + RSP
+        (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),  # CEC-2022 winner, NLPSR + RSP + LBC
+        (LSHADE_EpSin, {"NP_init": "auto", "mu_freq_init": 0.5}),  # ensemble-sinusoid F
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
         (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
     )

@@ -1465,6 +1465,28 @@ codify-scan output (rule / evidence / pooled CI / per-record old →
 new) in the body.  The PR template is the existing manual codify
 shape; see the 2026-06-28 entry in
 <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for the canonical example.</p>
+<p><strong>Hygiene flags</strong> (shipped 2026-07-03): two optional flags on
+<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code> mechanise the last two manual steps of the daily
+routine so the operator can chain them into one command.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--apply-format</span></code> — after the write, runs <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">ruff</span> <span class="pre">format</span></code>
+on the modified files.  Preserves the existing AST-coordinate
+invariants; useful because a per-site edit can shift indentation
+or leave stale trailing whitespace on adjacent literals.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--apply-run-tests</span></code> — after the (optional) format step, runs
+<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">pytest</span> <span class="pre">tests/test_self_improve.py</span></code> so the operator gets
+immediate feedback that the codify edit did not break the codify
+plumbing itself.  Non-zero rc from either subprocess propagates
+to the caller so a CI wrapper surfaces the failure.</p></li>
+</ul>
+<p>Both flags are <strong>inert under</strong> <code class="docutils literal notranslate"><span class="pre">--apply-dry-run</span></code> (no edits landed,
+nothing to format or test) and <strong>inert when no site needed editing</strong>
+(the per-site direction guard skipped every candidate).  Suggested
+one-liner for the daily routine:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">scripts</span><span class="o">/</span><span class="n">self_improve</span><span class="o">.</span><span class="n">py</span> <span class="n">codify</span><span class="o">-</span><span class="n">scan</span> \
+</span><span data-line="2">    <span class="o">--</span><span class="n">apply</span><span class="o">-</span><span class="n">top</span> <span class="o">--</span><span class="n">apply</span><span class="o">-</span><span class="nb">format</span> <span class="o">--</span><span class="n">apply</span><span class="o">-</span><span class="n">run</span><span class="o">-</span><span class="n">tests</span>
+</span></pre></div>
+</div>
 <p>See the 2026-06-30 entry (kwarg support) and the 2026-07-01 entry
 (structural support) in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code> for
 the design rationale and the queued follow-up: a <code class="docutils literal notranslate"><span class="pre">--open-pr</span></code>

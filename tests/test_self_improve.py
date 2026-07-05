@@ -11963,6 +11963,7 @@ class TestApplyTopHygieneFlags:
         assert args.apply_format is True
         assert args.apply_run_tests is True
 
+
 # ===========================================================================
 # Numeric-rule skip of string sentinels (NP_init="auto")
 # ===========================================================================

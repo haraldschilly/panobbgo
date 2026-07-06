@@ -863,6 +863,26 @@ The harness is the measurement substrate for an autonomous
     §2.2 "Accept → rollback churn" V2 diagnosis.  See the 2026-06-27
     entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **Codify: drop the `LatinHypercube` seeder from `Loop_LocalSearch`**
+    — **shipped 2026-07-06**.  The first *structural* codify to land via
+    the automated `codify-scan --apply-top` driver (the 2026-07-01 ship
+    built the structural-edit primitive; this is its first real-ledger
+    use).  Removes `(LatinHypercube, {"div": 4})` from the
+    `Loop_LocalSearch` seed spec in `_make_loop_strategies` on the
+    strength of two independent `drop_heuristic` accepts (2026-06-24
+    Δ=+0.0511, 2026-06-29 Δ=+0.0471; each bootstrap-CI lower bound > 0).
+    `COBYQA` / `LBFGSB` already start from the box centre and multi-start
+    from fresh points, so the LHC "first looks" only diluted the tight
+    quick-mode budget.  Advances V2 §11 criterion 2 (fourth
+    ledger-evidence-driven codify).  Idempotent re-apply (0 edits) so the
+    queued `--open-pr` driver won't open an empty follow-up PR.  This
+    iteration also **measured** the sharpest current competitive gap —
+    every Panobbgo strategy scores 0 on Rosenbrock_5D while stock scipy
+    dual annealing solves it (0.49) — and recorded a **negative result**
+    (bolting `LBFGSB` onto `Rewarding_Diverse` regresses a 3-seed
+    composite) so the next iteration targets a *warm-started,
+    curvature-aware* local polish instead.  See the 2026-07-06 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 *   **Budget-adaptive `NP_init="auto"` for the DE family** — **shipped
     2026-07-05**.  `LSHADE` (and its subclasses `JSO` / `NLSHADE_RSP` /
     `NLSHADE_LBC` / `LSHADE_EpSin`) accept `NP_init="auto"`, resolving the

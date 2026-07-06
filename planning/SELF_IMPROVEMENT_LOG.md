@@ -17,6 +17,95 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-06 — Codify: drop the `LatinHypercube` seeder from `Loop_LocalSearch` (structural, ledger-evidenced)
+
+* **What** — Removed the ``(LatinHypercube, {"div": 4})`` seeder entry
+  from the ``Loop_LocalSearch`` seed spec in
+  :func:`panobbgo.harness._make_loop_strategies`.  The strategy now runs
+  ``COBYQA`` (derivative-free trust region) + ``LBFGSB`` (multi-start
+  quasi-Newton) + ``NelderMead`` (cheap simplex fallback) with no
+  low-discrepancy seeder.  Applied end-to-end through the sanctioned
+  ``scripts/self_improve.py codify-scan --apply-top --apply-format``
+  pipeline (V2 §9.3 / §12.3 step 2) — the first *structural* codify to
+  land via the automated apply driver (the 2026-07-01 ship built the
+  structural-edit primitive; this exercises it on real ledger evidence).
+
+* **Why** — The self-improvement ledger accumulated **two independent
+  ``drop_heuristic`` accepts** for ``LatinHypercube`` on
+  ``Loop_LocalSearch`` across two distinct nights, each clearing its own
+  bootstrap-CI accept gate:
+
+  | night | Δ | CI95% |
+  |---|---|---|
+  | 2026-06-24 | +0.0511 | [+0.0352, +0.0670] |
+  | 2026-06-29 | +0.0471 | [+0.0368, +0.0617] |
+
+  (pooled per-record CI ``[+0.0471, +0.0511]``, ``min_record_ci_low``
+  ``+0.0352``.)  Mechanistically the drop makes sense: both local
+  optimizers already seed their *first* descent from the box centre
+  (``COBYQA`` / ``LBFGSB._box_center``) and multi-start from fresh
+  points thereafter, so the LHC "first looks" only diluted the tight
+  quick-mode 75-eval budget without giving the refiners a better
+  anchor.  The 2026-07-01 entry explicitly flagged this as the
+  live-ledger's top structural candidate, awaiting one more night of
+  evidence — which the 2026-06-29 accept supplied.  Advances V2 §11
+  success criterion 2 (codify-PR throughput; this is the fourth
+  ledger-evidence-driven codify after ``Sobol.scramble=False``,
+  ``Nearby.radius`` catalog-bound tightening, and the ``Nearby.radius``
+  seed shift).  Respects the §7.3 catalog freeze — no new arms, no new
+  heuristics; a seed-spec composition change backed by measurement.
+
+* **Tests** — ``tests/test_self_improve.py`` + ``tests/test_harness.py``
+  (646 passed).  The apply is idempotent: a re-run of ``--apply-top``
+  derives 0 edits (the "missing class not re-dropped" safety guard), so
+  the queued ``--open-pr`` driver returns early without opening an
+  empty PR.
+
+* **Known cosmetic gap (seeded as a next idea)** — the structural
+  already-codified suppression predicate
+  (:func:`_structural_already_codified`) is *global*: a ``drop_heuristic``
+  candidate is suppressed only when **no** seed spec carries the class.
+  ``LatinHypercube`` still lives in ``Loop_Restart`` (and the ``quick`` /
+  ``standard`` seeders), so this candidate keeps surfacing in the scan
+  report even though the apply targets — and has already edited — only
+  the evidenced ``Loop_LocalSearch``.  Harmless (apply idempotent, no
+  empty PRs) but the report is misleading.  The fix is to make the
+  structural suppression *spec-scoped* — mirror the apply's
+  ``strategy_names`` narrowing — so the candidate is suppressed once its
+  own evidenced spec(s) no longer carry the class.  See the
+  "Membership-vs-coverage rule for structural ops" note under
+  *Next iteration ideas*.
+
+* **Flagship competitive-gap finding (measured this iteration; seeded as
+  the top next idea)** — a standard-mode ``--baselines`` run
+  (8 problems × 5 reps, seed 42) shows Panobbgo's best strategy
+  (``Rewarding_Diverse``, composite **0.736**) beats stock scipy dual
+  annealing (``Baseline_SciPyAnneal``, **0.552**) overall — **but** on
+  three problems *every* Panobbgo strategy loses to that stock baseline:
+
+  | problem | best Panobbgo | Baseline_SciPyAnneal |
+  |---|---|---|
+  | StyblinskiTang_2D | 0.48 (BayesOpt_GP) | **0.73** |
+  | Rosenbrock_2D | 0.72 | **0.88** |
+  | Rosenbrock_5D | **0.00 (all)** | **0.49** |
+
+  The curved-valley class (Rosenbrock) is the sharpest gap: **every
+  Panobbgo strategy scores exactly 0 on Rosenbrock_5D** (tolerance 1.0,
+  200 evals) while dual annealing solves it.  **Measured negative
+  result:** bolting ``LBFGSB`` (max_starts ∈ {2, 5}) onto
+  ``Rewarding_Diverse`` and re-measuring over **three seeds** (42/43/44)
+  is a *net regression* (composite 0.657 → 0.652 / 0.643); it roughly
+  halves the Rosenbrock_5D best-distance (14.7 → 7.4) but never crosses
+  the tolerance, and the apparent single-seed StyblinskiTang win
+  (0.17 → 0.54) evaporated under the seed sweep (aggregate 0.219 →
+  0.166).  Documented so the next iteration does not re-spend the
+  effort: the multi-start-from-box-centre / random policy is the wrong
+  restart geometry for a curved valley.  The next thing to try is a
+  **warm-started, curvature-aware local polish** — a quasi-Newton /
+  trust-region descent that always restarts from the strategy's *best
+  incumbent* (the memetic recipe scipy dual annealing itself uses),
+  rather than from the box centre.  See *Next iteration ideas*.
+
 ### 2026-07-05 — Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption
 
 * **What** — The L-SHADE family (``LSHADE`` and its subclasses ``JSO`` /
@@ -8178,6 +8267,65 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### Warm-started curvature-aware local polish for the curved-valley class (top priority — measured 2026-07-06)
+
+**This is the single sharpest "not the best optimizer in the world"
+gap in the current benchmark.**  A standard-mode ``--baselines`` run
+(see the 2026-07-06 dated entry) shows *every* Panobbgo strategy scores
+**exactly 0 on Rosenbrock_5D** (tolerance 1.0, 200 evals) while stock
+scipy dual annealing solves it (0.49); Panobbgo also loses to that
+stock baseline on Rosenbrock_2D (0.72 vs 0.88) and StyblinskiTang_2D
+(0.48 vs 0.73).  The best Panobbgo strategy still wins *overall*
+(0.736 vs 0.552), so the fix is targeted, not a rewrite.
+
+* **Do NOT just bolt on a local optimizer** — measured negative result
+  (2026-07-06, three-seed sweep): adding ``LBFGSB`` (``max_starts`` ∈
+  {2, 5}) to ``Rewarding_Diverse`` *regresses* the composite
+  (0.657 → 0.652 / 0.643).  It halves the Rosenbrock_5D best-distance
+  (14.7 → 7.4) but never crosses tolerance, and it taxes the problems
+  where the ``Nearby``/``NelderMead`` stack was already winning.  The
+  root cause: ``LBFGSB`` / ``COBYQA`` restart from the **box centre**
+  then **random** points — the wrong restart geometry for a curved
+  valley whose optimum sits far from centre.
+* **What to try instead** — a local-polish step (either a new mode on
+  ``LBFGSB`` or an improvement to ``Nearby``) that always restarts its
+  descent from the strategy's **best incumbent** result, re-launching
+  whenever a new global best appears.  This is exactly the memetic
+  recipe scipy dual annealing uses (SA global search + L-BFGS-B polish
+  from the best).  A curvature-aware variant (fit a local quadratic /
+  trust-region model to the recent best points and propose its
+  minimiser) is the 2026-07-05 entry's recommended successor to the
+  rejected straight pattern-move.  Improving an *existing* heuristic
+  keeps this §7.3-freeze-compliant; a genuinely new heuristic does not
+  and must wait for the freeze to lift.
+* **Measurement discipline** — decide on a **≥3-seed** aggregate
+  composite, never a single seed (the 2026-07-06 sweep caught a
+  single-seed StyblinskiTang "win" of 0.17 → 0.54 that was pure noise;
+  the true aggregate was 0.219 → 0.166).  Portfolio runs are ~30 s each
+  at standard mode, so a 3-seed sweep is cheap.
+
+#### Membership-vs-coverage rule for structural codify suppression (cosmetic; seeded 2026-07-06)
+
+The structural already-codified predicate
+(:func:`panobbgo.self_improve._structural_already_codified`) is
+*global*: a ``drop_heuristic`` candidate is suppressed only when **no**
+seed spec carries the class, and an ``add_heuristic`` candidate when
+**at least one** does.  But the apply driver
+(:func:`derive_codify_edits`) is *spec-scoped* — it edits only the
+candidate's :attr:`~CodifyCandidate.strategy_names`.  The mismatch means
+a codify that drops a class from its evidenced spec keeps re-surfacing
+in the scan report if any *other* spec still carries it (observed
+2026-07-06: the ``LatinHypercube`` drop from ``Loop_LocalSearch``
+re-surfaces because ``Loop_Restart`` still seeds it).  Harmless — the
+apply is idempotent and the 0-edit path returns before ``--open-pr`` so
+no empty PR is opened — but the report misleads the daily routine.
+**Fix**: make the structural suppression consult the candidate's
+``strategy_names`` and suppress once *those* specs no longer carry the
+class (drop) / already carry it (add) — mirroring the apply's narrowing
+and the numeric ``_candidate_already_codified`` self-stability
+invariant.  This supersedes the older, vaguer "membership-vs-coverage"
+note in the 2026-06-18 suppression follow-ups.
 
 #### Budget-adaptive `NP_init="auto"` follow-ups (after 2026-07-05 ship)
 

@@ -740,15 +740,22 @@ def _make_loop_strategies() -> List[StrategySpec]:
     # catalog mutates explicitly.  COBYQA: initial_tr_radius /
     # final_tr_radius / scale (three rules including the binary
     # categorical).  LBFGSB: max_starts (the only LBFGSB rule today).
-    # The strategy also keeps a LatinHypercube seeder and NelderMead so
-    # the local optimizers always have a starting point to refine and a
-    # cheap simplex fallback when the trust-region / quasi-Newton arms
-    # exhaust their budget.
+    # NelderMead stays as a cheap simplex fallback when the trust-region
+    # / quasi-Newton arms exhaust their budget.
+    #
+    # The LatinHypercube seeder was *dropped* here on 2026-07-06 by the
+    # codify pipeline: both local optimizers already start their first
+    # descent from the box centre (COBYQA / LBFGSB) and multi-start from
+    # fresh points thereafter, so the LHC "first looks" only diluted the
+    # tight quick-mode budget without giving the refiners a better
+    # anchor.  Two independent self-improvement ``drop_heuristic`` accepts
+    # (2026-06-24 Δ=+0.0511, 2026-06-29 Δ=+0.0471; each bootstrap-CI lower
+    # bound > 0) confirmed the win.  See the 2026-07-06 entry in
+    # ``planning/SELF_IMPROVEMENT_LOG.md``.
     loop_local = StrategySpec(
         name="Loop_LocalSearch",
         strategy_class=StrategyRewarding,
         heuristics=[
-            (LatinHypercube, {"div": 4}),
             (
                 COBYQA,
                 {"initial_tr_radius": 0.1, "final_tr_radius": 1e-6, "scale": True},

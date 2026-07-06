@@ -582,6 +582,12 @@ Until step 2 lands, the V1 metric stays on the composite score.
    catalog-bound tightening (2026-06-26, merged), and
    ``Nearby.radius`` seed shift (2026-06-28, this entry's companion
    PR).  Two merged so far; the third is in flight.*
+   *2026-07-06 update: fourth codify PR opened — the first
+   **structural** one — dropping the ``LatinHypercube`` seeder from
+   ``Loop_LocalSearch`` (2 ledger-evidenced ``drop_heuristic`` accepts,
+   both CI lower bounds > 0), applied via the automated
+   ``codify-scan --apply-top`` driver.  Criterion 2's "≥ 3 opened" bar
+   is met; "≥ 2 merged" pending this PR.*
 3. **Durability**: merged codify changes re-confirmed by the next
    night's seed measurement; zero guard rollbacks of *confirmed*
    accepts.

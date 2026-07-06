@@ -624,9 +624,14 @@ immediately applicable:
 * ``Loop_RegionUCB`` — the diverse heuristic mix plus a
   ``RegionUCB`` arm with ``ucb_c / gauss_fraction / gauss_scale``
   explicit (the three 2026-06-08 rules).
-* ``Loop_LocalSearch`` — LatinHypercube + COBYQA + LBFGSB +
-  NelderMead.  Activates the COBYQA trust-region rules and the
-  ``LBFGSB.max_starts`` rule shipped 2026-06-06.
+* ``Loop_LocalSearch`` — COBYQA + LBFGSB + NelderMead.  Activates
+  the COBYQA trust-region rules and the ``LBFGSB.max_starts`` rule
+  shipped 2026-06-06.  The ``LatinHypercube`` seeder was dropped
+  2026-07-06 by the codify pipeline — both local optimizers already
+  start from the box centre, so the low-discrepancy seeder only
+  diluted the tight quick-mode budget (two ledger-evidenced
+  ``drop_heuristic`` accepts, each CI lower bound > 0; see the
+  2026-07-06 entry in ``planning/SELF_IMPROVEMENT_LOG.md``).
 * ``Loop_Restart`` — a CMA-ES strategy with the :class:`Restart`
   analyzer at explicit ``patience / restart_strategy /
   max_restarts``.  Activates all three :class:`Restart` rules

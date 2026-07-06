@@ -873,9 +873,14 @@ four-way <code class="docutils literal notranslate"><span class="pre">topology</
 <li><p><code class="docutils literal notranslate"><span class="pre">Loop_RegionUCB</span></code> — the diverse heuristic mix plus a
 <code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code> arm with <code class="docutils literal notranslate"><span class="pre">ucb_c</span> <span class="pre">/</span> <span class="pre">gauss_fraction</span> <span class="pre">/</span> <span class="pre">gauss_scale</span></code>
 explicit (the three 2026-06-08 rules).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Loop_LocalSearch</span></code> — LatinHypercube + COBYQA + LBFGSB +
-NelderMead.  Activates the COBYQA trust-region rules and the
-<code class="docutils literal notranslate"><span class="pre">LBFGSB.max_starts</span></code> rule shipped 2026-06-06.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Loop_LocalSearch</span></code> — COBYQA + LBFGSB + NelderMead.  Activates
+the COBYQA trust-region rules and the <code class="docutils literal notranslate"><span class="pre">LBFGSB.max_starts</span></code> rule
+shipped 2026-06-06.  The <code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code> seeder was dropped
+2026-07-06 by the codify pipeline — both local optimizers already
+start from the box centre, so the low-discrepancy seeder only
+diluted the tight quick-mode budget (two ledger-evidenced
+<code class="docutils literal notranslate"><span class="pre">drop_heuristic</span></code> accepts, each CI lower bound &gt; 0; see the
+2026-07-06 entry in <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Loop_Restart</span></code> — a CMA-ES strategy with the <code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code>
 analyzer at explicit <code class="docutils literal notranslate"><span class="pre">patience</span> <span class="pre">/</span> <span class="pre">restart_strategy</span> <span class="pre">/</span>
 <span class="pre">max_restarts</span></code>.  Activates all three <code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code> rules

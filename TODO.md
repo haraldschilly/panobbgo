@@ -2,6 +2,29 @@
 
 ## Recent Improvements (continued)
 
+### Codify: drop the `LatinHypercube` seeder from `Loop_LocalSearch` — 2026-07-06
+- [x] **Structural codify applied via the automated pipeline** — removed
+      `(LatinHypercube, {"div": 4})` from the `Loop_LocalSearch` seed spec in
+      `panobbgo/harness.py::_make_loop_strategies` using
+      `scripts/self_improve.py codify-scan --apply-top --apply-format`.  First
+      *structural* codify to land through the automated apply driver.
+- [x] **Ledger evidence** — two independent `drop_heuristic` accepts:
+      2026-06-24 Δ=+0.0511 CI=[+0.0352,+0.0670]; 2026-06-29 Δ=+0.0471
+      CI=[+0.0368,+0.0617]; pooled CI [+0.0471,+0.0511].  Flagged as the top
+      structural candidate in the 2026-07-01 log entry.
+- [x] **Idempotent** — re-run of `--apply-top` derives 0 edits (missing-class
+      safety guard); the `--open-pr` driver returns before opening an empty PR.
+- [x] **Measured flagship gap + negative result** — standard `--baselines`
+      run: every Panobbgo strategy scores 0 on Rosenbrock_5D vs scipy dual
+      annealing 0.49.  Bolting `LBFGSB` onto `Rewarding_Diverse` regresses a
+      3-seed composite (0.657 → 0.652/0.643); documented so the next iteration
+      tries a warm-started curvature-aware polish instead.
+- [x] **Tests** — `tests/test_self_improve.py` + `tests/test_harness.py`
+      (646 passed).
+- [x] **Docs** — `AGENTS.md`, `planning/SELF_IMPROVEMENT_LOG.md` (dated entry
+      + two Next iteration ideas), `planning/SELF_IMPROVEMENT_LOOP.md` (§11
+      criterion 2), the `_make_loop_strategies` comment, this entry.
+
 ### Budget-adaptive `NP_init="auto"` for the DE family + structural-catalog adoption — 2026-07-05
 - [x] **`LSHADE` (and subclasses `JSO` / `NLSHADE_RSP` / `NLSHADE_LBC` /
       `LSHADE_EpSin`) accept `NP_init="auto"`** — budget-adaptive population

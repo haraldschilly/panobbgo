@@ -1,9 +1,9 @@
 Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    620  (decided=620, skipped=0, no-op=32)
-Accepts:       21  (3.6% of informative)
-Confirm-rej:   4  (16.0% of screening accepts overturned)
-Guards:        92  (rollbacks=45, total pops=8)
-Hold-outs:     47  (overfit=0, vacuous=32)
+Iterations:    640  (decided=640, skipped=0, no-op=32)
+Accepts:       21  (3.5% of informative)
+Confirm-rej:   5  (19.2% of screening accepts overturned)
+Guards:        94  (rollbacks=45, total pops=8)
+Hold-outs:     48  (overfit=0, vacuous=33)
 Best Δ seen:   +0.0703
 Accepted changes:
   iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
@@ -78,6 +78,7 @@ Confirm rejects (§6.4 same-night gate):
   iter=13  screen_Δ=+0.0114  confirm_Δ=-0.0137  pooled_Δ=+0.0006  CI=[-0.0066,+0.0075]
   iter=19  screen_Δ=+0.0379  confirm_Δ=-0.0273  pooled_Δ=-0.0004  CI=[-0.0196,+0.0172]
   iter=14  screen_Δ=+0.0283  confirm_Δ=-0.0225  pooled_Δ=-0.0000  CI=[-0.0153,+0.0157]
+  iter=13  screen_Δ=+0.0197  confirm_Δ=-0.0102  pooled_Δ=+0.0024  CI=[-0.0104,+0.0159]
 Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
@@ -126,8 +127,9 @@ Hold-out validation:
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0083  overfit=0/47  vacuous=32/47  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=47  vacuous=32/47
+  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
+  --> aggregate: OK  worst_drift=-0.0083  overfit=0/48  vacuous=33/48  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=48  vacuous=33/48
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -162,20 +164,21 @@ Trend (one row per loop run, oldest first):
   2026-07-04 06:16:35     42  quick        20    20     0     0   +0.0279      0.0268
   2026-07-05 06:37:58     42  quick        20    20     0     0   +0.0283      0.0256
   2026-07-06 07:10:54     42  quick        20    20     0     0   +0.0202      0.0529
+  2026-07-07 06:45:20     42  quick        20    20     0     0   +0.0197      0.0714
 
 Bandit posteriors (n_attempts >= 3, 48 eligible rules):
   Top 10 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   NLSHADE_LBC             p_F_final               float_uniform          4     1    0.542     25.0%
-  LatinHypercube          div                     integer_add            9     1    0.510     11.1%
+  LatinHypercube          div                     integer_add           10     1    0.509     10.0%
   NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
   NLSHADE_LBC             p_CR_final              float_uniform          3     0    0.471      0.0%
   NLSHADE_LBC             p_F_init                float_uniform          3     0    0.471      0.0%
-  Restart                 patience                integer_add            8     1    0.458     12.5%
-  NLSHADE_RSP             NP_init                 integer_add            8     2    0.444     25.0%
-  COBYQA                  initial_tr_radius       log_uniform_pertur     7     0    0.410      0.0%
+  Restart                 patience                integer_add            9     1    0.463     11.1%
+  COBYQA                  initial_tr_radius       log_uniform_pertur     8     0    0.422      0.0%
+  NLSHADE_RSP             NP_init                 integer_add            9     2    0.419     22.2%
+  LBFGSB                  max_starts              integer_add            9     1    0.408     11.1%
   RegionUCB               gauss_fraction          float_uniform          6     1    0.399     16.7%
-  LBFGSB                  max_starts              integer_add            8     1    0.397     12.5%
   Bottom 5 (lowest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
   Sobol                   scramble                categorical_choice    25     0    0.000      0.0%

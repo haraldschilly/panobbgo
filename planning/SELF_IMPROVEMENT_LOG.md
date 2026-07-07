@@ -17,6 +17,75 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-07 — Warm-started memetic restarts for the L-BFGS-B local polish (curved-valley class)
+
+* **What** — Added a ``warm_start`` mode to
+  :class:`panobbgo.heuristics.lbfgsb.LBFGSB` (constructor kwargs
+  ``warm_start: bool = False`` / ``warm_start_sigma: float = 0.1``).  When
+  enabled, every restart *after* the first box-centre descent starts from a
+  small Gaussian perturbation of the strategy's **best incumbent** result
+  instead of a fresh uniform-random point in the box — the memetic recipe
+  scipy ``dual_annealing`` owes its Rosenbrock win to.  Because the incumbent
+  lives parent-side (only the ``Best`` analyzer knows it), the subprocess
+  worker cannot draw the warm point itself: a small protocol extension has the
+  worker **request** an ``x0`` from the parent over the existing request pipe
+  (a bare ``_X0_REQUEST`` sentinel string), and :meth:`LBFGSB.on_start`
+  answers inline with :meth:`LBFGSB._warm_start_x0` (``clip(best + N(0,
+  sigma·range), box)``, or a uniform draw before the first result so a
+  warm-started worker degrades gracefully to classic multi-start).  A new
+  :meth:`LBFGSB.on_new_best` tracks the incumbent (mirrors
+  :meth:`panobbgo.heuristics.nearby.Nearby.on_new_best`).  ``warm_start=False``
+  (the default) keeps the historical uniform-restart worker byte-for-byte.
+
+  The **structural-catalog** LBFGSB candidate in
+  :func:`panobbgo.self_improve.default_structural_catalog` was flipped from
+  ``(LBFGSB, {})`` to ``(LBFGSB, {"warm_start": True})`` so the loop's
+  ``add_heuristic`` op inserts the warm variant.  Seed specs are left as-is;
+  the loop's structural bandit + statistical-accept gate will now measure
+  warm-LBFGSB additions live and can codify a seed flip if the evidence lands.
+
+* **Why** — This targets the sharpest measured competitive gap (the 2026-07-06
+  flagship finding): every Panobbgo strategy scored ``0`` on ``Rosenbrock_5D``
+  while stock ``dual_annealing`` solved it.  The 2026-07-06 A/B recorded a
+  *negative* result — bolting **cold** (uniform-restart) LBFGSB onto
+  ``Rewarding_Diverse`` *regressed* the composite — and diagnosed the root
+  cause as the wrong restart geometry: a local optimizer inside a portfolio
+  should polish the basins the *rest* of the portfolio is discovering, not
+  gamble on fresh uniform draws.  Warm restarts fix exactly that geometry and
+  make the descent intrinsically curvature-aware (L-BFGS-B builds a
+  finite-difference curvature estimate from the incumbent).  This is the
+  §7.3-freeze-compliant path the backlog's top-priority idea called for:
+  *improve an existing heuristic*, not add a new one.
+
+* **Measured impact** (≥3-seed aggregate per the measurement discipline):
+
+  | portfolio | budget | cold | warm |
+  |---|---|---|---|
+  | ``[Sobol, Random, Nearby, LBFGSB]`` (curved-valley battery) | full (500) | 0.156 | **0.198** |
+  | ``[Sobol, LBFGSB, NelderMead]`` (Rosenbrock 2D/5D + Styblinski) | standard (200) | 0.583 | 0.583 |
+
+  At the full budget warm wins clearly (+0.042, driven by ``Rosenbrock_2D``
+  and ``StyblinskiTang_2D``); at the tighter standard budget the composite is a
+  tie (both 2D problems saturate, both fail 5D) but warm's ``Rosenbrock_5D``
+  best-distance is consistently lower (11.7 vs 15.8) — it approaches the valley
+  optimum faster without ever regressing the composite.  Fully *crossing* the
+  ``Rosenbrock_5D`` tolerance still needs more budget or a dedicated
+  local-search strategy (which shifts the historical composite baseline and
+  needs an ADR — out of scope; left as a next idea).
+
+* **Tests** — 17 new tests in ``tests/test_heuristic_lbfgsb.py``
+  (``LBFGSBConstructionTests`` warm-start validation,
+  ``LBFGSBWarmStartTests`` for ``on_new_best`` / ``_warm_start_x0`` /
+  ``on_start`` sentinel handling, ``LBFGSBWarmStartWorkerTests`` for the
+  worker's x0-request protocol and clean-exit-on-closed-pipe).  Full
+  LBFGSB suite (59) + structural-catalog suite (145) green; ruff + pyright
+  clean.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: a curvature-aware
+  quadratic/trust-region warm step; wiring ``warm_start`` into the
+  ``Loop_LocalSearch`` seed once the loop confirms it; and a dedicated
+  warm-started local-search strategy (needs an ADR).
+
 ### 2026-07-06 — Codify: drop the `LatinHypercube` seeder from `Loop_LocalSearch` (structural, ledger-evidenced)
 
 * **What** — Removed the ``(LatinHypercube, {"div": 4})`` seeder entry
@@ -8268,42 +8337,45 @@ a dated entry above when shipped.
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
 
-#### Warm-started curvature-aware local polish for the curved-valley class (top priority — measured 2026-07-06)
+#### Warm-started curvature-aware local polish for the curved-valley class (first layer shipped 2026-07-07)
 
-**This is the single sharpest "not the best optimizer in the world"
-gap in the current benchmark.**  A standard-mode ``--baselines`` run
-(see the 2026-07-06 dated entry) shows *every* Panobbgo strategy scores
-**exactly 0 on Rosenbrock_5D** (tolerance 1.0, 200 evals) while stock
-scipy dual annealing solves it (0.49); Panobbgo also loses to that
-stock baseline on Rosenbrock_2D (0.72 vs 0.88) and StyblinskiTang_2D
-(0.48 vs 0.73).  The best Panobbgo strategy still wins *overall*
-(0.736 vs 0.552), so the fix is targeted, not a rewrite.
+**Status: the warm-started restart geometry shipped 2026-07-07** (see that
+dated entry).  ``LBFGSB.warm_start`` polishes a perturbation of the best
+incumbent on every restart after the first; the structural-catalog LBFGSB
+candidate now ships ``warm_start=True``.  Measured warm 0.198 vs cold 0.156
+(+0.042) at full budget on the curved-valley battery; a tie at the tighter
+standard budget with consistently lower ``Rosenbrock_5D`` best-distance
+(11.7 vs 15.8) and no regression anywhere.  The negative result the original
+note warned about (cold LBFGSB bolted onto ``Rewarding_Diverse`` *regresses*)
+was the direct motivation: warm restarts fix the wrong restart geometry.
 
-* **Do NOT just bolt on a local optimizer** — measured negative result
-  (2026-07-06, three-seed sweep): adding ``LBFGSB`` (``max_starts`` ∈
-  {2, 5}) to ``Rewarding_Diverse`` *regresses* the composite
-  (0.657 → 0.652 / 0.643).  It halves the Rosenbrock_5D best-distance
-  (14.7 → 7.4) but never crosses tolerance, and it taxes the problems
-  where the ``Nearby``/``NelderMead`` stack was already winning.  The
-  root cause: ``LBFGSB`` / ``COBYQA`` restart from the **box centre**
-  then **random** points — the wrong restart geometry for a curved
-  valley whose optimum sits far from centre.
-* **What to try instead** — a local-polish step (either a new mode on
-  ``LBFGSB`` or an improvement to ``Nearby``) that always restarts its
-  descent from the strategy's **best incumbent** result, re-launching
-  whenever a new global best appears.  This is exactly the memetic
-  recipe scipy dual annealing uses (SA global search + L-BFGS-B polish
-  from the best).  A curvature-aware variant (fit a local quadratic /
-  trust-region model to the recent best points and propose its
-  minimiser) is the 2026-07-05 entry's recommended successor to the
-  rejected straight pattern-move.  Improving an *existing* heuristic
-  keeps this §7.3-freeze-compliant; a genuinely new heuristic does not
-  and must wait for the freeze to lift.
-* **Measurement discipline** — decide on a **≥3-seed** aggregate
-  composite, never a single seed (the 2026-07-06 sweep caught a
-  single-seed StyblinskiTang "win" of 0.17 → 0.54 that was pure noise;
-  the true aggregate was 0.219 → 0.166).  Portfolio runs are ~30 s each
-  at standard mode, so a 3-seed sweep is cheap.
+**Still open — fully closing the ``Rosenbrock_5D`` gap:**
+
+* **Curvature-aware quadratic warm step** — L-BFGS-B already builds a
+  finite-difference curvature estimate, but a lighter local model (fit a
+  mini-``QuadraticWLS`` / trust-region model to the recent best points and
+  propose its minimiser) could crack the 5D valley in fewer evaluations
+  than finite-difference gradients spend, and would help the derivative-free
+  ``Nearby`` refinement step too.  The 2026-07-05 entry's recommended
+  successor to the rejected straight pattern-move.
+* **Wire ``warm_start`` into the ``Loop_LocalSearch`` seed** — the 2026-07-07
+  ship only flipped the *structural-catalog* candidate (which the loop's
+  bandit measures live).  The seed spec's own LBFGSB stays cold pending a
+  clean A/B on the exact COBYQA+LBFGSB+NelderMead composition (the COBYQA
+  subprocess made a fast local A/B impractical this iteration).  Let the
+  nightly loop's ``add_heuristic``/codify path confirm it, or measure it
+  directly once compute allows.
+* **Dedicated warm-started local-search strategy (needs an ADR)** — a
+  ``LocalSearch_LBFGSB`` (or ``StrategyPhased`` global→local) spec in the
+  default battery would give it a strategy that *solves* smooth valleys, but
+  shifts the historical composite baseline — the same ADR gate the older
+  LBFGSB follow-ups carry.
+* **Measurement discipline** — decide on a **≥3-seed** aggregate composite,
+  never a single seed (the 2026-07-06 sweep caught a single-seed
+  StyblinskiTang "win" that was pure noise).  Note: COBYQA/LBFGSB portfolio
+  runs are subprocess-heavy (~15 s each), so a full standard-battery A/B of a
+  COBYQA-bearing spec can exceed a 10-min budget — prefer a lean
+  COBYQA-free portfolio or the curved-valley subset to isolate the effect.
 
 #### Membership-vs-coverage rule for structural codify suppression (cosmetic; seeded 2026-07-06)
 

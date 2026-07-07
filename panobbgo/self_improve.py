@@ -2322,7 +2322,20 @@ def default_structural_catalog() -> MutationCatalog:
         (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),  # CEC-2022 winner, NLPSR + RSP + LBC
         (LSHADE_EpSin, {"NP_init": "auto", "mu_freq_init": 0.5}),  # ensemble-sinusoid F
         (COBYQA, {}),  # Powell-family derivative-free trust-region local optimizer
-        (LBFGSB, {}),  # multi-start gradient-based (quasi-Newton) local optimizer
+        # ``warm_start=True`` makes each restart (after the first box-centre
+        # descent) polish a perturbation of the strategy's best incumbent
+        # instead of a fresh uniform-random point — the memetic recipe scipy
+        # ``dual_annealing`` owes its Rosenbrock win to.  A *structurally-added*
+        # local optimizer sits in a portfolio whose other arms are actively
+        # discovering good basins, so the uniform-restart geometry was exactly
+        # wrong: the 2026-07-06 A/B measured that bolting *cold* LBFGSB onto
+        # ``Rewarding_Diverse`` *regressed* the composite even though it halved
+        # the Rosenbrock best-distance.  Warm restarts fix the geometry; a lean
+        # 3-seed portfolio A/B on the curved-valley battery measured warm 0.198
+        # vs cold 0.156.  See the module docstring of
+        # :mod:`panobbgo.heuristics.lbfgsb` and the dated entry in
+        # ``planning/SELF_IMPROVEMENT_LOG.md``.
+        (LBFGSB, {"warm_start": True}),  # multi-start warm-started quasi-Newton local optimizer
     )
     # Analyzer candidate pool — narrowly curated.  ``Sensitivity``
     # (cheap adaptive tracking) and ``Restart`` (warm restarts on

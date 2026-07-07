@@ -22,7 +22,7 @@ from unittest import mock
 import numpy as np
 import pytest
 
-from panobbgo.heuristics.lbfgsb import LBFGSB
+from panobbgo.heuristics.lbfgsb import _X0_REQUEST, LBFGSB
 from panobbgo.utils import PanobbgoTestCase
 
 
@@ -48,6 +48,34 @@ class LBFGSBConstructionTests(PanobbgoTestCase):
         assert h.epsilon == 1e-6
         assert h.seed == 7
         assert h.name == "LBFGSB_custom"
+
+    def test_warm_start_defaults_off(self):
+        h = LBFGSB(self.strategy)
+        assert h.warm_start is False
+        assert h.warm_start_sigma == 0.1
+        assert h._best_x is None
+
+    def test_warm_start_construction(self):
+        h = LBFGSB(self.strategy, warm_start=True, warm_start_sigma=0.25)
+        assert h.warm_start is True
+        assert h.warm_start_sigma == 0.25
+
+    def test_invalid_warm_start_type(self):
+        with pytest.raises(ValueError, match="warm_start must be a bool"):
+            LBFGSB(self.strategy, warm_start=1)  # type: ignore[arg-type]
+
+    def test_invalid_warm_start_sigma_negative(self):
+        with pytest.raises(ValueError, match="warm_start_sigma"):
+            LBFGSB(self.strategy, warm_start_sigma=-0.1)
+
+    def test_invalid_warm_start_sigma_inf(self):
+        with pytest.raises(ValueError, match="warm_start_sigma"):
+            LBFGSB(self.strategy, warm_start_sigma=float("inf"))
+
+    def test_warm_start_sigma_zero_allowed(self):
+        # 0.0 = polish the exact incumbent every restart; degenerate but valid.
+        h = LBFGSB(self.strategy, warm_start=True, warm_start_sigma=0.0)
+        assert h.warm_start_sigma == 0.0
 
     def test_invalid_max_starts_zero(self):
         with pytest.raises(ValueError, match="max_starts"):
@@ -189,6 +217,243 @@ class LBFGSBPipeTests(PanobbgoTestCase):
             h.on_start()
         assert len(emitted) == 1
         np.testing.assert_allclose(emitted[0], [0.1, 0.2])
+
+
+# ----------------------------------------------------------------------
+# Warm-started restarts (memetic polish of the best incumbent)
+# ----------------------------------------------------------------------
+
+
+class _FakeBest:
+    def __init__(self, x):
+        self.x = None if x is None else np.asarray(x, dtype=float)
+
+
+class LBFGSBWarmStartTests(PanobbgoTestCase):
+    def test_on_new_best_tracks_incumbent(self):
+        h = LBFGSB(self.strategy, warm_start=True)
+        assert h._best_x is None
+        h.on_new_best(_FakeBest([0.3, -0.4]))
+        np.testing.assert_allclose(h._best_x, [0.3, -0.4])
+        # A later, better incumbent overwrites the stored one.
+        h.on_new_best(_FakeBest([0.1, 0.1]))
+        np.testing.assert_allclose(h._best_x, [0.1, 0.1])
+
+    def test_on_new_best_ignores_none(self):
+        h = LBFGSB(self.strategy, warm_start=True)
+        h.on_new_best(None)
+        assert h._best_x is None
+        h.on_new_best(_FakeBest(None))
+        assert h._best_x is None
+
+    def test_warm_start_x0_uniform_before_first_best(self):
+        # With no incumbent yet, the warm-start draw is uniform over the box.
+        h = LBFGSB(self.strategy, warm_start=True, seed=0)
+        x0 = h._warm_start_x0()
+        bounds = h._box_bounds()
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        assert np.all(x0 >= lo) and np.all(x0 <= hi)
+
+    def test_warm_start_x0_perturbs_incumbent(self):
+        h = LBFGSB(self.strategy, warm_start=True, warm_start_sigma=0.05, seed=3)
+        bounds = h._box_bounds()
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        center = (lo + hi) / 2.0
+        h.on_new_best(_FakeBest(center))
+        draws = np.array([h._warm_start_x0() for _ in range(200)])
+        # Every draw stays inside the box.
+        assert np.all(draws >= lo) and np.all(draws <= hi)
+        # Draws cluster around the incumbent, not uniformly over the box:
+        # mean close to centre, spread far below the box range.
+        ranges = hi - lo
+        assert np.all(np.abs(draws.mean(axis=0) - center) < 0.1 * ranges)
+        assert np.all(draws.std(axis=0) < 0.5 * ranges)
+        # ... and the spread is roughly the requested sigma·range (not tiny).
+        assert np.all(draws.std(axis=0) > 0.01 * ranges)
+
+    def test_warm_start_x0_sigma_zero_returns_exact_incumbent(self):
+        h = LBFGSB(self.strategy, warm_start=True, warm_start_sigma=0.0, seed=1)
+        bounds = h._box_bounds()
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        center = (lo + hi) / 2.0
+        h.on_new_best(_FakeBest(center))
+        np.testing.assert_allclose(h._warm_start_x0(), center)
+
+    def test_warm_start_x0_clips_incumbent_perturbation_into_box(self):
+        # An incumbent on the box edge + large sigma must still clip inside.
+        h = LBFGSB(self.strategy, warm_start=True, warm_start_sigma=5.0, seed=2)
+        bounds = h._box_bounds()
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        h.on_new_best(_FakeBest(hi))
+        for _ in range(20):
+            x0 = h._warm_start_x0()
+            assert np.all(x0 >= lo - 1e-12) and np.all(x0 <= hi + 1e-12)
+
+    def test_on_start_answers_x0_request_inline(self):
+        # An ``_X0_REQUEST`` sentinel from the worker is answered on the pipe
+        # (never emitted as a search point).
+        h = LBFGSB(self.strategy, warm_start=True, seed=0)
+        h.out1 = mock.MagicMock()
+        h.out1.poll.return_value = False
+        h.p1 = mock.MagicMock()
+        h.p1.poll.return_value = True
+
+        sent = []
+        h.p1.send.side_effect = lambda payload: sent.append(payload)
+        # First recv yields the sentinel; the send handler then stops the loop.
+        h.p1.recv.return_value = _X0_REQUEST
+
+        def stop_after_send(payload):
+            sent.append(payload)
+            h._stopped = True
+
+        h.p1.send.side_effect = stop_after_send
+        h._stopped = False
+        with mock.patch.object(h, "emit") as mock_emit:
+            h.on_start()
+        mock_emit.assert_not_called()
+        assert len(sent) == 1
+        # The answer is a valid in-box point (uniform draw since no incumbent).
+        bounds = h._box_bounds()
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        x0 = np.asarray(sent[0], dtype=float)
+        assert np.all(x0 >= lo) and np.all(x0 <= hi)
+
+
+class _WarmFakePipe:
+    """Fake pipe that also answers the worker's ``_X0_REQUEST`` sentinels.
+
+    ``send`` records requests; when the most recent send was the x0 sentinel,
+    the next ``recv`` returns the configured warm-start point instead of an
+    objective value.
+    """
+
+    def __init__(self, func, warm_x0, max_evals=10_000):
+        self.func = func
+        self.warm_x0 = np.asarray(warm_x0, dtype=float)
+        self.max_evals = max_evals
+        self.evals = 0
+        self.last = None
+        self.last_was_request = False
+        self.sent_points = []
+        self.x0_requests = 0
+
+    def send(self, payload):
+        if isinstance(payload, str) and payload == _X0_REQUEST:
+            self.last_was_request = True
+            self.x0_requests += 1
+        else:
+            self.last = np.asarray(payload, dtype=float)
+            self.last_was_request = False
+            self.sent_points.append(self.last.copy())
+
+    def recv(self):
+        if self.last_was_request:
+            self.last_was_request = False
+            return self.warm_x0.copy()
+        self.evals += 1
+        if self.evals > self.max_evals:
+            raise EOFError
+        return float(self.func(self.last))
+
+
+class LBFGSBWarmStartWorkerTests(PanobbgoTestCase):
+    def test_worker_requests_x0_for_warm_restarts(self):
+        # With warm_start=True and >1 start, the worker must issue exactly
+        # (max_starts - 1) x0 requests (the first start uses x0_first).
+        warm_x0 = np.array([0.3, 0.3])
+        pipe = _WarmFakePipe(_quadratic, warm_x0)
+        output = mock.MagicMock()
+        LBFGSB.worker(
+            pipe,
+            output,
+            np.zeros(2),
+            _BOUNDS,
+            _LB,
+            _UB,
+            seed=0,
+            max_starts=4,
+            maxfun=200,
+            epsilon=None,
+            warm_start=True,
+        )
+        assert pipe.x0_requests == 3
+        output.send.assert_called_once_with({"done": 4})
+
+    def test_worker_no_x0_request_when_warm_start_off(self):
+        pipe = _WarmFakePipe(_quadratic, np.array([0.3, 0.3]))
+        output = mock.MagicMock()
+        LBFGSB.worker(
+            pipe,
+            output,
+            np.zeros(2),
+            _BOUNDS,
+            _LB,
+            _UB,
+            seed=0,
+            max_starts=4,
+            maxfun=200,
+            epsilon=None,
+            warm_start=False,
+        )
+        assert pipe.x0_requests == 0
+
+    def test_worker_warm_restart_descends_from_requested_x0(self):
+        # The second descent should begin at the parent-supplied warm x0.
+        warm_x0 = np.array([0.25, -0.25])
+        pipe = _WarmFakePipe(_quadratic, warm_x0)
+        output = mock.MagicMock()
+        LBFGSB.worker(
+            pipe,
+            output,
+            np.array([0.9, 0.9]),
+            _BOUNDS,
+            _LB,
+            _UB,
+            seed=0,
+            max_starts=2,
+            maxfun=200,
+            epsilon=None,
+            warm_start=True,
+        )
+        # First evaluated point is x0_first; the first point after the single
+        # x0 request is the warm x0.
+        np.testing.assert_allclose(pipe.sent_points[0], [0.9, 0.9])
+        assert pipe.x0_requests == 1
+        # Locate the first evaluated point drawn from the warm restart: it is
+        # the very next distinct start point at (or near) warm_x0.
+        assert any(np.allclose(p, warm_x0) for p in pipe.sent_points)
+
+    def test_worker_warm_x0_request_clean_exit_on_closed_pipe(self):
+        # A closed pipe mid-x0-request raises SystemExit inside the worker,
+        # which returns cleanly without a "done" payload.
+        class _ClosingPipe(_WarmFakePipe):
+            def recv(self):
+                if self.last_was_request:
+                    raise EOFError
+                return super().recv()
+
+        pipe = _ClosingPipe(_quadratic, np.array([0.3, 0.3]), max_evals=3)
+        output = mock.MagicMock()
+        LBFGSB.worker(
+            pipe,
+            output,
+            np.zeros(2),
+            _BOUNDS,
+            _LB,
+            _UB,
+            seed=0,
+            max_starts=None,
+            maxfun=50,
+            epsilon=None,
+            warm_start=True,
+        )
+        output.send.assert_not_called()
 
 
 # ----------------------------------------------------------------------

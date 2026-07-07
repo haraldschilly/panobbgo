@@ -2,6 +2,41 @@
 
 ## Recent Improvements (continued)
 
+### Warm-started memetic L-BFGS-B restarts for the curved-valley class — 2026-07-07
+- [x] **Heuristic improvement** — added `warm_start` / `warm_start_sigma`
+      kwargs to `panobbgo/heuristics/lbfgsb.py::LBFGSB`.  Every restart after
+      the first box-centre descent polishes a small Gaussian perturbation of
+      the strategy's best incumbent (tracked via a new `on_new_best` hook)
+      instead of a fresh uniform-random point — the memetic recipe scipy
+      `dual_annealing` uses.  The subprocess worker requests the restart `x0`
+      from the parent over the existing request pipe (`_X0_REQUEST` sentinel);
+      `on_start` answers inline with `_warm_start_x0`, falling back to a
+      uniform draw before the first result.  `warm_start=False` (default) is
+      byte-identical to the historical uniform-restart worker.
+- [x] **Structural-catalog adoption** — flipped the
+      `default_structural_catalog` LBFGSB candidate from `(LBFGSB, {})` to
+      `(LBFGSB, {"warm_start": True})` so the loop's `add_heuristic` op inserts
+      the warm variant.  Directly targets the 2026-07-06 negative result
+      (cold LBFGSB bolted onto `Rewarding_Diverse` *regressed* the composite —
+      wrong restart geometry).  §7.3-freeze compliant (better default kwargs
+      for an existing candidate; no new arms).
+- [x] **Measured impact** (≥3-seed aggregates): `[Sobol, Random, Nearby,
+      LBFGSB]` on the curved-valley battery at full budget — warm **0.198** vs
+      cold 0.156 (+0.042); `[Sobol, LBFGSB, NelderMead]` at standard budget —
+      tie (0.583 both) but warm's `Rosenbrock_5D` best-distance lower (11.7 vs
+      15.8).  No regression anywhere.  Fully crossing the `Rosenbrock_5D`
+      tolerance still needs more budget / a dedicated local-search strategy
+      (ADR-gated; left as a next idea).
+- [x] **Tests** — 17 new tests in `tests/test_heuristic_lbfgsb.py`
+      (warm-start construction validation, `on_new_best`/`_warm_start_x0`/
+      `on_start` sentinel handling, worker x0-request protocol +
+      clean-exit-on-closed-pipe).  Full LBFGSB suite (59) + structural-catalog
+      suite (145) green; ruff + pyright clean.
+- [x] **Docs** — `AGENTS.md` (structural-catalog mention + dedicated bullet),
+      `doc/source/guide.rst` (catalog sentence), dated entry in
+      `planning/SELF_IMPROVEMENT_LOG.md` + updated top-priority idea, the
+      `default_structural_catalog` comment, this entry.
+
 ### Codify: drop the `LatinHypercube` seeder from `Loop_LocalSearch` — 2026-07-06
 - [x] **Structural codify applied via the automated pipeline** — removed
       `(LatinHypercube, {"div": 4})` from the `Loop_LocalSearch` seed spec in

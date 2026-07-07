@@ -382,7 +382,10 @@ The harness is the measurement substrate for an autonomous
     catalog: `add_heuristic` (append from a curated pool —
     Random/Nearby/NelderMead/Center/LatinHypercube/Sobol/Extremal,
     the PSO topologies, the DE family L-SHADE/jSO/NL-SHADE-RSP, and the
-    local optimizers COBYQA and LBFGSB (the only gradient-based arm);
+    local optimizers COBYQA and LBFGSB (the only gradient-based arm —
+    added with `warm_start=True` since 2026-07-07 so a structurally-added
+    local optimizer polishes the portfolio's best incumbent instead of
+    gambling on uniform restarts; see the LBFGSB warm-start bullet below);
     `avoid_duplicates` skips classes already present),
     `drop_heuristic` (remove subject to a
     `min_heuristics` post-drop floor), plus the symmetric analyzer ops
@@ -392,6 +395,24 @@ The harness is the measurement substrate for an autonomous
     `scripts/self_improve.py run --structural` or
     `SelfImprover(catalog=default_structural_catalog())`.  Off by
     default so existing CLI invocations remain byte-identical.
+*   Warm-started memetic L-BFGS-B restarts — **shipped 2026-07-07**, see
+    `panobbgo.heuristics.lbfgsb.LBFGSB` (`warm_start` / `warm_start_sigma`
+    kwargs).  Every restart after the first box-centre descent polishes a
+    small Gaussian perturbation of the strategy's best incumbent (tracked via
+    the new `on_new_best` hook) instead of a fresh uniform-random point — the
+    memetic recipe scipy `dual_annealing` owes its Rosenbrock win to.  The
+    subprocess worker requests the restart `x0` from the parent over the
+    existing request pipe (a `_X0_REQUEST` sentinel), which
+    `on_start` answers inline with `_warm_start_x0`; before the first result
+    it falls back to a uniform draw so a warm worker degrades gracefully to
+    classic multi-start.  The `default_structural_catalog` LBFGSB candidate
+    ships `warm_start=True` (directly addresses the 2026-07-06 negative result
+    where *cold* LBFGSB bolted onto `Rewarding_Diverse` regressed the
+    composite); `warm_start=False` (constructor default) is byte-identical to
+    the historical uniform-restart worker.  Measured warm 0.198 vs cold 0.156
+    (+0.042) at full budget on the curved-valley battery.  §7.3-freeze
+    compliant (improves an existing heuristic; better default kwargs for an
+    existing catalog candidate — no new arms).
 *   Hold-out validation set — **shipped** (§10), see
     `panobbgo.self_improve.LoopHoldoutRecord` and the
     `--holdout-base-seed`, `--holdout-iterations`,

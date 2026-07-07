@@ -56,6 +56,39 @@ This fixes a long-standing defect: the previous implementation ran L-BFGS-B
 and it was wired into neither the default strategies nor the self-improvement
 loop's structural catalog — i.e. it was effectively dead code.
 
+Warm-started restarts (memetic mode)
+------------------------------------
+
+Uniform-random restarts are the right default when L-BFGS-B is the *only*
+generator, but they are wasteful inside a **portfolio**: the rest of the
+strategy (a DE variant, PSO, CMA-ES, …) is busy discovering good basins, yet a
+uniform-restart L-BFGS-B ignores that intelligence and keeps sampling the whole
+box blindly.  This is exactly the negative result the benchmark recorded on
+2026-07-06 — bolting uniform-restart L-BFGS-B onto ``Rewarding_Diverse``
+*regressed* the composite even though it halved the Rosenbrock best-distance,
+because the wrong restart geometry (box centre → random) never exploited the
+basin the portfolio had already found.
+
+``warm_start=True`` switches the restart geometry to the **memetic** recipe
+that ``scipy.optimize.dual_annealing`` owes its Rosenbrock win to: every restart
+after the first descends from a small Gaussian perturbation of the strategy's
+**best incumbent** result, so each L-BFGS-B run *polishes* the best basin the
+whole portfolio has found so far rather than gambling on a fresh uniform draw.
+Because L-BFGS-B builds a curvature estimate from finite-difference gradients,
+a warm-started descent is intrinsically curvature-aware — the sharpest known
+gap in the benchmark is precisely the curved-valley (Rosenbrock) class, where
+every Panobbgo strategy scored ``0`` while stock dual annealing solved it.
+
+The best incumbent lives *parent-side* (only the strategy's ``Best`` analyzer
+knows it), so the worker cannot draw the warm-start point itself.  Instead the
+worker **requests** an ``x0`` from the parent at the start of each restart over
+the same pipe it already uses for ``f(x)`` round-trips (a sentinel string the
+parent recognises); the parent replies with the perturbed incumbent.  When no
+best exists yet (very early in the run) the parent falls back to a uniform-
+random draw, so a warm-started worker degrades gracefully to classic multi-
+start until the portfolio produces its first result.  ``warm_start=False``
+(the default) keeps the historical uniform-restart worker byte-for-byte.
+
 Asynchronous execution
 ----------------------
 
@@ -134,6 +167,11 @@ _DEFAULT_MAX_STARTS: Optional[int] = None  # unlimited until budget exhausted
 _DEFAULT_MAXFUN: Optional[int] = None  # scipy default (15000) per start
 _DEFAULT_EPSILON: Optional[float] = None  # scipy default finite-diff step
 
+# Sentinel the warm-start worker sends over the request pipe to ask the parent
+# for a restart ``x0`` (a perturbation of the strategy's best incumbent).  It is
+# a bare string so it can never be mistaken for an ``np.ndarray`` search point.
+_X0_REQUEST = "__lbfgsb_x0_request__"
+
 
 class LBFGSB(Heuristic):
     """Multi-start L-BFGS-B bound-constrained quasi-Newton local optimizer.
@@ -153,14 +191,30 @@ class LBFGSB(Heuristic):
         epsilon: Finite-difference step size for the gradient approximation.
             ``None`` (default) uses scipy's default (``1e-8``).  Must be a
             positive finite float when set.
+        warm_start: When ``True``, every restart after the first box-centre
+            descent starts from a small Gaussian perturbation of the
+            strategy's **best incumbent** result instead of a fresh
+            uniform-random point — the memetic "polish the best basin" recipe
+            (see the module docstring).  Falls back to a uniform-random draw
+            until the strategy produces its first result.  ``False`` (default)
+            preserves the historical uniform-restart behaviour byte-for-byte.
+        warm_start_sigma: Standard deviation of the warm-start perturbation as
+            a fraction of each dimension's box range (default ``0.1``).  Only
+            consulted when ``warm_start=True``.  A small positive value turns
+            the restarts into iterated local search / basin hopping around the
+            incumbent; ``0.0`` polishes the exact incumbent every restart
+            (degenerate once the incumbent is itself an L-BFGS-B local
+            minimum).  Must be a non-negative finite float.
         seed: Optional seed for the per-instance restart RNG (controls the
-            random restart points after the first, box-centre descent).
+            random restart points after the first, box-centre descent, and —
+            under ``warm_start`` — the parent-side perturbation RNG).
         name: Override the heuristic's display name.
 
     Notes:
         - The first descent always starts from the box centre (deterministic,
           reproducible).  Subsequent descents start from fresh uniform-random
-          points in the box.
+          points in the box, or — under ``warm_start`` — from perturbations of
+          the strategy's best incumbent.
         - The heuristic spawns one dedicated subprocess; ``on_restart``
           tears it down and relaunches it warm-started from the supplied
           restart centre (matching :class:`~panobbgo.heuristics.cobyqa.COBYQA`).
@@ -178,6 +232,8 @@ class LBFGSB(Heuristic):
         max_starts: Optional[int] = _DEFAULT_MAX_STARTS,
         maxfun: Optional[int] = _DEFAULT_MAXFUN,
         epsilon: Optional[float] = _DEFAULT_EPSILON,
+        warm_start: bool = False,
+        warm_start_sigma: float = 0.1,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -194,13 +250,27 @@ class LBFGSB(Heuristic):
         if epsilon is not None:
             if not np.isfinite(epsilon) or epsilon <= 0.0:
                 raise ValueError(f"LBFGSB: epsilon must be a positive finite float or None, got {epsilon!r}")
+        if not isinstance(warm_start, bool):
+            raise ValueError(f"LBFGSB: warm_start must be a bool, got {warm_start!r}")
+        if not np.isfinite(warm_start_sigma) or warm_start_sigma < 0.0:
+            raise ValueError(f"LBFGSB: warm_start_sigma must be a non-negative finite float, got {warm_start_sigma!r}")
 
         Heuristic.__init__(self, strategy, name=name or "LBFGSB", cap=1)
         self.logger = self.config.get_logger("LBFGS")
         self.max_starts: Optional[int] = max_starts
         self.maxfun: Optional[int] = maxfun
         self.epsilon: Optional[float] = None if epsilon is None else float(epsilon)
+        self.warm_start: bool = warm_start
+        self.warm_start_sigma: float = float(warm_start_sigma)
         self.seed: Optional[int] = seed
+
+        # Best incumbent tracked parent-side for warm-started restarts; updated
+        # by :meth:`on_new_best`.  ``None`` until the strategy's first result.
+        self._best_x: Optional[np.ndarray] = None
+        # Parent-side RNG for the warm-start perturbation / fallback draw.  Kept
+        # distinct from the worker's restart RNG (which lives in the subprocess)
+        # so the two streams never share state across the process boundary.
+        self._warm_rng = np.random.default_rng(seed)
 
         # Subprocess handles — populated by :meth:`__start__`.
         self.p1: Any = None  # parent end of the request pipe
@@ -243,6 +313,7 @@ class LBFGSB(Heuristic):
                 self.max_starts,
                 self.maxfun,
                 self.epsilon,
+                self.warm_start,
             ),
             name=f"{self.name}-LBFGS",
         )
@@ -273,8 +344,17 @@ class LBFGSB(Heuristic):
         max_starts: Optional[int],
         maxfun: Optional[int],
         epsilon: Optional[float],
+        warm_start: bool = False,
     ) -> None:
-        """Subprocess entry point: run multi-start L-BFGS-B over the pipe."""
+        """Subprocess entry point: run multi-start L-BFGS-B over the pipe.
+
+        When ``warm_start`` is set, restart points (after the first box-centre
+        descent) are requested from the parent — a perturbation of the
+        strategy's best incumbent — instead of drawn from the local uniform
+        RNG.  The request is a single :data:`_X0_REQUEST` sentinel over the
+        same pipe used for ``f(x)`` round-trips; a closed pipe raises
+        ``SystemExit`` so the worker shuts down cleanly on parent teardown.
+        """
         from scipy.optimize import fmin_l_bfgs_b
 
         f = _make_pipe_objective(pipe)
@@ -285,17 +365,31 @@ class LBFGSB(Heuristic):
         if epsilon is not None:
             kwargs["epsilon"] = epsilon
 
+        def _request_warm_x0() -> np.ndarray:
+            """Ask the parent for a warm-start ``x0`` (perturbed incumbent)."""
+            pipe.send(_X0_REQUEST)
+            try:
+                x0 = pipe.recv()
+            except (EOFError, OSError):
+                raise SystemExit(0)
+            return np.clip(np.asarray(x0, dtype=float), lb, ub)
+
         starts = 0
         try:
             while max_starts is None or starts < max_starts:
-                x0 = np.asarray(x0_first, dtype=float) if starts == 0 else rng.uniform(lb, ub)
+                if starts == 0:
+                    x0 = np.asarray(x0_first, dtype=float)
+                elif warm_start:
+                    x0 = _request_warm_x0()
+                else:
+                    x0 = rng.uniform(lb, ub)
                 try:
                     fmin_l_bfgs_b(f, x0, **kwargs)
                 except SystemExit:
                     return
                 except Exception:
                     # A single descent failed numerically (e.g. a non-finite
-                    # gradient); fall through to the next random restart.
+                    # gradient); fall through to the next restart.
                     pass
                 starts += 1
         except SystemExit:
@@ -303,7 +397,13 @@ class LBFGSB(Heuristic):
         _safe_send(output, {"done": starts})
 
     def on_start(self) -> None:
-        """Pipe x → emit → wait for fx → pipe.send loop (shared with COBYQA)."""
+        """Pipe x → emit → wait for fx → pipe.send loop (shared with COBYQA).
+
+        Under ``warm_start`` the worker interleaves :data:`_X0_REQUEST`
+        sentinels with its ``f(x)`` sends; those are answered inline with a
+        perturbed incumbent (:meth:`_warm_start_x0`) rather than emitted for
+        evaluation.
+        """
         while not self._stopped:
             try:
                 if self.out1.poll(0):
@@ -311,13 +411,53 @@ class LBFGSB(Heuristic):
                     self.logger.info(output)
                 # Short poll timeout so we still notice the stop flag promptly.
                 if self.p1.poll(0.1):
-                    x = self.p1.recv()
-                    self.emit(x)
+                    msg = self.p1.recv()
+                    if isinstance(msg, str):
+                        # The only string the worker sends is the warm-start
+                        # x0 sentinel; answer it inline, never emit a string.
+                        if msg == _X0_REQUEST:
+                            self.p1.send(self._warm_start_x0())
+                    else:
+                        self.emit(msg)
             except (EOFError, OSError):
                 break
             except Exception as e:
                 self.logger.error(f"Error in LBFGSB loop: {e}")
                 break
+
+    def on_new_best(self, best) -> None:
+        """Track the strategy's best incumbent for warm-started restarts.
+
+        A no-op unless ``warm_start`` is enabled; the parent-side
+        :meth:`_warm_start_x0` reads :attr:`_best_x` when the worker requests a
+        restart point.  Mirrors :meth:`panobbgo.heuristics.nearby.Nearby.on_new_best`.
+        """
+        if best is None:
+            return
+        x = getattr(best, "x", None)
+        if x is None:
+            return
+        self._best_x = np.asarray(x, dtype=float)
+
+    def _warm_start_x0(self) -> np.ndarray:
+        """Return a restart point: a perturbed best incumbent, or a uniform draw.
+
+        Called on the parent side in :meth:`on_start` when the warm-start
+        worker requests an ``x0``.  With a known incumbent the point is
+        ``clip(best + N(0, sigma·range), box)``; before the first result (no
+        incumbent yet) it is a uniform-random draw over the box, so a
+        warm-started worker degrades to classic multi-start until the portfolio
+        produces something to polish.
+        """
+        bounds = self._box_bounds()
+        lo = np.asarray([b[0] for b in bounds], dtype=float)
+        hi = np.asarray([b[1] for b in bounds], dtype=float)
+        best = self._best_x
+        if best is None:
+            return self._warm_rng.uniform(lo, hi)
+        ranges = hi - lo
+        x0 = np.asarray(best, dtype=float) + self._warm_rng.normal(0.0, self.warm_start_sigma * ranges)
+        return np.clip(x0, lo, hi)
 
     def __stop__(self) -> None:
         super(LBFGSB, self).__stop__()

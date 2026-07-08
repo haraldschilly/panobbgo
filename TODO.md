@@ -2,6 +2,42 @@
 
 ## Recent Improvements (continued)
 
+### Curvature-aware quadratic local step for the `Nearby` heuristic — 2026-07-08
+- [x] **Heuristic improvement** — added `quadratic` / `quadratic_trust` /
+      `quadratic_min_r2` kwargs to `panobbgo/heuristics/nearby.py::Nearby` plus
+      the module-level `fit_quadratic_step`.  When `quadratic=True`, `Nearby`
+      keeps a rolling buffer of recent `(x, f(x))` pairs (new `on_new_results`
+      hook, lock-guarded) and, on each new best, fits a distance-weighted ridge
+      quadratic to the nearest points in box-normalised coordinates and emits
+      its trust-region Newton minimiser as the first of its `new` points (rest
+      stay isotropic).  Hardened with per-column ridge, PD Hessian
+      regularisation, a data-support trust region, and a weighted-R² fit-quality
+      gate (`0.8`) that falls back to isotropic exploration on multimodal
+      neighbourhoods.  `quadratic=False` (default) is byte-identical to the
+      classic heuristic.  Fitted in-process from points the portfolio already
+      evaluated → **zero** extra objective evaluations.
+- [x] **Seed adoption** — flipped the six Rewarding-family
+      `(Nearby, {radius:0.124, axes:"all", new:3})` refinement entries to
+      `quadratic=True` in `panobbgo/harness.py` (`Rewarding_Diverse`,
+      `Rewarding_RegionUCB`, `UCB_Diverse`, `Thompson_Diverse`,
+      `Loop_RegionUCB`, `Loop_Restart`).  GP-specialised `radius=0.05` entries
+      left untouched.  §7.3-freeze compliant (better default kwargs; no new
+      catalog arms).
+- [x] **Measured impact** — paired `--randomize` A/B on `Rewarding_Diverse`
+      (quick, reps 12, iter 0): composite **0.0339 → 0.0612**, `statistical_accept`
+      **ACCEPT** Δ=+0.0274 95% CI `[+0.0057, +0.0521]`, worst-pair −0.0178.
+      Mean Δ ≈ **+0.075** over 20 randomized iters × 2 base_seeds (18/20
+      positive).  Effect is specific to the ill-conditioned randomized battery
+      (the loop's own metric); net-neutral within noise on the fixed
+      natural-conditioning battery.
+- [x] **Tests** — 21 new tests in `tests/test_heuristic_nearby_quadratic.py`
+      (fit recovery, robustness guards, R²-gate accept/reject, `Nearby`
+      wiring).  Full `Nearby` suite (32) + harness suites (130) + loop-registry
+      suite green; ruff + pyright clean.
+- [x] **Docs** — `doc/source/guide.rst` (catalog clause), dated entry +
+      graduated top-priority idea in `planning/SELF_IMPROVEMENT_LOG.md`,
+      `AGENTS.md` bullet, seed-site comments, this entry.
+
 ### Warm-started memetic L-BFGS-B restarts for the curved-valley class — 2026-07-07
 - [x] **Heuristic improvement** — added `warm_start` / `warm_start_sigma`
       kwargs to `panobbgo/heuristics/lbfgsb.py::LBFGSB`.  Every restart after

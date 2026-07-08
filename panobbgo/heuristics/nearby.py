@@ -22,11 +22,224 @@ Generates new candidate points near the current best point.
 Optionally integrates with the :class:`~panobbgo.analyzers.sensitivity.Sensitivity`
 analyzer: when importance scores are available, perturbations are scaled by dimension
 importance so the heuristic focuses search effort on the dimensions that actually matter.
+
+Curvature-aware quadratic step (``quadratic=True``)
+---------------------------------------------------
+
+The default isotropic perturbation is an *un*\\ informed local move: it treats
+every direction the same regardless of how the objective actually curves.  On
+smooth, ill-conditioned *valleys* — the Rosenbrock family, and any instance the
+randomized battery hits with its log-uniform diagonal scaling — an isotropic
+step is badly inefficient: most random perturbations of the best point step
+*across* the narrow valley (uphill) rather than *along* it.  This is the
+sharpest measured competitive gap (every Panobbgo strategy scores ``0`` on
+``Rosenbrock_5D`` while stock ``scipy`` dual annealing solves it, because dual
+annealing owes that win to a curvature-aware local-search step).
+
+With ``quadratic=True`` the heuristic keeps a small rolling buffer of the most
+recent evaluated ``(x, f(x))`` pairs and, on each new best, fits a **local
+quadratic model** to the points nearest the incumbent (distance-weighted ridge
+least squares in box-normalised coordinates).  It then emits the model's
+trust-region-constrained Newton minimiser as the *first* refinement point — a
+curvature-aware step that follows the valley floor — while the remaining
+``new - 1`` points stay isotropic perturbations so exploration is preserved.
+When too few points are buffered, or the fit is not usable, every point falls
+back to the isotropic perturbation, so the heuristic degrades gracefully to its
+classic behaviour.  ``quadratic=False`` (the default) is byte-for-byte the
+historical heuristic — no buffer is kept and no model is ever fitted.
+
+Unlike :class:`~panobbgo.heuristics.lbfgsb.LBFGSB` (a subprocess-based
+finite-difference quasi-Newton descent) the model here is fitted **in process**
+from points the *rest of the portfolio* already evaluated, so it spends **zero**
+extra objective evaluations building its curvature estimate — the L-BFGS-B
+worker, by contrast, spends ``O(dim)`` evaluations per gradient.
 """
+
+import threading
 
 import numpy as np
 from panobbgo.analyzers.best import Best
 from panobbgo.core import Heuristic
+
+
+def fit_quadratic_step(
+    points: np.ndarray,
+    values: np.ndarray,
+    center: np.ndarray,
+    ranges: np.ndarray,
+    trust_radius: float,
+    ridge: float = 1e-2,
+    min_r2: float = 0.0,
+    max_points: int | None = None,
+) -> np.ndarray | None:
+    """Fit a local quadratic model and return a trust-region Newton step.
+
+    Fits ``f(x) ≈ b + gᵀu + ½ uᵀ H u`` (with ``u = (x - center) / ranges`` a
+    box-normalised offset) to the ``(points, values)`` sample by
+    distance-weighted ridge least squares, then returns the step
+    ``p`` (in *raw* coordinates, to be **added to** ``center``) that minimises
+    the model, clipped to a ball of radius ``trust_radius`` in normalised
+    space.  Returns ``None`` when no reliable step is available.
+
+    Working in normalised coordinates keeps the design matrix well conditioned
+    regardless of the box scale — crucial under the randomized battery's
+    log-uniform diagonal scaling, which is exactly the ill-conditioning a
+    curvature-aware step is meant to exploit.
+
+    Args:
+        points: ``(n, dim)`` array of evaluated points.
+        values: ``(n,)`` objective (penalty) values; non-finite rows dropped.
+        center: ``(dim,)`` incumbent the model is expanded around.
+        ranges: ``(dim,)`` per-dimension box widths (``> 0``); used to
+            normalise coordinates.
+        trust_radius: Maximum ‖p‖ in normalised units.  Must be ``> 0``.
+        ridge: Ridge (Tikhonov) strength on the non-intercept coefficients,
+            relative to the mean design-matrix scale.  Larger shrinks the
+            model toward flat (weaker, safer curvature).
+        min_r2: Minimum weighted coefficient of determination (``R²``) the
+            fitted model must achieve on its own sample to be trusted.  When
+            the local data is not well explained by a single quadratic — the
+            multimodal case, where the neighbourhood straddles several basins
+            — the ``R²`` is low and ``None`` is returned so the caller falls
+            back to isotropic exploration.  ``0.0`` (default) disables the
+            gate.  A valley (Rosenbrock) fits with ``R² ≈ 1``.
+        max_points: Cap on the nearest points used for the fit; defaults to
+            ``4 · n_features`` so the fit stays local and cheap.
+
+    Returns:
+        The raw-coordinate step ``p`` (shape ``(dim,)``), or ``None``.
+    """
+    points = np.asarray(points, dtype=float)
+    values = np.asarray(values, dtype=float)
+    center = np.asarray(center, dtype=float)
+    ranges = np.asarray(ranges, dtype=float)
+
+    if points.ndim != 2 or points.shape[0] == 0:
+        return None
+    dim = points.shape[1]
+    if center.shape[0] != dim or ranges.shape[0] != dim:
+        return None
+    if not np.isfinite(trust_radius) or trust_radius <= 0.0:
+        return None
+
+    finite = np.isfinite(values) & np.all(np.isfinite(points), axis=1)
+    points = points[finite]
+    values = values[finite]
+    if points.shape[0] == 0:
+        return None
+
+    safe_ranges = np.where(ranges > 0.0, ranges, 1.0)
+    u = (points - center) / safe_ranges  # (n, dim) normalised offsets
+
+    n_features = 1 + dim + dim * (dim + 1) // 2
+    if max_points is None:
+        max_points = 4 * n_features
+
+    # Keep the points nearest the incumbent so the model stays local.
+    dists = np.linalg.norm(u, axis=1)
+    order = np.argsort(dists)[:max_points]
+    u = u[order]
+    values = values[order]
+    dists = dists[order]
+
+    n = u.shape[0]
+    # Need at least enough points to estimate per-axis curvature; the ridge
+    # covers the (denser) cross terms when the sample is thin.
+    min_points = 2 * dim + 1
+    if n < min_points:
+        return None
+
+    # Design matrix: [1, u_i, u_i·u_j (i ≤ j)] in the same order the Hessian
+    # extraction below assumes.
+    triu_i, triu_j = np.triu_indices(dim)
+    quad = u[:, triu_i] * u[:, triu_j]  # (n, dim*(dim+1)/2)
+    phi = np.concatenate([np.ones((n, 1)), u, quad], axis=1)  # (n, n_features)
+
+    # Distance-rank weights (robust to scale): nearest point weight 1, then
+    # 1/2, 1/3, …  — mirrors the legacy QuadraticWlsModel weighting.
+    rank = np.argsort(np.argsort(dists))
+    w = 1.0 / (1.0 + rank)
+
+    phi_w = phi * w[:, None]
+    ata = phi.T @ phi_w  # weighted Gram matrix (n_features, n_features)
+    aty = phi_w.T @ values
+
+    # Per-column (standardization-equivalent) ridge: shrink each coefficient
+    # relative to its *own* column scale, leaving the intercept unpenalised.
+    # A single trace-based lambda would be dominated by the intercept column
+    # (whose scale is ~1) and would swamp the much smaller-scaled linear /
+    # quadratic columns, biasing the recovered minimiser badly.
+    reg_diag = np.diag(ata).copy()
+    reg_diag[0] = 0.0
+    try:
+        beta = np.linalg.solve(ata + ridge * np.diag(reg_diag), aty)
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(beta)):
+        return None
+
+    # Fit-quality gate: only trust the model where a single quadratic actually
+    # explains the local sample.  On a smooth valley R² ≈ 1; on a multimodal
+    # neighbourhood spanning several basins it is low, and we bail out so the
+    # caller keeps exploring isotropically instead of over-exploiting a bad
+    # model.
+    if min_r2 > 0.0:
+        pred = phi @ beta
+        wsum = w.sum()
+        wmean = float((w * values).sum() / wsum) if wsum > 0 else 0.0
+        ss_res = float((w * (values - pred) ** 2).sum())
+        ss_tot = float((w * (values - wmean) ** 2).sum())
+        if ss_tot <= 1e-30:
+            return None
+        r2 = 1.0 - ss_res / ss_tot
+        if r2 < min_r2:
+            return None
+
+    # Unpack gradient g and Hessian H of the model at the incumbent.
+    g = beta[1 : 1 + dim]
+    quad_coef = beta[1 + dim :]
+    hess = np.zeros((dim, dim))
+    for k, (i, j) in enumerate(zip(triu_i, triu_j)):
+        c = quad_coef[k]
+        if i == j:
+            hess[i, i] = 2.0 * c
+        else:
+            hess[i, j] = c
+            hess[j, i] = c
+
+    # Regularise the Hessian to positive definite so the Newton step is a
+    # descent direction even in indefinite (saddle) regions.
+    try:
+        eigval, eigvec = np.linalg.eigh(hess)
+    except np.linalg.LinAlgError:
+        return None
+    scale = max(np.max(np.abs(eigval)), 1e-8)
+    eig_floor = 1e-3 * scale
+    eigval = np.maximum(eigval, eig_floor)
+    hess_inv = eigvec @ np.diag(1.0 / eigval) @ eigvec.T
+
+    step_u = -hess_inv @ g  # normalised-space Newton step
+    if not np.all(np.isfinite(step_u)):
+        return None
+
+    # Trust region: never step further than the local data supports.  A
+    # quadratic fitted to a small cloud is only trustworthy *inside* that
+    # cloud; stepping beyond it is extrapolation, which blows up on strongly
+    # non-quadratic landscapes (e.g. Rosenbrock's quartic valley).  Cap the
+    # step at the smaller of the caller's ``trust_radius`` and the radius of
+    # the kept data cloud.
+    support_radius = float(np.max(dists))
+    eff_trust = min(trust_radius, support_radius)
+    if not np.isfinite(eff_trust) or eff_trust <= 0.0:
+        return None
+
+    norm = np.linalg.norm(step_u)
+    if norm <= 1e-12:
+        return None
+    if norm > eff_trust:
+        step_u = step_u * (eff_trust / norm)
+
+    return step_u * safe_ranges
 
 
 class Nearby(Heuristic):
@@ -54,6 +267,21 @@ class Nearby(Heuristic):
     - ``sensitivity_scale``: when sensitivity data is available, scale perturbations
       by dimension importance raised to this power (default: 1.0). Higher values focus
       more aggressively on important dimensions; 0.0 disables sensitivity scaling.
+    - ``quadratic``: when ``True``, keep a rolling buffer of recent evaluated
+      ``(x, f(x))`` pairs and, on each new best, emit the trust-region Newton
+      minimiser of a locally-fitted quadratic model as the first refinement
+      point (a curvature-aware step; see the module docstring).  The remaining
+      ``new - 1`` points stay isotropic perturbations.  ``False`` (default) is
+      byte-for-byte the classic behaviour — no buffer, no model.
+    - ``quadratic_trust``: trust-region radius for the quadratic step, as a
+      multiple of ``radius`` in per-axis box-normalised units (default: 2.0).
+      Only consulted when ``quadratic=True``.
+    - ``quadratic_min_r2``: minimum weighted ``R²`` the local quadratic model
+      must achieve to be trusted (default: 0.8).  Below it the step is skipped
+      and the point falls back to an isotropic perturbation — this is what
+      keeps the curvature step from over-exploiting on multimodal landscapes
+      whose neighbourhood straddles several basins.  Only consulted when
+      ``quadratic=True``.
     """
 
     def __init__(
@@ -64,16 +292,43 @@ class Nearby(Heuristic):
         new: int = 1,
         axes: str = "one",
         sensitivity_scale: float = 1.0,
+        quadratic: bool = False,
+        quadratic_trust: float = 2.0,
+        quadratic_min_r2: float = 0.8,
     ):
-        Heuristic.__init__(self, strategy, cap=cap, name="Nearby %.3f/%s" % (radius, axes))
+        if not isinstance(quadratic, bool):
+            raise ValueError(f"Nearby: quadratic must be a bool, got {quadratic!r}")
+        if not np.isfinite(quadratic_trust) or quadratic_trust <= 0.0:
+            raise ValueError(f"Nearby: quadratic_trust must be a positive finite float, got {quadratic_trust!r}")
+        if not np.isfinite(quadratic_min_r2) or not (0.0 <= quadratic_min_r2 <= 1.0):
+            raise ValueError(f"Nearby: quadratic_min_r2 must be a float in [0, 1], got {quadratic_min_r2!r}")
+        name = "Nearby %.3f/%s" % (radius, axes)
+        if quadratic:
+            name += "+quad"
+        Heuristic.__init__(self, strategy, cap=cap, name=name)
         self.radius = radius
         self.new = new
         self.axes = axes
         self.sensitivity_scale = sensitivity_scale
+        self.quadratic = quadratic
+        self.quadratic_trust = float(quadratic_trust)
+        self.quadratic_min_r2 = float(quadratic_min_r2)
         self._depends_on = [Best]
 
         # Importance scores from the Sensitivity analyzer — None until first update
         self._importance: np.ndarray | None = None
+
+        # Rolling buffer of recent evaluated (x, penalty-value) pairs, used only
+        # when ``quadratic`` is enabled.  Guarded by ``_hist_lock`` because the
+        # EventBus dispatches ``on_new_results`` (writer) and ``on_new_best``
+        # (reader) on separate threads.
+        self._hist_lock = threading.Lock()
+        self._hist_x: list[np.ndarray] = []
+        self._hist_f: list[float] = []
+        # Cap sized to comfortably hold a full quadratic fit's worth of points
+        # (n_features = 1 + dim + dim(dim+1)/2) with headroom for the nearest-
+        # point selection; resolved lazily on the first result batch.
+        self._hist_cap: int | None = None
 
     def on_new_sensitivity(self, importance: np.ndarray) -> None:
         """
@@ -142,6 +397,57 @@ class Nearby(Heuristic):
 
         return self.problem.project(new_x)
 
+    def _hist_capacity(self) -> int:
+        """Rolling-buffer size — lazily sized to hold a full quadratic fit."""
+        if self._hist_cap is None:
+            dim = self.problem.dim
+            n_features = 1 + dim + dim * (dim + 1) // 2
+            self._hist_cap = max(8 * dim, 4 * n_features, 64)
+        return self._hist_cap
+
+    def on_new_results(self, results) -> None:
+        """Accumulate recent ``(x, penalty-value)`` pairs for the quadratic fit.
+
+        A no-op unless ``quadratic`` is enabled, so ``quadratic=False`` keeps
+        the classic heuristic free of any per-result bookkeeping.
+        """
+        if not self.quadratic:
+            return
+        get_val = self.strategy.constraint_handler.get_penalty_value
+        cap = self._hist_capacity()
+        with self._hist_lock:
+            for result in results:
+                x = getattr(result, "x", None)
+                if x is None:
+                    continue
+                try:
+                    fx = float(get_val(result))
+                except (TypeError, ValueError):
+                    continue
+                self._hist_x.append(np.asarray(x, dtype=float))
+                self._hist_f.append(fx)
+            # Trim to the most recent ``cap`` entries.
+            overflow = len(self._hist_x) - cap
+            if overflow > 0:
+                del self._hist_x[:overflow]
+                del self._hist_f[:overflow]
+
+    def _quadratic_candidate(self, center: np.ndarray) -> np.ndarray | None:
+        """Return the projected trust-region Newton step around ``center``, or None."""
+        with self._hist_lock:
+            if len(self._hist_x) < 2 * self.problem.dim + 1:
+                return None
+            points = np.array(self._hist_x, dtype=float)
+            values = np.array(self._hist_f, dtype=float)
+        ranges = self.problem.ranges
+        # Trust radius in normalised units: a Newton step up to ``quadratic_trust``
+        # times a full isotropic perturbation (magnitude ``radius`` per axis).
+        trust_radius = self.quadratic_trust * self.radius * np.sqrt(self.problem.dim)
+        step = fit_quadratic_step(points, values, center, ranges, trust_radius, min_r2=self.quadratic_min_r2)
+        if step is None:
+            return None
+        return self.problem.project(center + step)
+
     def on_restart(self, center: np.ndarray, reason: str) -> None:
         """
         Respond to a restart event by generating points around the new center.
@@ -160,6 +466,11 @@ class Nearby(Heuristic):
         """
         React to a new best result by generating nearby candidate points.
 
+        When ``quadratic`` is enabled and a local model can be fitted, the first
+        emitted point is the trust-region Newton minimiser of that model (a
+        curvature-aware step); the remaining points stay isotropic perturbations
+        so exploration is preserved.
+
         Args:
             best: The new best :class:`~panobbgo.lib.Result`.
         """
@@ -167,5 +478,11 @@ class Nearby(Heuristic):
         if x is None:
             return
         self.clear_output()
-        ret = [self._make_perturbation(x) for _ in range(self.new)]
+        ret: list[np.ndarray] = []
+        if self.quadratic:
+            step = self._quadratic_candidate(x)
+            if step is not None:
+                ret.append(step)
+        while len(ret) < self.new:
+            ret.append(self._make_perturbation(x))
         self.emit(ret)

@@ -413,6 +413,32 @@ The harness is the measurement substrate for an autonomous
     (+0.042) at full budget on the curved-valley battery.  §7.3-freeze
     compliant (improves an existing heuristic; better default kwargs for an
     existing catalog candidate — no new arms).
+*   Curvature-aware quadratic local step for `Nearby` — **shipped 2026-07-08**,
+    see `panobbgo.heuristics.nearby.Nearby` (`quadratic` / `quadratic_trust` /
+    `quadratic_min_r2` kwargs) and the module-level
+    `panobbgo.heuristics.nearby.fit_quadratic_step`.  The derivative-free
+    sibling of the L-BFGS-B warm restart: when `quadratic=True`, `Nearby`
+    keeps a rolling buffer of recently evaluated `(x, f(x))` pairs and, on
+    each new best, fits a distance-weighted ridge quadratic to the nearest
+    points in box-normalised coordinates and emits its trust-region Newton
+    minimiser as the first of its `new` points (the rest stay isotropic
+    perturbations for exploration), gated on a weighted-`R² ≥ 0.8`
+    fit-quality check so it fires only on genuinely quadratic-like
+    neighbourhoods (smooth valleys) and falls back to isotropic exploration
+    on multimodal neighbourhoods.  Because the model is fitted **in process**
+    from points the rest of the portfolio already evaluated it costs **zero**
+    extra objective evaluations.  Isotropic perturbation is worst exactly
+    under ill-conditioning — which the randomized battery injects into every
+    problem via log-uniform diagonal scaling + Haar rotation — so the six
+    Rewarding-family seed specs (`Rewarding_Diverse` / `Rewarding_RegionUCB` /
+    `UCB_Diverse` / `Thompson_Diverse` / `Loop_RegionUCB` / `Loop_Restart`)
+    that ship `quadratic=True` roughly double the randomized-battery composite
+    there (paired `--randomize` A/B on `Rewarding_Diverse`: 0.0339 → 0.0612,
+    `statistical_accept` ACCEPT Δ=+0.0274 95% CI `[+0.0057, +0.0521]`).
+    `quadratic=False` (default) is byte-identical to the classic heuristic.
+    §7.3-freeze compliant (improves an existing heuristic; better default
+    kwargs for existing specs — no new arms).  See the 2026-07-08 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 *   Hold-out validation set — **shipped** (§10), see
     `panobbgo.self_improve.LoopHoldoutRecord` and the
     `--holdout-base-seed`, `--holdout-iterations`,

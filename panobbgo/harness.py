@@ -323,7 +323,23 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # bandit now explores a productive ~2.5× window around
                 # the new seed.  See the 2026-06-28 entry in
                 # ``planning/SELF_IMPROVEMENT_LOG.md``.
-                (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+                #
+                # ``quadratic=True`` (2026-07-08) turns the local refinement
+                # step curvature-aware: on each new best, when a local quadratic
+                # fits the recent evaluated points well (weighted R² ≥ 0.8), the
+                # first of the three emitted points is the trust-region Newton
+                # minimiser of that model instead of an isotropic perturbation.
+                # Isotropic perturbation is worst exactly under ill-conditioning,
+                # which the randomized battery injects into *every* problem via
+                # log-uniform diagonal scaling + Haar rotation — so a
+                # curvature-aware step wins broadly there.  Paired randomized
+                # A/B on this exact spec (quick registry, --randomize, reps 12,
+                # iter 0): composite 0.0339 → 0.0612, statistical_accept ACCEPT
+                # Δ=+0.0274 95% CI [+0.0057, +0.0521], worst-pair −0.0178.  Over
+                # 20 randomized iterations × 2 base_seeds the mean Δ is ≈ +0.075
+                # (18/20 iterations positive).  See the 2026-07-08 entry in
+                # ``planning/SELF_IMPROVEMENT_LOG.md``.
+                (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
                 (Center, {}),
                 (NelderMead, {}),
             ],
@@ -385,7 +401,11 @@ def _make_standard_strategies() -> List[StrategySpec]:
             # the rationale comment there.
             (Sobol, {"n": 16, "scramble": False}),
             (Random, {}),
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+            # ``quadratic=True`` curvature-aware refinement — same codify as
+            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
+            # randomized battery.  See that spec above and the 2026-07-08 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
             (Center, {}),
             (NelderMead, {}),
             # Explicit kwargs match the constructor defaults
@@ -409,7 +429,11 @@ def _make_standard_strategies() -> List[StrategySpec]:
             # ``Rewarding_Diverse``; the Nearby refinement step plays the
             # same role here under the UCB bandit as under the rewarding
             # one.  See the rationale comment there.
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+            # ``quadratic=True`` curvature-aware refinement — same codify as
+            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
+            # randomized battery.  See that spec above and the 2026-07-08 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
@@ -506,7 +530,11 @@ def _make_full_strategies() -> List[StrategySpec]:
             # ``radius=0.124`` matches the 2026-06-28 codify on
             # ``Rewarding_Diverse`` (same heuristic mix shape); see the
             # rationale comment there.
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+            # ``quadratic=True`` curvature-aware refinement — same codify as
+            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
+            # randomized battery.  See that spec above and the 2026-07-08 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
             (LatinHypercube, {"div": 4}),
             (NelderMead, {}),
         ],
@@ -727,7 +755,11 @@ def _make_loop_strategies() -> List[StrategySpec]:
             # plus RegionUCB).  See the rationale comment there.
             (Sobol, {"n": 16, "scramble": False}),
             (Random, {}),
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+            # ``quadratic=True`` curvature-aware refinement — same codify as
+            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
+            # randomized battery.  See that spec above and the 2026-07-08 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
             (Center, {}),
             (NelderMead, {}),
             (RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25}),
@@ -784,7 +816,11 @@ def _make_loop_strategies() -> List[StrategySpec]:
             (LatinHypercube, {"div": 4}),
             (CMAES, {"sigma0": 0.3}),
             (Random, {}),
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3}),
+            # ``quadratic=True`` curvature-aware refinement — same codify as
+            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
+            # randomized battery.  See that spec above and the 2026-07-08 entry in
+            # ``planning/SELF_IMPROVEMENT_LOG.md``.
+            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
             (NelderMead, {}),
         ],
         analyzers=[

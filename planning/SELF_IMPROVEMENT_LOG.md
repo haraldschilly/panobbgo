@@ -17,6 +17,94 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-08 — Curvature-aware quadratic local step for the `Nearby` refinement heuristic
+
+* **What** — Added an in-process curvature-aware quadratic step to
+  :class:`panobbgo.heuristics.nearby.Nearby` (constructor kwargs
+  ``quadratic: bool = False`` / ``quadratic_trust: float = 2.0`` /
+  ``quadratic_min_r2: float = 0.8``).  When ``quadratic=True`` the heuristic
+  keeps a rolling buffer of recently evaluated ``(x, f(x))`` pairs (populated
+  by a new ``on_new_results`` handler, guarded by a lock because the EventBus
+  dispatches ``on_new_results`` and ``on_new_best`` on separate threads) and,
+  on each new best, fits a **distance-weighted ridge quadratic** to the
+  nearest points in box-normalised coordinates via the new module-level
+  :func:`panobbgo.heuristics.nearby.fit_quadratic_step` and emits its
+  **trust-region-constrained Newton minimiser** as the *first* of the
+  heuristic's ``new`` points (the remaining ``new − 1`` stay isotropic
+  perturbations so exploration is preserved).  ``quadratic=False`` (the
+  default) is byte-for-byte the historical heuristic — no buffer, no model.
+
+  The fit is hardened for the portfolio setting: per-column
+  (standardization-equivalent) ridge so the poorly-scaled quadratic columns
+  are not swamped by the intercept; positive-definite regularisation of the
+  Hessian so the Newton step is always a descent direction even at saddles;
+  a **data-support trust region** (never step beyond the radius of the local
+  data cloud — a quadratic is only trustworthy where it interpolates, not
+  where it extrapolates); and a **weighted-R² fit-quality gate**
+  (``min_r2 = 0.8``) that returns ``None`` when a single quadratic does not
+  explain the local sample, so the step fires only on genuinely
+  quadratic-like neighbourhoods (smooth valleys) and falls back to isotropic
+  exploration on multimodal neighbourhoods spanning several basins.
+
+  The six Rewarding-family seed specs whose ``Nearby`` plays the standard
+  ``radius=0.124, axes="all", new=3`` local-refinement role now ship
+  ``quadratic=True`` in :mod:`panobbgo.harness`: ``Rewarding_Diverse``
+  (quick), ``Rewarding_RegionUCB`` / ``UCB_Diverse`` / ``Thompson_Diverse``
+  (standard / full), and ``Loop_RegionUCB`` / ``Loop_Restart`` (loop
+  registry — measured nightly by the cron).  The tighter GP-specialised
+  ``Nearby(radius=0.05)`` entries are left untouched.
+
+* **Why** — Isotropic perturbation is an *un*-informed local move: on
+  ill-conditioned valleys most random perturbations of the best point step
+  *across* the narrow valley (uphill) rather than *along* it.  The randomized
+  battery — the self-improvement loop's own optimization + anti-overfit
+  metric — injects log-uniform diagonal scaling and Haar rotation into
+  *every* problem, so it systematically stresses exactly the regime where a
+  curvature-aware (per-model Newton) step wins.  Unlike the L-BFGS-B warm
+  restart (2026-07-07), the quadratic model is fitted from points the *rest
+  of the portfolio* already evaluated, so it spends **zero** extra objective
+  evaluations building its curvature estimate.  Graduates the top-priority
+  §7.3-freeze-compliant idea from *Next iteration ideas* (*improve an
+  existing heuristic*; better default kwargs for existing specs — no new
+  catalog arms).
+
+* **Measured impact** — paired ``--randomize`` A/B on the exact
+  ``Rewarding_Diverse`` quick-registry spec:
+
+  | metric | value |
+  |---|---|
+  | composite (reps 12, iter 0) | 0.0339 → 0.0612 |
+  | ``statistical_accept`` | **ACCEPT** Δ=+0.0274, 95% CI ``[+0.0057, +0.0521]`` |
+  | worst-pair regression | −0.0178 (> −eps_regress 0.05) |
+  | mean Δ over 20 iters × 2 base_seeds | ≈ **+0.075** (18/20 positive) |
+
+  Per randomized family (iter 0): DeJong +0.167, Rosenbrock +0.070, Ackley
+  −0.018 (tiny), Rastrigin unchanged.  On the *fixed* natural-conditioning
+  battery (Rosenbrock/Styblinski at default conditioning) the effect is
+  net-neutral within noise and ``Rosenbrock_5D`` stays at composite 0 (the
+  binary-success metric does not register "getting closer") — the win is
+  specific to the ill-conditioned regime, which is what the loop optimizes
+  against.  Standard / full / loop siblings carry the identical codify and
+  are queued for nightly re-validation (the anti-cherry-pick guard + §6.4
+  confirm gate protect the loop specs).
+
+* **Tests** — 21 new tests in ``tests/test_heuristic_nearby_quadratic.py``:
+  ``fit_quadratic_step`` recovery on isotropic / anisotropic / Rosenbrock-like
+  local models, robustness guards (too-few-points, non-finite values,
+  trust-region clipping, indefinite-Hessian descent), the R²-gate accept /
+  reject behaviour, and the ``Nearby(quadratic=…)`` wiring (buffer
+  accumulation + cap, curvature-aware first point, byte-identical disabled
+  path).  Full ``Nearby`` suite (32) + harness suites (130) + loop-registry
+  suite green; ruff + pyright clean.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: a full-quadratic
+  (vs the current ridge-regularised) fit needs ``O(d²)`` local points, so in
+  high dimensions a *diagonal-plus-low-rank* Hessian model may recover the
+  valley curvature from fewer samples; wiring ``quadratic=True`` into the
+  ``Loop_LocalSearch`` seed once the loop confirms the Rewarding-family
+  siblings; and a categorical ``Nearby.quadratic`` catalog rule (blocked by
+  the §7.3 freeze until the loop resolves its current arms).
+
 ### 2026-07-07 — Warm-started memetic restarts for the L-BFGS-B local polish (curved-valley class)
 
 * **What** — Added a ``warm_start`` mode to
@@ -8351,13 +8439,21 @@ was the direct motivation: warm restarts fix the wrong restart geometry.
 
 **Still open — fully closing the ``Rosenbrock_5D`` gap:**
 
-* **Curvature-aware quadratic warm step** — L-BFGS-B already builds a
-  finite-difference curvature estimate, but a lighter local model (fit a
-  mini-``QuadraticWLS`` / trust-region model to the recent best points and
-  propose its minimiser) could crack the 5D valley in fewer evaluations
-  than finite-difference gradients spend, and would help the derivative-free
-  ``Nearby`` refinement step too.  The 2026-07-05 entry's recommended
-  successor to the rejected straight pattern-move.
+* ~**Curvature-aware quadratic warm step**~ — **shipped 2026-07-08** for the
+  derivative-free ``Nearby`` refinement half of this note (see that dated
+  entry): ``Nearby.quadratic`` fits a distance-weighted ridge quadratic to the
+  recent evaluated points and emits its trust-region Newton minimiser, gated on
+  a weighted-R² fit-quality check, at zero extra objective evaluations.
+  Statistical-accept ACCEPT on the randomized battery (roughly doubles the
+  composite there; +0.0274 Δ, 95% CI ``[+0.0057, +0.0521]`` on
+  ``Rewarding_Diverse``).  **Still open** — the *5D valley* half: the current
+  fit is ridge-regularised (cross terms shrunk toward zero) so it recovers
+  per-axis curvature cheaply but not the strong coordinate *coupling* of a 5D
+  Rosenbrock valley; a full quadratic needs ``O(d²)`` local points.  A
+  **diagonal-plus-low-rank** Hessian model (capture the dominant valley
+  direction with a rank-1 or rank-2 correction) may recover the coupling from
+  far fewer samples than a full quadratic, and remains the recommended
+  successor for the Rosenbrock_5D gap.
 * **Wire ``warm_start`` into the ``Loop_LocalSearch`` seed** — the 2026-07-07
   ship only flipped the *structural-catalog* candidate (which the loop's
   bandit measures live).  The seed spec's own LBFGSB stays cold pending a

@@ -17,6 +17,74 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-09 — Flip the nightly default metric to AOCC (V2 §9.5 step 2 — closes §2.1 "no metric resolution")
+
+* **What** — Flipped the `self_improve_nightly.yml` scheduled default
+  `metric` from `composite` to `aocc`, and routed each metric to its own
+  append-only ledger so the two scales never contaminate one another.
+  `aocc` runs the IOH/MA-BBOB anytime metric (already shipped 2026-07-04 as
+  the `workflow_dispatch` A/B lever — :meth:`SelfImprover._measure_aocc`);
+  every objective evaluation moves AOCC continuously, so there is no Δ=0
+  dead zone.  The scheduled cron now measures on the IOH battery by
+  default; `composite` remains selectable via `workflow_dispatch` for an
+  A/B against the frozen composite ladder.
+
+  Ledger routing: a new **Resolve ledger path** workflow step exports
+  `LEDGER` to `$GITHUB_ENV` from `METRIC` — `aocc` →
+  `planning/self_improve_ledger_aocc.jsonl` (fresh, canonical for the new
+  regime); `composite` → the historical `planning/self_improve_ledger.jsonl`
+  (its 660-record durability history preserved, untouched).  The run /
+  summary / commit / artifact steps all reference `$LEDGER`, so composite
+  deltas (~0.003 scale) and aocc deltas (~0.3 scale) never mix in
+  codify-scan's pooled CI or the graded bandit reward.  No Python source
+  changed — the `--metric aocc` code path, the IOH worker venv sync, and
+  the vacuous-hold-out handling under aocc were all already in place.
+
+* **Why** — §2.1 diagnosed metric resolution as the loop's binding
+  constraint: "Every symptom is downstream of (1)."  On the randomized
+  composite quick battery the median seed score is floored near zero and a
+  large fraction of mutations measure Δ = exactly 0.0000, so accepts are
+  upward noise spikes and the bandit is starved of signal.  AOCC is
+  *anytime and continuous* — it is the V2 answer §9.1 called for.  The
+  `workflow_dispatch` A/B mechanism has been in place since 2026-07-04; the
+  only queued lever left (§9.4 / §9.5 step 2) was running the A/B and, if
+  aocc resolves better, flipping the default.  This entry does exactly that.
+
+* **Measured impact** — in-session quick-mode A/B (the exact scheduled
+  regime: `--registry loop --adaptive --structural
+  --structural-per-class-arms`), aocc vs the real production composite
+  ledger:
+
+  | metric | median seed score | Δ=0 rate | accept rate |
+  |---|---|---|---|
+  | composite (660 production iters) | **0.036** (floored, well below §11.1's 0.3–0.6 band) | 8.0% (`|Δ|<1e-12`) | 3.2% |
+  | aocc (fresh 20-iter loop, base_seed 42) | **0.330** (inside §11.1's responsive band) | **0.0%** | 35% |
+
+  AOCC meets V2 success criterion §11.1 (median seed score in the metric's
+  responsive range; exactly-zero-delta iterations < 10%); composite does
+  not.  The loop under aocc *makes decisions* (7 accepts in 20 iters,
+  including live `add_/drop_heuristic` structural ops) instead of stalling
+  on a floored, mostly-zero-delta signal.  The full scheduled command
+  (20 iter, quick, `--confirm-accepts`, `--holdout-base-seeds 7,1234`)
+  runs end-to-end in ~8 min — comfortably under the 90-min cap.
+
+* **Tests** — no Python source changed, so the pytest / ruff / pyright
+  suites are unaffected; no test asserts the workflow's metric default or
+  ledger path.  Validation was operational: the workflow YAML parses, and
+  a 3-iteration smoke run of the *exact* flipped invocation (fresh
+  non-existent ledger + `--adaptive-prime-from-ledger`
+  `--prime-include-archives` + `--confirm-accepts` + hold-out seeds)
+  completes cleanly with per-iteration AOCC scores in the responsive band.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: scope the bandit
+  archive priming per-metric (today an aocc run's `--prime-include-archives`
+  still replays the composite archives under `planning/done/` — soft
+  cross-metric evidence that washes out but is not clean); point the daily
+  codify-scan routine at the active `..._aocc.jsonl` ledger; and, once a
+  handful of aocc nights accumulate, re-run codify-scan on the aocc ledger
+  to confirm the persistence pipeline (§11 criterion 2) produces PRs on the
+  higher-resolution signal.
+
 ### 2026-07-08 — Curvature-aware quadratic local step for the `Nearby` refinement heuristic
 
 * **What** — Added an in-process curvature-aware quadratic step to
@@ -8424,6 +8492,36 @@ a dated entry above when shipped.
 > already covered by an open PR, finish/merge that PR instead of opening
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
+
+#### AOCC-regime follow-ups (after the 2026-07-09 metric flip)
+
+The nightly default flipped to `--metric aocc` on 2026-07-09 (see the
+dated entry above).  Three clean-up / consolidation tickets follow:
+
+* **Per-metric archive priming.** An aocc nightly run passes
+  `--prime-include-archives`, which globs
+  `planning/done/self_improve_ledger_*.jsonl` — today that set is the
+  *composite* archives, so the aocc bandit warms from cross-metric
+  evidence.  Mutation-arm *identity* is metric-independent (the Beta
+  posterior keys on `(class, param, rule_kind)`), so this is only a soft
+  reward-scale mismatch that washes out as aocc records accumulate — but
+  it is not clean.  Scope the archive glob (or the `--prime-archive-dir`)
+  to the active metric so aocc primes only from aocc archives.
+* **Point the daily codify routine at the active ledger.** `summary` and
+  `codify-scan` still default to `planning/self_improve_ledger.jsonl`
+  (the now-frozen composite ledger) for backwards compatibility; under
+  the aocc default the daily routine must pass
+  `--ledger planning/self_improve_ledger_aocc.jsonl` explicitly.  A small
+  quality-of-life follow-up is to have the CLI auto-select the aocc
+  ledger when it exists (or add a `--metric` selector that resolves the
+  path), so the daily routine can't accidentally scan the stale ledger.
+* **Re-confirm the persistence pipeline on the higher-resolution
+  signal.** Once ~3–5 aocc nights accumulate, re-run
+  `codify-scan --apply-top --open-pr` against the aocc ledger and confirm
+  it produces codify PRs (§11 criterion 2).  AOCC's 35%-vs-3%
+  accept rate should surface actionable `(class, param, direction)`
+  consensus groups far faster than composite did — the whole point of
+  the flip.
 
 #### Warm-started curvature-aware local polish for the curved-valley class (first layer shipped 2026-07-07)
 

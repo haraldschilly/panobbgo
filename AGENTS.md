@@ -952,6 +952,28 @@ The harness is the measurement substrate for an autonomous
     (no new arms — better default kwargs for existing candidates + a
     heuristic robustness fix).  See the 2026-07-05 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
+*   **2026-07-09 — nightly default flipped to `--metric aocc`** —
+    closes V2 §9.5 step 2 (and the last lever of step 5).  The
+    `self_improve_nightly.yml` scheduled default `metric` flipped
+    from `composite` to `aocc` after an in-mode (quick) A/B showed
+    aocc **clearly** out-resolves composite: median seed score
+    **0.33** (inside §11.1's 0.3–0.6 responsive band) with a **0%**
+    Δ=0 rate, vs composite's floored **0.036** and 8% Δ=0 rate on the
+    660-record production ledger.  The flip **routes each metric to
+    its own ledger** so composite deltas (~0.003 scale) and aocc
+    deltas (~0.3 scale) never mix in codify-scan pooling or the graded
+    bandit reward: aocc → `planning/self_improve_ledger_aocc.jsonl`
+    (fresh canonical ledger), composite → the historical
+    `planning/self_improve_ledger.jsonl` (preserved, grows only on a
+    `composite` A/B dispatch).  No Python source changed — the
+    `--metric aocc` code path, the ioh_worker venv sync, and the
+    vacuous-hold-out handling under aocc were all already in place.
+    **Daily-routine note:** the active ledger under the aocc default is
+    `planning/self_improve_ledger_aocc.jsonl` — pass it explicitly to
+    `summary` / `codify-scan` (they still default to the composite
+    path).  See the 2026-07-09 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+
 *   **2026-07-04 — `--metric aocc` workflow_dispatch A/B mechanism
     in the nightly cron** — closes V2 §9.5 step 2 (the last
     remaining implementation-order lever).  Adds
@@ -1281,22 +1303,25 @@ the IOH/MA-BBOB anytime metric instead of `composite_score`.  Under
 uv run python scripts/self_improve.py run --iterations 5 --metric aocc
 ```
 
-The nightly cron accepts the same regime via a `workflow_dispatch`
-`metric` input (shipped 2026-07-04, V2 §9.5 step 2):
+The nightly cron runs this regime **by default** since 2026-07-09
+(V2 §9.5 step 2, flipped from `composite` after the resolution A/B).
+A `composite` A/B run is still available via `workflow_dispatch`:
 
 ```
 Actions → Nightly Self-Improvement Loop → Run workflow →
-  metric = aocc
+  metric = composite
 ```
 
-Scheduled runs default to `composite` (byte-identical to the
-pre-2026-07-04 cron so the trend-table `seed_score` column stays
-comparable across the transition); manual dispatch with
-`metric=aocc` runs the loop through the isolated ioh_worker
-subprocess against the mode-mapped IOH battery.  See the
-2026-07-04 entry in `planning/SELF_IMPROVEMENT_LOG.md` for the
-V2 §2.1 "no metric resolution" rationale and the local
-smoke-test evidence.
+Each metric writes its own ledger so the two delta scales never mix:
+the scheduled aocc regime appends to
+`planning/self_improve_ledger_aocc.jsonl` (the **active** ledger for
+the daily codify routine — pass it explicitly to `summary` /
+`codify-scan`, which still default to the composite path); a
+`composite` dispatch appends to the historical, now-frozen
+`planning/self_improve_ledger.jsonl`.  See the 2026-07-09 entry in
+`planning/SELF_IMPROVEMENT_LOG.md` for the V2 §2.1 "no metric
+resolution" rationale and the A/B evidence (aocc median seed score
+0.33 / 0% Δ=0 vs composite 0.036 / 8% Δ=0).
 
 ## CI/CD and Testing
 

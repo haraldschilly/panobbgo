@@ -2,6 +2,42 @@
 
 ## Recent Improvements (continued)
 
+### Flip the nightly default metric to AOCC (V2 §9.5 step 2 — closes §2.1) — 2026-07-09
+- [x] **Metric flip** — flipped the `self_improve_nightly.yml` scheduled
+      default `metric` from `composite` to `aocc` (the IOH/MA-BBOB anytime
+      metric).  The `--metric aocc` code path, the ioh_worker venv sync, and
+      the vacuous-hold-out handling under aocc were all already in place
+      (shipped 2026-07-04 as the `workflow_dispatch` A/B lever) — this change
+      only flips the default and separates the ledgers.  No Python source
+      changed.
+- [x] **Metric-separated ledgers** — added a *Resolve ledger path* workflow
+      step that routes each metric to its own append-only ledger so composite
+      deltas (~0.003 scale) and aocc deltas (~0.3 scale) never mix in
+      codify-scan pooling or the graded bandit reward: `aocc` →
+      `planning/self_improve_ledger_aocc.jsonl` (fresh canonical ledger),
+      `composite` → the historical `planning/self_improve_ledger.jsonl`
+      (660-record durability history preserved, grows only on a `composite`
+      A/B dispatch).  Threaded `$LEDGER` through the run / summary / commit /
+      artifact steps.
+- [x] **Measured impact** — in-mode (quick) A/B in the exact scheduled regime:
+      aocc median seed score **0.33** (inside §11.1's 0.3–0.6 responsive band),
+      **0% Δ=0 rate**, 35% accept rate over a 20-iter loop, vs composite's
+      floored **0.036** median, 8% Δ=0 rate, 3.2% accept rate on the
+      660-record production ledger.  AOCC meets §11.1 resolution; composite
+      does not — exactly the §2.1 "no metric resolution" diagnosis, now
+      resolved.
+- [x] **Validation** — no tests assert the workflow's metric default or
+      ledger path, so the pytest / ruff / pyright suites are unaffected;
+      workflow YAML parses; a 3-iteration smoke run of the exact flipped
+      invocation (fresh non-existent ledger + `--adaptive-prime-from-ledger`
+      `--prime-include-archives` `--confirm-accepts` + hold-out seeds)
+      completes cleanly with AOCC scores in the responsive band.
+- [x] **Docs** — dated entries + follow-up ideas in
+      `planning/SELF_IMPROVEMENT_LOG.md`; §2.1 / §9.4 / §9.5 step 2 / §12.1
+      updates in `planning/SELF_IMPROVEMENT_LOOP.md`; `AGENTS.md` bullet +
+      usage section; `doc/source/guide.rst` and `guide_benchmarking.rst`; this
+      entry.
+
 ### Curvature-aware quadratic local step for the `Nearby` heuristic — 2026-07-08
 - [x] **Heuristic improvement** — added `quadratic` / `quadratic_trust` /
       `quadratic_min_r2` kwargs to `panobbgo/heuristics/nearby.py::Nearby` plus

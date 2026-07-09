@@ -1,195 +1,34 @@
-Ledger:        planning/self_improve_ledger.jsonl
-Iterations:    660  (decided=660, skipped=0, no-op=32)
-Accepts:       21  (3.3% of informative)
-Confirm-rej:   5  (19.2% of screening accepts overturned)
-Guards:        96  (rollbacks=45, total pops=8)
-Hold-outs:     50  (overfit=0, vacuous=35)
-Best Δ seen:   +0.0703
+Ledger:        planning/self_improve_ledger_aocc.jsonl
+Iterations:    20  (decided=20, skipped=0, no-op=0)
+Accepts:       2  (10.0% of informative)
+Confirm-rej:   3  (60.0% of screening accepts overturned)
+Guards:        2  (rollbacks=0, total pops=0)
+Hold-outs:     2  (overfit=0, vacuous=0)
+Best Δ seen:   +0.0192
 Accepted changes:
-  iter=3  Δ=+0.0667  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.08274863309985858
-  iter=17  Δ=+0.0461  Rewarding_Diverse/Restart.: None -> None
-  iter=8  Δ=+0.0317  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
-  iter=16  Δ=+0.0678  Rewarding_Diverse/Nearby.radius: 0.12310483516930887 -> 0.13525714217808682
-  iter=3  Δ=+0.0333  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.13468064722991419
-  iter=8  Δ=+0.0239  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
-  iter=8  Δ=+0.0294  Rewarding_Diverse/Nearby.radius: 0.1 -> 0.12310483516930887
-  iter=5  Δ=+0.0281  Loop_LocalSearch/LBFGSB.max_starts: 5 -> 7
-  iter=9  Δ=+0.0224  Loop_Restart/Restart.patience: 20 -> 30
-  iter=10  Δ=+0.0229  Loop_DE_Family/NLSHADE_LBC.p_F_final: 1.5 -> 1.8694623911942982
-  iter=0  Δ=+0.0143  Loop_DE_Family/LSHADE_EpSin.mu_freq_init: 0.5 -> 0.5666560375387808
-  iter=13  Δ=+0.0273  Loop_DE_Family/LSHADE.p_best_end: 0.055 -> 0.13493842867285713
-  iter=1  Δ=+0.0511  Loop_LocalSearch/LatinHypercube.: None -> None
-  iter=14  Δ=+0.0286  Loop_DE_Family/NLSHADE_LBC.: None -> None
-  iter=3  Δ=+0.0254  Loop_LocalSearch/COBYQA.scale: True -> False
-  iter=13  Δ=+0.0194  Loop_RegionUCB/RegionUCB.gauss_fraction: 0.5 -> 0.8422414449499556
-  iter=16  Δ=+0.0327  Loop_LocalSearch/LatinHypercube.div: 4 -> 3
-  iter=8  Δ=+0.0300  Loop_DE_Family/NLSHADE_RSP.NP_init: 15 -> 25
-  iter=12  Δ=+0.0151  Loop_Restart/CMAES.sigma0: 0.3 -> 0.24206155330118695
-  iter=13  Δ=+0.0471  Loop_LocalSearch/LatinHypercube.: None -> None
-  iter=5  Δ=+0.0435  Loop_DE_Family/NLSHADE_RSP.NP_init: 15 -> 10
-Guard rollbacks:
-  iter=4  pops=1  score=0.0306 vs stored 0.0811; new top iter=-1
-  iter=9  pops=0  score=0.0256 vs stored 0.0794; new top iter=-1
-  iter=14  pops=0  score=0.0289 vs stored 0.0794; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0794; new top iter=-1
-  iter=9  pops=0  score=0.0139 vs stored 0.0633; new top iter=-1
-  iter=14  pops=0  score=0.0067 vs stored 0.0633; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0633; new top iter=-1
-  iter=4  pops=0  score=0.0228 vs stored 0.0722; new top iter=-1
-  iter=9  pops=0  score=0.0383 vs stored 0.0722; new top iter=-1
-  iter=14  pops=0  score=0.0306 vs stored 0.0722; new top iter=-1
-  iter=19  pops=0  score=0.0156 vs stored 0.0722; new top iter=-1
-  iter=4  pops=0  score=0.0317 vs stored 0.0722; new top iter=-1
-  iter=9  pops=0  score=0.0322 vs stored 0.0722; new top iter=-1
-  iter=14  pops=0  score=0.0289 vs stored 0.0722; new top iter=-1
-  iter=19  pops=1  score=0.0111 vs stored 0.1000; new top iter=-1
-  iter=4  pops=0  score=0.0339 vs stored 0.0694; new top iter=-1
-  iter=19  pops=2  score=0.0178 vs stored 0.0706; new top iter=-1
-  iter=4  pops=0  score=0.0317 vs stored 0.0728; new top iter=-1
-  iter=9  pops=0  score=0.0383 vs stored 0.0728; new top iter=-1
-  iter=14  pops=0  score=0.0067 vs stored 0.0728; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0728; new top iter=-1
-  iter=4  pops=0  score=0.0333 vs stored 0.0794; new top iter=-1
-  iter=9  pops=0  score=0.0328 vs stored 0.0794; new top iter=-1
-  iter=14  pops=0  score=0.0122 vs stored 0.0794; new top iter=-1
-  iter=19  pops=0  score=0.0122 vs stored 0.0794; new top iter=-1
-  iter=4  pops=0  score=0.0344 vs stored 0.0717; new top iter=-1
-  iter=9  pops=0  score=0.0317 vs stored 0.0717; new top iter=-1
-  iter=14  pops=0  score=0.0289 vs stored 0.0717; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
-  iter=4  pops=0  score=0.0233 vs stored 0.0717; new top iter=-1
-  iter=9  pops=0  score=0.0256 vs stored 0.0717; new top iter=-1
-  iter=14  pops=0  score=0.0067 vs stored 0.0717; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
-  iter=19  pops=1  score=0.0111 vs stored 0.0511; new top iter=-1
-  iter=4  pops=0  score=0.0233 vs stored 0.0711; new top iter=-1
-  iter=9  pops=0  score=0.0383 vs stored 0.0711; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0589; new top iter=-1
-  iter=4  pops=0  score=0.0089 vs stored 0.0717; new top iter=-1
-  iter=14  pops=1  score=0.0317 vs stored 0.0550; new top iter=-1
-  iter=4  pops=0  score=0.0322 vs stored 0.0717; new top iter=-1
-  iter=9  pops=0  score=0.0244 vs stored 0.0717; new top iter=-1
-  iter=14  pops=0  score=0.0089 vs stored 0.0717; new top iter=-1
-  iter=19  pops=0  score=0.0111 vs stored 0.0717; new top iter=-1
-  iter=19  pops=1  score=0.0330 vs stored 0.0722; new top iter=-1
-  iter=9  pops=1  score=0.0270 vs stored 0.0800; new top iter=-1
+  iter=12  Δ=+0.0092  Rewarding_Restart/Restart.: None -> None
+  iter=19  Δ=+0.0192  RoundRobin_Random/NLSHADE_LBC.: None -> None
 Confirm rejects (§6.4 same-night gate):
-  iter=9  screen_Δ=+0.0324  confirm_Δ=-0.0054  pooled_Δ=+0.0005  CI=[-0.0152,+0.0173]
-  iter=13  screen_Δ=+0.0114  confirm_Δ=-0.0137  pooled_Δ=+0.0006  CI=[-0.0066,+0.0075]
-  iter=19  screen_Δ=+0.0379  confirm_Δ=-0.0273  pooled_Δ=-0.0004  CI=[-0.0196,+0.0172]
-  iter=14  screen_Δ=+0.0283  confirm_Δ=-0.0225  pooled_Δ=-0.0000  CI=[-0.0153,+0.0157]
-  iter=13  screen_Δ=+0.0197  confirm_Δ=-0.0102  pooled_Δ=+0.0024  CI=[-0.0104,+0.0159]
+  iter=2  screen_Δ=+0.0050  confirm_Δ=-0.0042  pooled_Δ=+0.0004  CI=[-0.0075,+0.0083]
+  iter=3  screen_Δ=+0.0075  confirm_Δ=-0.0233  pooled_Δ=-0.0079  CI=[-0.0200,+0.0038]
+  iter=4  screen_Δ=+0.0175  confirm_Δ=+0.0017  pooled_Δ=+0.0096  CI=[+0.0000,+0.0192]
 Hold-out validation:
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  OK  drift=+0.0616  holdout_gap=+0.0010 training_gap=-0.0606  top_iter=8  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  OK  drift=+0.0088  holdout_gap=+0.0109 training_gap=+0.0021  top_iter=9  (base_seed=7, n=5)
-  OK  drift=+0.0006  holdout_gap=+0.0027 training_gap=+0.0021  top_iter=9  (base_seed=1234, n=5)
-  OK  drift=+0.0135  holdout_gap=+0.0161 training_gap=+0.0025  top_iter=10  (base_seed=7, n=5)
-  OK  drift=-0.0051  holdout_gap=-0.0025 training_gap=+0.0025  top_iter=10  (base_seed=1234, n=5)
-  OK  drift=-0.0041  holdout_gap=-0.0080 training_gap=-0.0040  top_iter=13  (base_seed=7, n=5)
-  OK  drift=-0.0022  holdout_gap=-0.0061 training_gap=-0.0040  top_iter=13  (base_seed=1234, n=5)
-  OK  drift=+0.0434  holdout_gap=+0.0653 training_gap=+0.0219  top_iter=1  (base_seed=7, n=5)
-  OK  drift=+0.0143  holdout_gap=+0.0363 training_gap=+0.0219  top_iter=1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  OK  drift=+0.0026  holdout_gap=+0.0059 training_gap=+0.0033  top_iter=3  (base_seed=7, n=5)
-  OK  drift=-0.0039  holdout_gap=-0.0006 training_gap=+0.0033  top_iter=3  (base_seed=1234, n=5)
-  OK  drift=-0.0083  holdout_gap=+0.0023 training_gap=+0.0106  top_iter=16  (base_seed=7, n=5)
-  OK  drift=-0.0039  holdout_gap=+0.0067 training_gap=+0.0106  top_iter=16  (base_seed=1234, n=5)
-  OK  drift=+0.0050  holdout_gap=+0.0366 training_gap=+0.0316  top_iter=13  (base_seed=7, n=5)
-  OK  drift=+0.0037  holdout_gap=+0.0353 training_gap=+0.0316  top_iter=13  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
-  VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0083  overfit=0/50  vacuous=35/50  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0084  CI95%=[+0.0032, +0.0138]  n_samples=75  n_records=50  vacuous=35/50
+  OK  drift=+0.0378  holdout_gap=+0.0437 training_gap=+0.0058  top_iter=19  (base_seed=7, n=5)
+  OK  drift=-0.0094  holdout_gap=-0.0036 training_gap=+0.0058  top_iter=19  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0094  overfit=0/2  vacuous=0/2  worst_seed=1234
+  --> drift CI: OK_CI  mean=+0.0142  CI95%=[-0.0178, +0.0483]  n_samples=10  n_records=2  vacuous=0/2
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
-  2026-06-06 06:26:46     42  quick        20    20     1     0   +0.0667      0.0794
-  2026-06-07 07:03:29     42  quick        20    20     0     0   +0.0267      0.0717
-  2026-06-08 07:27:54     42  quick        20    20     0     0   +0.0244      0.0722
-  2026-06-09 06:46:01     42  quick        20    20     1     0   +0.0461      0.0722
-  2026-06-10 07:06:54     42  quick        20    20     2     0   +0.0678      0.0694
-  2026-06-11 07:27:27     42  quick        20    20     0     0   +0.0344      0.0728
-  2026-06-12 07:20:06     42  quick        20    20     0     4   +0.0428      0.0794
-  2026-06-13 06:56:29     42  quick        20    20     0     1   +0.0428      0.0717
-  2026-06-14 07:20:26     42  quick        20    20     0     5   +0.0467      0.0717
-  2026-06-15 08:58:26     42  quick        20    20     1     3   +0.0333      0.0717
-  2026-06-16 08:43:08     42  quick        20    20     0     4   +0.0556      0.0711
-  2026-06-17 08:26:02     42  quick        20    20     1     3   +0.0250      0.0717
-  2026-06-18 08:05:01     42  quick        20    20     1     2   +0.0294      0.0417
-  2026-06-19 08:29:04     42  quick        20    20     0     7   +0.0194      0.0428
-  2026-06-20 06:58:56     42  quick        20    20     0     3   +0.0289      0.0717
-  2026-06-21 07:57:39     42  quick        20    20     2     0   +0.0281      0.0260
-  2026-06-22 08:55:55     42  quick        20    20     1     0   +0.0325      0.0403
-  2026-06-23 06:48:24     42  quick        20    20     2     0   +0.0273      0.0335
-  2026-06-24 06:44:59     42  quick        20    20     1     0   +0.0511      0.0365
-  2026-06-25 06:45:15     42  quick        20    20     1     0   +0.0389      0.0402
-  2026-06-26 06:53:37     42  quick        20    20     0     0   +0.0229      0.0351
-  2026-06-27 06:28:00     42  quick        20    20     1     0   +0.0254      0.0422
-  2026-06-28 07:01:12     42  quick        20    20     2     0   +0.0395      0.0300
-  2026-06-29 07:28:22     42  quick        20    20     3     0   +0.0703      0.0297
-  2026-06-30 06:54:48     42  quick        20    20     0     0   +0.0324      0.0167
-  2026-07-01 07:09:22     42  quick        20    20     0     0   +0.0157      0.0252
-  2026-07-02 06:38:38     42  quick        20    20     1     0   +0.0435      0.0332
-  2026-07-03 06:28:27     42  quick        20    20     0     0   +0.0500      0.0189
-  2026-07-04 06:16:35     42  quick        20    20     0     0   +0.0279      0.0268
-  2026-07-05 06:37:58     42  quick        20    20     0     0   +0.0283      0.0256
-  2026-07-06 07:10:54     42  quick        20    20     0     0   +0.0202      0.0529
-  2026-07-07 06:45:20     42  quick        20    20     0     0   +0.0197      0.0714
-  2026-07-08 05:50:40     42  quick        20    20     0     0   +0.0156      0.0603
+  2026-07-09 06:48:58     42  quick        20    20     2     0   +0.0192      0.3375
 
-Bandit posteriors (n_attempts >= 3, 48 eligible rules):
-  Top 10 (highest mean reward):
+Bandit posteriors (n_attempts >= 3, 3 eligible rules):
+  Top 3 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  NLSHADE_LBC             p_F_final               float_uniform          4     1    0.542     25.0%
-  NLSHADE_LBC             m_lbc                   float_uniform          3     0    0.500      0.0%
-  NLSHADE_LBC             p_CR_final              float_uniform          3     0    0.471      0.0%
-  NLSHADE_LBC             p_F_init                float_uniform          3     0    0.471      0.0%
-  Restart                 patience                integer_add            9     1    0.463     11.1%
-  LatinHypercube          div                     integer_add           11     1    0.462      9.1%
-  COBYQA                  initial_tr_radius       log_uniform_pertur     8     0    0.422      0.0%
-  NLSHADE_RSP             NP_init                 integer_add            9     2    0.419     22.2%
-  LBFGSB                  max_starts              integer_add            9     1    0.408     11.1%
-  JSO                     NP_init                 integer_add            9     0    0.403      0.0%
-  Bottom 5 (lowest mean reward):
-  class                   param                   kind                 att   acc   mean_r  acc_rate
-  Sobol                   scramble                categorical_choice    25     0    0.000      0.0%
-  Sobol                   n                       integer_add           24     0    0.000      0.0%
-  Sensitivity             update_interval         integer_add           20     0    0.000      0.0%
-  *                       add_analyzer            structural            35     1    0.029      2.9%
-  *                       drop_analyzer           structural            35     0    0.061      0.0%
+  *                       drop_analyzer           structural             5     1    0.500     20.0%
+  *                       add_heuristic           structural             9     1    0.375     11.1%
+  *                       add_analyzer            structural             5     0    0.275      0.0%
 
 Inactivity:
-  eps_accept_base=0.0050  longest_drought=19 iters
-  relaxed_accepts=4/21  mean_decay_at_accept=0.500
+  eps_accept_base=0.0050  longest_drought=12 iters
+  relaxed_accepts=1/2  mean_decay_at_accept=0.500

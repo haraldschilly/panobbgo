@@ -1159,8 +1159,11 @@ because most proposed rules are dormant on the seed registry” from
 “the bandit is starved because every legitimate proposal got
 rejected”.  The first calls for a registry change (e.g.
 <code class="docutils literal notranslate"><span class="pre">--registry</span> <span class="pre">loop</span></code> — see the <em>Loop registry</em> subsection above); the
-second calls for a metric change (V2 §9.5 step 2,
-<code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">aocc</span></code>).</p>
+second calls for a metric change (V2 §9.5 step 2, <code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">aocc</span></code>,
+which became the <strong>nightly default on 2026-07-09</strong> — the composite
+Δ=0 dead zone that motivated this diagnosis is gone under the
+anytime AOCC metric; see the 2026-07-09 entry in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>).</p>
 <p>Legacy ledgers (pre 2026-06-12) carry no <code class="docutils literal notranslate"><span class="pre">no_op</span></code> key on disk; the
 JSONL load path returns <code class="docutils literal notranslate"><span class="pre">None</span></code> / <code class="docutils literal notranslate"><span class="pre">False</span></code> for missing keys so
 prior records classify as informative — matching the historical

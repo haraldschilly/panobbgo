@@ -928,8 +928,11 @@ because most proposed rules are dormant on the seed registry" from
 "the bandit is starved because every legitimate proposal got
 rejected".  The first calls for a registry change (e.g.
 ``--registry loop`` — see the *Loop registry* subsection above); the
-second calls for a metric change (V2 §9.5 step 2,
-``--metric aocc``).
+second calls for a metric change (V2 §9.5 step 2, ``--metric aocc``,
+which became the **nightly default on 2026-07-09** — the composite
+Δ=0 dead zone that motivated this diagnosis is gone under the
+anytime AOCC metric; see the 2026-07-09 entry in
+``planning/SELF_IMPROVEMENT_LOG.md``).
 
 Legacy ledgers (pre 2026-06-12) carry no ``no_op`` key on disk; the
 JSONL load path returns ``None`` / ``False`` for missing keys so

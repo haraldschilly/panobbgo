@@ -43,7 +43,16 @@ durably**.  Evidence from the ledger (80 iterations, 2026-06-06 →
    and excludes them from bandit pulls so the posterior is no longer
    mis-trained on them — but the underlying metric resolution problem
    stands until the §9.5 step 2 (`--metric aocc` or battery re-base)
-   ships.
+   ships.  ***2026-07-09 update: RESOLVED.*** The §9.5 step 2 flip
+   landed — the nightly cron now measures on the AOCC (IOH/MA-BBOB
+   anytime) metric by default.  A quick-mode A/B in the exact scheduled
+   regime showed aocc's median seed score at **0.33** (inside §11.1's
+   responsive 0.3–0.6 band) with a **0% Δ=0 rate**, vs composite's
+   floored **0.036** and 8% Δ=0 rate on the production ledger — the
+   dead zone is gone and every evaluation now carries signal.  This is
+   the root cause the rest of §2 is downstream of; symptoms (1)-(6)
+   should measurably lift over the next few aocc nights.  See the
+   2026-07-09 dated entry in `SELF_IMPROVEMENT_LOG.md`.
 2. **Accept → rollback churn.**  15/16 guard checks rolled the ladder
    back; all hold-out records ran on an empty ladder (`top_iter=-1`,
    vacuous `drift=0.0000` reported as OK).  *Honesty bug fixed
@@ -499,9 +508,12 @@ uv run python scripts/self_improve.py codify-scan --open-pr
 
 (`permissions: pull-requests: write` in the workflow.)  ``--registry
 loop`` shipped 2026-06-10 (§9.5 step 1); ``--open-pr`` shipped
-2026-07-02 (§9.5 step 4).  The only remaining queued lever is
-``--metric aocc`` (step 2), which needs the IOH worker on the runner.
-Until step 2 lands, the V1 metric stays on the composite score.
+2026-07-02 (§9.5 step 4); ``--metric aocc`` shipped as the **scheduled
+default** 2026-07-09 (§9.5 step 2 — see the dated entry in
+``SELF_IMPROVEMENT_LOG.md``).  All queued V2 levers have now landed.
+Each metric writes its own ledger (aocc →
+``planning/self_improve_ledger_aocc.jsonl``; composite → the historical
+``planning/self_improve_ledger.jsonl``) so the two never mix.
 
 ### 9.5 Implementation order (one PR each)
 
@@ -510,20 +522,24 @@ Until step 2 lands, the V1 metric stays on the composite score.
    `SELF_IMPROVEMENT_LOG.md`.  Catalog kwarg-rule coverage on the
    seed lifted from 4 / 44 to 44 / 44 — the nightly cron can now
    pick `--registry loop` so the dormant catalog actually fires.
-2. Nightly to `--metric aocc` (or battery re-base), after one manual
-   `workflow_dispatch` A/B comparing signal quality.
-   *2026-07-04 update:* the ``workflow_dispatch`` A/B mechanism
-   itself shipped (``.github/workflows/self_improve_nightly.yml``
-   gains a ``metric: choice[composite, aocc]`` input plus the
-   ioh_worker venv sync step so the runner has the IOH C++ backend
-   available).  Default remains ``composite`` (scheduled runs stay
-   byte-identical to the pre-2026-07-04 cron so ladder comparability
-   is preserved); manual dispatch with ``metric=aocc`` runs the
-   IOH/MA-BBOB anytime regime end-to-end.  What's still queued is
-   the manual A/B itself: one or two dispatch nights on ``aocc``
-   next to a matched ``composite`` night to compare signal quality
-   before flipping the scheduled default.  See the 2026-07-04
-   dated entry in ``SELF_IMPROVEMENT_LOG.md``.
+2. ~Nightly to `--metric aocc` (or battery re-base), after one manual
+   `workflow_dispatch` A/B comparing signal quality.~ — **shipped
+   2026-07-09**.  The ``workflow_dispatch`` A/B mechanism shipped
+   2026-07-04 (``metric: choice[composite, aocc]`` input + ioh_worker
+   venv sync).  The A/B itself was then run in quick mode — the exact
+   scheduled regime — and aocc **clearly** out-resolved composite:
+   median seed score **0.33** (inside §11.1's 0.3–0.6 band) with a
+   **0%** Δ=0 rate vs composite's floored **0.036** and 8% Δ=0 rate on
+   the 660-record production ledger.  So the scheduled default flipped
+   from ``composite`` to ``aocc`` on 2026-07-09 (§9.5 step 5 last
+   lever).  The flip also **routes each metric to its own ledger** so
+   the ~100× delta-scale gap never contaminates codify-scan pooling or
+   the graded bandit reward: aocc →
+   ``planning/self_improve_ledger_aocc.jsonl`` (fresh canonical ledger),
+   composite → the historical ``planning/self_improve_ledger.jsonl``
+   (preserved).  ``composite`` stays selectable via
+   ``workflow_dispatch`` for an A/B against the frozen composite ladder.
+   See the 2026-07-09 dated entry in ``SELF_IMPROVEMENT_LOG.md``.
 3. ~`--confirm-accepts` (§6.4)~ + ~graded bandit reward (§7.4)~ + ~no-op
    detection (§12.4)~ — **no-op detection shipped 2026-06-12**;
    **graded bandit reward shipped 2026-06-13**; **same-night
@@ -611,11 +627,21 @@ appends, commits — never edits source) and the **daily coding routine**
 
 ### 12.1 Persisted artifacts
 
+Since the 2026-07-09 metric flip the cron writes a **metric-specific
+ledger**: the scheduled (aocc) regime appends to
+`planning/self_improve_ledger_aocc.jsonl`; a `composite` A/B dispatch
+appends to the historical `planning/self_improve_ledger.jsonl`.  Under
+the aocc default, the **active ledger for the daily routine is
+`planning/self_improve_ledger_aocc.jsonl`** — point `summary` /
+`codify-scan` at it explicitly (they still default to the composite
+path for backwards compatibility).
+
 | Artifact | Purpose | Consumed by |
 |---|---|---|
-| `planning/self_improve_ledger.jsonl` | Append-only record of every iteration / guard / hold-out / confirm decision | next night's bandit priming; codify-scan; drill-down |
+| `planning/self_improve_ledger_aocc.jsonl` | **Active** (aocc-regime) append-only record of every iteration / guard / hold-out / confirm decision | next night's bandit priming; codify-scan; drill-down |
+| `planning/self_improve_ledger.jsonl` | Frozen composite ledger (660-record durability history; grows only on a `composite` A/B dispatch) | composite-regime priming / codify-scan; historical reference |
 | `planning/done/self_improve_ledger_*.jsonl` | Rotated archives (rotate at >2000 records, only via `planning/done/`) | bandit priming (`--prime-include-archives`, open); codify-scan |
-| `planning/self_improve_summary.txt` | Latest `summary` output, overwritten nightly | daily routine at-a-glance |
+| `planning/self_improve_summary.txt` | Latest `summary` output (of the active ledger), overwritten nightly | daily routine at-a-glance |
 | GH Actions artifact (30 d) | same files per-run | debugging a specific night |
 
 ### 12.2 What the cron does *not* do

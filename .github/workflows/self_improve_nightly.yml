@@ -1,7 +1,9 @@
 name: Nightly Self-Improvement Loop
 
 # Runs the autonomous self-improvement loop (planning/SELF_IMPROVEMENT_LOOP.md
-# §9 / §12) once per day.  Appends to planning/self_improve_ledger.jsonl and
+# §9 / §12) once per day.  Appends to the metric-specific ledger
+# (planning/self_improve_ledger_aocc.jsonl by default since 2026-07-09;
+# planning/self_improve_ledger.jsonl for a composite A/B dispatch) and
 # regenerates planning/self_improve_summary.txt, then commits both back to
 # master with [skip ci] so the daily Claude routine has fresh trend data.
 
@@ -26,19 +28,22 @@ on:
         default: true
       metric:
         description: >-
-          Metric that drives accept/reject (§9.5 step 2 A/B).
-          'composite' is the historical default (Panobbgo's internal
-          problem battery).  'aocc' switches to the IOH/MA-BBOB anytime
-          metric — the V2 answer to §2.1 "no metric resolution": every
-          evaluation moves AOCC continuously, eliminating the composite
-          Δ=0 dead zone.  Requires the IOH worker on the runner (built
-          on demand below).
+          Metric that drives accept/reject (§9.5 step 2).  'aocc' is the
+          default since 2026-07-09: the IOH/MA-BBOB anytime metric — the
+          V2 answer to §2.1 "no metric resolution".  Every evaluation
+          moves AOCC continuously, eliminating the composite Δ=0 dead
+          zone (measured quick-mode A/B: composite median seed score
+          0.036 with an 8% Δ=0 rate vs aocc 0.33 with 0% Δ=0; see the
+          2026-07-09 entry in planning/SELF_IMPROVEMENT_LOG.md).  Select
+          'composite' to run the historical internal-battery metric for
+          an A/B comparison against the frozen composite ladder.  Each
+          metric writes its own ledger so the two never mix.
         required: false
         type: choice
         options:
-          - composite
           - aocc
-        default: composite
+          - composite
+        default: aocc
 
 # Only one nightly run at a time.  Manual workflow_dispatch invocations
 # wait for the scheduled run to finish (or vice versa).
@@ -120,6 +125,26 @@ jobs:
           cd tools/ioh_worker
           uv sync
 
+      - name: Resolve ledger path
+        # Each metric writes its own append-only ledger so composite
+        # deltas (~0.003 scale) and aocc deltas (~0.3 scale) never mix in
+        # codify-scan's pooled CI or the graded bandit reward.  aocc — the
+        # default since 2026-07-09 — keeps the canonical basename plus an
+        # ``_aocc`` suffix; composite keeps the historical
+        # ``self_improve_ledger.jsonl`` so its 660-record durability
+        # history stays intact and untouched by the flip.  The value is
+        # exported to $GITHUB_ENV so the run / summary / commit / artifact
+        # steps below all reference the same file.
+        env:
+          METRIC: ${{ github.event.inputs.metric || 'aocc' }}
+        run: |
+          set -euo pipefail
+          if [ "$METRIC" = "aocc" ]; then
+            echo "LEDGER=planning/self_improve_ledger_aocc.jsonl" >> "$GITHUB_ENV"
+          else
+            echo "LEDGER=planning/self_improve_ledger.jsonl" >> "$GITHUB_ENV"
+          fi
+
       - name: Run self-improvement loop
         id: loop
         env:
@@ -130,16 +155,19 @@ jobs:
           # confirmation gate is the default everywhere.  Override with
           # workflow_dispatch confirm_accepts=false for the A/B regime.
           CONFIRM_ACCEPTS: ${{ github.event.inputs.confirm_accepts || 'true' }}
-          # V2 §9.5 step 2 A/B lever.  workflow_dispatch input defaults
-          # to 'composite'; scheduled runs have no input → fall through
-          # to 'composite' too so the historical metric is the default
-          # everywhere.  Flip to 'aocc' via workflow_dispatch to run the
-          # anytime-metric regime for signal-quality comparison against
-          # the same night's composite baseline (kept in-summary by the
-          # ledger regardless of which metric drove accepts).  With
-          # metric=aocc the --mode input selects the IOH battery preset
-          # (quick / standard / full) rather than the composite battery.
-          METRIC: ${{ github.event.inputs.metric || 'composite' }}
+          # V2 §9.5 step 2.  workflow_dispatch input defaults to 'aocc';
+          # scheduled runs have no input → fall through to 'aocc' too so
+          # the anytime metric is the default everywhere (flipped from
+          # 'composite' on 2026-07-09 once the in-mode quick A/B showed
+          # aocc meets §11.1 resolution and composite does not — see the
+          # 2026-07-09 entry in planning/SELF_IMPROVEMENT_LOG.md).  Select
+          # 'composite' via workflow_dispatch for an A/B comparison
+          # against the frozen composite ladder.  With metric=aocc the
+          # --mode input selects the IOH battery preset (quick / standard
+          # / full) rather than the composite battery.  The two metrics
+          # write separate ledgers (resolved below) so their scales never
+          # mix in codify-scan pooling or the bandit reward.
+          METRIC: ${{ github.event.inputs.metric || 'aocc' }}
         # V2 nightly invocation (planning/SELF_IMPROVEMENT_LOOP.md §9.4 /
         # §9.5 step 5).  Flags previously held back from the V1 cron and
         # promoted here:
@@ -178,15 +206,18 @@ jobs:
         #                                   churn".  Toggleable via the
         #                                   workflow_dispatch confirm_accepts
         #                                   input for A/B; default true.
-        #   --metric aocc                   §9.5 step 2 A/B lever — only
-        #                                   appended when workflow_dispatch
-        #                                   metric=aocc.  Default composite
-        #                                   preserves the historical ladder
-        #                                   comparability; aocc runs the
-        #                                   IOH/MA-BBOB anytime metric via
-        #                                   the ioh_worker venv synced
-        #                                   above (§9.1 — closes the last
-        #                                   V2 lever from §9.5).
+        #   --metric aocc                   §9.5 step 2 — the DEFAULT since
+        #                                   2026-07-09.  Runs the IOH/MA-BBOB
+        #                                   anytime metric via the ioh_worker
+        #                                   venv synced above; every
+        #                                   evaluation moves AOCC so the
+        #                                   composite Δ=0 dead zone (§2.1) is
+        #                                   gone and the seed score lands in
+        #                                   §11.1's responsive band.  Only
+        #                                   appended when METRIC=aocc; select
+        #                                   composite via workflow_dispatch
+        #                                   for an A/B against the frozen
+        #                                   composite ladder.
         run: |
           set -euo pipefail
           CMD=(
@@ -204,7 +235,7 @@ jobs:
             --inactivity-relax-factor 0.5
             --holdout-base-seeds 7,1234
             --guard-interval 10
-            --ledger planning/self_improve_ledger.jsonl
+            --ledger "$LEDGER"
           )
           if [ "$CONFIRM_ACCEPTS" = "true" ]; then
             CMD+=(--confirm-accepts)
@@ -217,36 +248,32 @@ jobs:
       - name: Regenerate summary
         if: always()
         run: |
-          if [ -f planning/self_improve_ledger.jsonl ]; then
+          if [ -f "$LEDGER" ]; then
             uv run python scripts/self_improve.py summary \
-              planning/self_improve_ledger.jsonl \
+              "$LEDGER" \
               > planning/self_improve_summary.txt
           else
-            echo "No ledger file present — skipping summary."
+            echo "No ledger file present ($LEDGER) — skipping summary."
           fi
 
       - name: Commit ledger + summary
         if: always()
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain planning/self_improve_ledger.jsonl planning/self_improve_summary.txt)" ]; then
+          if [ -z "$(git status --porcelain "$LEDGER" planning/self_improve_summary.txt)" ]; then
             echo "No ledger changes to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add planning/self_improve_ledger.jsonl planning/self_improve_summary.txt
+          git add "$LEDGER" planning/self_improve_summary.txt
           ITER="${{ github.event.inputs.iterations || '20' }}"
           MODE="${{ github.event.inputs.mode || 'quick' }}"
-          METRIC="${{ github.event.inputs.metric || 'composite' }}"
-          # Suppress the metric tag on the historical default so scheduled
-          # runs keep the pre-2026-07-04 commit-message shape and only
-          # aocc-regime dispatch invocations surface the tag.
-          if [ "$METRIC" = "aocc" ]; then
-            git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE, metric=aocc) [skip ci]"
-          else
-            git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE) [skip ci]"
-          fi
+          METRIC="${{ github.event.inputs.metric || 'aocc' }}"
+          # Always surface the metric now that aocc is the default and each
+          # metric writes its own ledger — the tag disambiguates which
+          # ledger the commit touched.
+          git commit -m "chore(self_improve): nightly loop run ($ITER iter, mode=$MODE, metric=$METRIC) [skip ci]"
           # Retry once on push race: someone landed a commit while we were running.
           for attempt in 1 2 3; do
             if git push origin HEAD:master; then
@@ -266,6 +293,6 @@ jobs:
         with:
           name: self-improve-ledger-${{ github.run_id }}
           path: |
-            planning/self_improve_ledger.jsonl
+            ${{ env.LEDGER }}
             planning/self_improve_summary.txt
           retention-days: 30

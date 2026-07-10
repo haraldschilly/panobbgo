@@ -969,9 +969,36 @@ The harness is the measurement substrate for an autonomous
     `--metric aocc` code path, the ioh_worker venv sync, and the
     vacuous-hold-out handling under aocc were all already in place.
     **Daily-routine note:** the active ledger under the aocc default is
-    `planning/self_improve_ledger_aocc.jsonl` — pass it explicitly to
-    `summary` / `codify-scan` (they still default to the composite
-    path).  See the 2026-07-09 entry in
+    `planning/self_improve_ledger_aocc.jsonl` — pass `--metric aocc` to
+    `summary` / `codify-scan` (shipped 2026-07-10; see the next entry) and
+    the CLI resolves the path.  See the 2026-07-09 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
+
+*   **2026-07-10 — per-metric ledger routing (`--metric` selector +
+    metric-scoped archive pooling)** — closes the first two AOCC-regime
+    follow-ups the 2026-07-09 flip left open.  (1) `run` / `summary` /
+    `codify-scan` gain a `--metric {composite,aocc}` selector: with
+    `--ledger` omitted the path resolves from the metric via
+    `panobbgo.self_improve.ledger_path_for_metric` (`composite` →
+    `planning/self_improve_ledger.jsonl`, unchanged default; `aocc` →
+    `planning/self_improve_ledger_aocc.jsonl`), so the daily routine can't
+    accidentally scan the stale composite ledger.  An explicit `--ledger`
+    still wins, so the nightly workflow (passes `--ledger "$LEDGER"`) is
+    unaffected.  (2) Archive pooling for both the bandit prime
+    (`AdaptiveMutationSampler.prime_from_archives(..., ledger_path=...)`,
+    passed from `SelfImprover.run`) and codify-scan
+    (`load_ledgers_for_codify_scan`) is scoped to the selected metric via
+    the new `iter_metric_archives` / `metric_for_ledger_path` helpers
+    (longest-stem-wins so an aocc archive is never misread as composite),
+    so an aocc run warms only from aocc archives and a composite scan pools
+    only composite archives — the two ~100×-different delta scales stay
+    separated.  Byte-identical record counts on the current all-composite
+    archive set (composite codify-scan still scans 1395 records); the
+    scoping only excludes cross-metric archives once aocc rotations land in
+    `planning/done/`.  15 new tests (`TestMetricLedgerRouting`,
+    `TestMetricSelectorCLI`, `TestPrimeFromArchives.test_ledger_path_scopes_priming_to_metric`).
+    Pure additions to `panobbgo/self_improve.py` + `scripts/self_improve.py`;
+    no optimizer behaviour change.  See the 2026-07-10 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
 
 *   **2026-07-04 — `--metric aocc` workflow_dispatch A/B mechanism

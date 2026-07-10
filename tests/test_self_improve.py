@@ -1683,6 +1683,127 @@ class TestPrimeFromArchives:
         consumed = samp.prime_from_archives(str(f))
         assert consumed == 0
 
+    def test_ledger_path_scopes_priming_to_metric(self, tmp_path):
+        """``ledger_path`` scopes archive priming to that ledger's metric.
+
+        A mixed archive dir holding both composite and aocc rotations must
+        replay only the archives matching the active ledger's metric — the
+        two live on ~100×-different delta scales and their rewards must not
+        pool (§12.1, AOCC-regime follow-up).
+        """
+        archives = tmp_path / "done"
+        archives.mkdir()
+        self._write_archive(
+            archives / "self_improve_ledger_2026-05-31.jsonl",
+            [self._accept_record(), self._reject_record()],
+        )
+        self._write_archive(
+            archives / "self_improve_ledger_aocc_2026-07-10.jsonl",
+            [self._accept_record(), self._accept_record(), self._reject_record()],
+        )
+
+        # Composite ledger → only the composite archive (2 records).
+        samp_comp = AdaptiveMutationSampler(_two_rule_catalog())
+        n_comp = samp_comp.prime_from_archives(str(archives), ledger_path="planning/self_improve_ledger.jsonl")
+        assert n_comp == 2
+        assert samp_comp.stats_snapshot()[0].n_accepts == 1
+
+        # AOCC ledger → only the aocc archive (3 records, 2 accepts).
+        samp_aocc = AdaptiveMutationSampler(_two_rule_catalog())
+        n_aocc = samp_aocc.prime_from_archives(str(archives), ledger_path="planning/self_improve_ledger_aocc.jsonl")
+        assert n_aocc == 3
+        assert samp_aocc.stats_snapshot()[0].n_accepts == 2
+
+        # No ledger_path → historical behaviour: replay every archive (5).
+        samp_all = AdaptiveMutationSampler(_two_rule_catalog())
+        assert samp_all.prime_from_archives(str(archives)) == 5
+
+
+class TestMetricLedgerRouting:
+    """Per-metric ledger routing helpers (V2 §12.1, after the 2026-07-09 flip)."""
+
+    def test_metric_for_ledger_path_recognises_live_names(self):
+        from panobbgo.self_improve import metric_for_ledger_path
+
+        assert metric_for_ledger_path("planning/self_improve_ledger.jsonl") == "composite"
+        assert metric_for_ledger_path("planning/self_improve_ledger_aocc.jsonl") == "aocc"
+
+    def test_metric_for_ledger_path_recognises_archive_names(self):
+        from panobbgo.self_improve import metric_for_ledger_path
+
+        assert metric_for_ledger_path("done/self_improve_ledger_2026-05-31.jsonl") == "composite"
+        # Longest-stem-wins: an aocc archive is never misread as composite
+        # even though the composite stem is a prefix of the aocc stem.
+        assert metric_for_ledger_path("done/self_improve_ledger_aocc_2026-07-10.jsonl") == "aocc"
+
+    def test_metric_for_ledger_path_unknown_name_defaults_composite(self):
+        from panobbgo.self_improve import metric_for_ledger_path
+
+        assert metric_for_ledger_path("live.jsonl") == "composite"
+        assert metric_for_ledger_path("/tmp/other_ledger.jsonl") == "composite"
+
+    def test_ledger_path_for_metric_resolves_canonical_paths(self):
+        from panobbgo.self_improve import ledger_path_for_metric
+
+        assert ledger_path_for_metric("composite") == "planning/self_improve_ledger.jsonl"
+        assert ledger_path_for_metric("aocc") == "planning/self_improve_ledger_aocc.jsonl"
+
+    def test_ledger_path_for_metric_honours_ledger_dir(self):
+        from panobbgo.self_improve import ledger_path_for_metric
+
+        assert ledger_path_for_metric("aocc", ledger_dir="/x") == "/x/self_improve_ledger_aocc.jsonl"
+
+    def test_ledger_path_for_metric_rejects_unknown_metric(self):
+        from panobbgo.self_improve import ledger_path_for_metric
+
+        with pytest.raises(ValueError):
+            ledger_path_for_metric("bogus")
+
+    def test_iter_metric_archives_scopes_by_metric(self, tmp_path):
+        from panobbgo.self_improve import iter_metric_archives
+
+        done = tmp_path / "done"
+        done.mkdir()
+        (done / "self_improve_ledger_2026-05-31.jsonl").write_text("")
+        (done / "self_improve_ledger_2026-06-30.jsonl").write_text("")
+        (done / "self_improve_ledger_aocc_2026-07-10.jsonl").write_text("")
+
+        comp = [p.name for p in iter_metric_archives(str(done), "planning/self_improve_ledger.jsonl")]
+        aocc = [p.name for p in iter_metric_archives(str(done), "planning/self_improve_ledger_aocc.jsonl")]
+        assert comp == [
+            "self_improve_ledger_2026-05-31.jsonl",
+            "self_improve_ledger_2026-06-30.jsonl",
+        ]
+        assert aocc == ["self_improve_ledger_aocc_2026-07-10.jsonl"]
+
+    def test_iter_metric_archives_missing_dir_returns_empty(self, tmp_path):
+        from panobbgo.self_improve import iter_metric_archives
+
+        assert iter_metric_archives(str(tmp_path / "nope"), "planning/self_improve_ledger.jsonl") == []
+
+    def test_load_ledgers_for_codify_scan_scopes_archives_to_metric(self, tmp_path):
+        """A composite scan must not pool aocc archives, and vice versa."""
+        from panobbgo.self_improve import load_ledgers_for_codify_scan
+
+        done = tmp_path / "done"
+        done.mkdir()
+        (done / "self_improve_ledger_2026-05-31.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-05-31T05:00:00+00:00")) + "\n"
+        )
+        (done / "self_improve_ledger_aocc_2026-07-10.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-07-10T05:00:00+00:00")) + "\n"
+        )
+
+        comp_live = tmp_path / "self_improve_ledger.jsonl"
+        comp_live.write_text("")
+        comp = load_ledgers_for_codify_scan(str(comp_live), archive_dir=str(done))
+        assert [r["timestamp"][:10] for r in comp] == ["2026-05-31"]
+
+        aocc_live = tmp_path / "self_improve_ledger_aocc.jsonl"
+        aocc_live.write_text("")
+        aocc = load_ledgers_for_codify_scan(str(aocc_live), archive_dir=str(done))
+        assert [r["timestamp"][:10] for r in aocc] == ["2026-07-10"]
+
 
 # ===========================================================================
 # SelfImprover wired with the adaptive sampler
@@ -8218,6 +8339,128 @@ class TestCodifyScanCLI:
         # CLI produced a non-trivial report.
         assert "Codify scan" in out
         assert "candidates surfaced:" in out
+
+
+class TestMetricSelectorCLI:
+    """The ``--metric`` selector resolves the ledger path through the real parser.
+
+    Covers the second AOCC-regime follow-up: under the 2026-07-09 nightly
+    default the daily routine must point ``summary`` / ``codify-scan`` at the
+    active ``self_improve_ledger_aocc.jsonl`` rather than the frozen composite
+    ledger.  ``--metric aocc`` (with no explicit ledger) does exactly that.
+    """
+
+    @staticmethod
+    def _import_cli():
+        import sys as sys_module
+
+        sys_module.path.insert(0, str(pathlib.Path(__file__).parents[1] / "scripts"))
+        try:
+            import self_improve as cli  # type: ignore
+        finally:
+            sys_module.path = [p for p in sys_module.path if not p.endswith("/scripts")]
+        return cli
+
+    def test_codify_scan_metric_aocc_reads_aocc_ledger(self, tmp_path, monkeypatch, capsys):
+        cli = self._import_cli()
+        monkeypatch.chdir(tmp_path)
+        planning = tmp_path / "planning"
+        planning.mkdir()
+        # Composite ledger empty; aocc ledger carries a 2-night pattern.
+        (planning / "self_improve_ledger.jsonl").write_text("")
+        (planning / "self_improve_ledger_aocc.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-07-09T05:00:00+00:00", new_value=0.12))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-07-10T05:00:00+00:00", new_value=0.13))
+            + "\n"
+        )
+
+        parser = cli._build_parser()
+        args = parser.parse_args(["codify-scan", "--metric", "aocc"])
+        assert args.ledger is None  # not resolved yet
+        rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Proves the scan read the aocc ledger (composite is empty).
+        assert "candidates surfaced: 1" in out
+        assert "Nearby.radius" in out
+
+    def test_codify_scan_default_metric_reads_composite_ledger(self, tmp_path, monkeypatch, capsys):
+        cli = self._import_cli()
+        monkeypatch.chdir(tmp_path)
+        planning = tmp_path / "planning"
+        planning.mkdir()
+        (planning / "self_improve_ledger.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13))
+            + "\n"
+        )
+        (planning / "self_improve_ledger_aocc.jsonl").write_text("")
+
+        parser = cli._build_parser()
+        args = parser.parse_args(["codify-scan"])  # default metric=composite
+        rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "candidates surfaced: 1" in out
+
+    def test_explicit_ledger_overrides_metric(self, tmp_path, monkeypatch, capsys):
+        cli = self._import_cli()
+        monkeypatch.chdir(tmp_path)
+        explicit = tmp_path / "custom.jsonl"
+        explicit.write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-06-01T05:00:00+00:00", new_value=0.12))
+            + "\n"
+            + json.dumps(_accepted_iter_record(timestamp="2026-06-02T05:00:00+00:00", new_value=0.13))
+            + "\n"
+        )
+        (tmp_path / "done").mkdir()
+
+        parser = cli._build_parser()
+        # --metric aocc but an explicit --ledger: the explicit path wins.
+        args = parser.parse_args(["codify-scan", "--metric", "aocc", "--ledger", str(explicit)])
+        assert args.ledger == str(explicit)
+        rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "candidates surfaced: 1" in out
+
+    def test_summary_metric_aocc_reads_aocc_ledger(self, tmp_path, monkeypatch, capsys):
+        cli = self._import_cli()
+        monkeypatch.chdir(tmp_path)
+        planning = tmp_path / "planning"
+        planning.mkdir()
+        (planning / "self_improve_ledger.jsonl").write_text("")
+        (planning / "self_improve_ledger_aocc.jsonl").write_text(
+            json.dumps(_accepted_iter_record(timestamp="2026-07-10T05:00:00+00:00", new_value=0.13)) + "\n"
+        )
+
+        parser = cli._build_parser()
+        args = parser.parse_args(["summary", "--metric", "aocc"])
+        assert args.ledger is None
+        rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # The summary header echoes the resolved ledger path — proving the
+        # aocc ledger (not the empty composite one) was selected.
+        assert "self_improve_ledger_aocc.jsonl" in out
+        assert "iterations:    1" in out.lower()
+
+    def test_run_default_ledger_resolves_from_metric(self, tmp_path, monkeypatch):
+        cli = self._import_cli()
+        monkeypatch.chdir(tmp_path)
+        parser = cli._build_parser()
+        # aocc → aocc ledger path; composite (default) → historical path.
+        args_aocc = parser.parse_args(["run", "--metric", "aocc"])
+        assert args_aocc.ledger is None
+        from panobbgo.self_improve import ledger_path_for_metric
+
+        assert (
+            args_aocc.ledger or ledger_path_for_metric(args_aocc.metric)
+        ) == "planning/self_improve_ledger_aocc.jsonl"
+        args_comp = parser.parse_args(["run"])
+        assert (args_comp.ledger or ledger_path_for_metric(args_comp.metric)) == "planning/self_improve_ledger.jsonl"
 
 
 # ===========================================================================

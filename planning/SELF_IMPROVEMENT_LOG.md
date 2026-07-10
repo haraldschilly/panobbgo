@@ -17,6 +17,82 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-10 — Per-metric ledger routing: `--metric` selector + metric-scoped archive pooling (AOCC-regime follow-ups 1 & 2)
+
+* **What** — Closed the first two of the three AOCC-regime follow-ups
+  seeded under the 2026-07-09 flip.  After the flip the nightly cron
+  writes a *metric-specific* ledger (§12.1), but two readers still crossed
+  the metric boundary:
+
+  1. **Metric-scoped archive pooling.** Both
+     :meth:`AdaptiveMutationSampler.prime_from_archives` and
+     :func:`~panobbgo.self_improve.load_ledgers_for_codify_scan` globbed
+     `self_improve_ledger_*.jsonl` under `planning/done/` — which matches
+     *both* composite (`self_improve_ledger_<date>.jsonl`) and aocc
+     (`self_improve_ledger_aocc_<date>.jsonl`) rotations.  So an aocc
+     nightly run's `--prime-include-archives` warmed the bandit from
+     composite archives, and a composite codify-scan would pool aocc
+     archives into its bootstrap CI — mixing ~100×-different delta scales.
+     Fixed by a new module-level helper trio in
+     `panobbgo/self_improve.py`: :data:`LEDGER_STEM_BY_METRIC`,
+     :func:`ledger_path_for_metric`, :func:`metric_for_ledger_path`
+     (longest-stem-wins so an aocc archive is never misread as composite,
+     whose stem is a prefix), and :func:`iter_metric_archives` (the
+     scoped, chronological archive selector).  `prime_from_archives` gains
+     an optional `ledger_path=` kwarg — when given, archive selection is
+     scoped to that ledger's metric; when `None` the historical
+     glob-everything behaviour is preserved byte-for-byte (so the existing
+     11 `prime_from_archives` tests are untouched).  The `SelfImprover.run`
+     priming path passes `self.config.ledger_path`, so production runs
+     scope automatically.  `load_ledgers_for_codify_scan` scopes
+     unconditionally (its metric is unambiguous from `ledger_path`); on the
+     current all-composite archive set the record count is identical
+     (verified: composite codify-scan still scans 1395 records).
+
+  2. **`--metric {composite,aocc}` CLI selector.** `summary` and
+     `codify-scan` still defaulted their `--ledger` to the frozen
+     composite path, so under the aocc nightly default the daily routine
+     had to pass the aocc path by hand (an easy footgun — silently scan
+     the stale ledger).  All three subcommands (`run`, `summary`,
+     `codify-scan`) now default `--ledger` to `None` and resolve it from
+     `--metric` via :func:`ledger_path_for_metric` when omitted: `composite`
+     → `planning/self_improve_ledger.jsonl` (unchanged historical default),
+     `aocc` → `planning/self_improve_ledger_aocc.jsonl`.  An explicit
+     `--ledger` still wins.  `run` reuses its existing `--metric` flag
+     (which already drives the measurement), so a bare
+     `run --metric aocc` now writes to the aocc ledger by default —
+     matching the workflow's `$LEDGER` routing.
+
+* **Why** — §12.1 / the 2026-07-09 *Next iteration ideas* flagged both as
+  clean-ups the flip left open.  They are correctness fixes: cross-metric
+  pooling contaminates codify-scan's pooled CI and the graded bandit
+  reward (the whole point of the per-metric ledger split), and the
+  hand-passed ledger path is exactly the kind of silent footgun the §11
+  criterion-4 "honesty" bar exists to prevent.  Fixing them keeps the
+  persistence pipeline (§11 criterion 2) reading the right, high-resolution
+  signal.
+
+* **Measured impact** — no optimizer behaviour change (pure
+  tooling/routing).  End-to-end verification on the live repo:
+  `codify-scan --metric aocc` targets `self_improve_ledger_aocc.jsonl`
+  (27 records) while the default composite scan is unchanged
+  (1395 records, 4 candidates surfaced); `summary --metric aocc` reads the
+  aocc ledger (20 iters, 2 accepts).
+
+* **Tests** — 15 new tests: `TestMetricLedgerRouting` (helper unit
+  tests — live/archive name classification, longest-stem-wins, unknown-name
+  fallback, path resolution, `iter_metric_archives` scoping, and
+  `load_ledgers_for_codify_scan` cross-metric separation),
+  `TestPrimeFromArchives.test_ledger_path_scopes_priming_to_metric`, and
+  `TestMetricSelectorCLI` (real-parser wiring for `codify-scan` / `summary`
+  / `run` under `--metric`, plus the explicit-ledger-overrides-metric
+  case).  Full suite green (599 passed); ruff + pyright clean.
+
+* **Follow-up** — the *third* AOCC-regime ticket (re-confirm the
+  persistence pipeline on the aocc ledger once ~3–5 nights accumulate and
+  produce a codify PR) remains open; it is a measurement/operator task,
+  not a code change, and is retained under *Next iteration ideas*.
+
 ### 2026-07-09 — Flip the nightly default metric to AOCC (V2 §9.5 step 2 — closes §2.1 "no metric resolution")
 
 * **What** — Flipped the `self_improve_nightly.yml` scheduled default
@@ -8496,32 +8572,32 @@ a dated entry above when shipped.
 #### AOCC-regime follow-ups (after the 2026-07-09 metric flip)
 
 The nightly default flipped to `--metric aocc` on 2026-07-09 (see the
-dated entry above).  Three clean-up / consolidation tickets follow:
+dated entry above).  Three clean-up / consolidation tickets followed; the
+first two shipped 2026-07-10 (see that dated entry), the third remains.
 
-* **Per-metric archive priming.** An aocc nightly run passes
-  `--prime-include-archives`, which globs
-  `planning/done/self_improve_ledger_*.jsonl` — today that set is the
-  *composite* archives, so the aocc bandit warms from cross-metric
-  evidence.  Mutation-arm *identity* is metric-independent (the Beta
-  posterior keys on `(class, param, rule_kind)`), so this is only a soft
-  reward-scale mismatch that washes out as aocc records accumulate — but
-  it is not clean.  Scope the archive glob (or the `--prime-archive-dir`)
-  to the active metric so aocc primes only from aocc archives.
-* **Point the daily codify routine at the active ledger.** `summary` and
-  `codify-scan` still default to `planning/self_improve_ledger.jsonl`
-  (the now-frozen composite ledger) for backwards compatibility; under
-  the aocc default the daily routine must pass
-  `--ledger planning/self_improve_ledger_aocc.jsonl` explicitly.  A small
-  quality-of-life follow-up is to have the CLI auto-select the aocc
-  ledger when it exists (or add a `--metric` selector that resolves the
-  path), so the daily routine can't accidentally scan the stale ledger.
+* ~**Per-metric archive priming.**~ — **shipped 2026-07-10.**
+  :meth:`AdaptiveMutationSampler.prime_from_archives` gained an optional
+  `ledger_path=` kwarg (passed from `SelfImprover.run`) and
+  :func:`~panobbgo.self_improve.load_ledgers_for_codify_scan` scopes
+  unconditionally, both via the new :func:`iter_metric_archives` helper,
+  so an aocc run primes only from aocc archives and a composite scan pools
+  only composite archives.  See the 2026-07-10 dated entry.
+* ~**Point the daily codify routine at the active ledger.**~ —
+  **shipped 2026-07-10** as a `--metric {composite,aocc}` selector on
+  `summary` / `codify-scan` (and `run` reuses its existing `--metric`
+  flag): with `--ledger` omitted the path resolves from the metric via
+  :func:`ledger_path_for_metric`, so the daily routine passes
+  `--metric aocc` instead of the full aocc path and can no longer
+  accidentally scan the stale composite ledger.  See the 2026-07-10 entry.
 * **Re-confirm the persistence pipeline on the higher-resolution
   signal.** Once ~3–5 aocc nights accumulate, re-run
-  `codify-scan --apply-top --open-pr` against the aocc ledger and confirm
+  `codify-scan --metric aocc --apply-top --open-pr` (the `--metric aocc`
+  selector shipped 2026-07-10 resolves the aocc ledger path) and confirm
   it produces codify PRs (§11 criterion 2).  AOCC's 35%-vs-3%
   accept rate should surface actionable `(class, param, direction)`
   consensus groups far faster than composite did — the whole point of
-  the flip.
+  the flip.  This is the one AOCC-regime ticket still open — it is a
+  measurement/operator task, not a code change.
 
 #### Warm-started curvature-aware local polish for the curved-valley class (first layer shipped 2026-07-07)
 

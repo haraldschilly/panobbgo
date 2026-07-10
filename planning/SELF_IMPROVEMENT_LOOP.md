@@ -632,9 +632,14 @@ ledger**: the scheduled (aocc) regime appends to
 `planning/self_improve_ledger_aocc.jsonl`; a `composite` A/B dispatch
 appends to the historical `planning/self_improve_ledger.jsonl`.  Under
 the aocc default, the **active ledger for the daily routine is
-`planning/self_improve_ledger_aocc.jsonl`** — point `summary` /
-`codify-scan` at it explicitly (they still default to the composite
-path for backwards compatibility).
+`planning/self_improve_ledger_aocc.jsonl`** — pass `--metric aocc` to
+`summary` / `codify-scan` (shipped 2026-07-10) and the CLI resolves that
+path for you (the `--ledger` / positional default is still the composite
+path for backwards compatibility, so `--metric aocc` is the ergonomic way
+to avoid accidentally scanning the stale composite ledger).  Archive
+pooling for both readers is scoped to the selected metric via
+`iter_metric_archives`, so composite and aocc archives under
+`planning/done/` never cross-contaminate.
 
 | Artifact | Purpose | Consumed by |
 |---|---|---|

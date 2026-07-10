@@ -1378,7 +1378,7 @@ class AdaptiveMutationSampler:
                 consumed += 1
         return consumed
 
-    def prime_from_archives(self, archive_dir: str) -> int:
+    def prime_from_archives(self, archive_dir: str, *, ledger_path: Optional[str] = None) -> int:
         """Seed the bandit's history from archived JSONL ledgers.
 
         Discovers files matching the rotation glob
@@ -1390,6 +1390,16 @@ class AdaptiveMutationSampler:
         of records consumed across all archives — a missing directory,
         an empty directory, or a directory with no matching files all
         return ``0`` and leave the posterior untouched.
+
+        When ``ledger_path`` is given, archive selection is *scoped to that
+        ledger's metric* via :func:`iter_metric_archives` so an aocc run
+        warms only from aocc archives (and a composite run only from
+        composite archives) — the two live on ~100×-different delta scales
+        and their graded rewards must not mix (see the AOCC-regime
+        follow-ups in ``planning/SELF_IMPROVEMENT_LOG.md``).  When ``None``
+        (the default) every matching archive is replayed regardless of
+        metric — the historical single-metric behaviour, byte-identical for
+        pre-flip archive sets.
 
         Per-record semantics are byte-identical to
         :meth:`prime_from_ledger` (same :meth:`_consume_record` helper).
@@ -1405,7 +1415,11 @@ class AdaptiveMutationSampler:
         # Sort by filename for deterministic, chronological replay.  The
         # rotation convention ``self_improve_ledger_YYYY-MM-DD.jsonl``
         # makes lexicographic order equal to chronological order.
-        for ledger_file in sorted(archive_path.glob("self_improve_ledger_*.jsonl")):
+        if ledger_path is None:
+            archive_files = sorted(archive_path.glob("self_improve_ledger_*.jsonl"))
+        else:
+            archive_files = iter_metric_archives(archive_dir, ledger_path)
+        for ledger_file in archive_files:
             for rec in load_ledger(str(ledger_file)):
                 if self._consume_record(rec):
                     consumed += 1
@@ -4188,7 +4202,9 @@ class SelfImprover:
                     archive_dir = self.config.adaptive_prime_archive_dir
                     if archive_dir is None:
                         archive_dir = str(pathlib.Path(self.config.ledger_path).parent / "done")
-                    self.sampler.prime_from_archives(archive_dir)
+                    # Scope archive priming to the active metric so an aocc
+                    # run warms only from aocc archives (§12.1 routing).
+                    self.sampler.prime_from_archives(archive_dir, ledger_path=self.config.ledger_path)
                 self.sampler.prime_from_ledger(self.config.ledger_path)
         else:
             self.sampler = None
@@ -5148,6 +5164,80 @@ def load_ledger(path: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Per-metric ledger routing (V2 §12.1 — after the 2026-07-09 AOCC flip)
+# ---------------------------------------------------------------------------
+
+# Canonical active-ledger basename stems keyed by accept/reject metric.  The
+# nightly cron writes a *metric-specific* ledger (§12.1) because composite
+# deltas (~1e-3 scale) and aocc deltas (~0.3 scale) live on ~100×-different
+# scales and must never pool in codify-scan's bootstrap CI or the graded
+# bandit reward.  Note the composite stem is a strict *prefix* of the aocc
+# stem, so :func:`metric_for_ledger_path` matches the longest stem first.
+LEDGER_STEM_BY_METRIC: Dict[str, str] = {
+    "composite": "self_improve_ledger",
+    "aocc": "self_improve_ledger_aocc",
+}
+
+# Directory the canonical active ledgers live in (§12.1).
+DEFAULT_LEDGER_DIR = "planning"
+
+
+def ledger_path_for_metric(metric: str, ledger_dir: str = DEFAULT_LEDGER_DIR) -> str:
+    """Return the canonical active-ledger path for ``metric``.
+
+    ``composite`` → ``<ledger_dir>/self_improve_ledger.jsonl`` (the frozen
+    historical ledger); ``aocc`` → ``<ledger_dir>/self_improve_ledger_aocc.jsonl``
+    (the active regime since the 2026-07-09 flip).  Raises ``ValueError`` for
+    an unknown metric so a mistyped ``--metric`` fails loudly instead of
+    silently scanning the wrong ledger.
+    """
+    try:
+        stem = LEDGER_STEM_BY_METRIC[metric]
+    except KeyError:
+        known = ", ".join(sorted(LEDGER_STEM_BY_METRIC))
+        raise ValueError(f"unknown metric {metric!r} (known: {known})") from None
+    return str(pathlib.Path(ledger_dir) / f"{stem}.jsonl")
+
+
+def metric_for_ledger_path(path: Any) -> str:
+    """Infer which metric a ledger / archive file belongs to from its name.
+
+    Recognises both the live name ``<stem>.jsonl`` and the rotated-archive
+    name ``<stem>_<suffix>.jsonl`` (e.g. ``self_improve_ledger_2026-05-31.jsonl``
+    or ``self_improve_ledger_aocc_2026-07-10.jsonl``).  Because the composite
+    stem is a prefix of the aocc stem, the *longest* matching stem wins so an
+    ``aocc`` archive is never misclassified as ``composite``.  Names matching
+    no known stem fall back to ``composite`` — the historical single-metric
+    regime, so pre-flip archives and test fixtures classify unchanged.
+    """
+    name = pathlib.Path(path).name
+    best_metric, best_len = "composite", -1
+    for metric, stem in LEDGER_STEM_BY_METRIC.items():
+        if (name == f"{stem}.jsonl" or name.startswith(f"{stem}_")) and len(stem) > best_len:
+            best_metric, best_len = metric, len(stem)
+    return best_metric
+
+
+def iter_metric_archives(archive_dir: str, ledger_path: str) -> List[pathlib.Path]:
+    """Archive ledger files under ``archive_dir`` sharing ``ledger_path``'s metric.
+
+    Returns the rotated archives (``self_improve_ledger_*.jsonl``) whose
+    inferred metric matches ``ledger_path``'s, in chronological (lexicographic
+    by filename) order — the rotation convention
+    ``self_improve_ledger[_aocc]_YYYY-MM-DD.jsonl`` makes a plain sort
+    chronological.  A missing directory returns ``[]``.  This is what scopes
+    archive priming / codify-scan to a single metric so an aocc run warms only
+    from aocc archives (and vice versa) — see the AOCC-regime follow-ups in
+    ``planning/SELF_IMPROVEMENT_LOG.md``.
+    """
+    archive_path = pathlib.Path(archive_dir)
+    if not archive_path.is_dir():
+        return []
+    metric = metric_for_ledger_path(ledger_path)
+    return [f for f in sorted(archive_path.glob("self_improve_ledger_*.jsonl")) if metric_for_ledger_path(f) == metric]
+
+
+# ---------------------------------------------------------------------------
 # Codify-scan (§9.3 / §9.5 step 4)
 # ---------------------------------------------------------------------------
 
@@ -5697,9 +5787,19 @@ def load_ledgers_for_codify_scan(
     archive directories are silently no-ops so the helper is safe to
     call on a fresh checkout.
 
+    Archive selection is *scoped to ``ledger_path``'s metric* via
+    :func:`iter_metric_archives`: scanning the composite ledger pools only
+    composite archives, scanning the aocc ledger pools only aocc archives.
+    This prevents composite deltas (~1e-3 scale) and aocc deltas (~0.3
+    scale) from mixing in the codify aggregator's bootstrap CI after the
+    2026-07-09 metric flip (§12.1).  Ledger names matching no known metric
+    stem classify as ``composite``, so pre-flip archive sets and test
+    fixtures pool exactly as before.
+
     Args:
         ledger_path: Path to the live ledger (typically
-            ``planning/self_improve_ledger.jsonl``).
+            ``planning/self_improve_ledger.jsonl`` for composite or
+            ``planning/self_improve_ledger_aocc.jsonl`` for aocc).
         include_archives: When ``True`` (default), also scan the
             archive directory.  Set to ``False`` for a live-only scan.
         archive_dir: Path to the archive directory.  When ``None`` the
@@ -5708,18 +5808,16 @@ def load_ledgers_for_codify_scan(
             ``planning/``, archives in ``planning/done/``).
 
     Returns:
-        Concatenation of archive records (chronological by archive
-        filename) followed by the live ledger records, in the order
-        :func:`aggregate_codify_candidates` should consume them.
+        Concatenation of same-metric archive records (chronological by
+        archive filename) followed by the live ledger records, in the
+        order :func:`aggregate_codify_candidates` should consume them.
     """
     records: List[Dict[str, Any]] = []
     if include_archives:
         if archive_dir is None:
             archive_dir = str(pathlib.Path(ledger_path).parent / "done")
-        ad = pathlib.Path(archive_dir)
-        if ad.exists() and ad.is_dir():
-            for archive_file in sorted(ad.glob("self_improve_ledger_*.jsonl")):
-                records.extend(load_ledger(str(archive_file)))
+        for archive_file in iter_metric_archives(archive_dir, ledger_path):
+            records.extend(load_ledger(str(archive_file)))
     records.extend(load_ledger(ledger_path))
     return records
 

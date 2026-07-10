@@ -257,8 +257,14 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument(
         "--ledger",
         dest="ledger",
-        default="planning/self_improve_ledger.jsonl",
-        help="Path to append-only JSONL ledger",
+        default=None,
+        help=(
+            "Path to append-only JSONL ledger.  When omitted, defaults to "
+            "the metric-specific ledger for --metric (composite → "
+            "planning/self_improve_ledger.jsonl; aocc → "
+            "planning/self_improve_ledger_aocc.jsonl) so the two scales "
+            "never share a ledger (§12.1)."
+        ),
     )
     run_p.add_argument(
         "--stop-sentinel",
@@ -616,8 +622,24 @@ def _build_parser() -> argparse.ArgumentParser:
     sum_p.add_argument(
         "ledger",
         nargs="?",
-        default="planning/self_improve_ledger.jsonl",
-        help="Path to the ledger (default: planning/self_improve_ledger.jsonl)",
+        default=None,
+        help=(
+            "Path to the ledger.  When omitted, defaults to the "
+            "metric-specific ledger for --metric (composite → "
+            "planning/self_improve_ledger.jsonl; aocc → "
+            "planning/self_improve_ledger_aocc.jsonl)."
+        ),
+    )
+    sum_p.add_argument(
+        "--metric",
+        choices=["composite", "aocc"],
+        default="composite",
+        help=(
+            "Resolve the default ledger path for this metric when no ledger "
+            "argument is given (default: composite, preserving the historical "
+            "path).  Under the AOCC nightly default (2026-07-09) pass "
+            "--metric aocc to point the daily routine at the active ledger."
+        ),
     )
     sum_p.add_argument(
         "--top-n",
@@ -658,8 +680,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     scan_p.add_argument(
         "--ledger",
-        default="planning/self_improve_ledger.jsonl",
-        help="Path to the live ledger (default: planning/self_improve_ledger.jsonl)",
+        default=None,
+        help=(
+            "Path to the live ledger.  When omitted, defaults to the "
+            "metric-specific ledger for --metric (composite → "
+            "planning/self_improve_ledger.jsonl; aocc → "
+            "planning/self_improve_ledger_aocc.jsonl)."
+        ),
+    )
+    scan_p.add_argument(
+        "--metric",
+        choices=["composite", "aocc"],
+        default="composite",
+        help=(
+            "Resolve the default ledger path for this metric when --ledger is "
+            "not given (default: composite, preserving the historical path).  "
+            "Under the AOCC nightly default (2026-07-09) pass --metric aocc so "
+            "the codify scan reads the active ledger; archive pooling is "
+            "scoped to the same metric either way (§12.1)."
+        ),
     )
     scan_p.add_argument(
         "--archive-dir",
@@ -1000,8 +1039,15 @@ def _parse_seed_list(raw: str) -> tuple:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    from panobbgo.self_improve import LoopConfig, SelfImprover, default_catalog, default_structural_catalog
+    from panobbgo.self_improve import (
+        LoopConfig,
+        SelfImprover,
+        default_catalog,
+        default_structural_catalog,
+        ledger_path_for_metric,
+    )
 
+    ledger = args.ledger if args.ledger is not None else ledger_path_for_metric(args.metric)
     catalog = default_structural_catalog() if args.structural else default_catalog()
     try:
         holdout_seeds = _parse_seed_list(args.holdout_base_seeds)
@@ -1022,7 +1068,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             stat_seed=args.stat_seed,
             mutation_seed=args.mutation_seed,
             strategy_names=args.strategies,
-            ledger_path=args.ledger,
+            ledger_path=ledger,
             stop_sentinel_path=args.stop_sentinel,
             timeout_per_run=args.timeout,
             randomize=args.randomize,
@@ -1405,9 +1451,10 @@ def _print_inactivity_block(iter_records: List[Dict[str, Any]]) -> None:
 
 
 def _cmd_summary(args: argparse.Namespace) -> int:
-    from panobbgo.self_improve import load_ledger
+    from panobbgo.self_improve import ledger_path_for_metric, load_ledger
 
-    path = pathlib.Path(args.ledger)
+    ledger = args.ledger if args.ledger is not None else ledger_path_for_metric(args.metric)
+    path = pathlib.Path(ledger)
     if not path.exists():
         print(f"Error: ledger not found: {path}", file=sys.stderr)
         return 1
@@ -1800,6 +1847,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         aggregate_codify_candidates,
         annotate_codified_status,
         detect_widening_candidates,
+        ledger_path_for_metric,
         load_ledgers_for_codify_scan,
     )
 
@@ -1807,7 +1855,8 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         print(f"Error: --min-nights must be >= 1, got {args.min_nights}", file=sys.stderr)
         return 1
 
-    ledger_path = pathlib.Path(args.ledger)
+    ledger = args.ledger if args.ledger is not None else ledger_path_for_metric(args.metric)
+    ledger_path = pathlib.Path(ledger)
     if not ledger_path.exists():
         # Match _cmd_summary's behaviour: missing live ledger is an
         # error, but the scanner can still draw on archives — surface

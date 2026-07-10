@@ -1373,6 +1373,53 @@ hermetic, and the marker-in-HTML-comment tradeoff that keeps the
 dedup layer greppable without polluting the human-readable PR
 rendering.
 
+Per-metric ledger routing (``--metric``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Shipped 2026-07-10.  Since the 2026-07-09 flip to ``--metric aocc`` the
+nightly cron writes a **metric-specific ledger** (§12.1): the scheduled
+(aocc) regime appends to ``planning/self_improve_ledger_aocc.jsonl`` while
+a ``composite`` A/B dispatch appends to the historical
+``planning/self_improve_ledger.jsonl``.  The two live on ~100×-different
+delta scales and must never pool in codify-scan's bootstrap CI or the
+graded bandit reward.
+
+The ``run`` / ``summary`` / ``codify-scan`` subcommands accept a
+``--metric {composite,aocc}`` selector.  When ``--ledger`` (or the
+``summary`` positional) is omitted, the CLI resolves the canonical ledger
+path for that metric via
+:func:`panobbgo.self_improve.ledger_path_for_metric`
+(``composite`` → ``planning/self_improve_ledger.jsonl``, the unchanged
+historical default; ``aocc`` →
+``planning/self_improve_ledger_aocc.jsonl``).  An explicit ``--ledger``
+still wins, so the nightly workflow — which passes ``--ledger "$LEDGER"``
+directly — is unaffected.  ``run`` reuses its existing ``--metric`` flag
+(which already selects the measurement metric), so a bare
+``run --metric aocc`` now writes to the aocc ledger by default.
+
+.. code-block:: bash
+
+   # Daily routine under the aocc nightly default — no hand-typed path:
+   uv run python scripts/self_improve.py summary --metric aocc
+   uv run python scripts/self_improve.py codify-scan --metric aocc --apply-top
+
+Archive pooling for both the bandit prime and codify-scan is scoped to the
+selected metric via
+:func:`panobbgo.self_improve.iter_metric_archives`: rotated archives under
+``planning/done/`` are classified by
+:func:`panobbgo.self_improve.metric_for_ledger_path` (longest-stem-wins so
+an ``self_improve_ledger_aocc_<date>.jsonl`` archive is never misread as
+composite, whose stem is a prefix), and only same-metric archives are
+replayed.  :meth:`panobbgo.self_improve.AdaptiveMutationSampler.prime_from_archives`
+takes an optional ``ledger_path=`` argument for this scoping — passed
+automatically from ``SelfImprover.run`` — while
+:func:`panobbgo.self_improve.load_ledgers_for_codify_scan` scopes
+unconditionally from its ``ledger_path``.  On the current all-composite
+archive set the record counts are unchanged; the scoping only ever
+excludes cross-metric archives once aocc rotations land in
+``planning/done/``.  See the 2026-07-10 entry in
+``planning/SELF_IMPROVEMENT_LOG.md``.
+
 Bidirectional-bound widening (``--widen-bounds``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

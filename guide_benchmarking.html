@@ -139,6 +139,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4">Cross-night codify-scan (&#167;9.3 / &#167;9.5 step 4)</a><ul>
 <li><a class="reference internal" href="#apply-the-top-candidate-to-the-working-tree-apply-top">Apply the top candidate to the working tree (<code class="docutils literal notranslate"><span class="pre">--apply-top</span></code>)</a></li>
 <li><a class="reference internal" href="#open-a-draft-pr-for-the-top-candidate-open-pr">Open a draft PR for the top candidate (<code class="docutils literal notranslate"><span class="pre">--open-pr</span></code>)</a></li>
+<li><a class="reference internal" href="#per-metric-ledger-routing-metric">Per-metric ledger routing (<code class="docutils literal notranslate"><span class="pre">--metric</span></code>)</a></li>
 <li><a class="reference internal" href="#bidirectional-bound-widening-widen-bounds">Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)</a><ul>
 <li><a class="reference internal" href="#auto-tuned-widen-factor-widen-auto-tune">Auto-tuned widen factor (<code class="docutils literal notranslate"><span class="pre">--widen-auto-tune</span></code>)</a></li>
 </ul>
@@ -1575,6 +1576,49 @@ for the design rationale, the runner dependency-injection hook
 hermetic, and the marker-in-HTML-comment tradeoff that keeps the
 dedup layer greppable without polluting the human-readable PR
 rendering.</p>
+</section>
+<section id="per-metric-ledger-routing-metric">
+<h4>Per-metric ledger routing (<code class="docutils literal notranslate"><span class="pre">--metric</span></code>)<a class="headerlink" href="#per-metric-ledger-routing-metric" title="Link to this heading">¶</a></h4>
+<p>Shipped 2026-07-10.  Since the 2026-07-09 flip to <code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">aocc</span></code> the
+nightly cron writes a <strong>metric-specific ledger</strong> (§12.1): the scheduled
+(aocc) regime appends to <code class="docutils literal notranslate"><span class="pre">planning/self_improve_ledger_aocc.jsonl</span></code> while
+a <code class="docutils literal notranslate"><span class="pre">composite</span></code> A/B dispatch appends to the historical
+<code class="docutils literal notranslate"><span class="pre">planning/self_improve_ledger.jsonl</span></code>.  The two live on ~100×-different
+delta scales and must never pool in codify-scan’s bootstrap CI or the
+graded bandit reward.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">run</span></code> / <code class="docutils literal notranslate"><span class="pre">summary</span></code> / <code class="docutils literal notranslate"><span class="pre">codify-scan</span></code> subcommands accept a
+<code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">{composite,aocc}</span></code> selector.  When <code class="docutils literal notranslate"><span class="pre">--ledger</span></code> (or the
+<code class="docutils literal notranslate"><span class="pre">summary</span></code> positional) is omitted, the CLI resolves the canonical ledger
+path for that metric via
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.ledger_path_for_metric()</span></code>
+(<code class="docutils literal notranslate"><span class="pre">composite</span></code> → <code class="docutils literal notranslate"><span class="pre">planning/self_improve_ledger.jsonl</span></code>, the unchanged
+historical default; <code class="docutils literal notranslate"><span class="pre">aocc</span></code> →
+<code class="docutils literal notranslate"><span class="pre">planning/self_improve_ledger_aocc.jsonl</span></code>).  An explicit <code class="docutils literal notranslate"><span class="pre">--ledger</span></code>
+still wins, so the nightly workflow — which passes <code class="docutils literal notranslate"><span class="pre">--ledger</span> <span class="pre">&quot;$LEDGER&quot;</span></code>
+directly — is unaffected.  <code class="docutils literal notranslate"><span class="pre">run</span></code> reuses its existing <code class="docutils literal notranslate"><span class="pre">--metric</span></code> flag
+(which already selects the measurement metric), so a bare
+<code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">--metric</span> <span class="pre">aocc</span></code> now writes to the aocc ledger by default.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Daily routine under the aocc nightly default — no hand-typed path:</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>summary<span class="w"> </span>--metric<span class="w"> </span>aocc
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>codify-scan<span class="w"> </span>--metric<span class="w"> </span>aocc<span class="w"> </span>--apply-top
+</span></pre></div>
+</div>
+<p>Archive pooling for both the bandit prime and codify-scan is scoped to the
+selected metric via
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.iter_metric_archives()</span></code>: rotated archives under
+<code class="docutils literal notranslate"><span class="pre">planning/done/</span></code> are classified by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.metric_for_ledger_path()</span></code> (longest-stem-wins so
+an <code class="docutils literal notranslate"><span class="pre">self_improve_ledger_aocc_&lt;date&gt;.jsonl</span></code> archive is never misread as
+composite, whose stem is a prefix), and only same-metric archives are
+replayed.  <code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.self_improve.AdaptiveMutationSampler.prime_from_archives()</span></code>
+takes an optional <code class="docutils literal notranslate"><span class="pre">ledger_path=</span></code> argument for this scoping — passed
+automatically from <code class="docutils literal notranslate"><span class="pre">SelfImprover.run</span></code> — while
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.self_improve.load_ledgers_for_codify_scan()</span></code> scopes
+unconditionally from its <code class="docutils literal notranslate"><span class="pre">ledger_path</span></code>.  On the current all-composite
+archive set the record counts are unchanged; the scoping only ever
+excludes cross-metric archives once aocc rotations land in
+<code class="docutils literal notranslate"><span class="pre">planning/done/</span></code>.  See the 2026-07-10 entry in
+<code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOG.md</span></code>.</p>
 </section>
 <section id="bidirectional-bound-widening-widen-bounds">
 <h4>Bidirectional-bound widening (<code class="docutils literal notranslate"><span class="pre">--widen-bounds</span></code>)<a class="headerlink" href="#bidirectional-bound-widening-widen-bounds" title="Link to this heading">¶</a></h4>

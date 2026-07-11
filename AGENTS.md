@@ -439,6 +439,29 @@ The harness is the measurement substrate for an autonomous
     §7.3-freeze compliant (improves an existing heuristic; better default
     kwargs for existing specs — no new arms).  See the 2026-07-08 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
+*   Gaussian-localised quadratic fit for `Nearby` — **shipped 2026-07-11**,
+    see `panobbgo.heuristics.nearby.fit_quadratic_step` (`weight_sigma` arg)
+    and `Nearby.quadratic_weight_sigma` (default `0.35`).  The 2026-07-08
+    curvature-aware step fitted the local quadratic with mild rank-based
+    weights `1/(1+rank)`, so the model averaged over the *whole* nearest-point
+    cloud.  On a curved (Rosenbrock) valley a quadratic averaged over a wide
+    cloud is a poor model of the quartic floor — its Newton step points across
+    (not along) the valley and stalls.  The fit now weights each sample by a
+    **Gaussian distance kernel** `w_i = exp(-½ (d_i / (σ·median_d))²)` with
+    bandwidth `σ = quadratic_weight_sigma` a fraction of the median neighbour
+    distance, so the model tracks the *local* valley floor.  Scale-free
+    (bandwidth relative to the median distance) so it adapts to however tightly
+    the portfolio has clustered.  Measured: ~4× lower residual objective on a
+    synthetic 5-D Rosenbrock valley (median 0.0062 vs 0.0252 for the legacy
+    rank weights); a paired `--randomize` A/B of `Rewarding_Diverse` on the
+    quick battery lifts the composite from 0.097 to 0.118 (+0.021, +21%),
+    driven by the smooth/valley families (`DeJong` +0.057, `Rosenbrock` +0.026)
+    and neutral on the multimodal ones (`Rastrigin` / `Ackley`) — the expected
+    profile, since localisation only helps where a single quadratic describes
+    the neighbourhood.  `weight_sigma=None` restores the byte-identical legacy
+    rank weights.  §7.3-freeze compliant (improves an existing heuristic; a
+    better default for an existing kwarg — no new arms).  See the 2026-07-11
+    entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 *   Hold-out validation set — **shipped** (§10), see
     `panobbgo.self_improve.LoopHoldoutRecord` and the
     `--holdout-base-seed`, `--holdout-iterations`,

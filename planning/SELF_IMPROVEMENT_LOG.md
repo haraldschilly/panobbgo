@@ -17,6 +17,84 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-11 — Gaussian-localised quadratic fit for `Nearby` (curved-valley refinement, statistical_accept ACCEPT)
+
+* **What** — Replaced the mild rank-based sample weights of the 2026-07-08
+  curvature-aware quadratic step with a **Gaussian distance kernel**.  New
+  `weight_sigma` argument on
+  :func:`panobbgo.heuristics.nearby.fit_quadratic_step` and matching
+  `Nearby.quadratic_weight_sigma` kwarg (default `0.35`).  The fit now weights
+  each buffered point by
+  ``w_i = exp(-½ (d_i / (σ · median_d))²)`` — a bandwidth `σ` expressed as a
+  fraction of the *median* neighbour distance — instead of the legacy
+  ``1 / (1 + rank)``.  `weight_sigma=None` restores the byte-for-byte legacy
+  rank weighting.  `quadratic=False` remains byte-identical to the classic
+  heuristic (no buffer, no fit).
+
+* **Why** — The 2026-07-08 step fitted the local quadratic with weights that
+  decayed only mildly with distance, so the model effectively averaged over the
+  *whole* nearest-point cloud (up to `4·n_features` points).  On a curved
+  (Rosenbrock) valley a quadratic averaged over a wide cloud is a poor model of
+  the quartic floor: its Newton step points *across* the narrow valley rather
+  than *along* it, and the search stalls.  This is the mechanism behind the
+  documented sharpest competitive gap ("every Panobbgo strategy scores 0 on
+  ``Rosenbrock_5D`` while stock scipy dual-annealing solves it").  A diagnostic
+  sweep (isolated `fit_quadratic_step` iterated on a synthetic 5-D Rosenbrock
+  valley) showed the *locality of the fit sample* — not the ridge strength or
+  the `min_r2` gate — dominates step quality; a Gaussian kernel with
+  `σ ≈ 0.35` localises the model without starving it, quartering the residual
+  objective (median 0.0062 vs 0.0252 for the legacy rank weights).  This is the
+  "recovers per-axis curvature but not coupling" successor flagged under *Next
+  iteration ideas* — localising the fit is the cheaper, more robust first layer
+  than a diagonal-plus-low-rank Hessian model (that remains queued for the
+  residual 5-D-coupling gap).
+
+* **Measured impact** — paired ``--randomize`` A/B of the quadratic-bearing
+  `Rewarding_Diverse` spec on the quick battery, 16 randomize-iterations ×
+  10 reps, legacy-weighting baseline via a monkeypatched `weight_sigma=None`:
+
+  | metric | value |
+  |---|---|
+  | composite paired Δ (mean) | **+0.0176** (0.097 → 0.115, +18%) |
+  | composite paired Δ (median) | +0.0203 |
+  | 95% bootstrap CI on mean Δ | **[+0.0083, +0.0267]** (lower bound > 0) |
+  | win / loss over 16 iterations | 12 / 4 |
+
+  Per-family mean Δ: `DeJong` +0.0428, `Rosenbrock` +0.0294 (the smooth /
+  valley families where a single quadratic describes the neighbourhood),
+  `Ackley` +0.0013, `Rastrigin` −0.0028 (multimodal, neutral).  This clears
+  the :func:`panobbgo.harness.statistical_accept` rule — Δ > `eps_accept`
+  (0.005), CI lower bound > 0, worst per-family regression −0.0028 well inside
+  `eps_regress` (0.05) — i.e. a genuine ACCEPT, not a quick-mode noise spike.
+  (A single randomize-iteration is dominated by instance noise and can show
+  either sign — iteration 0 alone had `Ackley` / `DeJong` down; the 16-iteration
+  paired mean is the honest signal.)  At dim-5 inside the full 5-heuristic
+  portfolio the effect dilutes into noise, since `Nearby` is one arm among five
+  sharing a 500-eval budget — the win is realised at the budgets and
+  problem-sizes the nightly loop actually measures.
+
+* **Tests** — 6 new / extended tests in
+  `tests/test_heuristic_nearby_quadratic.py`:
+  `test_weight_sigma_none_reproduces_legacy_rank_weights` (hand-reconstructed
+  normal equations prove the legacy path is bit-exact),
+  `test_gaussian_weighting_is_the_default`,
+  `test_gaussian_weighting_localises_fit_on_curved_valley` (median over 40
+  clouds), `test_gaussian_weighting_handles_degenerate_coincident_cloud`,
+  `test_quadratic_weight_sigma_default_and_forwarded`, plus the
+  `quadratic_weight_sigma` validation cases in `test_invalid_quadratic_params_raise`.
+  Full suite green (1859 passed, 11 skipped); ruff + pyright clean.
+
+* **§7.3-freeze compliance** — improves an existing heuristic via a better
+  default for an existing kwarg; no new mutation rules, structural candidates,
+  or heuristics.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: expose
+  `quadratic_weight_sigma` as a catalog `float_uniform` arm *once the freeze
+  lifts* so the bandit can tune the bandwidth per-family; and the still-open
+  diagonal-plus-low-rank Hessian model for the residual 5-D coordinate-coupling
+  gap (localisation helps the *marginal* curvature; strong cross-terms still
+  need more structure than a ridge quadratic recovers from a thin sample).
+
 ### 2026-07-10 — Per-metric ledger routing: `--metric` selector + metric-scoped archive pooling (AOCC-regime follow-ups 1 & 2)
 
 * **What** — Closed the first two of the three AOCC-regime follow-ups
@@ -8620,14 +8698,27 @@ was the direct motivation: warm restarts fix the wrong restart geometry.
   a weighted-R² fit-quality check, at zero extra objective evaluations.
   Statistical-accept ACCEPT on the randomized battery (roughly doubles the
   composite there; +0.0274 Δ, 95% CI ``[+0.0057, +0.0521]`` on
-  ``Rewarding_Diverse``).  **Still open** — the *5D valley* half: the current
-  fit is ridge-regularised (cross terms shrunk toward zero) so it recovers
-  per-axis curvature cheaply but not the strong coordinate *coupling* of a 5D
-  Rosenbrock valley; a full quadratic needs ``O(d²)`` local points.  A
-  **diagonal-plus-low-rank** Hessian model (capture the dominant valley
-  direction with a rank-1 or rank-2 correction) may recover the coupling from
-  far fewer samples than a full quadratic, and remains the recommended
-  successor for the Rosenbrock_5D gap.
+  ``Rewarding_Diverse``).  ~**Fit locality**~ — **improved 2026-07-11**: a
+  diagnostic sweep found the *locality of the fit sample* (not the ridge or the
+  R² gate) dominates step quality on a curved valley, so the fit now weights
+  samples by a Gaussian distance kernel (``Nearby.quadratic_weight_sigma``,
+  default 0.35 of the median neighbour distance).  Statistical-accept ACCEPT on
+  the quick randomized battery (composite +0.0176, 95% CI ``[+0.0083,
+  +0.0267]``, 16-iter paired); see the 2026-07-11 dated entry.  **Still open**
+  — the *5D coordinate-coupling* half: even a well-localised ridge quadratic
+  shrinks cross terms toward zero, so it recovers per-axis (marginal) curvature
+  but not the strong coordinate *coupling* of a 5D Rosenbrock valley; a full
+  quadratic needs ``O(d²)`` local points.  A **diagonal-plus-low-rank** Hessian
+  model (capture the dominant valley direction with a rank-1 or rank-2
+  correction) may recover the coupling from far fewer samples than a full
+  quadratic, and remains the recommended successor for the Rosenbrock_5D gap.
+* **Expose ``quadratic_weight_sigma`` as a catalog arm (post-freeze)** — the
+  2026-07-11 Gaussian-localisation ship added the
+  ``Nearby.quadratic_weight_sigma`` kwarg with a fixed 0.35 default.  Once the
+  §7.3 freeze lifts, a ``float_uniform`` catalog rule on the slot (bounds
+  ``~(0.2, 0.6)``, the responsive band from the diagnostic sweep) would let the
+  bandit tune the fit bandwidth per problem-family — tighter on smooth valleys,
+  wider on noisier neighbourhoods.  Freeze-blocked for now (new arm).
 * **Wire ``warm_start`` into the ``Loop_LocalSearch`` seed** — the 2026-07-07
   ship only flipped the *structural-catalog* candidate (which the loop's
   bandit measures live).  The seed spec's own LBFGSB stays cold pending a

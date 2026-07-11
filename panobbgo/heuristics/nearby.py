@@ -71,6 +71,7 @@ def fit_quadratic_step(
     ridge: float = 1e-2,
     min_r2: float = 0.0,
     max_points: int | None = None,
+    weight_sigma: float | None = 0.35,
 ) -> np.ndarray | None:
     """Fit a local quadratic model and return a trust-region Newton step.
 
@@ -105,6 +106,20 @@ def fit_quadratic_step(
             gate.  A valley (Rosenbrock) fits with ``R² ≈ 1``.
         max_points: Cap on the nearest points used for the fit; defaults to
             ``4 · n_features`` so the fit stays local and cheap.
+        weight_sigma: Bandwidth of the distance kernel that weights each sample
+            in the least-squares fit, expressed as a fraction of the *median*
+            neighbour distance.  When a float, a Gaussian kernel
+            ``w_i = exp(-½ (d_i / (weight_sigma · median_d))²)`` down-weights
+            points far from the incumbent, so the quadratic is fitted
+            preferentially to the *local* neighbourhood — the regime a
+            curvature-aware step must model well on a curved valley.  A
+            quadratic averaged over a wide cloud is a poor model of a quartic
+            Rosenbrock valley and yields a Newton step that stalls; localising
+            the fit roughly quartered the residual objective on a synthetic 5-D
+            Rosenbrock valley (see the 2026-07-11 entry in
+            ``planning/SELF_IMPROVEMENT_LOG.md``).  ``None`` selects the legacy
+            rank-based weights ``1 / (1 + rank)`` (byte-for-byte the pre-
+            2026-07-11 behaviour) for callers that need it.  Default ``0.35``.
 
     Returns:
         The raw-coordinate step ``p`` (shape ``(dim,)``), or ``None``.
@@ -155,10 +170,26 @@ def fit_quadratic_step(
     quad = u[:, triu_i] * u[:, triu_j]  # (n, dim*(dim+1)/2)
     phi = np.concatenate([np.ones((n, 1)), u, quad], axis=1)  # (n, n_features)
 
-    # Distance-rank weights (robust to scale): nearest point weight 1, then
-    # 1/2, 1/3, …  — mirrors the legacy QuadraticWlsModel weighting.
-    rank = np.argsort(np.argsort(dists))
-    w = 1.0 / (1.0 + rank)
+    # Sample weights.  A Gaussian distance kernel (default) localises the fit
+    # so the quadratic models the immediate neighbourhood of the incumbent —
+    # essential on a curved valley, where a model averaged over a wide cloud
+    # points the Newton step across (not along) the valley and stalls.  The
+    # bandwidth is a fraction of the *median* neighbour distance, so the scheme
+    # is scale-free and adapts to however tightly the portfolio has clustered.
+    # ``weight_sigma=None`` restores the legacy rank weights (nearest point 1,
+    # then 1/2, 1/3, …) for byte-for-byte backward compatibility.
+    if weight_sigma is None:
+        rank = np.argsort(np.argsort(dists))
+        w = 1.0 / (1.0 + rank)
+    else:
+        scale = float(np.median(dists))
+        if not np.isfinite(scale) or scale <= 0.0:
+            scale = float(np.max(dists)) if dists.size else 0.0
+        if not np.isfinite(scale) or scale <= 0.0:
+            # Degenerate cloud (all points coincide) — fall back to uniform.
+            w = np.ones_like(dists)
+        else:
+            w = np.exp(-0.5 * (dists / (weight_sigma * scale)) ** 2)
 
     phi_w = phi * w[:, None]
     ata = phi.T @ phi_w  # weighted Gram matrix (n_features, n_features)
@@ -282,6 +313,13 @@ class Nearby(Heuristic):
       keeps the curvature step from over-exploiting on multimodal landscapes
       whose neighbourhood straddles several basins.  Only consulted when
       ``quadratic=True``.
+    - ``quadratic_weight_sigma``: bandwidth of the Gaussian distance kernel
+      that localises the quadratic fit, as a fraction of the median neighbour
+      distance (default: 0.35).  Smaller focuses the model more tightly on the
+      immediate neighbourhood of the incumbent (a better local model of a
+      curved valley, but noisier if pushed too small); larger approaches an
+      unweighted fit over the whole buffer.  Only consulted when
+      ``quadratic=True``.  See :func:`fit_quadratic_step`.
     """
 
     def __init__(
@@ -295,6 +333,7 @@ class Nearby(Heuristic):
         quadratic: bool = False,
         quadratic_trust: float = 2.0,
         quadratic_min_r2: float = 0.8,
+        quadratic_weight_sigma: float = 0.35,
     ):
         if not isinstance(quadratic, bool):
             raise ValueError(f"Nearby: quadratic must be a bool, got {quadratic!r}")
@@ -302,6 +341,10 @@ class Nearby(Heuristic):
             raise ValueError(f"Nearby: quadratic_trust must be a positive finite float, got {quadratic_trust!r}")
         if not np.isfinite(quadratic_min_r2) or not (0.0 <= quadratic_min_r2 <= 1.0):
             raise ValueError(f"Nearby: quadratic_min_r2 must be a float in [0, 1], got {quadratic_min_r2!r}")
+        if not np.isfinite(quadratic_weight_sigma) or quadratic_weight_sigma <= 0.0:
+            raise ValueError(
+                f"Nearby: quadratic_weight_sigma must be a positive finite float, got {quadratic_weight_sigma!r}"
+            )
         name = "Nearby %.3f/%s" % (radius, axes)
         if quadratic:
             name += "+quad"
@@ -313,6 +356,7 @@ class Nearby(Heuristic):
         self.quadratic = quadratic
         self.quadratic_trust = float(quadratic_trust)
         self.quadratic_min_r2 = float(quadratic_min_r2)
+        self.quadratic_weight_sigma = float(quadratic_weight_sigma)
         self._depends_on = [Best]
 
         # Importance scores from the Sensitivity analyzer — None until first update
@@ -443,7 +487,15 @@ class Nearby(Heuristic):
         # Trust radius in normalised units: a Newton step up to ``quadratic_trust``
         # times a full isotropic perturbation (magnitude ``radius`` per axis).
         trust_radius = self.quadratic_trust * self.radius * np.sqrt(self.problem.dim)
-        step = fit_quadratic_step(points, values, center, ranges, trust_radius, min_r2=self.quadratic_min_r2)
+        step = fit_quadratic_step(
+            points,
+            values,
+            center,
+            ranges,
+            trust_radius,
+            min_r2=self.quadratic_min_r2,
+            weight_sigma=self.quadratic_weight_sigma,
+        )
         if step is None:
             return None
         return self.problem.project(center + step)

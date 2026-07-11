@@ -2,6 +2,41 @@
 
 ## Recent Improvements (continued)
 
+### Gaussian-localised quadratic fit for the `Nearby` heuristic — 2026-07-11
+- [x] **Heuristic improvement** — added a `weight_sigma` argument to
+      `panobbgo/heuristics/nearby.py::fit_quadratic_step` and the matching
+      `Nearby.quadratic_weight_sigma` kwarg (default `0.35`).  The local
+      quadratic is now fitted with a **Gaussian distance kernel**
+      `w_i = exp(-½ (d_i / (σ·median_d))²)` instead of the mild legacy rank
+      weights `1/(1+rank)`, so the model tracks the *local* valley floor rather
+      than averaging over a wide cloud.  Directly targets the curved-valley
+      (Rosenbrock) gap: a quadratic averaged over a wide cloud sends the Newton
+      step across (not along) the valley and stalls.  `weight_sigma=None`
+      restores the byte-identical legacy weighting; `quadratic=False` remains
+      byte-identical to the classic heuristic.
+- [x] **Diagnosis** — an isolated `fit_quadratic_step` sweep on a synthetic 5-D
+      Rosenbrock valley showed the *locality of the fit sample* (not the ridge
+      strength or the `min_r2` gate) dominates step quality; a Gaussian kernel
+      with `σ ≈ 0.35` quartered the residual objective (median 0.0062 vs 0.0252
+      for the legacy rank weights).
+- [x] **Measured impact** — paired `--randomize` A/B of `Rewarding_Diverse`
+      on the quick battery (16 randomize-iterations × 10 reps, legacy baseline
+      via monkeypatched `weight_sigma=None`): composite **+0.0176** (0.097 →
+      0.115, +18%), median +0.0203, 95% bootstrap CI **[+0.0083, +0.0267]**,
+      12/4 win/loss.  Clears `statistical_accept` (Δ > eps_accept, CI_low > 0,
+      worst per-family regression −0.0028 well inside eps_regress).  Per-family:
+      `DeJong` +0.043, `Rosenbrock` +0.029 (smooth/valley), `Ackley` +0.001 /
+      `Rastrigin` −0.003 (multimodal, neutral).
+- [x] **Validation** — 6 new/extended tests in
+      `tests/test_heuristic_nearby_quadratic.py` (legacy-path bit-exactness,
+      default wiring, curved-valley localisation, degenerate-cloud guard, kwarg
+      validation + forwarding).  Full suite green (1859 passed, 11 skipped);
+      ruff + pyright clean.
+- [x] **Docs** — dated entry + follow-up ideas in
+      `planning/SELF_IMPROVEMENT_LOG.md`; `AGENTS.md` bullet; `doc/source/guide.rst`;
+      module docstrings; this entry.  §7.3-freeze compliant (better default for
+      an existing kwarg — no new arms).
+
 ### Flip the nightly default metric to AOCC (V2 §9.5 step 2 — closes §2.1) — 2026-07-09
 - [x] **Metric flip** — flipped the `self_improve_nightly.yml` scheduled
       default `metric` from `composite` to `aocc` (the IOH/MA-BBOB anytime

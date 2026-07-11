@@ -220,6 +220,132 @@ def test_r2_gate_rejects_multimodal_neighbourhood():
     assert fit_quadratic_step(pts, vals, center, ranges, trust_radius=5.0, min_r2=0.0) is not None
 
 
+# ---------------------------------------------------------------------------
+# fit_quadratic_step: distance-weighting scheme (weight_sigma)
+# ---------------------------------------------------------------------------
+
+
+def test_weight_sigma_none_reproduces_legacy_rank_weights():
+    """``weight_sigma=None`` must be byte-for-byte the pre-2026-07-11 fit.
+
+    The legacy weighting was ``w = 1 / (1 + rank)``.  We reconstruct that
+    weighted-least-squares solution by hand and check the returned step
+    matches the ``weight_sigma=None`` path exactly.
+    """
+    rng = np.random.default_rng(70)
+    dim = 2
+    m = np.array([0.4, -0.3])
+    center = np.zeros(dim)
+    ranges = np.full(dim, 8.0)
+    # Fewer points than max_points (= 4·n_features = 24 here) so the fit uses
+    # every sample and the hand-reconstruction below need not replicate the
+    # nearest-point truncation.
+    pts = _sample_around(center, 1.0, 20, rng)
+    vals = np.sum((pts - m) ** 2, axis=1)
+
+    step_legacy = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, weight_sigma=None)
+    assert step_legacy is not None
+
+    # Hand-recompute the legacy rank-weighted normal equations.
+    safe = ranges
+    u = (pts - center) / safe
+    dists = np.linalg.norm(u, axis=1)
+    rank = np.argsort(np.argsort(dists))
+    w = 1.0 / (1.0 + rank)
+    ti, tj = np.triu_indices(dim)
+    quad = u[:, ti] * u[:, tj]
+    phi = np.concatenate([np.ones((len(u), 1)), u, quad], axis=1)
+    ata = phi.T @ (phi * w[:, None])
+    aty = (phi * w[:, None]).T @ vals
+    rd = np.diag(ata).copy()
+    rd[0] = 0.0
+    beta = np.linalg.solve(ata + 1e-2 * np.diag(rd), aty)
+    g = beta[1 : 1 + dim]
+    qc = beta[1 + dim :]
+    H = np.zeros((dim, dim))
+    for k, (i, j) in enumerate(zip(ti, tj)):
+        if i == j:
+            H[i, i] = 2.0 * qc[k]
+        else:
+            H[i, j] = qc[k]
+            H[j, i] = qc[k]
+    ev, evec = np.linalg.eigh(H)
+    sc = max(np.max(np.abs(ev)), 1e-8)
+    ev = np.maximum(ev, 1e-3 * sc)
+    su = -(evec @ np.diag(1.0 / ev) @ evec.T) @ g
+    su = su * safe
+    np.testing.assert_allclose(step_legacy, su, rtol=1e-9, atol=1e-12)
+
+
+def test_gaussian_weighting_is_the_default():
+    """The default weighting differs from the legacy rank scheme.
+
+    On an anisotropic quadratic the two weightings weight the sample
+    differently, so the returned steps must not be identical — a guard that
+    the new default is actually wired through.
+    """
+    rng = np.random.default_rng(71)
+    dim = 3
+    k = np.array([50.0, 1.0, 8.0])
+    m = np.array([0.3, -0.2, 0.5])
+    center = np.zeros(dim)
+    ranges = np.full(dim, 10.0)
+    pts = _sample_around(center, 1.2, 80, rng)
+    vals = np.array([float(np.sum(k * (p - m) ** 2)) for p in pts])
+
+    default_step = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0)
+    legacy_step = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, weight_sigma=None)
+    assert default_step is not None and legacy_step is not None
+    assert not np.allclose(default_step, legacy_step)
+
+
+def test_gaussian_weighting_localises_fit_on_curved_valley():
+    """On a curved (Rosenbrock) valley the localised fit gives a better step.
+
+    A quadratic averaged over a wide cloud is a poor model of the quartic
+    valley; the Gaussian kernel down-weights the far points so the model
+    tracks the local valley floor.  A single Newton step from one cloud is
+    noisy, so we compare the *median* post-step objective across many random
+    clouds — the localised fit must win in aggregate, the property motivating
+    the 2026-07-11 change.
+    """
+    dim = 5
+
+    def rosen(x):
+        return float(np.sum(100.0 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2))
+
+    center = np.array([0.5, 0.25, 0.06, 0.004, 1e-4])
+    ranges = np.full(dim, 4.0)
+    trust = 2.0 * 0.124 * np.sqrt(dim)
+
+    gauss_f, rank_f = [], []
+    for seed in range(40):
+        rng = np.random.default_rng(100 + seed)
+        pts = center + rng.normal(0.0, 0.12, size=(84, dim)) * ranges
+        vals = np.array([rosen(p) for p in pts])
+        sg = fit_quadratic_step(pts, vals, center, ranges, trust, min_r2=0.0, weight_sigma=0.35)
+        sr = fit_quadratic_step(pts, vals, center, ranges, trust, min_r2=0.0, weight_sigma=None)
+        if sg is not None:
+            gauss_f.append(rosen(center + sg))
+        if sr is not None:
+            rank_f.append(rosen(center + sr))
+    assert gauss_f and rank_f
+    assert np.median(gauss_f) < np.median(rank_f)
+
+
+def test_gaussian_weighting_handles_degenerate_coincident_cloud():
+    """All points coinciding with the center → uniform-weight fallback, no crash."""
+    dim = 2
+    center = np.zeros(dim)
+    ranges = np.full(dim, 10.0)
+    pts = np.tile(center, (2 * dim + 1, 1))  # every point identical to center
+    vals = np.zeros(len(pts))
+    # Must not raise (median distance is 0 → uniform fallback); a flat sample
+    # yields no informative step, so None is acceptable.
+    step = fit_quadratic_step(pts, vals, center, ranges, trust_radius=5.0)
+    assert step is None or np.all(np.isfinite(step))
+
+
 def test_saddle_indefinite_hessian_still_descends():
     """Indefinite model (saddle) — PD regularisation yields a finite descent step."""
     rng = np.random.default_rng(6)
@@ -273,6 +399,32 @@ def test_invalid_quadratic_params_raise():
         Nearby(strategy, quadratic=True, quadratic_min_r2=1.5)
     with pytest.raises(ValueError):
         Nearby(strategy, quadratic=True, quadratic_min_r2=-0.1)
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_weight_sigma=0.0)
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_weight_sigma=-0.5)
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_weight_sigma=float("nan"))
+
+
+def test_quadratic_weight_sigma_default_and_forwarded():
+    """The default sigma is 0.35 and is threaded into ``fit_quadratic_step``."""
+    strategy, _ = _make_strategy(dim=3)
+    h = Nearby(strategy, quadratic=True)
+    h.__start__()
+    assert h.quadratic_weight_sigma == 0.35
+
+    rng = np.random.default_rng(11)
+    center = np.array([2.0, -1.0, 0.5])
+    for _ in range(60):
+        r = mock.MagicMock()
+        r.x = center + rng.uniform(-0.5, 0.5, size=3)
+        h.on_new_results([r])
+
+    with mock.patch("panobbgo.heuristics.nearby.fit_quadratic_step", wraps=fit_quadratic_step) as spy:
+        h._quadratic_candidate(center)
+    assert spy.call_count == 1
+    assert spy.call_args.kwargs["weight_sigma"] == 0.35
 
 
 def test_on_new_results_accumulates_and_caps():

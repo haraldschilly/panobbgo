@@ -1,8 +1,8 @@
 Ledger:        planning/self_improve_ledger_aocc.jsonl
-Iterations:    40  (decided=40, skipped=0, no-op=0)
-Accepts:       4  (10.0% of informative)
-Confirm-rej:   5  (55.6% of screening accepts overturned)
-Guards:        4  (rollbacks=0, total pops=0)
+Iterations:    60  (decided=60, skipped=0, no-op=0)
+Accepts:       6  (10.0% of informative)
+Confirm-rej:   10  (62.5% of screening accepts overturned)
+Guards:        6  (rollbacks=0, total pops=0)
 Hold-outs:     4  (overfit=0, vacuous=0)
 Best Δ seen:   +0.0192
 Accepted changes:
@@ -10,12 +10,19 @@ Accepted changes:
   iter=19  Δ=+0.0192  RoundRobin_Random/NLSHADE_LBC.: None -> None
   iter=4  Δ=+0.0058  Rewarding_Restart/Restart.: None -> None
   iter=8  Δ=+0.0125  RoundRobin_Random/Nearby.: None -> None
+  iter=1  Δ=+0.0100  Rewarding_Restart/Random.: None -> None
+  iter=2  Δ=+0.0083  Rewarding_Restart/NelderMead.: None -> None
 Confirm rejects (§6.4 same-night gate):
   iter=2  screen_Δ=+0.0050  confirm_Δ=-0.0042  pooled_Δ=+0.0004  CI=[-0.0075,+0.0083]
   iter=3  screen_Δ=+0.0075  confirm_Δ=-0.0233  pooled_Δ=-0.0079  CI=[-0.0200,+0.0038]
   iter=4  screen_Δ=+0.0175  confirm_Δ=+0.0017  pooled_Δ=+0.0096  CI=[+0.0000,+0.0192]
   iter=16  screen_Δ=+0.0075  confirm_Δ=+0.0067  pooled_Δ=+0.0071  CI=[-0.0029,+0.0171]
   iter=18  screen_Δ=+0.0092  confirm_Δ=-0.0017  pooled_Δ=+0.0037  CI=[-0.0083,+0.0167]
+  iter=3  screen_Δ=+0.0100  confirm_Δ=-0.0042  pooled_Δ=+0.0029  CI=[-0.0050,+0.0108]
+  iter=7  screen_Δ=+0.0075  confirm_Δ=-0.0150  pooled_Δ=-0.0037  CI=[-0.0142,+0.0067]
+  iter=11  screen_Δ=+0.0167  confirm_Δ=-0.0108  pooled_Δ=+0.0029  CI=[-0.0088,+0.0146]
+  iter=12  screen_Δ=+0.0075  confirm_Δ=+0.0050  pooled_Δ=+0.0063  CI=[-0.0004,+0.0129]
+  iter=19  screen_Δ=+0.0033  confirm_Δ=+0.0025  pooled_Δ=+0.0029  CI=[-0.0008,+0.0067]
 Hold-out validation:
   OK  drift=+0.0378  holdout_gap=+0.0437 training_gap=+0.0058  top_iter=19  (base_seed=7, n=5)
   OK  drift=-0.0094  holdout_gap=-0.0036 training_gap=+0.0058  top_iter=19  (base_seed=1234, n=5)
@@ -28,14 +35,17 @@ Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
   2026-07-09 06:48:58     42  quick        20    20     2     0   +0.0192      0.3375
   2026-07-10 06:40:36     42  quick        20    20     2     0   +0.0125      0.3600
+  2026-07-11 05:36:06     42  quick        20    20     2     0   +0.0167      0.3492
 
-Bandit posteriors (n_attempts >= 3, 3 eligible rules):
-  Top 3 (highest mean reward):
+Bandit posteriors (n_attempts >= 3, 5 eligible rules):
+  Top 5 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  *                       drop_analyzer           structural             6     2    0.531     33.3%
+  *                       drop_analyzer           structural             7     2    0.479     28.6%
+  *                       drop_heuristic          structural             6     2    0.372     33.3%
+  Sensitivity             update_interval         integer_add            3     0    0.319      0.0%
   *                       add_analyzer            structural             6     0    0.312      0.0%
-  *                       add_heuristic           structural            22     2    0.242      9.1%
+  *                       add_heuristic           structural            32     2    0.280      6.2%
 
 Inactivity:
-  eps_accept_base=0.0050  longest_drought=12 iters
-  relaxed_accepts=1/4  mean_decay_at_accept=0.500
+  eps_accept_base=0.0050  longest_drought=16 iters
+  relaxed_accepts=1/6  mean_decay_at_accept=0.500

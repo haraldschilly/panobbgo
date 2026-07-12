@@ -2,6 +2,44 @@
 
 ## Recent Improvements (continued)
 
+### Diagonal-plus-low-rank Hessian for the `Nearby` heuristic — 2026-07-12
+- [x] **Heuristic improvement** — added a `hessian_rank` argument to
+      `panobbgo/heuristics/nearby.py::fit_quadratic_step` and the matching
+      `Nearby.quadratic_hessian_rank` kwarg (default `"auto"`).  Replaces the
+      single ridge-regularised *full* quadratic with a **diagonal-plus-low-rank**
+      model: the local cloud is rotated into its weighted-PCA basis and a
+      quadratic is fitted with coupling terms only among the top-`r` principal
+      directions, `r` chosen per fit by **BIC**.  Closes the *5-D
+      coordinate-coupling* half of the `Rosenbrock_5D` gap the 2026-07-11
+      localisation left open — a full quadratic needs `O(dim²)` local points, so
+      from a thin valley cloud the ridge shrinks the cross terms to zero and the
+      Newton step points across the valley.  `hessian_rank=None` restores the
+      byte-identical legacy full quadratic.
+- [x] **Byte-identical on the measured battery** — at `dim ≤ 2` (a single,
+      always-well-determined cross term) `"auto"` keeps the legacy full
+      quadratic, so it is byte-identical to the previous behaviour on the 2-D
+      quick / standard / loop battery (unit-test-enforced via
+      `np.testing.assert_array_equal`).  Zero regression risk, no loop / guard /
+      codify impact.
+- [x] **Measured impact** — the measured battery is 2-D (where the benefit
+      cannot appear); the win is at higher dimensions.  Isolated
+      `fit_quadratic_step` diagnostic on rotated **5-D Rosenbrock** valleys
+      (production `hessian_rank=None` vs `"auto"`): median residual **24.5 → 7.5
+      (3.3× lower)**, mean 293 → 167; isotropic sphere 0.106 → 0.033; a slight
+      median rise on a rotated dense quadratic (0.42 → 0.57, both trivially
+      small).  Quick-mode composite unchanged (2-D → legacy path); the harness
+      is non-deterministic run-to-run so a naive 2-D A/B measures only RNG noise.
+- [x] **Validation** — 8 new/extended tests in
+      `tests/test_heuristic_nearby_quadratic.py` (auto-is-default, low-dim
+      byte-identity, full-rank == fixed-rank-dim, rotated-valley coupling win,
+      sphere non-regression, fixed rank-0 descent, kwarg validation +
+      forwarding, legacy selection).  Full suite green (1867 passed, 11
+      skipped); ruff + pyright clean.
+- [x] **Docs** — dated entry + follow-up ideas (incl. the 2-D-only-battery
+      limitation) in `planning/SELF_IMPROVEMENT_LOG.md`; `AGENTS.md` bullet;
+      `doc/source/guide.rst`; module docstrings; this entry.  §7.3-freeze
+      compliant (better default for an existing kwarg — no new arms).
+
 ### Gaussian-localised quadratic fit for the `Nearby` heuristic — 2026-07-11
 - [x] **Heuristic improvement** — added a `weight_sigma` argument to
       `panobbgo/heuristics/nearby.py::fit_quadratic_step` and the matching

@@ -462,6 +462,33 @@ The harness is the measurement substrate for an autonomous
     rank weights.  §7.3-freeze compliant (improves an existing heuristic; a
     better default for an existing kwarg — no new arms).  See the 2026-07-11
     entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+*   Diagonal-plus-low-rank Hessian for `Nearby` — **shipped 2026-07-12**,
+    see `panobbgo.heuristics.nearby.fit_quadratic_step` (`hessian_rank` arg)
+    and `Nearby.quadratic_hessian_rank` (default `"auto"`).  Closes the *5-D
+    coordinate-coupling* half of the `Rosenbrock_5D` gap the 2026-07-11
+    localisation left open: a full quadratic has `dim·(dim+1)/2` cross terms and
+    needs `O(dim²)` local points, so from a thin valley cloud the ridge shrinks
+    the cross terms to zero — the fitted Hessian recovers per-axis curvature but
+    not the coordinate *coupling* of the valley, and the Newton step points
+    across it.  `"auto"` rotates the local cloud into its weighted-PCA basis and
+    fits a diagonal-plus-low-rank quadratic with coupling terms only among the
+    top-`r` PCA directions (the subspace the data explores), choosing `r` per
+    fit by **BIC** — a low `r` aligns one axis with the valley floor and
+    captures its anisotropy from far fewer, better-determined parameters, while
+    a genuinely full-rank neighbourhood keeps the full model (BIC guards the
+    sphere / dense-quadratic case that a naive fixed-rank reduction wrecks).  At
+    `dim ≤ 2` (a single, always-well-determined cross term) `"auto"` keeps the
+    legacy full quadratic, so it is **byte-identical to the previous behaviour on
+    the 2-D battery the loop measures** (unit-test-enforced) and purely additive
+    for higher dimensions.  Measured on isolated rotated 5-D Rosenbrock valleys:
+    legacy median residual 24.5 → `"auto"` 7.5 (**3.3× lower**), mean 293 → 167;
+    sphere 0.106 → 0.033; a slight median rise on a rotated dense quadratic
+    (0.42 → 0.57, both trivially small).  The quick-mode composite is unchanged
+    (2-D → legacy path), so this is the LBFGSB-warm-start evidence form (measured
+    at the dimension where the effect exists).  `hessian_rank=None` restores the
+    byte-identical legacy full quadratic.  §7.3-freeze compliant (improves an
+    existing heuristic; better default for an existing kwarg — no new arms).  See
+    the 2026-07-12 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
 *   Hold-out validation set — **shipped** (§10), see
     `panobbgo.self_improve.LoopHoldoutRecord` and the
     `--holdout-base-seed`, `--holdout-iterations`,

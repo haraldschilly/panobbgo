@@ -17,6 +17,97 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-12 — Diagonal-plus-low-rank Hessian for `Nearby` (closes the 5-D coordinate-coupling half of the Rosenbrock gap)
+
+* **What** — Replaced the single ridge-regularised *full* quadratic that
+  :func:`panobbgo.heuristics.nearby.fit_quadratic_step` fitted with a
+  **diagonal-plus-low-rank** model whose coupling rank is chosen per fit by
+  BIC.  New `hessian_rank` argument on `fit_quadratic_step` and matching
+  `Nearby.quadratic_hessian_rank` kwarg (default `"auto"`).  Under `"auto"`
+  the local cloud is first rotated into its weighted principal-component basis
+  ``w = Vᵀu`` and a quadratic
+  ``f ≈ b + g̃ᵀw + ½ Σᵢ hᵢᵢ wᵢ² + Σ_{i<j≤r} hᵢⱼ wᵢwⱼ`` is fitted with coupling
+  terms only among the top-``r`` PCA directions — the subspace the local data
+  actually explores — with ``r ∈ {0, …, dim}`` selected by BIC.  ``r = dim`` is
+  the full quadratic (rotation-invariant model space); ``r = 0`` is diagonal in
+  the PCA basis.  A non-negative ``int`` pins the rank; `hessian_rank=None`
+  restores the byte-for-byte legacy full quadratic in the raw axis basis.
+  **At ``dim ≤ 2`` `"auto"` keeps the legacy full quadratic**, so the default
+  is byte-identical to the pre-`hessian_rank` behaviour on the 2-D battery the
+  self-improvement loop measures (unit-test-enforced via
+  `np.testing.assert_array_equal`) — the model change is *purely additive* for
+  the higher-dimensional problems it targets.
+
+* **Why** — The 2026-07-11 Gaussian localisation closed the *fit-locality* half
+  of the `Rosenbrock_5D` gap but explicitly left the *5-D coordinate-coupling*
+  half open: a full quadratic has ``dim·(dim+1)/2`` cross terms and needs
+  ``O(dim²)`` local points, so from the thin cloud a local model sees on a
+  curved valley the ridge shrinks the cross terms toward zero — the fitted
+  Hessian recovers per-axis (marginal) curvature but *not* the coordinate
+  *coupling* that defines a Rosenbrock valley, and the Newton step points
+  *across* the valley.  The recommended successor flagged under *Next iteration
+  ideas* was a diagonal-plus-low-rank Hessian model that captures the dominant
+  valley direction from far fewer samples than a full quadratic.  Fitting the
+  low-rank block in the *weighted-PCA basis of the local cloud* realises this:
+  on an elongated valley cloud the top PCA direction aligns with the valley
+  floor, so a low-``r`` model captures the anisotropy with far fewer,
+  better-determined parameters; the naive fixed-rank variant catastrophically
+  regressed a diagonal-in-original quadratic (a random PCA rotation makes a
+  diagonal Hessian dense), which BIC model-selection fixes by keeping the full
+  model whenever the neighbourhood is genuinely full-rank.
+
+* **Measured impact** — the measured battery (quick / standard / loop) is
+  **2-D**, where a full quadratic's lone cross term is always well determined,
+  so the coupling model correctly makes **no change** there (byte-identical
+  fit; a naive two-run quick A/B on `Rewarding_Diverse` shows only harness
+  run-to-run RNG noise — the harness is not deterministic run-to-run, so
+  `_composite(None)` twice already differs by ~0.02).  The win is realised at
+  the dimensions the 2-D battery cannot exercise.  Isolated `fit_quadratic_step`
+  diagnostic, iterated local descent on **rotated 5-D Rosenbrock valleys**
+  (60 random rotations × 84-point clouds), production `hessian_rank=None`
+  (legacy) vs `"auto"`:
+
+  | regime | legacy median | auto median | legacy mean | auto mean |
+  |---|---|---|---|---|
+  | rotated Rosenbrock 5-D | 24.49 | **7.47** (3.3× lower) | 292.8 | **166.7** |
+  | isotropic sphere 5-D | 0.106 | **0.033** | — | — |
+  | rotated dense quadratic 5-D | **0.420** | 0.570 | 2.28 | 2.24 |
+
+  The rotated-dense-quadratic median regresses slightly (both residuals are
+  trivially small — "locally solved") while the mean is a tie; the sphere
+  improves and the curved valley — the documented sharpest competitive gap
+  ("every Panobbgo strategy scores 0 on `Rosenbrock_5D` while stock scipy dual
+  annealing solves it") — improves 3.3×.  This is the LBFGSB-warm-start /
+  higher-budget evidence form (§ *Agent-driven "improve X" PRs* in `AGENTS.md`):
+  measured at the dimension where the effect exists, because the 2-D battery
+  structurally cannot see it.
+
+* **Tests** — 8 new / extended tests in
+  `tests/test_heuristic_nearby_quadratic.py`:
+  `test_hessian_rank_auto_is_the_default_and_differs_from_legacy`,
+  `test_hessian_rank_auto_is_legacy_at_low_dim` (byte-identity guard at
+  ``dim ≤ 2``), `test_hessian_rank_full_matches_fixed_rank_dim`,
+  `test_low_rank_recovers_rotated_valley_coupling_better_than_full`,
+  `test_low_rank_does_not_regress_isotropic_sphere`,
+  `test_fixed_rank_zero_is_diagonal_in_pca_basis`,
+  `test_quadratic_hessian_rank_default_and_forwarded`,
+  `test_quadratic_hessian_rank_none_selects_legacy`, plus the
+  `quadratic_hessian_rank` validation cases in `test_invalid_quadratic_params_raise`
+  and the updated legacy-reconstruction test (`hessian_rank=None`).  Full nearby
+  suite green (30 passed); ruff + pyright clean.
+
+* **§7.3-freeze compliance** — improves an existing heuristic via a better
+  default for an existing kwarg; no new mutation rules, structural candidates,
+  or heuristics.  Byte-identical on the 2-D battery, so it cannot perturb the
+  loop's bandit / ledger / guard.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: (a) the 2-D-only
+  battery means *no* higher-dimensional improvement is measurable by the loop —
+  adding a higher-dim family (e.g. a 5-D Rosenbrock with `dim_choices=(2, 5)`
+  and Haar rotation) behind an ADR would let the loop actually resolve this
+  class of change; (b) expose `quadratic_hessian_rank` as a catalog arm once
+  the freeze lifts and a higher-dim battery exists.
+
 ### 2026-07-11 — Gaussian-localised quadratic fit for `Nearby` (curved-valley refinement, statistical_accept ACCEPT)
 
 * **What** — Replaced the mild rank-based sample weights of the 2026-07-08
@@ -8647,6 +8738,37 @@ a dated entry above when shipped.
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
 
+#### The measured battery is 2-D-only — no higher-dim improvement is loop-visible (surfaced 2026-07-12)
+
+`panobbgo.harness_randomized._make_randomized_families()` ships every
+family at `dim_choices=(2,)`, so quick / standard / *and the loop
+registry* all measure at **dim 2**.  This is a structural ceiling on the
+whole self-improvement apparatus: any improvement whose benefit only
+appears at higher dimensions is invisible to the loop, the guard, and
+codify-scan.  Two concrete costs already observed:
+
+* The documented sharpest competitive gap is literally named
+  ``Rosenbrock_5D`` — but the Rosenbrock family is benchmarked at 2-D,
+  where a curved valley is nearly a plain quadratic.  The 2026-07-12
+  diagonal-plus-low-rank Hessian gives a **3.3× lower** residual on
+  rotated *5-D* Rosenbrock valleys yet is (correctly) byte-identical on
+  the 2-D battery — so the loop can neither confirm nor reward it.
+* The Rosenbrock family excludes the ``rotate`` transform (only
+  translate + scale), so even its 2-D instances are axis-aligned — the
+  one regime where coordinate coupling is easiest.
+
+**Proposed ticket (needs an ADR — changes the composite contract):**
+add a higher-dimensional family behind an explicit
+`HarnessConfig.extra_families` opt-in first (no composite-contract
+change), e.g. a 5-D Rosenbrock with `dim_choices=(2, 5)`,
+`stratify_dims=True`, and the `rotate` transform enabled, then measure
+whether the loop resolves the 2026-07-12 change on it.  If it does,
+promote the higher-dim family into the default battery under a
+documented composite-score version bump (§ "stable contract" in
+`AGENTS.md`).  This is arguably the single highest-leverage change for
+"best black-box optimizer in the world": real problems are not 2-D, and
+today the loop optimises exclusively for 2-D.
+
 #### AOCC-regime follow-ups (after the 2026-07-09 metric flip)
 
 The nightly default flipped to `--metric aocc` on 2026-07-09 (see the
@@ -8704,14 +8826,19 @@ was the direct motivation: warm restarts fix the wrong restart geometry.
   samples by a Gaussian distance kernel (``Nearby.quadratic_weight_sigma``,
   default 0.35 of the median neighbour distance).  Statistical-accept ACCEPT on
   the quick randomized battery (composite +0.0176, 95% CI ``[+0.0083,
-  +0.0267]``, 16-iter paired); see the 2026-07-11 dated entry.  **Still open**
-  — the *5D coordinate-coupling* half: even a well-localised ridge quadratic
-  shrinks cross terms toward zero, so it recovers per-axis (marginal) curvature
-  but not the strong coordinate *coupling* of a 5D Rosenbrock valley; a full
-  quadratic needs ``O(d²)`` local points.  A **diagonal-plus-low-rank** Hessian
-  model (capture the dominant valley direction with a rank-1 or rank-2
-  correction) may recover the coupling from far fewer samples than a full
-  quadratic, and remains the recommended successor for the Rosenbrock_5D gap.
+  +0.0267]``, 16-iter paired); see the 2026-07-11 dated entry.  ~**5D
+  coordinate-coupling half**~ — **shipped 2026-07-12** as the
+  **diagonal-plus-low-rank** Hessian model (``Nearby.quadratic_hessian_rank``,
+  default ``"auto"``): the local cloud is rotated into its weighted-PCA basis
+  and a quadratic is fitted with coupling terms only among the top-``r`` PCA
+  directions, ``r`` chosen per fit by BIC.  On rotated 5-D Rosenbrock valleys
+  the isolated diagnostic drops the median residual 3.3× (24.5 → 7.5) vs the
+  legacy full quadratic; byte-identical on the 2-D battery (so no loop impact).
+  See the 2026-07-12 dated entry.  **Still open — the residual full-coupling
+  gap:** BIC low-rank recovers the *dominant* valley direction(s); a landscape
+  with several comparably-curved coupled directions still needs more structure
+  (a genuinely richer local model, or a memetic hand-off to a quasi-Newton
+  polish) than a rank-``r`` PCA block recovers from a thin sample.
 * **Expose ``quadratic_weight_sigma`` as a catalog arm (post-freeze)** — the
   2026-07-11 Gaussian-localisation ship added the
   ``Nearby.quadratic_weight_sigma`` kwarg with a fixed 0.35 default.  Once the

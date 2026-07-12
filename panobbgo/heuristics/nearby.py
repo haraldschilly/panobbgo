@@ -48,6 +48,30 @@ back to the isotropic perturbation, so the heuristic degrades gracefully to its
 classic behaviour.  ``quadratic=False`` (the default) is byte-for-byte the
 historical heuristic — no buffer is kept and no model is ever fitted.
 
+Diagonal-plus-low-rank Hessian (``quadratic_hessian_rank="auto"``)
+------------------------------------------------------------------
+
+A *full* quadratic has ``dim·(dim+1)/2`` coupling coefficients and needs
+``O(dim²)`` local points to estimate them.  From the thin cloud a local model
+sees on a curved valley, the ridge shrinks those cross terms toward zero, so
+the fitted Hessian recovers per-axis (marginal) curvature but *not* the
+coordinate *coupling* that defines a Rosenbrock valley — the residual half of
+the ``Rosenbrock_5D`` gap that localising the fit (2026-07-11) left open.  With
+``quadratic_hessian_rank="auto"`` (the default) the local cloud is first
+rotated into its weighted principal-component basis and a
+*diagonal-plus-low-rank* quadratic is fitted with coupling terms only among the
+top-``r`` PCA directions — the subspace the data actually explores — with ``r``
+chosen per fit by BIC.  On an elongated valley cloud a low ``r`` aligns one
+axis with the valley floor and captures its anisotropy from far fewer,
+better-determined parameters; on an isotropic / full-rank neighbourhood BIC
+keeps the full model, so the change never regresses the smooth-sphere case.
+At ``dim ≤ 2`` — a single, always-well-determined cross term — ``"auto"`` keeps
+the legacy full quadratic, so the default is byte-identical to the previous
+behaviour on the 2-D battery the self-improvement loop measures and purely
+additive for the higher-dimensional problems the coupling model targets.  See
+:func:`fit_quadratic_step` and the 2026-07-12 entry in
+``planning/SELF_IMPROVEMENT_LOG.md``.
+
 Unlike :class:`~panobbgo.heuristics.lbfgsb.LBFGSB` (a subprocess-based
 finite-difference quasi-Newton descent) the model here is fitted **in process**
 from points the *rest of the portfolio* already evaluated, so it spends **zero**
@@ -62,6 +86,164 @@ from panobbgo.analyzers.best import Best
 from panobbgo.core import Heuristic
 
 
+def _distance_weights(dists: np.ndarray, weight_sigma: float | None) -> np.ndarray:
+    """Per-sample weights for the local fit (see ``fit_quadratic_step``)."""
+    if weight_sigma is None:
+        rank = np.argsort(np.argsort(dists))
+        return 1.0 / (1.0 + rank)
+    scale = float(np.median(dists))
+    if not np.isfinite(scale) or scale <= 0.0:
+        scale = float(np.max(dists)) if dists.size else 0.0
+    if not np.isfinite(scale) or scale <= 0.0:
+        # Degenerate cloud (all points coincide) — fall back to uniform.
+        return np.ones_like(dists)
+    return np.exp(-0.5 * (dists / (weight_sigma * scale)) ** 2)
+
+
+def _solve_weighted_ridge(phi: np.ndarray, values: np.ndarray, w: np.ndarray, ridge: float) -> np.ndarray | None:
+    """Weighted ridge least squares with an intercept-free per-column penalty.
+
+    Shrinks each coefficient relative to its *own* column scale, leaving the
+    intercept unpenalised.  A single trace-based lambda would be dominated by
+    the intercept column (whose scale is ~1) and would swamp the much
+    smaller-scaled linear / quadratic columns, biasing the recovered minimiser
+    badly.  Returns the coefficient vector, or ``None`` on a singular system.
+    """
+    phi_w = phi * w[:, None]
+    ata = phi.T @ phi_w
+    aty = phi_w.T @ values
+    reg_diag = np.diag(ata).copy()
+    reg_diag[0] = 0.0
+    try:
+        beta = np.linalg.solve(ata + ridge * np.diag(reg_diag), aty)
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(beta)):
+        return None
+    return beta
+
+
+def _weighted_ss(phi: np.ndarray, beta: np.ndarray, values: np.ndarray, w: np.ndarray) -> tuple[float, float]:
+    """Return ``(ss_res, ss_tot)`` — the weighted residual / total sum of squares."""
+    pred = phi @ beta
+    wsum = w.sum()
+    wmean = float((w * values).sum() / wsum) if wsum > 0 else 0.0
+    ss_res = float((w * (values - pred) ** 2).sum())
+    ss_tot = float((w * (values - wmean) ** 2).sum())
+    return ss_res, ss_tot
+
+
+def _fit_reduced_hessian(
+    u: np.ndarray,
+    values: np.ndarray,
+    w: np.ndarray,
+    dim: int,
+    ridge: float,
+    hessian_rank: int | str,
+    min_r2: float,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Fit a *diagonal-plus-low-rank* quadratic in the weighted-PCA basis.
+
+    A full quadratic has ``dim·(dim+1)/2`` coupling terms and needs ``O(dim²)``
+    local points to estimate them; from a thin cloud the ridge shrinks the
+    cross terms toward zero, so the model recovers per-axis curvature but not
+    the *coordinate coupling* of a curved valley (the Rosenbrock class).  Here
+    the local cloud is first rotated into its weighted principal-component
+    basis ``w = Vᵀu`` (``V`` = eigenvectors of the weighted covariance, sorted
+    by descending variance), and a quadratic
+
+    ``f ≈ b + g̃ᵀw + ½ Σᵢ hᵢᵢ wᵢ² + Σ_{i<j≤r} hᵢⱼ wᵢwⱼ``
+
+    is fitted with coupling terms only among the top-``r`` PCA directions — the
+    subspace the local data actually explores.  ``r = dim`` reproduces the full
+    quadratic (rotation-invariant model space); ``r = 0`` is diagonal in the
+    PCA basis, which on an elongated valley cloud aligns one axis with the
+    valley floor and captures its anisotropy with far fewer, better-determined
+    parameters.
+
+    With ``hessian_rank="auto"`` the rank is chosen per fit by BIC over
+    ``r ∈ {0, …, dim}``, so an isotropic / full-rank neighbourhood keeps the
+    full model while a thin valley cloud collapses to the robust low-rank one.
+    Returns the model ``(g, H)`` in normalised coordinates, or ``None``.
+    """
+    n = u.shape[0]
+    wsum = w.sum()
+    if wsum <= 0.0:
+        return None
+
+    # Weighted-PCA rotation of the local cloud.  ``eigh`` returns ascending
+    # eigenvalues; reverse so column 0 is the highest-variance direction.
+    mean_u = (w[:, None] * u).sum(0) / wsum
+    uc = u - mean_u
+    cov = (uc * w[:, None]).T @ uc / wsum
+    try:
+        _, evecs = np.linalg.eigh(cov)
+    except np.linalg.LinAlgError:
+        return None
+    rot = evecs[:, ::-1]
+    wcoord = u @ rot  # (n, dim) coordinates in the PCA basis
+    ones = np.ones((n, 1))
+    diag_sq = wcoord**2
+
+    if hessian_rank == "auto":
+        candidate_ranks: list[int] = list(range(0, dim + 1))
+    else:
+        candidate_ranks = [int(np.clip(int(hessian_rank), 0, dim))]
+
+    # Effective sample size (Kish) for the BIC complexity penalty under weights.
+    sq = float((w**2).sum())
+    n_eff = (wsum**2) / sq if sq > 0 else float(n)
+
+    best: tuple[float, np.ndarray, list[tuple[int, int]], np.ndarray] | None = None
+    for r in candidate_ranks:
+        cross_pairs = [(i, j) for i in range(r) for j in range(i + 1, r)]
+        n_features = 1 + 2 * dim + len(cross_pairs)
+        if n < n_features + 1:
+            continue
+        cols = [ones, wcoord, diag_sq]
+        for i, j in cross_pairs:
+            cols.append((wcoord[:, i] * wcoord[:, j])[:, None])
+        phi = np.concatenate(cols, axis=1)
+        beta = _solve_weighted_ridge(phi, values, w, ridge)
+        if beta is None:
+            continue
+        if len(candidate_ranks) == 1:
+            best = (0.0, beta, cross_pairs, phi)
+            break
+        # BIC = n·ln(weighted MSE) + k·ln(n); lower is better.  The scale-aware
+        # ln(MSE) term lets the (few-parameter) low-rank model win on a valley
+        # while the full model still wins on a genuinely full-rank cloud.
+        ss_res, _ = _weighted_ss(phi, beta, values, w)
+        mse = max(ss_res / wsum, 1e-300)
+        bic = n_eff * np.log(mse) + n_features * np.log(max(n_eff, 2.0))
+        if best is None or bic < best[0]:
+            best = (bic, beta, cross_pairs, phi)
+
+    if best is None:
+        return None
+    _, beta, cross_pairs, phi = best
+
+    if min_r2 > 0.0:
+        ss_res, ss_tot = _weighted_ss(phi, beta, values, w)
+        if ss_tot <= 1e-30:
+            return None
+        if 1.0 - ss_res / ss_tot < min_r2:
+            return None
+
+    g_w = beta[1 : 1 + dim]
+    diag = beta[1 + dim : 1 + 2 * dim]
+    hess_w = np.diag(2.0 * diag)
+    off = beta[1 + 2 * dim :]
+    for k, (i, j) in enumerate(cross_pairs):
+        hess_w[i, j] = off[k]
+        hess_w[j, i] = off[k]
+
+    # Rotate the model back to normalised coordinates.
+    g = rot @ g_w
+    hess = rot @ hess_w @ rot.T
+    return g, hess
+
+
 def fit_quadratic_step(
     points: np.ndarray,
     values: np.ndarray,
@@ -72,6 +254,7 @@ def fit_quadratic_step(
     min_r2: float = 0.0,
     max_points: int | None = None,
     weight_sigma: float | None = 0.35,
+    hessian_rank: int | str | None = "auto",
 ) -> np.ndarray | None:
     """Fit a local quadratic model and return a trust-region Newton step.
 
@@ -120,6 +303,25 @@ def fit_quadratic_step(
             ``planning/SELF_IMPROVEMENT_LOG.md``).  ``None`` selects the legacy
             rank-based weights ``1 / (1 + rank)`` (byte-for-byte the pre-
             2026-07-11 behaviour) for callers that need it.  Default ``0.35``.
+        hessian_rank: Controls the Hessian model's coupling rank (see
+            :func:`_fit_reduced_hessian`).  ``"auto"`` (default) fits a
+            *diagonal-plus-low-rank* quadratic in the weighted-PCA basis and
+            selects the coupling rank per fit by BIC — a full quadratic needs
+            ``O(dim²)`` local points and, from a thin valley cloud, its ridge
+            shrinks the cross terms to zero (recovering per-axis curvature but
+            not the coordinate *coupling* of a Rosenbrock valley), so BIC
+            collapses to a robust low-rank model there while keeping the full
+            model on an isotropic / full-rank neighbourhood.  At ``dim ≤ 2``
+            (a single cross term, always well determined) ``"auto"`` keeps the
+            legacy full quadratic, so the model is byte-identical to the
+            pre-``hessian_rank`` behaviour on the 2-D battery and purely
+            additive for the higher-dimensional problems the coupling model
+            targets.  A non-negative ``int`` pins the coupling rank (``0`` =
+            diagonal in the PCA basis; ``≥ dim`` = full quadratic) regardless
+            of ``dim``.  ``None`` selects the legacy single-model full quadratic
+            fitted in the *raw* axis basis (byte-for-byte the
+            pre-``hessian_rank`` behaviour) for callers that need it.  Default
+            ``"auto"``.
 
     Returns:
         The raw-coordinate step ``p`` (shape ``(dim,)``), or ``None``.
@@ -164,12 +366,6 @@ def fit_quadratic_step(
     if n < min_points:
         return None
 
-    # Design matrix: [1, u_i, u_i·u_j (i ≤ j)] in the same order the Hessian
-    # extraction below assumes.
-    triu_i, triu_j = np.triu_indices(dim)
-    quad = u[:, triu_i] * u[:, triu_j]  # (n, dim*(dim+1)/2)
-    phi = np.concatenate([np.ones((n, 1)), u, quad], axis=1)  # (n, n_features)
-
     # Sample weights.  A Gaussian distance kernel (default) localises the fit
     # so the quadratic models the immediate neighbourhood of the incumbent —
     # essential on a curved valley, where a model averaged over a wide cloud
@@ -178,65 +374,60 @@ def fit_quadratic_step(
     # is scale-free and adapts to however tightly the portfolio has clustered.
     # ``weight_sigma=None`` restores the legacy rank weights (nearest point 1,
     # then 1/2, 1/3, …) for byte-for-byte backward compatibility.
-    if weight_sigma is None:
-        rank = np.argsort(np.argsort(dists))
-        w = 1.0 / (1.0 + rank)
+    w = _distance_weights(dists, weight_sigma)
+
+    # A full quadratic has only ``dim·(dim+1)/2`` coupling terms; at ``dim ≤ 2``
+    # that is a single cross term, always well determined, so the
+    # diagonal-plus-low-rank machinery cannot help and would only add BIC
+    # selection noise.  ``"auto"`` therefore keeps the legacy full quadratic
+    # there — this makes it byte-identical to the pre-``hessian_rank`` behaviour
+    # on the 2-D battery the self-improvement loop measures, so the model change
+    # is purely additive for the higher-dimensional problems where a thin cloud
+    # actually under-determines the coupling.  An explicit integer rank is
+    # always honoured regardless of ``dim``.
+    use_legacy = hessian_rank is None or (hessian_rank == "auto" and dim <= 2)
+
+    if use_legacy:
+        # Legacy path: a single full quadratic fitted in the raw axis basis.
+        # Design matrix: [1, u_i, u_i·u_j (i ≤ j)] in the same order the Hessian
+        # extraction below assumes.
+        triu_i, triu_j = np.triu_indices(dim)
+        quad = u[:, triu_i] * u[:, triu_j]  # (n, dim*(dim+1)/2)
+        phi = np.concatenate([np.ones((n, 1)), u, quad], axis=1)  # (n, n_features)
+
+        beta = _solve_weighted_ridge(phi, values, w, ridge)
+        if beta is None:
+            return None
+
+        # Fit-quality gate: only trust the model where a single quadratic
+        # actually explains the local sample.  On a smooth valley R² ≈ 1; on a
+        # multimodal neighbourhood spanning several basins it is low, and we
+        # bail out so the caller keeps exploring isotropically instead of
+        # over-exploiting a bad model.
+        if min_r2 > 0.0:
+            ss_res, ss_tot = _weighted_ss(phi, beta, values, w)
+            if ss_tot <= 1e-30:
+                return None
+            if 1.0 - ss_res / ss_tot < min_r2:
+                return None
+
+        # Unpack gradient g and Hessian H of the model at the incumbent.
+        g = beta[1 : 1 + dim]
+        quad_coef = beta[1 + dim :]
+        hess = np.zeros((dim, dim))
+        for k, (i, j) in enumerate(zip(triu_i, triu_j)):
+            c = quad_coef[k]
+            if i == j:
+                hess[i, i] = 2.0 * c
+            else:
+                hess[i, j] = c
+                hess[j, i] = c
     else:
-        scale = float(np.median(dists))
-        if not np.isfinite(scale) or scale <= 0.0:
-            scale = float(np.max(dists)) if dists.size else 0.0
-        if not np.isfinite(scale) or scale <= 0.0:
-            # Degenerate cloud (all points coincide) — fall back to uniform.
-            w = np.ones_like(dists)
-        else:
-            w = np.exp(-0.5 * (dists / (weight_sigma * scale)) ** 2)
-
-    phi_w = phi * w[:, None]
-    ata = phi.T @ phi_w  # weighted Gram matrix (n_features, n_features)
-    aty = phi_w.T @ values
-
-    # Per-column (standardization-equivalent) ridge: shrink each coefficient
-    # relative to its *own* column scale, leaving the intercept unpenalised.
-    # A single trace-based lambda would be dominated by the intercept column
-    # (whose scale is ~1) and would swamp the much smaller-scaled linear /
-    # quadratic columns, biasing the recovered minimiser badly.
-    reg_diag = np.diag(ata).copy()
-    reg_diag[0] = 0.0
-    try:
-        beta = np.linalg.solve(ata + ridge * np.diag(reg_diag), aty)
-    except np.linalg.LinAlgError:
-        return None
-    if not np.all(np.isfinite(beta)):
-        return None
-
-    # Fit-quality gate: only trust the model where a single quadratic actually
-    # explains the local sample.  On a smooth valley R² ≈ 1; on a multimodal
-    # neighbourhood spanning several basins it is low, and we bail out so the
-    # caller keeps exploring isotropically instead of over-exploiting a bad
-    # model.
-    if min_r2 > 0.0:
-        pred = phi @ beta
-        wsum = w.sum()
-        wmean = float((w * values).sum() / wsum) if wsum > 0 else 0.0
-        ss_res = float((w * (values - pred) ** 2).sum())
-        ss_tot = float((w * (values - wmean) ** 2).sum())
-        if ss_tot <= 1e-30:
+        assert hessian_rank is not None  # guaranteed by ``use_legacy`` above
+        fit = _fit_reduced_hessian(u, values, w, dim, ridge, hessian_rank, min_r2)
+        if fit is None:
             return None
-        r2 = 1.0 - ss_res / ss_tot
-        if r2 < min_r2:
-            return None
-
-    # Unpack gradient g and Hessian H of the model at the incumbent.
-    g = beta[1 : 1 + dim]
-    quad_coef = beta[1 + dim :]
-    hess = np.zeros((dim, dim))
-    for k, (i, j) in enumerate(zip(triu_i, triu_j)):
-        c = quad_coef[k]
-        if i == j:
-            hess[i, i] = 2.0 * c
-        else:
-            hess[i, j] = c
-            hess[j, i] = c
+        g, hess = fit
 
     # Regularise the Hessian to positive definite so the Newton step is a
     # descent direction even in indefinite (saddle) regions.
@@ -320,6 +511,19 @@ class Nearby(Heuristic):
       curved valley, but noisier if pushed too small); larger approaches an
       unweighted fit over the whole buffer.  Only consulted when
       ``quadratic=True``.  See :func:`fit_quadratic_step`.
+    - ``quadratic_hessian_rank``: coupling rank of the local Hessian model
+      (default: ``"auto"``).  ``"auto"`` fits a *diagonal-plus-low-rank*
+      quadratic in the weighted-PCA basis and selects the coupling rank per
+      fit by BIC, which recovers the coordinate *coupling* of a curved
+      (Rosenbrock) valley from a thin local cloud that a ridge-regularised full
+      quadratic shrinks to zero — while still keeping the full model on an
+      isotropic neighbourhood.  A non-negative ``int`` pins the rank (``0`` =
+      diagonal in the PCA basis; ``≥ dim`` = full quadratic); ``None`` selects
+      the legacy full quadratic fitted in the raw axis basis.  ``"auto"`` keeps
+      the legacy full quadratic at ``dim ≤ 2`` (byte-identical to the previous
+      behaviour on the 2-D battery), engaging the coupling model only at
+      ``dim ≥ 3`` where a thin cloud under-determines the cross terms.  Only
+      consulted when ``quadratic=True``.  See :func:`fit_quadratic_step`.
     """
 
     def __init__(
@@ -334,6 +538,7 @@ class Nearby(Heuristic):
         quadratic_trust: float = 2.0,
         quadratic_min_r2: float = 0.8,
         quadratic_weight_sigma: float = 0.35,
+        quadratic_hessian_rank: int | str | None = "auto",
     ):
         if not isinstance(quadratic, bool):
             raise ValueError(f"Nearby: quadratic must be a bool, got {quadratic!r}")
@@ -345,6 +550,17 @@ class Nearby(Heuristic):
             raise ValueError(
                 f"Nearby: quadratic_weight_sigma must be a positive finite float, got {quadratic_weight_sigma!r}"
             )
+        if isinstance(quadratic_hessian_rank, bool) or not (
+            quadratic_hessian_rank == "auto"
+            or quadratic_hessian_rank is None
+            or isinstance(quadratic_hessian_rank, int)
+        ):
+            raise ValueError(
+                "Nearby: quadratic_hessian_rank must be 'auto', None, or a non-negative int, "
+                f"got {quadratic_hessian_rank!r}"
+            )
+        if isinstance(quadratic_hessian_rank, int) and quadratic_hessian_rank < 0:
+            raise ValueError(f"Nearby: quadratic_hessian_rank must be non-negative, got {quadratic_hessian_rank!r}")
         name = "Nearby %.3f/%s" % (radius, axes)
         if quadratic:
             name += "+quad"
@@ -357,6 +573,7 @@ class Nearby(Heuristic):
         self.quadratic_trust = float(quadratic_trust)
         self.quadratic_min_r2 = float(quadratic_min_r2)
         self.quadratic_weight_sigma = float(quadratic_weight_sigma)
+        self.quadratic_hessian_rank = quadratic_hessian_rank
         self._depends_on = [Best]
 
         # Importance scores from the Sensitivity analyzer — None until first update
@@ -495,6 +712,7 @@ class Nearby(Heuristic):
             trust_radius,
             min_r2=self.quadratic_min_r2,
             weight_sigma=self.quadratic_weight_sigma,
+            hessian_rank=self.quadratic_hessian_rank,
         )
         if step is None:
             return None

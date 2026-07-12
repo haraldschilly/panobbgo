@@ -243,7 +243,9 @@ def test_weight_sigma_none_reproduces_legacy_rank_weights():
     pts = _sample_around(center, 1.0, 20, rng)
     vals = np.sum((pts - m) ** 2, axis=1)
 
-    step_legacy = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, weight_sigma=None)
+    # ``hessian_rank=None`` selects the legacy single-model full quadratic in
+    # the raw axis basis; ``weight_sigma=None`` selects the legacy rank weights.
+    step_legacy = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, weight_sigma=None, hessian_rank=None)
     assert step_legacy is not None
 
     # Hand-recompute the legacy rank-weighted normal equations.
@@ -333,6 +335,162 @@ def test_gaussian_weighting_localises_fit_on_curved_valley():
     assert np.median(gauss_f) < np.median(rank_f)
 
 
+# ---------------------------------------------------------------------------
+# fit_quadratic_step: diagonal-plus-low-rank Hessian (hessian_rank)
+# ---------------------------------------------------------------------------
+
+
+def _rotation(dim, seed):
+    """A deterministic orthogonal (Haar-ish) rotation matrix."""
+    q, _ = np.linalg.qr(np.random.default_rng(seed).normal(size=(dim, dim)))
+    return q
+
+
+def test_hessian_rank_auto_is_the_default_and_differs_from_legacy():
+    """The default ``hessian_rank='auto'`` differs from the legacy raw-basis fit.
+
+    On a thin curved-valley cloud the BIC-selected low-rank model and the
+    ridge-shrunk full quadratic produce different steps, so the two paths must
+    not be identical — a guard that the new default is actually wired through.
+    """
+    dim = 5
+
+    def rosen(x):
+        return float(np.sum(100.0 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2))
+
+    center = np.array([0.5, 0.25, 0.06, 0.004, 1e-4])
+    ranges = np.full(dim, 4.0)
+    rng = np.random.default_rng(4)
+    pts = center + rng.normal(0.0, 0.12, size=(84, dim)) * ranges
+    vals = np.array([rosen(p) for p in pts])
+    trust = 2.0 * 0.124 * np.sqrt(dim)
+
+    auto_step = fit_quadratic_step(pts, vals, center, ranges, trust)
+    legacy_step = fit_quadratic_step(pts, vals, center, ranges, trust, hessian_rank=None)
+    assert auto_step is not None and legacy_step is not None
+    assert not np.allclose(auto_step, legacy_step)
+
+
+def test_hessian_rank_auto_is_legacy_at_low_dim():
+    """At ``dim ≤ 2`` the ``'auto'`` default reproduces the legacy full quadratic.
+
+    The 2-D battery the self-improvement loop measures must be byte-identical to
+    the pre-``hessian_rank`` behaviour, so the coupling model is purely additive
+    for higher dimensions and cannot regress the measured composite.
+    """
+    for dim in (1, 2):
+        rng = np.random.default_rng(80 + dim)
+        m = rng.uniform(-0.5, 0.5, size=dim)
+        center = np.zeros(dim)
+        ranges = np.full(dim, 8.0)
+        pts = _sample_around(center, 1.0, 60, rng)
+        vals = np.sum((pts - m) ** 2, axis=1)
+        auto = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0)
+        legacy = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, hessian_rank=None)
+        assert auto is not None and legacy is not None
+        np.testing.assert_array_equal(auto, legacy)
+
+
+def test_hessian_rank_full_matches_fixed_rank_dim():
+    """A pinned rank ``≥ dim`` is the full quadratic — rotation-invariant model."""
+    rng = np.random.default_rng(5)
+    dim = 3
+    m = np.array([0.4, -0.3, 0.2])
+    center = np.zeros(dim)
+    ranges = np.full(dim, 8.0)
+    pts = _sample_around(center, 1.0, 80, rng)
+    vals = np.sum((pts - m) ** 2, axis=1)
+    s_dim = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, hessian_rank=dim)
+    s_big = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, hessian_rank=dim + 5)
+    assert s_dim is not None and s_big is not None
+    # rank is clamped to dim, so dim and dim+5 are the same fit.
+    np.testing.assert_allclose(s_dim, s_big, rtol=1e-9, atol=1e-12)
+    # A full-rank quadratic recovers the isotropic minimiser accurately.
+    np.testing.assert_allclose(center + s_dim, m, atol=5e-2)
+
+
+def test_low_rank_recovers_rotated_valley_coupling_better_than_full():
+    """On a rotated Rosenbrock valley the low-rank model beats the full quadratic.
+
+    The valley's coordinate coupling is what a ridge-shrunk full quadratic
+    misses from a thin cloud; the BIC-selected diagonal-plus-low-rank model in
+    the PCA basis captures it.  Compare the *median* post-step objective across
+    many random clouds — the property motivating the 2026-07-12 change.
+    """
+    dim = 5
+
+    def rosen(x):
+        return float(np.sum(100.0 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2))
+
+    center = np.array([0.5, 0.25, 0.06, 0.004, 1e-4])
+    ranges = np.full(dim, 4.0)
+    trust = 2.0 * 0.124 * np.sqrt(dim)
+
+    auto_f, full_f = [], []
+    for seed in range(40):
+        rot = _rotation(dim, seed)
+
+        def f(x):
+            return rosen(rot.T @ x)
+
+        rng = np.random.default_rng(200 + seed)
+        pts = center + rng.normal(0.0, 0.12, size=(84, dim)) * ranges
+        vals = np.array([f(p) for p in pts])
+        sa = fit_quadratic_step(pts, vals, center, ranges, trust)
+        sfull = fit_quadratic_step(pts, vals, center, ranges, trust, hessian_rank=None)
+        if sa is not None:
+            auto_f.append(f(center + sa))
+        if sfull is not None:
+            full_f.append(f(center + sfull))
+    assert auto_f and full_f
+    assert np.median(auto_f) < np.median(full_f)
+
+
+def test_low_rank_does_not_regress_isotropic_sphere():
+    """On an isotropic sphere the auto model must not do worse than the full one.
+
+    A sphere's Hessian is isotropic (rank-0 diagonal in any basis), so the
+    low-rank model represents it exactly — the guard is that BIC selection
+    never trades away the easy separable case (protecting the DeJong/sphere
+    wins the 2026-07-11 localisation shipped).
+    """
+    dim = 5
+    center = np.zeros(dim)
+    ranges = np.full(dim, 10.0)
+    m = np.array([1.0, -2.0, 0.5, 3.0, -1.5])
+
+    auto_f, full_f = [], []
+    for seed in range(40):
+        rng = np.random.default_rng(300 + seed)
+        pts = center + rng.normal(0.0, 1.0, size=(84, dim))
+        vals = np.array([float(np.sum((p - m) ** 2)) for p in pts])
+        sa = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0)
+        sf = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, hessian_rank=None)
+        if sa is not None:
+            auto_f.append(float(np.sum((center + sa - m) ** 2)))
+        if sf is not None:
+            full_f.append(float(np.sum((center + sf - m) ** 2)))
+    assert auto_f and full_f
+    # "not worse" with a tolerance for BIC noise; in practice auto is better.
+    assert np.median(auto_f) <= np.median(full_f) * 1.5
+
+
+def test_fixed_rank_zero_is_diagonal_in_pca_basis():
+    """``hessian_rank=0`` yields a descent step with no coupling coefficients."""
+    rng = np.random.default_rng(6)
+    dim = 4
+    m = np.array([0.5, -0.4, 0.3, -0.2])
+    center = np.zeros(dim)
+    ranges = np.full(dim, 10.0)
+    pts = _sample_around(center, 1.0, 80, rng)
+    vals = np.sum((pts - m) ** 2, axis=1)
+    step = fit_quadratic_step(pts, vals, center, ranges, trust_radius=10.0, hessian_rank=0)
+    assert step is not None
+    assert np.all(np.isfinite(step))
+    # A diagonal model of an isotropic quadratic still descends.
+    assert float(np.sum((center + step - m) ** 2)) < float(np.sum(m**2))
+
+
 def test_gaussian_weighting_handles_degenerate_coincident_cloud():
     """All points coinciding with the center → uniform-weight fallback, no crash."""
     dim = 2
@@ -405,6 +563,51 @@ def test_invalid_quadratic_params_raise():
         Nearby(strategy, quadratic=True, quadratic_weight_sigma=-0.5)
     with pytest.raises(ValueError):
         Nearby(strategy, quadratic=True, quadratic_weight_sigma=float("nan"))
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_hessian_rank="full")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_hessian_rank=-1)
+    with pytest.raises(ValueError):
+        Nearby(strategy, quadratic=True, quadratic_hessian_rank=1.5)  # type: ignore[arg-type]
+
+
+def test_quadratic_hessian_rank_default_and_forwarded():
+    """The default rank is ``'auto'`` and is threaded into ``fit_quadratic_step``."""
+    strategy, _ = _make_strategy(dim=3)
+    h = Nearby(strategy, quadratic=True)
+    h.__start__()
+    assert h.quadratic_hessian_rank == "auto"
+
+    rng = np.random.default_rng(12)
+    center = np.array([2.0, -1.0, 0.5])
+    for _ in range(60):
+        r = mock.MagicMock()
+        r.x = center + rng.uniform(-0.5, 0.5, size=3)
+        h.on_new_results([r])
+
+    with mock.patch("panobbgo.heuristics.nearby.fit_quadratic_step", wraps=fit_quadratic_step) as spy:
+        h._quadratic_candidate(center)
+    assert spy.call_count == 1
+    assert spy.call_args.kwargs["hessian_rank"] == "auto"
+
+
+def test_quadratic_hessian_rank_none_selects_legacy(monkeypatch):
+    """``quadratic_hessian_rank=None`` is forwarded so the legacy fit is used."""
+    strategy, _ = _make_strategy(dim=3)
+    h = Nearby(strategy, quadratic=True, quadratic_hessian_rank=None)
+    h.__start__()
+    assert h.quadratic_hessian_rank is None
+
+    rng = np.random.default_rng(13)
+    center = np.array([2.0, -1.0, 0.5])
+    for _ in range(60):
+        r = mock.MagicMock()
+        r.x = center + rng.uniform(-0.5, 0.5, size=3)
+        h.on_new_results([r])
+
+    with mock.patch("panobbgo.heuristics.nearby.fit_quadratic_step", wraps=fit_quadratic_step) as spy:
+        h._quadratic_candidate(center)
+    assert spy.call_args.kwargs["hessian_rank"] is None
 
 
 def test_quadratic_weight_sigma_default_and_forwarded():
